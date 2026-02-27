@@ -1,7 +1,7 @@
 .workflow-section {
     padding: var(--spacing-xxl) 0;
-    background-color: #fafafa;
-    /* Very light gray to distinguish from pure white sections */
+    background-color: var(--color-white);
+    /* Light sandal background */
 }
 
 .workflow-header {
