@@ -1,0 +1,140 @@
+.header {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
+    transition: background-color 0.3s ease, padding 0.3s ease;
+    padding: 1.5rem 0;
+}
+
+.header-scrolled {
+    background-color: var(--color-white);
+    padding: 1rem 0;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.header-scrolled .logo a,
+.header-scrolled nav ul li a,
+.header-scrolled .login-btn {
+    color: var(--color-gray-900);
+}
+
+/* Base text color when over hero video */
+.logo a,
+nav ul li a,
+.login-btn {
+    color: var(--color-white);
+    font-weight: 500;
+    transition: color 0.3s ease;
+}
+
+.header-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 2rem;
+}
+
+.logo a {
+    display: block;
+}
+
+.logo-img {
+    height: 32px;
+    width: auto;
+    object-fit: contain;
+    transition: filter 0.3s ease;
+}
+
+/* Invert or brighten logo if on dark background without scrolling */
+.header:not(.header-scrolled) .logo-img {
+    filter: brightness(0) invert(1);
+}
+
+.desktop-nav {
+    display: none;
+}
+
+@media (min-width: 900px) {
+    .desktop-nav {
+        display: block;
+    }
+}
+
+.desktop-nav ul {
+    display: flex;
+    gap: 2.5rem;
+    align-items: center;
+}
+
+.desktop-nav ul li a {
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.desktop-nav ul li a:hover {
+    opacity: 0.8;
+}
+
+.chevron {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: rotate(45deg);
+    margin-bottom: 2px;
+}
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+}
+
+.login-btn {
+    font-size: 0.95rem;
+    display: none;
+}
+
+@media (min-width: 600px) {
+    .login-btn {
+        display: block;
+    }
+}
+
+.signup-btn {
+    background-color: var(--color-white);
+    /* Will be green/accent in normal usage, but requested strictly monochrome */
+    color: var(--color-black);
+    padding: 0.75rem 1.5rem;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    border: 1px solid var(--color-black);
+}
+
+.signup-btn:hover {
+    background-color: transparent;
+    color: var(--color-black);
+    border-color: var(--color-black);
+}
+
+/* If header is white initially, invert button logic */
+.header:not(.header-scrolled) .signup-btn {
+    background-color: var(--color-white);
+    color: var(--color-black);
+    border-color: var(--color-white);
+}
+
+.header:not(.header-scrolled) .signup-btn:hover {
+    background-color: transparent;
+    color: var(--color-white);
+    border-color: var(--color-white);
+}

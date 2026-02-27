@@ -1,0 +1,19 @@
+.app {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+main {
+  flex: 1;
+}
+
+/* Feature Sections specific spacing overrides for main page flow */
+.feature-area {
+  border-bottom: 1px solid var(--color-gray-100);
+}
+
+.feature-area:first-of-type {
+  padding-top: var(--spacing-xxl);
+}

@@ -1,0 +1,229 @@
+.client-gallery-section {
+    padding: var(--spacing-xxl) 0;
+    background-color: var(--color-white);
+}
+
+.cg-hero-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+    align-items: center;
+    margin-bottom: var(--spacing-xxl);
+}
+
+@media (min-width: 900px) {
+    .cg-hero-container {
+        flex-direction: row;
+        align-items: center;
+        gap: 4rem;
+    }
+}
+
+.cg-intro {
+    flex: 1;
+    max-width: 600px;
+    text-align: center;
+}
+
+@media (min-width: 900px) {
+    .cg-intro {
+        text-align: left;
+    }
+}
+
+.cg-icon-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    color: var(--color-gray-900);
+}
+
+.cg-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    /* Brand Color */
+    background-color: var(--color-hover);
+    display: inline-block;
+}
+
+.cg-title {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: clamp(2.5rem, 4vw, 3.5rem);
+    font-weight: 700;
+    line-height: 1.2;
+    margin-bottom: 1.5rem;
+    color: var(--color-gray-900);
+}
+
+.cg-subtitle {
+    font-size: 1.2rem;
+    color: var(--color-gray-600);
+    margin-bottom: 2.5rem;
+}
+
+.cg-btn {
+    background-color: var(--color-hover);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 1rem 2.5rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.cg-btn:hover {
+    background-color: var(--color-gray-700);
+}
+
+.cg-main-image-wrapper {
+    flex: 1;
+    max-width: 800px;
+    width: 100%;
+}
+
+.cg-main-image {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+}
+
+.cg-impress-section {
+    max-width: 1100px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.cg-impress-title {
+    font-size: clamp(2rem, 3vw, 2.5rem);
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--color-gray-900);
+}
+
+.cg-impress-subtitle {
+    font-size: 1.1rem;
+    color: var(--color-gray-600);
+    max-width: 700px;
+    margin: 0 auto 3rem;
+    line-height: 1.6;
+}
+
+.cg-pills {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 3rem;
+}
+
+.cg-pill {
+    background-color: var(--color-white);
+    border: 1px solid var(--color-gray-200);
+    padding: 0.75rem 1.5rem;
+    border-radius: 30px;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--color-gray-600);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cg-pill:hover {
+    background-color: var(--color-gray-100);
+}
+
+.cg-pill.active {
+    background-color: var(--color-hover);
+    color: white;
+    border-color: var(--color-hover);
+}
+
+.cg-static-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    justify-content: center;
+    padding-bottom: 2rem;
+    padding-top: 1rem;
+}
+
+.cg-grid-item {
+    flex: 1 1 calc(33.333% - 2rem);
+    min-width: 300px;
+    max-width: 450px;
+    text-decoration: none;
+    color: inherit;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+}
+
+.cg-grid-image-wrapper {
+    position: relative;
+    width: 100%;
+    height: 500px;
+    aspect-ratio: 4/3;
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.cg-grid-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.8s ease;
+}
+
+.cg-grid-item:hover .cg-grid-image {
+    transform: scale(1.05);
+}
+
+.cg-hover-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.cg-grid-item:hover .cg-hover-overlay {
+    opacity: 1;
+}
+
+.cg-view-btn {
+    color: white;
+    border: 1px solid white;
+    padding: 0.5rem 1.25rem;
+    border-radius: 4px;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    font-weight: 500;
+}
+
+.cg-grid-meta h4 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--color-gray-900);
+}
+
+.cg-grid-meta p {
+    font-size: 0.9rem;
+    color: var(--color-gray-500);
+}
