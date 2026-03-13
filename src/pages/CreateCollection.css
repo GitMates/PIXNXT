@@ -1,0 +1,130 @@
+.cc-page {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    background-color: #fff;
+    font-family: 'proxima-nova', 'Lato', sans-serif;
+}
+
+.cc-header {
+    display: flex;
+    align-items: center;
+    height: 60px;
+    padding: 0 20px;
+    border-bottom: 1px solid transparent;
+    /* The screenshot shows no strict border but is generally very clean */
+    color: #222;
+}
+
+.cc-close-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #777;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    margin-right: 12px;
+}
+
+.cc-close-btn:hover {
+    color: #222;
+}
+
+.cc-header-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #111;
+}
+
+.cc-main {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    padding-top: 100px;
+    /* Push content down */
+}
+
+.cc-form-container {
+    width: 100%;
+    max-width: 650px;
+    /* Width matching the long inputs in screenshot */
+    padding: 0 40px;
+}
+
+.cc-title {
+    font-size: 26px;
+    font-weight: 600;
+    color: #111;
+    margin-bottom: 40px;
+}
+
+.cc-form-group {
+    margin-bottom: 24px;
+    display: flex;
+    flex-direction: column;
+}
+
+.cc-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.cc-input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.cc-input {
+    width: 100%;
+    height: 44px;
+    border: 1px solid #e2e8e8;
+    border-radius: 2px;
+    padding: 0 16px;
+    font-size: 14px;
+    color: #333;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.cc-input::placeholder {
+    color: #999;
+}
+
+.cc-input:focus {
+    border-color: #1abc9c;
+}
+
+.cc-input-wrapper .cc-input {
+    padding-right: 48px;
+    /* space for the calendar icon */
+}
+
+.cc-input-icon {
+    position: absolute;
+    right: 16px;
+    color: #999;
+    pointer-events: none;
+}
+
+.cc-submit-btn {
+    background-color: #1abc9c;
+    color: #fff;
+    border: none;
+    border-radius: 2px;
+    height: 42px;
+    padding: 0 24px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: background-color 0.2s;
+}
+
+.cc-submit-btn:hover {
+    background-color: #16a085;
+}

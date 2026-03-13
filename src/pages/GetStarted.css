@@ -1,0 +1,200 @@
+.gs-main {
+    flex: 1;
+    overflow-y: auto;
+    background-color: #fff;
+    padding: 60px 0;
+    font-family: 'proxima-nova', 'Lato', sans-serif;
+}
+
+/* Shared Wizard Elements */
+.gs-intro-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.gs-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: block;
+    margin-bottom: 12px;
+}
+
+.gs-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #222;
+    margin: 0 0 24px 0;
+}
+
+.gs-title.gs-left {
+    text-align: left;
+    font-size: 28px;
+    margin-bottom: 30px;
+}
+
+.gs-btn {
+    background-color: #1abc9c;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gs-btn:hover {
+    background-color: #16a085;
+}
+
+.gs-btn.gs-left {
+    display: block;
+    margin-top: 24px;
+    min-width: 100px;
+}
+
+/* Step specific container */
+.gs-step {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 0 40px;
+}
+
+.gs-step-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #888;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 12px;
+}
+
+/* Card Inputs */
+.gs-card {
+    background-color: #fcfcfc;
+    border-radius: 4px;
+    padding: 40px;
+    border: 1px solid #f0f0f0;
+}
+
+.gs-form-group {
+    margin-bottom: 24px;
+}
+
+.gs-form-group:last-child {
+    margin-bottom: 0;
+}
+
+.gs-form-group label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #444;
+    margin-bottom: 10px;
+}
+
+.gs-form-group input {
+    width: 100%;
+    height: 44px;
+    padding: 0 16px;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    font-size: 15px;
+    color: #333;
+    background-color: #fff;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+
+.gs-form-group input:focus {
+    border-color: #1abc9c;
+}
+
+.gs-date-input {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.gs-date-input svg {
+    position: absolute;
+    right: 16px;
+    pointer-events: none;
+}
+
+/* Upload Step */
+.gs-upload-card {
+    padding: 50px;
+}
+
+.gs-upload-item {
+    margin-bottom: 30px;
+}
+
+.gs-upload-item:last-child {
+    margin-bottom: 0;
+}
+
+.gs-filename {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+    display: block;
+    margin-bottom: 8px;
+}
+
+.gs-progress-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.gs-progress-track {
+    flex: 1;
+    height: 3px;
+    background-color: #eaeaea;
+    position: relative;
+}
+
+/* The Animated Progress Line */
+.gs-progress-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background-color: #1abc9c;
+    width: 0%;
+    animation: fillProgress 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* The Animated Checkmark */
+.gs-check-icon {
+    opacity: 0;
+    transform: scale(0.5);
+    animation: showCheck 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+@keyframes fillProgress {
+    0% {
+        width: 0%;
+    }
+
+    100% {
+        width: 100%;
+    }
+}
+
+@keyframes showCheck {
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

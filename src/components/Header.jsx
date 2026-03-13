@@ -30,7 +30,7 @@ const Header = () => {
         </div>
 
         <div className="header-actions">
-          <a href="#login" className="login-btn">Log In</a>
+          <Link to="/dashboard" className="login-btn">Log In</Link>
           <a href="#signup" className="signup-btn">Get Started</a>
         </div>
       </div>
