@@ -5,7 +5,7 @@
     padding: 40px 48px;
     height: 100vh;
     overflow-y: auto;
-    background-color: #fff;
+    background-color: #fdfaf4;
 }
 
 .hp-header {
@@ -23,7 +23,7 @@
 }
 
 .hp-view-btn {
-    background-color: #1abc9c;
+    background-color: #593116;
     color: #fff;
     border: none;
     padding: 10px 20px;
@@ -35,7 +35,7 @@
 }
 
 .hp-view-btn:hover {
-    background-color: #16a085;
+    background-color: #42220c;
 }
 
 .hp-content {
@@ -89,13 +89,13 @@
 .chk-box {
     width: 18px;
     height: 18px;
-    border: 2px solid #ccc;
+    border: 2px solid #c29775;
     border-radius: 4px;
     display: flex;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
-    background: #fff;
+    background: #fdfaf4;
 }
 
 .chk-box svg {
@@ -108,8 +108,8 @@
 }
 
 .hp-checkbox-item input:checked+.chk-box {
-    background-color: #1abc9c;
-    border-color: #1abc9c;
+    background-color: #593116;
+    border-color: #593116;
 }
 
 .hp-checkbox-item input:checked+.chk-box svg {
@@ -124,7 +124,7 @@
 }
 
 .hp-help-text a {
-    color: #1abc9c;
+    color: #593116;
     text-decoration: none;
 }
 
@@ -145,7 +145,7 @@
 }
 
 .hp-toggle.on {
-    background-color: #1abc9c;
+    background-color: #593116;
 }
 
 .hp-toggle.off {
@@ -176,8 +176,8 @@
 .hp-input-wrap {
     display: flex;
     align-items: stretch;
-    background-color: #f7f9fa;
-    border: 1px solid #eaeaea;
+    background-color: #fdfaf4;
+    border: 1px solid #eedec3;
     border-radius: 4px;
     overflow: hidden;
     height: 46px;
@@ -210,7 +210,7 @@
     padding: 0 16px;
     background: transparent;
     border: none;
-    color: #1abc9c;
+    color: #593116;
     font-size: 13px;
     font-weight: 500;
     cursor: pointer;
@@ -218,9 +218,9 @@
 
 .hp-textarea-wrap {
     position: relative;
-    border: 1px solid #eaeaea;
+    border: 1px solid #eedec3;
     border-radius: 4px;
-    background-color: #f7f9fa;
+    background-color: #fdfaf4;
     padding: 12px 16px 32px 16px;
 }
 
@@ -247,10 +247,13 @@
 .hp-right-col {
     flex: 1;
     max-width: 500px;
+    position: sticky;
+    top: 40px;
+    align-self: flex-start;
 }
 
 .hp-mockup-bg {
-    background-color: #f2f4f5;
+    background-color: rgba(89, 49, 22, 0.04);
     padding: 60px 40px;
     border-radius: 6px;
     display: flex;

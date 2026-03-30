@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -15,6 +15,26 @@ import Settings from './pages/Settings';
 
 function App() {
   const location = useLocation();
+  const [themeTick, setThemeTick] = useState(0);
+
+  useEffect(() => {
+    // Listen for cross-component theme updates
+    const handleThemeChange = () => setThemeTick(t => t + 1);
+    window.addEventListener('theme-change', handleThemeChange);
+    return () => window.removeEventListener('theme-change', handleThemeChange);
+  }, []);
+
+  useEffect(() => {
+    const isDark = localStorage.getItem('themeMode') === 'dark';
+    if (location.pathname === '/') {
+      document.body.classList.remove('dark-theme');
+    } else if (isDark) {
+      document.body.classList.add('dark-theme');
+    } else {
+      document.body.classList.remove('dark-theme');
+    }
+  }, [location.pathname, themeTick]);
+
   const hideLayout = location.pathname === '/dashboard' ||
     location.pathname === '/client-gallery' ||
     location.pathname === '/collections/create' ||

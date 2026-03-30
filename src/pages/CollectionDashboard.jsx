@@ -7,6 +7,7 @@ const CollectionDashboard = () => {
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [photos, setPhotos] = useState([]);
     const [showUploadModal, setShowUploadModal] = useState(false);
+    const [activeMediaTab, setActiveMediaTab] = useState('upload');
     const [status, setStatus] = useState('DRAFT'); // DRAFT or PUBLISHED
     const [showShareDropdown, setShowShareDropdown] = useState(false);
     const [isDraggingModal, setIsDraggingModal] = useState(false);
@@ -308,6 +309,10 @@ const CollectionDashboard = () => {
                             ) : (
                                 <img src="https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&auto=format&fit=crop&q=60" alt="Cover" />
                             )}
+                            <div className="cd-cover-hover-overlay" onClick={() => { setActiveSidebarTab('design'); setActiveDesignTab('cover'); }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                                <span>Change Cover</span>
+                            </div>
                         </div>
 
                         <div className="cd-icon-bar">
@@ -688,7 +693,7 @@ const CollectionDashboard = () => {
                                         <h2 className="cd-design-title">{activeDesignTab.charAt(0).toUpperCase() + activeDesignTab.slice(1)}</h2>
                                         {activeDesignTab === 'cover' && (
                                             <div className="cd-design-tabs">
-                                                <button className="cd-design-tab-btn active">
+                                                <button className="cd-design-tab-btn active" onClick={() => setShowCoverModal(true)}>
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
                                                     Cover Photo
                                                 </button>
@@ -700,6 +705,7 @@ const CollectionDashboard = () => {
                                         )}
                                     </div>
 
+                                    <div className="cd-design-settings-content">
                                     {activeDesignTab === 'cover' && (
                                         <div className="cd-cover-grid">
                                             {coverStyles.map(style => (
@@ -869,6 +875,7 @@ const CollectionDashboard = () => {
                                             </div>
                                         </div>
                                     )}
+                                    </div>
                                 </div>
                                 <div className={`cd-design-preview-pane ${previewMode}`}>
                                     <div className="cd-preview-workspace">
@@ -1445,7 +1452,7 @@ const CollectionDashboard = () => {
 
                                     <div className="settings-info-box">
                                         <div className="info-box-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1abc9c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#593116" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                                         </div>
                                         <div className="info-box-content">
                                             <h4 className="info-box-title">Preset Favorite Lists</h4>
@@ -1467,7 +1474,7 @@ const CollectionDashboard = () => {
                                 <div className="cd-settings-form">
                                     <div className="settings-info-box">
                                         <div className="info-box-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1abc9c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#593116" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                                         </div>
                                         <div className="info-box-content">
                                             <h4 className="info-box-title">Activate Store</h4>
@@ -1513,27 +1520,27 @@ const CollectionDashboard = () => {
                                                 <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M40 140H200L180 60H60L40 140Z" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
                                                     <rect x="80" y="40" width="80" height="60" rx="4" fill="white" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M120 70V110M120 110L110 100M120 110L130 100" stroke="#1abc9c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M120 70V110M120 110L110 100M120 110L130 100" stroke="#593116" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                                 </svg>
                                             )}
                                             {activeActivitySubTab === 'favorite' && (
                                                 <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <circle cx="120" cy="90" r="50" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M120 75C120 75 115 65 100 65C85 65 80 80 80 90C80 115 120 140 120 140C120 140 160 115 160 90C160 80 155 65 140 65C125 65 120 75 120 75Z" fill="white" stroke="#1abc9c" strokeWidth="2" />
+                                                    <path d="M120 75C120 75 115 65 100 65C85 65 80 80 80 90C80 115 120 140 120 140C120 140 160 115 160 90C160 80 155 65 140 65C125 65 120 75 120 75Z" fill="white" stroke="#593116" strokeWidth="2" />
                                                 </svg>
                                             )}
                                             {activeActivitySubTab === 'store' && (
                                                 <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <rect x="60" y="50" width="120" height="90" rx="8" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
                                                     <circle cx="120" cy="95" r="25" fill="white" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M110 95H130M120 85V105" stroke="#1abc9c" strokeWidth="2" />
+                                                    <path d="M110 95H130M120 85V105" stroke="#593116" strokeWidth="2" />
                                                 </svg>
                                             )}
                                             {activeActivitySubTab === 'email' && (
                                                 <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <rect x="50" y="60" width="140" height="80" rx="4" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
                                                     <path d="M50 60L120 100L190 60" stroke="#666" strokeWidth="1.5" />
-                                                    <circle cx="120" cy="110" r="15" fill="white" stroke="#1abc9c" strokeWidth="2" />
+                                                    <circle cx="120" cy="110" r="15" fill="white" stroke="#593116" strokeWidth="2" />
                                                 </svg>
                                             )}
                                             {activeActivitySubTab === 'share' && (
@@ -1541,13 +1548,13 @@ const CollectionDashboard = () => {
                                                     <path d="M70 110L170 110" stroke="#666" strokeWidth="1.5" strokeDasharray="4 4" />
                                                     <circle cx="70" cy="110" r="20" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
                                                     <circle cx="170" cy="110" r="20" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M120 90V130" stroke="#1abc9c" strokeWidth="2" />
+                                                    <path d="M120 90V130" stroke="#593116" strokeWidth="2" />
                                                 </svg>
                                             )}
                                             {activeActivitySubTab === 'private' && (
                                                 <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M120 60C150 60 180 80 180 110C180 140 150 160 120 160C90 160 60 140 60 110C60 80 90 60 120 60Z" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <circle cx="120" cy="110" r="20" fill="white" stroke="#1abc9c" strokeWidth="2" />
+                                                    <circle cx="120" cy="110" r="20" fill="white" stroke="#593116" strokeWidth="2" />
                                                 </svg>
                                             )}
                                         </div>
@@ -1690,51 +1697,64 @@ const CollectionDashboard = () => {
                                     </button>
                                 </div>
                                 <div className="cd-modal-tabs">
-                                    <button className="cd-modal-tab active">Upload</button>
-                                    <button className="cd-modal-tab">Embed</button>
+                                    <button className={`cd-modal-tab ${activeMediaTab === 'upload' ? 'active' : ''}`} onClick={() => setActiveMediaTab('upload')}>Upload</button>
+                                    <button className={`cd-modal-tab ${activeMediaTab === 'embed' ? 'active' : ''}`} onClick={() => setActiveMediaTab('embed')}>Embed</button>
                                 </div>
-                                <div
-                                    className={`cd-modal-dropzone ${isDraggingModal ? 'dragging' : ''}`}
-                                    onDragOver={handleModalDragOver}
-                                    onDragLeave={handleModalDragLeave}
-                                    onDrop={handleModalDrop}
-                                >
-                                    <input
-                                        type="file"
-                                        ref={modalFileInputRef}
-                                        style={{ display: 'none' }}
-                                        accept="image/*"
-                                        multiple
-                                        onChange={handleFileSelect}
-                                    />
-                                    <div className="cd-modal-drop-content">
-                                        <div className="cd-modal-drop-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cfd5d8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-                                                <path d="M4 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
-                                                <path d="M8 2h12a2 2 0 0 1 2 2v10"></path>
-                                                <circle cx="15" cy="15" r="5" fill="#fff" stroke="#cfd5d8"></circle>
-                                                <line x1="15" y1="12" x2="15" y2="18"></line>
-                                                <line x1="12" y1="15" x2="18" y2="15"></line>
-                                            </svg>
+                                {activeMediaTab === 'upload' ? (
+                                    <>
+                                        <div
+                                            className={`cd-modal-dropzone ${isDraggingModal ? 'dragging' : ''}`}
+                                            onDragOver={handleModalDragOver}
+                                            onDragLeave={handleModalDragLeave}
+                                            onDrop={handleModalDrop}
+                                        >
+                                            <input
+                                                type="file"
+                                                ref={modalFileInputRef}
+                                                style={{ display: 'none' }}
+                                                accept="image/*"
+                                                multiple
+                                                onChange={handleFileSelect}
+                                            />
+                                            <div className="cd-modal-drop-content">
+                                                <div className="cd-modal-drop-icon">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#cfd5d8" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
+                                                        <path d="M4 6h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"></path>
+                                                        <path d="M8 2h12a2 2 0 0 1 2 2v10"></path>
+                                                        <circle cx="15" cy="15" r="5" fill="#fff" stroke="#cfd5d8"></circle>
+                                                        <line x1="15" y1="12" x2="15" y2="18"></line>
+                                                        <line x1="12" y1="15" x2="18" y2="15"></line>
+                                                    </svg>
+                                                </div>
+                                                <p className="cd-modal-drop-text">Drag photos and videos here to upload</p>
+                                                <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>Browse files</span></p>
+                                            </div>
                                         </div>
-                                        <p className="cd-modal-drop-text">Drag photos and videos here to upload</p>
-                                        <p className="cd-modal-drop-browse">or <span className="cd-browse-link" onClick={handleModalBrowse}>Browse files</span></p>
+                                        <div className="cd-modal-footer">
+                                            <span className="cd-modal-switch">Switch to classic uploader</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="cd-modal-embed">
+                                        <div className="cd-embed-input-wrapper">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                                            <input type="text" placeholder="Add a YouTube or Vimeo Video URL" />
+                                        </div>
+                                        <p className="cd-embed-helper">Add a video from YouTube or Vimeo by entering the full video URL. <span className="settings-link">Learn more</span></p>
+                                        <div className="cd-embed-logos">
+                                            <svg className="cd-youtube-logo" viewBox="0 0 24 24" fill="#ff0000" width="30" height="30"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.083 0 12 0 12s0 3.917.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.55 9.376.55 9.376.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C24 15.917 24 12 24 12s0-3.917-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                                            <svg className="cd-vimeo-logo" viewBox="0 0 24 24" fill="#1ab7ea" width="30" height="30"><path d="M22.396 7.164c-.093 2.026-1.507 4.8-4.245 8.32C15.32 19.161 12.93 21 11.002 21c-1.332 0-2.436-1.378-3.308-4.136-.582-2.613-1.096-5.59-1.636-7.85-1.026-4.634-1.921-1.652-3.876.104l-1.066-1.341c2.148-2.036 4.356-4.225 5.952-4.428 1.968-.25 3.12 1.343 3.454 4.777.424 4.295.666 4.975 1.505 4.975.766 0 1.956-2.08 2.87-4.482.724-1.916.638-3.32-.42-3.32-.61 0-1.272.186-1.908.498 1.258-4.116 3.98-5.807 7.025-4.832 2.164.693 2.887 2.859 2.796 4.881z"/></svg>
+                                        </div>
+                                        <div className="cd-embed-actions">
+                                            <button className="cd-cancel-btn" onClick={() => setShowUploadModal(false)}>Cancel</button>
+                                            <button className="cd-save-btn disabled">Add Video</button>
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="cd-modal-footer">
-                                    <span className="cd-modal-switch">Switch to classic uploader</span>
-                                </div>
+                                )}
                             </div>
                         </div>
                     )
                 }
-
-                {/* Chat Button */}
-                <button className="cd-chat-btn">
-                    <svg viewBox="0 0 28 32" width="26" height="30" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M28 32s-4.714-1.855-8.527-3.34H3.437C1.54 28.66 0 27.026 0 25.013V3.644C0 1.633 1.54 0 3.437 0h21.125c1.898 0 3.438 1.632 3.438 3.645v18.404H28V32zm-4.139-11.982a.88.88 0 00-1.292-.105c-.03.026-3.015 2.681-8.57 2.681-5.486 0-8.517-2.636-8.571-2.684a.88.88 0 00-1.29.107 1.01 1.01 0 00-.219.708.992.992 0 00.318.664c.142.128 3.537 3.15 9.762 3.15 6.226 0 9.621-3.022 9.763-3.15a.992.992 0 00.317-.664 1.01 1.01 0 00-.218-.707z" fill="#fff" />
-                    </svg>
-                </button>
             </div >
             {/* Focal Point Modal */}
             {
@@ -1753,7 +1773,7 @@ const CollectionDashboard = () => {
                                         <div className="focal-image-wrapper">
                                             <img src={photos[0]} alt="Focal" />
                                             <div className="focal-crosshair">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1abc9c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#593116" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
                                             </div>
                                         </div>
                                     ) : (
@@ -1774,29 +1794,28 @@ const CollectionDashboard = () => {
             {/* Change Cover Modal */}
             {
                 showCoverModal && (
-                    <div className="cd-modal-overlay">
-                        <div className="cd-modal cover-selection-modal">
+                    <div className="cd-modal-overlay" onClick={() => setShowCoverModal(false)}>
+                        <div className="cd-modal cover-selection-modal" onClick={(e) => e.stopPropagation()}>
                             <div className="cd-modal-header">
-                                <h3 className="cd-modal-title">Change Cover</h3>
+                                <h3 className="cd-modal-title" style={{ textTransform: 'uppercase' }}>CHANGE COVER</h3>
                                 <button className="cd-modal-close" onClick={() => setShowCoverModal(false)}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
                             </div>
                             <div className="cd-modal-body no-padding">
-                                <div className="cover-options-split">
-                                    <div className="cover-option-card">
-                                        <div className="cover-option-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                                <div className="cd-modal-dropzone">
+                                    <div className="cd-modal-drop-content">
+                                        <div className="cd-modal-drop-icon">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                                         </div>
-                                        <h4 className="cover-option-title">UPLOAD PHOTO</h4>
-                                        <p className="cover-option-desc">Choose a file from your computer</p>
-                                    </div>
-                                    <div className="cover-option-card middle-border">
-                                        <div className="cover-option-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                                        </div>
-                                        <h4 className="cover-option-title">SELECT FROM GALLERY</h4>
-                                        <p className="cover-option-desc">Choose a photo from this collection</p>
+                                        <p className="cd-modal-drop-text">Drag photo here to upload or</p>
+                                        <button className="cd-save-btn">Select from Collection</button>
+                                        <p className="cd-modal-drop-browse">
+                                            <span className="cd-browse-link">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg> 
+                                                Browse files
+                                            </span>
+                                        </p>
                                     </div>
                                 </div>
                             </div>

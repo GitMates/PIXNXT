@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&family=Montserrat:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;1,400&family=Unbounded:wght@400;700&family=Oswald:wght@400;700&display=swap');
+/* Font import temporarily removed to preserve old heading sizes */
+
+/* --- Global Reset & Variables --- */
 
 /* Typography Preset Mapping */
 .font-sans {
@@ -31,7 +33,7 @@
     --gallery-bg: #ffffff;
     --gallery-text: #111111;
     --gallery-accent: #008080;
-    --gallery-secondary-bg: #f7f9fa;
+    --gallery-secondary-bg: #fdfaf4;
     --gallery-meta-text: #888888;
 }
 
@@ -131,8 +133,8 @@
     flex-direction: row;
     height: 100vh;
     width: 100vw;
-    background-color: #fff;
-    font-family: 'proxima-nova', 'Lato', sans-serif;
+    background-color: #fdfaf4;
+    font-family: 'Playfair Display', serif;
     overflow: hidden;
 }
 
@@ -147,14 +149,13 @@
 
 /* Top Navigation Bar */
 .cd-topbar {
-    height: 72px;
-    /* Increased height for premium look */
+    height: 79px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0 32px;
+    padding: 0 32px 0 24px;
     border-bottom: 1px solid #ebebeb;
-    background-color: #fff;
+    background-color: #fdfaf4;
     z-index: 100;
     flex-shrink: 0;
 }
@@ -164,7 +165,7 @@
     flex-direction: column;
     flex: 1;
     overflow: hidden;
-    background-color: #fff;
+    background-color: #fdfaf4;
 }
 
 .cd-topbar-left {
@@ -231,16 +232,16 @@
 }
 
 .cd-status-badge.published {
-    background-color: #1abc9c;
+    background-color: #593116;
     color: #fff;
 }
 
 .cd-status-badge.published:hover {
-    background-color: #16a085;
+    background-color: #42220c;
 }
 
 .cd-status-badge.published:hover {
-    background-color: #16a085;
+    background-color: #42220c;
 }
 
 .cd-topbar-right {
@@ -266,7 +267,7 @@
 }
 
 .cd-publish-btn {
-    background-color: #1abc9c;
+    background-color: #593116;
     color: #fff;
     border: none;
     border-radius: 2px;
@@ -279,7 +280,7 @@
 }
 
 .cd-publish-btn:hover {
-    background-color: #16a085;
+    background-color: #42220c;
 }
 
 /* Global Icon Darkening */
@@ -315,7 +316,7 @@
     border-radius: 4px;
     overflow: hidden;
     height: 38px;
-    background-color: #1abc9c;
+    background-color: #593116;
 }
 
 .cd-share-main {
@@ -354,7 +355,7 @@
     position: absolute;
     top: calc(100% + 8px);
     right: 0;
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     min-width: 260px;
@@ -388,7 +389,7 @@
 }
 
 .cd-share-item:hover {
-    background-color: #f7f9fa;
+    background-color: #fdfaf4;
 }
 
 .cd-share-item svg {
@@ -409,13 +410,13 @@
     width: 280px;
     height: 100%;
     /* Relative to cd-layout-body */
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-right: 1px solid #ebebeb;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
     transition: width 0.3s ease;
-    overflow: hidden;
+    overflow: visible;
     position: relative;
     z-index: 30;
 }
@@ -458,6 +459,7 @@
 .cd-sidebar-scrollable {
     flex: 1;
     overflow-y: auto;
+    overflow-x: visible;
     display: flex;
     flex-direction: column;
 }
@@ -516,8 +518,8 @@
 }
 
 .cd-icon-bar-btn.active {
-    color: #1abc9c;
-    border-bottom-color: #1abc9c;
+    color: #593116;
+    border-bottom-color: #593116;
 }
 
 .sidebar-collapsed .cd-icon-bar {
@@ -536,8 +538,8 @@
 }
 
 .sidebar-collapsed .cd-icon-bar-btn.active {
-    background-color: #f7f9fa;
-    color: #1abc9c;
+    background-color: #fdfaf4;
+    color: #593116;
 }
 
 .sidebar-collapsed .cd-icon-bar-btn:hover {
@@ -555,10 +557,41 @@
 }
 
 .cd-cover-image {
+    position: relative;
     width: 100%;
     height: 180px;
     background-color: #f5f5f5;
     overflow: hidden;
+}
+
+.cd-cover-hover-overlay {
+    position: absolute;
+    inset: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.cd-cover-hover-overlay svg {
+    margin-bottom: 8px;
+    stroke: white !important;
+}
+
+.cd-cover-hover-overlay span {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.cd-cover-image:hover .cd-cover-hover-overlay {
+    opacity: 1;
 }
 
 .cd-cover-image img {
@@ -590,8 +623,8 @@
 }
 
 .cd-tool-btn.active {
-    color: #1abc9c;
-    border-bottom-color: #1abc9c;
+    color: #593116;
+    border-bottom-color: #593116;
 }
 
 .sidebar-collapsed .cd-photos-label,
@@ -629,7 +662,7 @@
     gap: 6px;
     background: none;
     border: none;
-    color: #1abc9c;
+    color: #593116;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -640,7 +673,7 @@
 
 .cd-add-set-btn:hover {
     background-color: #f0fdf9;
-    color: #16a085;
+    color: #42220c;
 }
 
 .cd-set-list {
@@ -743,9 +776,10 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 30px 40px 90px 40px;
-    background-color: #f7f9fa;
+    background-color: #fdfaf4;
     overflow-y: auto;
+    position: relative;
+    padding: 32px 40px;
 }
 
 .cd-main-header {
@@ -805,7 +839,7 @@
     gap: 8px;
     background: none;
     border: none;
-    color: #1abc9c;
+    color: #593116;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -816,7 +850,7 @@
 }
 
 .cd-add-media-btn:hover {
-    color: #16a085;
+    color: #42220c;
 }
 
 /* Upload Dropzone */
@@ -827,14 +861,14 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background-color: #fff;
+    background-color: #fdfaf4;
     min-height: 400px;
     cursor: pointer;
     transition: border-color 0.2s;
 }
 
 .cd-dropzone:hover {
-    border-color: #1abc9c;
+    border-color: #593116;
 }
 
 .cd-dropzone-content {
@@ -862,7 +896,7 @@
 }
 
 .cd-browse-link {
-    color: #1abc9c;
+    color: #593116;
     font-weight: 500;
     cursor: pointer;
 }
@@ -880,20 +914,20 @@
 
 .cd-photo-card {
     position: relative;
-    background-color: #f6f7f8;
     border-radius: 4px;
-    padding: 12px 12px 36px 12px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+    background-color: #fff;
+    padding: 10px;
     cursor: pointer;
-    transition: box-shadow 0.2s ease;
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .cd-photo-card:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
 }
 
 .cd-photo-card.selected {
-    outline: 2px solid #1abc9c;
+    outline: 2px solid #593116;
 }
 
 .cd-photo-grid.grid-large {
@@ -905,7 +939,7 @@
     width: 100%;
     aspect-ratio: 1;
     overflow: hidden;
-    border-radius: 2px;
+    border-radius: 4px;
     background-color: #f5f5f5;
 }
 
@@ -973,7 +1007,7 @@
     top: 0;
     left: 100%;
     margin-left: 4px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     min-width: 220px;
@@ -995,7 +1029,7 @@
 }
 
 .cd-ctx-item:hover {
-    background-color: #f7f9fa;
+    background-color: #fdfaf4;
 }
 
 .cd-ctx-item svg {
@@ -1033,7 +1067,7 @@
     top: 100%;
     right: 0;
     margin-top: 8px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     min-width: 220px;
@@ -1059,7 +1093,7 @@
 }
 
 .cd-sort-option:hover {
-    background-color: #f7f9fa;
+    background-color: #fdfaf4;
 }
 
 /* Grid Settings Dropdown */
@@ -1072,7 +1106,7 @@
     top: 100%;
     right: 0;
     margin-top: 8px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     min-width: 200px;
@@ -1102,7 +1136,7 @@
 }
 
 .cd-grid-option:hover {
-    background-color: #f7f9fa;
+    background-color: #fdfaf4;
 }
 
 .cd-grid-option.selected svg {
@@ -1158,13 +1192,13 @@
     width: 16px;
     left: 3px;
     bottom: 3px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-radius: 50%;
     transition: 0.3s;
 }
 
 .cd-toggle input:checked+.cd-toggle-slider {
-    background-color: #1abc9c;
+    background-color: #593116;
 }
 
 .cd-toggle input:checked+.cd-toggle-slider::before {
@@ -1187,7 +1221,7 @@
     top: 100%;
     right: 0;
     margin-top: 8px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     min-width: 240px;
@@ -1206,7 +1240,7 @@
     top: 100%;
     right: 0;
     margin-top: 4px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     min-width: 180px;
@@ -1228,7 +1262,7 @@
 }
 
 .cd-modal {
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-radius: 8px;
     width: 680px;
     /* Increased width */
@@ -1300,6 +1334,79 @@
     background-color: #111;
 }
 
+.cd-modal-embed {
+    padding: 32px 28px;
+    display: flex;
+    flex-direction: column;
+}
+
+.cd-embed-input-wrapper {
+    display: flex;
+    align-items: center;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 0 16px;
+    height: 48px;
+    margin-bottom: 16px;
+}
+
+.cd-embed-input-wrapper svg {
+    margin-right: 12px;
+}
+
+.cd-embed-input-wrapper input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 14px;
+}
+
+.cd-embed-helper {
+    font-size: 13px;
+    color: #666;
+    margin: 0 0 32px 0;
+}
+
+.cd-embed-logos {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 40px;
+    align-items: center;
+}
+
+.cd-embed-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    border-top: 1px solid #eee;
+    padding-top: 24px;
+    margin-top: 24px;
+}
+
+.cd-embed-actions .cd-cancel-btn {
+    background: none;
+    border: none;
+    color: #666;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 10px 16px;
+}
+
+.cd-embed-actions .cd-save-btn {
+    background-color: #593116;
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.cd-embed-actions .cd-save-btn.disabled {
+    background-color: #593116;
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
 .cd-modal-dropzone {
     margin: 24px 28px;
     border: 1px dashed #d9d9d9;
@@ -1312,7 +1419,7 @@
 }
 
 .cd-modal-dropzone.dragging {
-    border-color: #1abc9c;
+    border-color: #593116;
     background-color: #f0faf7;
 }
 
@@ -1541,7 +1648,7 @@
 .cd-selection-more-dropdown {
     position: absolute;
     bottom: calc(100% + 12px);
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     min-width: 240px;
@@ -1561,7 +1668,7 @@
     bottom: calc(100% + 12px);
     right: 0;
     left: auto;
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     width: 280px;
@@ -1625,48 +1732,59 @@
 
 /* --- DESIGN VIEW STYLES --- */
 .cd-design-split-view {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    right: 0;
     display: flex;
-    flex: 1;
     overflow: hidden;
-    height: 100%;
 }
 
 .cd-design-settings-pane {
     width: 360px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     border-right: 1px solid #ebebeb;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    padding: 0;
+    height: 100%;
+    position: relative;
 }
 
 .cd-design-settings-header {
-    padding: 20px 0 0 0;
+    height: 96px;
+    padding: 0 24px;
     border-bottom: none;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-shrink: 0;
 }
 
 .cd-design-title {
     font-size: 20px;
     font-weight: 700;
     color: #040404;
-    margin: 0 0 12px 0;
+    margin: 0;
 }
 
 .cd-design-tabs {
     display: flex;
-    gap: 8px;
-    background-color: #f7f9fa;
-    padding: 4px;
-    border-radius: 8px;
+    gap: 16px;
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
 }
 
 .cd-design-tab-btn {
-    flex: 1;
-    height: 36px;
+    flex: none;
+    height: auto;
     border: none;
-    background: none;
-    border-radius: 6px;
-    font-size: 13px;
+    background: transparent !important;
+    border-radius: 0;
+    font-size: 14px;
     font-weight: 600;
     color: #666;
     cursor: pointer;
@@ -1675,45 +1793,49 @@
     justify-content: center;
     gap: 6px;
     transition: all 0.2s;
+    padding: 0;
 }
 
 .cd-design-tab-btn:hover {
-    color: #111;
+    color: #593116;
 }
 
 .cd-design-tab-btn.active {
-    background-color: #fff;
-    color: #111;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    color: #593116 !important;
+    box-shadow: none !important;
 }
 
 .cd-design-settings-content {
-    flex: 1;
+    position: absolute;
+    top: 96px;
+    bottom: 0;
+    left: 0;
+    right: 0;
     overflow-y: auto;
-    padding: 0;
+    padding: 40px 24px 40px 24px;
 }
 
 .cd-cover-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
-    padding: 10px 0 40px 0;
+    gap: 32px 20px;
+    padding: 0 0 40px 0;
 }
 
 .cd-cover-card {
     cursor: pointer;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 8px;
 }
 
 .cd-cover-card-preview {
-    aspect-ratio: 16/10;
-    border: 2px solid #f2f2f2;
-    border-radius: 6px;
+    aspect-ratio: 161 / 115;
+    border: 1px solid #eee;
+    border-radius: 0;
     overflow: hidden;
     transition: all 0.2s;
-    background-color: #fff;
+    background-color: #fdfaf4;
     position: relative;
 }
 
@@ -1722,7 +1844,9 @@
 }
 
 .cd-cover-card.active .cd-cover-card-preview {
-    border-color: #1abc9c;
+    outline: 2px solid #593116;
+    outline-offset: -2px;
+    border-color: transparent;
 }
 
 .cd-cover-card-name {
@@ -1812,7 +1936,7 @@
 /* --- DESIGN PREVIEW PANE REWORK --- */
 .cd-design-preview-pane {
     flex: 1;
-    background-color: #f2f3f4;
+    background-color: rgba(89, 49, 22, 0.04);
     display: flex;
     flex-direction: column;
     padding: 0;
@@ -1839,7 +1963,7 @@
 .cd-preview-canvas {
     width: 100%;
     max-width: 1100px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     box-shadow: 0 40px 100px rgba(0, 0, 0, 0.1);
     display: flex;
     flex-direction: column;
@@ -1915,7 +2039,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: #fff;
+    background: #fdfaf4;
     padding: 60px;
 }
 
@@ -1948,7 +2072,7 @@
 /* 5. FRAME */
 .style-frame .cd-preview-gallery-header {
     padding: 40px;
-    background-color: #fff;
+    background-color: #fdfaf4;
 }
 
 .style-frame .header-frame-inner {
@@ -1967,7 +2091,7 @@
 .style-stripe .stripe-line {
     width: 100px;
     height: 1.5px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     margin: 20px auto;
 }
 
@@ -2019,7 +2143,7 @@
     align-items: center;
     justify-content: center;
     padding: 60px;
-    background-color: #fff;
+    background-color: #fdfaf4;
 }
 
 .style-stamp .stamp-img {
@@ -2111,7 +2235,7 @@
 }
 
 .cd-preview-tool-btn:hover {
-    background-color: #f7f9fa;
+    background-color: #fdfaf4;
     color: #111;
 }
 
@@ -2140,11 +2264,24 @@
 
 
 /* Sidebar Design Nav Item */
+.cd-sidebar-design-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.cd-sidebar-design-section .cd-design-nav-item {
+    margin-bottom: 0px;
+    border-bottom: 1px solid transparent;
+}
+
 .cd-design-nav-item {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 12px 24px;
+    padding: 14px 24px;
+    margin: 0;
+    border-radius: 0;
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
@@ -2153,13 +2290,13 @@
 }
 
 .cd-design-nav-item:hover {
-    background-color: #f7f9fa;
+    background-color: #fdfaf4;
     color: #111;
 }
 
 .cd-design-nav-item.active {
-    background-color: #f0f7f6;
-    color: #1abc9c;
+    background-color: rgba(89, 49, 22, 0.06);
+    color: #593116;
 }
 
 .cd-design-nav-item svg {
@@ -2197,8 +2334,8 @@
 .cd-color-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
-    padding: 10px 0;
+    gap: 32px 16px;
+    padding: 0 0 40px 0;
 }
 
 .cd-typography-card,
@@ -2210,21 +2347,22 @@
 }
 
 .cd-typography-preview-box {
-    height: 100px;
+    aspect-ratio: 1 / 0.6586;
     border: 1px solid #eee;
-    background: #fff;
+    background: #fdfaf4;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     transition: all 0.2s;
-    border-radius: 4px;
+    border-radius: 0;
 }
 
 .cd-typography-card.active .cd-typography-preview-box,
 .cd-color-card.active .cd-color-preview-box {
-    border-color: #008080;
-    box-shadow: 0 0 0 1px #008080;
+    outline: 2px solid #593116;
+    outline-offset: -2px;
+    border-color: transparent;
 }
 
 .cd-typography-card .sample-text {
@@ -2247,14 +2385,14 @@
 
 /* Color Grid */
 .cd-color-preview-box {
-    height: 80px;
+    aspect-ratio: 1 / 0.6586;
     border: 1px solid #eee;
-    background: #fff;
+    background: #fdfaf4;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    border-radius: 4px;
+    border-radius: 0;
     transition: all 0.2s;
 }
 
@@ -2269,8 +2407,8 @@
 .cd-grid-settings-pane-content {
     display: flex;
     flex-direction: column;
-    gap: 24px;
-    padding: 10px 0 40px 0;
+    gap: 48px;
+    padding: 0 0 40px 0;
 }
 
 .grid-section-label {
@@ -2289,9 +2427,6 @@
 }
 
 .grid-option-card {
-    border: 1px solid #eee;
-    border-radius: 4px;
-    padding: 16px 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2300,13 +2435,23 @@
     transition: all 0.2s;
 }
 
-.grid-option-card.active {
-    border-color: #008080;
-    box-shadow: 0 0 0 1px #008080;
+.grid-icon {
+    aspect-ratio: 1 / 0.6586;
+    width: 100%;
+    border: 1px solid #eee;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    background-color: #fdfaf4;
+    color: #333;
 }
 
-.grid-icon {
-    color: #333;
+.grid-option-card.active .grid-icon {
+    outline: 2px solid #593116;
+    outline-offset: -2px;
+    border-color: transparent;
 }
 
 .grid-option-card span {
@@ -2410,8 +2555,18 @@
 }
 
 .cover-selection-modal {
-    max-width: 680px;
-    width: 95%;
+    width: 720px;
+    max-width: 95vw;
+}
+
+.cover-selection-modal .cd-modal-header {
+    padding: 32px;
+    height: 100px;
+    box-sizing: border-box;
+}
+
+.cover-selection-modal .cd-modal-body {
+    padding: 8px 48px 40px 48px;
 }
 
 .cover-options-split {
@@ -2431,7 +2586,7 @@
 }
 
 .cover-option-card:hover {
-    background-color: #f7f9fa;
+    background-color: #fdfaf4;
 }
 
 .cover-option-icon {
@@ -2465,7 +2620,7 @@
 .cd-preview-gallery-header {
     min-height: 400px;
     height: auto;
-    background-color: #fff;
+    background-color: #fdfaf4;
     overflow: hidden;
 }
 
@@ -2601,7 +2756,7 @@
 
 .journal-right {
     flex: 1;
-    background-color: #fff;
+    background-color: #fdfaf4;
     display: flex;
     align-items: center;
     padding: 60px;
@@ -2628,7 +2783,7 @@
 .stripe-line {
     width: 200px;
     height: 1px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     margin: 20px 0;
 }
 
@@ -2662,11 +2817,11 @@
 
 /* NOVEL */
 .style-novel .cd-preview-gallery-header {
-    background-color: #fff;
+    background-color: #fdfaf4;
 }
 
 .style-novel .header-left {
-    background-color: #fff;
+    background-color: #fdfaf4;
     flex: 1;
 }
 
@@ -2684,7 +2839,7 @@
 /* FRAME */
 .style-frame .cd-preview-gallery-header {
     padding: 30px;
-    background-color: #fff;
+    background-color: #fdfaf4;
 }
 
 .style-frame .header-bg-img {
@@ -2697,7 +2852,7 @@
 
 /* JOURNAL */
 .style-journal .journal-right {
-    background-color: #fff;
+    background-color: #fdfaf4;
     flex: 1;
 }
 
@@ -2712,7 +2867,6 @@
 
 
 /* --- REFINEMENTS --- */
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
 
 .h-super {
     font-size: 11px;
@@ -2746,7 +2900,7 @@
 }
 
 .cd-design-preview-pane {
-    background-color: #f7f9fa;
+    background-color: #fdfaf4;
 }
 
 .cd-preview-workspace {
@@ -2786,12 +2940,12 @@
 
 /* --- Unified Settings View (Full BG, No Card) --- */
 .cd-main-content {
-    background-color: #fff !important;
+    background-color: #fdfaf4 !important;
     /* Force white background for the whole area */
 }
 
 .cd-general-settings-view {
-    padding: 40px 60px 100px 60px !important;
+    padding: 0 0 100px 0 !important;
     max-width: 100% !important;
     background-color: transparent !important;
     /* Inherit from main content */
@@ -2863,7 +3017,7 @@
 }
 
 .settings-link {
-    color: #1abc9c;
+    color: #593116;
     cursor: pointer;
     text-decoration: underline;
 }
@@ -2898,7 +3052,7 @@
     border-radius: 4px;
     font-size: 14px;
     appearance: none;
-    background-color: #fff;
+    background-color: #fdfaf4;
 }
 
 .select-arrow {
@@ -2916,7 +3070,7 @@
     gap: 8px;
     background: none;
     border: none;
-    color: #1abc9c;
+    color: #593116;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
@@ -2949,7 +3103,7 @@
     padding: 2px 4px;
     border-radius: 4px;
     background-color: #e6f3f1;
-    color: #1abc9c;
+    color: #593116;
     margin-left: auto;
 }
 
@@ -2965,12 +3119,12 @@
 }
 
 .cd-design-nav-item.active {
-    background-color: #f0f7f6;
-    color: #1abc9c;
+    background-color: rgba(89, 49, 22, 0.06);
+    color: #593116;
 }
 
 .cd-design-nav-item.active svg {
-    stroke: #1abc9c;
+    stroke: #593116;
 }
 
 .cd-sidebar-settings-header,
@@ -2980,9 +3134,9 @@
 
 /* --- Refined General Settings (No Card BG) --- */
 .cd-general-settings-view {
-    padding: 32px 48px 80px 48px;
+    padding: 0 0 80px 0;
     max-width: 900px;
-    background-color: #fff;
+    background-color: #fdfaf4;
     min-height: 100%;
 }
 
@@ -3019,7 +3173,7 @@
 }
 
 .activity-link:hover {
-    color: #1abc9c;
+    color: #593116;
 }
 
 /* --- Settings Navigation Tabs --- */
@@ -3043,12 +3197,12 @@
 }
 
 .settings-tab-item:hover {
-    color: #1abc9c;
+    color: #593116;
 }
 
 .settings-tab-item.active {
-    color: #1abc9c;
-    border-bottom-color: #1abc9c;
+    color: #593116;
+    border-bottom-color: #593116;
 }
 
 /* --- Input Groups & Actions --- */
@@ -3068,14 +3222,14 @@
     padding: 0 16px;
     font-size: 13px;
     font-weight: 600;
-    color: #1abc9c;
+    color: #593116;
     cursor: pointer;
     white-space: nowrap;
     transition: all 0.2s;
 }
 
 .input-action-btn:hover {
-    border-color: #1abc9c;
+    border-color: #593116;
     background-color: #f0fdf9;
 }
 
@@ -3122,7 +3276,7 @@
 }
 
 input:checked+.cd-toggle-slider {
-    background-color: #1abc9c;
+    background-color: #593116;
 }
 
 input:checked+.cd-toggle-slider:before {
@@ -3169,7 +3323,7 @@ input:checked+.cd-toggle-slider:before {
 }
 
 .custom-radio input[type="radio"] {
-    accent-color: #1abc9c;
+    accent-color: #593116;
 }
 
 /* --- Info Boxes (Privacy / Favorite / Store) --- */
@@ -3177,9 +3331,9 @@ input:checked+.cd-toggle-slider:before {
     display: flex;
     gap: 16px;
     padding: 24px;
-    background-color: #f4f9fa;
+    background-color: rgba(89, 49, 22, 0.04);
     border-radius: 4px;
-    border-left: 4px solid #1abc9c;
+    border-left: 4px solid #593116;
     margin-top: 24px;
 }
 
@@ -3212,6 +3366,7 @@ input:checked+.cd-toggle-slider:before {
 .no-margin {
     margin: 0;
 }
+
 /* --- Activity Specific Styles --- */
 .cd-empty-state-section {
     display: flex;
@@ -3257,5 +3412,397 @@ input:checked+.cd-toggle-slider:before {
 
 /* Adjustments for full BG consistency */
 .cd-layout-container:not(.sidebar-collapsed) .cd-main-wrapper {
-    background-color: #fff;
+    background-color: #fdfaf4;
+}
+
+/* ============================================================
+   BANNER / PREVIEW SIZING OVERRIDES (Desktop & Mobile)
+   ============================================================ */
+
+/* Desktop preview canvas - constrain to ~556px wide, auto height */
+.cd-design-preview-pane:not(.mobile) .cd-preview-canvas {
+    max-width: 556px;
+    width: 556px;
+    min-height: 625px;
+    margin: 0 auto;
+    border-radius: 4px;
+}
+
+/* The preview gallery card inside should fill the canvas */
+.cd-design-preview-pane:not(.mobile) .cd-preview-gallery-card {
+    min-height: 625px;
+}
+
+/* Desktop preview header area sizing */
+.cd-design-preview-pane:not(.mobile) .cd-preview-gallery-header {
+    min-height: 350px;
+}
+
+/* Mobile preview canvas - 375px, matching reference */
+.cd-design-preview-pane.mobile .cd-preview-canvas {
+    max-width: 375px;
+    width: 375px;
+    min-height: auto;
+}
+
+/* Mobile preview header sizing */
+.cd-design-preview-pane.mobile .cd-preview-gallery-header {
+    min-height: 280px;
+}
+
+/* ============================================================
+   COVER PHOTO POPUP SIZING OVERRIDES 
+   ============================================================ */
+
+/* Cover modal overall size - 720px wide */
+.cover-selection-modal {
+    width: 720px;
+    max-width: 95vw;
+}
+
+/* Cover modal header - 720×100 with proper padding */
+.cover-selection-modal .cd-modal-header {
+    padding: 32px 32px 24px 32px;
+    height: auto;
+    min-height: 60px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: none;
+}
+
+/* Cover modal body - padding to match reference */
+.cover-selection-modal .cd-modal-body {
+    padding: 0 32px 32px 32px !important;
+}
+
+/* Cover modal body inner dropzone area - 624×384 */
+.cover-selection-modal .cd-modal-body .cd-modal-dropzone {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 340px !important;
+    margin: 0 !important;
+    padding: 40px 20px !important;
+    border: 1px dashed #d9d9d9 !important;
+    border-radius: 4px !important;
+    text-align: center !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background-color: transparent !important;
+    box-sizing: border-box !important;
+}
+
+/* Cover modal dropzone content layout */
+.cover-selection-modal .cd-modal-drop-content {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100% !important;
+}
+
+/* Cover modal drop icon spacing */
+.cover-selection-modal .cd-modal-drop-icon {
+    margin-bottom: 16px !important;
+}
+
+/* Cover modal drop text styling */
+.cover-selection-modal .cd-modal-drop-text {
+    font-size: 14px !important;
+    color: #3D3D3D !important;
+    font-weight: 500 !important;
+    margin-bottom: 16px !important;
+}
+
+/* Cover modal Select from Collection button */
+.cover-selection-modal .cd-save-btn {
+    margin: 0 0 16px 0 !important;
+    padding: 10px 24px !important;
+    background-color: #593116 !important;
+    border: none !important;
+    border-radius: 4px !important;
+    color: #fff !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+}
+
+/* Cover modal Browse files link */
+.cover-selection-modal .cd-modal-drop-browse {
+    margin: 0 !important;
+}
+
+.cover-selection-modal .cd-browse-link {
+    color: #666 !important;
+    font-weight: 500 !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+}
+
+/* ============================================================
+   DOWNLOAD ACTIVITY TABS - Remove divider line
+   ============================================================ */
+
+/* Remove the bottom border from Gallery / Single Photo / Single Video tabs */
+.settings-tab-nav {
+    border-bottom: none !important;
+}
+
+/* ============================================================
+   SETTINGS CONTENT SPACING OVERRIDES
+   ============================================================ */
+
+/* Settings view - use grid layout with proper spacing */
+.cd-general-settings-view {
+    padding: 0 !important;
+    max-width: 100% !important;
+    background-color: #fdfaf4 !important;
+    min-height: 100% !important;
+}
+
+/* Settings form - grid layout with consistent gap */
+.cd-settings-form {
+    display: grid !important;
+    grid-template-columns: minmax(0, 520px) !important;
+    gap: 32px !important;
+    padding: 0 !important;
+}
+
+/* Settings content header spacing */
+.cd-settings-content-header {
+    margin-bottom: 24px !important;
+}
+
+/* Settings section internal spacing */
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* Settings toggle sections spacing */
+.settings-toggle-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* Settings input max width to match reference */
+.settings-input-wrapper {
+    max-width: 520px !important;
+}
+
+.settings-select-wrapper {
+    max-width: 520px !important;
+}
+
+/* ============================================================
+   TOGGLE SPACING - Add space between toggle and ON/OFF label
+   ============================================================ */
+
+/* Add gap between toggle switch and its ON/OFF state label */
+.settings-toggle-row {
+    gap: 12px !important;
+}
+
+/* Ensure the toggle label (ON/OFF) has left spacing */
+.toggle-state-label {
+    margin-left: 8px !important;
+}
+
+/* Add spacing between each toggle section */
+.settings-toggle-section + .settings-toggle-section {
+    margin-top: 8px;
+}
+
+/* =========================================
+   COLLECTION DASHBOARD — MOBILE RESPONSIVE
+   Only affects screens ≤ 768px
+   Desktop styles untouched
+   ========================================= */
+@media screen and (max-width: 768px) {
+
+    /* Outer container: scrollable */
+    .cd-layout-container {
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow: visible !important;
+    }
+
+    /* Layout body: stacks sidebar on top, main below */
+    .cd-layout-body {
+        flex-direction: column !important;
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    /* --- Topbar --- */
+    .cd-topbar {
+        flex-wrap: wrap !important;
+        height: auto !important;
+        min-height: 56px !important;
+        padding: 10px 14px !important;
+        gap: 8px !important;
+    }
+    .cd-topbar-right {
+        flex-wrap: wrap !important;
+        gap: 8px !important;
+    }
+    .cd-topbar-left {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+
+    /* --- Sidebar: collapses to auto height, removes fixed width --- */
+    .cd-sidebar {
+        width: 100% !important;
+        height: auto !important;
+        position: relative !important;
+        border-right: none !important;
+        border-bottom: 1px solid #ebebeb !important;
+        overflow: visible !important;
+        flex-shrink: 0 !important;
+        z-index: 10 !important;
+    }
+
+    /* Hide cover image and header on mobile (saves space) */
+    .cd-cover-image {
+        display: none !important;
+    }
+    .cd-sidebar-header {
+        display: none !important;
+    }
+
+    /* --- Icon bar: horizontal tab bar --- */
+    .cd-icon-bar {
+        flex-direction: row !important;
+        width: 100% !important;
+        height: 52px !important;
+        padding: 0 !important;
+        border-bottom: 2px solid #ebebeb !important;
+        justify-content: space-around !important;
+        background-color: #fdfaf4;
+    }
+
+    .cd-icon-bar-btn {
+        flex: 1 !important;
+        height: 100% !important;
+        border-left: none !important;
+        border-bottom: 3px solid transparent !important;
+        border-radius: 0 !important;
+        padding: 0 !important;
+    }
+
+    .cd-icon-bar-btn.active {
+        border-bottom: 3px solid #593116 !important;
+        border-left: none !important;
+        background-color: rgba(89, 49, 22, 0.05) !important;
+    }
+
+    /* Sidebar tab content: compact padding */
+    .cd-sidebar-photos-section,
+    .cd-sidebar-design-section,
+    .cd-sidebar-activity-section {
+        padding: 12px 16px !important;
+        max-height: 220px;
+        overflow-y: auto;
+    }
+
+    /* --- Main content: full width, single column --- */
+    .cd-main-area {
+        width: 100% !important;
+        padding: 16px !important;
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    /* --- Photo grid: single column --- */
+    .cd-photo-grid {
+        display: grid !important;
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+
+    /* Photo card: square/portrait aspect */
+    .cd-photo-card-inner {
+        aspect-ratio: 4 / 3 !important;
+        height: auto !important;
+    }
+
+    .cd-photo-card-inner img {
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+    }
+
+    /* --- Sort dropdown: fixed so it's never clipped --- */
+    .cd-sort-dropdown {
+        position: fixed !important;
+        top: auto !important;
+        left: 16px !important;
+        right: 16px !important;
+        width: auto !important;
+        z-index: 9999 !important;
+        max-height: 60vh;
+        overflow-y: auto;
+    }
+
+    .cd-grid-dropdown {
+        position: fixed !important;
+        right: 16px !important;
+        z-index: 9999 !important;
+    }
+
+    /* --- Add Media modal: full width --- */
+    .cd-modal-overlay {
+        padding: 16px !important;
+        align-items: flex-end !important;
+    }
+
+    .cd-modal {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 88vh !important;
+        overflow-y: auto !important;
+        border-radius: 16px 16px 0 0 !important;
+    }
+
+    /* --- Cover selection modal (Change Cover) --- */
+    .cover-selection-modal {
+        max-height: 88vh !important;
+        overflow-y: auto !important;
+        border-radius: 16px 16px 0 0 !important;
+    }
+
+    /* --- Design panel: cover layout options 2 columns --- */
+    .cd-design-cover-layout-grid,
+    .cd-cover-layout-options {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+    }
+
+    /* --- Context menus: higher z-index so they don't clip --- */
+    .cd-photo-context-menu,
+    .cd-more-dropdown,
+    .cd-share-dropdown,
+    .cd-selection-more-dropdown {
+        z-index: 9999 !important;
+        position: fixed !important;
+        right: 16px !important;
+        left: auto !important;
+        width: 220px !important;
+    }
+
+    /* Dark theme icon bar on mobile */
+    body.dark-theme .cd-icon-bar {
+        background-color: #1a0f08 !important;
+        border-bottom: 2px solid #3b271a !important;
+    }
+    body.dark-theme .cd-icon-bar-btn.active {
+        border-bottom-color: #dcb394 !important;
+    }
 }

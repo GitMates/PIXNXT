@@ -2,7 +2,7 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    background-color: #fff;
+    background-color: #fdfaf4;
     font-family: 'proxima-nova', 'Lato', sans-serif;
 }
 
@@ -96,7 +96,7 @@
 }
 
 .cc-input:focus {
-    border-color: #1abc9c;
+    border-color: #593116;
 }
 
 .cc-input-wrapper .cc-input {
@@ -112,7 +112,7 @@
 }
 
 .cc-submit-btn {
-    background-color: #1abc9c;
+    background-color: #593116;
     color: #fff;
     border: none;
     border-radius: 2px;
@@ -126,5 +126,5 @@
 }
 
 .cc-submit-btn:hover {
-    background-color: #16a085;
+    background-color: #42220c;
 }

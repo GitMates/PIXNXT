@@ -45,6 +45,11 @@
     font-weight: 600;
 }
 
+/* Remove underline under active tab - no divider lines */
+.st-tab.active::after {
+    display: none;
+}
+
 .st-empty-state {
     flex: 1;
     display: flex;
