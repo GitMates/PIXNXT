@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { galleryService } from '../services/gallery.service';
+import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
+import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
+import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import './CollectionDashboard.css';
 
 const CollectionDashboard = () => {
@@ -99,41 +102,6 @@ const CollectionDashboard = () => {
     const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
     const [activeDownloadActivityTab, setActiveDownloadActivityTab] = useState('gallery'); // gallery, photo, video
 
-    const coverStyles = [
-        { id: 'center', name: 'Center' },
-        { id: 'left', name: 'Left' },
-        { id: 'novel', name: 'Novel' },
-        { id: 'vintage', name: 'Vintage' },
-        { id: 'frame', name: 'Frame' },
-        { id: 'stripe', name: 'Stripe' },
-        { id: 'divider', name: 'Divider' },
-        { id: 'journal', name: 'Journal' },
-        { id: 'stamp', name: 'Stamp' },
-        { id: 'outline', name: 'Outline' },
-        { id: 'classic', name: 'Classic' },
-        { id: 'none', name: 'None' },
-    ];
-
-    const typographyOptions = [
-        { id: 'sans', name: 'Sans', desc: 'A neutral font', sample: 'SANS' },
-        { id: 'serif', name: 'Serif', desc: 'A classic font', sample: 'Serif' },
-        { id: 'modern', name: 'Modern', desc: 'A sophisticated font', sample: 'Modern' },
-        { id: 'timeless', name: 'Timeless', desc: 'A light and airy font', sample: 'Timeless' },
-        { id: 'bold', name: 'Bold', desc: 'A punchy font', sample: 'BOLD' },
-        { id: 'subtle', name: 'Subtle', desc: 'A minimal font', sample: 'SUBTLE' },
-    ];
-
-    const colorPalettes = [
-        { id: 'light', name: 'Light', colors: ['#ffffff', '#f7f9fa', '#111111'] },
-        { id: 'gold', name: 'Gold', colors: ['#ffffff', '#faf7f2', '#a68c5b'] },
-        { id: 'rose', name: 'Rose', colors: ['#ffffff', '#faf4f4', '#a67d7d'] },
-        { id: 'terracotta', name: 'Terracotta', colors: ['#ffffff', '#faf5f2', '#a66d5b'] },
-        { id: 'sand', name: 'Sand', colors: ['#ffffff', '#f7f5f2', '#967b6b'] },
-        { id: 'olive', name: 'Olive', colors: ['#ffffff', '#f5f7f2', '#8c966b'] },
-        { id: 'agave', name: 'Agave', colors: ['#ffffff', '#f2f7f6', '#6b968c'] },
-        { id: 'sea', name: 'Sea', colors: ['#ffffff', '#f2f4f7', '#6b7a96'] },
-        { id: 'dark', name: 'Dark', colors: ['#111111', '#1a1a1a', '#444444'] },
-    ];
     const fileInputRef = useRef(null);
     const modalFileInputRef = useRef(null);
     const photoMenuRef = useRef(null);
@@ -655,12 +623,14 @@ const CollectionDashboard = () => {
                     <div className="cd-sidebar-scrollable">
 
                         <div className="cd-cover-image">
-                            {photos.length > 0 ? (
+                            {collection?.cover_url ? (
+                                <img src={collection.cover_url} alt="Cover" />
+                            ) : photos.length > 0 ? (
                                 <img src={photos[0].full_url} alt="Cover" />
                             ) : (
                                 <img src="https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&auto=format&fit=crop&q=60" alt="Cover" />
                             )}
-                            <div className="cd-cover-hover-overlay" onClick={() => { setActiveSidebarTab('design'); setActiveDesignTab('cover'); }}>
+                            <div className="cd-cover-hover-overlay" onClick={() => setShowCoverModal(true)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                                 <span>Change Cover</span>
                             </div>
@@ -1016,416 +986,40 @@ const CollectionDashboard = () => {
                             </>
                         )}
 
+                        {/* --- DESIGN VIEW --- */}
                         {activeSidebarTab === 'design' && (
                             <div className="cd-design-split-view">
-                                <div className="cd-design-settings-pane">
-                                    <div className="cd-design-settings-header">
-                                        <h2 className="cd-design-title">{activeDesignTab.charAt(0).toUpperCase() + activeDesignTab.slice(1)}</h2>
-                                        {activeDesignTab === 'cover' && (
-                                            <div className="cd-design-tabs">
-                                                <button className="cd-design-tab-btn active" onClick={() => setShowCoverModal(true)}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                                                    Cover Photo
-                                                </button>
-                                                <button className="cd-design-tab-btn" onClick={() => setShowFocalModal(true)}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="3" /></svg>
-                                                    Focal
-                                                </button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <div className="cd-design-settings-content">
-                                    {activeDesignTab === 'cover' && (
-                                        <div className="cd-cover-grid">
-                                            {coverStyles.map(style => (
-                                                <div
-                                                    key={style.id}
-                                                    className={`cd-cover-card ${selectedCoverStyle === style.id ? 'active' : ''}`}
-                                                    onClick={() => setSelectedCoverStyle(style.id)}
-                                                >
-                                                    <div className="cd-cover-card-preview">
-                                                        <div className={`preview-placeholder style-${style.id}`}>
-                                                            {style.id === 'none' ? (
-                                                                <div className="none-preview">/</div>
-                                                            ) : (
-                                                                <div className="preview-image-mock">
-                                                                    <div className="preview-title-mock">TITLE</div>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <span className="cd-cover-card-name">{style.name}</span>
-                                                </div>
-                                            ))}
-                                            <div className="cd-cover-card cd-cover-more">
-                                                <div className="cd-cover-card-preview">
-                                                    <div className="preview-placeholder more">
-                                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                    </div>
-                                                </div>
-                                                <span className="cd-cover-card-name">More</span>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {activeDesignTab === 'typography' && (
-                                        <div className="cd-typography-grid">
-                                            {typographyOptions.map(option => (
-                                                <div
-                                                    key={option.id}
-                                                    className={`cd-typography-card ${selectedFont === option.id ? 'active' : ''}`}
-                                                    onClick={() => setSelectedFont(option.id)}
-                                                >
-                                                    <div className={`cd-typography-preview-box font-preview-${option.id}`}>
-                                                        <div className="sample-text">{option.sample}</div>
-                                                        <div className="desc-text">{option.desc}</div>
-                                                    </div>
-                                                    <span className="cd-typography-name">{option.name}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {activeDesignTab === 'color' && (
-                                        <div className="cd-color-grid">
-                                            {colorPalettes.map(palette => (
-                                                <div
-                                                    key={palette.id}
-                                                    className={`cd-color-card ${selectedColorPalette === palette.id ? 'active' : ''}`}
-                                                    onClick={() => setSelectedColorPalette(palette.id)}
-                                                >
-                                                    <div className="cd-color-preview-box">
-                                                        {palette.colors.map((color, i) => (
-                                                            <div key={i} className="color-swatch" style={{ backgroundColor: color }}></div>
-                                                        ))}
-                                                    </div>
-                                                    <span className="cd-color-name">{palette.name}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {activeDesignTab === 'grid' && (
-                                        <div className="cd-grid-settings-pane-content">
-                                            <div className="grid-setting-section">
-                                                <label className="grid-section-label">Grid Style</label>
-                                                <div className="grid-option-cards">
-                                                    <div
-                                                        className={`grid-option-card ${gridSettings.style === 'vertical' ? 'active' : ''}`}
-                                                        onClick={() => setGridSettings({ ...gridSettings, style: 'vertical' })}
-                                                    >
-                                                        <div className="grid-icon">
-                                                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><rect x="4" y="4" width="7" height="7"></rect><rect x="4" y="13" width="7" height="7"></rect><rect x="13" y="4" width="7" height="16"></rect></svg>
-                                                        </div>
-                                                        <span>Vertical</span>
-                                                    </div>
-                                                    <div
-                                                        className={`grid-option-card ${gridSettings.style === 'horizontal' ? 'active' : ''}`}
-                                                        onClick={() => setGridSettings({ ...gridSettings, style: 'horizontal' })}
-                                                    >
-                                                        <div className="grid-icon">
-                                                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><rect x="4" y="4" width="16" height="7"></rect><rect x="4" y="13" width="7" height="7"></rect><rect x="13" y="13" width="7" height="7"></rect></svg>
-                                                        </div>
-                                                        <span>Horizontal</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid-setting-section">
-                                                <label className="grid-section-label">Thumbnail Size</label>
-                                                <div className="grid-option-cards">
-                                                    <div
-                                                        className={`grid-option-card ${gridSettings.size === 'regular' ? 'active' : ''}`}
-                                                        onClick={() => setGridSettings({ ...gridSettings, size: 'regular' })}
-                                                    >
-                                                        <div className="grid-icon">
-                                                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><rect x="6" y="6" width="5" height="5"></rect><rect x="13" y="6" width="5" height="5"></rect><rect x="6" y="13" width="5" height="5"></rect><rect x="13" y="13" width="5" height="5"></rect></svg>
-                                                        </div>
-                                                        <span>Regular</span>
-                                                    </div>
-                                                    <div
-                                                        className={`grid-option-card ${gridSettings.size === 'large' ? 'active' : ''}`}
-                                                        onClick={() => setGridSettings({ ...gridSettings, size: 'large' })}
-                                                    >
-                                                        <div className="grid-icon">
-                                                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><rect x="4" y="4" width="16" height="16"></rect></svg>
-                                                        </div>
-                                                        <span>Large</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid-setting-section">
-                                                <label className="grid-section-label">Grid Spacing</label>
-                                                <div className="grid-option-cards">
-                                                    <div
-                                                        className={`grid-option-card ${gridSettings.spacing === 'regular' ? 'active' : ''}`}
-                                                        onClick={() => setGridSettings({ ...gridSettings, spacing: 'regular' })}
-                                                    >
-                                                        <div className="grid-icon">
-                                                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><rect x="6" y="6" width="5" height="5"></rect><rect x="13" y="6" width="5" height="5"></rect><rect x="6" y="13" width="5" height="5"></rect><rect x="13" y="13" width="5" height="5"></rect></svg>
-                                                        </div>
-                                                        <span>Regular</span>
-                                                    </div>
-                                                    <div
-                                                        className={`grid-option-card ${gridSettings.spacing === 'large' ? 'active' : ''}`}
-                                                        onClick={() => setGridSettings({ ...gridSettings, spacing: 'large' })}
-                                                    >
-                                                        <div className="grid-icon">
-                                                            <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><rect x="0" y="0" width="10" height="10"></rect><rect x="14" y="0" width="10" height="10"></rect><rect x="0" y="14" width="10" height="10"></rect><rect x="14" y="14" width="10" height="10"></rect></svg>
-                                                        </div>
-                                                        <span>Large</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="grid-setting-section">
-                                                <label className="grid-section-label">Navigation Style</label>
-                                                <div className="grid-option-cards">
-                                                    <div
-                                                        className={`grid-option-card ${gridSettings.navigation === 'icon' ? 'active' : ''}`}
-                                                        onClick={() => setGridSettings({ ...gridSettings, navigation: 'icon' })}
-                                                    >
-                                                        <div className="grid-icon">
-                                                            <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect></svg>
-                                                        </div>
-                                                        <span>Icon Only</span>
-                                                    </div>
-                                                    <div
-                                                        className={`grid-option-card ${gridSettings.navigation === 'text' ? 'active' : ''}`}
-                                                        onClick={() => setGridSettings({ ...gridSettings, navigation: 'text' })}
-                                                    >
-                                                        <div className="grid-icon">
-                                                            <span style={{ fontSize: '14px', fontWeight: 'bold' }}>A</span>
-                                                        </div>
-                                                        <span>Icon & Text</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                    </div>
-                                </div>
-                                <div className={`cd-design-preview-pane ${previewMode}`}>
-                                    <div className="cd-preview-workspace">
-                                        <div className="cd-preview-canvas">
-                                            <div className={`cd-preview-gallery-card style-${selectedCoverStyle} font-${selectedFont} theme-${selectedColorPalette}`}>
-                                                <div className="cd-preview-gallery-header">
-                                                    {/* 3. NOVEL */}
-                                                    {selectedCoverStyle === 'novel' && (
-                                                        <div className="header-novel-layout">
-                                                            <div className="header-left">
-                                                                <div className="header-title-box">
-                                                                    <div className="h-super">DFCGVHBJNK</div>
-                                                                    <div className="h-title">b</div>
-                                                                    <div className="h-date">MARCH 12TH, 2026</div>
-                                                                    <button className="view-gallery-btn">VIEW GALLERY</button>
-                                                                </div>
-                                                            </div>
-                                                            <div className="header-right">
-                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 1. CENTER */}
-                                                    {selectedCoverStyle === 'center' && (
-                                                        <div className="header-center-layout">
-                                                            <div className="header-bg-img">
-                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
-                                                            </div>
-                                                            <div className="header-overlay">
-                                                                <div className="h-super">DFCGVHBJNK</div>
-                                                                <div className="h-title">b</div>
-                                                                <div className="h-date">MARCH 12TH, 2026</div>
-                                                                <button className="view-gallery-btn">VIEW GALLERY</button>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 2. LEFT */}
-                                                    {selectedCoverStyle === 'left' && (
-                                                        <div className="header-left-layout">
-                                                            <div className="header-bg-img">
-                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
-                                                            </div>
-                                                            <div className="header-content">
-                                                                <div className="h-super">DFCGVHBJNK</div>
-                                                                <div className="h-title">b</div>
-                                                                <div className="h-date">MARCH 12TH, 2026</div>
-                                                                <button className="view-gallery-btn">VIEW GALLERY</button>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 4. VINTAGE */}
-                                                    {selectedCoverStyle === 'vintage' && (
-                                                        <div className="header-vintage-layout">
-                                                            <div className="header-left">
-                                                                <div className="vintage-img-box">
-                                                                    {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
-                                                                </div>
-                                                            </div>
-                                                            <div className="header-right">
-                                                                <div className="header-title-box">
-                                                                    <div className="h-super">DFCGVHBJNK</div>
-                                                                    <div className="h-title">b</div>
-                                                                    <div className="h-date">MARCH 12TH, 2026</div>
-                                                                    <button className="view-gallery-btn">VIEW GALLERY</button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 5. FRAME */}
-                                                    {selectedCoverStyle === 'frame' && (
-                                                        <div className="header-frame-layout">
-                                                            <div className="header-frame-inner">
-                                                                <div className="header-bg-img">
-                                                                    {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
-                                                                </div>
-                                                                <div className="header-overlay">
-                                                                    <div className="h-super">DFCGVHBJNK</div>
-                                                                    <div className="h-title">b</div>
-                                                                    <div className="h-date">MARCH 12TH, 2026</div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 6. STRIPE */}
-                                                    {selectedCoverStyle === 'stripe' && (
-                                                        <div className="header-stripe-layout">
-                                                            <div className="header-bg-img">
-                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
-                                                            </div>
-                                                            <div className="header-overlay">
-                                                                <div className="stripe-line"></div>
-                                                                <div className="h-title">b</div>
-                                                                <div className="stripe-line"></div>
-                                                                <div className="h-date">MARCH 12TH, 2026</div>
-                                                                <button className="view-gallery-btn">VIEW GALLERY</button>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 7. DIVIDER */}
-                                                    {selectedCoverStyle === 'divider' && (
-                                                        <div className="header-divider-layout">
-                                                            <div className="divider-left">
-                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
-                                                            </div>
-                                                            <div className="divider-right">
-                                                                <div className="header-title-box">
-                                                                    <div className="h-super">DFCGVHBJNK</div>
-                                                                    <div className="h-title">b</div>
-                                                                    <div className="h-date">MARCH 12TH, 2026</div>
-                                                                    <button className="view-gallery-btn">VIEW GALLERY</button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 8. JOURNAL */}
-                                                    {selectedCoverStyle === 'journal' && (
-                                                        <div className="header-journal-layout">
-                                                            <div className="journal-left">
-                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
-                                                            </div>
-                                                            <div className="journal-right">
-                                                                <div className="header-title-box">
-                                                                    <div className="h-super">DFCGVHBJNK</div>
-                                                                    <div className="h-title">b</div>
-                                                                    <div className="h-date">MARCH 12TH, 2026</div>
-                                                                    <button className="view-gallery-btn">VIEW GALLERY</button>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 9. STAMP */}
-                                                    {selectedCoverStyle === 'stamp' && (
-                                                        <div className="header-stamp-layout">
-                                                            <div className="stamp-img">
-                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
-                                                            </div>
-                                                            <div className="h-super">DFCGVHBJNK</div>
-                                                            <div className="h-title">b</div>
-                                                            <div className="h-date">MARCH 12TH, 2026</div>
-                                                            <button className="view-gallery-btn">VIEW GALLERY</button>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 10. OUTLINE */}
-                                                    {selectedCoverStyle === 'outline' && (
-                                                        <div className="header-outline-layout">
-                                                            <div className="outline-box">
-                                                                <div className="h-super">DFCGVHBJNK</div>
-                                                                <div className="h-title">b</div>
-                                                                <div className="h-date">MARCH 12TH, 2026</div>
-                                                                <button className="view-gallery-btn">VIEW GALLERY</button>
-                                                            </div>
-                                                        </div>
-                                                    )}
-
-                                                    {/* 11. CLASSIC */}
-                                                    {selectedCoverStyle === 'classic' && (
-                                                        <div className="header-classic-layout">
-                                                            <div className="header-bg-img">
-                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
-                                                            </div>
-                                                            <div className="classic-overlay">
-                                                                <div className="h-title">b</div>
-                                                                <div className="h-date">MARCH 12TH, 2026</div>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className={`cd-preview-gallery-body grid-style-${gridSettings.style} grid-size-${gridSettings.size} grid-spacing-${gridSettings.spacing} nav-style-${gridSettings.navigation}`}>
-                                                    <div className="gallery-meta">
-                                                        <div className="meta-left">B</div>
-                                                        <div className="meta-right">
-                                                            <div className="meta-icon-item">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" /></svg>
-                                                                {gridSettings.navigation === 'text' && <span>Favorite</span>}
-                                                            </div>
-                                                            <div className="meta-icon-item">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-                                                                {gridSettings.navigation === 'text' && <span>Download</span>}
-                                                            </div>
-                                                            <div className="meta-icon-item">
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>
-                                                                {gridSettings.navigation === 'text' && <span>Share</span>}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <div className="gallery-mock-grid">
-                                                        {[...Array(12)].map((_, i) => (
-                                                            <div key={i} className={`mock-grid-item item-${i}`}>
-                                                                {photos[i % photos.length] && <img src={photos[i % photos.length].full_url} alt="Grid Mock" />}
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="cd-preview-toolbar">
-                                            <button
-                                                className={`cd-preview-tool-btn ${previewMode === 'desktop' ? 'active' : ''}`}
-                                                onClick={() => setPreviewMode('desktop')}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2" /><line x1="8" y1="21" x2="16" y2="21" /><line x1="12" y1="17" x2="12" y2="21" /></svg>
-                                            </button>
-                                            <button
-                                                className={`cd-preview-tool-btn ${previewMode === 'mobile' ? 'active' : ''}`}
-                                                onClick={() => setPreviewMode('mobile')}
-                                            >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
+                                <DesignTab
+                                    activeTab={activeDesignTab}
+                                    settings={{
+                                        coverStyle: selectedCoverStyle,
+                                        fontFamily: selectedFont,
+                                        colorPalette: selectedColorPalette,
+                                        grid: gridSettings
+                                    }}
+                                    onSettingsChange={(newSettings) => {
+                                        setSelectedCoverStyle(newSettings.coverStyle);
+                                        setSelectedFont(newSettings.fontFamily);
+                                        setSelectedColorPalette(newSettings.colorPalette);
+                                        setGridSettings(newSettings.grid);
+                                    }}
+                                    onOpenCoverModal={() => setShowCoverModal(true)}
+                                    onOpenFocalModal={() => setShowFocalModal(true)}
+                                />
+                                <PreviewPane
+                                    settings={{
+                                        coverStyle: selectedCoverStyle,
+                                        fontFamily: selectedFont,
+                                        colorPalette: selectedColorPalette,
+                                        grid: gridSettings
+                                    }}
+                                    collectionTitle={collection?.name || 'My Collection'}
+                                    collectionDate="MARCH 12TH, 2026"
+                                    coverPhotoUrl={collection?.cover_url || (photos.length > 0 ? photos[0].full_url : null)}
+                                    gridPhotos={photos}
+                                    previewMode={previewMode}
+                                    onPreviewModeChange={setPreviewMode}
+                                />
                             </div>
                         )}
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'general' && (
@@ -2136,37 +1730,6 @@ const CollectionDashboard = () => {
                 )
             }
 
-            {/* Change Cover Modal */}
-            {
-                showCoverModal && (
-                    <div className="cd-modal-overlay" onClick={() => setShowCoverModal(false)}>
-                        <div className="cd-modal cover-selection-modal" onClick={(e) => e.stopPropagation()}>
-                            <div className="cd-modal-header">
-                                <h3 className="cd-modal-title" style={{ textTransform: 'uppercase' }}>CHANGE COVER</h3>
-                                <button className="cd-modal-close" onClick={() => setShowCoverModal(false)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                </button>
-                            </div>
-                            <div className="cd-modal-body no-padding">
-                                <div className="cd-modal-dropzone">
-                                    <div className="cd-modal-drop-content">
-                                        <div className="cd-modal-drop-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                                        </div>
-                                        <p className="cd-modal-drop-text">Drag photo here to upload or</p>
-                                        <button className="cd-save-btn">Select from Collection</button>
-                                        <p className="cd-modal-drop-browse">
-                                            <span className="cd-browse-link">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg> 
-                                                Browse files
-                                            </span>
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
             {/* Add Set Modal */}
             {showAddSetModal && (
@@ -2328,6 +1891,44 @@ const CollectionDashboard = () => {
                     )}
                 </div>
             )}
+            {/* Change Cover Modal */}
+            <ChangeCoverModal 
+                isOpen={showCoverModal} 
+                onClose={() => setShowCoverModal(false)}
+                photos={photos}
+                onSelectPhoto={async (photo) => {
+                    try {
+                        setSaving(true);
+                        await galleryService.updateCollection(collectionId, {
+                            cover_photo_id: photo.id,
+                            cover_url: photo.full_url
+                        });
+                        setCollection(prev => ({ ...prev, cover_url: photo.full_url, cover_photo_id: photo.id }));
+                    } catch (err) {
+                        console.error('Failed to update cover:', err);
+                    } finally {
+                        setSaving(false);
+                    }
+                }}
+                onUploadPhoto={async (file) => {
+                    try {
+                        setSaving(true);
+                        // Upload specifically for cover (index 0 for now as priority)
+                        const photoData = await galleryService.uploadPhoto(collectionId, collection.photographer_id, file, 0);
+                        setPhotos(prev => [photoData, ...prev]);
+                        
+                        await galleryService.updateCollection(collectionId, {
+                            cover_photo_id: photoData.id,
+                            cover_url: photoData.full_url
+                        });
+                        setCollection(prev => ({ ...prev, cover_url: photoData.full_url, cover_photo_id: photoData.id }));
+                    } catch (err) {
+                        console.error('Cover upload failed:', err);
+                    } finally {
+                        setSaving(false);
+                    }
+                }}
+            />
         </div>
     );
 };
