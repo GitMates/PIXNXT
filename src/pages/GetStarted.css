@@ -198,3 +198,30 @@
         transform: scale(1);
     }
 }
+
+/* ============================================================
+   GET STARTED — MOBILE RESPONSIVE
+   Only affects screens ≤ 768px. Desktop untouched.
+   ============================================================ */
+@media screen and (max-width: 768px) {
+    .gs-main {
+        background-color: #fdfaf4 !important;
+        padding: 32px 0 !important;
+    }
+
+    .gs-step {
+        padding: 0 20px !important;
+    }
+
+    .gs-card {
+        padding: 24px 20px !important;
+    }
+
+    .gs-upload-card {
+        padding: 24px 20px !important;
+    }
+
+    .gs-title {
+        font-size: 24px !important;
+    }
+}

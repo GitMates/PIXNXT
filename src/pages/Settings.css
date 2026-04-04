@@ -479,3 +479,80 @@
     line-height: 1.6;
     margin: 0 0 16px 0;
 }
+
+/* ============================================================
+   SETTINGS — MOBILE RESPONSIVE
+   Only affects screens ≤ 768px. Desktop untouched.
+   ============================================================ */
+@media screen and (max-width: 768px) {
+    /* Main container: allow full-page scroll */
+    .set-main {
+        padding: 24px 16px !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow-y: auto !important;
+    }
+
+    /* Settings title */
+    .set-header {
+        padding-right: 48px !important;
+    }
+    .set-title {
+        font-size: 22px !important;
+    }
+
+    /* Tabs: horizontal scroll only, no wrap */
+    .st-tabs {
+        display: flex !important;
+        flex-direction: row !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        -webkit-overflow-scrolling: touch !important;
+        gap: 24px !important;
+        flex-wrap: nowrap !important;
+        margin-top: 16px !important;
+        padding-bottom: 4px !important;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+    }
+    .st-tabs::-webkit-scrollbar {
+        display: none !important;
+    }
+    .st-tab {
+        white-space: nowrap !important;
+        flex-shrink: 0 !important;
+        font-size: 14px !important;
+        padding: 0 0 10px 0 !important;
+    }
+
+    /* Content area: full width */
+    .set-content {
+        max-width: 100% !important;
+        margin-top: 24px !important;
+    }
+
+    /* Integration card: stack vertically on mobile */
+    .set-integration-card {
+        flex-direction: column !important;
+        gap: 20px !important;
+        padding: 24px 16px !important;
+        align-items: flex-start !important;
+    }
+
+    /* Integration logo: full width */
+    .set-integration-logo {
+        width: 100% !important;
+        height: 100px !important;
+    }
+
+    /* Integration info: no overflow */
+    .set-integration-info {
+        width: 100% !important;
+    }
+    .set-integration-info h3 {
+        font-size: 16px !important;
+    }
+    .set-integration-info p {
+        font-size: 13px !important;
+    }
+}

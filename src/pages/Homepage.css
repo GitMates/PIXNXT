@@ -349,3 +349,55 @@
     height: 4px;
     background-color: #d8d8d8;
 }
+
+/* ============================================================
+   HOMEPAGE — MOBILE RESPONSIVE
+   ============================================================ */
+@media screen and (max-width: 768px) {
+    .hp-main {
+        height: auto !important;
+        min-height: 100vh !important;
+        padding: 24px 16px !important;
+        overflow-y: visible !important;
+    }
+    .hp-header {
+        margin-bottom: 24px !important;
+        flex-direction: row !important; /* Row to align next to each other */
+        align-items: center !important;
+        justify-content: flex-start !important; /* Left aligned, not centered */
+        gap: 12px !important;
+        width: 100% !important;
+    }
+    .hp-title {
+        font-size: 24px !important;
+    }
+    .hp-view-btn {
+        padding: 8px 16px !important;
+        font-size: 13px !important;
+    }
+    .hp-content {
+        flex-direction: column !important;
+        gap: 32px !important;
+    }
+    .hp-left-col {
+        max-width: 100% !important;
+        margin-top: -10px !important;
+        margin-left: -4px !important;
+    }
+    .hp-right-col {
+        max-width: 100% !important;
+        position: static !important;
+        order: 2 !important;
+        width: 100% !important;
+    }
+    .hp-mockup-bg {
+        padding: 40px 20px !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    .hp-mockup-card {
+        padding: 16px !important;
+        width: 100% !important; /* Ensure it fits */
+        box-sizing: border-box !important;
+    }
+}

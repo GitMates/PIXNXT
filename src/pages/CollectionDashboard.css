@@ -672,8 +672,12 @@
 }
 
 .cd-add-set-btn:hover {
-    background-color: #f0fdf9;
-    color: #42220c;
+    background-color: #efe5d5 !important;
+    color: #593116 !important;
+}
+
+.cd-add-set-btn:hover svg {
+    stroke: #593116 !important;
 }
 
 .cd-set-list {
@@ -3615,7 +3619,7 @@ input:checked+.cd-toggle-slider:before {
 }
 
 /* Add spacing between each toggle section */
-.settings-toggle-section + .settings-toggle-section {
+.settings-toggle-section+.settings-toggle-section {
     margin-top: 8px;
 }
 
@@ -3631,30 +3635,124 @@ input:checked+.cd-toggle-slider:before {
         height: auto !important;
         min-height: 100vh !important;
         overflow: visible !important;
+        display: block !important;
     }
 
-    /* Layout body: stacks sidebar on top, main below */
+    /* Layout body: stacked block layout for mobile */
     .cd-layout-body {
-        flex-direction: column !important;
+        display: block !important;
         overflow: visible !important;
         height: auto !important;
+        min-height: auto !important;
+        position: relative !important;
     }
 
-    /* --- Topbar --- */
-    .cd-topbar {
-        flex-wrap: wrap !important;
+    .cd-sidebar {
+        width: 100% !important;
         height: auto !important;
-        min-height: 56px !important;
-        padding: 10px 14px !important;
-        gap: 8px !important;
+        min-height: auto !important;
+        position: relative !important;
+        display: block !important;
+        overflow: visible !important;
+        padding-bottom: 0 !important;
+        border-right: none !important;
     }
-    .cd-topbar-right {
-        flex-wrap: wrap !important;
-        gap: 8px !important;
+
+    /* Force the main area where Design settings live to be visible and have internal space */
+    .cd-main-content {
+        width: 100% !important;
+        height: auto !important;
+        min-height: 500px !important;
+        overflow: visible !important;
+        position: relative !important;
+        display: block !important;
+        background-color: #fdfaf4 !important;
     }
+
+    /* Split view specific handling for mobile */
+    .cd-design-split-view {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+    }
+
+    .cd-design-settings-pane {
+        width: 100% !important;
+        height: auto !important;
+        min-height: auto !important;
+        display: block !important;
+        background-color: #fdfaf4 !important;
+        overflow: visible !important;
+        border: none !important;
+    }
+
+    .cd-design-settings-content {
+        display: block !important;
+        height: auto !important;
+        min-height: 400px !important;
+        overflow: visible !important;
+        padding: 24px 16px !important;
+    }
+
+    /* Hide individual desktop panels that are handled as siblings on mobile */
+    .cd-design-preview-pane {
+        display: none !important;
+    }
+
+    /* Ensure no other main content blocks are hiding things */
+    .cd-main-area {
+        height: auto !important;
+        min-height: auto !important;
+        padding: 16px !important;
+        overflow: visible !important;
+    }
+
+    /* Fix issue 5: Remove gap between DRAFT and More/Preview/Share on mobile */
     .cd-topbar-left {
-        flex-wrap: wrap !important;
+        display: flex !important;
+        align-items: center !important;
         gap: 6px !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        flex: 1 1 auto !important;
+    }
+
+    .cd-topbar-right {
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        gap: 12px !important;
+        flex-wrap: wrap !important;
+        margin: 10px 0 0 0 !important;
+        padding: 0 !important;
+        flex: 1 1 100% !important;
+        width: 100% !important;
+    }
+
+    /* Topbar as one row: left and right side by side */
+    .cd-topbar {
+        position: relative !important;
+        padding: 10px 14px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        flex-wrap: wrap !important;
+        align-items: center !important;
+        justify-content: space-between !important;
+        gap: 8px !important;
+        min-height: auto !important;
+        height: auto !important;
+    }
+
+    .cd-back-btn {
+        position: static !important;
+    }
+
+    .cd-title-area {
+        position: static !important;
+        flex: 1 1 auto !important;
+        min-width: 0 !important;
     }
 
     /* --- Sidebar: collapses to auto height, removes fixed width --- */
@@ -3669,10 +3767,46 @@ input:checked+.cd-toggle-slider:before {
         z-index: 10 !important;
     }
 
+    /* Highlights bar background */
+    .cd-set-item.active {
+        background-color: #fdfaf4 !important;
+        border-radius: 8px !important;
+    }
+
+    /* Sidebar item active highlights bar */
+    .cd-set-item.active {
+        background-color: #fdfaf4 !important;
+        border-radius: 8px !important;
+        overflow: visible !important; /* Important to keep popup visible */
+    }
+
+    .cd-set-actions {
+        position: relative !important;
+        overflow: visible !important;
+    }
+
+    /* Fix Highlights set-dropdown popup — fixed to viewport to avoid ANY clipping issues */
+    .cd-set-dropdown {
+        position: fixed !important;
+        top: 200px !important; /* Near the Highlights bar area on mobile */
+        right: 16px !important;
+        left: auto !important;
+        width: 180px !important;
+        z-index: 1000000 !important;
+        max-height: 250px !important;
+        overflow-y: auto !important;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.3) !important;
+        background-color: #fff !important;
+        border: 1px solid #eee !important;
+        border-radius: 8px !important;
+        transform: none !important;
+    }
+
     /* Hide cover image and header on mobile (saves space) */
     .cd-cover-image {
         display: none !important;
     }
+
     .cd-sidebar-header {
         display: none !important;
     }
@@ -3706,10 +3840,11 @@ input:checked+.cd-toggle-slider:before {
     /* Sidebar tab content: compact padding */
     .cd-sidebar-photos-section,
     .cd-sidebar-design-section,
-    .cd-sidebar-activity-section {
+    .cd-sidebar-activity-section,
+    .cd-sidebar-settings-section {
         padding: 12px 16px !important;
-        max-height: 220px;
-        overflow-y: auto;
+        max-height: none !important;
+        overflow: visible !important;
     }
 
     /* --- Main content: full width, single column --- */
@@ -3791,10 +3926,61 @@ input:checked+.cd-toggle-slider:before {
     .cd-share-dropdown,
     .cd-selection-more-dropdown {
         z-index: 9999 !important;
-        position: fixed !important;
-        right: 16px !important;
+        position: absolute !important;
+        right: 0 !important;
         left: auto !important;
-        width: 220px !important;
+        width: 180px !important;
+        max-height: 250px !important;
+        overflow-y: auto !important;
+    }
+
+    .cd-photo-context-menu {
+        top: 36px !important;
+    }
+
+    .cd-more-dropdown,
+    .cd-share-dropdown {
+        top: 100% !important;
+        left: 50% !important;
+        right: auto !important;
+        transform: translateX(-50%) !important;
+        margin-top: 8px !important;
+        z-index: 2000 !important;
+    }
+
+    /* --- Fix issue 4: Design split view — whole page scrolls, not just sub-boxes --- */
+    .cd-design-split-view {
+        flex-direction: column !important;
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    .cd-design-settings-pane {
+        width: 100% !important;
+        border-right: none !important;
+        border-bottom: 2px solid #f0f0f0 !important;
+        height: auto !important;
+        min-height: auto !important;
+        position: static !important;
+        overflow: visible !important;
+        display: block !important;
+    }
+
+    .cd-design-settings-content {
+        position: static !important;
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 400px !important; /* Ensure content is visible and has height */
+        padding: 20px 16px !important;
+        display: block !important;
+    }
+
+    .cd-design-preview-pane {
+        width: 100% !important;
+        height: 500px !important;
+        overflow: hidden !important;
     }
 
     /* Dark theme icon bar on mobile */
@@ -3802,7 +3988,47 @@ input:checked+.cd-toggle-slider:before {
         background-color: #1a0f08 !important;
         border-bottom: 2px solid #3b271a !important;
     }
+
     body.dark-theme .cd-icon-bar-btn.active {
         border-bottom-color: #dcb394 !important;
+    }
+
+    /* --- Task 1: Hide sidebar toggle (left arrow) on mobile --- */
+    .cd-sidebar-bottom-action {
+        display: none !important;
+    }
+
+    /* --- Task 2: Further fix popup overflow & size --- */
+    .cd-ctx-item {
+        padding: 8px 12px !important;
+        font-size: 13px !important;
+    }
+
+    .cd-ctx-item svg {
+        width: 16px !important;
+        height: 16px !important;
+    }
+
+    .cd-photo-card,
+    .cd-photo-card-inner {
+        overflow: visible !important;
+    }
+
+    .cd-photo-card-inner img {
+        border-radius: 8px !important;
+    }
+
+    /* --- Task 3: Fix selection toolbar width --- */
+    .cd-selection-toolbar {
+        width: calc(100% - 32px) !important;
+        min-width: 0 !important;
+        padding: 0 12px !important;
+        bottom: 16px !important;
+        justify-content: space-between !important;
+    }
+
+    /* --- Task 4: Context menu for sets relies on relative actions --- */
+    .cd-set-actions {
+        position: relative !important;
     }
 }

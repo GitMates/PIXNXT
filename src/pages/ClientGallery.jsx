@@ -6,9 +6,8 @@ import './ClientGallery.css';
 const ClientGallery = () => {
     const navigate = useNavigate();
     const [collections, setCollections] = useState([]);
-    const [showCreateForm, setShowCreateForm] = useState(false);
-    const [newName, setNewName] = useState('');
-    const [newDate, setNewDate] = useState('');
+    const navigateNewCollection = () => navigate('/collections/create');
+
     const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [showViewDropdown, setShowViewDropdown] = useState(false);
     const [activeView, setActiveView] = useState('grid');
@@ -72,28 +71,7 @@ const ClientGallery = () => {
         }
     }, []);
 
-    const handleCreateCollection = () => {
-        if (!newName.trim()) return;
-        const collection = {
-            id: Date.now(),
-            name: newName.trim(),
-            date: newDate || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-            cover: null,
-            photoCount: 0,
-        };
-        const updated = [...collections, collection];
-        setCollections(updated);
-        localStorage.setItem('pixnxt_collections', JSON.stringify(updated));
-        localStorage.setItem('pixnxt_collection_name', collection.name);
-        localStorage.setItem('pixnxt_collection_date', collection.date);
-        localStorage.removeItem('pixnxt_photos');
-        localStorage.removeItem('pixnxt_collection_cover');
-        localStorage.setItem('pixnxt_collection_photo_count', '0');
-        setNewName('');
-        setNewDate('');
-        setShowCreateForm(false);
-        navigate('/collections/manage');
-    };
+
 
     const handleCardClick = (collection) => {
         if (selectedCards.length > 0) return; // don't navigate in selection mode
@@ -205,7 +183,7 @@ const ClientGallery = () => {
                     <div className="cg-collections-header-right">
                         <button className="cg-view-presets-btn">View Presets</button>
                         <div className="cg-new-collection-wrapper" ref={newCollectionRef}>
-                            <button className="cg-new-collection-btn" onClick={() => setShowCreateForm(true)}>
+                            <button className="cg-new-collection-btn" onClick={navigateNewCollection}>
                                 New Collection
                             </button>
                             <button className="cg-new-collection-chevron" onClick={() => setShowNewCollectionDropdown(!showNewCollectionDropdown)}>
@@ -493,7 +471,7 @@ const ClientGallery = () => {
                         </div>
                         <h3 className="cg-empty-title">No collections yet</h3>
                         <p className="cg-empty-text">Create your first collection to get started</p>
-                        <button className="cg-empty-create-btn" onClick={() => setShowCreateForm(true)}>
+                        <button className="cg-empty-create-btn" onClick={navigateNewCollection}>
                             Create Collection
                         </button>
                     </div>
@@ -529,43 +507,6 @@ const ClientGallery = () => {
                     </div>
                 )}
 
-                {/* Create Collection Inline Modal */}
-                {showCreateForm && (
-                    <div className="cd-modal-overlay" onClick={() => setShowCreateForm(false)}>
-                        <div className="cg-create-modal" onClick={(e) => e.stopPropagation()}>
-                            <div className="cg-create-modal-header">
-                                <h3>New Collection</h3>
-                                <button className="cd-modal-close" onClick={() => setShowCreateForm(false)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                </button>
-                            </div>
-                            <div className="cg-create-modal-body">
-                                <div className="cg-form-group">
-                                    <label>Collection Name</label>
-                                    <input
-                                        type="text"
-                                        value={newName}
-                                        onChange={(e) => setNewName(e.target.value)}
-                                        placeholder="e.g. Jessie & Ryan"
-                                        autoFocus
-                                    />
-                                </div>
-                                <div className="cg-form-group">
-                                    <label>Event Date</label>
-                                    <input
-                                        type="text"
-                                        value={newDate}
-                                        onChange={(e) => setNewDate(e.target.value)}
-                                        placeholder="e.g. Mar 12, 2026"
-                                    />
-                                </div>
-                                <button className="cg-create-submit" onClick={handleCreateCollection}>
-                                    Create Collection
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
             </main>
         </SidebarLayout>
     );

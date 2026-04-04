@@ -1012,7 +1012,7 @@
 }
 
 /* Star icon overlay via CSS - bottom right of thumb */
-.cg-card-thumb > svg.cg-star-icon {
+.cg-card-thumb>svg.cg-star-icon {
     position: absolute;
     bottom: 12px;
     right: 12px;
@@ -1023,12 +1023,12 @@
     cursor: pointer;
 }
 
-.cg-collection-card:hover .cg-card-thumb > svg.cg-star-icon {
+.cg-collection-card:hover .cg-card-thumb>svg.cg-star-icon {
     opacity: 1;
 }
 
 /* Starred star always visible with gold fill */
-.cg-card-thumb > svg.cg-star-icon.cg-starred {
+.cg-card-thumb>svg.cg-star-icon.cg-starred {
     opacity: 1 !important;
     filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
@@ -1045,7 +1045,7 @@
 /* Always show overlays on selected card */
 .cg-collection-card.cg-selected .cg-select-circle,
 .cg-collection-card.cg-selected .cg-card-dots,
-.cg-collection-card.cg-selected .cg-card-thumb > svg.cg-star-icon {
+.cg-collection-card.cg-selected .cg-card-thumb>svg.cg-star-icon {
     opacity: 1;
 }
 
@@ -1055,8 +1055,8 @@
 
 .cg-context-menu {
     position: absolute;
-    top: 0;
-    left: calc(100% + 8px);
+    top: 36px;
+    right: 8px;
     background-color: #fff;
     border-radius: 10px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
@@ -1117,8 +1117,15 @@
 }
 
 @keyframes cgSlideUp {
-    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
 }
 
 .cg-selection-bar-left {
@@ -1364,8 +1371,15 @@
 }
 
 @keyframes cgFadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* Dropdown header label */
@@ -1907,7 +1921,8 @@
         justify-content: center;
         position: fixed;
         top: 16px;
-        left: 16px;
+        right: 16px;
+        left: auto;
         z-index: 1100;
         width: 40px;
         height: 40px;
@@ -1916,7 +1931,7 @@
         background-color: #593116;
         color: #fff;
         cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
     }
 
     .cg-mobile-menu-btn svg {
@@ -1928,7 +1943,7 @@
         display: block !important;
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.4);
+        background: rgba(0, 0, 0, 0.4);
         z-index: 900;
     }
 
@@ -1938,6 +1953,7 @@
         overflow: visible;
         height: auto;
         min-height: 100vh;
+        background-color: #fdfaf4 !important;
     }
 
     /* ---- Sidebar: hidden off-screen by default, slides in as drawer ---- */
@@ -1949,12 +1965,46 @@
         width: 280px !important;
         z-index: 1000;
         transition: left 0.28s ease;
-        box-shadow: 4px 0 20px rgba(0,0,0,0.15);
+        box-shadow: 4px 0 20px rgba(0, 0, 0, 0.15);
         overflow-y: auto;
     }
 
     .cg-sidebar.mobile-open {
         left: 0 !important;
+    }
+
+    /* Outer container: scrollable */
+    .cd-layout-container {
+        height: auto !important;
+        min-height: 100vh !important;
+        overflow: visible !important;
+    }
+
+    /* Layout body: stacks sidebar on top, main below */
+    .cd-layout-body {
+        flex-direction: column !important;
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    .cd-main-content {
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
+    }
+
+    .cd-design-split-view {
+        flex-direction: column !important;
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .cd-design-settings-pane {
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+        position: static !important;
     }
 
     /* ---- Main content: full width ---- */
@@ -2003,6 +2053,7 @@
     .cg-card-name {
         font-size: 15px !important;
     }
+
     .cg-card-meta {
         font-size: 13px !important;
     }
@@ -2037,5 +2088,97 @@
     /* ---- Dark theme: sidebar background on mobile ---- */
     body.dark-theme .cg-sidebar {
         background-color: #1a0f08 !important;
+    }
+
+    /* ---- Task 1: Reorient Collections Header ---- */
+    .cg-collections-header {
+        display: grid !important;
+        grid-template-columns: auto auto 1fr auto !important;
+        grid-template-rows: auto auto !important;
+        align-items: center !important;
+        gap: 12px 12px !important;
+        padding: 16px 16px !important;
+        height: auto !important;
+    }
+    .cg-collections-header-left, 
+    .cg-collections-header-right {
+        display: contents !important;
+    }
+    .cg-collections-title {
+        grid-column: 1 !important;
+        grid-row: 1 !important;
+        margin: 0 !important;
+        font-size: 22px !important;
+    }
+    .cg-new-collection-wrapper {
+        grid-column: 2 !important;
+        grid-row: 1 !important;
+        width: auto !important;
+        display: flex !important;
+        justify-content: flex-start !important;
+        margin: 0 !important;
+    }
+    .cg-search-box {
+        grid-column: 1 / -1 !important;
+        grid-row: 2 !important;
+        width: 100% !important;
+        background: #fdfaf4 !important;
+        /* light coffee brown */
+        padding: 10px 12px !important;
+        border-radius: 6px !important;
+        box-sizing: border-box !important;
+        border: 1px solid #eedec3 !important;
+        margin: 8px 0 !important;
+    }
+
+    .cg-new-collection-btn {
+        padding: 8px 16px !important;
+        font-size: 13px !important;
+        height: 36px !important;
+    }
+
+    .cg-new-collection-chevron {
+        height: 36px !important;
+    }
+
+    /* ---- Fix image 1: Three-dot popup clipping - use fixed anchored centered to be safe ---- */
+    .cg-context-menu {
+        position: fixed !important;
+        right: 12px !important;
+        left: 12px !important;
+        top: 20% !important;
+        width: auto !important;
+        max-width: 300px !important;
+        margin: 0 auto !important;
+        z-index: 99999 !important;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25) !important;
+        border-radius: 12px !important;
+    }
+
+    .cg-collection-card {
+        overflow: visible !important;
+    }
+
+    /* ---- Fix image 2: App-switcher dropdown fully visible on mobile ---- */
+    .cg-app-dropdown {
+        position: fixed !important;
+        top: 70px !important;
+        left: 12px !important;
+        right: 12px !important;
+        width: auto !important;
+        z-index: 99999 !important;
+        max-height: 80vh !important;
+        overflow-y: auto !important;
+        border-radius: 12px !important;
+        box-shadow: 0 12px 48px rgba(0, 0, 0, 0.25) !important;
+    }
+
+    /* ---- Task 3: Selection bar resize for mobile ---- */
+    .cg-selection-bar {
+        width: calc(100% - 32px) !important;
+        min-width: 0 !important;
+        padding: 10px 14px !important;
+        bottom: 16px !important;
+        justify-content: space-between !important;
     }
 }

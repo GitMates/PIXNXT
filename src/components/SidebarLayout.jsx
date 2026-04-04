@@ -6,9 +6,6 @@ const SidebarLayout = ({ children }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showAppDropdown, setShowAppDropdown] = useState(false);
-    const [isDarkTheme, setIsDarkTheme] = useState(() => {
-        return localStorage.getItem('themeMode') === 'dark';
-    });
     const navigate = useNavigate();
     const location = useLocation();
     const path = location.pathname;
@@ -23,21 +20,6 @@ const SidebarLayout = ({ children }) => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
-    useEffect(() => {
-        if (isDarkTheme) {
-            document.body.classList.add('dark-theme');
-            localStorage.setItem('themeMode', 'dark');
-        } else {
-            document.body.classList.remove('dark-theme');
-            localStorage.setItem('themeMode', 'light');
-        }
-        window.dispatchEvent(new Event('theme-change'));
-    }, [isDarkTheme]);
-
-    const toggleTheme = () => {
-        setIsDarkTheme(prev => !prev);
-    };
 
     return (
         <div className="cg-container">
@@ -152,14 +134,7 @@ const SidebarLayout = ({ children }) => {
                         <span>Settings</span>
                     </div>
                     
-                    {!isCollapsed && (
-                        <div className="cg-theme-toggle-container" style={{ display: 'flex', alignItems: 'center', margin: '16px 20px', gap: '12px' }}>
-                            <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--color-gray-800)', flex: 1 }}>{isDarkTheme ? 'Dark Mode' : 'Light Mode'}</span>
-                            <div className={`cg-theme-switch ${isDarkTheme ? 'on' : 'off'}`} onClick={toggleTheme} style={{ width: '40px', height: '22px', backgroundColor: isDarkTheme ? '#593116' : '#d9d9d9', borderRadius: '12px', position: 'relative', cursor: 'pointer', transition: 'all 0.3s' }}>
-                                <div className="cg-theme-knob" style={{ width: '18px', height: '18px', backgroundColor: '#fff', borderRadius: '50%', position: 'absolute', top: '2px', left: isDarkTheme ? '20px' : '2px', transition: 'all 0.3s', boxShadow: '0 1px 3px rgba(0,0,0,0.2)' }}></div>
-                            </div>
-                        </div>
-                    )}
+
                 </div>
 
                 <div className="cg-sidebar-bottom" style={{ flexDirection: 'column', alignItems: 'stretch', gap: '8px' }}>
