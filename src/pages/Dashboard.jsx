@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
+import { galleryService } from '../services/gallery.service';
 import './Dashboard.css';
+
+/* ===== SVG Icon Components ===== */
+// ... (icons remain the same)
 
 /* ===== SVG Icon Components ===== */
 const GridIcon = () => (
@@ -173,9 +178,37 @@ const products = [
 
 /* ===== Dashboard Component ===== */
 const Dashboard = () => {
+  const { user, logout } = useAuth();
+  const [profile, setProfile] = useState(null);
+  const [collections, setCollections] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
   const navigate = useNavigate();
+
+  // Load dashboard data
+  useEffect(() => {
+    const loadDashboardData = async () => {
+      if (!user) return;
+      
+      try {
+        setLoading(true);
+        const [profileData, collectionsData] = await Promise.all([
+          galleryService.getPhotographerProfile(user.id),
+          galleryService.getCollections(user.id)
+        ]);
+        
+        setProfile(profileData);
+        setCollections(collectionsData);
+      } catch (error) {
+        console.error('Error loading dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDashboardData();
+  }, [user]);
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -188,10 +221,19 @@ const Dashboard = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     setProfileOpen(false);
+    await logout();
     navigate('/');
   };
+
+  if (loading && !profile) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-[#fafbfc]">
+        <div className="w-10 h-10 border-4 border-[#10b981] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="dashboard-page">
@@ -220,16 +262,18 @@ const Dashboard = () => {
               onClick={() => setProfileOpen(!profileOpen)}
               title="Profile"
             >
-              D
+              {profile?.display_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
             </button>
 
             {profileOpen && (
               <div className="dash-profile-dropdown">
                 <div className="dash-dropdown-header">
-                  <div className="dash-dropdown-avatar">D</div>
+                  <div className="dash-dropdown-avatar">
+                    {profile?.display_name?.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'}
+                  </div>
                   <div className="dash-dropdown-user-info">
-                    <h4>Demo User</h4>
-                    <p>demo@pixnxt.com</p>
+                    <h4>{profile?.display_name || 'Photographer'}</h4>
+                    <p>{user?.email || 'No email'}</p>
                   </div>
                 </div>
                 <div className="dash-dropdown-items">
@@ -307,9 +351,23 @@ const Dashboard = () => {
                 <FolderIcon /> RECENT COLLECTIONS
               </div>
               <div className="dash-quick-card-body">
-                <h3>Create your first Collection</h3>
-                <p>Create your beautiful client gallery in 3 steps</p>
-                <button className="dash-get-started-btn">Get Started</button>
+                {collections.length > 0 ? (
+                  <>
+                    <h3>You have {collections.length} active collection{collections.length > 1 ? 's' : ''}</h3>
+                    <p>Keep showcasing your beautiful work to your clients.</p>
+                    <button className="dash-get-started-btn" onClick={() => navigate('/client-gallery')}>
+                      Manage Collections
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h3>Create your first Collection</h3>
+                    <p>Create your beautiful client gallery in 3 steps</p>
+                    <button className="dash-get-started-btn" onClick={() => navigate('/collections/get-started')}>
+                      Get Started
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 

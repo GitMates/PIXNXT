@@ -1,66 +1,69 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&family=Lora:ital,wght@0,400..700;1,400..700&family=Unbounded:wght@400;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
-  /* Sandal / Brown Theme Palette */
-  --color-black: #2a1608;
-  /* Dark brown substituting for black */
-  --color-white: #fdfaf4;
-  /* Light sandal background substituting for white */
-  --color-gray-100: #f5eedf;
-  /* Slightly darker sandal */
-  --color-gray-200: #eedec3;
-  /* Warm beige */
-  --color-gray-300: #dbbfa5;
-  --color-gray-400: #c29775;
-  --color-gray-500: #ad7852;
-  --color-gray-600: #935a34;
-  --color-gray-700: #7a4624;
-  --color-gray-800: #593116;
-  --color-gray-900: #42220c;
-  /* Deep brown substituting for darkest gray */
-  /* Hover accent requested from screenshot */
-  --color-hover: #ad7852;
+    /* Sandal / Brown Theme Palette */
+    --color-black: #2a1608;
+    /* Dark brown substituting for black */
+    --color-white: #fdfaf4;
+    /* Light sandal background substituting for white */
+    --color-gray-100: #f5eedf;
+    /* Slightly darker sandal */
+    --color-gray-200: #eedec3;
+    /* Warm beige */
+    --color-gray-300: #dbbfa5;
+    --color-gray-400: #c29775;
+    --color-gray-500: #ad7852;
+    --color-gray-600: #935a34;
+    --color-gray-700: #7a4624;
+    --color-gray-800: #593116;
+    --color-gray-900: #42220c;
+    /* Deep brown substituting for darkest gray */
+    /* Hover accent requested from screenshot */
+    --color-hover: #ad7852;
 
-  /* Typography */
-  --font-primary: 'Playfair Display', serif;
+    /* Typography */
+    --font-primary: 'Playfair Display', serif;
 
 
-  /* Spacing */
-  --spacing-xs: 0.5rem;
-  --spacing-sm: 1rem;
-  --spacing-md: 2rem;
-  --spacing-lg: 4rem;
-  --spacing-xl: 6rem;
-  --spacing-xxl: 10rem;
+    /* Spacing */
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 2rem;
+    --spacing-lg: 4rem;
+    --spacing-xl: 6rem;
+    --spacing-xxl: 10rem;
 
-  /* Layout */
-  --max-width: 1400px;
+    /* Layout */
+    --max-width: 1400px;
 }
 
 body.dark-theme {
-  --color-white: #1a0f08;
-  --color-gray-100: #291a11;
-  --color-gray-200: #3b271a;
-  --color-black: #fdfaf4;
-  --color-gray-900: #fdfaf4;
-  --color-gray-800: #e0d0c1;
-  --color-gray-700: #ad7852;
+    --color-white: #1a0f08;
+    --color-gray-100: #291a11;
+    --color-gray-200: #3b271a;
+    --color-black: #fdfaf4;
+    --color-gray-900: #fdfaf4;
+    --color-gray-800: #e0d0c1;
+    --color-gray-700: #ad7852;
 }
 
 * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: var(--font-primary) !important;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 body {
-  font-family: var(--font-primary);
-  background-color: var(--color-white);
-  color: var(--color-gray-900);
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+    font-family: var(--font-primary);
+    background-color: var(--color-white);
+    color: var(--color-gray-900);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 h1,
@@ -69,39 +72,39 @@ h3,
 h4,
 h5,
 h6 {
-  font-weight: 500;
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
 }
 
 a {
-  color: inherit;
-  text-decoration: none;
+    color: inherit;
+    text-decoration: none;
 }
 
 ul {
-  list-style: none;
+    list-style: none;
 }
 
 button {
-  font-family: inherit;
+    font-family: inherit;
 }
 
 /* Utilities */
 .container {
-  max-width: var(--max-width);
-  margin: 0 auto;
-  padding: 0 var(--spacing-sm);
+    max-width: var(--max-width);
+    margin: 0 auto;
+    padding: 0 var(--spacing-sm);
 }
 
 @media (min-width: 768px) {
-  .container {
-    padding: 0 var(--spacing-md);
-  }
+    .container {
+        padding: 0 var(--spacing-md);
+    }
 }
 
 .text-center {
-  text-align: center;
+    text-align: center;
 }
 
 /* ========================================================================= */
@@ -219,8 +222,10 @@ body.dark-theme .cd-icon-bar-btn.active {
 body.dark-theme .cg-theme-toggle-container .cg-theme-switch {
     background-color: #3b271a !important;
 }
+
 /* Global Mobile Responsiveness (Excludes Landing Page & ClientGallery which manage their own) */
 @media screen and (max-width: 768px) {
+
     /* Collection Dashboard layout */
     .cd-main-area {
         flex-direction: column !important;
@@ -228,12 +233,14 @@ body.dark-theme .cg-theme-toggle-container .cg-theme-switch {
         overflow: visible !important;
     }
 
-    .cd-photos-section, .cd-design-panel {
+    .cd-photos-section,
+    .cd-design-panel {
         width: 100% !important;
         height: 500px !important;
         overflow-y: auto !important;
         min-height: unset !important;
     }
+
     .cd-design-panel {
         border-left: none !important;
         border-top: 1px solid #e0e0e0;
@@ -246,10 +253,12 @@ body.dark-theme .cg-theme-toggle-container .cg-theme-switch {
         height: auto !important;
         gap: 8px;
     }
+
     .cd-topbar-right {
         flex-wrap: wrap !important;
         gap: 8px !important;
     }
+
     .cd-photos-grid {
         grid-template-columns: repeat(2, 1fr) !important;
         gap: 4px !important;
@@ -260,11 +269,13 @@ body.dark-theme .cg-theme-toggle-container .cg-theme-switch {
         max-width: 100% !important;
         padding: 16px !important;
     }
+
     .settings-tabs {
         overflow-x: auto !important;
         white-space: nowrap !important;
         padding-bottom: 8px !important;
     }
+
     .settings-cards {
         grid-template-columns: 1fr !important;
     }
