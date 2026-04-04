@@ -4032,3 +4032,449 @@ input:checked+.cd-toggle-slider:before {
         position: relative !important;
     }
 }
+
+/* ============================================================
+   PHOTO CARD — Star Button Styles
+   ============================================================ */
+.cd-photo-star {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    width: 32px;
+    height: 32px;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 5;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.cd-photo-card:hover .cd-photo-star,
+.cd-photo-star.active {
+    opacity: 1;
+}
+
+.cd-photo-star.active svg {
+    fill: #FFC107;
+    stroke: #FFC107;
+}
+
+.cd-photo-star:hover {
+    transform: scale(1.1);
+    background-color: #fff;
+}
+
+/* --- Upload Progress Widget --- */
+.upload-widget {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 380px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: inherit;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.upload-widget.minimized {
+    height: auto;
+}
+
+.upload-widget-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 20px;
+    background: #fff;
+    border-bottom: 1px solid #eaeaea;
+    cursor: pointer;
+    user-select: none;
+}
+
+.upload-widget-header:hover {
+    background: #fdfdfd;
+}
+
+.upload-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.upload-header-left svg {
+    color: #666;
+}
+
+.upload-progress-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.upload-progress-info h4 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #222;
+}
+
+.upload-progress-info span {
+    font-size: 12px;
+    color: #777;
+    margin-top: 2px;
+}
+
+.upload-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.upload-action-btn {
+    background: none;
+    border: none;
+    padding: 2px;
+    cursor: pointer;
+    color: #999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.upload-action-btn:hover {
+    color: #333;
+}
+
+.upload-widget-list {
+    max-height: 300px;
+    overflow-y: auto;
+    background: #fff;
+}
+
+.upload-widget-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.upload-widget-list::-webkit-scrollbar-thumb {
+    background: #e0e0e0;
+    border-radius: 4px;
+}
+
+.upload-widget-item {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.upload-widget-item:last-child {
+    border-bottom: none;
+}
+
+.upload-item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: #f9f9f9;
+    border-radius: 6px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.upload-item-details {
+    flex: 1;
+    min-width: 0;
+}
+
+.upload-item-name {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.upload-item-status {
+    margin: 0;
+    font-size: 11.5px;
+    color: #888;
+    margin-top: 4px;
+}
+
+.upload-item-progress {
+    margin-left: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.progress-circle-wrap {
+    width: 24px;
+    height: 24px;
+}
+
+.progress-circle {
+    transform: rotate(-90deg);
+}
+
+.circle-bg {
+    fill: none;
+    stroke: #eee;
+    stroke-width: 3;
+}
+
+.circle-progress {
+    fill: none;
+    stroke: #10b981;
+    stroke-width: 3;
+    stroke-linecap: round;
+    transition: stroke-dasharray 0.3s ease;
+}
+
+/* ============================================================
+   ADD SET / EDIT SET MODAL (Pixieset style)
+   ============================================================ */
+
+.cd-set-modal {
+    width: 520px;
+    max-width: 95vw;
+}
+
+.cd-set-modal-body {
+    padding: 24px 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.cd-set-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cd-set-field-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    letter-spacing: 0.3px;
+}
+
+.cd-set-field-input {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #333;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+.cd-set-field-input:focus {
+    border-color: #593116;
+}
+
+.cd-set-field-input::placeholder {
+    color: #bbb;
+}
+
+.cd-set-field-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #333;
+    background: #fff;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    outline: none;
+    resize: vertical;
+    min-height: 80px;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+.cd-set-field-textarea:focus {
+    border-color: #593116;
+}
+
+.cd-set-field-textarea::placeholder {
+    color: #bbb;
+}
+
+.cd-set-field-counter {
+    font-size: 11px;
+    color: #aaa;
+    text-align: right;
+    display: block;
+    margin-top: -2px;
+}
+
+.cd-set-field-hint {
+    font-size: 12px;
+    color: #999;
+    line-height: 1.4;
+    margin: 0;
+}
+
+.cd-set-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 28px;
+    border-top: 1px solid #f0f0f0;
+    background: #fdfaf4;
+}
+
+.cd-set-modal-footer .cd-cancel-btn {
+    padding: 8px 20px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #666;
+    background: transparent;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cd-set-modal-footer .cd-cancel-btn:hover {
+    background: #f5f5f5;
+    border-color: #bbb;
+}
+
+.cd-set-modal-footer .cd-save-btn {
+    padding: 8px 24px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+    background: #593116;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cd-set-modal-footer .cd-save-btn:hover:not(:disabled) {
+    background: #6e3f1c;
+}
+
+.cd-set-modal-footer .cd-save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ============================================================
+   SORT OPTION — SELECTED STATE
+   ============================================================ */
+
+.cd-sort-option.selected {
+    color: #593116;
+    font-weight: 600;
+    background-color: rgba(89, 49, 22, 0.06);
+    position: relative;
+}
+
+.cd-sort-option.selected::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #593116;
+    border-radius: 0 2px 2px 0;
+}
+
+/* ============================================================
+   SET DROPDOWN — Dynamic sets context menu
+   ============================================================ */
+
+.cd-set-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid #eee;
+    min-width: 160px;
+    z-index: 10000;
+    padding: 6px 0;
+    overflow: hidden;
+}
+
+.cd-set-dropdown .cd-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: #333;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+
+.cd-set-dropdown .cd-ctx-item:hover {
+    background: #f5f0ea;
+}
+
+.cd-set-dropdown .cd-ctx-item.cd-ctx-delete {
+    color: #dc3545;
+}
+
+.cd-set-dropdown .cd-ctx-item.cd-ctx-delete:hover {
+    background: rgba(220, 53, 69, 0.06);
+}
+
+.cd-set-dropdown .cd-ctx-item svg {
+    flex-shrink: 0;
+}
+
+/* ============================================================
+   SET ITEM — Active & hover states for dynamic sets
+   ============================================================ */
+
+.cd-set-item {
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.cd-set-item:hover:not(.active) {
+    background: rgba(89, 49, 22, 0.04);
+}
+
+.cd-set-menu-btn {
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.cd-set-item:hover .cd-set-menu-btn,
+.cd-set-item.active .cd-set-menu-btn {
+    opacity: 1;
+}
+
+.cd-set-menu-wrapper {
+    position: relative;
+}

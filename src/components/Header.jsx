@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 import './Header.css';
 
 const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   // If not on the homepage, always show scrolled (solid) state
   const isHome = location.pathname === '/';
@@ -30,8 +32,23 @@ const Header = () => {
         </div>
 
         <div className="header-actions">
-          <Link to="/dashboard" className="login-btn">Log In</Link>
-          <a href="#signup" className="signup-btn">Get Started</a>
+          {user ? (
+            <>
+              <Link to="/dashboard" className="login-btn">Dashboard</Link>
+              <button 
+                onClick={logout} 
+                className="signup-btn"
+                style={{ cursor: 'pointer', border: 'none' }}
+              >
+                Log Out
+              </button>
+            </>
+          ) : (
+            <>
+              <Link to="/auth" className="login-btn">Log In</Link>
+              <Link to="/auth" className="signup-btn">Get Started</Link>
+            </>
+          )}
         </div>
       </div>
     </header>

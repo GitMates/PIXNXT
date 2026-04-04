@@ -12,6 +12,10 @@ import GetStarted from './pages/GetStarted';
 import Starred from './pages/Starred';
 import Homepage from './pages/Homepage';
 import Settings from './pages/Settings';
+import AuthPage from './pages/AuthPage';
+import { ProtectedRoute } from './components/features/Auth';
+import CollectionList from './pages/public/CollectionList';
+import GalleryView from './pages/public/GalleryView';
 
 function App() {
   const location = useLocation();
@@ -35,7 +39,8 @@ function App() {
     }
   }, [location.pathname, themeTick]);
 
-  const hideLayout = location.pathname === '/dashboard' ||
+  const hideLayout = location.pathname === '/auth' ||
+    location.pathname === '/dashboard' ||
     location.pathname === '/client-gallery' ||
     location.pathname === '/collections/create' ||
     location.pathname === '/collections/manage' ||
@@ -43,7 +48,9 @@ function App() {
     location.pathname === '/collections/get-started' ||
     location.pathname.startsWith('/starred') ||
     location.pathname === '/homepage' ||
-    location.pathname.startsWith('/settings');
+    location.pathname.startsWith('/settings') ||
+    location.pathname === '/collections' ||
+    location.pathname.startsWith('/gallery/');
 
   return (
     <div className="app">
@@ -51,17 +58,22 @@ function App() {
 
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/auth" element={<AuthPage />} />
+        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/client-gallery" element={<ClientGallery />} />
-        <Route path="/photos" element={<PhotoLibrary />} />
-        <Route path="/starred" element={<Navigate to="/starred/collections" replace />} />
-        <Route path="/starred/:tab" element={<Starred />} />
+        <Route path="/photos" element={<ProtectedRoute><PhotoLibrary /></ProtectedRoute>} />
+        <Route path="/starred" element={<ProtectedRoute><Navigate to="/starred/collections" replace /></ProtectedRoute>} />
+        <Route path="/starred/:tab" element={<ProtectedRoute><Starred /></ProtectedRoute>} />
         <Route path="/homepage" element={<Homepage />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/settings/:tab" element={<Settings />} />
-        <Route path="/collections/get-started" element={<GetStarted />} />
-        <Route path="/collections/create" element={<CreateCollection />} />
-        <Route path="/collections/manage" element={<CollectionDashboard />} />
+        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/settings/:tab" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+        <Route path="/collections/get-started" element={<ProtectedRoute><GetStarted /></ProtectedRoute>} />
+        <Route path="/collections/create" element={<ProtectedRoute><CreateCollection /></ProtectedRoute>} />
+        <Route path="/collections/manage" element={<ProtectedRoute><CollectionDashboard /></ProtectedRoute>} />
+        
+        {/* Public Gallery Routes */}
+        <Route path="/collections" element={<CollectionList />} />
+        <Route path="/gallery/:slug" element={<GalleryView />} />
       </Routes>
 
       {!hideLayout && <Footer />}
