@@ -102,7 +102,7 @@ export const ChangeCoverModal: React.FC<ChangeCoverModalProps> = ({
                           onClose();
                         }}
                       >
-                        <img src={photo.thumbnail_url || photo.full_url} alt={photo.filename} />
+                        <img src={photo.thumbnail_url || photo.full_url || undefined} alt={photo.filename} />
                         <div className="photo-overlay">
                           <button className="use-photo-btn">Use as Cover</button>
                         </div>

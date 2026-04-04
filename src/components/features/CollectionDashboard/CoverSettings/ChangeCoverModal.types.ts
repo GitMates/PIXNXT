@@ -1,9 +1,6 @@
-export interface Photo {
-  id: string;
-  full_url: string;
-  thumbnail_url?: string;
-  filename?: string;
-}
+import { Photo as GlobalPhoto } from '../../../../types/collection.types';
+
+export type Photo = GlobalPhoto;
 
 export interface ChangeCoverModalProps {
   isOpen: boolean;

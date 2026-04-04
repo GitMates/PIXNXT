@@ -6,7 +6,7 @@
     --px-grey-medium: #666666;
     --px-grey-light: #f7f9fa;
     --px-border: #eeeeee;
-    --px-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    --px-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 
@@ -106,7 +106,7 @@
 .theme-dark {
     --gallery-bg: #111111;
     --gallery-text: #ffffff;
-    --gallery-accent: #ffffff;
+    --gallery-accent: #988383;
     --gallery-secondary-bg: #1a1a1a;
     --gallery-meta-text: #999999;
 }
@@ -179,7 +179,7 @@
     height: 100vh;
     width: 100vw;
     background-color: #fdfaf4;
-    font-family: 'Playfair Display', serif;
+    font-family: inherit;
     overflow: hidden;
 }
 
@@ -2073,6 +2073,9 @@
     position: absolute;
     bottom: 60px;
     left: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
     text-align: left;
 }
 
@@ -2239,7 +2242,7 @@
 
 /* REFINED TYPOGRAPHY */
 .h-super {
-    font-family: 'Outfit', sans-serif;
+    font-family: inherit;
     font-size: 11px;
     letter-spacing: 4px;
     color: #888;
@@ -2248,7 +2251,7 @@
 }
 
 .h-title {
-    font-family: 'Playfair Display', serif;
+    font-family: inherit;
     font-size: 48px;
     font-weight: 400;
     color: #111;
@@ -2262,7 +2265,7 @@
 }
 
 .h-date {
-    font-family: 'Outfit', sans-serif;
+    font-family: inherit;
     font-size: 11px;
     letter-spacing: 2px;
     color: #666;
@@ -2515,7 +2518,8 @@
 
 .grid-option-card.active {
     border: 2px solid #20b2aa;
-    padding: 23px 11px; /* Account for border width */
+    padding: 23px 11px;
+    /* Account for border width */
 }
 
 .grid-card-icon {
@@ -2600,7 +2604,7 @@
 .nav-option.active {
     background: white;
     color: #111;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .px-select {
@@ -2710,15 +2714,41 @@
 }
 
 /* Vertical (Masonry-style) */
-.cd-preview-gallery-body.grid-style-vertical.grid-size-x-small .gallery-mock-grid { grid-template-columns: repeat(6, 1fr); }
-.cd-preview-gallery-body.grid-style-vertical.grid-size-small .gallery-mock-grid { grid-template-columns: repeat(4, 1fr); }
-.cd-preview-gallery-body.grid-style-vertical.grid-size-regular .gallery-mock-grid { grid-template-columns: repeat(3, 1fr); }
-.cd-preview-gallery-body.grid-style-vertical.grid-size-large .gallery-mock-grid { grid-template-columns: repeat(2, 1fr); }
+.cd-preview-gallery-body.grid-style-vertical.grid-size-x-small .gallery-mock-grid {
+    grid-template-columns: repeat(6, 1fr);
+}
 
-.cd-preview-gallery-body.grid-spacing-none .gallery-mock-grid { gap: 0; padding: 0; }
-.cd-preview-gallery-body.grid-spacing-small .gallery-mock-grid { gap: 4px; padding: 4px; }
-.cd-preview-gallery-body.grid-spacing-regular .gallery-mock-grid { gap: 12px; padding: 12px; }
-.cd-preview-gallery-body.grid-spacing-large .gallery-mock-grid { gap: 24px; padding: 24px; }
+.cd-preview-gallery-body.grid-style-vertical.grid-size-small .gallery-mock-grid {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+.cd-preview-gallery-body.grid-style-vertical.grid-size-regular .gallery-mock-grid {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.cd-preview-gallery-body.grid-style-vertical.grid-size-large .gallery-mock-grid {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+.cd-preview-gallery-body.grid-spacing-none .gallery-mock-grid {
+    gap: 0;
+    padding: 0;
+}
+
+.cd-preview-gallery-body.grid-spacing-small .gallery-mock-grid {
+    gap: 4px;
+    padding: 4px;
+}
+
+.cd-preview-gallery-body.grid-spacing-regular .gallery-mock-grid {
+    gap: 12px;
+    padding: 12px;
+}
+
+.cd-preview-gallery-body.grid-spacing-large .gallery-mock-grid {
+    gap: 24px;
+    padding: 24px;
+}
 
 .mock-grid-item {
     width: 100%;
@@ -2782,10 +2812,21 @@
     aspect-ratio: auto;
 }
 
-.cd-preview-gallery-body.grid-style-horizontal.grid-size-x-small .mock-grid-item { height: 120px; }
-.cd-preview-gallery-body.grid-style-horizontal.grid-size-small .mock-grid-item { height: 160px; }
-.cd-preview-gallery-body.grid-style-horizontal.grid-size-regular .mock-grid-item { height: 240px; }
-.cd-preview-gallery-body.grid-style-horizontal.grid-size-large .mock-grid-item { height: 320px; }
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-x-small .mock-grid-item {
+    height: 120px;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-small .mock-grid-item {
+    height: 160px;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-regular .mock-grid-item {
+    height: 240px;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-large .mock-grid-item {
+    height: 320px;
+}
 
 /* Set Selector Mock */
 .set-selector-mock {
@@ -2799,7 +2840,7 @@
 }
 
 .set-selector-mock:hover {
-    background: rgba(0,0,0,0.05);
+    background: rgba(0, 0, 0, 0.05);
 }
 
 /* --- DESIGN MODAL STYLES --- */
@@ -3173,7 +3214,7 @@
 }
 
 .h-title {
-    font-family: 'Playfair Display', serif;
+    font-family: inherit;
     font-size: 72px;
     font-weight: 400;
     color: #111;
@@ -3181,7 +3222,7 @@
 }
 
 .h-date {
-    font-family: 'Outfit', sans-serif;
+    font-family: inherit;
     font-size: 12px;
     letter-spacing: 2px;
     color: #777;
@@ -3189,7 +3230,7 @@
 }
 
 .view-gallery-btn {
-    font-family: 'Outfit', sans-serif;
+    font-family: inherit;
     padding: 12px 36px;
     letter-spacing: 1.5px;
 }
@@ -4068,7 +4109,8 @@ input:checked+.cd-toggle-slider:before {
     .cd-set-item.active {
         background-color: #fdfaf4 !important;
         border-radius: 8px !important;
-        overflow: visible !important; /* Important to keep popup visible */
+        overflow: visible !important;
+        /* Important to keep popup visible */
     }
 
     .cd-set-actions {
@@ -4079,7 +4121,8 @@ input:checked+.cd-toggle-slider:before {
     /* Fix Highlights set-dropdown popup — fixed to viewport to avoid ANY clipping issues */
     .cd-set-dropdown {
         position: fixed !important;
-        top: 200px !important; /* Near the Highlights bar area on mobile */
+        top: 200px !important;
+        /* Near the Highlights bar area on mobile */
         right: 16px !important;
         left: auto !important;
         width: 180px !important;
@@ -4263,7 +4306,8 @@ input:checked+.cd-toggle-slider:before {
         position: static !important;
         overflow: visible !important;
         height: auto !important;
-        min-height: 400px !important; /* Ensure content is visible and has height */
+        min-height: 400px !important;
+        /* Ensure content is visible and has height */
         padding: 20px 16px !important;
         display: block !important;
     }

@@ -1,0 +1,260 @@
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/lib/supabase/client";
+import {
+  Collection,
+  PhotoSet,
+  Photo,
+  SidebarTab,
+  SettingsTab,
+  DesignTab,
+} from "@/types/collection.types";
+import { DesignSettings } from "@/types/design.types";
+
+export function useCollectionDashboard(collectionId: string | null) {
+  const [isLoading, setIsLoading] = useState(true);
+  const [collection, setCollection] = useState<Collection | null>(null);
+  const [sets, setSets] = useState<PhotoSet[]>([]);
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [activeSetId, setActiveSetId] = useState<string | null>(null);
+
+  // Status State
+  const [status, setStatus] = useState<"DRAFT" | "PUBLISHED">("DRAFT");
+  const [gridSize, setGridSize] = useState<"small" | "large">("small");
+  const [showFilename, setShowFilename] = useState(false);
+
+  // Settings State
+  const [collectionUrl, setCollectionUrl] = useState("");
+  const [defaultWatermark, setDefaultWatermark] = useState("No watermark");
+  const [autoExpiry, setAutoExpiry] = useState("");
+  const [emailRegistration, setEmailRegistration] = useState(true);
+  const [galleryAssist, setGalleryAssist] = useState(false);
+  const [slideshow, setSlideshow] = useState(true);
+  const [socialSharing, setSocialSharing] = useState(true);
+  const [language, setLanguage] = useState("English");
+
+  // Privacy State
+  const [collectionPassword, setCollectionPassword] = useState("");
+  const [showOnHomepage, setShowOnHomepage] = useState(true);
+  const [clientExclusiveAccess, setClientExclusiveAccess] = useState(false);
+
+  // Download State
+  const [photoDownload, setPhotoDownload] = useState(true);
+  const [photoDownloadSizes, setPhotoDownloadSizes] = useState<string[]>([
+    "high",
+    "web",
+  ]);
+  const [downloadPin, setDownloadPin] = useState(true);
+  const [pinValue, setPinValue] = useState("");
+
+  // Favorite State
+  const [favoritePhotos, setFavoritePhotos] = useState(true);
+  const [favoriteNotes, setFavoriteNotes] = useState(true);
+
+  // Activity State
+  const [activeActivityTab, setActiveActivityTab] = useState<any>("download");
+
+  // UI State
+  const [activeSidebarTab, setActiveSidebarTab] =
+    useState<SidebarTab>("photos");
+  const [activeSettingsTab, setActiveSettingsTab] =
+    useState<SettingsTab>("general");
+  const [activeDesignTab, setActiveDesignTab] = useState<DesignTab>("cover");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [activeMediaTab, setActiveMediaTab] = useState<"upload" | "embed">(
+    "upload",
+  );
+  const [showAddSetModal, setShowAddSetModal] = useState(false);
+  const [newSetName, setNewSetName] = useState("");
+  const [newSetDescription, setNewSetDescription] = useState("");
+  const [savingSet, setSavingSet] = useState(false);
+  const [editingSet, setEditingSet] = useState<PhotoSet | null>(null);
+  const [showCoverModal, setShowCoverModal] = useState(false);
+  const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
+    "desktop",
+  );
+  const [uploadWidget, setUploadWidget] = useState({
+    isOpen: false,
+    isMinimized: false,
+    files: [],
+  });
+
+  // Design State (Mirrored from Collection but managed locally for preview)
+  const [designSettings, setDesignSettings] = useState<DesignSettings>({
+    coverStyle: "center",
+    fontFamily: "sans",
+    colorPalette: "light",
+    grid: {
+      style: "vertical",
+      size: "regular",
+      spacing: "regular",
+      aspectRatio: "3-2",
+      navigation: "icon",
+    },
+  });
+
+  const fetchData = useCallback(async () => {
+    if (!collectionId) return;
+
+    setIsLoading(true);
+    try {
+      // 1. Fetch Collection
+      const { data: collectionData, error: colError } = await supabase
+        .from("collections")
+        .select("*")
+        .eq("id", collectionId)
+        .single();
+
+      if (colError) throw colError;
+      setCollection(collectionData);
+
+      // Sync settings from collection data
+      if (collectionData.status)
+        setStatus(collectionData.status.toUpperCase() as any);
+      if (collectionData.slug) setCollectionUrl(collectionData.slug);
+// if (collectionData.password)
+//   setCollectionPassword(collectionData.password);
+// if (collectionData.pin) setPinValue(collectionData.pin);
+
+      const { data: setsData, error: setsError } = await supabase
+        .from("sets")
+        .select("*")
+        .eq("collection_id", collectionId)
+        .order("created_at", { ascending: true });
+
+      if (setsError) throw setsError;
+      setSets(setsData || []);
+
+      // 3. Fetch Photos (Highlights initially or based on activeSetId)
+      await fetchPhotos(activeSetId);
+    } catch (error) {
+      console.error("Error fetching collection data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [collectionId, activeSetId]);
+
+  const fetchPhotos = useCallback(
+    async (setId: string | null) => {
+      if (!collectionId) return;
+
+      let query = supabase
+        .from("photos")
+        .select("*")
+        .eq("collection_id", collectionId);
+
+      if (setId) {
+        query = query.eq("set_id", setId);
+      } else {
+        query = query.is("set_id", null);
+      }
+
+      const { data: photosData, error: photosError } = await query.order(
+        "created_at",
+        { ascending: false },
+      );
+
+      if (photosError) {
+        console.error("Error fetching photos:", photosError);
+        return;
+      }
+      setPhotos(photosData || []);
+    },
+    [collectionId],
+  );
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Sync photos when activeSetId changes
+  useEffect(() => {
+    if (collectionId) {
+      fetchPhotos(activeSetId);
+    }
+  }, [activeSetId, collectionId, fetchPhotos]);
+
+  return {
+    isLoading,
+    collection,
+    setCollection,
+    sets,
+    photos,
+    activeSetId,
+    setActiveSetId,
+    activeSidebarTab,
+    setActiveSidebarTab,
+    activeSettingsTab,
+    setActiveSettingsTab,
+    activeDesignTab,
+    setActiveDesignTab,
+    isSidebarCollapsed,
+    setIsSidebarCollapsed,
+    status,
+    setStatus,
+    gridSize,
+    setGridSize,
+    showFilename,
+    setShowFilename,
+    collectionUrl,
+    setCollectionUrl,
+    defaultWatermark,
+    setDefaultWatermark,
+    autoExpiry,
+    setAutoExpiry,
+    emailRegistration,
+    setEmailRegistration,
+    galleryAssist,
+    setGalleryAssist,
+    slideshow,
+    setSlideshow,
+    socialSharing,
+    setSocialSharing,
+    language,
+    setLanguage,
+    collectionPassword,
+    setCollectionPassword,
+    showOnHomepage,
+    setShowOnHomepage,
+    clientExclusiveAccess,
+    setClientExclusiveAccess,
+    photoDownload,
+    setPhotoDownload,
+    photoDownloadSizes,
+    setPhotoDownloadSizes,
+    downloadPin,
+    setDownloadPin,
+    pinValue,
+    setPinValue,
+    favoritePhotos,
+    setFavoritePhotos,
+    favoriteNotes,
+    setFavoriteNotes,
+    activeActivityTab,
+    setActiveActivityTab,
+    showUploadModal,
+    setShowUploadModal,
+    activeMediaTab,
+    setActiveMediaTab,
+    showAddSetModal,
+    setShowAddSetModal,
+    newSetName,
+    setNewSetName,
+    newSetDescription,
+    setNewSetDescription,
+    savingSet,
+    setSavingSet,
+    editingSet,
+    setEditingSet,
+    showCoverModal,
+    setShowCoverModal,
+    uploadWidget,
+    setUploadWidget,
+    designSettings,
+    setDesignSettings,
+    previewMode,
+    setPreviewMode,
+    refreshData: fetchData,
+    setPhotos,
+  };
+}

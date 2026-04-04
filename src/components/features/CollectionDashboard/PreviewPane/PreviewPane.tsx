@@ -13,7 +13,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
   onPreviewModeChange
 }) => {
   return (
-    <div className={cn('cd-design-preview-pane', previewMode)}>
+    <div className={cn('cd-design-preview-pane', previewMode, `font-${settings.fontFamily}`)}>
       <div className="cd-preview-workspace">
         <div className="cd-preview-canvas">
           <GalleryPreview 
