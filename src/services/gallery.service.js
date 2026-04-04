@@ -53,9 +53,35 @@ export const galleryService = {
   },
 
   /**
-   * Delete a collection
+   * Delete a collection and all associated files
    */
   async deleteCollection(id) {
+    // 1. Get collection info (to get photographer_id and list of photos)
+    const { data: collection, error: fetchError } = await supabase
+      .from('collections')
+      .select('photographer_id, photos:photos!photos_collection_id_fkey(original_storage_path)')
+      .eq('id', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // 2. Delete files from Storage if they exist
+    const storagePaths = collection.photos
+      ?.map(p => p.original_storage_path)
+      .filter(path => !!path);
+
+    if (storagePaths && storagePaths.length > 0) {
+      const { error: storageError } = await supabase.storage
+        .from('photos')
+        .remove(storagePaths);
+      
+      if (storageError) {
+        console.error('Error deleting storage files:', storageError);
+        // We continue anyway to at least delete the database records
+      }
+    }
+
+    // 3. Delete the collection record (cascade deletes related DB tables)
     const { error } = await supabase
       .from('collections')
       .delete()
