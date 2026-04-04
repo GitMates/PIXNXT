@@ -1,11 +1,18 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { galleryService } from '../services/gallery.service';
 import './CollectionDashboard.css';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const collectionId = searchParams.get('id');
+    
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+    const [collection, setCollection] = useState(null);
     const [photos, setPhotos] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [activeMediaTab, setActiveMediaTab] = useState('upload');
     const [status, setStatus] = useState('DRAFT'); // DRAFT or PUBLISHED
@@ -16,11 +23,31 @@ const CollectionDashboard = () => {
     const [gridSize, setGridSize] = useState('small');
     const [showFilename, setShowFilename] = useState(false);
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
-    const [showSetMenu, setShowSetMenu] = useState(false);
+    const [showSetMenu, setShowSetMenu] = useState(null); // set id or null
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [selectedPhotos, setSelectedPhotos] = useState([]);
     const [showSelectionMore, setShowSelectionMore] = useState(false);
     const [showSelectAllMenu, setShowSelectAllMenu] = useState(false);
+    const [showMoveToSetMenu, setShowMoveToSetMenu] = useState(false);
+    const [uploadWidget, setUploadWidget] = useState({
+        isOpen: false,
+        isMinimized: false,
+        files: [] // { id, name, size, progress, status }
+    });
+
+    // SET STATES
+    const [sets, setSets] = useState([]);
+    const [activeSetId, setActiveSetId] = useState(null); // null = Highlights (all photos)
+    const [showAddSetModal, setShowAddSetModal] = useState(false);
+    const [newSetName, setNewSetName] = useState('');
+    const [newSetDescription, setNewSetDescription] = useState('');
+    const [savingSet, setSavingSet] = useState(false);
+    const [editingSet, setEditingSet] = useState(null); // set object for edit modal
+    const [editSetName, setEditSetName] = useState('');
+    const [editSetDescription, setEditSetDescription] = useState('');
+
+    // SORT STATE
+    const [sortOption, setSortOption] = useState('upload-new-old');
 
     // TAB STATES
     const [activeSidebarTab, setActiveSidebarTab] = useState('photos'); // photos, design, settings, activity
@@ -117,12 +144,14 @@ const CollectionDashboard = () => {
     const shareRef = useRef(null);
     const selectionMoreRef = useRef(null);
     const selectAllMenuRef = useRef(null);
+    const moveToSetRef = useRef(null);
 
-    const togglePhotoSelection = (index) => {
+
+    const togglePhotoSelection = (photoId) => {
         setSelectedPhotos(prev =>
-            prev.includes(index)
-                ? prev.filter(i => i !== index)
-                : [...prev, index]
+            prev.includes(photoId)
+                ? prev.filter(id => id !== photoId)
+                : [...prev, photoId]
         );
     };
 
@@ -130,34 +159,288 @@ const CollectionDashboard = () => {
         setSelectedPhotos([]);
         setShowSelectAllMenu(false);
         setShowSelectionMore(false);
+        setShowMoveToSetMenu(false);
+    };
+
+    const handleToggleStar = async (photoId, currentStarred) => {
+        try {
+            const updatedPhoto = await galleryService.togglePhotoStar(photoId, !currentStarred);
+            setPhotos(prev => prev.map(p => p.id === photoId ? { ...p, is_starred: updatedPhoto.is_starred } : p));
+        } catch (err) {
+            console.error('Star toggle failed:', err);
+        }
+    };
+
+    const deleteSelectedPhotos = async () => {
+        if (selectedPhotos.length === 0 || !collectionId) return;
+
+        const confirmed = window.confirm(`Are you sure you want to delete ${selectedPhotos.length} photo(s)?`);
+        if (!confirmed) return;
+
+        try {
+            setSaving(true);
+            await galleryService.deletePhotos(selectedPhotos);
+            
+            // Update local state
+            setPhotos(prev => prev.filter(p => !selectedPhotos.includes(p.id)));
+            setSelectedPhotos([]);
+        } catch (err) {
+            console.error('Delete failed:', err);
+            alert('Failed to delete photos. Please try again.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const selectAll = () => {
-        setSelectedPhotos(photos.map((_, i) => i));
+        // Select all photos currently visible in the sorted/filtered view
+        const visibleIds = sortedPhotos.map(p => p.id);
+        setSelectedPhotos(visibleIds);
         setShowSelectAllMenu(false);
     };
 
-    // Load saved data
-    const collectionName = localStorage.getItem('pixnxt_collection_name') || 'My Collection';
-    const collectionDate = localStorage.getItem('pixnxt_collection_date') || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-
+    // Load real data from Supabase
     useEffect(() => {
-        const saved = localStorage.getItem('pixnxt_photos');
-        if (saved) {
-            try { setPhotos(JSON.parse(saved)); } catch (e) { }
-        }
-    }, []);
-
-    useEffect(() => {
-        if (photos.length > 0) {
-            localStorage.setItem('pixnxt_photos', JSON.stringify(photos));
-            // Also update collection info
-            localStorage.setItem('pixnxt_collection_photo_count', photos.length);
-            if (!localStorage.getItem('pixnxt_collection_cover')) {
-                localStorage.setItem('pixnxt_collection_cover', photos[0]);
+        const fetchCollectionData = async () => {
+            if (!collectionId) {
+                navigate('/client-gallery');
+                return;
             }
+
+            try {
+                setLoading(true);
+                const data = await galleryService.getCollectionById(collectionId);
+                setCollection(data);
+                
+                // Initialize state from collection data
+                if (data.status) setStatus(data.status.toUpperCase());
+                if (data.slug) setCollectionUrl(data.slug);
+                if (data.password) setCollectionPassword(data.password);
+                
+                // Map individual columns to state
+                if (data.cover_style) setSelectedCoverStyle(data.cover_style);
+                if (data.font_family) setSelectedFont(data.font_family);
+                if (data.color_palette) setSelectedColorPalette(data.color_palette);
+                
+                setGridSettings({
+                    style: data.grid_style || 'vertical',
+                    size: data.thumbnail_size || 'regular',
+                    spacing: data.grid_spacing || 'regular',
+                    navigation: data.nav_style || 'icons'
+                });
+
+                // Fetch photos and sets
+                const photoData = data.photos || [];
+                setPhotos(photoData);
+                const setsData = data.sets || [];
+                setSets(setsData);
+            } catch (err) {
+                console.error('Error fetching collection:', err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchCollectionData();
+    }, [collectionId, navigate]);
+
+    // ─── SORT LOGIC ──────────────────────────────────────────
+    const sortedPhotos = useMemo(() => {
+        // Filter by active set
+        let filtered = photos;
+        if (activeSetId) {
+            filtered = photos.filter(p => p.set_id === activeSetId);
+        } else {
+            // Highlights: Only photos not assigned to any set
+            filtered = photos.filter(p => !p.set_id);
         }
-    }, [photos]);
+
+        const sorted = [...filtered];
+        switch (sortOption) {
+            case 'upload-new-old':
+                sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+                break;
+            case 'upload-old-new':
+                sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+                break;
+            case 'taken-new-old':
+                sorted.sort((a, b) => {
+                    const aDate = a.exif_taken_at ? new Date(a.exif_taken_at) : new Date(a.created_at);
+                    const bDate = b.exif_taken_at ? new Date(b.exif_taken_at) : new Date(b.created_at);
+                    return bDate - aDate;
+                });
+                break;
+            case 'taken-old-new':
+                sorted.sort((a, b) => {
+                    const aDate = a.exif_taken_at ? new Date(a.exif_taken_at) : new Date(a.created_at);
+                    const bDate = b.exif_taken_at ? new Date(b.exif_taken_at) : new Date(b.created_at);
+                    return aDate - bDate;
+                });
+                break;
+            case 'name-az':
+                sorted.sort((a, b) => (a.filename || '').localeCompare(b.filename || ''));
+                break;
+            case 'name-za':
+                sorted.sort((a, b) => (b.filename || '').localeCompare(a.filename || ''));
+                break;
+            case 'random':
+                for (let i = sorted.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
+                }
+                break;
+            default:
+                break;
+        }
+        return sorted;
+    }, [photos, activeSetId, sortOption]);
+
+    // Get the active set object
+    const activeSet = activeSetId ? sets.find(s => s.id === activeSetId) : null;
+    const activeSetName = activeSet ? activeSet.name : 'Highlights';
+    const activeSetPhotoCount = activeSetId
+        ? photos.filter(p => p.set_id === activeSetId).length
+        : photos.filter(p => !p.set_id).length;
+
+    // ─── SET HANDLERS ────────────────────────────────────────
+    const handleCreateSet = async () => {
+        if (!newSetName.trim() || !collectionId || !collection) return;
+        try {
+            setSavingSet(true);
+            const newSet = await galleryService.createSet({
+                collectionId,
+                photographerId: collection.photographer_id,
+                name: newSetName.trim(),
+                description: newSetDescription.trim() || null,
+                position: sets.length
+            });
+            setSets(prev => [...prev, newSet]);
+            setNewSetName('');
+            setNewSetDescription('');
+            setShowAddSetModal(false);
+            // Switch to the new set
+            setActiveSetId(newSet.id);
+        } catch (err) {
+            console.error('Failed to create set:', err);
+            alert('Failed to create set. Please try again.');
+        } finally {
+            setSavingSet(false);
+        }
+    };
+
+    const handleUpdateSet = async () => {
+        if (!editingSet || !editSetName.trim()) return;
+        try {
+            setSavingSet(true);
+            const updated = await galleryService.updateSet(editingSet.id, {
+                name: editSetName.trim(),
+                description: editSetDescription.trim() || null
+            });
+            setSets(prev => prev.map(s => s.id === editingSet.id ? { ...s, ...updated } : s));
+            setEditingSet(null);
+        } catch (err) {
+            console.error('Failed to update set:', err);
+            alert('Failed to update set. Please try again.');
+        } finally {
+            setSavingSet(false);
+        }
+    };
+
+    const handleDeleteSet = async (setId) => {
+        const setToDelete = sets.find(s => s.id === setId);
+        const confirmed = window.confirm(`Are you sure you want to delete the set "${setToDelete?.name}"? Photos will be moved to Highlights.`);
+        if (!confirmed) return;
+        try {
+            setSaving(true);
+            await galleryService.deleteSet(setId);
+            // Unassign photos locally
+            setPhotos(prev => prev.map(p => p.set_id === setId ? { ...p, set_id: null } : p));
+            setSets(prev => prev.filter(s => s.id !== setId));
+            if (activeSetId === setId) setActiveSetId(null);
+        } catch (err) {
+            console.error('Failed to delete set:', err);
+            alert('Failed to delete set. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const openEditSetModal = (set) => {
+        setEditingSet(set);
+        setEditSetName(set.name);
+        setEditSetDescription(set.description || '');
+        setShowSetMenu(null);
+    };
+
+    const handleMovePhotosToSet = async (setId) => {
+        if (selectedPhotos.length === 0) return;
+        try {
+            setSaving(true);
+            await galleryService.assignPhotosToSet(selectedPhotos, setId);
+            
+            // Update local state
+            setPhotos(prev => prev.map(p => 
+                selectedPhotos.includes(p.id) ? { ...p, set_id: setId } : p
+            ));
+            
+            setShowMoveToSetMenu(false);
+            clearSelection();
+        } catch (err) {
+            console.error('Move failed:', err);
+            alert('Failed to move photos. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // Auto-save design settings
+    useEffect(() => {
+        if (!collection || loading) return;
+
+        const saveSettings = async () => {
+            try {
+                await galleryService.updateCollection(collectionId, {
+                    cover_style: selectedCoverStyle === 'novel' ? 'photo' : (selectedCoverStyle === 'none' ? 'text_only' : 'photo'), // Map internal UI styles to enums
+                    font_family: selectedFont,
+                    color_palette: selectedColorPalette,
+                    grid_style: gridSettings.style,
+                    thumbnail_size: gridSettings.size,
+                    grid_spacing: gridSettings.spacing,
+                    nav_style: gridSettings.navigation === 'icon' ? 'icons' : 'icons_labels'
+                });
+            } catch (err) {
+                console.error('Error auto-saving settings:', err);
+            }
+        };
+
+        const timeoutId = setTimeout(saveSettings, 1000);
+        return () => clearTimeout(timeoutId);
+    }, [selectedCoverStyle, selectedFont, selectedColorPalette, gridSettings, collectionId, collection, loading]);
+
+    // Auto-save general settings
+    useEffect(() => {
+        if (!collection || loading) return;
+
+        const saveGeneralSettings = async () => {
+            try {
+                await galleryService.updateCollection(collectionId, {
+                    slug: collectionUrl,
+                    password: collectionPassword
+                });
+            } catch (err) {
+                console.error('Error auto-saving general settings:', err);
+            }
+        };
+
+        const timeoutId = setTimeout(saveGeneralSettings, 1500); // Slightly longer debounce for URL
+        return () => clearTimeout(timeoutId);
+    }, [collectionUrl, collectionPassword, collectionId, collection, loading]);
+
+    // Derived values
+    const collectionName = collection?.name || 'Loading...';
+    const collectionDate = collection?.event_date 
+        ? new Date(collection.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        : '...';
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -166,10 +449,11 @@ const CollectionDashboard = () => {
             if (photoMenuRef.current && !photoMenuRef.current.contains(e.target)) setActivePhotoMenu(null);
             if (gridSettingsRef.current && !gridSettingsRef.current.contains(e.target)) setShowGridSettings(false);
             if (moreRef.current && !moreRef.current.contains(e.target)) setShowMoreDropdown(false);
-            if (setMenuRef.current && !setMenuRef.current.contains(e.target)) setShowSetMenu(false);
+            if (setMenuRef.current && !setMenuRef.current.contains(e.target)) setShowSetMenu(null);
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortMenu(false);
             if (selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) setShowSelectionMore(false);
             if (selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) setShowSelectAllMenu(false);
+            if (moveToSetRef.current && !moveToSetRef.current.contains(e.target)) setShowMoveToSetMenu(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -177,16 +461,59 @@ const CollectionDashboard = () => {
 
     const handleFileSelect = (e) => {
         const files = Array.from(e.target.files);
-        files.forEach(file => {
-            if (file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    setPhotos(prev => [...prev, ev.target.result]);
-                };
-                reader.readAsDataURL(file);
-            }
-        });
+        if (files.length === 0) return;
+
         setShowUploadModal(false);
+
+        const newUploadFiles = files.map(file => ({
+            id: Math.random().toString(36).substr(2, 9),
+            file: file,
+            name: file.name,
+            size: file.size,
+            progress: 0,
+            status: 'uploading'
+        }));
+
+        setUploadWidget(prev => ({
+            isOpen: true,
+            isMinimized: false,
+            files: [...prev.files, ...newUploadFiles]
+        }));
+
+        newUploadFiles.forEach(uf => {
+            // Simulate progress while uploading
+            const interval = setInterval(() => {
+                setUploadWidget(prev => ({
+                    ...prev,
+                    files: prev.files.map(f => {
+                        if (f.id === uf.id && f.status === 'uploading') {
+                            const add = Math.floor(Math.random() * 15) + 5;
+                            return { ...f, progress: Math.min(f.progress + add, 90) };
+                        }
+                        return f;
+                    })
+                }));
+            }, 400);
+
+            // Upload with activeSetId so photos are assigned to the current set
+            galleryService.uploadPhoto(collectionId, collection.photographer_id, uf.file, photos.length, activeSetId)
+                .then(photoData => {
+                    clearInterval(interval);
+                    setUploadWidget(prev => ({
+                        ...prev,
+                        files: prev.files.map(f => f.id === uf.id ? { ...f, progress: 100, status: 'completed' } : f)
+                    }));
+                    setPhotos(prev => [...prev, photoData]);
+                })
+                .catch(err => {
+                    clearInterval(interval);
+                    console.error('Upload failed:', err);
+                    setUploadWidget(prev => ({
+                        ...prev,
+                        files: prev.files.map(f => f.id === uf.id ? { ...f, status: 'error' } : f)
+                    }));
+                });
+        });
     };
 
     const handleDropzoneClick = () => {
@@ -206,25 +533,49 @@ const CollectionDashboard = () => {
         setIsDraggingModal(false);
     };
 
-    const handleModalDrop = (e) => {
+    const handleModalDrop = async (e) => {
         e.preventDefault();
         setIsDraggingModal(false);
-        const files = Array.from(e.dataTransfer.files);
-        files.forEach(file => {
-            if (file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = (ev) => {
-                    setPhotos(prev => [...prev, ev.target.result]);
-                };
-                reader.readAsDataURL(file);
-            }
-        });
-        setShowUploadModal(false);
+        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+        if (files.length === 0) return;
+
+        try {
+            setSaving(true);
+            const uploadedPhotos = await galleryService.uploadPhotos(
+                collectionId, 
+                collection.photographer_id, 
+                files
+            );
+            setPhotos(prev => [...prev, ...uploadedPhotos]);
+            setShowUploadModal(false);
+        } catch (err) {
+            console.error('Upload failed:', err);
+            alert('Failed to upload photos. Please try again.');
+        } finally {
+            setSaving(false);
+        }
     };
 
-    const toggleStatus = () => {
-        setStatus(prev => prev === 'DRAFT' ? 'PUBLISHED' : 'DRAFT');
+    const toggleStatus = async () => {
+        const newStatus = status === 'DRAFT' ? 'published' : 'draft';
+        try {
+            await galleryService.updateCollection(collectionId, { status: newStatus });
+            setStatus(newStatus.toUpperCase());
+        } catch (err) {
+            console.error('Error updating status:', err);
+        }
     };
+
+    if (loading) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-[#fdfcfb]">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-12 h-12 border-4 border-[#593116] border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-[#593116] font-medium tracking-widest uppercase text-sm">Loading Collection...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className={`cd-layout-container ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
@@ -305,7 +656,7 @@ const CollectionDashboard = () => {
 
                         <div className="cd-cover-image">
                             {photos.length > 0 ? (
-                                <img src={photos[0]} alt="Cover" />
+                                <img src={photos[0].full_url} alt="Cover" />
                             ) : (
                                 <img src="https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&auto=format&fit=crop&q=60" alt="Cover" />
                             )}
@@ -350,36 +701,44 @@ const CollectionDashboard = () => {
                             <div className="cd-sidebar-photos-section">
                                 <div className="cd-sidebar-photos-header">
                                     <span className="cd-photos-label">PHOTOS</span>
-                                    <button className="cd-add-set-btn">
+                                    <button className="cd-add-set-btn" onClick={() => setShowAddSetModal(true)}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
                                         Add Set
                                     </button>
                                 </div>
-                                <div className="cd-set-item active">
+                                {/* Highlights (all photos) */}
+                                <div className={`cd-set-item ${!activeSetId ? 'active' : ''}`} onClick={() => setActiveSetId(null)}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
-                                    <span className="cd-set-name">Highlights ({photos.length})</span>
-                                    <div className="cd-set-actions">
-                                        <div className="cd-set-more-container">
-                                            <div className="cd-set-menu-wrapper" ref={setMenuRef}>
-                                                <button className="cd-set-menu-btn" onClick={() => setShowSetMenu(!showSetMenu)}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                </button>
-                                                {showSetMenu && (
-                                                    <div className="cd-set-dropdown">
-                                                        <div className="cd-ctx-item" onClick={() => setShowSetMenu(false)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                            <span>Edit set</span>
+                                    <span className="cd-set-name">Highlights ({photos.filter(p => !p.set_id).length})</span>
+                                </div>
+                                {/* Dynamic Sets */}
+                                {sets.map(set => (
+                                    <div key={set.id} className={`cd-set-item ${activeSetId === set.id ? 'active' : ''}`} onClick={() => setActiveSetId(set.id)}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
+                                        <span className="cd-set-name">{set.name} ({photos.filter(p => p.set_id === set.id).length})</span>
+                                        <div className="cd-set-actions">
+                                            <div className="cd-set-more-container">
+                                                <div className="cd-set-menu-wrapper" ref={setMenuRef}>
+                                                    <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                                                    </button>
+                                                    {showSetMenu === set.id && (
+                                                        <div className="cd-set-dropdown">
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); openEditSetModal(set); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                                                <span>Edit set</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                                <span>Delete set</span>
+                                                            </div>
                                                         </div>
-                                                        <div className="cd-ctx-item cd-ctx-delete" onClick={() => setShowSetMenu(false)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                            <span>Delete set</span>
-                                                        </div>
-                                                    </div>
-                                                )}
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                                ))}
                             </div>
                         )}
 
@@ -538,7 +897,7 @@ const CollectionDashboard = () => {
                         {activeSidebarTab === 'photos' && (
                             <>
                                 <div className="cd-main-header">
-                                    <h2 className="cd-main-title">Highlights</h2>
+                                    <h2 className="cd-main-title">{activeSetName}</h2>
                                     <div className="cd-main-actions">
                                         <div className="cd-sort-wrapper" ref={sortRef}>
                                             <button className="cd-icon-btn sort-btn" onClick={() => setShowSortMenu(!showSortMenu)}>
@@ -547,13 +906,13 @@ const CollectionDashboard = () => {
                                             {showSortMenu && (
                                                 <div className="cd-sort-dropdown">
                                                     <div className="cd-sort-label">Sort by</div>
-                                                    <div className="cd-sort-option" onClick={() => setShowSortMenu(false)}>Uploaded: New → Old</div>
-                                                    <div className="cd-sort-option" onClick={() => setShowSortMenu(false)}>Uploaded: Old → New</div>
-                                                    <div className="cd-sort-option" onClick={() => setShowSortMenu(false)}>Date Taken: New → Old</div>
-                                                    <div className="cd-sort-option" onClick={() => setShowSortMenu(false)}>Date Taken: Old → New</div>
-                                                    <div className="cd-sort-option" onClick={() => setShowSortMenu(false)}>Name: A-Z</div>
-                                                    <div className="cd-sort-option" onClick={() => setShowSortMenu(false)}>Name: Z-A</div>
-                                                    <div className="cd-sort-option" onClick={() => setShowSortMenu(false)}>Random</div>
+                                                    <div className={`cd-sort-option ${sortOption === 'upload-new-old' ? 'selected' : ''}`} onClick={() => { setSortOption('upload-new-old'); setShowSortMenu(false); }}>Uploaded: New → Old</div>
+                                                    <div className={`cd-sort-option ${sortOption === 'upload-old-new' ? 'selected' : ''}`} onClick={() => { setSortOption('upload-old-new'); setShowSortMenu(false); }}>Uploaded: Old → New</div>
+                                                    <div className={`cd-sort-option ${sortOption === 'taken-new-old' ? 'selected' : ''}`} onClick={() => { setSortOption('taken-new-old'); setShowSortMenu(false); }}>Date Taken: New → Old</div>
+                                                    <div className={`cd-sort-option ${sortOption === 'taken-old-new' ? 'selected' : ''}`} onClick={() => { setSortOption('taken-old-new'); setShowSortMenu(false); }}>Date Taken: Old → New</div>
+                                                    <div className={`cd-sort-option ${sortOption === 'name-az' ? 'selected' : ''}`} onClick={() => { setSortOption('name-az'); setShowSortMenu(false); }}>Name: A-Z</div>
+                                                    <div className={`cd-sort-option ${sortOption === 'name-za' ? 'selected' : ''}`} onClick={() => { setSortOption('name-za'); setShowSortMenu(false); }}>Name: Z-A</div>
+                                                    <div className={`cd-sort-option ${sortOption === 'random' ? 'selected' : ''}`} onClick={() => { setSortOption('random'); setShowSortMenu(false); }}>Random</div>
                                                 </div>
                                             )}
                                         </div>
@@ -593,63 +952,34 @@ const CollectionDashboard = () => {
                                     </div>
                                 </div>
 
-                                {photos.length > 0 ? (
+                                {sortedPhotos.length > 0 ? (
                                     <div className={`cd-photo-grid ${gridSize === 'large' ? 'grid-large' : ''}`}>
-                                        {photos.map((photo, index) => (
+                                        {sortedPhotos.map((photo, index) => (
                                             <div
-                                                className={`cd-photo-card ${selectedPhotos.includes(index) ? 'selected' : ''}`}
-                                                key={index}
-                                                onClick={() => togglePhotoSelection(index)}
+                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''}`}
+                                                key={photo.id || index}
+                                                onClick={() => togglePhotoSelection(photo.id)}
                                             >
                                                 <div className="cd-photo-card-inner">
-                                                    <img src={photo} alt={`Photo ${index + 1}`} />
+                                                    <img src={photo.full_url} alt={photo.filename || `Photo ${index + 1}`} />
                                                 </div>
-                                                {showFilename && <div className="cd-photo-filename">photo-{index + 1}.jpg</div>}
-                                                <button className="cd-photo-menu" onClick={(e) => { e.stopPropagation(); setActivePhotoMenu(activePhotoMenu === index ? null : index); }}>
+                                                {showFilename && <div className="cd-photo-filename">{photo.filename || `photo-${index + 1}.jpg`}</div>}
+                                                <button className="cd-photo-menu" onClick={(e) => { e.stopPropagation(); setActivePhotoMenu(activePhotoMenu === photo.id ? null : photo.id); }}>
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
                                                 </button>
-                                                <button className="cd-photo-star">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                                <button 
+                                                    className={`cd-photo-star ${photo.is_starred ? 'active' : ''}`}
+                                                    onClick={(e) => { e.stopPropagation(); handleToggleStar(photo.id, photo.is_starred); }}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#bbb"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                                 </button>
-                                                {activePhotoMenu === index && (
+                                                {activePhotoMenu === photo.id && (
                                                     <div className="cd-photo-context-menu" ref={photoMenuRef}>
-                                                        <div className="cd-ctx-item" onClick={() => setActivePhotoMenu(null)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
-                                                            <span>Open</span>
+                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setActivePhotoMenu(null); }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
+                                                            <span>Make cover</span>
                                                         </div>
-                                                        <div className="cd-ctx-item" onClick={() => setActivePhotoMenu(null)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                                                            <span>Quick share link</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item" onClick={() => setActivePhotoMenu(null)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                                            <span>Download</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item" onClick={() => setActivePhotoMenu(null)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-                                                            <span>Move/Copy</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item" onClick={() => setActivePhotoMenu(null)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                                            <span>Copy filenames</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item" onClick={() => setActivePhotoMenu(null)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                            <span>Set as cover</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item" onClick={() => setActivePhotoMenu(null)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                            <span>Rename</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item" onClick={() => setActivePhotoMenu(null)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
-                                                            <span>Replace photo</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item" onClick={() => setActivePhotoMenu(null)}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M15 9.354a4 4 0 1 0 0 5.292"></path></svg>
-                                                            <span>Watermark</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item cd-ctx-delete" onClick={() => setActivePhotoMenu(null)}>
+                                                        <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setActivePhotoMenu(null); deleteSelectedPhotos([photo.id]); }}>
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                                             <span>Delete</span>
                                                         </div>
@@ -678,7 +1008,7 @@ const CollectionDashboard = () => {
                                                     <line x1="12" y1="15" x2="18" y2="15"></line>
                                                 </svg>
                                             </div>
-                                            <h3 className="cd-drop-title">Drag photos and videos here to upload</h3>
+                                            <h3 className="cd-drop-title">Upload photos to {activeSetName}</h3>
                                             <p className="cd-drop-subtitle">or <span className="cd-browse-link">Browse files</span></p>
                                         </div>
                                     </div>
@@ -894,7 +1224,7 @@ const CollectionDashboard = () => {
                                                                 </div>
                                                             </div>
                                                             <div className="header-right">
-                                                                {photos.length > 0 && <img src={photos[0]} alt="Preview" />}
+                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
                                                             </div>
                                                         </div>
                                                     )}
@@ -903,7 +1233,7 @@ const CollectionDashboard = () => {
                                                     {selectedCoverStyle === 'center' && (
                                                         <div className="header-center-layout">
                                                             <div className="header-bg-img">
-                                                                {photos.length > 0 && <img src={photos[0]} alt="Preview" />}
+                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
                                                             </div>
                                                             <div className="header-overlay">
                                                                 <div className="h-super">DFCGVHBJNK</div>
@@ -918,7 +1248,7 @@ const CollectionDashboard = () => {
                                                     {selectedCoverStyle === 'left' && (
                                                         <div className="header-left-layout">
                                                             <div className="header-bg-img">
-                                                                {photos.length > 0 && <img src={photos[0]} alt="Preview" />}
+                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
                                                             </div>
                                                             <div className="header-content">
                                                                 <div className="h-super">DFCGVHBJNK</div>
@@ -934,7 +1264,7 @@ const CollectionDashboard = () => {
                                                         <div className="header-vintage-layout">
                                                             <div className="header-left">
                                                                 <div className="vintage-img-box">
-                                                                    {photos.length > 0 && <img src={photos[0]} alt="Preview" />}
+                                                                    {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
                                                                 </div>
                                                             </div>
                                                             <div className="header-right">
@@ -953,7 +1283,7 @@ const CollectionDashboard = () => {
                                                         <div className="header-frame-layout">
                                                             <div className="header-frame-inner">
                                                                 <div className="header-bg-img">
-                                                                    {photos.length > 0 && <img src={photos[0]} alt="Preview" />}
+                                                                    {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
                                                                 </div>
                                                                 <div className="header-overlay">
                                                                     <div className="h-super">DFCGVHBJNK</div>
@@ -968,7 +1298,7 @@ const CollectionDashboard = () => {
                                                     {selectedCoverStyle === 'stripe' && (
                                                         <div className="header-stripe-layout">
                                                             <div className="header-bg-img">
-                                                                {photos.length > 0 && <img src={photos[0]} alt="Preview" />}
+                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
                                                             </div>
                                                             <div className="header-overlay">
                                                                 <div className="stripe-line"></div>
@@ -984,7 +1314,7 @@ const CollectionDashboard = () => {
                                                     {selectedCoverStyle === 'divider' && (
                                                         <div className="header-divider-layout">
                                                             <div className="divider-left">
-                                                                {photos.length > 0 && <img src={photos[0]} alt="Preview" />}
+                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
                                                             </div>
                                                             <div className="divider-right">
                                                                 <div className="header-title-box">
@@ -1001,7 +1331,7 @@ const CollectionDashboard = () => {
                                                     {selectedCoverStyle === 'journal' && (
                                                         <div className="header-journal-layout">
                                                             <div className="journal-left">
-                                                                {photos.length > 0 && <img src={photos[0]} alt="Preview" />}
+                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
                                                             </div>
                                                             <div className="journal-right">
                                                                 <div className="header-title-box">
@@ -1018,7 +1348,7 @@ const CollectionDashboard = () => {
                                                     {selectedCoverStyle === 'stamp' && (
                                                         <div className="header-stamp-layout">
                                                             <div className="stamp-img">
-                                                                {photos.length > 0 && <img src={photos[0]} alt="Preview" />}
+                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
                                                             </div>
                                                             <div className="h-super">DFCGVHBJNK</div>
                                                             <div className="h-title">b</div>
@@ -1043,7 +1373,7 @@ const CollectionDashboard = () => {
                                                     {selectedCoverStyle === 'classic' && (
                                                         <div className="header-classic-layout">
                                                             <div className="header-bg-img">
-                                                                {photos.length > 0 && <img src={photos[0]} alt="Preview" />}
+                                                                {photos.length > 0 && <img src={photos[0].full_url} alt="Preview" />}
                                                             </div>
                                                             <div className="classic-overlay">
                                                                 <div className="h-title">b</div>
@@ -1073,7 +1403,7 @@ const CollectionDashboard = () => {
                                                     <div className="gallery-mock-grid">
                                                         {[...Array(12)].map((_, i) => (
                                                             <div key={i} className={`mock-grid-item item-${i}`}>
-                                                                {photos[i % photos.length] && <img src={photos[i % photos.length]} alt="Grid Mock" />}
+                                                                {photos[i % photos.length] && <img src={photos[i % photos.length].full_url} alt="Grid Mock" />}
                                                             </div>
                                                         ))}
                                                     </div>
@@ -1604,10 +1934,25 @@ const CollectionDashboard = () => {
                                 <button className="cd-sel-action-btn" title="Share link">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                                 </button>
-                                <button className="cd-sel-action-btn" title="Move/Copy">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" /></svg>
-                                </button>
-                                <button className="cd-sel-action-btn" title="Delete">
+                                <div className="cd-selection-move-wrapper" ref={moveToSetRef}>
+                                    <button className="cd-sel-action-btn" title="Move/Copy" onClick={() => setShowMoveToSetMenu(!showMoveToSetMenu)}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" /></svg>
+                                    </button>
+                                    {showMoveToSetMenu && (
+                                        <div className="cd-selection-move-dropdown">
+                                            <div className="cd-sort-label">Move to Set</div>
+                                            <div className={`cd-ctx-item ${!activeSetId ? 'disabled' : ''}`} onClick={() => activeSetId && handleMovePhotosToSet(null)}>
+                                                Highlights
+                                            </div>
+                                            {sets.map(s => (
+                                                <div key={s.id} className={`cd-ctx-item ${activeSetId === s.id ? 'disabled' : ''}`} onClick={() => activeSetId !== s.id && handleMovePhotosToSet(s.id)}>
+                                                    {s.name}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                                <button className="cd-sel-action-btn" title="Delete" onClick={deleteSelectedPhotos}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                                 </button>
                                 <button className="cd-sel-action-btn" title="More" onClick={() => setShowSelectionMore(!showSelectionMore)} ref={selectionMoreRef}>
@@ -1822,6 +2167,167 @@ const CollectionDashboard = () => {
                         </div>
                     </div>
                 )}
+
+            {/* Add Set Modal */}
+            {showAddSetModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowAddSetModal(false)}>
+                    <div className="cd-modal cd-set-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">NEW PHOTO SET</h3>
+                            <button className="cd-modal-close" onClick={() => setShowAddSetModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-set-modal-body">
+                            <div className="cd-set-field">
+                                <label className="cd-set-field-label">Photo Set Name</label>
+                                <input
+                                    type="text"
+                                    className="cd-set-field-input"
+                                    placeholder="e.g. Ceremony, Reception, Getting ready"
+                                    value={newSetName}
+                                    onChange={(e) => setNewSetName(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="cd-set-field">
+                                <label className="cd-set-field-label">Description</label>
+                                <textarea
+                                    className="cd-set-field-textarea"
+                                    placeholder="Optional"
+                                    value={newSetDescription}
+                                    onChange={(e) => setNewSetDescription(e.target.value)}
+                                    maxLength={500}
+                                    rows={4}
+                                />
+                                <span className="cd-set-field-counter">{newSetDescription.length} / 500</span>
+                                <p className="cd-set-field-hint">Description is shown to clients viewing this photo set for additional storytelling.</p>
+                            </div>
+                        </div>
+                        <div className="cd-set-modal-footer">
+                            <button className="cd-cancel-btn" onClick={() => setShowAddSetModal(false)}>Cancel</button>
+                            <button className="cd-save-btn" onClick={handleCreateSet} disabled={!newSetName.trim() || savingSet}>
+                                {savingSet ? 'Saving...' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Set Modal */}
+            {editingSet && (
+                <div className="cd-modal-overlay" onClick={() => setEditingSet(null)}>
+                    <div className="cd-modal cd-set-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">EDIT PHOTO SET</h3>
+                            <button className="cd-modal-close" onClick={() => setEditingSet(null)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-set-modal-body">
+                            <div className="cd-set-field">
+                                <label className="cd-set-field-label">Photo Set Name</label>
+                                <input
+                                    type="text"
+                                    className="cd-set-field-input"
+                                    value={editSetName}
+                                    onChange={(e) => setEditSetName(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                            <div className="cd-set-field">
+                                <label className="cd-set-field-label">Description</label>
+                                <textarea
+                                    className="cd-set-field-textarea"
+                                    placeholder="Optional"
+                                    value={editSetDescription}
+                                    onChange={(e) => setEditSetDescription(e.target.value)}
+                                    maxLength={500}
+                                    rows={4}
+                                />
+                                <span className="cd-set-field-counter">{editSetDescription.length} / 500</span>
+                                <p className="cd-set-field-hint">Description is shown to clients viewing this photo set for additional storytelling.</p>
+                            </div>
+                        </div>
+                        <div className="cd-set-modal-footer">
+                            <button className="cd-cancel-btn" onClick={() => setEditingSet(null)}>Cancel</button>
+                            <button className="cd-save-btn" onClick={handleUpdateSet} disabled={!editSetName.trim() || savingSet}>
+                                {savingSet ? 'Saving...' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* Upload Widget */}
+            {uploadWidget.isOpen && (
+                <div className={`upload-widget ${uploadWidget.isMinimized ? 'minimized' : ''}`}>
+                    <div className="upload-widget-header" onClick={() => setUploadWidget(prev => ({ ...prev, isMinimized: !prev.isMinimized }))}>
+                        <div className="upload-header-left">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <div className="upload-progress-info">
+                                <h4>Uploading {uploadWidget.files.filter(f => f.status === 'uploading').length} Items</h4>
+                                {uploadWidget.files.filter(f => f.status === 'uploading').length > 0 && (
+                                    <span>
+                                        {Math.round(uploadWidget.files.reduce((acc, f) => acc + (f.size * f.progress / 100), 0) / 1024 / 1024 * 100) / 100} MB / 
+                                        {Math.round(uploadWidget.files.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024 * 100) / 100} MB
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                        <div className="upload-header-actions">
+                            <button className="upload-action-btn">{uploadWidget.isMinimized ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            )}</button>
+                            <button className="upload-action-btn" onClick={(e) => { e.stopPropagation(); setUploadWidget({ isOpen: false, isMinimized: false, files: [] }); }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {!uploadWidget.isMinimized && (
+                        <div className="upload-widget-list">
+                            {uploadWidget.files.map(file => (
+                                <div key={file.id} className="upload-widget-item">
+                                    <div className="upload-item-icon">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                    </div>
+                                    <div className="upload-item-details">
+                                        <p className="upload-item-name">{file.name}</p>
+                                        <p className="upload-item-status">
+                                            {file.status === 'uploading' ? `Uploading • ${(file.size / 1024 / 1024).toFixed(2)} MB` 
+                                                : file.status === 'completed' ? 'Completed' 
+                                                : 'Failed'}
+                                        </p>
+                                    </div>
+                                    <div className="upload-item-progress">
+                                        {file.status === 'uploading' && (
+                                            <div className="progress-circle-wrap">
+                                                <svg className="progress-circle" viewBox="0 0 36 36">
+                                                    <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                                    <path className="circle-progress" strokeDasharray={`${file.progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                                </svg>
+                                            </div>
+                                        )}
+                                        {file.status === 'completed' && (
+                                            <span style={{color: '#10b981'}}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                                            </span>
+                                        )}
+                                        {file.status === 'error' && (
+                                            <span style={{color: '#ef4444'}}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 };

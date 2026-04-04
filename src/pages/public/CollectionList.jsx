@@ -79,9 +79,9 @@ const CollectionList = () => {
                   {collection.name}
                 </h3>
                 <div className="flex items-center justify-center gap-4 text-[10px] font-medium tracking-widest text-gray-400 uppercase">
-                  <span>{collection.date}</span>
+                  <span>{collection.event_date}</span>
                   <span className="h-1 w-1 rounded-full bg-gray-200" />
-                  <span>{collection.photoCount || 0} items</span>
+                  <span>{collection.photo_count || 0} items</span>
                 </div>
               </div>
             </motion.div>

@@ -2,131 +2,103 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    background-color: #ffffff;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    background-color: #fdfaf4;
+    font-family: 'Outfit', sans-serif;
 }
 
 .cc-header {
+    height: 79px;
     display: flex;
     align-items: center;
-    height: 60px;
-    padding: 0 20px;
-    border-bottom: 1px solid transparent;
-    /* The screenshot shows no strict border but is generally very clean */
-    color: #222;
+    padding: 0 24px;
+    border-bottom: 1px solid #ebebeb;
+    background-color: #fdfaf4;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }
 
-.cc-close-btn {
+.cc-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.cc-back-btn {
     background: none;
     border: none;
+    color: #888;
     cursor: pointer;
-    color: #777;
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 8px;
-    margin-right: 12px;
+    border-radius: 50%;
+    transition: background 0.2s, color 0.2s;
 }
 
-.cc-close-btn:hover {
-    color: #222;
+.cc-back-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: #111;
 }
 
 .cc-header-title {
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 700;
     color: #111;
+    text-transform: none;
+    letter-spacing: normal;
 }
 
 .cc-main {
     flex: 1;
     display: flex;
     justify-content: center;
-    padding-top: 100px;
-    /* Push content down */
+    padding: 80px 24px;
 }
 
 .cc-form-container {
     width: 100%;
-    max-width: 650px;
-    /* Width matching the long inputs in screenshot */
-    padding: 0 40px;
+    max-width: 580px;
 }
 
-.cc-title {
-    font-size: 26px;
-    font-weight: 600;
+.cc-form-title {
+    font-size: 32px;
+    font-weight: 700;
     color: #111;
-    margin-bottom: 40px;
+    margin-bottom: 48px;
+    font-family: 'Playfair Display', serif;
 }
 
 .cc-form-group {
-    margin-bottom: 24px;
-    display: flex;
-    flex-direction: column;
+    margin-bottom: 32px;
 }
 
 .cc-label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 10px;
-}
-
-.cc-input-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #888;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
 .cc-input {
     width: 100%;
-    height: 44px;
-    border: 1px solid #e2e8e8;
+    height: 48px;
+    border: 1px solid #ebebeb;
     border-radius: 2px;
     padding: 0 16px;
     font-size: 14px;
-    color: #333;
+    color: #111;
+    background-color: #fff;
     outline: none;
     transition: border-color 0.2s;
 }
 
-.cc-input::placeholder {
-    color: #999;
-}
-
 .cc-input:focus {
     border-color: #593116;
-}
-
-.cc-input-wrapper .cc-input {
-    padding-right: 48px;
-    /* space for the calendar icon */
-}
-
-.cc-input-icon {
-    position: absolute;
-    right: 16px;
-    color: #999;
-    pointer-events: none;
-}
-
-.cc-submit-btn {
-    background-color: #1abc9c;
-    color: #fff;
-    border: none;
-    border-radius: 2px;
-    height: 42px;
-    padding: 0 24px;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    margin-top: 10px;
-    transition: background-color 0.2s;
-}
-
-.cc-submit-btn:hover {
-    background-color: #16a085;
 }
 
 .cc-select-wrapper {
@@ -137,12 +109,12 @@
 
 .cc-select {
     width: 100%;
-    height: 44px;
-    border: 1px solid #e2e8e8;
+    height: 48px;
+    border: 1px solid #ebebeb;
     border-radius: 2px;
     padding: 0 16px;
     font-size: 14px;
-    color: #333;
+    color: #111;
     outline: none;
     appearance: none;
     background-color: #fff;
@@ -152,6 +124,56 @@
 .cc-select-icon {
     position: absolute;
     right: 16px;
-    color: #999;
+    color: #aaa;
     pointer-events: none;
+}
+
+.cc-actions {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-top: 48px;
+}
+
+.cc-submit-btn {
+    background-color: #593116;
+    color: #fff;
+    border: none;
+    border-radius: 3px;
+    height: 44px;
+    padding: 0 32px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.cc-submit-btn:hover {
+    background-color: #42220c;
+}
+
+.cc-cancel-btn {
+    background: none;
+    border: none;
+    color: #666;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.cc-cancel-btn:hover {
+    color: #111;
+}
+
+/* Custom DatePicker Overrides for this page */
+.cc-form-group .dp-wrapper {
+    border: 1px solid #ebebeb;
+    height: 48px;
+    border-radius: 2px;
+}
+
+.cc-form-group .dp-wrapper:focus-within {
+    border-color: #593116;
+    box-shadow: none;
 }

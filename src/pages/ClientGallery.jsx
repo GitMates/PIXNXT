@@ -1,11 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
+import { useAuth } from '../hooks/useAuth';
+import { galleryService } from '../services/gallery.service';
 import './ClientGallery.css';
 
 const ClientGallery = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [collections, setCollections] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const navigateNewCollection = () => navigate('/collections/create');
 
     const [showSortDropdown, setShowSortDropdown] = useState(false);
@@ -27,72 +32,59 @@ const ClientGallery = () => {
     const newCollectionRef = useRef(null);
 
     useEffect(() => {
-        // Load collections from localStorage
-        const saved = localStorage.getItem('pixnxt_collections');
-        let initialCollections = [];
-        if (saved) {
-            try { initialCollections = JSON.parse(saved); } catch (e) { }
-        }
-
-        const cover = localStorage.getItem('pixnxt_collection_cover');
-        const count = localStorage.getItem('pixnxt_collection_photo_count');
-        const name = localStorage.getItem('pixnxt_collection_name');
-        const photos = localStorage.getItem('pixnxt_photos');
-        
-        if (name && initialCollections.length > 0) {
-            const updated = initialCollections.map(c => {
-                if (c.name === name) {
-                    // Try to get cover: explicit cover > first photo > existing cover
-                    let coverImg = cover || c.cover;
-                    if (!coverImg && photos) {
-                        try {
-                            const photoArr = JSON.parse(photos);
-                            if (photoArr.length > 0) coverImg = photoArr[0];
-                        } catch (e) {}
-                    }
-                    return {
-                        ...c,
-                        cover: coverImg,
-                        photoCount: count ? parseInt(count) : c.photoCount
-                    };
-                }
-                return c;
-            });
-            // Only update if changed
-            const hasChanges = updated.some((c, i) =>
-                c.cover !== initialCollections[i].cover || c.photoCount !== initialCollections[i].photoCount
-            );
-            if (hasChanges) {
-                setCollections(updated);
-                localStorage.setItem('pixnxt_collections', JSON.stringify(updated));
-            } else {
-                setCollections(initialCollections);
+        const fetchCollections = async () => {
+            if (!user) return;
+            
+            try {
+                setLoading(true);
+                setError(null);
+                const data = await galleryService.getCollections(user.id);
+                setCollections(data);
+            } catch (err) {
+                console.error('Error fetching collections:', err);
+                setError('Failed to load collections. Please try again.');
+            } finally {
+                setLoading(false);
             }
-        }
-    }, []);
+        };
+
+        fetchCollections();
+    }, [user]);
 
 
 
     const handleCardClick = (collection) => {
-        if (selectedCards.length > 0) return; // don't navigate in selection mode
-        localStorage.setItem('pixnxt_collection_name', collection.name);
-        localStorage.setItem('pixnxt_collection_date', collection.date);
-        navigate('/collections/manage');
+        if (selectedCards.length > 0) return;
+        navigate(`/collections/manage?id=${collection.id}`);
     };
 
-    const handleCoverUpload = (collectionId, e) => {
+    const handleCoverUpload = async (collectionId, e) => {
         e.stopPropagation();
         const file = e.target.files[0];
         if (file && file.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = (ev) => {
-                const updated = collections.map(c =>
-                    c.id === collectionId ? { ...c, cover: ev.target.result } : c
-                );
-                setCollections(updated);
-                localStorage.setItem('pixnxt_collections', JSON.stringify(updated));
-            };
-            reader.readAsDataURL(file);
+            try {
+                setLoading(true);
+                // In a real app, upload to storage and get URL
+                // For now, let's just use the galleryService to update
+                // But normally we'd do galleryService.uploadPhotos then updateCollection
+                alert('Please use the dynamic Collection Dashboard to manage cover photos for better storage management.');
+            } catch (err) {
+                console.error('Error updating cover:', err);
+            } finally {
+                setLoading(false);
+            }
+        }
+    };
+
+    const handleDeleteCollection = async (collectionId) => {
+        if (!window.confirm('Are you sure you want to delete this collection? All photos will be removed.')) return;
+        
+        try {
+            await galleryService.deleteCollection(collectionId);
+            setCollections(prev => prev.filter(c => c.id !== collectionId));
+        } catch (err) {
+            console.error('Error deleting collection:', err);
+            alert('Failed to delete collection.');
         }
     };
 
@@ -357,8 +349,8 @@ const ClientGallery = () => {
                                 onClick={() => handleCardClick(collection)}
                             >
                                 <div className="cg-card-thumb">
-                                    {collection.cover ? (
-                                        <img src={collection.cover} alt={collection.name} />
+                                    {(collection.cover_url || collection.cover) ? (
+                                        <img src={collection.cover_url || collection.cover} alt={collection.name} />
                                     ) : (
                                         <div className="cg-card-placeholder">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
@@ -408,9 +400,9 @@ const ClientGallery = () => {
                                     <h3 className="cg-card-name">{collection.name}</h3>
                                     <div className="cg-card-meta">
                                         <span className="cg-card-dot"></span>
-                                        <span className="cg-card-count">{collection.photoCount || 0} items</span>
+                                        <span className="cg-card-count">{collection.photo_count || 0} items</span>
                                         <span className="cg-card-separator">·</span>
-                                        <span className="cg-card-date">{collection.date}</span>
+                                        <span className="cg-card-date">{collection.event_date ? new Date(collection.event_date).toLocaleDateString() : 'No date'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -444,9 +436,9 @@ const ClientGallery = () => {
                                     </div>
                                     <div className="cg-list-name-info">
                                         <span className="cg-list-name">{collection.name}</span>
-                                        <span className="cg-list-sub">{collection.photoCount || 0} items{collection.date ? ` · ${collection.date}` : ''}</span>
+                                        <span className="cg-list-sub">{collection.photo_count || 0} items{collection.event_date ? ` · ${new Date(collection.event_date).toLocaleDateString()}` : ''}</span>
                                     </div>
-                                    <span className={`cg-list-badge${collection.photoCount > 0 ? ' published' : ''}`}>{collection.photoCount > 0 ? 'PUBLISHED' : 'DRAFT'}</span>
+                                    <span className={`cg-list-badge ${collection.status === 'published' ? 'published' : 'draft'}`}>{collection.status?.toUpperCase() || 'DRAFT'}</span>
                                 </div>
                                 <div className="cg-list-col cg-list-col-pw">
                                     <span className="cg-list-dash">-</span>

@@ -11,6 +11,7 @@ import { cn } from '../../lib/utils';
 const GalleryView = () => {
   const { slug } = useParams();
   const [collection, setCollection] = useState(null);
+  const [photographer, setPhotographer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [showHero, setShowHero] = useState(true);
@@ -25,32 +26,27 @@ const GalleryView = () => {
       try {
         setLoading(true);
         const data = await galleryService.getCollectionBySlug(slug);
-        setCollection(data);
-      } catch (err) {
-        console.error(err);
-        setError(err.message);
         
-        // Fallback to localStorage for development
-        const saved = localStorage.getItem('pixnxt_collections');
-        if (saved) {
-          const collections = JSON.parse(saved);
-          const found = collections.find(c => c.name.toLowerCase().replace(/ /g, '-') === slug);
-          if (found) {
-            // Mock the photos for now
-            const photos = JSON.parse(localStorage.getItem('pixnxt_photos') || '[]');
-            setCollection({
-              ...found,
-              photos: photos.map(url => ({ id: Math.random(), url, aspect_ratio: 1.5 }))
-            });
-            setError(null);
-          }
+        if (!data) {
+          setError('Collection not found');
+          return;
         }
+
+        setCollection(data);
+        
+        if (data.photographer_id) {
+          const p = await galleryService.getPhotographerProfile(data.photographer_id);
+          setPhotographer(p);
+        }
+      } catch (err) {
+        console.error('Gallery Fetch Error:', err);
+        setError(err.message || 'An error occurred while loading the gallery');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchGallery();
+    if (slug) fetchGallery();
   }, [slug]);
 
   const scrollToGallery = () => {
@@ -77,22 +73,36 @@ const GalleryView = () => {
     </div>
   );
 
-  const photoUrls = collection.photos?.map(p => p.url) || [];
+  const photoUrls = collection.photos?.map(p => p.full_url || p.web_url || p.thumbnail_url) || [];
+
+  // Map design tokens from individual Supabase columns
+  const fontClass = collection.font_family === 'serif' ? 'font-serif' : 'font-sans';
+  
+  // Advanced color mapping
+  const palette = collection.color_palette || 'light';
+  const isDark = palette === 'dark';
+  
+  const bgColor = isDark ? 'bg-[#111111]' : (palette === 'gold' ? 'bg-[#faf7f2]' : 'bg-white');
+  const textColor = isDark ? 'text-white' : 'text-zinc-900';
+  const borderColor = isDark ? 'border-zinc-800' : 'border-zinc-100';
 
   return (
-    <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-black selection:text-white">
+    <div className={cn("min-h-screen transition-colors duration-700", fontClass, bgColor, textColor, "selection:bg-black selection:text-white")}>
       {/* Hero Section */}
       <GalleryHero 
         title={collection.name}
-        date={collection.date}
-        coverImage={collection.cover_url || (collection.photos?.[0]?.url)}
+        date={collection.event_date}
+        coverImage={collection.cover_url || (collection.photos?.[0]?.web_url)}
         onEnter={scrollToGallery}
       />
 
       {/* Sticky Header */}
       <motion.header 
         style={{ opacity: headerOpacity }}
-        className="fixed top-0 z-50 flex h-16 w-full items-center justify-between px-6 bg-white/80 backdrop-blur-md border-b border-gray-100"
+        className={cn(
+          "fixed top-0 z-50 flex h-16 w-full items-center justify-between px-6 backdrop-blur-md border-b",
+          collection.color_palette === 'dark' ? "bg-zinc-950/80 border-zinc-800" : "bg-white/80 border-zinc-100"
+        )}
       >
         <div className="flex items-center gap-4">
           <h1 className="text-sm font-bold tracking-tighter uppercase">{collection.name}</h1>
@@ -138,7 +148,9 @@ const GalleryView = () => {
         <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="text-center md:text-left">
             <p className="text-[10px] tracking-[0.3em] font-bold uppercase text-gray-400 mb-2">Photographer</p>
-            <h3 className="text-sm font-bold tracking-tighter uppercase">PIXNXT STUDIO</h3>
+            <h3 className="text-sm font-bold tracking-tighter uppercase">
+              {photographer?.display_name || photographer?.name || "PIXNXT STUDIO"}
+            </h3>
           </div>
           <div className="flex items-center gap-8 text-[10px] font-bold tracking-widest uppercase">
             <a href="#" className="hover:opacity-40 transition-opacity">Contact</a>

@@ -84,3 +84,23 @@ export async function getUser() {
   
   return user;
 }
+/**
+ * Retrieves the profile of the photographer from the database.
+ * @param {string} userId - Auth user ID.
+ * @returns {Promise<Object|null>} - Photographer profile.
+ */
+export async function getProfile(userId) {
+  const { data, error } = await supabase
+    .from('photographers')
+    .select('*')
+    .eq('id', userId)
+    .single();
+
+  if (error) {
+    if (error.code === 'PGRST116') return null; // No profile found
+    console.error('Profile retrieval error:', error.message);
+    throw error;
+  }
+
+  return data;
+}
