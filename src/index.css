@@ -1,288 +1,96 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Montserrat:wght@300;400;500;600;700&family=Lora:ital,wght@0,400..700;1,400..700&family=Unbounded:wght@400;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Lora:ital,wght@0,400..700;1,400..700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-    /* Sandal / Brown Theme Palette */
-    --color-black: #2a1608;
-    /* Dark brown substituting for black */
-    --color-white: #fdfaf4;
-    /* Light sandal background substituting for white */
-    --color-gray-100: #f5eedf;
-    /* Slightly darker sandal */
-    --color-gray-200: #eedec3;
-    /* Warm beige */
-    --color-gray-300: #dbbfa5;
-    --color-gray-400: #c29775;
-    --color-gray-500: #ad7852;
-    --color-gray-600: #935a34;
-    --color-gray-700: #7a4624;
-    --color-gray-800: #593116;
-    --color-gray-900: #42220c;
-    /* Deep brown substituting for darkest gray */
-    /* Hover accent requested from screenshot */
-    --color-hover: #ad7852;
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
 
-    /* Typography */
-    --font-primary: 'Playfair Display', serif;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
 
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
 
-    /* Spacing */
-    --spacing-xs: 0.5rem;
-    --spacing-sm: 1rem;
-    --spacing-md: 2rem;
-    --spacing-lg: 4rem;
-    --spacing-xl: 6rem;
-    --spacing-xxl: 10rem;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
 
-    /* Layout */
-    --max-width: 1400px;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 10% 3.9%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 3.9%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 0 0% 98%;
+    --primary-foreground: 240 5.9% 10%;
+
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+  }
 }
 
-body.dark-theme {
-    --color-white: #1a0f08;
-    --color-gray-100: #291a11;
-    --color-gray-200: #3b271a;
-    --color-black: #fdfaf4;
-    --color-gray-900: #fdfaf4;
-    --color-gray-800: #e0d0c1;
-    --color-gray-700: #ad7852;
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
 }
 
-* {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
+/* Custom Utilities for Nova Theme */
+.selection-white::selection {
+  @apply bg-white text-black;
 }
 
-body {
-    font-family: var(--font-primary);
-    background-color: var(--color-white);
-    color: var(--color-gray-900);
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+.selection-black::selection {
+  @apply bg-black text-white;
 }
 
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-    font-weight: 500;
-    line-height: 1.2;
-    letter-spacing: -0.02em;
+/* Hide scrollbars but keep functionality */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
-
-a {
-    color: inherit;
-    text-decoration: none;
-}
-
-ul {
-    list-style: none;
-}
-
-button {
-    font-family: inherit;
-}
-
-/* Utilities */
-.container {
-    max-width: var(--max-width);
-    margin: 0 auto;
-    padding: 0 var(--spacing-sm);
-}
-
-@media (min-width: 768px) {
-    .container {
-        padding: 0 var(--spacing-md);
-    }
-}
-
-.text-center {
-    text-align: center;
-}
-
-/* ========================================================================= */
-/* DARK MODE OVERRIDES (SIDEBAR ONLY) */
-/* ========================================================================= */
-
-body.dark-theme .cg-sidebar,
-body.dark-theme .cd-sidebar,
-body.dark-theme .cd-sidebar-scrollable {
-    background-color: #1a0f08 !important;
-    border-color: #3b271a !important;
-}
-
-body.dark-theme .cg-sidebar span,
-body.dark-theme .cd-sidebar span,
-body.dark-theme .cg-storage-title,
-body.dark-theme .cd-photos-label,
-body.dark-theme .cd-add-set-btn,
-body.dark-theme .cd-set-name,
-body.dark-theme .cd-set-menu-btn,
-body.dark-theme .cg-sidebar-bottom .cg-theme-toggle-container span {
-    color: #fdfaf4 !important;
-}
-
-body.dark-theme .cg-storage-card,
-body.dark-theme .cd-icon-bar-btn:hover,
-body.dark-theme .cd-design-nav-item:hover,
-body.dark-theme .cg-collapse-toggle-box:hover {
-    background-color: #291a11 !important;
-}
-
-body.dark-theme .cd-design-nav-item.active,
-body.dark-theme .cg-nav-item.active,
-body.dark-theme .cd-set-item.active {
-    background-color: rgba(253, 250, 244, 0.08) !important;
-}
-
-body.dark-theme .cg-storage-text,
-body.dark-theme .cg-nav-item svg,
-body.dark-theme .cg-nav-icon svg,
-body.dark-theme .cd-icon-bar-btn {
-    color: #dcb394 !important;
-}
-
-body.dark-theme .cd-icon-bar-btn svg {
-    stroke: #dcb394 !important;
-}
-
-body.dark-theme .cd-design-nav-item span,
-body.dark-theme .cd-set-menu-btn svg {
-    color: #fdfaf4 !important;
-}
-
-body.dark-theme .tab-badge {
-    color: #111 !important;
-    background-color: #eedec3 !important;
-}
-
-body.dark-theme .tab-badge.off {
-    background-color: #d8d8d8 !important;
-}
-
-body.dark-theme .cd-topbar {
-    background-color: #1a0f08 !important;
-    border-bottom: 1px solid #2a1a10 !important;
-    color: #fdfaf4 !important;
-}
-
-body.dark-theme .cd-title,
-body.dark-theme .cd-subtitle {
-    color: #fdfaf4 !important;
-}
-
-body.dark-theme .cd-text-btn,
-body.dark-theme .cd-back-btn svg {
-    color: #fdfaf4 !important;
-}
-
-body.dark-theme .cg-app-dropdown {
-    background-color: #291a11 !important;
-    border-color: #3b271a !important;
-}
-
-body.dark-theme .cg-app-dropdown-item:hover {
-    background-color: rgba(253, 250, 244, 0.08) !important;
-}
-
-body.dark-theme .cg-app-name {
-    color: #fdfaf4 !important;
-}
-
-body.dark-theme .cg-app-desc {
-    color: #dcb394 !important;
-}
-
-body.dark-theme .cg-app-dropdown-divider {
-    background-color: #3b271a !important;
-}
-
-body.dark-theme .cd-set-menu-btn:hover,
-body.dark-theme .cd-add-set-btn:hover {
-    color: #fff !important;
-}
-
-body.dark-theme .cd-photo-card {
-    background-color: #2a1a10 !important;
-}
-
-body.dark-theme .cg-nav-item.active span,
-body.dark-theme .cg-nav-item.active svg,
-body.dark-theme .cd-icon-bar-btn.active {
-    color: #fdfaf4 !important;
-}
-
-body.dark-theme .cg-theme-toggle-container .cg-theme-switch {
-    background-color: #3b271a !important;
-}
-
-/* Global Mobile Responsiveness (Excludes Landing Page & ClientGallery which manage their own) */
-@media screen and (max-width: 768px) {
-
-    /* Collection Dashboard layout */
-    .cd-main-area {
-        flex-direction: column !important;
-        height: auto !important;
-        overflow: visible !important;
-    }
-
-    .cd-photos-section,
-    .cd-design-panel {
-        width: 100% !important;
-        height: 500px !important;
-        overflow-y: auto !important;
-        min-height: unset !important;
-    }
-
-    .cd-design-panel {
-        border-left: none !important;
-        border-top: 1px solid #e0e0e0;
-    }
-
-    .cd-topbar {
-        flex-direction: row !important;
-        flex-wrap: wrap !important;
-        padding: 10px 14px !important;
-        height: auto !important;
-        gap: 8px;
-    }
-
-    .cd-topbar-right {
-        flex-wrap: wrap !important;
-        gap: 8px !important;
-    }
-
-    .cd-photos-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 4px !important;
-    }
-
-    /* Settings */
-    .settings-main {
-        max-width: 100% !important;
-        padding: 16px !important;
-    }
-
-    .settings-tabs {
-        overflow-x: auto !important;
-        white-space: nowrap !important;
-        padding-bottom: 8px !important;
-    }
-
-    .settings-cards {
-        grid-template-columns: 1fr !important;
-    }
-
-    /* Common */
-    h1.settings-title {
-        font-size: 24px !important;
-        margin-bottom: 12px !important;
-    }
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
