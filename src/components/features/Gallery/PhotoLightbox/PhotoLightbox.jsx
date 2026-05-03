@@ -1,9 +1,20 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight, ChevronLeft, Download, Heart } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Download, Heart, Play, Pause } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 
-export function PhotoLightbox({ isOpen, onClose, images, currentIndex, onNext, onPrev }) {
+export function PhotoLightbox({ 
+  isOpen, 
+  onClose, 
+  images, 
+  currentIndex, 
+  onNext, 
+  onPrev,
+  isSlideshowActive,
+  onToggleSlideshow,
+  onFavorite,
+  onDownload
+}) {
   // Prevent scrolling when open
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
@@ -18,10 +29,14 @@ export function PhotoLightbox({ isOpen, onClose, images, currentIndex, onNext, o
       if (e.key === 'ArrowRight') onNext();
       if (e.key === 'ArrowLeft') onPrev();
       if (e.key === 'Escape') onClose();
+      if (e.key === ' ') {
+        e.preventDefault();
+        onToggleSlideshow?.();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onNext, onPrev, onClose]);
+  }, [isOpen, onNext, onPrev, onClose, onToggleSlideshow]);
 
   if (!isOpen) return null;
 
@@ -45,10 +60,23 @@ export function PhotoLightbox({ isOpen, onClose, images, currentIndex, onNext, o
           </div>
           
           <div className="flex items-center gap-8">
-            <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-50 transition-all">
+            <button 
+              onClick={onToggleSlideshow}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-50 transition-all"
+            >
+              {isSlideshowActive ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+              {isSlideshowActive ? 'Pause' : 'Slideshow'}
+            </button>
+            <button 
+              onClick={onDownload}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-50 transition-all"
+            >
               <Download size={14} /> Download
             </button>
-            <button className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-50 transition-all">
+            <button 
+              onClick={onFavorite}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-50 transition-all"
+            >
               <Heart size={14} /> Favorite
             </button>
           </div>
@@ -57,12 +85,14 @@ export function PhotoLightbox({ isOpen, onClose, images, currentIndex, onNext, o
         {/* Main Content */}
         <div className="relative flex flex-1 items-center justify-center overflow-hidden px-4 md:px-20">
           {/* Previous Button */}
-          <button 
-            onClick={onPrev}
-            className="absolute left-6 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-black/5 hover:bg-black/5 transition-all md:h-16 md:w-16"
-          >
-            <ChevronLeft size={24} strokeWidth={1} />
-          </button>
+          {!isSlideshowActive && (
+            <button 
+              onClick={onPrev}
+              className="absolute left-6 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-black/5 hover:bg-black/5 transition-all md:h-16 md:w-16"
+            >
+              <ChevronLeft size={24} strokeWidth={1} />
+            </button>
+          )}
 
           {/* Image Container */}
           <motion.div 
@@ -82,12 +112,14 @@ export function PhotoLightbox({ isOpen, onClose, images, currentIndex, onNext, o
           </motion.div>
 
           {/* Next Button */}
-          <button 
-            onClick={onNext}
-            className="absolute right-6 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-black/5 hover:bg-black/5 transition-all md:h-16 md:w-16"
-          >
-            <ChevronRight size={24} strokeWidth={1} />
-          </button>
+          {!isSlideshowActive && (
+            <button 
+              onClick={onNext}
+              className="absolute right-6 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-black/5 hover:bg-black/5 transition-all md:h-16 md:w-16"
+            >
+              <ChevronRight size={24} strokeWidth={1} />
+            </button>
+          )}
         </div>
 
         {/* Footer Info */}

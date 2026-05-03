@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { storageService } from './storage.service';
 
 export const galleryService = {
   /**
@@ -15,8 +16,28 @@ export const galleryService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-    
+
     // Flatten the count for easier UI usage
+    return data.map(c => ({
+      ...c,
+      photo_count: c.photos?.[0]?.count || 0
+    }));
+  },
+
+  /**
+   * Fetch all published collections for a specific photographer (Public view)
+   */
+  async getPublicCollections(photographerId) {
+    const { data, error } = await supabase
+      .from('collections')
+      .select(`
+        *,
+        photos:photos!photos_collection_id_fkey(count)
+      `)
+      .eq('status', 'published')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
     return data.map(c => ({
       ...c,
       photo_count: c.photos?.[0]?.count || 0
@@ -71,12 +92,10 @@ export const galleryService = {
       .filter(path => !!path);
 
     if (storagePaths && storagePaths.length > 0) {
-      const { error: storageError } = await supabase.storage
-        .from('photos')
-        .remove(storagePaths);
-      
-      if (storageError) {
-        console.error('Error deleting storage files:', storageError);
+      try {
+        await storageService.delete(storagePaths);
+      } catch (storageError) {
+        console.error('Error deleting storage files from R2:', storageError);
         // We continue anyway to at least delete the database records
       }
     }
@@ -146,14 +165,14 @@ export const galleryService = {
       .single();
 
     if (error) throw error;
-    
+
     if (data.photos) {
       data.photos.sort((a, b) => a.position - b.position);
     }
     if (data.sets) {
       data.sets.sort((a, b) => a.position - b.position);
     }
-    
+
     return data;
   },
 
@@ -249,8 +268,8 @@ export const galleryService = {
    * Upload multiple photos (legacy bulk upload)
    */
   async uploadPhotos(collectionId, photographerId, files, setId = null) {
-    const uploadPromises = files.map((file, index) => 
-        this.uploadPhoto(collectionId, photographerId, file, index, setId)
+    const uploadPromises = files.map((file, index) =>
+      this.uploadPhoto(collectionId, photographerId, file, index, setId)
     );
     return Promise.all(uploadPromises);
   },
@@ -263,17 +282,16 @@ export const galleryService = {
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
     const filePath = `${photographerId}/${collectionId}/${fileName}`;
 
-    // 1. Upload to Storage
-    const { error: uploadError } = await supabase.storage
-      .from('photos')
-      .upload(filePath, file);
+    // Get image dimensions
+    const dimensions = await new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ width: img.width, height: img.height });
+      img.onerror = () => resolve({ width: 1500, height: 1000 }); // Fallback
+      img.src = URL.createObjectURL(file);
+    });
 
-    if (uploadError) throw uploadError;
-
-    // 2. Get Public URL
-    const { data: { publicUrl } } = supabase.storage
-      .from('photos')
-      .getPublicUrl(filePath);
+    // 1. Upload to R2
+    const { url: publicUrl } = await storageService.upload(filePath, file);
 
     // 3. Insert record into 'photos' table
     const { data: photoData, error: dbError } = await supabase
@@ -288,6 +306,8 @@ export const galleryService = {
         thumbnail_url: publicUrl,
         original_storage_path: filePath,
         size_bytes: file.size,
+        width: dimensions.width,
+        height: dimensions.height,
         position: index,
         status: 'ready'
       }])
@@ -303,7 +323,7 @@ export const galleryService = {
    */
   async deletePhotos(ids) {
     if (!ids || ids.length === 0) return;
-    
+
     const { error } = await supabase
       .from('photos')
       .delete()

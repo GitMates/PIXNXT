@@ -10,7 +10,7 @@ const CollectionDashboard = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const collectionId = searchParams.get('id');
-    
+
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [collection, setCollection] = useState(null);
     const [photos, setPhotos] = useState([]);
@@ -32,6 +32,17 @@ const CollectionDashboard = () => {
     const [showSelectionMore, setShowSelectionMore] = useState(false);
     const [showSelectAllMenu, setShowSelectAllMenu] = useState(false);
     const [showMoveToSetMenu, setShowMoveToSetMenu] = useState(false);
+
+    // MORE DROPDOWN MODAL STATES
+    const [showGetDirectLinkModal, setShowGetDirectLinkModal] = useState(false);
+    const [showEmailHistoryModal, setShowEmailHistoryModal] = useState(false);
+    const [showManagePresetsModal, setShowManagePresetsModal] = useState(false);
+    const [showApplyPresetModal, setShowApplyPresetModal] = useState(false);
+    const [showSavePresetModal, setShowSavePresetModal] = useState(false);
+    const [showMoveToModal, setShowMoveToModal] = useState(false);
+    const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+    const [showDeleteCollectionModal, setShowDeleteCollectionModal] = useState(false);
+    const [deleteCollectionConfirm, setDeleteCollectionConfirm] = useState(false);
     const [uploadWidget, setUploadWidget] = useState({
         isOpen: false,
         isMinimized: false,
@@ -67,7 +78,7 @@ const CollectionDashboard = () => {
     const [previewMode, setPreviewMode] = useState('desktop'); // desktop, mobile
     const [showFocalModal, setShowFocalModal] = useState(false);
     const [showCoverModal, setShowCoverModal] = useState(false);
-    const [activeSettingsTab, setActiveSettingsTab] = useState('general');
+    const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
 
     // General Settings State
     const [collectionUrl, setCollectionUrl] = useState('vbn');
@@ -93,13 +104,27 @@ const CollectionDashboard = () => {
     const [photoDownloadSizes, setPhotoDownloadSizes] = useState(['high', 'web']);
     const [downloadPin, setDownloadPin] = useState(true);
     const [pinValue, setPinValue] = useState('1060');
+    const [showAdditionalOptions, setShowAdditionalOptions] = useState(false);
+
+    // Additional options states
+    const [galleryDownload, setGalleryDownload] = useState(true);
+    const [singlePhotoDownload, setSinglePhotoDownload] = useState(true);
+    const [requirePinForSinglePhoto, setRequirePinForSinglePhoto] = useState(false);
+    const [emailTracking, setEmailTracking] = useState(true);
+    const [restrictSinglePhotoSizes, setRestrictSinglePhotoSizes] = useState(false);
+
+    // Advanced settings states
+    const [downloadLimit, setDownloadLimit] = useState('');
+    const [restrictToEmails, setRestrictToEmails] = useState('');
+    const [selectedDownloadSets, setSelectedDownloadSets] = useState(['Highlights']);
+    const [pinUsageLimit, setPinUsageLimit] = useState('');
 
     // Favorite State
     const [favoritePhotos, setFavoritePhotos] = useState(true);
     const [favoriteNotes, setFavoriteNotes] = useState(true);
 
     // Activity State
-    const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
+    const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, email, share, private
     const [activeDownloadActivityTab, setActiveDownloadActivityTab] = useState('gallery'); // gallery, photo, video
 
     const fileInputRef = useRef(null);
@@ -148,7 +173,7 @@ const CollectionDashboard = () => {
         try {
             setSaving(true);
             await galleryService.deletePhotos(selectedPhotos);
-            
+
             // Update local state
             setPhotos(prev => prev.filter(p => !selectedPhotos.includes(p.id)));
             setSelectedPhotos([]);
@@ -179,17 +204,17 @@ const CollectionDashboard = () => {
                 setLoading(true);
                 const data = await galleryService.getCollectionById(collectionId);
                 setCollection(data);
-                
+
                 // Initialize state from collection data
                 if (data.status) setStatus(data.status.toUpperCase());
                 if (data.slug) setCollectionUrl(data.slug);
                 if (data.password) setCollectionPassword(data.password);
-                
+
                 // Map individual columns to state
                 if (data.cover_style) setSelectedCoverStyle(data.cover_style);
                 if (data.font_family) setSelectedFont(data.font_family);
                 if (data.color_palette) setSelectedColorPalette(data.color_palette);
-                
+
                 setGridSettings({
                     style: data.grid_style || 'vertical',
                     size: data.thumbnail_size || 'regular',
@@ -345,12 +370,12 @@ const CollectionDashboard = () => {
         try {
             setSaving(true);
             await galleryService.assignPhotosToSet(selectedPhotos, setId);
-            
+
             // Update local state
-            setPhotos(prev => prev.map(p => 
+            setPhotos(prev => prev.map(p =>
                 selectedPhotos.includes(p.id) ? { ...p, set_id: setId } : p
             ));
-            
+
             setShowMoveToSetMenu(false);
             clearSelection();
         } catch (err) {
@@ -368,7 +393,7 @@ const CollectionDashboard = () => {
         const saveSettings = async () => {
             try {
                 await galleryService.updateCollection(collectionId, {
-                    cover_style: selectedCoverStyle === 'novel' ? 'photo' : (selectedCoverStyle === 'none' ? 'text_only' : 'photo'), // Map internal UI styles to enums
+                    cover_style: selectedCoverStyle === 'none' ? 'text_only' : 'photo', // Map internal UI styles to enums since DB enum lacks full styles
                     font_family: selectedFont,
                     color_palette: selectedColorPalette,
                     grid_style: gridSettings.style,
@@ -406,7 +431,7 @@ const CollectionDashboard = () => {
 
     // Derived values
     const collectionName = collection?.name || 'Loading...';
-    const collectionDate = collection?.event_date 
+    const collectionDate = collection?.event_date
         ? new Date(collection.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
         : '...';
 
@@ -510,8 +535,8 @@ const CollectionDashboard = () => {
         try {
             setSaving(true);
             const uploadedPhotos = await galleryService.uploadPhotos(
-                collectionId, 
-                collection.photographer_id, 
+                collectionId,
+                collection.photographer_id,
                 files
             );
             setPhotos(prev => [...prev, ...uploadedPhotos]);
@@ -536,10 +561,10 @@ const CollectionDashboard = () => {
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-[#fdfcfb]">
+            <div className="flex h-screen items-center justify-center bg-white">
                 <div className="flex flex-col items-center gap-4">
-                    <div className="w-12 h-12 border-4 border-[#593116] border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-[#593116] font-medium tracking-widest uppercase text-sm">Loading Collection...</p>
+                    <div className="w-12 h-12 border-4 border-[#111111] border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-[#111111] font-medium tracking-widest uppercase text-sm">Loading Collection...</p>
                 </div>
             </div>
         );
@@ -574,22 +599,51 @@ const CollectionDashboard = () => {
                         </button>
                         {showMoreDropdown && (
                             <div className="cd-more-dropdown">
-                                <div className="cd-ctx-item" onClick={() => setShowMoreDropdown(false)}>
+                                <div className="cd-ctx-item" onClick={() => { setShowMoreDropdown(false); setShowGetDirectLinkModal(true); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                                     <span>Get direct link</span>
                                 </div>
-                                <div className="cd-ctx-item" onClick={() => setShowMoreDropdown(false)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                <div className="cd-ctx-item" onClick={() => { setShowMoreDropdown(false); setShowEmailHistoryModal(true); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 4v6h6" /><path d="M3.32 14A9 9 0 1 0 3 10l-2 1" /></svg>
                                     <span>View email history</span>
                                 </div>
-                                <div className="cd-ctx-item" onClick={() => setShowMoreDropdown(false)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-                                    <span>Download</span>
+                                <div className="cd-ctx-item preset-item" onClick={() => setShowManagePresetsModal(!showManagePresetsModal)} style={{ position: 'relative' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line x1="12" x2="12" y1="21" y2="12" /><line x1="12" x2="12" y1="8" y2="3" /><line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" /><line x1="2" x2="6" y1="14" y2="14" /><line x1="10" x2="14" y1="8" y2="8" /><line x1="18" x2="22" y1="12" y2="12" /></svg>
+                                        <span>Manage presets</span>
+                                    </div>
+                                    {showManagePresetsModal && (
+                                        <div className="cd-preset-submenu" style={{ position: 'absolute', right: '-190px', top: '-4px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '6px 0', width: '180px', zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowMoreDropdown(false); setShowManagePresetsModal(false); setShowApplyPresetModal(true); }}>
+                                                <span>Apply preset</span>
+                                            </div>
+                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowMoreDropdown(false); setShowManagePresetsModal(false); setShowSavePresetModal(true); }}>
+                                                <span>Save as preset</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="cd-ctx-item" onClick={() => { setShowMoreDropdown(false); setShowMoveToModal(true); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 12H3" /><path d="m11 18 6-6-6-6" /><path d="M21 5v14" /></svg>
+                                    <span>Move to</span>
+                                </div>
+                                <div className="cd-ctx-item" onClick={() => { setShowMoreDropdown(false); setShowDuplicateModal(true); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                    <span>Duplicate</span>
+                                </div>
+                                <div className="cd-ctx-item" onClick={() => { setShowMoreDropdown(false); setShowDeleteCollectionModal(true); setDeleteCollectionConfirm(false); }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                    <span>Delete collection</span>
                                 </div>
                             </div>
                         )}
                     </div>
-                    <button className="cd-text-btn">Preview</button>
+                    <button
+                        className="cd-text-btn"
+                        onClick={() => window.open(`/gallery/${collectionUrl}?coverStyle=${selectedCoverStyle}`, '_blank')}
+                    >
+                        Preview
+                    </button>
                     <div className="cd-share-wrapper" ref={shareRef}>
                         <div className="cd-share-split-btn">
                             <button className="cd-share-main" onClick={() => navigate('/shared-collection')}>Share</button>
@@ -783,14 +837,7 @@ const CollectionDashboard = () => {
                                     <span>Favorite</span>
                                     <span className="tab-badge">ON</span>
                                 </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeSettingsTab === 'store' ? 'active' : ''}`}
-                                    onClick={() => setActiveSettingsTab('store')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-                                    <span>Store</span>
-                                    <span className="tab-badge off">OFF</span>
-                                </div>
+
                             </div>
                         )}
 
@@ -813,13 +860,7 @@ const CollectionDashboard = () => {
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                                     <span>Favorite Activity</span>
                                 </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'store' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('store')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
-                                    <span>Store Orders</span>
-                                </div>
+
                                 <div
                                     className={`cd-design-nav-item ${activeActivitySubTab === 'email' ? 'active' : ''}`}
                                     onClick={() => setActiveActivitySubTab('email')}
@@ -892,17 +933,60 @@ const CollectionDashboard = () => {
                                             </button>
                                             {showGridSettings && (
                                                 <div className="cd-grid-dropdown">
-                                                    <div className="cd-grid-section-label">Grid Size</div>
-                                                    <div className={`cd-grid-option ${gridSize === 'small' ? 'selected' : ''}`} onClick={() => setGridSize('small')}>
-                                                        <span>Small</span>
-                                                        {gridSize === 'small' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
-                                                    </div>
-                                                    <div className={`cd-grid-option ${gridSize === 'large' ? 'selected' : ''}`} onClick={() => setGridSize('large')}>
-                                                        <span>Large</span>
-                                                        {gridSize === 'large' && <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                                                    <div className="cd-grid-section-label">Grid Style</div>
+                                                    <div className="cd-grid-style-row">
+                                                        <div
+                                                            className={`cd-grid-style-card ${gridSettings.style === 'vertical' ? 'selected' : ''}`}
+                                                            onClick={() => setGridSettings(prev => ({ ...prev, style: 'vertical' }))}
+                                                        >
+                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="2" y="2" width="12" height="14" rx="1" /><rect x="18" y="2" width="12" height="8" rx="1" /><rect x="2" y="20" width="12" height="10" rx="1" /><rect x="18" y="14" width="12" height="16" rx="1" /></svg>
+                                                            <span>Vertical</span>
+                                                        </div>
+                                                        <div
+                                                            className={`cd-grid-style-card ${gridSettings.style === 'horizontal' ? 'selected' : ''}`}
+                                                            onClick={() => setGridSettings(prev => ({ ...prev, style: 'horizontal' }))}
+                                                        >
+                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="2" y="2" width="10" height="13" rx="1" /><rect x="16" y="2" width="14" height="13" rx="1" /><rect x="2" y="19" width="14" height="11" rx="1" /><rect x="20" y="19" width="10" height="11" rx="1" /></svg>
+                                                            <span>Horizontal</span>
+                                                        </div>
                                                     </div>
                                                     <div className="cd-grid-divider"></div>
-                                                    <div className="cd-grid-section-label">Show</div>
+                                                    <div className="cd-grid-section-label">Thumbnail Size</div>
+                                                    <div className="cd-grid-style-row">
+                                                        <div
+                                                            className={`cd-grid-style-card ${gridSettings.size === 'regular' ? 'selected' : ''}`}
+                                                            onClick={() => setGridSettings(prev => ({ ...prev, size: 'regular' }))}
+                                                        >
+                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="2" y="2" width="8" height="8" rx="1" /><rect x="13" y="2" width="8" height="8" rx="1" /><rect x="24" y="2" width="6" height="8" rx="1" /><rect x="2" y="13" width="8" height="8" rx="1" /><rect x="13" y="13" width="8" height="8" rx="1" /><rect x="24" y="13" width="6" height="8" rx="1" /></svg>
+                                                            <span>Regular</span>
+                                                        </div>
+                                                        <div
+                                                            className={`cd-grid-style-card ${gridSettings.size === 'large' ? 'selected' : ''}`}
+                                                            onClick={() => setGridSettings(prev => ({ ...prev, size: 'large' }))}
+                                                        >
+                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="1" /><rect x="18" y="2" width="12" height="12" rx="1" /><rect x="2" y="18" width="12" height="12" rx="1" /><rect x="18" y="18" width="12" height="12" rx="1" /></svg>
+                                                            <span>Large</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="cd-grid-divider"></div>
+                                                    <div className="cd-grid-section-label">Grid Spacing</div>
+                                                    <div className="cd-grid-style-row">
+                                                        <div
+                                                            className={`cd-grid-style-card ${gridSettings.spacing === 'regular' || gridSettings.spacing === 'small' ? 'selected' : ''}`}
+                                                            onClick={() => setGridSettings(prev => ({ ...prev, spacing: 'regular' }))}
+                                                        >
+                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="1" y="1" width="13" height="13" rx="1" /><rect x="18" y="1" width="13" height="13" rx="1" /><rect x="1" y="18" width="13" height="13" rx="1" /><rect x="18" y="18" width="13" height="13" rx="1" /></svg>
+                                                            <span>Regular</span>
+                                                        </div>
+                                                        <div
+                                                            className={`cd-grid-style-card ${gridSettings.spacing === 'large' ? 'selected' : ''}`}
+                                                            onClick={() => setGridSettings(prev => ({ ...prev, spacing: 'large' }))}
+                                                        >
+                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="1" y="1" width="12" height="12" rx="1" /><rect x="19" y="1" width="12" height="12" rx="1" /><rect x="1" y="19" width="12" height="12" rx="1" /><rect x="19" y="19" width="12" height="12" rx="1" /></svg>
+                                                            <span>Large</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="cd-grid-divider"></div>
                                                     <div className="cd-grid-toggle-row">
                                                         <span>Filename</span>
                                                         <label className="cd-toggle">
@@ -914,6 +998,7 @@ const CollectionDashboard = () => {
                                                 </div>
                                             )}
                                         </div>
+
                                         <div className="cd-main-actions-divider"></div>
                                         <button className="cd-add-media-btn" onClick={() => setShowUploadModal(true)}>
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
@@ -923,21 +1008,48 @@ const CollectionDashboard = () => {
                                 </div>
 
                                 {sortedPhotos.length > 0 ? (
-                                    <div className={`cd-photo-grid ${gridSize === 'large' ? 'grid-large' : ''}`}>
+                                    <div
+                                        className="cd-photo-grid"
+                                        style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+                                            gap: '16px',
+                                            padding: '16px 0'
+                                        }}
+                                    >
                                         {sortedPhotos.map((photo, index) => (
                                             <div
                                                 className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''}`}
                                                 key={photo.id || index}
                                                 onClick={() => togglePhotoSelection(photo.id)}
+                                                style={{
+                                                    aspectRatio: '1 / 1',
+                                                    backgroundColor: '#f8f8f8',
+                                                    position: 'relative',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    overflow: 'hidden',
+                                                    cursor: 'pointer',
+                                                    border: selectedPhotos.includes(photo.id) ? '2px solid #12b8a6' : '1px solid #f0f0f0'
+                                                }}
                                             >
-                                                <div className="cd-photo-card-inner">
-                                                    <img src={photo.full_url} alt={photo.filename || `Photo ${index + 1}`} />
-                                                </div>
-                                                {showFilename && <div className="cd-photo-filename">{photo.filename || `photo-${index + 1}.jpg`}</div>}
+                                                <img
+                                                    src={photo.full_url}
+                                                    alt={photo.filename || `Photo ${index + 1}`}
+                                                    className="cd-photo-img"
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'contain',
+                                                        display: 'block'
+                                                    }}
+                                                />
+                                                {showFilename && <div className="cd-photo-filename" style={{ position: 'absolute', bottom: 8, left: 8, fontSize: 12, color: '#666', background: 'rgba(255,255,255,0.8)', padding: '2px 6px', borderRadius: 4 }}>{photo.filename || `photo-${index + 1}.jpg`}</div>}
                                                 <button className="cd-photo-menu" onClick={(e) => { e.stopPropagation(); setActivePhotoMenu(activePhotoMenu === photo.id ? null : photo.id); }}>
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
                                                 </button>
-                                                <button 
+                                                <button
                                                     className={`cd-photo-star ${photo.is_starred ? 'active' : ''}`}
                                                     onClick={(e) => { e.stopPropagation(); handleToggleStar(photo.id, photo.is_starred); }}
                                                 >
@@ -1232,7 +1344,7 @@ const CollectionDashboard = () => {
                             <div className="cd-general-settings-view">
                                 <div className="cd-settings-content-header split">
                                     <h2 className="cd-settings-main-title">Download Settings <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></h2>
-                                    <span className="activity-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Download Activity</span>
+                                    <span className="activity-link" onClick={() => { setActiveSidebarTab('activity'); setActiveActivitySubTab('download'); }}><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Download Activity</span>
                                 </div>
 
                                 <div className="settings-tab-nav">
@@ -1241,95 +1353,223 @@ const CollectionDashboard = () => {
                                 </div>
 
                                 <div className="cd-settings-form">
-                                    <div className="settings-toggle-section no-margin">
-                                        <div className="settings-toggle-row">
-                                            <div className="toggle-info">
-                                                <label className="settings-label">Photo Download</label>
-                                            </div>
-                                            <div className="toggle-control">
-                                                <label className="cd-toggle">
-                                                    <input type="checkbox" checked={photoDownload} onChange={() => setPhotoDownload(!photoDownload)} />
-                                                    <span className="cd-toggle-slider"></span>
-                                                </label>
-                                                <span className="toggle-state-label">{photoDownload ? 'On' : 'Off'}</span>
-                                            </div>
-                                        </div>
-                                        <p className="settings-desc small">Allow visitors to download photos in your gallery</p>
-                                        <button className="settings-action-btn secondary">Additional options <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg></button>
-                                    </div>
+                                    {activeDownloadTab === 'general' ? (
+                                        <>
+                                            <div className="settings-toggle-section no-margin">
+                                                <div className="settings-toggle-row">
+                                                    <div className="toggle-info">
+                                                        <label className="settings-label">Photo Download</label>
+                                                    </div>
+                                                    <div className="toggle-control">
+                                                        <label className="cd-toggle">
+                                                            <input type="checkbox" checked={photoDownload} onChange={() => setPhotoDownload(!photoDownload)} />
+                                                            <span className="cd-toggle-slider"></span>
+                                                        </label>
+                                                        <span className="toggle-state-label">{photoDownload ? 'On' : 'Off'}</span>
+                                                    </div>
+                                                </div>
+                                                <p className="settings-desc small">Allow visitors to download photos in your gallery</p>
+                                                <button
+                                                    className={`settings-action-btn secondary ${showAdditionalOptions ? 'active' : ''}`}
+                                                    onClick={() => setShowAdditionalOptions(!showAdditionalOptions)}
+                                                >
+                                                    Additional options <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showAdditionalOptions ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                                </button>
 
-                                    <div className="settings-section">
-                                        <label className="settings-label">Photo Download Sizes</label>
-                                        <div className="checkbox-group">
-                                            <div className="checkbox-row">
-                                                <label className="custom-checkbox">
-                                                    <input type="checkbox" checked={photoDownloadSizes.includes('high')} onChange={() => { }} />
-                                                    <span className="checkmark"></span>
-                                                    High Resolution
-                                                </label>
-                                                <div className="radio-group-horizontal">
-                                                    <label className="custom-radio">
-                                                        <input type="radio" name="high-res" disabled />
-                                                        <span className="radio-mark"></span>
-                                                        Original - Upgrade required. <span className="settings-link">Upgrade</span>
-                                                    </label>
-                                                    <label className="custom-radio">
-                                                        <input type="radio" name="high-res" checked />
-                                                        <span className="radio-mark"></span>
-                                                        3600px
-                                                    </label>
+                                                {showAdditionalOptions && (
+                                                    <div className="additional-options-panel">
+                                                        <div className="checkbox-group mt-12">
+                                                            <label className="custom-checkbox">
+                                                                <input type="checkbox" checked={galleryDownload} onChange={() => setGalleryDownload(!galleryDownload)} />
+                                                                <span className="checkmark"></span>
+                                                                Gallery Download
+                                                            </label>
+                                                            <label className="custom-checkbox">
+                                                                <input type="checkbox" checked={singlePhotoDownload} onChange={() => setSinglePhotoDownload(!singlePhotoDownload)} />
+                                                                <span className="checkmark"></span>
+                                                                Single Photo Download
+                                                            </label>
+                                                            <div className="indent-options">
+                                                                <label className="custom-checkbox">
+                                                                    <input type="checkbox" checked={requirePinForSinglePhoto} onChange={() => setRequirePinForSinglePhoto(!requirePinForSinglePhoto)} />
+                                                                    <span className="checkmark"></span>
+                                                                    Require PIN for single photos
+                                                                </label>
+                                                                <label className="custom-checkbox">
+                                                                    <input type="checkbox" checked={emailTracking} onChange={() => setEmailTracking(!emailTracking)} />
+                                                                    <span className="checkmark"></span>
+                                                                    Email Tracking
+                                                                </label>
+                                                                <label className="custom-checkbox">
+                                                                    <input type="checkbox" checked={restrictSinglePhotoSizes} onChange={() => setRestrictSinglePhotoSizes(!restrictSinglePhotoSizes)} />
+                                                                    <span className="checkmark"></span>
+                                                                    Restrict Single Photo sizes
+                                                                </label>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="settings-section">
+                                                <label className="settings-label">Photo Download Sizes</label>
+                                                <div className="checkbox-group">
+                                                    <div className="checkbox-row">
+                                                        <label className="custom-checkbox">
+                                                            <input type="checkbox" checked={photoDownloadSizes.includes('high')} onChange={() => {
+                                                                setPhotoDownloadSizes(prev => prev.includes('high') ? prev.filter(s => s !== 'high') : [...prev, 'high']);
+                                                            }} />
+                                                            <span className="checkmark"></span>
+                                                            High Resolution
+                                                        </label>
+                                                        <div className="radio-group-horizontal">
+                                                            <label className="custom-radio">
+                                                                <input type="radio" name="high-res" disabled />
+                                                                <span className="radio-mark"></span>
+                                                                Original - Upgrade required. <span className="settings-link">Upgrade</span>
+                                                            </label>
+                                                            <label className="custom-radio">
+                                                                <input type="radio" name="high-res" checked onChange={() => { }} />
+                                                                <span className="radio-mark"></span>
+                                                                3600px
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                    <div className="checkbox-row mt-12">
+                                                        <label className="custom-checkbox">
+                                                            <input type="checkbox" checked={photoDownloadSizes.includes('web')} onChange={() => {
+                                                                setPhotoDownloadSizes(prev => prev.includes('web') ? prev.filter(s => s !== 'web') : [...prev, 'web']);
+                                                            }} />
+                                                            <span className="checkmark"></span>
+                                                            Web Size
+                                                        </label>
+                                                        <div className="radio-group-horizontal">
+                                                            <label className="custom-radio">
+                                                                <input type="radio" name="web-res" onChange={() => { }} />
+                                                                <span className="radio-mark"></span>
+                                                                2048px
+                                                            </label>
+                                                            <label className="custom-radio">
+                                                                <input type="radio" name="web-res" checked onChange={() => { }} />
+                                                                <span className="radio-mark"></span>
+                                                                1024px
+                                                            </label>
+                                                            <label className="custom-radio">
+                                                                <input type="radio" name="web-res" onChange={() => { }} />
+                                                                <span className="radio-mark"></span>
+                                                                640px
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <p className="settings-desc">Allow photos to be downloaded in select sizes. <span className="settings-link">Learn more</span></p>
+                                            </div>
+
+                                            <div className="settings-toggle-section">
+                                                <div className="settings-toggle-row">
+                                                    <div className="toggle-info">
+                                                        <label className="settings-label">Download PIN</label>
+                                                    </div>
+                                                    <div className="toggle-control">
+                                                        <label className="cd-toggle">
+                                                            <input type="checkbox" checked={downloadPin} onChange={() => setDownloadPin(!downloadPin)} />
+                                                            <span className="cd-toggle-slider"></span>
+                                                        </label>
+                                                        <span className="toggle-state-label">{downloadPin ? 'On' : 'Off'}</span>
+                                                    </div>
+                                                </div>
+                                                {downloadPin && (
+                                                    <div className="settings-input-wrapper with-action mt-12">
+                                                        <input type="text" className="settings-input" value={pinValue} onChange={(e) => setPinValue(e.target.value)} maxLength={4} />
+                                                        <button className="input-action-btn no-icon" onClick={() => setPinValue(Math.floor(1000 + Math.random() * 9000).toString())}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
+                                                            Reset PIN
+                                                        </button>
+                                                    </div>
+                                                )}
+                                                <p className="settings-desc">Require visitors to enter a 4-digit PIN to download photos and videos.</p>
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <div className="advanced-settings-panel">
+                                            <div className="settings-section">
+                                                <label className="settings-label">Download Limits</label>
+                                                <p className="settings-desc">Limit the total number of photo downloads for this collection. Leave blank for no limit.</p>
+                                                <div className="settings-input-wrapper">
+                                                    <input
+                                                        type="number"
+                                                        className="settings-input"
+                                                        placeholder="No limit"
+                                                        value={downloadLimit}
+                                                        onChange={(e) => setDownloadLimit(e.target.value)}
+                                                    />
                                                 </div>
                                             </div>
-                                            <div className="checkbox-row mt-12">
-                                                <label className="custom-checkbox">
-                                                    <input type="checkbox" checked={photoDownloadSizes.includes('web')} onChange={() => { }} />
-                                                    <span className="checkmark"></span>
-                                                    Web Size
-                                                </label>
-                                                <div className="radio-group-horizontal">
-                                                    <label className="custom-radio">
-                                                        <input type="radio" name="web-res" />
-                                                        <span className="radio-mark"></span>
-                                                        2048px
+
+                                            <div className="settings-section">
+                                                <label className="settings-label">Restrict to Specific Emails</label>
+                                                <p className="settings-desc">Only allow these email addresses to download. Separate with commas.</p>
+                                                <div className="settings-input-wrapper">
+                                                    <textarea
+                                                        className="settings-input settings-textarea"
+                                                        placeholder="e.g. client@example.com, assistant@example.com"
+                                                        value={restrictToEmails}
+                                                        onChange={(e) => setRestrictToEmails(e.target.value)}
+                                                        style={{ height: '80px', padding: '12px' }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="settings-section">
+                                                <label className="settings-label">Set-Specific Downloads</label>
+                                                <p className="settings-desc">Choose which photo sets are available for download.</p>
+                                                <div className="checkbox-group mt-8">
+                                                    <label className="custom-checkbox">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedDownloadSets.includes('Highlights')}
+                                                            onChange={() => {
+                                                                setSelectedDownloadSets(prev =>
+                                                                    prev.includes('Highlights') ? prev.filter(s => s !== 'Highlights') : [...prev, 'Highlights']
+                                                                );
+                                                            }}
+                                                        />
+                                                        <span className="checkmark"></span>
+                                                        Highlights (All Photos)
                                                     </label>
-                                                    <label className="custom-radio">
-                                                        <input type="radio" name="web-res" checked />
-                                                        <span className="radio-mark"></span>
-                                                        1024px
-                                                    </label>
-                                                    <label className="custom-radio">
-                                                        <input type="radio" name="web-res" />
-                                                        <span className="radio-mark"></span>
-                                                        640px
-                                                    </label>
+                                                    {sets.map(set => (
+                                                        <label key={set.id} className="custom-checkbox">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={selectedDownloadSets.includes(set.name)}
+                                                                onChange={() => {
+                                                                    setSelectedDownloadSets(prev =>
+                                                                        prev.includes(set.name) ? prev.filter(s => s !== set.name) : [...prev, set.name]
+                                                                    );
+                                                                }}
+                                                            />
+                                                            <span className="checkmark"></span>
+                                                            {set.name}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+
+                                            <div className="settings-section">
+                                                <label className="settings-label">PIN Usage Limits</label>
+                                                <p className="settings-desc">Limit the number of times the download PIN can be used.</p>
+                                                <div className="settings-input-wrapper">
+                                                    <input
+                                                        type="number"
+                                                        className="settings-input"
+                                                        placeholder="No limit"
+                                                        value={pinUsageLimit}
+                                                        onChange={(e) => setPinUsageLimit(e.target.value)}
+                                                    />
                                                 </div>
                                             </div>
                                         </div>
-                                        <p className="settings-desc">Allow photos to be downloaded in select sizes. <span className="settings-link">Learn more</span></p>
-                                    </div>
-
-                                    <div className="settings-toggle-section">
-                                        <div className="settings-toggle-row">
-                                            <div className="toggle-info">
-                                                <label className="settings-label">Download PIN</label>
-                                            </div>
-                                            <div className="toggle-control">
-                                                <label className="cd-toggle">
-                                                    <input type="checkbox" checked={downloadPin} onChange={() => setDownloadPin(!downloadPin)} />
-                                                    <span className="cd-toggle-slider"></span>
-                                                </label>
-                                                <span className="toggle-state-label">{downloadPin ? 'On' : 'Off'}</span>
-                                            </div>
-                                        </div>
-                                        <div className="settings-input-wrapper with-action mt-12">
-                                            <input type="text" className="settings-input" value={pinValue} onChange={(e) => setPinValue(e.target.value)} />
-                                            <button className="input-action-btn no-icon">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
-                                                Reset PIN
-                                            </button>
-                                        </div>
-                                        <p className="settings-desc">Require visitors to enter a 4-digit PIN to download photos and videos.</p>
-                                    </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -1376,7 +1616,7 @@ const CollectionDashboard = () => {
 
                                     <div className="settings-info-box">
                                         <div className="info-box-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#593116" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                                         </div>
                                         <div className="info-box-content">
                                             <h4 className="info-box-title">Preset Favorite Lists</h4>
@@ -1388,44 +1628,24 @@ const CollectionDashboard = () => {
                             </div>
                         )}
 
-                        {activeSidebarTab === 'settings' && activeSettingsTab === 'store' && (
-                            <div className="cd-general-settings-view">
-                                <div className="cd-settings-content-header split">
-                                    <h2 className="cd-settings-main-title">Store Settings <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></h2>
-                                    <span className="activity-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Store Activity</span>
-                                </div>
 
-                                <div className="cd-settings-form">
-                                    <div className="settings-info-box">
-                                        <div className="info-box-icon">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#593116" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                                        </div>
-                                        <div className="info-box-content">
-                                            <h4 className="info-box-title">Activate Store</h4>
-                                            <p className="info-box-text">Setup Pixieset Store to start selling prints, digital downloads, and more directly from your collections.</p>
-                                            <span className="settings-link">Get Started</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
                         {activeSidebarTab === 'activity' && (
                             <div className="cd-general-settings-view">
                                 <div className="cd-settings-content-header split">
                                     <h2 className="cd-settings-main-title">
                                         {activeActivitySubTab === 'download' && 'Download Activity'}
                                         {activeActivitySubTab === 'favorite' && 'Favorite Activity'}
-                                        {activeActivitySubTab === 'store' && 'Store Activity'}
+
                                         {activeActivitySubTab === 'email' && 'Email Registration'}
                                         {activeActivitySubTab === 'share' && 'Quick Share Links'}
                                         {activeActivitySubTab === 'private' && 'Private Photo Activity'}
-                                        {(activeActivitySubTab === 'download' || activeActivitySubTab === 'store' || activeActivitySubTab === 'favorite') && (
+                                        {(activeActivitySubTab === 'download' || activeActivitySubTab === 'favorite') && (
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '8px' }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                                         )}
                                     </h2>
                                     {activeActivitySubTab === 'download' && <span className="activity-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Download Activity</span>}
                                     {activeActivitySubTab === 'favorite' && <span className="activity-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Favorite Activity</span>}
-                                    {activeActivitySubTab === 'store' && <span className="activity-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Store Activity</span>}
+
                                 </div>
 
                                 {activeActivitySubTab === 'download' && (
@@ -1444,27 +1664,21 @@ const CollectionDashboard = () => {
                                                 <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M40 140H200L180 60H60L40 140Z" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
                                                     <rect x="80" y="40" width="80" height="60" rx="4" fill="white" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M120 70V110M120 110L110 100M120 110L130 100" stroke="#593116" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                    <path d="M120 70V110M120 110L110 100M120 110L130 100" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                                 </svg>
                                             )}
                                             {activeActivitySubTab === 'favorite' && (
                                                 <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <circle cx="120" cy="90" r="50" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M120 75C120 75 115 65 100 65C85 65 80 80 80 90C80 115 120 140 120 140C120 140 160 115 160 90C160 80 155 65 140 65C125 65 120 75 120 75Z" fill="white" stroke="#593116" strokeWidth="2" />
+                                                    <path d="M120 75C120 75 115 65 100 65C85 65 80 80 80 90C80 115 120 140 120 140C120 140 160 115 160 90C160 80 155 65 140 65C125 65 120 75 120 75Z" fill="white" stroke="#111111" strokeWidth="2" />
                                                 </svg>
                                             )}
-                                            {activeActivitySubTab === 'store' && (
-                                                <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <rect x="60" y="50" width="120" height="90" rx="8" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <circle cx="120" cy="95" r="25" fill="white" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M110 95H130M120 85V105" stroke="#593116" strokeWidth="2" />
-                                                </svg>
-                                            )}
+
                                             {activeActivitySubTab === 'email' && (
                                                 <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <rect x="50" y="60" width="140" height="80" rx="4" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
                                                     <path d="M50 60L120 100L190 60" stroke="#666" strokeWidth="1.5" />
-                                                    <circle cx="120" cy="110" r="15" fill="white" stroke="#593116" strokeWidth="2" />
+                                                    <circle cx="120" cy="110" r="15" fill="white" stroke="#111111" strokeWidth="2" />
                                                 </svg>
                                             )}
                                             {activeActivitySubTab === 'share' && (
@@ -1472,20 +1686,20 @@ const CollectionDashboard = () => {
                                                     <path d="M70 110L170 110" stroke="#666" strokeWidth="1.5" strokeDasharray="4 4" />
                                                     <circle cx="70" cy="110" r="20" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
                                                     <circle cx="170" cy="110" r="20" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M120 90V130" stroke="#593116" strokeWidth="2" />
+                                                    <path d="M120 90V130" stroke="#111111" strokeWidth="2" />
                                                 </svg>
                                             )}
                                             {activeActivitySubTab === 'private' && (
                                                 <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                     <path d="M120 60C150 60 180 80 180 110C180 140 150 160 120 160C90 160 60 140 60 110C60 80 90 60 120 60Z" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <circle cx="120" cy="110" r="20" fill="white" stroke="#593116" strokeWidth="2" />
+                                                    <circle cx="120" cy="110" r="20" fill="white" stroke="#111111" strokeWidth="2" />
                                                 </svg>
                                             )}
                                         </div>
                                         <h3 className="cd-empty-state-title">
                                             {activeActivitySubTab === 'download' && 'No gallery downloads yet'}
                                             {activeActivitySubTab === 'favorite' && 'No favorites activity yet'}
-                                            {activeActivitySubTab === 'store' && 'No store order activity yet'}
+
                                             {activeActivitySubTab === 'email' && 'No email registration activity yet'}
                                             {activeActivitySubTab === 'share' && 'No quick share links yet'}
                                             {activeActivitySubTab === 'private' && 'No private photo activity yet'}
@@ -1493,7 +1707,7 @@ const CollectionDashboard = () => {
                                         <p className="cd-empty-state-text">
                                             {activeActivitySubTab === 'download' && 'Gallery download activity details will show here when visitors download all photos from their collection.'}
                                             {activeActivitySubTab === 'favorite' && 'Activity details will show here when visitors favorite photos in their collection.'}
-                                            {activeActivitySubTab === 'store' && 'Store order activity details will show here when visitors purchase products from the store.'}
+
                                             {activeActivitySubTab === 'email' && 'Email registration activity will show here when visitors register their email before viewing the collection.'}
                                             {activeActivitySubTab === 'share' && 'Quick Share links will show here when you create them from the photos tab.'}
                                             {activeActivitySubTab === 'private' && 'Private photo activity details will show here when clients mark photos as private.'}
@@ -1681,8 +1895,8 @@ const CollectionDashboard = () => {
                                         </div>
                                         <p className="cd-embed-helper">Add a video from YouTube or Vimeo by entering the full video URL. <span className="settings-link">Learn more</span></p>
                                         <div className="cd-embed-logos">
-                                            <svg className="cd-youtube-logo" viewBox="0 0 24 24" fill="#ff0000" width="30" height="30"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.083 0 12 0 12s0 3.917.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.55 9.376.55 9.376.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C24 15.917 24 12 24 12s0-3.917-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
-                                            <svg className="cd-vimeo-logo" viewBox="0 0 24 24" fill="#1ab7ea" width="30" height="30"><path d="M22.396 7.164c-.093 2.026-1.507 4.8-4.245 8.32C15.32 19.161 12.93 21 11.002 21c-1.332 0-2.436-1.378-3.308-4.136-.582-2.613-1.096-5.59-1.636-7.85-1.026-4.634-1.921-1.652-3.876.104l-1.066-1.341c2.148-2.036 4.356-4.225 5.952-4.428 1.968-.25 3.12 1.343 3.454 4.777.424 4.295.666 4.975 1.505 4.975.766 0 1.956-2.08 2.87-4.482.724-1.916.638-3.32-.42-3.32-.61 0-1.272.186-1.908.498 1.258-4.116 3.98-5.807 7.025-4.832 2.164.693 2.887 2.859 2.796 4.881z"/></svg>
+                                            <svg className="cd-youtube-logo" viewBox="0 0 24 24" fill="#ff0000" width="30" height="30"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.5 12 3.5 12 3.5s-7.505 0-9.377.55a3.016 3.016 0 0 0-2.122 2.136C0 8.083 0 12 0 12s0 3.917.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.55 9.376.55 9.376.55s7.505 0 9.377-.55a3.016 3.016 0 0 0 2.122-2.136C24 15.917 24 12 24 12s0-3.917-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" /></svg>
+                                            <svg className="cd-vimeo-logo" viewBox="0 0 24 24" fill="#1ab7ea" width="30" height="30"><path d="M22.396 7.164c-.093 2.026-1.507 4.8-4.245 8.32C15.32 19.161 12.93 21 11.002 21c-1.332 0-2.436-1.378-3.308-4.136-.582-2.613-1.096-5.59-1.636-7.85-1.026-4.634-1.921-1.652-3.876.104l-1.066-1.341c2.148-2.036 4.356-4.225 5.952-4.428 1.968-.25 3.12 1.343 3.454 4.777.424 4.295.666 4.975 1.505 4.975.766 0 1.956-2.08 2.87-4.482.724-1.916.638-3.32-.42-3.32-.61 0-1.272.186-1.908.498 1.258-4.116 3.98-5.807 7.025-4.832 2.164.693 2.887 2.859 2.796 4.881z" /></svg>
                                         </div>
                                         <div className="cd-embed-actions">
                                             <button className="cd-cancel-btn" onClick={() => setShowUploadModal(false)}>Cancel</button>
@@ -1712,7 +1926,7 @@ const CollectionDashboard = () => {
                                         <div className="focal-image-wrapper">
                                             <img src={photos[0]} alt="Focal" />
                                             <div className="focal-crosshair">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#593116" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
                                             </div>
                                         </div>
                                     ) : (
@@ -1821,18 +2035,18 @@ const CollectionDashboard = () => {
                     </div>
                 </div>
             )}
-            
+
             {/* Upload Widget */}
             {uploadWidget.isOpen && (
                 <div className={`upload-widget ${uploadWidget.isMinimized ? 'minimized' : ''}`}>
                     <div className="upload-widget-header" onClick={() => setUploadWidget(prev => ({ ...prev, isMinimized: !prev.isMinimized }))}>
                         <div className="upload-header-left">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
                             <div className="upload-progress-info">
                                 <h4>Uploading {uploadWidget.files.filter(f => f.status === 'uploading').length} Items</h4>
                                 {uploadWidget.files.filter(f => f.status === 'uploading').length > 0 && (
                                     <span>
-                                        {Math.round(uploadWidget.files.reduce((acc, f) => acc + (f.size * f.progress / 100), 0) / 1024 / 1024 * 100) / 100} MB / 
+                                        {Math.round(uploadWidget.files.reduce((acc, f) => acc + (f.size * f.progress / 100), 0) / 1024 / 1024 * 100) / 100} MB /
                                         {Math.round(uploadWidget.files.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024 * 100) / 100} MB
                                     </span>
                                 )}
@@ -1849,20 +2063,20 @@ const CollectionDashboard = () => {
                             </button>
                         </div>
                     </div>
-                    
+
                     {!uploadWidget.isMinimized && (
                         <div className="upload-widget-list">
                             {uploadWidget.files.map(file => (
                                 <div key={file.id} className="upload-widget-item">
                                     <div className="upload-item-icon">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
                                     </div>
                                     <div className="upload-item-details">
                                         <p className="upload-item-name">{file.name}</p>
                                         <p className="upload-item-status">
-                                            {file.status === 'uploading' ? `Uploading • ${(file.size / 1024 / 1024).toFixed(2)} MB` 
-                                                : file.status === 'completed' ? 'Completed' 
-                                                : 'Failed'}
+                                            {file.status === 'uploading' ? `Uploading • ${(file.size / 1024 / 1024).toFixed(2)} MB`
+                                                : file.status === 'completed' ? 'Completed'
+                                                    : 'Failed'}
                                         </p>
                                     </div>
                                     <div className="upload-item-progress">
@@ -1875,12 +2089,12 @@ const CollectionDashboard = () => {
                                             </div>
                                         )}
                                         {file.status === 'completed' && (
-                                            <span style={{color: '#10b981'}}>
+                                            <span style={{ color: '#10b981' }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                                             </span>
                                         )}
                                         {file.status === 'error' && (
-                                            <span style={{color: '#ef4444'}}>
+                                            <span style={{ color: '#ef4444' }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
                                             </span>
                                         )}
@@ -1892,8 +2106,8 @@ const CollectionDashboard = () => {
                 </div>
             )}
             {/* Change Cover Modal */}
-            <ChangeCoverModal 
-                isOpen={showCoverModal} 
+            <ChangeCoverModal
+                isOpen={showCoverModal}
                 onClose={() => setShowCoverModal(false)}
                 photos={photos}
                 onSelectPhoto={async (photo) => {
@@ -1916,7 +2130,7 @@ const CollectionDashboard = () => {
                         // Upload specifically for cover (index 0 for now as priority)
                         const photoData = await galleryService.uploadPhoto(collectionId, collection.photographer_id, file, 0);
                         setPhotos(prev => [photoData, ...prev]);
-                        
+
                         await galleryService.updateCollection(collectionId, {
                             cover_photo_id: photoData.id,
                             cover_url: photoData.full_url
@@ -1929,6 +2143,260 @@ const CollectionDashboard = () => {
                     }
                 }}
             />
+
+            {/* Get Direct Link Modal */}
+            {showGetDirectLinkModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowGetDirectLinkModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">GET DIRECT LINK</h3>
+                            <button className="cd-modal-close" onClick={() => setShowGetDirectLinkModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>COLLECTION URL</label>
+                                <div style={{ display: 'flex' }}>
+                                    <input type="text" readOnly value={`${window.location.origin}/gallery/${collectionUrl}`} style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px 0 0 4px', fontSize: '14px', backgroundColor: '#f9f9f9', outline: 'none', color: '#555' }} />
+                                    <button style={{ padding: '0 16px', backgroundColor: '#fff', border: '1px solid #ddd', borderLeft: 'none', borderRadius: '0 4px 4px 0', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }} onClick={() => navigator.clipboard.writeText(`${window.location.origin}/gallery/${collectionUrl}`)}>Copy</button>
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#2b78c5', marginTop: '8px', cursor: 'pointer', display: 'inline-block' }}>Need a custom domain?</div>
+                            </div>
+                            <div style={{ marginBottom: '20px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>COLLECTION PASSWORD</label>
+                                <div style={{ display: 'flex' }}>
+                                    <input type="text" readOnly value={collectionPassword || 'No password set'} style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px 0 0 4px', fontSize: '14px', backgroundColor: '#f9f9f9', outline: 'none', color: '#555' }} />
+                                    <button style={{ padding: '0 16px', backgroundColor: '#fff', border: '1px solid #ddd', borderLeft: 'none', borderRadius: '0 4px 4px 0', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }} onClick={() => collectionPassword && navigator.clipboard.writeText(collectionPassword)}>Copy</button>
+                                </div>
+                            </div>
+                            <div style={{ marginBottom: '24px' }}>
+                                <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>DOWNLOAD PIN</label>
+                                <div style={{ display: 'flex' }}>
+                                    <input type="text" readOnly value={pinValue || '1060'} style={{ flex: 1, padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px 0 0 4px', fontSize: '14px', backgroundColor: '#f9f9f9', outline: 'none', color: '#555' }} />
+                                    <button style={{ padding: '0 16px', backgroundColor: '#fff', border: '1px solid #ddd', borderLeft: 'none', borderRadius: '0 4px 4px 0', cursor: 'pointer', fontWeight: '500', fontSize: '13px' }} onClick={() => pinValue && navigator.clipboard.writeText(pinValue)}>Copy</button>
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#2b78c5', marginTop: '8px', cursor: 'pointer', display: 'inline-block' }} onClick={() => { setShowGetDirectLinkModal(false); setActiveSidebarTab('settings'); setActiveSettingsTab('download'); }}>Download Settings</div>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '16px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
+                                <button style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#3b5998', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"></path></svg></button>
+                                <button style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#1da1f2', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"></path></svg></button>
+                                <button style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#bd081c', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', border: 'none', cursor: 'pointer' }}><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.372 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.439.214-.903 1.383-5.857 1.383-5.857s-.353-.707-.353-1.75c0-1.64.953-2.866 2.138-2.866 1.006 0 1.492.754 1.492 1.658 0 1.011-.643 2.525-.976 3.926-.279 1.176.591 2.135 1.753 2.135 2.106 0 3.722-2.222 3.722-5.431 0-2.842-2.045-4.831-4.966-4.831-3.41 0-5.412 2.557-5.412 5.195 0 1.013.39 2.096.877 2.686.096.116.111.22.083.332-.089.366-.289 1.175-.328 1.332-.051.206-.17.252-.382.153-1.423-.664-2.316-2.756-2.316-4.436 0-3.606 2.62-6.915 7.546-6.915 3.957 0 7.03 2.82 7.03 6.582 0 3.934-2.48 7.098-5.922 7.098-1.157 0-2.244-.6-2.615-1.306l-.71 2.705c-.256.974-.95 2.193-1.417 2.936C9.913 23.784 10.938 24 12 24c6.627 0 12-5.373 12-12 0-6.628-5.373-12-12-12z"></path></svg></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Email History Modal */}
+            {showEmailHistoryModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowEmailHistoryModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '700px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>EMAIL HISTORY <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></h3>
+                            <button className="cd-modal-close" onClick={() => setShowEmailHistoryModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <p style={{ fontSize: '13px', color: '#666', marginBottom: '20px' }}>Please note it may take a few minutes for new email history to appear.</p>
+                            <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
+                                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                                    <thead style={{ backgroundColor: '#f9f9f9', borderBottom: '1px solid #eee' }}>
+                                        <tr>
+                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>EMAIL</th>
+                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>SUBJECT</th>
+                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>DATE SENT</th>
+                                            <th style={{ padding: '12px 16px', fontSize: '12px', fontWeight: '600', color: '#555', letterSpacing: '0.5px' }}>STATUS</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td colSpan="4" style={{ padding: '30px', textAlign: 'center', color: '#888', fontSize: '14px' }}>No email history found.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Apply Preset Modal */}
+            {showApplyPresetModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowApplyPresetModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">APPLY PRESET TO COLLECTION</h3>
+                            <button className="cd-modal-close" onClick={() => setShowApplyPresetModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>Applying a preset will overwrite your current collection settings. This action cannot be undone.</p>
+                            <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>SELECT PRESET</label>
+                            <div style={{ position: 'relative', marginBottom: '10px' }}>
+                                <select style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', appearance: 'none', backgroundColor: '#fff', outline: 'none' }}>
+                                    <option>Select a preset...</option>
+                                    <option>Default Settings</option>
+                                    <option>Wedding Default</option>
+                                </select>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', right: '12px', top: '12px', pointerEvents: 'none' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </div>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button className="cd-cancel-btn" onClick={() => setShowApplyPresetModal(false)}>Cancel</button>
+                            <button className="cd-save-btn" onClick={() => setShowApplyPresetModal(false)}>Apply</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Save Preset Modal */}
+            {showSavePresetModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowSavePresetModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">SAVE SETTINGS AS A PRESET</h3>
+                            <button className="cd-modal-close" onClick={() => setShowSavePresetModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '20px' }}>Save your current collection settings as a preset to easily apply them to other collections.</p>
+                            <label style={{ fontSize: '11px', fontWeight: '600', color: '#666', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>PRESET NAME</label>
+                            <input type="text" placeholder="e.g. Standard Wedding" style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '14px', outline: 'none', boxSizing: 'border-box' }} />
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button className="cd-cancel-btn" onClick={() => setShowSavePresetModal(false)}>Cancel</button>
+                            <button className="cd-save-btn" onClick={() => setShowSavePresetModal(false)}>Save</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Move To Modal */}
+            {showMoveToModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowMoveToModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">MOVE COLLECTION TO</h3>
+                            <button className="cd-modal-close" onClick={() => setShowMoveToModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                                <span style={{ fontWeight: '500' }}>Home</span>
+                            </div>
+                            <div style={{ border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden', marginBottom: '16px' }}>
+                                <div style={{ padding: '12px 16px', borderBottom: '1px solid #ddd', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', backgroundColor: '#f9f9f9' }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#a4d1f5" stroke="#a4d1f5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                                    <span style={{ fontSize: '14px', color: '#333' }}>2026 Weddings</span>
+                                </div>
+                                <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#a4d1f5" stroke="#a4d1f5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                                    <span style={{ fontSize: '14px', color: '#333' }}>Portraits</span>
+                                </div>
+                            </div>
+                            <div style={{ color: '#2b78c5', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}>+ Move to new folder</div>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button className="cd-cancel-btn" onClick={() => setShowMoveToModal(false)}>Cancel</button>
+                            <button className="cd-save-btn disabled">Move</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Duplicate Modal */}
+            {showDuplicateModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowDuplicateModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">DUPLICATE COLLECTION</h3>
+                            <button className="cd-modal-close" onClick={() => setShowDuplicateModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Are you sure you want to duplicate this collection?</p>
+                            <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>• Duplicating a collection may take a few minutes depending on the size.</p>
+                            <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>• Videos will not be duplicated.</p>
+                            <p style={{ fontSize: '13px', color: '#666' }}>• Photos in the new collection will be temporarily unavailable while the process is running.</p>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button className="cd-cancel-btn" onClick={() => setShowDuplicateModal(false)}>Cancel</button>
+                            <button className="cd-save-btn" onClick={async () => {
+                                try {
+                                    setSaving(true);
+                                    await galleryService.createCollection({
+                                        name: `${collectionName} (Copy)`,
+                                        event_date: collection?.event_date,
+                                        status: 'draft'
+                                    });
+                                    setShowDuplicateModal(false);
+                                    navigate('/client-gallery');
+                                } catch (err) {
+                                    console.error('Failed to duplicate:', err);
+                                    alert('Failed to duplicate collection. Please try again.');
+                                } finally {
+                                    setSaving(false);
+                                }
+                            }}>Duplicate</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Collection Modal */}
+            {showDeleteCollectionModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowDeleteCollectionModal(false)}>
+                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">DELETE COLLECTION</h3>
+                            <button className="cd-modal-close" onClick={() => setShowDeleteCollectionModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Are you sure you want to delete this collection?</p>
+                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '24px' }}><strong>Warning:</strong> All photos and past activities will be permanently removed.</p>
+                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={deleteCollectionConfirm}
+                                    onChange={(e) => setDeleteCollectionConfirm(e.target.checked)}
+                                    style={{ marginTop: '4px', width: '16px', height: '16px' }}
+                                />
+                                <span style={{ fontSize: '13px', color: '#333' }}>I accept that this collection will be permanently deleted</span>
+                            </label>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button className="cd-cancel-btn" onClick={() => setShowDeleteCollectionModal(false)}>Cancel</button>
+                            <button
+                                className="cd-save-btn"
+                                style={{ backgroundColor: '#e53e3e', borderColor: '#e53e3e', opacity: deleteCollectionConfirm ? 1 : 0.5 }}
+                                disabled={!deleteCollectionConfirm || saving}
+                                onClick={async () => {
+                                    try {
+                                        setSaving(true);
+                                        await galleryService.deleteCollection(collectionId);
+                                        navigate('/client-gallery');
+                                    } catch (err) {
+                                        console.error('Failed to delete collection:', err);
+                                        alert('Failed to delete collection. Please try again.');
+                                        setSaving(false);
+                                    }
+                                }}
+                            >
+                                {saving ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

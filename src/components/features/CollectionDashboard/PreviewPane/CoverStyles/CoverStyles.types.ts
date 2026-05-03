@@ -3,5 +3,6 @@ export interface CoverProps {
   date: string;
   subtitle?: string;
   photoUrl?: string;
+  className?: string;
   onViewGallery?: () => void;
 }

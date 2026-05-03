@@ -149,6 +149,7 @@ export default function CollectionDashboard() {
                 gridPhotos={photos as any}
                 previewMode={dashboardState.previewMode}
                 onPreviewModeChange={dashboardState.setPreviewMode}
+                dashboardState={dashboardState}
              />
           </div>
         </div>

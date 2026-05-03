@@ -21,6 +21,25 @@ export default {
         display: ['Outfit', 'sans-serif'],
         heading: ['Playfair Display', 'serif'],
       },
+      keyframes: {
+        cgFadeIn: {
+          'from': { opacity: '0', transform: 'translateY(-4px)' },
+          'to': { opacity: '1', transform: 'translateY(0)' },
+        },
+        cgSlideUp: {
+          'from': { opacity: '0', transform: 'translateX(-50%) translateY(20px)' },
+          'to': { opacity: '1', transform: 'translateX(-50%) translateY(0)' },
+        },
+        fadeIn: {
+          'from': { opacity: '0' },
+          'to': { opacity: '1' },
+        }
+      },
+      animation: {
+        'fadeIn': 'fadeIn 0.15s ease',
+        'cgFadeIn': 'cgFadeIn 0.15s ease',
+        'cgSlideUp': 'cgSlideUp 0.2s ease',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

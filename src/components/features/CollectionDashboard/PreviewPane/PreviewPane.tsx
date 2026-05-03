@@ -10,7 +10,8 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
   coverPhotoUrl,
   gridPhotos,
   previewMode,
-  onPreviewModeChange
+  onPreviewModeChange,
+  dashboardState
 }) => {
   return (
     <div className={cn('cd-design-preview-pane', previewMode, `font-${settings.fontFamily}`)}>
@@ -22,6 +23,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
             collectionDate={collectionDate}
             coverPhotoUrl={coverPhotoUrl}
             gridPhotos={gridPhotos}
+            dashboardState={dashboardState}
           />
         </div>
         <div className="cd-preview-toolbar">

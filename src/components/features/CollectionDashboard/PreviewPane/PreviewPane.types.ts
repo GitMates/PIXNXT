@@ -8,6 +8,7 @@ export interface PreviewPaneProps {
   gridPhotos: { full_url: string }[];
   previewMode: 'desktop' | 'mobile';
   onPreviewModeChange: (mode: 'desktop' | 'mobile') => void;
+  dashboardState?: any;
 }
 
 export interface GalleryPreviewProps {
@@ -16,4 +17,5 @@ export interface GalleryPreviewProps {
   collectionDate: string;
   coverPhotoUrl?: string;
   gridPhotos: { full_url: string }[];
+  dashboardState?: any;
 }
