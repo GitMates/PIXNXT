@@ -50,6 +50,8 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       title: collectionTitle,
       date: collectionDate,
       photoUrl: coverPhotoUrl,
+      focalX: dashboardState?.focalX,
+      focalY: dashboardState?.focalY,
     };
 
     switch (coverStyle) {

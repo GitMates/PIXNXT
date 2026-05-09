@@ -3,6 +3,8 @@ export interface CoverProps {
   date: string;
   subtitle?: string;
   photoUrl?: string;
+  focalX?: number;
+  focalY?: number;
   className?: string;
   onViewGallery?: () => void;
 }

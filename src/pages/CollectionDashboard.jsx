@@ -87,6 +87,9 @@ const CollectionDashboard = () => {
     });
     const [previewMode, setPreviewMode] = useState('desktop'); // desktop, mobile
     const [showFocalModal, setShowFocalModal] = useState(false);
+    const [focalX, setFocalX] = useState(50);
+    const [focalY, setFocalY] = useState(50);
+    const [isDraggingFocal, setIsDraggingFocal] = useState(false);
     const [showCoverModal, setShowCoverModal] = useState(false);
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
 
@@ -200,6 +203,62 @@ const CollectionDashboard = () => {
         const visibleIds = sortedPhotos.map(p => p.id);
         setSelectedPhotos(visibleIds);
         setShowSelectAllMenu(false);
+    };
+
+    useEffect(() => {
+        if (showFocalModal) {
+            let initialX = 50;
+            let initialY = 50;
+            if (collection?.focal_x !== undefined) {
+                initialX = collection.focal_x;
+                initialY = collection.focal_y;
+            } else if (collection?.cover_url && collection.cover_url.includes('#focal=')) {
+                const match = collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/);
+                if (match) {
+                    initialX = parseFloat(match[1]);
+                    initialY = parseFloat(match[2]);
+                }
+            }
+            setFocalX(initialX);
+            setFocalY(initialY);
+        }
+    }, [showFocalModal, collection]);
+
+    const handleFocalDrag = (e) => {
+        if (!isDraggingFocal && e.type !== 'mousedown') return;
+        
+        const rect = e.currentTarget.getBoundingClientRect();
+        let x = ((e.clientX - rect.left) / rect.width) * 100;
+        let y = ((e.clientY - rect.top) / rect.height) * 100;
+        
+        x = Math.max(0, Math.min(100, x));
+        y = Math.max(0, Math.min(100, y));
+        
+        setFocalX(x);
+        setFocalY(y);
+    };
+
+    const handleFocalSave = async () => {
+        try {
+            setSaving(true);
+            const currentCoverUrl = collection?.cover_url || (photos.length > 0 ? photos[0].full_url : '');
+            if (!currentCoverUrl) {
+                setShowFocalModal(false);
+                return;
+            }
+            
+            const coverUrlBase = currentCoverUrl.split('#')[0];
+            const newCoverUrl = `${coverUrlBase}#focal=${focalX},${focalY}`;
+            
+            await galleryService.updateCollection(collectionId, { cover_url: newCoverUrl });
+            setCollection(prev => ({ ...prev, cover_url: newCoverUrl, focal_x: focalX, focal_y: focalY }));
+            setShowFocalModal(false);
+        } catch (err) {
+            console.error('Failed to save focal point:', err);
+            alert('Failed to save focal point.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     const handleSetAsCover = async (photo) => {
@@ -1092,7 +1151,7 @@ const CollectionDashboard = () => {
                         {activeSidebarTab === 'photos' && (
                             <>
                                 <div className="cd-main-header">
-                                    <h2 className="cd-main-title">{activeSetName}</h2>
+                                    <h2 className="cd-main-title">{activeSetName} ({activeSetPhotoCount})</h2>
                                     <div className="cd-main-actions">
                                         <div className="cd-sort-wrapper" ref={sortRef}>
                                             <button className="cd-icon-btn sort-btn" onClick={() => setShowSortMenu(!showSortMenu)}>
@@ -1240,43 +1299,43 @@ const CollectionDashboard = () => {
                                                     {photoMenu === photo.id && (
                                                         <div className="cd-photo-menu" ref={photoMenuRef}>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setLightboxIndex(index); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                                                                 <span>Open</span>
                                                             </div>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleQuickShare(photo); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
                                                                 <span>Quick share</span>
                                                             </div>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleDownloadPhoto(photo); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                                                                 <span>Download</span>
                                                             </div>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setTargetSetId(photo.set_id); setMoveMode('move'); setShowMoveModal(true); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
                                                                 <span>Move/Copy</span>
                                                             </div>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleCopyFilename(photo); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
                                                                 <span>Copy filenames</span>
                                                             </div>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleSetAsCover(photo); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                                                                 <span>Set as cover</span>
                                                             </div>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setNewPhotoName(photo.filename); setShowRenameModal(true); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
                                                                 <span>Rename</span>
                                                             </div>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setShowReplaceModal(true); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"></path></svg>
                                                                 <span>Replace photo</span>
                                                             </div>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setShowWatermarkModal(true); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M14.83 14.83a4 4 0 1 1 0-5.66"></path></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M14.83 14.83a4 4 0 1 1 0-5.66"></path></svg>
                                                                 <span>Watermark</span>
                                                             </div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); deleteSelectedPhotos([photo.id]); }}>
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                            <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); deleteSelectedPhotos([photo.id]); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                                                 <span>Delete</span>
                                                             </div>
                                                         </div>
@@ -1352,6 +1411,10 @@ const CollectionDashboard = () => {
                                     gridPhotos={photos}
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
+                                    dashboardState={{ 
+                                        focalX: collection?.focal_x ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[1] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[1]) : 50), 
+                                        focalY: collection?.focal_y ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[2] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[2]) : 50) 
+                                    }}
                                 />
                             </div>
                         )}
@@ -2141,13 +2204,25 @@ const CollectionDashboard = () => {
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
                             </div>
-                            <div className="cd-modal-body">
+                            <div className="cd-set-modal-body">
                                 <div className="focal-point-container">
-                                    {photos.length > 0 ? (
-                                        <div className="focal-image-wrapper">
-                                            <img src={photos[0]} alt="Focal" />
-                                            <div className="focal-crosshair">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+                                    {collection?.cover_url || photos.length > 0 ? (
+                                        <div 
+                                            className="focal-image-wrapper"
+                                            onMouseDown={(e) => {
+                                                setIsDraggingFocal(true);
+                                                handleFocalDrag(e);
+                                            }}
+                                            onMouseMove={handleFocalDrag}
+                                            onMouseUp={() => setIsDraggingFocal(false)}
+                                            onMouseLeave={() => setIsDraggingFocal(false)}
+                                        >
+                                            <img src={collection?.cover_url || photos[0]?.full_url} alt="Focal" draggable="false" />
+                                            <div 
+                                                className="focal-crosshair"
+                                                style={{ left: `${focalX}%`, top: `${focalY}%` }}
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.5))' }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
                                             </div>
                                         </div>
                                     ) : (
@@ -2156,9 +2231,9 @@ const CollectionDashboard = () => {
                                 </div>
                                 <p className="focal-instruction">Drag the crosshair to set the focal point for your cover photo and grid.</p>
                             </div>
-                            <div className="cd-modal-footer">
+                            <div className="cd-set-modal-footer">
                                 <button className="cd-cancel-btn" onClick={() => setShowFocalModal(false)}>Cancel</button>
-                                <button className="cd-save-btn" onClick={() => setShowFocalModal(false)}>Save</button>
+                                <button className="cd-save-btn" onClick={handleFocalSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</button>
                             </div>
                         </div>
                     </div>

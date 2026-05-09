@@ -5299,35 +5299,35 @@ input:checked+.cd-toggle-slider:before {
     position: absolute;
     top: 40px;
     right: 0;
-    background: white;
-    border-radius: 8px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    background: #ffffff;
+    border-radius: 10px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.1);
     z-index: 2000;
-    min-width: 200px;
+    min-width: 220px;
     padding: 8px 0;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border: 1px solid rgba(0,0,0,0.06);
+    border: none;
 }
 
 .cd-photo-menu .cd-ctx-item {
     display: flex;
     align-items: center;
     gap: 12px;
-    padding: 9px 18px;
-    font-size: 14.5px;
-    font-weight: 400;
-    color: #2c333e;
+    padding: 10px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #374151;
     cursor: pointer;
-    transition: all 0.1s ease;
+    transition: all 0.15s ease;
     white-space: nowrap;
     width: 100%;
 }
 
 .cd-photo-menu .cd-ctx-item:hover {
-    background-color: #f7f9fa;
-    color: #000;
+    background-color: #f3f4f6;
+    color: #111;
 }
 
 .cd-photo-menu .cd-ctx-item svg {
@@ -5338,32 +5338,33 @@ input:checked+.cd-toggle-slider:before {
 }
 
 .cd-photo-menu .cd-ctx-item.cd-ctx-delete:hover {
-    background-color: #fff1f2;
-    color: #e11d48;
+    background-color: #fef2f2;
+    color: #ef4444;
 }
 
 .cd-photo-menu .cd-ctx-item.cd-ctx-delete:hover svg {
-    color: #e11d48;
+    color: #ef4444;
 }
 
 .cd-photo-more-btn {
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.9);
+    background: #ffffff;
     border: none;
     display: flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     color: #333;
-    transition: all 0.2s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .cd-photo-more-btn:hover {
-    background: #fff;
+    background: #ffffff;
     transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
 }
 
 .cd-photo-actions {
@@ -5383,10 +5384,10 @@ input:checked+.cd-toggle-slider:before {
     position: absolute;
     top: 8px;
     left: 8px;
-    width: 32px;
-    height: 32px;
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.9);
+    background: #ffffff;
     border: none;
     display: flex;
     align-items: center;
@@ -5394,8 +5395,8 @@ input:checked+.cd-toggle-slider:before {
     cursor: pointer;
     z-index: 50;
     opacity: 0;
-    transition: all 0.2s;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .cd-photo-card:hover .cd-photo-star,
@@ -5434,10 +5435,110 @@ input:checked+.cd-toggle-slider:before {
     position: relative;
 }
 
-cd-set-item.active .cd-set-menu-btn {
-    opacity: 1;
+.cd-main-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 12px;
 }
 
-.cd-set-menu-wrapper {
+.cd-main-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: #111111;
+    margin: 0;
+}
+
+.cd-main-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cd-main-actions-divider {
+    width: 1px;
+    height: 24px;
+    background-color: #ebebeb;
+    margin: 0 4px;
+}
+
+.cd-add-media-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background-color: #111111;
+    color: #ffffff;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 20px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cd-add-media-btn:hover {
+    background-color: #000000;
+    transform: translateY(-1px);
+}
+
+.cd-add-media-btn svg {
+    stroke: #ffffff !important;
+}
+
+/* ============================================================
+   FOCAL POINT MODAL
+   ============================================================ */
+
+.focal-modal {
+    width: 600px;
+    max-width: 95vw;
+}
+
+.focal-point-container {
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+    padding: 20px;
+}
+
+.focal-image-wrapper {
     position: relative;
+    cursor: crosshair;
+    display: inline-block;
+    max-width: 100%;
+    max-height: 400px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.focal-image-wrapper img {
+    display: block;
+    max-width: 100%;
+    max-height: 400px;
+    object-fit: contain;
+    user-select: none;
+    -webkit-user-drag: none;
+}
+
+.focal-crosshair {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    pointer-events: none; /* Let clicks pass through to wrapper */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.focal-instruction {
+    font-size: 13px;
+    color: #666;
+    text-align: center;
+    margin: 0;
 }

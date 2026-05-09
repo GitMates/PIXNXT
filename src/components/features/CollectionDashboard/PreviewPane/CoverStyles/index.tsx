@@ -1,10 +1,10 @@
 import React from 'react';
 import { CoverProps } from './CoverStyles.types';
 
-export const CenterCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, onViewGallery }) => (
+export const CenterCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="relative h-[400px] w-full flex flex-col items-center justify-center overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
     {photoUrl && (
-      <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+      <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />
     )}
     <div className="relative z-10 flex flex-col items-center text-center px-6">
       <div className="text-[10px] tracking-[0.3em] uppercase opacity-80 mb-4" style={{ color: 'var(--gallery-text)' }}>{subtitle || 'GALLERY'}</div>
@@ -21,10 +21,10 @@ export const CenterCover: React.FC<CoverProps> = ({ title, subtitle, date, photo
   </div>
 );
 
-export const LeftCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, onViewGallery }) => (
+export const LeftCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="relative h-[400px] w-full flex flex-col items-start justify-center overflow-hidden px-16" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
     {photoUrl && (
-      <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+      <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />
     )}
     <div className="relative z-10 flex flex-col items-start text-left max-w-lg">
       <div className="text-[10px] tracking-[0.3em] uppercase opacity-80 mb-4" style={{ color: 'var(--gallery-text)' }}>{subtitle || 'GALLERY'}</div>
@@ -41,7 +41,7 @@ export const LeftCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUr
   </div>
 );
 
-export const NovelCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, onViewGallery }) => (
+export const NovelCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="h-[400px] w-full flex flex-col md:flex-row overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)' }}>
     <div className="flex-1 flex flex-col items-center justify-center p-12" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
       <div className="text-[10px] tracking-[0.3em] uppercase mb-4 opacity-60" style={{ color: 'var(--gallery-text)' }}>{subtitle || 'GALLERY'}</div>
@@ -56,16 +56,16 @@ export const NovelCover: React.FC<CoverProps> = ({ title, subtitle, date, photoU
       </button>
     </div>
     <div className="flex-1 h-full">
-      {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />}
+      {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
     </div>
   </div>
 );
 
-export const VintageCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, onViewGallery }) => (
+export const VintageCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="h-[400px] w-full flex flex-col md:flex-row overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
     <div className="flex-1 h-full p-6">
       <div className="w-full h-full border p-3 overflow-hidden" style={{ borderColor: 'var(--gallery-border)' }}>
-        {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover grayscale opacity-80" />}
+        {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover grayscale opacity-80" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
       </div>
     </div>
     <div className="flex-1 flex flex-col items-center justify-center p-12">
@@ -83,10 +83,10 @@ export const VintageCover: React.FC<CoverProps> = ({ title, subtitle, date, phot
   </div>
 );
 
-export const FrameCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, onViewGallery }) => (
+export const FrameCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="h-[400px] w-full flex items-center justify-center p-6" style={{ backgroundColor: 'var(--gallery-bg)' }}>
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
-      {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />}
+      {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
       <div className="absolute inset-0 border-[16px] z-20 pointer-events-none" style={{ borderColor: 'var(--gallery-bg)' }}></div>
       <div className="relative z-10 flex flex-col items-center justify-center w-full h-full p-8" style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#fff' }}>
         <div className="text-[10px] tracking-[0.3em] uppercase opacity-90 mb-3"> {subtitle || 'GALLERY'}</div>
@@ -104,9 +104,9 @@ export const FrameCover: React.FC<CoverProps> = ({ title, subtitle, date, photoU
   </div>
 );
 
-export const StripeCover: React.FC<CoverProps> = ({ title, date, photoUrl, onViewGallery }) => (
+export const StripeCover: React.FC<CoverProps> = ({ title, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="relative h-[400px] w-full flex flex-col items-center justify-center overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
-    {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-50" />}
+    {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-50" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
     <div className="relative z-10 flex flex-col items-center px-12 py-10 backdrop-blur-sm border-y w-full max-w-3xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'var(--gallery-border)' }}>
       <div className="w-24 h-px mb-6" style={{ backgroundColor: 'var(--gallery-text)', opacity: 0.7 }}></div>
       <h1 className="text-5xl mb-6 text-center gallery-heading" style={{ color: 'var(--gallery-text)' }}>{title}</h1>
@@ -123,9 +123,9 @@ export const StripeCover: React.FC<CoverProps> = ({ title, date, photoUrl, onVie
   </div>
 );
 
-export const DividerCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, onViewGallery }) => (
+export const DividerCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="relative h-[400px] w-full flex overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
-    {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" />}
+    {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
     <div className="absolute left-1/2 top-0 bottom-0 w-[1px] -translate-x-1/2 z-10" style={{ backgroundColor: 'var(--gallery-text)', opacity: 0.4 }}></div>
     <div className="relative z-10 w-1/2 h-full flex flex-col items-center justify-center p-12 text-center">
       <div className="text-[10px] tracking-[0.3em] uppercase opacity-80 mb-4" style={{ color: 'var(--gallery-text)' }}>{subtitle || 'GALLERY'}</div>
@@ -144,10 +144,10 @@ export const DividerCover: React.FC<CoverProps> = ({ title, subtitle, date, phot
   </div>
 );
 
-export const JournalCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, onViewGallery }) => (
+export const JournalCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="h-[400px] w-full flex overflow-hidden p-8 gap-8 items-center justify-center" style={{ backgroundColor: 'var(--gallery-bg)' }}>
     <div className="w-1/2 h-[90%] overflow-hidden shadow-sm" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
-      {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />}
+      {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
     </div>
     <div className="w-1/2 flex flex-col items-center text-center p-8" style={{ color: 'var(--gallery-text)' }}>
       <div className="text-[10px] tracking-[0.3em] uppercase mb-4 opacity-60">{subtitle || 'GALLERY'}</div>
@@ -164,10 +164,10 @@ export const JournalCover: React.FC<CoverProps> = ({ title, subtitle, date, phot
   </div>
 );
 
-export const StampCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, onViewGallery }) => (
+export const StampCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="h-[400px] w-full flex flex-col items-center justify-center p-12" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
     <div className="w-48 h-48 overflow-hidden mb-8 shadow-sm" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
-      {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" />}
+      {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
     </div>
     <div className="text-[10px] tracking-[0.3em] uppercase mb-3 opacity-60">{subtitle || 'GALLERY'}</div>
     <h1 className="text-4xl mb-4 gallery-heading">{title}</h1>
@@ -182,9 +182,9 @@ export const StampCover: React.FC<CoverProps> = ({ title, subtitle, date, photoU
   </div>
 );
 
-export const OutlineCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, onViewGallery }) => (
+export const OutlineCover: React.FC<CoverProps> = ({ title, subtitle, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="relative h-[400px] w-full flex items-center justify-center overflow-hidden p-8" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
-    {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" />}
+    {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
     <div className="relative z-10 w-full h-full max-w-2xl border-[2px] flex flex-col items-center justify-center p-12 bg-black/10 backdrop-blur-[2px]" style={{ borderColor: 'var(--gallery-text)' }}>
       <div className="text-[10px] tracking-[0.4em] uppercase opacity-90 mb-4">{subtitle || 'GALLERY'}</div>
       <h1 className="text-5xl mb-6 text-center gallery-heading">{title}</h1>
@@ -200,9 +200,9 @@ export const OutlineCover: React.FC<CoverProps> = ({ title, subtitle, date, phot
   </div>
 );
 
-export const ClassicCover: React.FC<CoverProps> = ({ title, date, photoUrl, onViewGallery }) => (
+export const ClassicCover: React.FC<CoverProps> = ({ title, date, photoUrl, focalX, focalY, onViewGallery }) => (
   <div className="relative h-[400px] w-full overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: '#fff' }}>
-    {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />}
+    {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-10">
       <div className="flex justify-between items-end w-full">
         <div>
@@ -219,4 +219,5 @@ export const ClassicCover: React.FC<CoverProps> = ({ title, date, photoUrl, onVi
     </div>
   </div>
 );
+
 
