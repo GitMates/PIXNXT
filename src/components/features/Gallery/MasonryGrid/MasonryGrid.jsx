@@ -92,7 +92,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
             }}
             onClick={() => onImageClick(index)}
           >
-            <div className="h-full w-full bg-zinc-100">
+            <div className="h-full w-full" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
               <img
                 src={src}
                 alt={photo.filename || `Gallery image ${index + 1}`}

@@ -136,12 +136,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         >
           {gridPhotos.map((photo, i) => {
             const photoKey = photo.id || photo.full_url;
-            const aspectRatio = (photo.width && photo.height) 
-              ? (photo.width / photo.height) 
+            const aspectRatio = (photo.width && photo.height)
+              ? (photo.width / photo.height)
               : (dynamicAspectRatios[photoKey] || 1.5);
             // Reduce row heights significantly for the preview pane to simulate multiple columns
             const rowHeight = grid.size === 'large' ? 240 : grid.size === 'regular' ? 140 : grid.size === 'small' ? 90 : 60;
-            
+
             return (
               <div
                 key={photoKey}
@@ -156,9 +156,9 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                   marginBottom: 'var(--grid-gap)'
                 }}
               >
-                <img 
-                  src={photo.full_url} 
-                  alt={`Photo ${i + 1}`} 
+                <img
+                  src={photo.full_url}
+                  alt={`Photo ${i + 1}`}
                   style={grid.style === 'horizontal' ? {
                     width: '100%',
                     height: 'auto',
@@ -325,7 +325,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                         </div>
                       </button>
                     )}
-                    
+
                     {(dashboardState?.photoDownloadSizes?.includes('web') ?? true) && (
                       <button
                         className={cn(
@@ -394,13 +394,13 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               <div className="flex justify-center gap-6 mb-8">
                 <button className="flex flex-col items-center gap-2 bg-transparent border-none cursor-pointer hover:opacity-70 transition-opacity">
                   <div className="w-12 h-12 rounded-full bg-[#1877F2] flex items-center justify-center text-white">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
                   </div>
                   <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">Facebook</span>
                 </button>
                 <button className="flex flex-col items-center gap-2 bg-transparent border-none cursor-pointer hover:opacity-70 transition-opacity">
                   <div className="w-12 h-12 rounded-full bg-black flex items-center justify-center text-white">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" /></svg>
                   </div>
                   <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">X</span>
                 </button>
@@ -422,10 +422,10 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               </div>
 
               <div className="mt-6 flex border border-zinc-200 rounded overflow-hidden p-1">
-                <input 
-                  type="text" 
-                  readOnly 
-                  value={window.location.origin + "/gallery/" + (dashboardState?.collection?.slug || 'preview')} 
+                <input
+                  type="text"
+                  readOnly
+                  value={window.location.origin + "/gallery/" + (dashboardState?.collection?.slug || 'preview')}
                   className="flex-1 px-3 text-sm text-zinc-500 outline-none bg-zinc-50 border-none"
                 />
                 <button className="bg-zinc-900 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors border-none cursor-pointer rounded-sm flex items-center gap-2">

@@ -11,8 +11,14 @@ export function GalleryHeader({ title, opacity, isDark, onSlideshow, onFavorite,
       style={{ opacity }}
       className={cn(
         "fixed top-0 z-50 flex h-16 w-full items-center justify-between px-6 backdrop-blur-md border-b transition-colors duration-500",
-        isDark ? "bg-zinc-950/80 border-zinc-800 text-white" : "bg-white/80 border-zinc-100 text-zinc-900"
+        isDark ? "bg-black/80 border-white/10 text-white" : "bg-white/80 border-black/5 text-black"
       )}
+      style={{ 
+        backgroundColor: isDark ? 'rgba(0,0,0,0.8)' : 'rgba(255,255,255,0.8)',
+        color: 'var(--gallery-text)',
+        borderBottomColor: 'rgba(0,0,0,0.05)',
+        opacity
+      }}
     >
       <div className="flex items-center gap-4">
         <Typography variant="label" className="hidden md:block opacity-50">Collection</Typography>

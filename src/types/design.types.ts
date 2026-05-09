@@ -1,15 +1,15 @@
-export type CoverStyleId = 
-  | 'center' 
-  | 'left' 
-  | 'novel' 
-  | 'vintage' 
-  | 'frame' 
-  | 'stripe' 
-  | 'divider' 
-  | 'journal' 
-  | 'stamp' 
-  | 'outline' 
-  | 'classic' 
+export type CoverStyleId =
+  | 'center'
+  | 'left'
+  | 'novel'
+  | 'vintage'
+  | 'frame'
+  | 'stripe'
+  | 'divider'
+  | 'journal'
+  | 'stamp'
+  | 'outline'
+  | 'classic'
   | 'none';
 
 export type FontId = 'sans' | 'serif' | 'modern' | 'timeless' | 'bold' | 'subtle';

@@ -46,7 +46,8 @@ export function PhotoLightbox({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex flex-col bg-white"
+        className="fixed inset-0 z-[100] flex flex-col"
+        style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
       >
         {/* Top Controls */}
         <div className="flex h-20 items-center justify-between px-6">
@@ -88,7 +89,8 @@ export function PhotoLightbox({
           {!isSlideshowActive && (
             <button 
               onClick={onPrev}
-              className="absolute left-6 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-black/5 hover:bg-black/5 transition-all md:h-16 md:w-16"
+              className="absolute left-6 z-10 flex h-12 w-12 items-center justify-center rounded-full border transition-all md:h-16 md:w-16"
+              style={{ borderColor: 'var(--gallery-border)', backgroundColor: 'rgba(var(--gallery-text-rgb, 0,0,0), 0.02)' }}
             >
               <ChevronLeft size={24} strokeWidth={1} />
             </button>
@@ -115,7 +117,8 @@ export function PhotoLightbox({
           {!isSlideshowActive && (
             <button 
               onClick={onNext}
-              className="absolute right-6 z-10 flex h-12 w-12 items-center justify-center rounded-full border border-black/5 hover:bg-black/5 transition-all md:h-16 md:w-16"
+              className="absolute right-6 z-10 flex h-12 w-12 items-center justify-center rounded-full border transition-all md:h-16 md:w-16"
+              style={{ borderColor: 'var(--gallery-border)', backgroundColor: 'rgba(var(--gallery-text-rgb, 0,0,0), 0.02)' }}
             >
               <ChevronRight size={24} strokeWidth={1} />
             </button>

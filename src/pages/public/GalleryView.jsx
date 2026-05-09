@@ -137,7 +137,7 @@ const GalleryView = () => {
   const photoUrls = filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className={cn("min-h-screen transition-colors duration-500", `theme-${collection.color_palette || 'light'}`, `font-${collection.font_family || 'sans'}`)} style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
       {/* Hero Section */}
       <div className="w-full h-[100dvh] [&>div]:!h-full">
         {(() => {
@@ -170,7 +170,7 @@ const GalleryView = () => {
       <GalleryHeader
         title={collection.name}
         opacity={headerOpacity}
-        isDark={false}
+        isDark={collection.color_palette === 'dark'}
         onSlideshow={handleStartSlideshow}
         onFavorite={() => setShowFavoriteModal(true)}
         onDownload={handleDownloadClick}
@@ -178,7 +178,7 @@ const GalleryView = () => {
       />
 
       {/* Main Gallery Content */}
-      <main ref={galleryRef} className="py-24">
+      <main ref={galleryRef} className="py-24" style={{ backgroundColor: 'var(--gallery-bg)' }}>
         <Container>
           {/* Sets Navigation - Minimal Nova Style */}
           <div className="mb-16 flex items-center justify-center gap-12">
@@ -186,10 +186,10 @@ const GalleryView = () => {
               className="group relative py-2"
               onClick={() => setActiveSetId(null)}
             >
-              <Typography variant="label" className={cn("transition-opacity", !activeSetId ? "text-zinc-900 opacity-100" : "opacity-50 hover:opacity-100")}>
+              <Typography variant="label" className={cn("transition-opacity", !activeSetId ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
                 Highlights
               </Typography>
-              {!activeSetId && <div className="absolute bottom-0 left-0 h-[1.5px] w-full bg-zinc-950 scale-x-100 transition-transform origin-left" />}
+              {!activeSetId && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}
             </button>
             {(collection.sets || []).map((set) => (
               <button 
@@ -197,10 +197,10 @@ const GalleryView = () => {
                 className="group relative py-2"
                 onClick={() => setActiveSetId(set.id)}
               >
-                <Typography variant="label" className={cn("transition-opacity", activeSetId === set.id ? "text-zinc-900 opacity-100" : "opacity-50 hover:opacity-100")}>
+                <Typography variant="label" className={cn("transition-opacity", activeSetId === set.id ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
                   {set.name}
                 </Typography>
-                {activeSetId === set.id && <div className="absolute bottom-0 left-0 h-[1.5px] w-full bg-zinc-950 scale-x-100 transition-transform origin-left" />}
+                {activeSetId === set.id && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}
               </button>
             ))}
           </div>
@@ -223,10 +223,10 @@ const GalleryView = () => {
       </main>
 
       {/* Global Footer Branding */}
-      <footer className="mt-12 border-t border-zinc-100 py-8">
+      <footer className="mt-12 border-t py-8" style={{ borderTopColor: 'rgba(0,0,0,0.05)', backgroundColor: 'var(--gallery-bg)' }}>
         <Container>
           <div className="text-center">
-            <Typography variant="label" className="opacity-20">© {new Date().getFullYear()} PIXNXT. All Rights Reserved.</Typography>
+            <Typography variant="label" style={{ color: 'var(--gallery-meta-text)', opacity: 0.5 }}>© {new Date().getFullYear()} PIXNXT. All Rights Reserved.</Typography>
           </div>
         </Container>
       </footer>
