@@ -179,7 +179,7 @@ const GalleryView = () => {
 
       {/* Main Gallery Content */}
       <main ref={galleryRef} className="py-24" style={{ backgroundColor: 'var(--gallery-bg)' }}>
-        <Container>
+        <Container className="max-w-none px-4 md:px-8 lg:px-12">
           {/* Sets Navigation - Minimal Nova Style */}
           <div className="mb-16 flex items-center justify-center gap-12">
             <button 
@@ -224,7 +224,7 @@ const GalleryView = () => {
 
       {/* Global Footer Branding */}
       <footer className="mt-12 border-t py-8" style={{ borderTopColor: 'rgba(0,0,0,0.05)', backgroundColor: 'var(--gallery-bg)' }}>
-        <Container>
+        <Container className="max-w-none px-4 md:px-8 lg:px-12">
           <div className="text-center">
             <Typography variant="label" style={{ color: 'var(--gallery-meta-text)', opacity: 0.5 }}>© {new Date().getFullYear()} PIXNXT. All Rights Reserved.</Typography>
           </div>
