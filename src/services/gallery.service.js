@@ -319,6 +319,21 @@ export const galleryService = {
   },
 
   /**
+   * Update photo metadata (filename, set_id, etc.)
+   */
+  async updatePhoto(id, updateData) {
+    const { data, error } = await supabase
+      .from('photos')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
    * Delete photos from the database
    */
   async deletePhotos(ids) {

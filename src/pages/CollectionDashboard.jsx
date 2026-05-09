@@ -26,6 +26,16 @@ const CollectionDashboard = () => {
     const [gridSize, setGridSize] = useState('small');
     const [showFilename, setShowFilename] = useState(false);
     const [showMoreDropdown, setShowMoreDropdown] = useState(false);
+    const [photoMenu, setPhotoMenu] = useState(null);
+    const [showRenameModal, setShowRenameModal] = useState(false);
+    const [showMoveModal, setShowMoveModal] = useState(false);
+    const [showQuickShareModal, setShowQuickShareModal] = useState(false);
+    const [showReplaceModal, setShowReplaceModal] = useState(false);
+    const [showWatermarkModal, setShowWatermarkModal] = useState(false);
+    const [editingPhoto, setEditingPhoto] = useState(null);
+    const [newPhotoName, setNewPhotoName] = useState('');
+    const [targetSetId, setTargetSetId] = useState(null);
+    const [moveMode, setMoveMode] = useState('move'); // 'move' or 'copy'
     const [showSetMenu, setShowSetMenu] = useState(null); // set id or null
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [selectedPhotos, setSelectedPhotos] = useState([]);
@@ -164,18 +174,18 @@ const CollectionDashboard = () => {
         }
     };
 
-    const deleteSelectedPhotos = async () => {
-        if (selectedPhotos.length === 0 || !collectionId) return;
+    const deleteSelectedPhotos = async (ids = selectedPhotos) => {
+        if (ids.length === 0 || !collectionId) return;
 
-        const confirmed = window.confirm(`Are you sure you want to delete ${selectedPhotos.length} photo(s)?`);
+        const confirmed = window.confirm(`Are you sure you want to delete ${ids.length} photo(s)?`);
         if (!confirmed) return;
 
         try {
             setSaving(true);
-            await galleryService.deletePhotos(selectedPhotos);
+            await galleryService.deletePhotos(ids);
 
             // Update local state
-            setPhotos(prev => prev.filter(p => !selectedPhotos.includes(p.id)));
+            setPhotos(prev => prev.filter(p => !ids.includes(p.id)));
             setSelectedPhotos([]);
         } catch (err) {
             console.error('Delete failed:', err);
@@ -190,6 +200,108 @@ const CollectionDashboard = () => {
         const visibleIds = sortedPhotos.map(p => p.id);
         setSelectedPhotos(visibleIds);
         setShowSelectAllMenu(false);
+    };
+
+    const handleSetAsCover = async (photo) => {
+        try {
+            await galleryService.updateCollection(collectionId, { cover_url: photo.full_url });
+            setCollection(prev => ({ ...prev, cover_url: photo.full_url }));
+            alert('Collection cover updated!');
+        } catch (err) {
+            console.error('Failed to set cover:', err);
+            alert('Failed to set cover photo.');
+        }
+    };
+
+    const handleDownloadPhoto = (photo) => {
+        const link = document.createElement('a');
+        link.href = photo.full_url;
+        link.download = photo.filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleRenamePhoto = async () => {
+        if (!editingPhoto || !newPhotoName.trim()) return;
+        try {
+            setSaving(true);
+            const updated = await galleryService.updatePhoto(editingPhoto.id, { 
+                filename: newPhotoName.trim() 
+            });
+            setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? { ...p, filename: updated.filename } : p));
+            setShowRenameModal(false);
+            setEditingPhoto(null);
+        } catch (err) {
+            console.error('Error renaming photo:', err);
+            alert('Failed to rename photo.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleMovePhoto = async () => {
+        if (!editingPhoto) return;
+        try {
+            setSaving(true);
+            if (moveMode === 'move') {
+                await galleryService.assignPhotosToSet([editingPhoto.id], targetSetId);
+                setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? { ...p, set_id: targetSetId } : p));
+            } else {
+                // Simplified copy logic
+                const newPhoto = { ...editingPhoto, id: Math.random().toString(36).substr(2, 9), set_id: targetSetId };
+                setPhotos(prev => [...prev, newPhoto]);
+            }
+            setShowMoveModal(false);
+            setEditingPhoto(null);
+        } catch (err) {
+            console.error('Error moving/copying photo:', err);
+            alert('Failed to move photo.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleCopyFilename = (photo) => {
+        navigator.clipboard.writeText(photo.filename);
+        alert('Filename copied to clipboard!');
+    };
+
+    const handleQuickShare = (photo) => {
+        const shareUrl = `${window.location.origin}/gallery/${collection?.slug}?photo=${photo.id}`;
+        navigator.clipboard.writeText(shareUrl);
+        alert('Quick share link copied to clipboard!');
+    };
+
+    const handleReplacePhoto = async (e) => {
+        const file = e.target.files[0];
+        if (!file || !editingPhoto) return;
+
+        try {
+            setSaving(true);
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+            const filePath = `${photographerId}/${collectionId}/${fileName}`;
+            const { url: publicUrl } = await storageService.upload(filePath, file);
+
+            const updated = await galleryService.updatePhoto(editingPhoto.id, { 
+                full_url: publicUrl, 
+                web_url: publicUrl, 
+                thumbnail_url: publicUrl,
+                original_storage_path: filePath,
+                size_bytes: file.size
+            });
+            
+            setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? updated : p));
+            setShowReplaceModal(false);
+            setEditingPhoto(null);
+            alert('Photo replaced successfully!');
+        } catch (err) {
+            console.error('Error replacing photo:', err);
+            alert('Failed to replace photo.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     // Load real data from Supabase
@@ -325,11 +437,33 @@ const CollectionDashboard = () => {
         if (!editingSet || !editSetName.trim()) return;
         try {
             setSavingSet(true);
-            const updated = await galleryService.updateSet(editingSet.id, {
-                name: editSetName.trim(),
-                description: editSetDescription.trim() || null
-            });
-            setSets(prev => prev.map(s => s.id === editingSet.id ? { ...s, ...updated } : s));
+            
+            if (editingSet.id === 'highlights') {
+                // If renaming Highlights, we create a new real set and move all unassigned photos to it
+                const newSet = await galleryService.createSet({
+                    collectionId,
+                    photographerId: collection.photographer_id,
+                    name: editSetName.trim(),
+                    description: editSetDescription.trim() || null,
+                    position: 0 // Put it at the top
+                });
+                
+                // Move all unassigned photos to this new set
+                const unassignedPhotoIds = photos.filter(p => !p.set_id).map(p => p.id);
+                if (unassignedPhotoIds.length > 0) {
+                    await galleryService.assignPhotosToSet(unassignedPhotoIds, newSet.id);
+                }
+                
+                setSets(prev => [newSet, ...prev]);
+                setPhotos(prev => prev.map(p => !p.set_id ? { ...p, set_id: newSet.id } : p));
+                setActiveSetId(newSet.id);
+            } else {
+                const updated = await galleryService.updateSet(editingSet.id, {
+                    name: editSetName.trim(),
+                    description: editSetDescription.trim() || null
+                });
+                setSets(prev => prev.map(s => s.id === editingSet.id ? { ...s, ...updated } : s));
+            }
             setEditingSet(null);
         } catch (err) {
             console.error('Failed to update set:', err);
@@ -340,16 +474,32 @@ const CollectionDashboard = () => {
     };
 
     const handleDeleteSet = async (setId) => {
-        const setToDelete = sets.find(s => s.id === setId);
-        const confirmed = window.confirm(`Are you sure you want to delete the set "${setToDelete?.name}"? Photos will be moved to Highlights.`);
+        const isHighlights = setId === 'highlights';
+        const setToDelete = isHighlights ? { name: 'Highlights' } : sets.find(s => s.id === setId);
+        
+        const message = isHighlights 
+            ? `Are you sure you want to delete the "Highlights" set? All photos in this set will be deleted.`
+            : `Are you sure you want to delete the set "${setToDelete?.name}"? Photos will be moved to Highlights.`;
+            
+        const confirmed = window.confirm(message);
         if (!confirmed) return;
+        
         try {
             setSaving(true);
-            await galleryService.deleteSet(setId);
-            // Unassign photos locally
-            setPhotos(prev => prev.map(p => p.set_id === setId ? { ...p, set_id: null } : p));
-            setSets(prev => prev.filter(s => s.id !== setId));
-            if (activeSetId === setId) setActiveSetId(null);
+            if (isHighlights) {
+                // Delete all photos that have no set_id
+                const unassignedPhotoIds = photos.filter(p => !p.set_id).map(p => p.id);
+                if (unassignedPhotoIds.length > 0) {
+                    await galleryService.deletePhotos(unassignedPhotoIds);
+                    setPhotos(prev => prev.filter(p => p.set_id !== null));
+                }
+            } else {
+                await galleryService.deleteSet(setId);
+                // Unassign photos locally
+                setPhotos(prev => prev.map(p => p.set_id === setId ? { ...p, set_id: null } : p));
+                setSets(prev => prev.filter(s => s.id !== setId));
+            }
+            if (activeSetId === setId || (isHighlights && !activeSetId)) setActiveSetId(null);
         } catch (err) {
             console.error('Failed to delete set:', err);
             alert('Failed to delete set. Please try again.');
@@ -734,6 +884,40 @@ const CollectionDashboard = () => {
                                 <div className={`cd-set-item ${!activeSetId ? 'active' : ''}`} onClick={() => setActiveSetId(null)}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
                                     <span className="cd-set-name">Highlights ({photos.filter(p => !p.set_id).length})</span>
+                                    <div className="cd-set-actions">
+                                        <div className="cd-set-more-container">
+                                            <div className="cd-set-menu-wrapper" ref={setMenuRef}>
+                                                <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === 'highlights' ? null : 'highlights'); }}>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                                                </button>
+                                                {showSetMenu === 'highlights' && (
+                                                    <div className="cd-set-dropdown">
+                                                        <div className="cd-ctx-item" onClick={(e) => { 
+                                                            e.stopPropagation(); 
+                                                            openEditSetModal({ id: 'highlights', name: 'Highlights', description: '' }); 
+                                                        }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                                            <span>Edit set</span>
+                                                        </div>
+                                                        <div 
+                                                            className={`cd-ctx-item cd-ctx-delete ${sets.length === 0 ? 'disabled' : ''}`} 
+                                                            onClick={(e) => { 
+                                                                e.stopPropagation(); 
+                                                                if (sets.length > 0) {
+                                                                    setShowSetMenu(null); 
+                                                                    handleDeleteSet('highlights'); 
+                                                                }
+                                                            }}
+                                                            title={sets.length === 0 ? "You must have at least one other set to delete Highlights" : ""}
+                                                        >
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                            <span>Delete set</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 {/* Dynamic Sets */}
                                 {sets.map(set => (
@@ -1029,44 +1213,81 @@ const CollectionDashboard = () => {
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    overflow: 'hidden',
+                                                    overflow: 'visible',
                                                     cursor: 'pointer',
                                                     border: selectedPhotos.includes(photo.id) ? '2px solid #12b8a6' : '1px solid #f0f0f0'
                                                 }}
                                             >
-                                                <img
-                                                    src={photo.full_url}
-                                                    alt={photo.filename || `Photo ${index + 1}`}
-                                                    className="cd-photo-img"
-                                                    style={{
-                                                        width: '100%',
-                                                        height: '100%',
-                                                        objectFit: 'contain',
-                                                        display: 'block'
-                                                    }}
-                                                />
-                                                {showFilename && <div className="cd-photo-filename" style={{ position: 'absolute', bottom: 8, left: 8, fontSize: 12, color: '#666', background: 'rgba(255,255,255,0.8)', padding: '2px 6px', borderRadius: 4 }}>{photo.filename || `photo-${index + 1}.jpg`}</div>}
-                                                <button className="cd-photo-menu" onClick={(e) => { e.stopPropagation(); setActivePhotoMenu(activePhotoMenu === photo.id ? null : photo.id); }}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
-                                                </button>
+                                                <div className="cd-photo-card-inner">
+                                                    <img
+                                                        src={photo.full_url}
+                                                        alt={photo.filename || `Photo ${index + 1}`}
+                                                        className="cd-photo-img"
+                                                        style={{
+                                                            width: '100%',
+                                                            height: '100%',
+                                                            objectFit: 'contain',
+                                                            display: 'block'
+                                                        }}
+                                                    />
+                                                    {showFilename && <div className="cd-photo-filename" style={{ position: 'absolute', bottom: 8, left: 8, fontSize: 12, color: '#666', background: 'rgba(255,255,255,0.8)', padding: '2px 6px', borderRadius: 4 }}>{photo.filename || `photo-${index + 1}.jpg`}</div>}
+                                                </div>
+                                                
+                                                <div className="cd-photo-actions">
+                                                    <button className="cd-photo-more-btn" onClick={(e) => { e.stopPropagation(); setPhotoMenu(photoMenu === photo.id ? null : photo.id); }}>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
+                                                    </button>
+                                                    {photoMenu === photo.id && (
+                                                        <div className="cd-photo-menu" ref={photoMenuRef}>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setLightboxIndex(index); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
+                                                                <span>Open</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleQuickShare(photo); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+                                                                <span>Quick share</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleDownloadPhoto(photo); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
+                                                                <span>Download</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setTargetSetId(photo.set_id); setMoveMode('move'); setShowMoveModal(true); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                                                                <span>Move/Copy</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleCopyFilename(photo); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                                                                <span>Copy filenames</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); handleSetAsCover(photo); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                                                                <span>Set as cover</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setNewPhotoName(photo.filename); setShowRenameModal(true); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                                                <span>Rename</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setShowReplaceModal(true); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2v6h-6"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M3 22v-6h6"></path><path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path></svg>
+                                                                <span>Replace photo</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setShowWatermarkModal(true); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M14.83 14.83a4 4 0 1 1 0-5.66"></path></svg>
+                                                                <span>Watermark</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); deleteSelectedPhotos([photo.id]); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                                <span>Delete</span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 <button
                                                     className={`cd-photo-star ${photo.is_starred ? 'active' : ''}`}
                                                     onClick={(e) => { e.stopPropagation(); handleToggleStar(photo.id, photo.is_starred); }}
                                                 >
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#bbb"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                                 </button>
-                                                {activePhotoMenu === photo.id && (
-                                                    <div className="cd-photo-context-menu" ref={photoMenuRef}>
-                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setActivePhotoMenu(null); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg>
-                                                            <span>Make cover</span>
-                                                        </div>
-                                                        <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setActivePhotoMenu(null); deleteSelectedPhotos([photo.id]); }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                            <span>Delete</span>
-                                                        </div>
-                                                    </div>
-                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -2397,6 +2618,120 @@ const CollectionDashboard = () => {
                     </div>
                 </div>
             )}
+            {/* Rename Modal */}
+            {showRenameModal && (
+                <div className="cd-modal-overlay">
+                    <div className="cd-modal cd-modal-sm">
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">Rename Photo</h3>
+                            <button className="cd-modal-close" onClick={() => setShowRenameModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body">
+                            <div className="cd-form-group">
+                                <label className="cd-form-label">Photo Filename</label>
+                                <input 
+                                    type="text" 
+                                    className="cd-form-input"
+                                    value={newPhotoName}
+                                    onChange={(e) => setNewPhotoName(e.target.value)}
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button className="cd-btn-secondary" onClick={() => setShowRenameModal(false)}>Cancel</button>
+                            <button className="cd-btn-primary" onClick={handleRenamePhoto} disabled={saving}>
+                                {saving ? 'Renaming...' : 'Save'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Move/Copy Modal */}
+            {showMoveModal && (
+                <div className="cd-modal-overlay">
+                    <div className="cd-modal cd-modal-sm">
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">Move or Copy Photo</h3>
+                            <button className="cd-modal-close" onClick={() => setShowMoveModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body">
+                            <div className="cd-form-group">
+                                <label className="cd-form-label">Action</label>
+                                <div className="flex gap-4 mt-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" checked={moveMode === 'move'} onChange={() => setMoveMode('move')} />
+                                        <span className="text-sm">Move</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" checked={moveMode === 'copy'} onChange={() => setMoveMode('copy')} />
+                                        <span className="text-sm">Copy</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div className="cd-form-group mt-6">
+                                <label className="cd-form-label">Target Set</label>
+                                <select 
+                                    className="cd-form-input"
+                                    value={targetSetId || ''}
+                                    onChange={(e) => setTargetSetId(e.target.value || null)}
+                                >
+                                    <option value="">Highlights</option>
+                                    {sets.map(s => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button className="cd-btn-secondary" onClick={() => setShowMoveModal(false)}>Cancel</button>
+                            <button className="cd-btn-primary" onClick={handleMovePhoto} disabled={saving}>
+                                {saving ? 'Processing...' : (moveMode === 'move' ? 'Move Photo' : 'Copy Photo')}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Replace Photo Modal */}
+            {showReplaceModal && (
+                <div className="cd-modal-overlay">
+                    <div className="cd-modal cd-modal-sm">
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">Replace Photo</h3>
+                            <button className="cd-modal-close" onClick={() => setShowReplaceModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body">
+                            <p className="text-sm text-[#666] mb-6">
+                                Choose a new photo to replace the current one. The new photo will inherit the star status.
+                            </p>
+                            <input 
+                                type="file" 
+                                id="replace-file-input"
+                                className="hidden" 
+                                accept="image/*"
+                                onChange={handleReplacePhoto}
+                            />
+                            <button 
+                                className="cd-btn-primary w-full py-4 flex items-center justify-center gap-2"
+                                onClick={() => document.getElementById('replace-file-input').click()}
+                                disabled={saving}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                                {saving ? 'Uploading...' : 'Upload New Photo'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

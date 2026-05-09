@@ -1061,8 +1061,15 @@
 .cd-photo-card {
     position: relative;
     cursor: pointer;
-    overflow: hidden;
+    overflow: visible;
     background-color: #f0f0f0;
+}
+
+.cd-photo-card-inner {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
 }
 
 /* Vertical card */
@@ -1097,33 +1104,7 @@
 }
 
 /* Three-dot menu — top right overlay */
-.cd-photo-menu {
-    position: absolute;
-    top: 6px;
-    right: 6px;
-    background: rgba(255, 255, 255, 0.9);
-    backdrop-filter: blur(4px);
-    border: none;
-    border-radius: 50%;
-    width: 28px;
-    height: 28px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    opacity: 0;
-    transition: opacity 0.15s;
-    z-index: 10;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
-}
-
-.cd-photo-card:hover .cd-photo-menu {
-    opacity: 1;
-}
-
-.cd-photo-menu:hover {
-    background: rgba(255, 255, 255, 1);
-}
+/* Legacy photo menu removed to avoid conflict with new dropdown */
 
 /* Star — bottom right overlay */
 .cd-photo-star {
@@ -5301,8 +5282,129 @@ input:checked+.cd-toggle-slider:before {
     background: rgba(220, 53, 69, 0.06);
 }
 
-.cd-set-dropdown .cd-ctx-item svg {
+.cd-set-dropdown .cd-ctx-item.cd-ctx-delete.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+    background: transparent !important;
+}
+
+.cd-ctx-divider {
+    height: 1px;
+    background-color: #ebebeb;
+    margin: 4px 0;
+}
+
+.cd-photo-menu {
+    position: absolute;
+    top: 40px;
+    right: 0;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    z-index: 2000;
+    min-width: 200px;
+    padding: 8px 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,0.06);
+}
+
+.cd-photo-menu .cd-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 18px;
+    font-size: 14.5px;
+    font-weight: 400;
+    color: #2c333e;
+    cursor: pointer;
+    transition: all 0.1s ease;
+    white-space: nowrap;
+    width: 100%;
+}
+
+.cd-photo-menu .cd-ctx-item:hover {
+    background-color: #f7f9fa;
+    color: #000;
+}
+
+.cd-photo-menu .cd-ctx-item svg {
     flex-shrink: 0;
+    width: 17px;
+    height: 17px;
+    color: #444;
+}
+
+.cd-photo-menu .cd-ctx-item.cd-ctx-delete:hover {
+    background-color: #fff1f2;
+    color: #e11d48;
+}
+
+.cd-photo-menu .cd-ctx-item.cd-ctx-delete:hover svg {
+    color: #e11d48;
+}
+
+.cd-photo-more-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #333;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.cd-photo-more-btn:hover {
+    background: #fff;
+    transform: scale(1.05);
+}
+
+.cd-photo-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 50;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.cd-photo-card:hover .cd-photo-actions {
+    opacity: 1;
+}
+
+.cd-photo-star {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    z-index: 50;
+    opacity: 0;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.cd-photo-card:hover .cd-photo-star,
+.cd-photo-star.active {
+    opacity: 1;
+}
+
+.cd-photo-star.active {
+    background: #fff;
 }
 
 /* ============================================================
