@@ -21,8 +21,8 @@ export function GalleryHeader({ title, opacity, isDark, onSlideshow, onFavorite,
       }}
     >
       <div className="flex items-center gap-4">
-        <Typography variant="label" className="hidden md:block opacity-50">Collection</Typography>
-        <Typography variant="h4" className="text-sm font-bold tracking-tighter uppercase">{title}</Typography>
+        <Typography variant="label" className="hidden md:block opacity-50 gallery-heading">Collection</Typography>
+        <Typography variant="h4" className="text-sm font-bold tracking-tighter uppercase gallery-heading">{title}</Typography>
       </div>
 
       <div className="flex items-center gap-2 md:gap-6">

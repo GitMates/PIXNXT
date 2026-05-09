@@ -186,7 +186,7 @@ const GalleryView = () => {
               className="group relative py-2"
               onClick={() => setActiveSetId(null)}
             >
-              <Typography variant="label" className={cn("transition-opacity", !activeSetId ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
+              <Typography variant="label" className={cn("transition-opacity gallery-heading", !activeSetId ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
                 Highlights
               </Typography>
               {!activeSetId && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}
@@ -197,7 +197,7 @@ const GalleryView = () => {
                 className="group relative py-2"
                 onClick={() => setActiveSetId(set.id)}
               >
-                <Typography variant="label" className={cn("transition-opacity", activeSetId === set.id ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
+                <Typography variant="label" className={cn("transition-opacity gallery-heading", activeSetId === set.id ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
                   {set.name}
                 </Typography>
                 {activeSetId === set.id && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}

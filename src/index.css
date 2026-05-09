@@ -97,12 +97,58 @@
   scrollbar-width: none;
 }
 /* Typography Preset Mapping */
-.font-sans { font-family: 'Outfit', sans-serif !important; }
-.font-serif { font-family: 'Playfair Display', serif !important; }
-.font-modern { font-family: 'Montserrat', sans-serif !important; }
-.font-timeless { font-family: 'Lora', serif !important; }
-.font-bold { font-family: 'Unbounded', sans-serif !important; }
-.font-subtle { font-family: 'Outfit', sans-serif !important; font-weight: 300 !important; }
+/* Typography Preset Mapping - Refined for Pixieset Parity */
+.font-sans { 
+    --heading-font: 'Montserrat', sans-serif; 
+    --heading-letter-spacing: 0.15em; 
+    --heading-transform: uppercase;
+    --heading-weight: 500;
+}
+
+.font-serif { 
+    --heading-font: 'Playfair Display', serif; 
+    --heading-letter-spacing: 0.02em;
+    --heading-transform: none;
+    --heading-weight: 400;
+}
+
+.font-modern { 
+    --heading-font: 'Montserrat', sans-serif; 
+    --heading-letter-spacing: 0.05em;
+    --heading-transform: uppercase;
+    --heading-weight: 600;
+}
+
+.font-timeless { 
+    --heading-font: 'Lora', serif; 
+    --heading-letter-spacing: 0.05em;
+    --heading-weight: 300;
+    --heading-style: italic;
+    --heading-transform: none;
+}
+
+.font-bold { 
+    --heading-font: 'Unbounded', sans-serif; 
+    --heading-letter-spacing: -0.02em;
+    --heading-weight: 700;
+    --heading-transform: uppercase;
+}
+
+.font-subtle { 
+    --heading-font: 'Outfit', sans-serif; 
+    --heading-weight: 200; 
+    --heading-letter-spacing: 0.25em; 
+    --heading-transform: uppercase;
+}
+
+/* Base Heading Styles for Gallery */
+.gallery-heading {
+    font-family: var(--heading-font, inherit);
+    letter-spacing: var(--heading-letter-spacing, normal);
+    text-transform: var(--heading-transform, none);
+    font-weight: var(--heading-weight, inherit);
+    font-style: var(--heading-style, normal);
+}
 
 /* Color Theme Variable Definitions */
 .theme-light { 
