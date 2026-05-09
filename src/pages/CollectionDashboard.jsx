@@ -33,6 +33,7 @@ const CollectionDashboard = () => {
     const [showReplaceModal, setShowReplaceModal] = useState(false);
     const [showWatermarkModal, setShowWatermarkModal] = useState(false);
     const [editingPhoto, setEditingPhoto] = useState(null);
+    const [lightboxOpenIndex, setLightboxOpenIndex] = useState(-1); // -1 = closed
     const [newPhotoName, setNewPhotoName] = useState('');
     const [targetSetId, setTargetSetId] = useState(null);
     const [moveMode, setMoveMode] = useState('move'); // 'move' or 'copy'
@@ -327,9 +328,8 @@ const CollectionDashboard = () => {
     };
 
     const handleQuickShare = (photo) => {
-        const shareUrl = `${window.location.origin}/gallery/${collection?.slug}?photo=${photo.id}`;
-        navigator.clipboard.writeText(shareUrl);
-        alert('Quick share link copied to clipboard!');
+        setEditingPhoto(photo);
+        setShowQuickShareModal(true);
     };
 
     const handleReplacePhoto = async (e) => {
@@ -1298,7 +1298,7 @@ const CollectionDashboard = () => {
                                                     </button>
                                                     {photoMenu === photo.id && (
                                                         <div className="cd-photo-menu" ref={photoMenuRef}>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setLightboxIndex(index); }}>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setLightboxOpenIndex(index); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                                                                 <span>Open</span>
                                                             </div>
@@ -2802,6 +2802,157 @@ const CollectionDashboard = () => {
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                                 {saving ? 'Uploading...' : 'Upload New Photo'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ───── LIGHTBOX / OPEN ───── */}
+            {lightboxOpenIndex >= 0 && (() => {
+                const lbPhotos = sortedPhotos;
+                const lbPhoto = lbPhotos[lightboxOpenIndex];
+                if (!lbPhoto) return null;
+                return (
+                    <div
+                        style={{
+                            position: 'fixed', inset: 0, zIndex: 9999,
+                            backgroundColor: 'rgba(0,0,0,0.92)',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            flexDirection: 'column'
+                        }}
+                        onClick={() => setLightboxOpenIndex(-1)}
+                    >
+                        {/* Close */}
+                        <button
+                            style={{ position: 'absolute', top: 20, right: 24, background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 28, lineHeight: 1 }}
+                            onClick={() => setLightboxOpenIndex(-1)}
+                        >×</button>
+
+                        {/* Prev */}
+                        {lightboxOpenIndex > 0 && (
+                            <button
+                                style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}
+                                onClick={(e) => { e.stopPropagation(); setLightboxOpenIndex(i => i - 1); }}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                            </button>
+                        )}
+
+                        {/* Image */}
+                        <img
+                            src={lbPhoto.full_url}
+                            alt={lbPhoto.filename}
+                            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 4 }}
+                            onClick={(e) => e.stopPropagation()}
+                        />
+
+                        {/* Caption */}
+                        <div style={{ marginTop: 12, color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
+                            {lbPhoto.filename} &nbsp;·&nbsp; {lightboxOpenIndex + 1} / {lbPhotos.length}
+                        </div>
+
+                        {/* Next */}
+                        {lightboxOpenIndex < lbPhotos.length - 1 && (
+                            <button
+                                style={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}
+                                onClick={(e) => { e.stopPropagation(); setLightboxOpenIndex(i => i + 1); }}
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                            </button>
+                        )}
+
+                        {/* Action bar */}
+                        <div style={{ position: 'absolute', bottom: 24, display: 'flex', gap: 16 }} onClick={(e) => e.stopPropagation()}>
+                            <button onClick={() => handleDownloadPhoto(lbPhoto)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 6, padding: '8px 18px', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Download
+                            </button>
+                            <button onClick={() => { handleSetAsCover(lbPhoto); }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 6, padding: '8px 18px', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                Set as cover
+                            </button>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* ───── QUICK SHARE MODAL ───── */}
+            {showQuickShareModal && editingPhoto && (() => {
+                const shareUrl = `${window.location.origin}/gallery/${collection?.slug}?photo=${editingPhoto.id}`;
+                return (
+                    <div className="cd-modal-overlay" onClick={() => setShowQuickShareModal(false)}>
+                        <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 460 }}>
+                            <div className="cd-modal-header">
+                                <h3 className="cd-modal-title">Quick Share</h3>
+                                <button className="cd-modal-close" onClick={() => setShowQuickShareModal(false)}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                </button>
+                            </div>
+                            <div className="cd-set-modal-body">
+                                {/* Photo preview */}
+                                <div style={{ borderRadius: 6, overflow: 'hidden', marginBottom: 8, maxHeight: 200, display: 'flex', justifyContent: 'center', backgroundColor: '#f5f5f5' }}>
+                                    <img src={editingPhoto.full_url} alt={editingPhoto.filename} style={{ maxHeight: 200, objectFit: 'contain' }} />
+                                </div>
+                                <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>Share a direct link to this photo with your client.</p>
+                                <div style={{ display: 'flex', gap: 0, border: '1px solid #d9d9d9', borderRadius: 4, overflow: 'hidden' }}>
+                                    <input type="text" readOnly value={shareUrl} style={{ flex: 1, padding: '10px 12px', fontSize: 13, border: 'none', outline: 'none', background: '#f9f9f9', color: '#555' }} />
+                                    <button
+                                        style={{ padding: '0 18px', backgroundColor: '#111', color: '#fff', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 13, whiteSpace: 'nowrap' }}
+                                        onClick={() => { navigator.clipboard.writeText(shareUrl); }}
+                                    >
+                                        Copy Link
+                                    </button>
+                                </div>
+                                {/* Social share row */}
+                                <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
+                                    <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" style={{ width: 38, height: 38, borderRadius: '50%', backgroundColor: '#3b5998', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                                    </a>
+                                    <a href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" style={{ width: 38, height: 38, borderRadius: '50%', backgroundColor: '#1da1f2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/></svg>
+                                    </a>
+                                    <a href={`mailto:?subject=Check out this photo&body=${encodeURIComponent(shareUrl)}`} style={{ width: 38, height: 38, borderRadius: '50%', backgroundColor: '#555', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                    </a>
+                                </div>
+                            </div>
+                            <div className="cd-set-modal-footer">
+                                <button className="cd-cancel-btn" onClick={() => setShowQuickShareModal(false)}>Close</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* ───── WATERMARK MODAL ───── */}
+            {showWatermarkModal && editingPhoto && (
+                <div className="cd-modal-overlay" onClick={() => setShowWatermarkModal(false)}>
+                    <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">Watermark Photo</h3>
+                            <button className="cd-modal-close" onClick={() => setShowWatermarkModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                            </button>
+                        </div>
+                        <div className="cd-set-modal-body">
+                            {/* Preview */}
+                            <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden', marginBottom: 16, backgroundColor: '#f5f5f5', display: 'flex', justifyContent: 'center', maxHeight: 200 }}>
+                                <img src={editingPhoto.full_url} alt={editingPhoto.filename} style={{ maxHeight: 200, objectFit: 'contain' }} />
+                                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+                                    <span style={{ color: 'rgba(255,255,255,0.55)', fontSize: 28, fontWeight: 700, letterSpacing: 6, textTransform: 'uppercase', textShadow: '0 2px 8px rgba(0,0,0,0.4)' }}>
+                                        {collection?.name || 'WATERMARK'}
+                                    </span>
+                                </div>
+                            </div>
+                            <p style={{ fontSize: 13, color: '#666', marginBottom: 12 }}>
+                                Watermarks are applied using your collection name. To customize watermarks, go to <strong>Settings → Watermark</strong>.
+                            </p>
+                            <div style={{ backgroundColor: '#fef9e7', border: '1px solid #f9d055', borderRadius: 6, padding: '12px 16px', fontSize: 13, color: '#7a6000' }}>
+                                <strong>Note:</strong> This is a preview. Watermark functionality requires a Premium plan upgrade.
+                            </div>
+                        </div>
+                        <div className="cd-set-modal-footer">
+                            <button className="cd-cancel-btn" onClick={() => setShowWatermarkModal(false)}>Cancel</button>
+                            <button className="cd-save-btn" onClick={() => { alert('Watermark applied! (Premium feature)'); setShowWatermarkModal(false); }}>Apply Watermark</button>
                         </div>
                     </div>
                 </div>
