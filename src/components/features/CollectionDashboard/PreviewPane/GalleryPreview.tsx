@@ -3,7 +3,7 @@ import { GalleryPreviewProps } from './PreviewPane.types';
 import * as Covers from './CoverStyles';
 import { cn } from '../../../../lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Mail, Lock, Share2, Link as LinkIcon, Download } from 'lucide-react';
+import { X, Mail, Lock, Share2, Link as LinkIcon, Download, Heart, Play } from 'lucide-react';
 
 export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   settings,
@@ -90,36 +90,51 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         `nav-style-${grid.navigation}`,
         `aspect-${grid.aspectRatio}`
       )}>
-        <div className="gallery-meta-bar">
-          <div className="meta-left">
-            <div className="collection-nav-mock">
-              <span className="nav-item active gallery-heading">
-                {collectionTitle.toUpperCase()}
-              </span>
-              {(dashboardState?.sets || []).slice(0, 3).map((set: any) => (
-                <span key={set.id} className="nav-item gallery-heading">
-                  {set.name.toUpperCase()}
-                </span>
-              ))}
-            </div>
+        <div className="flex items-center justify-between w-full px-10 py-10 border-b border-black/5" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+          {/* Left: Collection Title */}
+          <div className="flex-1 flex items-center">
+            <span className="text-[8px] gallery-heading" style={{ color: 'var(--gallery-text)' }}>
+              {collectionTitle}
+            </span>
           </div>
-          <div className="meta-right">
+
+          {/* Center: Sets Navigation */}
+          <div className="flex-1 flex items-center justify-center gap-8">
+            {dashboardState?.sets && dashboardState.sets.length > 0 ? (
+              dashboardState.sets.slice(0, 4).map((set: any, index: number) => (
+                <span key={set.id} className={cn("text-[8px] gallery-heading cursor-pointer hover:opacity-100 transition-opacity", index === 0 ? "border-b border-current pb-1" : "opacity-50")} style={{ color: 'var(--gallery-text)' }}>
+                  {set.name}
+                </span>
+              ))
+            ) : (
+              <span className="text-[8px] gallery-heading border-b border-current pb-1" style={{ color: 'var(--gallery-text)' }}>
+                Home
+              </span>
+            )}
+          </div>
+
+          {/* Right: Action Icons */}
+          <div className="flex-1 flex items-center justify-end gap-6">
+            <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" style={{ color: 'var(--gallery-text)' }}>
+              <Play size={14} fill="currentColor" />
+              <span className="text-[8px] gallery-heading hidden lg:inline">Slideshow</span>
+            </div>
             {dashboardState?.favoritePhotos !== false && (
-              <div className="meta-icon-item" onClick={() => setShowFavoriteModal(true)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
-                {grid.navigation === 'text' && <span className="gallery-heading">Favorite</span>}
+              <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setShowFavoriteModal(true)} style={{ color: 'var(--gallery-text)' }}>
+                <Heart size={14} />
+                <span className="text-[8px] gallery-heading hidden lg:inline">Favorite</span>
               </div>
             )}
             {dashboardState?.photoDownload !== false && (
-              <div className="meta-icon-item" onClick={handleDownloadClick}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-                {grid.navigation === 'text' && <span className="gallery-heading">Download</span>}
+              <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onClick={handleDownloadClick} style={{ color: 'var(--gallery-text)' }}>
+                <Download size={14} />
+                <span className="text-[8px] gallery-heading hidden lg:inline">Download</span>
               </div>
             )}
             {dashboardState?.socialSharing !== false && (
-              <div className="meta-icon-item" onClick={() => setShowShareModal(true)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" /><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" /><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" /></svg>
-                {grid.navigation === 'text' && <span className="gallery-heading">Share</span>}
+              <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setShowShareModal(true)} style={{ color: 'var(--gallery-text)' }}>
+                <Share2 size={14} />
+                <span className="text-[8px] gallery-heading hidden lg:inline">Share</span>
               </div>
             )}
           </div>

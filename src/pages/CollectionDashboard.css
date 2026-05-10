@@ -161,6 +161,30 @@
     align-items: center;
     padding: 60px 40px 30px;
     background-color: var(--gallery-bg);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.meta-left, .meta-center, .meta-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+}
+
+.meta-center {
+    justify-content: center;
+}
+
+.meta-right {
+    justify-content: flex-end;
+    gap: 24px;
+}
+
+.meta-icon-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 60px 40px 30px;
+    background-color: var(--gallery-bg);
 }
 
 .collection-nav-mock {
@@ -169,6 +193,7 @@
 }
 
 .nav-item {
+    white-space: nowrap;
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 2px;
@@ -3120,6 +3145,7 @@
 }
 
 .nav-item {
+    white-space: nowrap;
     font-size: 10px;
     font-weight: 700;
     color: var(--gallery-text);
@@ -5574,4 +5600,147 @@ input:checked+.cd-toggle-slider:before {
     color: #666;
     text-align: center;
     margin: 0;
+}
+/* Photos Tab Synchronized Preview */
+.cd-photos-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    background-color: #fff;
+    width: 100%;
+}
+
+.cd-photos-preview-top {
+    width: 100%;
+    border-bottom: 1px solid #eee;
+    background-color: #fafafa;
+}
+
+.cd-photos-preview-top .cd-design-preview-pane {
+    height: auto;
+    background: transparent;
+}
+
+.cd-photos-preview-top .cd-preview-workspace {
+    padding: 0;
+}
+
+.cd-photos-preview-top .cd-preview-canvas {
+    box-shadow: none;
+    max-width: 100%;
+    border-radius: 0;
+}
+
+/* Hide toolbar in the top preview since we have icons on the grid */
+.cd-photos-preview-top .cd-preview-toolbar {
+    display: none;
+}
+
+/* Cover Image Toggle on Grid */
+.cd-photo-cover-toggle {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 3px;
+    display: flex;
+    gap: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 20;
+    opacity: 0.9;
+    transition: opacity 0.2s;
+}
+
+.cd-photo-card:hover .cd-photo-cover-toggle {
+    opacity: 1;
+}
+
+.cd-photo-cover-toggle .toggle-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #666;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.cd-photo-cover-toggle .toggle-icon:hover {
+    background-color: #f0f0f0;
+    color: #111;
+}
+
+.cd-photo-cover-toggle .toggle-icon.active {
+    background-color: #111111;
+    color: #ffffff;
+}
+
+.cd-photo-card.is-cover {
+    border-color: #111 !important;
+}
+
+/* Adjust main header when inside container */
+.cd-photos-container .cd-main-header {
+    padding: 24px 32px 16px;
+}
+
+.cd-photos-container .cd-photo-grid {
+    padding: 0 32px 32px;
+}
+
+
+/* --- Refined 3-Column Meta Bar --- */
+.gallery-meta-bar {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 40px 40px 20px !important;
+    background-color: var(--gallery-bg) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.meta-left, .meta-center, .meta-right {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.meta-center {
+    justify-content: center !important;
+}
+
+.meta-right {
+    justify-content: flex-end !important;
+    gap: 24px !important;
+}
+
+.meta-icon-item {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    cursor: pointer !important;
+    opacity: 0.6 !important;
+    transition: opacity 0.2s !important;
+    color: var(--gallery-text) !important;
+}
+
+.meta-icon-item:hover {
+    opacity: 1 !important;
+}
+
+.meta-icon-item span {
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    letter-spacing: 1px !important;
+    text-transform: uppercase !important;
+}
+
+.nav-item {
+    white-space: nowrap !important;
 }

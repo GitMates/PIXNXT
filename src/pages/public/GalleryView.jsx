@@ -2,14 +2,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useScroll, useTransform, AnimatePresence, motion } from 'framer-motion';
 import * as Covers from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles';
-import { GalleryHeader } from '../../components/features/Gallery/GalleryHeader/GalleryHeader';
+
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
 import { PhotoLightbox } from '../../components/features/Gallery/PhotoLightbox/PhotoLightbox';
 import { galleryService } from '../../services/gallery.service';
 import { cn } from '../../lib/utils';
 import { Container } from '../../components/ui/Container';
 import { Typography } from '../../components/ui/Typography';
-import { X, Mail, Lock, Share2, Link as LinkIcon, Download } from 'lucide-react';
+import { X, Mail, Lock, Share2, Link as LinkIcon, Download, Heart, Play } from 'lucide-react';
 
 const GalleryView = () => {
   const { slug } = useParams();
@@ -180,42 +180,64 @@ const GalleryView = () => {
       </div>
 
       {/* Sticky Header */}
-      <GalleryHeader
-        title={collection.name}
-        opacity={headerOpacity}
-        isDark={collection.color_palette === 'dark'}
-        onSlideshow={handleStartSlideshow}
-        onFavorite={() => setShowFavoriteModal(true)}
-        onDownload={handleDownloadClick}
-        onShare={() => setShowShareModal(true)}
-      />
+
 
       {/* Main Gallery Content */}
-      <main ref={galleryRef} className="py-24" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+      <main ref={galleryRef} className="pb-24 pt-0" style={{ backgroundColor: 'var(--gallery-bg)' }}>
         <Container className="max-w-none px-4 md:px-8 lg:px-12">
-          {/* Sets Navigation - Minimal Nova Style */}
-          <div className="mb-16 flex items-center justify-center gap-12">
-            <button
-              className="group relative py-2"
-              onClick={() => setActiveSetId(null)}
-            >
-              <Typography variant="label" className={cn("transition-opacity gallery-heading", !activeSetId ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
-                Highlights
+          {/* Sets Navigation - Replicated Pixieset Style */}
+          <div className="sticky top-0 z-[40] -mx-4 md:-mx-8 lg:-mx-12 mb-8 px-4 md:px-8 lg:px-12 flex flex-col md:flex-row items-center justify-between gap-4 py-10 transition-all duration-300 border-b border-black/5" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+            {/* Left: Collection Name */}
+            <div className="flex-1 hidden md:flex items-center">
+              <Typography variant="h4" className="text-[10px] font-bold tracking-[0.2em] uppercase gallery-heading" style={{ color: 'var(--gallery-text)' }}>
+                {collection.name}
               </Typography>
-              {!activeSetId && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}
-            </button>
-            {(collection.sets || []).map((set) => (
+            </div>
+
+            {/* Center: Sets Navigation */}
+            <div className="flex-1 flex items-center justify-center gap-8 md:gap-12">
               <button
-                key={set.id}
                 className="group relative py-2"
-                onClick={() => setActiveSetId(set.id)}
+                onClick={() => setActiveSetId(null)}
               >
-                <Typography variant="label" className={cn("transition-opacity gallery-heading", activeSetId === set.id ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
-                  {set.name}
+                <Typography variant="label" className={cn("transition-opacity gallery-heading text-[10px] tracking-[0.2em] font-bold uppercase", !activeSetId ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
+                  Highlights
                 </Typography>
-                {activeSetId === set.id && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}
+                {!activeSetId && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}
               </button>
-            ))}
+              {(collection.sets || []).map((set) => (
+                <button
+                  key={set.id}
+                  className="group relative py-2"
+                  onClick={() => setActiveSetId(set.id)}
+                >
+                  <Typography variant="label" className={cn("transition-opacity gallery-heading text-[10px] tracking-[0.2em] font-bold uppercase", activeSetId === set.id ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
+                    {set.name}
+                  </Typography>
+                  {activeSetId === set.id && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}
+                </button>
+              ))}
+            </div>
+
+            {/* Right: Action Icons */}
+            <div className="flex-1 flex items-center justify-end gap-6">
+              <button onClick={handleStartSlideshow} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
+                <Play size={14} fill="currentColor" />
+                <span className="hidden xl:inline">Slideshow</span>
+              </button>
+              <button onClick={() => setShowFavoriteModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
+                <Heart size={14} />
+                <span className="hidden xl:inline">Favorite</span>
+              </button>
+              <button onClick={handleDownloadClick} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
+                <Download size={14} />
+                <span className="hidden xl:inline">Download</span>
+              </button>
+              <button onClick={() => setShowShareModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
+                <Share2 size={14} />
+                <span className="hidden xl:inline">Share</span>
+              </button>
+            </div>
           </div>
 
           {/* Flexible Gallery Grid */}
