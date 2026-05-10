@@ -2781,12 +2781,44 @@
 }
 
 /* Font Preview Specifics */
-.font-preview-sans .sample-text { font-family: 'Montserrat', sans-serif; letter-spacing: 0.1em; text-transform: uppercase; font-weight: 500; }
-.font-preview-serif .sample-text { font-family: 'Playfair Display', serif; font-weight: 400; }
-.font-preview-modern .sample-text { font-family: 'Montserrat', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 600; }
-.font-preview-timeless .sample-text { font-family: 'Lora', serif; font-weight: 300; font-style: italic; }
-.font-preview-bold .sample-text { font-family: 'Unbounded', sans-serif; letter-spacing: -0.02em; font-weight: 700; text-transform: uppercase; }
-.font-preview-subtle .sample-text { font-family: 'Outfit', sans-serif; font-weight: 200; letter-spacing: 0.2em; text-transform: uppercase; }
+.font-preview-sans .sample-text {
+    font-family: 'Montserrat', sans-serif;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.font-preview-serif .sample-text {
+    font-family: 'Playfair Display', serif;
+    font-weight: 400;
+}
+
+.font-preview-modern .sample-text {
+    font-family: 'Montserrat', sans-serif;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    font-weight: 600;
+}
+
+.font-preview-timeless .sample-text {
+    font-family: 'Lora', serif;
+    font-weight: 300;
+    font-style: italic;
+}
+
+.font-preview-bold .sample-text {
+    font-family: 'Unbounded', sans-serif;
+    letter-spacing: -0.02em;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.font-preview-subtle .sample-text {
+    font-family: 'Outfit', sans-serif;
+    font-weight: 200;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+}
 
 /* Color Grid */
 .cd-color-preview-box {
@@ -5529,7 +5561,8 @@ input:checked+.cd-toggle-slider:before {
 .focal-crosshair {
     position: absolute;
     transform: translate(-50%, -50%);
-    pointer-events: none; /* Let clicks pass through to wrapper */
+    pointer-events: none;
+    /* Let clicks pass through to wrapper */
     display: flex;
     align-items: center;
     justify-content: center;

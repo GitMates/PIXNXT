@@ -5,10 +5,13 @@ import { cn } from '../../../../../lib/utils';
 
 export const CoverSettings: React.FC<CoverSettingsProps> = ({
   selectedStyle,
+  coverPhotoUrl,
   onChange,
   onOpenCoverModal,
   onOpenFocalModal
 }) => {
+  const imageStyle = coverPhotoUrl ? { backgroundImage: `url(${coverPhotoUrl})` } : {};
+
   return (
     <div className="cd-design-settings-pane">
       <div className="cd-design-settings-header">
@@ -36,8 +39,8 @@ export const CoverSettings: React.FC<CoverSettingsProps> = ({
               <div className="cd-cover-card-preview">
                 <div className={cn('preview-box', `style-${style.id}`)}>
                   <div className="preview-content">
-                    <div className="preview-image"></div>
-                    {style.id === 'divider' && <div className="preview-image"></div>}
+                    <div className="preview-image" style={imageStyle}></div>
+                    {style.id === 'divider' && <div className="preview-image" style={imageStyle}></div>}
                     <div className="preview-title">TITLE</div>
                   </div>
                 </div>

@@ -227,14 +227,14 @@ const CollectionDashboard = () => {
 
     const handleFocalDrag = (e) => {
         if (!isDraggingFocal && e.type !== 'mousedown') return;
-        
+
         const rect = e.currentTarget.getBoundingClientRect();
         let x = ((e.clientX - rect.left) / rect.width) * 100;
         let y = ((e.clientY - rect.top) / rect.height) * 100;
-        
+
         x = Math.max(0, Math.min(100, x));
         y = Math.max(0, Math.min(100, y));
-        
+
         setFocalX(x);
         setFocalY(y);
     };
@@ -247,10 +247,10 @@ const CollectionDashboard = () => {
                 setShowFocalModal(false);
                 return;
             }
-            
+
             const coverUrlBase = currentCoverUrl.split('#')[0];
             const newCoverUrl = `${coverUrlBase}#focal=${focalX},${focalY}`;
-            
+
             await galleryService.updateCollection(collectionId, { cover_url: newCoverUrl });
             setCollection(prev => ({ ...prev, cover_url: newCoverUrl, focal_x: focalX, focal_y: focalY }));
             setShowFocalModal(false);
@@ -286,8 +286,8 @@ const CollectionDashboard = () => {
         if (!editingPhoto || !newPhotoName.trim()) return;
         try {
             setSaving(true);
-            const updated = await galleryService.updatePhoto(editingPhoto.id, { 
-                filename: newPhotoName.trim() 
+            const updated = await galleryService.updatePhoto(editingPhoto.id, {
+                filename: newPhotoName.trim()
             });
             setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? { ...p, filename: updated.filename } : p));
             setShowRenameModal(false);
@@ -343,14 +343,14 @@ const CollectionDashboard = () => {
             const filePath = `${photographerId}/${collectionId}/${fileName}`;
             const { url: publicUrl } = await storageService.upload(filePath, file);
 
-            const updated = await galleryService.updatePhoto(editingPhoto.id, { 
-                full_url: publicUrl, 
-                web_url: publicUrl, 
+            const updated = await galleryService.updatePhoto(editingPhoto.id, {
+                full_url: publicUrl,
+                web_url: publicUrl,
                 thumbnail_url: publicUrl,
                 original_storage_path: filePath,
                 size_bytes: file.size
             });
-            
+
             setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? updated : p));
             setShowReplaceModal(false);
             setEditingPhoto(null);
@@ -496,7 +496,7 @@ const CollectionDashboard = () => {
         if (!editingSet || !editSetName.trim()) return;
         try {
             setSavingSet(true);
-            
+
             if (editingSet.id === 'highlights') {
                 // If renaming Highlights, we create a new real set and move all unassigned photos to it
                 const newSet = await galleryService.createSet({
@@ -506,13 +506,13 @@ const CollectionDashboard = () => {
                     description: editSetDescription.trim() || null,
                     position: 0 // Put it at the top
                 });
-                
+
                 // Move all unassigned photos to this new set
                 const unassignedPhotoIds = photos.filter(p => !p.set_id).map(p => p.id);
                 if (unassignedPhotoIds.length > 0) {
                     await galleryService.assignPhotosToSet(unassignedPhotoIds, newSet.id);
                 }
-                
+
                 setSets(prev => [newSet, ...prev]);
                 setPhotos(prev => prev.map(p => !p.set_id ? { ...p, set_id: newSet.id } : p));
                 setActiveSetId(newSet.id);
@@ -535,14 +535,14 @@ const CollectionDashboard = () => {
     const handleDeleteSet = async (setId) => {
         const isHighlights = setId === 'highlights';
         const setToDelete = isHighlights ? { name: 'Highlights' } : sets.find(s => s.id === setId);
-        
-        const message = isHighlights 
+
+        const message = isHighlights
             ? `Are you sure you want to delete the "Highlights" set? All photos in this set will be deleted.`
             : `Are you sure you want to delete the set "${setToDelete?.name}"? Photos will be moved to Highlights.`;
-            
+
         const confirmed = window.confirm(message);
         if (!confirmed) return;
-        
+
         try {
             setSaving(true);
             if (isHighlights) {
@@ -951,20 +951,20 @@ const CollectionDashboard = () => {
                                                 </button>
                                                 {showSetMenu === 'highlights' && (
                                                     <div className="cd-set-dropdown">
-                                                        <div className="cd-ctx-item" onClick={(e) => { 
-                                                            e.stopPropagation(); 
-                                                            openEditSetModal({ id: 'highlights', name: 'Highlights', description: '' }); 
+                                                        <div className="cd-ctx-item" onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openEditSetModal({ id: 'highlights', name: 'Highlights', description: '' });
                                                         }}>
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                                                             <span>Edit set</span>
                                                         </div>
-                                                        <div 
-                                                            className={`cd-ctx-item cd-ctx-delete ${sets.length === 0 ? 'disabled' : ''}`} 
-                                                            onClick={(e) => { 
-                                                                e.stopPropagation(); 
+                                                        <div
+                                                            className={`cd-ctx-item cd-ctx-delete ${sets.length === 0 ? 'disabled' : ''}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
                                                                 if (sets.length > 0) {
-                                                                    setShowSetMenu(null); 
-                                                                    handleDeleteSet('highlights'); 
+                                                                    setShowSetMenu(null);
+                                                                    handleDeleteSet('highlights');
                                                                 }
                                                             }}
                                                             title={sets.length === 0 ? "You must have at least one other set to delete Highlights" : ""}
@@ -1291,7 +1291,7 @@ const CollectionDashboard = () => {
                                                     />
                                                     {showFilename && <div className="cd-photo-filename" style={{ position: 'absolute', bottom: 8, left: 8, fontSize: 12, color: '#666', background: 'rgba(255,255,255,0.8)', padding: '2px 6px', borderRadius: 4 }}>{photo.filename || `photo-${index + 1}.jpg`}</div>}
                                                 </div>
-                                                
+
                                                 <div className="cd-photo-actions">
                                                     <button className="cd-photo-more-btn" onClick={(e) => { e.stopPropagation(); setPhotoMenu(photoMenu === photo.id ? null : photo.id); }}>
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
@@ -1389,6 +1389,7 @@ const CollectionDashboard = () => {
                                         colorPalette: selectedColorPalette,
                                         grid: gridSettings
                                     }}
+                                    coverPhotoUrl={collection?.cover_url || (photos.length > 0 ? photos[0].full_url : null)}
                                     onSettingsChange={(newSettings) => {
                                         setSelectedCoverStyle(newSettings.coverStyle);
                                         setSelectedFont(newSettings.fontFamily);
@@ -1411,9 +1412,9 @@ const CollectionDashboard = () => {
                                     gridPhotos={photos}
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
-                                    dashboardState={{ 
-                                        focalX: collection?.focal_x ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[1] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[1]) : 50), 
-                                        focalY: collection?.focal_y ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[2] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[2]) : 50) 
+                                    dashboardState={{
+                                        focalX: collection?.focal_x ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[1] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[1]) : 50),
+                                        focalY: collection?.focal_y ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[2] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[2]) : 50)
                                     }}
                                 />
                             </div>
@@ -2207,7 +2208,7 @@ const CollectionDashboard = () => {
                             <div className="cd-set-modal-body">
                                 <div className="focal-point-container">
                                     {collection?.cover_url || photos.length > 0 ? (
-                                        <div 
+                                        <div
                                             className="focal-image-wrapper"
                                             onMouseDown={(e) => {
                                                 setIsDraggingFocal(true);
@@ -2218,7 +2219,7 @@ const CollectionDashboard = () => {
                                             onMouseLeave={() => setIsDraggingFocal(false)}
                                         >
                                             <img src={collection?.cover_url || photos[0]?.full_url} alt="Focal" draggable="false" />
-                                            <div 
+                                            <div
                                                 className="focal-crosshair"
                                                 style={{ left: `${focalX}%`, top: `${focalY}%` }}
                                             >
@@ -2706,8 +2707,8 @@ const CollectionDashboard = () => {
                         <div className="cd-modal-body">
                             <div className="cd-form-group">
                                 <label className="cd-form-label">Photo Filename</label>
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     className="cd-form-input"
                                     value={newPhotoName}
                                     onChange={(e) => setNewPhotoName(e.target.value)}
@@ -2751,7 +2752,7 @@ const CollectionDashboard = () => {
                             </div>
                             <div className="cd-form-group mt-6">
                                 <label className="cd-form-label">Target Set</label>
-                                <select 
+                                <select
                                     className="cd-form-input"
                                     value={targetSetId || ''}
                                     onChange={(e) => setTargetSetId(e.target.value || null)}
@@ -2787,14 +2788,14 @@ const CollectionDashboard = () => {
                             <p className="text-sm text-[#666] mb-6">
                                 Choose a new photo to replace the current one. The new photo will inherit the star status.
                             </p>
-                            <input 
-                                type="file" 
+                            <input
+                                type="file"
                                 id="replace-file-input"
-                                className="hidden" 
+                                className="hidden"
                                 accept="image/*"
                                 onChange={handleReplacePhoto}
                             />
-                            <button 
+                            <button
                                 className="cd-btn-primary w-full py-4 flex items-center justify-center gap-2"
                                 onClick={() => document.getElementById('replace-file-input').click()}
                                 disabled={saving}
@@ -2864,7 +2865,7 @@ const CollectionDashboard = () => {
                         {/* Action bar */}
                         <div style={{ position: 'absolute', bottom: 24, display: 'flex', gap: 16 }} onClick={(e) => e.stopPropagation()}>
                             <button onClick={() => handleDownloadPhoto(lbPhoto)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 6, padding: '8px 18px', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                                 Download
                             </button>
                             <button onClick={() => { handleSetAsCover(lbPhoto); }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 6, padding: '8px 18px', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -2884,7 +2885,7 @@ const CollectionDashboard = () => {
                             <div className="cd-modal-header">
                                 <h3 className="cd-modal-title">Quick Share</h3>
                                 <button className="cd-modal-close" onClick={() => setShowQuickShareModal(false)}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                 </button>
                             </div>
                             <div className="cd-set-modal-body">
@@ -2905,13 +2906,13 @@ const CollectionDashboard = () => {
                                 {/* Social share row */}
                                 <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
                                     <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" style={{ width: 38, height: 38, borderRadius: '50%', backgroundColor: '#3b5998', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
                                     </a>
                                     <a href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" style={{ width: 38, height: 38, borderRadius: '50%', backgroundColor: '#1da1f2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" /></svg>
                                     </a>
                                     <a href={`mailto:?subject=Check out this photo&body=${encodeURIComponent(shareUrl)}`} style={{ width: 38, height: 38, borderRadius: '50%', backgroundColor: '#555', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
                                     </a>
                                 </div>
                             </div>
@@ -2930,7 +2931,7 @@ const CollectionDashboard = () => {
                         <div className="cd-modal-header">
                             <h3 className="cd-modal-title">Watermark Photo</h3>
                             <button className="cd-modal-close" onClick={() => setShowWatermarkModal(false)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
                         </div>
                         <div className="cd-set-modal-body">
