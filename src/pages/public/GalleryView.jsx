@@ -205,12 +205,14 @@ const GalleryView = () => {
                 </Typography>
                 {!activeSetId && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}
               </button>
-              {(collection.sets || []).map((set) => (
-                <button
-                  key={set.id}
-                  className="group relative py-2"
-                  onClick={() => setActiveSetId(set.id)}
-                >
+              {(collection.sets || [])
+                .filter(s => s.name?.toLowerCase() !== 'highlights')
+                .map((set) => (
+                  <button
+                    key={set.id}
+                    className="group relative py-2"
+                    onClick={() => setActiveSetId(set.id)}
+                  >
                   <Typography variant="label" className={cn("transition-opacity gallery-heading text-[10px] tracking-[0.2em] font-bold uppercase", activeSetId === set.id ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
                     {set.name}
                   </Typography>
@@ -239,6 +241,23 @@ const GalleryView = () => {
               </button>
             </div>
           </div>
+
+          {/* Set Description */}
+          {(() => {
+            const description = activeSetId 
+              ? collection.sets?.find(s => s.id === activeSetId)?.description 
+              : (collection.description || collection.sets?.[0]?.description);
+            
+            if (!description) return null;
+
+            return (
+              <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
+                <p className="text-[13px] md:text-[15px] leading-relaxed tracking-[0.02em] font-light opacity-70 max-w-3xl mx-auto whitespace-pre-wrap" style={{ color: 'var(--gallery-text)' }}>
+                  {description}
+                </p>
+              </div>
+            );
+          })()}
 
           {/* Flexible Gallery Grid */}
           <MasonryGrid

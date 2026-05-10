@@ -141,16 +141,18 @@ export default function CollectionDashboard() {
              />
           </div>
           <div className="cd-design-preview bg-black/10 flex-1">
-             <PreviewPane 
+              <PreviewPane 
                 settings={dashboardState.designSettings}
                 collectionTitle={collection?.name || ''}
                 collectionDate={collection?.event_date || ''}
+                collectionDescription={activeSetId ? sets.find(s => s.id === activeSetId)?.description || '' : (collection?.description || sets[0]?.description || '')}
                 coverPhotoUrl={photos.find(p => p.id === collection?.cover_photo_id)?.full_url || undefined}
                 gridPhotos={photos as any}
                 previewMode={dashboardState.previewMode}
                 onPreviewModeChange={dashboardState.setPreviewMode}
                 dashboardState={dashboardState}
-             />
+                onSetActiveSet={setActiveSetId}
+              />
           </div>
         </div>
       );

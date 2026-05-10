@@ -9,9 +9,11 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   settings,
   collectionTitle,
   collectionDate,
+  collectionDescription,
   coverPhotoUrl,
   gridPhotos,
-  dashboardState
+  dashboardState,
+  onSetActiveSet
 }) => {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState<Record<string, number>>({});
 
@@ -100,17 +102,34 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
           {/* Center: Sets Navigation */}
           <div className="flex-1 flex items-center justify-center gap-8">
-            {dashboardState?.sets && dashboardState.sets.length > 0 ? (
-              dashboardState.sets.slice(0, 4).map((set: any, index: number) => (
-                <span key={set.id} className={cn("text-[8px] gallery-heading cursor-pointer hover:opacity-100 transition-opacity", index === 0 ? "border-b border-current pb-1" : "opacity-50")} style={{ color: 'var(--gallery-text)' }}>
+            <span 
+              className={cn(
+                "text-[8px] gallery-heading cursor-pointer transition-opacity", 
+                !dashboardState.activeSetId ? "opacity-100 border-b border-current pb-1" : "opacity-50 hover:opacity-100"
+              )} 
+              style={{ color: 'var(--gallery-text)' }}
+              onClick={() => onSetActiveSet?.(null)}
+            >
+              Highlights
+            </span>
+            {dashboardState?.sets && dashboardState.sets.length > 0 && 
+              dashboardState.sets
+                .filter((s: any) => s.name?.toLowerCase() !== 'highlights')
+                .slice(0, 5)
+                .map((set: any) => (
+                  <span 
+                    key={set.id} 
+                  className={cn(
+                    "text-[8px] gallery-heading cursor-pointer hover:opacity-100 transition-opacity", 
+                    dashboardState.activeSetId === set.id ? "border-b border-current pb-1" : "opacity-50"
+                  )} 
+                  style={{ color: 'var(--gallery-text)' }}
+                  onClick={() => onSetActiveSet?.(set.id)}
+                >
                   {set.name}
                 </span>
               ))
-            ) : (
-              <span className="text-[8px] gallery-heading border-b border-current pb-1" style={{ color: 'var(--gallery-text)' }}>
-                Home
-              </span>
-            )}
+            }
           </div>
 
           {/* Right: Action Icons */}
@@ -139,6 +158,23 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
             )}
           </div>
         </div>
+
+        {/* Set Description */}
+        {(() => {
+          const description = dashboardState.activeSetId 
+            ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.description 
+            : (collectionDescription || dashboardState.collection?.description || dashboardState.sets?.[0]?.description);
+
+          if (!description) return null;
+
+          return (
+            <div className="flex flex-col items-center justify-center py-12 px-4 text-center" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+              <p className="text-[10px] leading-relaxed tracking-[0.05em] opacity-80 max-w-lg mx-auto whitespace-pre-wrap" style={{ color: 'var(--gallery-text)' }}>
+                {description}
+              </p>
+            </div>
+          );
+        })()}
 
         <div
           className={cn("gallery-preview-grid", grid.style === 'horizontal' && "items-start")}

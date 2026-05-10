@@ -96,131 +96,139 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
 /* Typography Preset Mapping */
 /* Typography Preset Mapping - Refined for Pixieset Parity */
-.font-sans { 
-    --heading-font: 'Montserrat', sans-serif; 
-    --heading-letter-spacing: 0.15em; 
-    --heading-transform: uppercase;
-    --heading-weight: 500;
+.font-sans {
+  --heading-font: 'Montserrat', sans-serif;
+  --heading-letter-spacing: 0.15em;
+  --heading-transform: uppercase;
+  --heading-weight: 500;
 }
 
-.font-serif { 
-    --heading-font: 'Playfair Display', serif; 
-    --heading-letter-spacing: 0.02em;
-    --heading-transform: none;
-    --heading-weight: 400;
+.font-serif {
+  --heading-font: 'Playfair Display', serif;
+  --heading-letter-spacing: 0.02em;
+  --heading-transform: none;
+  --heading-weight: 400;
 }
 
-.font-modern { 
-    --heading-font: 'Montserrat', sans-serif; 
-    --heading-letter-spacing: 0.05em;
-    --heading-transform: uppercase;
-    --heading-weight: 600;
+.font-modern {
+  --heading-font: 'Montserrat', sans-serif;
+  --heading-letter-spacing: 0.05em;
+  --heading-transform: uppercase;
+  --heading-weight: 600;
 }
 
-.font-timeless { 
-    --heading-font: 'Lora', serif; 
-    --heading-letter-spacing: 0.05em;
-    --heading-weight: 300;
-    --heading-style: italic;
-    --heading-transform: none;
+.font-timeless {
+  --heading-font: 'Lora', serif;
+  --heading-letter-spacing: 0.05em;
+  --heading-weight: 300;
+  --heading-style: italic;
+  --heading-transform: none;
 }
 
-.font-bold { 
-    --heading-font: 'Unbounded', sans-serif; 
-    --heading-letter-spacing: -0.02em;
-    --heading-weight: 700;
-    --heading-transform: uppercase;
+.font-bold {
+  --heading-font: 'Unbounded', sans-serif;
+  --heading-letter-spacing: -0.02em;
+  --heading-weight: 700;
+  --heading-transform: uppercase;
 }
 
-.font-subtle { 
-    --heading-font: 'Outfit', sans-serif; 
-    --heading-weight: 200; 
-    --heading-letter-spacing: 0.25em; 
-    --heading-transform: uppercase;
+.font-subtle {
+  --heading-font: 'Outfit', sans-serif;
+  --heading-weight: 200;
+  --heading-letter-spacing: 0.25em;
+  --heading-transform: uppercase;
 }
 
 /* Base Heading Styles for Gallery */
 .gallery-heading {
-    font-family: var(--heading-font, inherit);
-    letter-spacing: var(--heading-letter-spacing, normal);
-    text-transform: var(--heading-transform, none);
-    font-weight: var(--heading-weight, inherit);
-    font-style: var(--heading-style, normal);
+  font-family: var(--heading-font, inherit);
+  letter-spacing: var(--heading-letter-spacing, normal);
+  text-transform: var(--heading-transform, none);
+  font-weight: var(--heading-weight, inherit);
+  font-style: var(--heading-style, normal);
 }
 
 /* Color Theme Variable Definitions */
-.theme-light { 
-    --gallery-bg: #ffffff; 
-    --gallery-text: #111111; 
-    --gallery-accent: #111111; 
-    --gallery-secondary-bg: #f7f9fa; 
-    --gallery-meta-text: #888888;
-    --gallery-border: rgba(0,0,0,0.05);
-}
-.theme-gold { 
-    --gallery-bg: #ffffff; 
-    --gallery-text: #5e4f3a; 
-    --gallery-accent: #a68c5b; 
-    --gallery-secondary-bg: #faf7f2; 
-    --gallery-meta-text: #a68c5b;
-    --gallery-border: rgba(94,79,58,0.1);
-}
-.theme-rose { 
-    --gallery-bg: #ffffff; 
-    --gallery-text: #5e4a4a; 
-    --gallery-accent: #a67d7d; 
-    --gallery-secondary-bg: #faf4f4; 
-    --gallery-meta-text: #a67d7d;
-    --gallery-border: rgba(94,74,74,0.1);
-}
-.theme-terracotta { 
-    --gallery-bg: #ffffff; 
-    --gallery-text: #5e463a; 
-    --gallery-accent: #a66d5b; 
-    --gallery-secondary-bg: #faf5f2; 
-    --gallery-meta-text: #a66d5b;
-    --gallery-border: rgba(94,70,58,0.1);
-}
-.theme-sand { 
-    --gallery-bg: #ffffff; 
-    --gallery-text: #5e524a; 
-    --gallery-accent: #967b6b; 
-    --gallery-secondary-bg: #f7f5f2; 
-    --gallery-meta-text: #967b6b;
-    --gallery-border: rgba(94,82,74,0.1);
-}
-.theme-olive { 
-    --gallery-bg: #ffffff; 
-    --gallery-text: #4e5e3a; 
-    --gallery-accent: #8c966b; 
-    --gallery-secondary-bg: #f5f7f2; 
-    --gallery-meta-text: #8c966b;
-    --gallery-border: rgba(78,94,58,0.1);
-}
-.theme-agave { 
-    --gallery-bg: #ffffff; 
-    --gallery-text: #3a5e55; 
-    --gallery-accent: #6b968c; 
-    --gallery-secondary-bg: #f2f7f6; 
-    --gallery-meta-text: #6b968c;
-    --gallery-border: rgba(58,94,85,0.1);
-}
-.theme-sea { 
-    --gallery-bg: #ffffff; 
-    --gallery-text: #3a455e; 
-    --gallery-accent: #6b7a96; 
-    --gallery-secondary-bg: #f2f4f7; 
-    --gallery-meta-text: #6b7a96;
-    --gallery-border: rgba(58,69,94,0.1);
-}
-.theme-dark { 
-    --gallery-bg: #111111; 
-    --gallery-text: #ffffff; 
-    --gallery-accent: #988383; 
-    --gallery-secondary-bg: #1a1a1a; 
-    --gallery-meta-text: #999999;
-    --gallery-border: rgba(255,255,255,0.1);
+.theme-light {
+  --gallery-bg: #ffffff;
+  --gallery-text: #111111;
+  --gallery-accent: #111111;
+  --gallery-secondary-bg: #f7f9fa;
+  --gallery-meta-text: #888888;
+  --gallery-border: rgba(0, 0, 0, 0.05);
 }
 
+.theme-gold {
+  --gallery-bg: #ffffff;
+  --gallery-text: #5e4f3a;
+  --gallery-accent: #a68c5b;
+  --gallery-secondary-bg: #faf7f2;
+  --gallery-meta-text: #a68c5b;
+  --gallery-border: rgba(94, 79, 58, 0.1);
+}
+
+.theme-rose {
+  --gallery-bg: #ffffff;
+  --gallery-text: #5e4a4a;
+  --gallery-accent: #a67d7d;
+  --gallery-secondary-bg: #faf4f4;
+  --gallery-meta-text: #a67d7d;
+  --gallery-border: rgba(94, 74, 74, 0.1);
+}
+
+.theme-terracotta {
+  --gallery-bg: #ffffff;
+  --gallery-text: #5e463a;
+  --gallery-accent: #a66d5b;
+  --gallery-secondary-bg: #faf5f2;
+  --gallery-meta-text: #a66d5b;
+  --gallery-border: rgba(94, 70, 58, 0.1);
+}
+
+.theme-sand {
+  --gallery-bg: #ffffff;
+  --gallery-text: #5e524a;
+  --gallery-accent: #967b6b;
+  --gallery-secondary-bg: #f7f5f2;
+  --gallery-meta-text: #967b6b;
+  --gallery-border: rgba(94, 82, 74, 0.1);
+}
+
+.theme-olive {
+  --gallery-bg: #ffffff;
+  --gallery-text: #4e5e3a;
+  --gallery-accent: #8c966b;
+  --gallery-secondary-bg: #f5f7f2;
+  --gallery-meta-text: #8c966b;
+  --gallery-border: rgba(78, 94, 58, 0.1);
+}
+
+.theme-agave {
+  --gallery-bg: #ffffff;
+  --gallery-text: #3a5e55;
+  --gallery-accent: #6b968c;
+  --gallery-secondary-bg: #f2f7f6;
+  --gallery-meta-text: #6b968c;
+  --gallery-border: rgba(58, 94, 85, 0.1);
+}
+
+.theme-sea {
+  --gallery-bg: #ffffff;
+  --gallery-text: #3a455e;
+  --gallery-accent: #6b7a96;
+  --gallery-secondary-bg: #f2f4f7;
+  --gallery-meta-text: #6b7a96;
+  --gallery-border: rgba(58, 69, 94, 0.1);
+}
+
+.theme-dark {
+  --gallery-bg: #111111;
+  --gallery-text: #ffffff;
+  --gallery-accent: #988383;
+  --gallery-secondary-bg: #1a1a1a;
+  --gallery-meta-text: #999999;
+  --gallery-border: rgba(255, 255, 255, 0.1);
+}

@@ -164,7 +164,9 @@
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
 }
 
-.meta-left, .meta-center, .meta-right {
+.meta-left,
+.meta-center,
+.meta-right {
     flex: 1;
     display: flex;
     align-items: center;
@@ -5601,6 +5603,7 @@ input:checked+.cd-toggle-slider:before {
     text-align: center;
     margin: 0;
 }
+
 /* Photos Tab Synchronized Preview */
 .cd-photos-container {
     display: flex;
@@ -5705,7 +5708,9 @@ input:checked+.cd-toggle-slider:before {
     box-sizing: border-box !important;
 }
 
-.meta-left, .meta-center, .meta-right {
+.meta-left,
+.meta-center,
+.meta-right {
     flex: 1 !important;
     display: flex !important;
     align-items: center !important;
