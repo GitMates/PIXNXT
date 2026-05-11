@@ -225,19 +225,19 @@ const GalleryView = () => {
             <div className="flex-1 flex items-center justify-end gap-6">
               <button onClick={handleStartSlideshow} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
                 <Play size={14} fill="currentColor" />
-                <span className="hidden xl:inline">Slideshow</span>
+                {collection.nav_style !== 'icon' && <span className="hidden xl:inline">Slideshow</span>}
               </button>
               <button onClick={() => setShowFavoriteModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
                 <Heart size={14} />
-                <span className="hidden xl:inline">Favorite</span>
+                {collection.nav_style !== 'icon' && <span className="hidden xl:inline">Favorite</span>}
               </button>
               <button onClick={handleDownloadClick} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
                 <Download size={14} />
-                <span className="hidden xl:inline">Download</span>
+                {collection.nav_style !== 'icon' && <span className="hidden xl:inline">Download</span>}
               </button>
               <button onClick={() => setShowShareModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
                 <Share2 size={14} />
-                <span className="hidden xl:inline">Share</span>
+                {collection.nav_style !== 'icon' && <span className="hidden xl:inline">Share</span>}
               </button>
             </div>
           </div>

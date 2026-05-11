@@ -124,24 +124,24 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           <div className="flex-1 flex items-center justify-end gap-6">
             <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" style={{ color: 'var(--gallery-text)' }}>
               <Play size={14} fill="currentColor" />
-              <span className="text-[8px] gallery-heading hidden lg:inline">Slideshow</span>
+              {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Slideshow</span>}
             </div>
             {dashboardState?.favoritePhotos !== false && (
               <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setShowFavoriteModal(true)} style={{ color: 'var(--gallery-text)' }}>
                 <Heart size={14} />
-                <span className="text-[8px] gallery-heading hidden lg:inline">Favorite</span>
+                {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Favorite</span>}
               </div>
             )}
             {dashboardState?.photoDownload !== false && (
               <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onClick={handleDownloadClick} style={{ color: 'var(--gallery-text)' }}>
                 <Download size={14} />
-                <span className="text-[8px] gallery-heading hidden lg:inline">Download</span>
+                {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Download</span>}
               </div>
             )}
             {dashboardState?.socialSharing !== false && (
               <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setShowShareModal(true)} style={{ color: 'var(--gallery-text)' }}>
                 <Share2 size={14} />
-                <span className="text-[8px] gallery-heading hidden lg:inline">Share</span>
+                {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Share</span>}
               </div>
             )}
           </div>
@@ -180,7 +180,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 onImageClick={() => {}}
                 onFavorite={() => setShowFavoriteModal(true)}
                 onDownload={handleDownloadClick}
-                customRowHeight={grid.size === 'large' ? 210 : grid.size === 'regular' ? 150 : grid.size === 'small' ? 100 : 70}
+                customRowHeight={grid.size === 'large' ? 155 : grid.size === 'regular' ? 111 : grid.size === 'small' ? 74 : 52}
                 customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
               />
             );
