@@ -110,7 +110,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
               />
               {/* Hover overlay with buttons */}
               <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/10">
-                <div className="absolute top-4 right-4 flex gap-2 opacity-0 transform translate-y-[-10px] transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
+                <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 transform translate-y-[10px] transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
