@@ -173,12 +173,14 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
             return (
               <MasonryGrid 
+                key={`${grid.style}-${grid.size}-${grid.spacing}`}
                 photos={visiblePhotos}
                 gridSettings={grid}
+                isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
                 onImageClick={() => {}}
                 onFavorite={() => setShowFavoriteModal(true)}
                 onDownload={handleDownloadClick}
-                customRowHeight={grid.size === 'large' ? 240 : grid.size === 'regular' ? 140 : grid.size === 'small' ? 90 : 60}
+                customRowHeight={grid.size === 'large' ? 210 : grid.size === 'regular' ? 150 : grid.size === 'small' ? 100 : 70}
                 customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
               />
             );

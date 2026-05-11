@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Download, Heart } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 
-export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount }) {
+export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
@@ -17,12 +17,17 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
       }
     });
   }, [photos]);
-  const isHorizontal = gridSettings?.style === 'horizontal';
+  const isHorizontal = isHorizontalProp !== undefined ? isHorizontalProp : (gridSettings?.style?.toLowerCase() === 'horizontal');
   const size = gridSettings?.size || 'regular';
   const spacing = gridSettings?.spacing || 'regular';
 
-  const gap = spacing === 'none' ? 0 : spacing === 'small' ? 4 : spacing === 'regular' ? 12 : 24;
-  const rowHeight = customRowHeight || (size === 'large' ? 450 : size === 'regular' ? 300 : size === 'small' ? 200 : 150);
+  const gapBase = spacing === 'none' ? 0 : spacing === 'small' ? 4 : spacing === 'regular' ? 12 : 24;
+  const gap = customRowHeight ? (gapBase * (customRowHeight / (size === 'large' ? 420 : size === 'regular' ? 300 : size === 'small' ? 200 : 140))) : gapBase;
+  
+  // Standardized row heights to ensure parity between dashboard and public view
+  // If customRowHeight is provided (e.g. from GalleryPreview), we use it.
+  // Otherwise we use consistent defaults for the public view.
+  const baseRowHeight = customRowHeight || (size === 'large' ? 420 : size === 'regular' ? 300 : size === 'small' ? 200 : 140);
 
   const container = {
     hidden: { opacity: 0 },
@@ -82,10 +87,10 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
               !isHorizontal && "mb-[var(--grid-gap)] break-inside-avoid"
             )}
             style={isHorizontal ? {
-              flexGrow: aspectRatio,
-              flexBasis: `${rowHeight * aspectRatio}px`,
-              width: `${rowHeight * aspectRatio}px`
-              // marginBottom removed to avoid double spacing with flex gap
+              flex: `${aspectRatio} 1 ${baseRowHeight * aspectRatio}px`,
+              aspectRatio: `${aspectRatio}`,
+              maxWidth: '100%',
+              margin: 0
             } : {
               '--grid-gap': `${gap}px`,
               marginBottom: `${gap}px`
@@ -96,13 +101,10 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
               <img
                 src={src}
                 alt={photo.filename || `Gallery image ${index + 1}`}
-                className="w-full transition-transform duration-1000 group-hover:scale-105"
-                style={isHorizontal ? {
-                  height: 'auto',
+                className="w-full h-full transition-transform duration-1000 group-hover:scale-105"
+                style={{
+                  objectFit: 'cover',
                   display: 'block'
-                } : {
-                  height: '100%',
-                  objectFit: 'cover'
                 }}
                 loading="lazy"
               />

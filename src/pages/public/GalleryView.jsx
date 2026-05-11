@@ -261,7 +261,9 @@ const GalleryView = () => {
 
           {/* Flexible Gallery Grid */}
           <MasonryGrid
+            key={`${collection.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}`}
             photos={filteredPhotos}
+            isHorizontal={collection.grid_style?.toLowerCase() === 'horizontal'}
             gridSettings={{
               style: collection.grid_style || 'vertical',
               size: collection.thumbnail_size || 'regular',
@@ -272,6 +274,8 @@ const GalleryView = () => {
             onFavorite={() => setShowFavoriteModal(true)}
             onDownload={handleDownloadClick}
             onShare={() => setShowShareModal(true)}
+            customRowHeight={collection.thumbnail_size === 'large' ? 420 : collection.thumbnail_size === 'regular' ? 300 : collection.thumbnail_size === 'small' ? 200 : 140}
+            customColumnCount={collection.thumbnail_size === 'large' ? 2 : collection.thumbnail_size === 'regular' ? 3 : 4}
           />
         </Container>
       </main>
