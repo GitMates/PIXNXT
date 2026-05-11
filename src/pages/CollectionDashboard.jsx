@@ -40,6 +40,8 @@ const CollectionDashboard = () => {
     const [showSetMenu, setShowSetMenu] = useState(null); // set id or null
     const [showSortMenu, setShowSortMenu] = useState(false);
     const [selectedPhotos, setSelectedPhotos] = useState([]);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [photosToDelete, setPhotosToDelete] = useState([]);
     const [showSelectionMore, setShowSelectionMore] = useState(false);
     const [showSelectAllMenu, setShowSelectAllMenu] = useState(false);
     const [showMoveToSetMenu, setShowMoveToSetMenu] = useState(false);
@@ -70,6 +72,9 @@ const CollectionDashboard = () => {
     const [editingSet, setEditingSet] = useState(null); // set object for edit modal
     const [editSetName, setEditSetName] = useState('');
     const [editSetDescription, setEditSetDescription] = useState('');
+    const [deleteSetId, setDeleteSetId] = useState(null);
+    const [highlightsName, setHighlightsName] = useState('Highlights');
+    const [toastMessage, setToastMessage] = useState(null);
 
     // SORT STATE
     const [sortOption, setSortOption] = useState('upload-new-old');
@@ -180,10 +185,12 @@ const CollectionDashboard = () => {
 
     const deleteSelectedPhotos = async (ids = selectedPhotos) => {
         if (ids.length === 0 || !collectionId) return;
+        setPhotosToDelete(ids);
+        setShowDeleteConfirm(true);
+    };
 
-        const confirmed = window.confirm(`Are you sure you want to delete ${ids.length} photo(s)?`);
-        if (!confirmed) return;
-
+    const confirmDeletePhotos = async () => {
+        const ids = photosToDelete;
         try {
             setSaving(true);
             await galleryService.deletePhotos(ids);
@@ -191,6 +198,8 @@ const CollectionDashboard = () => {
             // Update local state
             setPhotos(prev => prev.filter(p => !ids.includes(p.id)));
             setSelectedPhotos([]);
+            setShowDeleteConfirm(false);
+            setPhotosToDelete([]);
         } catch (err) {
             console.error('Delete failed:', err);
             alert('Failed to delete photos. Please try again.');
@@ -461,7 +470,7 @@ const CollectionDashboard = () => {
 
     // Get the active set object
     const activeSet = activeSetId ? sets.find(s => s.id === activeSetId) : null;
-    const activeSetName = activeSet ? activeSet.name : 'Highlights';
+    const activeSetName = activeSet ? activeSet.name : highlightsName;
     const activeSetPhotoCount = activeSetId
         ? photos.filter(p => p.set_id === activeSetId).length
         : photos.filter(p => !p.set_id).length;
@@ -497,6 +506,14 @@ const CollectionDashboard = () => {
         try {
             setSavingSet(true);
 
+            if (editingSet.id === 'highlights') {
+                // Update the highlights name locally since it's a virtual set (not stored in DB as a separate row)
+                setHighlightsName(editSetName.trim());
+                setEditingSet(null);
+                setSavingSet(false);
+                return;
+            }
+
             const updated = await galleryService.updateSet(editingSet.id, {
                 name: editSetName.trim(),
                 description: editSetDescription.trim() || null
@@ -511,17 +528,22 @@ const CollectionDashboard = () => {
         }
     };
 
-    const handleDeleteSet = async (setId) => {
-        const isHighlights = setId === 'highlights';
-        const setToDelete = isHighlights ? { name: 'Highlights' } : sets.find(s => s.id === setId);
+    const handleDeleteSet = (setId) => {
+        setDeleteSetId(setId);
+    };
 
-        const message = isHighlights
-            ? `Are you sure you want to delete the "Highlights" set? All photos in this set will be deleted.`
-            : `Are you sure you want to delete the set "${setToDelete?.name}"? Photos will be moved to Highlights.`;
+    const confirmDeleteSet = async () => {
+        if (!deleteSetId) return;
 
-        const confirmed = window.confirm(message);
-        if (!confirmed) return;
+        // "You must have at least one set" logic
+        if (sets.length === 0) {
+            setToastMessage("You must have at least one set.");
+            setTimeout(() => setToastMessage(null), 3000);
+            return;
+        }
 
+        const isHighlights = deleteSetId === 'highlights';
+        
         try {
             setSaving(true);
             if (isHighlights) {
@@ -532,12 +554,13 @@ const CollectionDashboard = () => {
                     setPhotos(prev => prev.filter(p => p.set_id !== null));
                 }
             } else {
-                await galleryService.deleteSet(setId);
-                // Unassign photos locally
-                setPhotos(prev => prev.map(p => p.set_id === setId ? { ...p, set_id: null } : p));
-                setSets(prev => prev.filter(s => s.id !== setId));
+                await galleryService.deleteSet(deleteSetId);
+                // Unassign photos locally (move back to highlights)
+                setPhotos(prev => prev.map(p => p.set_id === deleteSetId ? { ...p, set_id: null } : p));
+                setSets(prev => prev.filter(s => s.id !== deleteSetId));
             }
-            if (activeSetId === setId || (isHighlights && !activeSetId)) setActiveSetId(null);
+            if (activeSetId === deleteSetId || (isHighlights && !activeSetId)) setActiveSetId(null);
+            setDeleteSetId(null);
         } catch (err) {
             console.error('Failed to delete set:', err);
             alert('Failed to delete set. Please try again.');
@@ -921,7 +944,28 @@ const CollectionDashboard = () => {
                                 {/* Highlights (all photos) */}
                                 <div className={`cd-set-item ${!activeSetId ? 'active' : ''}`} onClick={() => setActiveSetId(null)}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
-                                    <span className="cd-set-name">Highlights ({photos.filter(p => !p.set_id).length})</span>
+                                    <span className="cd-set-name">{highlightsName} ({photos.filter(p => !p.set_id).length})</span>
+                                    <div className="cd-set-actions">
+                                        <div className="cd-set-more-container">
+                                            <div className="cd-set-menu-wrapper">
+                                                <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === 'highlights' ? null : 'highlights'); }}>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                                                </button>
+                                                {showSetMenu === 'highlights' && (
+                                                    <div className="cd-set-dropdown">
+                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); openEditSetModal({ id: 'highlights', name: highlightsName, description: '' }); }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                                                            <span>Edit set</span>
+                                                        </div>
+                                                        <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet('highlights'); }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                                            <span>Delete set</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 {/* Dynamic Sets */}
                                 {sets.map(set => (
@@ -1255,6 +1299,7 @@ const CollectionDashboard = () => {
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                                                                 <span>Download</span>
                                                             </div>
+                                                            <div className="cd-ctx-divider"></div>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setTargetSetId(photo.set_id); setMoveMode('move'); setShowMoveModal(true); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
                                                                 <span>Move/Copy</span>
@@ -1275,10 +1320,12 @@ const CollectionDashboard = () => {
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9"></path></svg>
                                                                 <span>Replace photo</span>
                                                             </div>
+                                                            <div className="cd-ctx-divider"></div>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setEditingPhoto(photo); setShowWatermarkModal(true); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M14.83 14.83a4 4 0 1 1 0-5.66"></path></svg>
                                                                 <span>Watermark</span>
                                                             </div>
+                                                            <div className="cd-ctx-divider"></div>
                                                             <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); deleteSelectedPhotos([photo.id]); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                                                 <span>Delete</span>
@@ -1956,7 +2003,7 @@ const CollectionDashboard = () => {
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
                                 <div className="cd-selection-count-wrapper" onClick={() => setShowSelectAllMenu(!showSelectAllMenu)} ref={selectAllMenuRef}>
-                                    <span>{selectedPhotos.length} selected</span>
+                                    <span className="cd-selection-count">{selectedPhotos.length} selected</span>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-selection-chevron"><polyline points="6 9 12 15 18 9"></polyline></svg>
                                     {showSelectAllMenu && (
                                         <div className="cd-selection-menu">
@@ -2592,6 +2639,29 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
+            {/* Delete Set Modal */}
+            {deleteSetId && (
+                <div className="cd-modal-overlay">
+                    <div className="cd-modal" style={{ maxWidth: '450px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">DELETE PHOTO SET</h3>
+                            <button className="cd-modal-close" onClick={() => setDeleteSetId(null)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '24px' }}>All photos and past activities for this photo set will be deleted. This cannot be undone.</p>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button className="cd-cancel-btn" onClick={() => setDeleteSetId(null)}>Cancel</button>
+                            <button className="cd-save-btn" style={{ backgroundColor: '#009070', color: 'white', border: 'none', padding: '10px 24px', borderRadius: '4px', fontWeight: '500' }} onClick={confirmDeleteSet} disabled={saving}>
+                                {saving ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Delete Collection Modal */}
             {showDeleteCollectionModal && (
                 <div className="cd-modal-overlay" onClick={() => setShowDeleteCollectionModal(false)}>
@@ -2759,28 +2829,19 @@ const CollectionDashboard = () => {
                 const lbPhoto = lbPhotos[lightboxOpenIndex];
                 if (!lbPhoto) return null;
                 return (
-                    <div
-                        style={{
-                            position: 'fixed', inset: 0, zIndex: 9999,
-                            backgroundColor: 'rgba(0,0,0,0.92)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            flexDirection: 'column'
-                        }}
-                        onClick={() => setLightboxOpenIndex(-1)}
-                    >
+                    <div className="cd-lightbox" onClick={() => setLightboxOpenIndex(-1)}>
                         {/* Close */}
-                        <button
-                            style={{ position: 'absolute', top: 20, right: 24, background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontSize: 28, lineHeight: 1 }}
-                            onClick={() => setLightboxOpenIndex(-1)}
-                        >×</button>
+                        <button className="cd-lightbox-close" onClick={() => setLightboxOpenIndex(-1)}>
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        </button>
 
                         {/* Prev */}
                         {lightboxOpenIndex > 0 && (
                             <button
-                                style={{ position: 'absolute', left: 20, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}
+                                className="cd-lightbox-nav prev"
                                 onClick={(e) => { e.stopPropagation(); setLightboxOpenIndex(i => i - 1); }}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                             </button>
                         )}
 
@@ -2788,32 +2849,33 @@ const CollectionDashboard = () => {
                         <img
                             src={lbPhoto.full_url}
                             alt={lbPhoto.filename}
-                            style={{ maxWidth: '90vw', maxHeight: '85vh', objectFit: 'contain', borderRadius: 4 }}
+                            className="cd-lightbox-image"
                             onClick={(e) => e.stopPropagation()}
                         />
 
                         {/* Caption */}
-                        <div style={{ marginTop: 12, color: 'rgba(255,255,255,0.6)', fontSize: 13 }}>
+                        <div className="cd-lightbox-caption">
                             {lbPhoto.filename} &nbsp;·&nbsp; {lightboxOpenIndex + 1} / {lbPhotos.length}
                         </div>
 
                         {/* Next */}
                         {lightboxOpenIndex < lbPhotos.length - 1 && (
                             <button
-                                style={{ position: 'absolute', right: 20, top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.12)', border: 'none', borderRadius: '50%', width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: '#fff' }}
+                                className="cd-lightbox-nav next"
                                 onClick={(e) => { e.stopPropagation(); setLightboxOpenIndex(i => i + 1); }}
                             >
-                                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                             </button>
                         )}
 
                         {/* Action bar */}
-                        <div style={{ position: 'absolute', bottom: 24, display: 'flex', gap: 16 }} onClick={(e) => e.stopPropagation()}>
-                            <button onClick={() => handleDownloadPhoto(lbPhoto)} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 6, padding: '8px 18px', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                        <div className="cd-lightbox-actions" onClick={(e) => e.stopPropagation()}>
+                            <button className="cd-lightbox-btn" onClick={() => handleDownloadPhoto(lbPhoto)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                                 Download
                             </button>
-                            <button onClick={() => { handleSetAsCover(lbPhoto); }} style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: 6, padding: '8px 18px', color: '#fff', cursor: 'pointer', fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <button className="cd-lightbox-btn" onClick={() => { handleSetAsCover(lbPhoto); }}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                                 Set as cover
                             </button>
                         </div>
@@ -2904,6 +2966,60 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
+            {/* Delete Confirmation Modal */}
+            {showDeleteConfirm && (
+                <div className="cd-modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
+                    <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">DELETE PHOTOS</h3>
+                            <button className="cd-modal-close" onClick={() => setShowDeleteConfirm(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body">
+                            <p style={{ fontSize: '15px', color: '#444', lineHeight: '1.6', margin: '10px 0' }}>
+                                Are you sure you want to delete {photosToDelete.length} photo(s)? This action cannot be undone and will remove them from all sets.
+                            </p>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button className="cd-btn-secondary" onClick={() => setShowDeleteConfirm(false)}>Cancel</button>
+                            <button 
+                                className="cd-btn-primary" 
+                                style={{ backgroundColor: '#e53e3e', border: 'none' }} 
+                                onClick={confirmDeletePhotos}
+                                disabled={saving}
+                            >
+                                {saving ? 'Deleting...' : 'Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Toast Notification */}
+            {toastMessage && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '24px',
+                    right: '24px',
+                    backgroundColor: '#E74C3C',
+                    color: 'white',
+                    padding: '16px 24px',
+                    borderRadius: '4px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    zIndex: 99999,
+                    fontSize: '14px',
+                    fontWeight: 500
+                }}>
+                    <span>{toastMessage}</span>
+                    <button onClick={() => setToastMessage(null)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', display: 'flex', padding: 0 }}>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+            )}
         </div>
     );
 };
