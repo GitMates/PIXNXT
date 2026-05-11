@@ -497,32 +497,11 @@ const CollectionDashboard = () => {
         try {
             setSavingSet(true);
 
-            if (editingSet.id === 'highlights') {
-                // If renaming Highlights, we create a new real set and move all unassigned photos to it
-                const newSet = await galleryService.createSet({
-                    collectionId,
-                    photographerId: collection.photographer_id,
-                    name: editSetName.trim(),
-                    description: editSetDescription.trim() || null,
-                    position: 0 // Put it at the top
-                });
-
-                // Move all unassigned photos to this new set
-                const unassignedPhotoIds = photos.filter(p => !p.set_id).map(p => p.id);
-                if (unassignedPhotoIds.length > 0) {
-                    await galleryService.assignPhotosToSet(unassignedPhotoIds, newSet.id);
-                }
-
-                setSets(prev => [newSet, ...prev]);
-                setPhotos(prev => prev.map(p => !p.set_id ? { ...p, set_id: newSet.id } : p));
-                setActiveSetId(newSet.id);
-            } else {
-                const updated = await galleryService.updateSet(editingSet.id, {
-                    name: editSetName.trim(),
-                    description: editSetDescription.trim() || null
-                });
-                setSets(prev => prev.map(s => s.id === editingSet.id ? { ...s, ...updated } : s));
-            }
+            const updated = await galleryService.updateSet(editingSet.id, {
+                name: editSetName.trim(),
+                description: editSetDescription.trim() || null
+            });
+            setSets(prev => prev.map(s => s.id === editingSet.id ? { ...s, ...updated } : s));
             setEditingSet(null);
         } catch (err) {
             console.error('Failed to update set:', err);
@@ -943,40 +922,6 @@ const CollectionDashboard = () => {
                                 <div className={`cd-set-item ${!activeSetId ? 'active' : ''}`} onClick={() => setActiveSetId(null)}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
                                     <span className="cd-set-name">Highlights ({photos.filter(p => !p.set_id).length})</span>
-                                    <div className="cd-set-actions">
-                                        <div className="cd-set-more-container">
-                                            <div className="cd-set-menu-wrapper" ref={setMenuRef}>
-                                                <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === 'highlights' ? null : 'highlights'); }}>
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                                </button>
-                                                {showSetMenu === 'highlights' && (
-                                                    <div className="cd-set-dropdown">
-                                                        <div className="cd-ctx-item" onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            openEditSetModal({ id: 'highlights', name: 'Highlights', description: '' });
-                                                        }}>
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                                            <span>Edit set</span>
-                                                        </div>
-                                                        <div
-                                                            className={`cd-ctx-item cd-ctx-delete ${sets.length === 0 ? 'disabled' : ''}`}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                if (sets.length > 0) {
-                                                                    setShowSetMenu(null);
-                                                                    handleDeleteSet('highlights');
-                                                                }
-                                                            }}
-                                                            title={sets.length === 0 ? "You must have at least one other set to delete Highlights" : ""}
-                                                        >
-                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                                            <span>Delete set</span>
-                                                        </div>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
                                 {/* Dynamic Sets */}
                                 {sets.map(set => (

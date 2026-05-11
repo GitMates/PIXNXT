@@ -1,16 +1,17 @@
 import React, { useRef } from 'react';
+import { supabase } from '@/lib/supabase/client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useCollectionDashboard } from '@/hooks/useCollectionDashboard';
 import { usePhotoOperations } from '@/hooks/usePhotoOperations';
 import { DashboardSidebar } from '@/components/features/CollectionDashboard/Sidebar';
 import { DashboardTopbar } from '@/components/features/CollectionDashboard/Topbar';
 import { MediaGridView, SelectionToolbar } from '@/components/features/CollectionDashboard/Media';
-import { 
-  GeneralSettings, 
-  PrivacySettings, 
-  DownloadSettings, 
-  FavoriteSettings, 
-  StoreSettings 
+import {
+  GeneralSettings,
+  PrivacySettings,
+  DownloadSettings,
+  FavoriteSettings,
+  StoreSettings
 } from '@/components/features/CollectionDashboard/Settings';
 import { UploadModal, SetModal } from '@/components/features/CollectionDashboard/Modals';
 import { DesignTab } from '@/components/features/CollectionDashboard/DesignTab';
@@ -27,9 +28,9 @@ export default function CollectionDashboard() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const dashboardState = useCollectionDashboard(collectionId || '');
-  const photoOps = usePhotoOperations({ 
-    collectionId: collectionId || '', 
-    setPhotos: dashboardState.setPhotos as any 
+  const photoOps = usePhotoOperations({
+    collectionId: collectionId || '',
+    setPhotos: dashboardState.setPhotos as any
   });
 
   const {
@@ -87,18 +88,113 @@ export default function CollectionDashboard() {
 
   const handleEditSet = (set: any) => {
     setEditingSet(set);
-    setNewSetName(set.name);
-    setNewSetDescription(set.description || '');
+    // Highlights is a virtual set (photos with set_id = null); its name is fixed.
+    // We store its description on the collection itself.
+    if (set.id === 'highlights-default') {
+      setNewSetName('Highlights');
+      setNewSetDescription(collection?.description || '');
+    } else {
+      setNewSetName(set.name);
+      setNewSetDescription(set.description || '');
+    }
     setShowAddSetModal(true);
   };
 
   const handleSaveSet = async () => {
-     // ... logic from original file
+    if (!collectionId) return;
+
+    dashboardState.setSavingSet(true);
+    try {
+      if (editingSet) {
+        if (editingSet.id === 'highlights-default') {
+          // Highlights is a virtual set (photos with set_id = null).
+          // There is no DB row for it — nothing to update. Just close the modal.
+          // The name "Highlights" is permanently fixed.
+        } else {
+          // Normal set — require a name and update the sets table.
+          if (!newSetName.trim()) return;
+
+          const { error } = await supabase
+            .from('sets')
+            .update({
+              name: newSetName,
+              description: newSetDescription
+            })
+            .eq('id', editingSet.id);
+
+          if (error) throw error;
+        }
+      } else {
+        // Creating a new set — name is required.
+        if (!newSetName.trim()) return;
+
+        const { error } = await supabase
+          .from('sets')
+          .insert([{
+            name: newSetName,
+            description: newSetDescription,
+            collection_id: collectionId,
+            photographer_id: collection?.photographer_id,
+            position: sets.length
+          }]);
+
+        if (error) throw error;
+      }
+
+      await dashboardState.refreshData();
+      setShowAddSetModal(false);
+      setNewSetName('');
+      setNewSetDescription('');
+      setEditingSet(null);
+    } catch (error) {
+      console.error('Error saving set:', error);
+      alert('Failed to save set');
+    } finally {
+      dashboardState.setSavingSet(false);
+    }
+  };
+
+  const handleDeleteSet = async (setId: string) => {
+    // Highlights is a virtual set (photos with no set_id) and cannot be deleted.
+    if (setId === 'highlights-default') {
+      alert('The Highlights set cannot be deleted. It contains all photos not assigned to a specific set.');
+      return;
+    }
+
+    if (!window.confirm('Are you sure you want to delete this set? All photos and activities for this photo set will be deleted. This cannot be undone.')) {
+      return;
+    }
+
+    try {
+      // Delete photos first to avoid foreign key issues if not cascaded
+      const { error: photosError } = await supabase
+        .from('photos')
+        .delete()
+        .eq('set_id', setId);
+
+      if (photosError) throw photosError;
+
+      const { error: setErrors } = await supabase
+        .from('sets')
+        .delete()
+        .eq('id', setId);
+
+      if (setErrors) throw setErrors;
+
+      if (activeSetId === setId) {
+        setActiveSetId(null);
+      }
+
+      await dashboardState.refreshData();
+    } catch (error) {
+      console.error('Error deleting set:', error);
+      alert('Failed to delete set');
+    }
   };
 
   const renderContent = () => {
     if (activeSidebarTab === 'photos') {
-      const displayPhotos = activeSetId 
+      const displayPhotos = activeSetId
         ? photos.filter(p => p.set_id === activeSetId)
         : photos;
 
@@ -132,27 +228,27 @@ export default function CollectionDashboard() {
       return (
         <div className="cd-design-layout">
           <div className="cd-design-sidebar border-r">
-             <DesignTab 
-                activeTab={dashboardState.activeDesignTab}
-                settings={dashboardState.designSettings}
-                onSettingsChange={dashboardState.setDesignSettings}
-                onOpenCoverModal={() => setShowCoverModal(true)}
-                onOpenFocalModal={() => {}} // TODO: add focal modal logic
-             />
+            <DesignTab
+              activeTab={dashboardState.activeDesignTab}
+              settings={dashboardState.designSettings}
+              onSettingsChange={dashboardState.setDesignSettings}
+              onOpenCoverModal={() => setShowCoverModal(true)}
+              onOpenFocalModal={() => { }} // TODO: add focal modal logic
+            />
           </div>
           <div className="cd-design-preview bg-black/10 flex-1">
-              <PreviewPane 
-                settings={dashboardState.designSettings}
-                collectionTitle={collection?.name || ''}
-                collectionDate={collection?.event_date || ''}
-                collectionDescription={activeSetId ? sets.find(s => s.id === activeSetId)?.description || '' : (collection?.description || sets[0]?.description || '')}
-                coverPhotoUrl={photos.find(p => p.id === collection?.cover_photo_id)?.full_url || undefined}
-                gridPhotos={photos as any}
-                previewMode={dashboardState.previewMode}
-                onPreviewModeChange={dashboardState.setPreviewMode}
-                dashboardState={dashboardState}
-                onSetActiveSet={setActiveSetId}
-              />
+            <PreviewPane
+              settings={dashboardState.designSettings}
+              collectionTitle={collection?.name || ''}
+              collectionDate={collection?.event_date || ''}
+              collectionDescription={activeSetId ? sets.find(s => s.id === activeSetId)?.description || '' : (collection?.description || sets[0]?.description || '')}
+              coverPhotoUrl={photos.find(p => p.id === collection?.cover_photo_id)?.full_url || undefined}
+              gridPhotos={photos as any}
+              previewMode={dashboardState.previewMode}
+              onPreviewModeChange={dashboardState.setPreviewMode}
+              dashboardState={dashboardState}
+              onSetActiveSet={setActiveSetId}
+            />
           </div>
         </div>
       );
@@ -161,32 +257,32 @@ export default function CollectionDashboard() {
     if (activeSidebarTab === 'settings') {
       return (
         <div className="cd-settings-layout">
-           <div className="cd-settings-sidebar border-r border-[#222]">
-              {['general', 'privacy', 'download', 'favorite', 'store'].map(tab => (
-                 <div 
-                    key={tab}
-                    className={`cd-settings-nav-item ${dashboardState.activeSettingsTab === tab ? 'active' : ''}`}
-                    onClick={() => dashboardState.setActiveSettingsTab(tab as any)}
-                 >
-                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                 </div>
-              ))}
-           </div>
-           <div className="cd-settings-main-pane h-full overflow-y-auto">
-              <div className="cd-settings-pane-wrapper">
-                 {dashboardState.activeSettingsTab === 'general' && <GeneralSettings {...dashboardState as any} />}
-                 {dashboardState.activeSettingsTab === 'privacy' && <PrivacySettings {...dashboardState as any} />}
-                 {dashboardState.activeSettingsTab === 'download' && <DownloadSettings {...dashboardState as any} />}
-                 {dashboardState.activeSettingsTab === 'favorite' && <FavoriteSettings {...dashboardState as any} />}
-                 {dashboardState.activeSettingsTab === 'store' && <StoreSettings />}
+          <div className="cd-settings-sidebar border-r border-[#222]">
+            {['general', 'privacy', 'download', 'favorite', 'store'].map(tab => (
+              <div
+                key={tab}
+                className={`cd-settings-nav-item ${dashboardState.activeSettingsTab === tab ? 'active' : ''}`}
+                onClick={() => dashboardState.setActiveSettingsTab(tab as any)}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
               </div>
-           </div>
+            ))}
+          </div>
+          <div className="cd-settings-main-pane h-full overflow-y-auto">
+            <div className="cd-settings-pane-wrapper">
+              {dashboardState.activeSettingsTab === 'general' && <GeneralSettings {...dashboardState as any} />}
+              {dashboardState.activeSettingsTab === 'privacy' && <PrivacySettings {...dashboardState as any} />}
+              {dashboardState.activeSettingsTab === 'download' && <DownloadSettings {...dashboardState as any} />}
+              {dashboardState.activeSettingsTab === 'favorite' && <FavoriteSettings {...dashboardState as any} />}
+              {dashboardState.activeSettingsTab === 'store' && <StoreSettings />}
+            </div>
+          </div>
         </div>
       );
     }
 
     if (activeSidebarTab === 'activity') {
-       return <ActivityView activeTab={activeActivityTab} onTabChange={setActiveActivityTab} />;
+      return <ActivityView activeTab={activeActivityTab} onTabChange={setActiveActivityTab} />;
     }
 
     return null;
@@ -204,8 +300,8 @@ export default function CollectionDashboard() {
         onSetChange={setActiveSetId}
         onAddSet={handleAddSet}
         onEditSet={handleEditSet}
-        onDeleteSet={() => {}} // TODO
-        onManageSets={() => {}}
+        onDeleteSet={handleDeleteSet}
+        onManageSets={() => { }}
       />
 
       <main className="cd-main">
@@ -214,7 +310,7 @@ export default function CollectionDashboard() {
           status={status}
           onStatusChange={(newStatus: 'DRAFT' | 'PUBLISHED') => setStatus(newStatus)}
           onPreview={() => window.open(`/gallery/${collection?.slug}`, '_blank')}
-          onShare={() => {}}
+          onShare={() => { }}
           onBack={() => navigate('/dashboard')}
         />
 
@@ -227,38 +323,39 @@ export default function CollectionDashboard() {
         isOpen={showUploadModal}
         onClose={() => setShowUploadModal(false)}
         onBrowse={() => fileInputRef.current?.click()}
-        onDrop={() => {}} // TODO
+        onDrop={() => { }} // TODO
         activeTab={activeMediaTab}
         onTabChange={setActiveMediaTab}
         isDragging={false}
-        onDragOver={() => {}}
-        onDragLeave={() => {}}
+        onDragOver={() => { }}
+        onDragLeave={() => { }}
       />
 
       <SetModal
         isOpen={showAddSetModal}
         onClose={() => setShowAddSetModal(false)}
         onSave={handleSaveSet}
-        title={editingSet ? 'Edit Set' : 'Add Set'}
+        title={editingSet?.id === 'highlights-default' ? 'Edit Highlights Set' : (editingSet ? 'Edit Set' : 'Add Set')}
         name={newSetName}
         setName={setNewSetName}
         description={newSetDescription}
         setDescription={setNewSetDescription}
         isSaving={savingSet}
+        isHighlights={editingSet?.id === 'highlights-default'}
       />
 
       {showCoverModal && (
-         <ChangeCoverModal 
-            isOpen={showCoverModal}
-            onClose={() => setShowCoverModal(false)}
-            photos={photos}
-            onSelectPhoto={(photo: any) => {
-              dashboardState.setCollection((prev: any) => ({ ...prev, cover_photo_id: photo.id }));
-              setShowCoverModal(false);
-            }}
-            onUploadPhoto={() => {}} // TODO: add upload logic from dashboardState
-            isUploading={false}
-         />
+        <ChangeCoverModal
+          isOpen={showCoverModal}
+          onClose={() => setShowCoverModal(false)}
+          photos={photos}
+          onSelectPhoto={(photo: any) => {
+            dashboardState.setCollection((prev: any) => ({ ...prev, cover_photo_id: photo.id }));
+            setShowCoverModal(false);
+          }}
+          onUploadPhoto={() => { }} // TODO: add upload logic from dashboardState
+          isUploading={false}
+        />
       )}
 
       <UploadWidget
@@ -275,7 +372,7 @@ export default function CollectionDashboard() {
         style={{ display: 'none' }}
         multiple
         accept="image/*"
-        onChange={() => {}} // TODO
+        onChange={() => { }} // TODO
       />
     </div>
   );
