@@ -19,7 +19,7 @@ export interface GalleryPreviewProps {
   collectionDate: string;
   collectionDescription?: string;
   coverPhotoUrl?: string;
-  gridPhotos: { full_url: string }[];
+  gridPhotos: { full_url: string; id?: string; set_id?: string | null; width?: number; height?: number }[];
   dashboardState?: any;
   onSetActiveSet?: (setId: string | null) => void;
 }

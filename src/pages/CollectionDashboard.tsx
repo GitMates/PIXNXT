@@ -243,7 +243,7 @@ export default function CollectionDashboard() {
               collectionDate={collection?.event_date || ''}
               collectionDescription={activeSetId ? sets.find(s => s.id === activeSetId)?.description || '' : (collection?.description || sets[0]?.description || '')}
               coverPhotoUrl={photos.find(p => p.id === collection?.cover_photo_id)?.full_url || undefined}
-              gridPhotos={photos as any}
+              gridPhotos={dashboardState.allPhotos as any}
               previewMode={dashboardState.previewMode}
               onPreviewModeChange={dashboardState.setPreviewMode}
               dashboardState={dashboardState}

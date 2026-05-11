@@ -15,6 +15,7 @@ export function useCollectionDashboard(collectionId: string | null) {
   const [collection, setCollection] = useState<Collection | null>(null);
   const [sets, setSets] = useState<PhotoSet[]>([]);
   const [photos, setPhotos] = useState<Photo[]>([]);
+  const [allPhotos, setAllPhotos] = useState<Photo[]>([]);
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
 
   // Status State
@@ -112,9 +113,20 @@ export function useCollectionDashboard(collectionId: string | null) {
       if (collectionData.status)
         setStatus(collectionData.status.toUpperCase() as any);
       if (collectionData.slug) setCollectionUrl(collectionData.slug);
-// if (collectionData.password)
-//   setCollectionPassword(collectionData.password);
-// if (collectionData.pin) setPinValue(collectionData.pin);
+      
+      // Sync design settings
+      setDesignSettings({
+        coverStyle: collectionData.cover_style || 'novel',
+        fontFamily: collectionData.font_family || 'sans',
+        colorPalette: collectionData.color_palette || 'light',
+        grid: {
+          style: collectionData.grid_style || 'vertical',
+          size: collectionData.thumbnail_size || 'regular',
+          spacing: collectionData.grid_spacing || 'regular',
+          aspectRatio: collectionData.aspect_ratio || '3-2',
+          navigation: collectionData.navigation_style || 'icon'
+        }
+      });
 
       const { data: setsData, error: setsError } = await supabase
         .from("sets")
@@ -150,9 +162,9 @@ export function useCollectionDashboard(collectionId: string | null) {
       }
 
       const { data: photosData, error: photosError } = await query.order(
-        "created_at",
-        { ascending: false },
-      );
+        "position",
+        { ascending: true },
+      ).order("created_at", { ascending: false });
 
       if (photosError) {
         console.error("Error fetching photos:", photosError);
@@ -163,16 +175,63 @@ export function useCollectionDashboard(collectionId: string | null) {
     [collectionId],
   );
 
+  // Fetch all photos for the collection (no set filter) — used for the preview pane
+  const fetchAllPhotos = useCallback(async () => {
+    if (!collectionId) return;
+    const { data, error } = await supabase
+      .from("photos")
+      .select("*")
+      .eq("collection_id", collectionId)
+      .order("position", { ascending: true })
+      .order("created_at", { ascending: false });
+    if (!error) setAllPhotos(data || []);
+  }, [collectionId]);
+
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // Fetch all photos once on mount/collectionId change (for preview pane)
+  useEffect(() => {
+    fetchAllPhotos();
+  }, [fetchAllPhotos]);
+
+  // Auto-save design settings
+  useEffect(() => {
+    const saveDesignSettings = async () => {
+      if (!collectionId || !collection) return;
+
+      const { error } = await supabase
+        .from('collections')
+        .update({
+          cover_style: designSettings.coverStyle,
+          font_family: designSettings.fontFamily,
+          color_palette: designSettings.colorPalette,
+          grid_style: designSettings.grid.style,
+          thumbnail_size: designSettings.grid.size,
+          grid_spacing: designSettings.grid.spacing,
+          aspect_ratio: designSettings.grid.aspectRatio,
+          navigation_style: designSettings.grid.navigation
+        })
+        .eq('id', collectionId);
+
+      if (error) {
+        console.error('Error saving design settings:', error);
+      }
+    };
+
+    const debounceTimer = setTimeout(saveDesignSettings, 1000);
+    return () => clearTimeout(debounceTimer);
+  }, [designSettings, collectionId]);
 
   // Sync photos when activeSetId changes
   useEffect(() => {
     if (collectionId) {
       fetchPhotos(activeSetId);
+      // Also refresh allPhotos so preview stays up to date
+      fetchAllPhotos();
     }
-  }, [activeSetId, collectionId, fetchPhotos]);
+  }, [activeSetId, collectionId, fetchPhotos, fetchAllPhotos]);
 
   return {
     isLoading,
@@ -256,5 +315,7 @@ export function useCollectionDashboard(collectionId: string | null) {
     setPreviewMode,
     refreshData: fetchData,
     setPhotos,
+    allPhotos,
+    setAllPhotos,
   };
 }

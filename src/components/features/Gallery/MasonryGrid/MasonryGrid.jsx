@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Download, Heart } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 
-export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload }) {
+export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
@@ -20,10 +20,10 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
   const isHorizontal = gridSettings?.style === 'horizontal';
   const size = gridSettings?.size || 'regular';
   const spacing = gridSettings?.spacing || 'regular';
-  
+
   const gap = spacing === 'none' ? 0 : spacing === 'small' ? 4 : spacing === 'regular' ? 12 : 24;
-  const rowHeight = size === 'large' ? 450 : size === 'regular' ? 300 : size === 'small' ? 200 : 150;
-  
+  const rowHeight = customRowHeight || (size === 'large' ? 450 : size === 'regular' ? 300 : size === 'small' ? 200 : 150);
+
   const container = {
     hidden: { opacity: 0 },
     show: {
@@ -34,12 +34,12 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
       }
     }
   };
- 
+
   const item = {
     hidden: { opacity: 0, y: 20 },
     show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.19, 1, 0.22, 1] } }
   };
- 
+
   return (
     <motion.div
       variants={container}
@@ -53,7 +53,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
       style={isHorizontal ? {
         gap: `${gap}px`,
       } : {
-        columnCount: size === 'large' ? 2 : size === 'regular' ? 3 : 4,
+        columnCount: customColumnCount || (size === 'large' ? 2 : size === 'regular' ? 3 : 4),
         columnGap: `${gap}px`,
       }}
     >
@@ -69,10 +69,10 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
       </style>
       {photos.map((photo, index) => {
         const src = photo.full_url || photo.web_url || photo.thumbnail_url;
-        const aspectRatio = (photo.width && photo.height) 
-          ? (photo.width / photo.height) 
+        const aspectRatio = (photo.width && photo.height)
+          ? (photo.width / photo.height)
           : (dynamicAspectRatios[photo.id] || 1.5);
-        
+
         return (
           <motion.div
             key={`${photo.id}-${index}`}

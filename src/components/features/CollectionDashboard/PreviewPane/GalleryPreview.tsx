@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { GalleryPreviewProps } from './PreviewPane.types';
 import * as Covers from './CoverStyles';
 import { cn } from '../../../../lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Mail, Lock, Share2, Link as LinkIcon, Download, Heart, Play } from 'lucide-react';
+import { MasonryGrid } from '../../Gallery/MasonryGrid/MasonryGrid';
 
 export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   settings,
@@ -15,19 +16,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   dashboardState,
   onSetActiveSet
 }) => {
-  const [dynamicAspectRatios, setDynamicAspectRatios] = useState<Record<string, number>>({});
-
-  useEffect(() => {
-    gridPhotos.forEach(photo => {
-      if (!photo.width || !photo.height) {
-        const img = new Image();
-        img.onload = () => {
-          setDynamicAspectRatios(prev => ({ ...prev, [photo.id || photo.full_url]: img.width / img.height }));
-        };
-        img.src = photo.full_url;
-      }
-    });
-  }, [gridPhotos]);
   const { coverStyle, fontFamily, colorPalette, grid } = settings;
 
   const [showFavoriteModal, setShowFavoriteModal] = useState(false);
@@ -92,7 +80,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         `nav-style-${grid.navigation}`,
         `aspect-${grid.aspectRatio}`
       )}>
-        <div className="flex items-center justify-between w-full px-10 py-10 border-b border-black/5" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+        <div className="sticky top-0 z-[40] flex items-center justify-between w-full px-10 py-4 border-b border-black/5 backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 20%)' }}>
           {/* Left: Collection Title */}
           <div className="flex-1 flex items-center">
             <span className="text-[8px] gallery-heading" style={{ color: 'var(--gallery-text)' }}>
@@ -176,66 +164,25 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           );
         })()}
 
-        <div
-          className={cn("gallery-preview-grid", grid.style === 'horizontal' && "items-start")}
-          style={{
-            '--grid-gap': grid.spacing === 'none' ? '0px'
-              : grid.spacing === 'small' ? '4px'
-                : grid.spacing === 'regular' ? '12px'
-                  : '24px',
-            display: grid.style === 'horizontal' ? 'flex' : 'block',
-            flexWrap: grid.style === 'horizontal' ? 'wrap' : 'initial'
-          } as React.CSSProperties}
-        >
-          {gridPhotos.map((photo, i) => {
-            const photoKey = photo.id || photo.full_url;
-            const aspectRatio = (photo.width && photo.height)
-              ? (photo.width / photo.height)
-              : (dynamicAspectRatios[photoKey] || 1.5);
-            // Reduce row heights significantly for the preview pane to simulate multiple columns
-            const rowHeight = grid.size === 'large' ? 240 : grid.size === 'regular' ? 140 : grid.size === 'small' ? 90 : 60;
+        <div className="p-4" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+          {(() => {
+            const activeId = dashboardState?.activeSetId;
+            const visiblePhotos = activeId
+              ? gridPhotos.filter((p: any) => p.set_id === activeId)
+              : gridPhotos.filter((p: any) => !p.set_id || p.set_id === null);
 
             return (
-              <div
-                key={photoKey}
-                className={cn('gallery-grid-item', `item-${i}`)}
-                style={grid.style === 'horizontal' ? {
-                  flexGrow: aspectRatio,
-                  flexBasis: `${rowHeight * aspectRatio}px`,
-                  width: `${rowHeight * aspectRatio}px`, // Use width instead of height to allow proportional scaling
-                  minWidth: '50px'
-                } : {
-                  breakInside: 'avoid',
-                  marginBottom: 'var(--grid-gap)'
-                }}
-              >
-                <img
-                  src={photo.full_url}
-                  alt={`Photo ${i + 1}`}
-                  style={grid.style === 'horizontal' ? {
-                    width: '100%',
-                    height: 'auto',
-                    display: 'block'
-                  } : {
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    display: 'block'
-                  }}
-                />
-                <div className="item-hover-overlay">
-                  <div className="hover-center flex gap-2">
-                    <div className="p-2 bg-white/20 rounded-full hover:bg-white/40 transition-colors" onClick={(e) => { e.stopPropagation(); handleDownloadClick(); }}>
-                      <Download size={20} color="white" />
-                    </div>
-                    <div className="p-2 bg-white/20 rounded-full hover:bg-white/40 transition-colors" onClick={(e) => { e.stopPropagation(); setShowFavoriteModal(true); }}>
-                      <svg className="heart-icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <MasonryGrid 
+                photos={visiblePhotos}
+                gridSettings={grid}
+                onImageClick={() => {}}
+                onFavorite={() => setShowFavoriteModal(true)}
+                onDownload={handleDownloadClick}
+                customRowHeight={grid.size === 'large' ? 240 : grid.size === 'regular' ? 140 : grid.size === 'small' ? 90 : 60}
+                customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
+              />
             );
-          })}
+          })()}
         </div>
       </div>
 

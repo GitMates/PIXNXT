@@ -132,7 +132,7 @@ const GalleryView = () => {
 
   const filteredPhotos = activeSetId
     ? (collection.photos || []).filter(p => p.set_id === activeSetId)
-    : (collection.photos || []);
+    : (collection.photos || []).filter(p => !p.set_id);
 
   const photoUrls = filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url);
 
@@ -186,7 +186,7 @@ const GalleryView = () => {
       <main ref={galleryRef} className="pb-24 pt-0" style={{ backgroundColor: 'var(--gallery-bg)' }}>
         <Container className="max-w-none px-4 md:px-8 lg:px-12">
           {/* Sets Navigation - Replicated Pixieset Style */}
-          <div className="sticky top-0 z-[40] -mx-4 md:-mx-8 lg:-mx-12 mb-8 px-4 md:px-8 lg:px-12 flex flex-col md:flex-row items-center justify-between gap-4 py-10 transition-all duration-300 border-b border-black/5" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+          <div className="sticky top-0 z-[40] -mx-4 md:-mx-8 lg:-mx-12 mb-8 px-4 md:px-8 lg:px-12 flex flex-col md:flex-row items-center justify-between gap-4 py-4 transition-all duration-300 border-b border-black/5 backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 20%)' }}>
             {/* Left: Collection Name */}
             <div className="flex-1 hidden md:flex items-center">
               <Typography variant="h4" className="text-[10px] font-bold tracking-[0.2em] uppercase gallery-heading" style={{ color: 'var(--gallery-text)' }}>
@@ -213,12 +213,12 @@ const GalleryView = () => {
                     className="group relative py-2"
                     onClick={() => setActiveSetId(set.id)}
                   >
-                  <Typography variant="label" className={cn("transition-opacity gallery-heading text-[10px] tracking-[0.2em] font-bold uppercase", activeSetId === set.id ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
-                    {set.name}
-                  </Typography>
-                  {activeSetId === set.id && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}
-                </button>
-              ))}
+                    <Typography variant="label" className={cn("transition-opacity gallery-heading text-[10px] tracking-[0.2em] font-bold uppercase", activeSetId === set.id ? "opacity-100" : "opacity-50 hover:opacity-100")} style={{ color: 'var(--gallery-text)' }}>
+                      {set.name}
+                    </Typography>
+                    {activeSetId === set.id && <div className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100 transition-transform origin-left" style={{ backgroundColor: 'var(--gallery-text)' }} />}
+                  </button>
+                ))}
             </div>
 
             {/* Right: Action Icons */}
@@ -244,10 +244,10 @@ const GalleryView = () => {
 
           {/* Set Description */}
           {(() => {
-            const description = activeSetId 
-              ? collection.sets?.find(s => s.id === activeSetId)?.description 
+            const description = activeSetId
+              ? collection.sets?.find(s => s.id === activeSetId)?.description
               : (collection.description || collection.sets?.[0]?.description);
-            
+
             if (!description) return null;
 
             return (
