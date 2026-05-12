@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  X, Mail, Lock, Download, Check, ChevronRight, 
-  Loader2, Image as ImageIcon, CheckCircle2, 
+import {
+  X, Mail, Lock, Download, Check, ChevronRight,
+  Loader2, Image as ImageIcon, CheckCircle2,
   Monitor, Smartphone, Cloud, ArrowRight,
   HardDrive, Globe, AlertCircle
 } from 'lucide-react';
@@ -10,11 +10,11 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
 
-export const DownloadModal = ({ 
-  isOpen, 
-  onClose, 
-  collection, 
-  photos = [], 
+export const DownloadModal = ({
+  isOpen,
+  onClose,
+  collection,
+  photos = [],
   sets = [],
   initialPhoto = null,
   initialSetId = 'all'
@@ -34,14 +34,19 @@ export const DownloadModal = ({
   useEffect(() => {
     if (isOpen) {
       const needsEmail = collection?.email_capture_enabled;
-      const needsPin = !!(collection?.download_pin);
-      
+      let needsPin = !!(collection?.download_pin);
+
+      // If downloading a single photo, check if PIN is actually required for single photos
+      if (initialPhoto && needsPin && collection?.require_pin_for_single_photo === false) {
+        needsPin = false;
+      }
+
       if (!needsEmail && !needsPin) {
         setStep('selection');
       } else {
         setStep('auth');
       }
-      
+
       // Reset state
       setError('');
       setProgress(0);
@@ -56,14 +61,17 @@ export const DownloadModal = ({
       setError('Please enter your email address');
       return;
     }
-    
-    if (collection?.download_pin && pin !== collection.download_pin) {
-        setError('Incorrect PIN. Please check with your photographer.');
-        return;
+
+    const needsPin = !!(collection?.download_pin);
+    const pinRequiredForThis = initialPhoto ? (needsPin && collection?.require_pin_for_single_photo !== false) : needsPin;
+
+    if (pinRequiredForThis && pin !== collection.download_pin) {
+      setError('Incorrect PIN. Please check with your photographer.');
+      return;
     }
 
     setError('');
-    
+
     // Auto-start download for single photos to improve UX since size selection is removed
     if (initialPhoto) {
       startDownload();
@@ -86,7 +94,7 @@ export const DownloadModal = ({
     try {
       const zip = new JSZip();
       let photosToDownload = [];
-      
+
       if (selectedSet === 'single' && initialPhoto) {
         photosToDownload = [initialPhoto];
       } else if (selectedSet === 'all') {
@@ -99,35 +107,22 @@ export const DownloadModal = ({
         throw new Error('No photos found in this selection.');
       }
 
-      setStatusText(`Downloading ${photosToDownload.length} photo${photosToDownload.length !== 1 ? 's' : ''}...`);
-
-      if (photosToDownload.length === 1) {
-        // Single photo download - fetch and save directly without zipping
-        const photo = photosToDownload[0];
-        const url = selectedSize === 'high' ? (photo.full_url || photo.web_url) : photo.web_url;
-        const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const blob = await response.blob();
-        const fileName = photo.filename || `photo-1.jpg`;
-        saveAs(blob, fileName);
-        setStep('complete');
-        return;
-      }
+      setStatusText(`Downloading ${photosToDownload.length} photos...`);
 
       // Parallel download with chunking to avoid browser limits
       const CHUNK_SIZE = 5;
       for (let i = 0; i < photosToDownload.length; i += CHUNK_SIZE) {
         const chunk = photosToDownload.slice(i, i + CHUNK_SIZE);
-        
+
         await Promise.all(chunk.map(async (photo, index) => {
           const globalIndex = i + index;
           const url = selectedSize === 'high' ? (photo.full_url || photo.web_url) : photo.web_url;
-          
+
           try {
             // Use no-cache to ensure fresh images and avoid some CORS issues with cached responses
             const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
             if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-            
+
             const blob = await response.blob();
             const fileName = photo.filename || `photo-${globalIndex + 1}.jpg`;
             zip.file(fileName, blob);
@@ -143,19 +138,19 @@ export const DownloadModal = ({
       }
 
       setStatusText('Generating zip archive...');
-      const content = await zip.generateAsync({ 
+      const content = await zip.generateAsync({
         type: 'blob',
         compression: 'STORE', // Faster zipping, larger file
       }, (metadata) => {
         // Zip generation progress
         if (metadata.percent) {
-            // We've already shown 100% for downloads, maybe just show status
+          // We've already shown 100% for downloads, maybe just show status
         }
       });
 
       setStatusText('Saving to your device...');
       saveAs(content, `${collection.name || 'gallery'}-${selectedSize}.zip`);
-      
+
       setStep('complete');
     } catch (err) {
       console.error('Download failed:', err);
@@ -177,7 +172,7 @@ export const DownloadModal = ({
         onClick={onClose}
         className="absolute inset-0 bg-black/40 backdrop-blur-[12px]"
       />
-      
+
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 30 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -186,12 +181,12 @@ export const DownloadModal = ({
       >
         {/* Progress Bar Top */}
         {step === 'preparing' && (
-            <motion.div 
-                className="absolute top-0 left-0 h-1 bg-zinc-900 z-10"
-                style={{ width: `${progress}%` }}
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-            />
+          <motion.div
+            className="absolute top-0 left-0 h-1 bg-zinc-900 z-10"
+            style={{ width: `${progress}%` }}
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+          />
         )}
 
         <button
@@ -255,8 +250,8 @@ export const DownloadModal = ({
 
                   {error && (
                     <div className="flex items-center gap-2 rounded-xl bg-rose-50 p-4 text-rose-600">
-                        <AlertCircle size={18} />
-                        <span className="text-[13px] font-medium">{error}</span>
+                      <AlertCircle size={18} />
+                      <span className="text-[13px] font-medium">{error}</span>
                     </div>
                   )}
 
@@ -289,50 +284,50 @@ export const DownloadModal = ({
                   <div className="space-y-4">
                     <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">Photos</label>
                     <div className="flex flex-wrap gap-2">
-                        <button
-                            onClick={() => setSelectedSet('all')}
-                            className={cn(
-                                "rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
-                                selectedSet === 'all' 
-                                    ? "bg-zinc-900 text-white shadow-lg" 
-                                    : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-                            )}
-                        >
-                            All Photos ({photos.length})
-                        </button>
-
-                        {/* Highlights (photos with no set_id) */}
-                        {photos.some(p => !p.set_id) && (
-                            <button
-                                onClick={() => setSelectedSet(null)}
-                                className={cn(
-                                    "rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
-                                    selectedSet === null 
-                                        ? "bg-zinc-900 text-white shadow-lg" 
-                                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-                                )}
-                            >
-                                Highlights ({photos.filter(p => !p.set_id).length})
-                            </button>
+                      <button
+                        onClick={() => setSelectedSet('all')}
+                        className={cn(
+                          "rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
+                          selectedSet === 'all'
+                            ? "bg-zinc-900 text-white shadow-lg"
+                            : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
                         )}
-                        {sets.map(set => (
-                            <button
-                                key={set.id}
-                                onClick={() => setSelectedSet(set.id)}
-                                className={cn(
-                                    "rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
-                                    selectedSet === set.id 
-                                        ? "bg-zinc-900 text-white shadow-lg" 
-                                        : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
-                                )}
-                            >
-                                {set.name}
-                            </button>
-                        ))}
+                      >
+                        All Photos ({photos.length})
+                      </button>
+
+                      {/* Highlights (photos with no set_id) */}
+                      {photos.some(p => !p.set_id) && (
+                        <button
+                          onClick={() => setSelectedSet(null)}
+                          className={cn(
+                            "rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
+                            selectedSet === null
+                              ? "bg-zinc-900 text-white shadow-lg"
+                              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                          )}
+                        >
+                          Highlights ({photos.filter(p => !p.set_id).length})
+                        </button>
+                      )}
+                      {sets.map(set => (
+                        <button
+                          key={set.id}
+                          onClick={() => setSelectedSet(set.id)}
+                          className={cn(
+                            "rounded-full px-5 py-2.5 text-[13px] font-medium transition-all",
+                            selectedSet === set.id
+                              ? "bg-zinc-900 text-white shadow-lg"
+                              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                          )}
+                        >
+                          {set.name}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
-{/* Size Selection */}
+                  {/* Size Selection */}
                   {/* <div className="space-y-4">
                     <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">Choose Download Size</label>
                     <div className="grid grid-cols-2 gap-3">
@@ -374,33 +369,33 @@ export const DownloadModal = ({
                   <div className="space-y-4">
                     <label className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400">Download To</label>
                     <div className="space-y-2">
-                        {[
-                            { id: 'device', name: 'Save to My Device', icon: Monitor },
-                            { id: 'google', name: 'Save to Google Photos', icon: Cloud },
-                            { id: 'dropbox', name: 'Save to Dropbox', icon: HardDrive },
-                        ].map((item) => (
-                            <button
-                                key={item.id}
-                                onClick={() => setDownloadTo(item.id)}
-                                className={cn(
-                                    "flex w-full items-center justify-between rounded-2xl border p-5 transition-all",
-                                    downloadTo === item.id 
-                                        ? "border-zinc-900 bg-zinc-50 ring-1 ring-zinc-900" 
-                                        : "border-zinc-100 bg-white hover:border-zinc-200"
-                                )}
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className={cn(
-                                        "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
-                                        downloadTo === item.id ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-500"
-                                    )}>
-                                        <item.icon size={20} />
-                                    </div>
-                                    <span className="text-[14px] font-bold text-zinc-900">{item.name}</span>
-                                </div>
-                                {downloadTo === item.id && <Check size={20} className="text-zinc-900" />}
-                            </button>
-                        ))}
+                      {[
+                        { id: 'device', name: 'Save to My Device', icon: Monitor },
+                        { id: 'google', name: 'Save to Google Photos', icon: Cloud },
+                        { id: 'dropbox', name: 'Save to Dropbox', icon: HardDrive },
+                      ].map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => setDownloadTo(item.id)}
+                          className={cn(
+                            "flex w-full items-center justify-between rounded-2xl border p-5 transition-all",
+                            downloadTo === item.id
+                              ? "border-zinc-900 bg-zinc-50 ring-1 ring-zinc-900"
+                              : "border-zinc-100 bg-white hover:border-zinc-200"
+                          )}
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "flex h-10 w-10 items-center justify-center rounded-xl transition-colors",
+                              downloadTo === item.id ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-500"
+                            )}>
+                              <item.icon size={20} />
+                            </div>
+                            <span className="text-[14px] font-bold text-zinc-900">{item.name}</span>
+                          </div>
+                          {downloadTo === item.id && <Check size={20} className="text-zinc-900" />}
+                        </button>
+                      ))}
                     </div>
                   </div>
 
@@ -455,8 +450,8 @@ export const DownloadModal = ({
                 </div>
 
                 <div className="mt-12 flex items-center gap-2 rounded-2xl bg-zinc-50 px-6 py-3 text-[12px] font-medium text-zinc-400">
-                    <Loader2 size={14} className="animate-spin" />
-                    Please keep this window open
+                  <Loader2 size={14} className="animate-spin" />
+                  Please keep this window open
                 </div>
               </motion.div>
             )}
@@ -472,7 +467,7 @@ export const DownloadModal = ({
                 <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[32px] bg-emerald-500 text-white shadow-2xl shadow-emerald-500/30">
                   <CheckCircle2 size={48} strokeWidth={1.5} />
                 </div>
-                
+
                 <div className="space-y-3">
                   <h2 className="text-3xl font-bold text-zinc-900">Download Ready!</h2>
                   <p className="text-[16px] leading-relaxed text-zinc-500">

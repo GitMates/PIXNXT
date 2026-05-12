@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Download, Heart } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 
-export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp }) {
+export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
@@ -111,24 +111,28 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
               {/* Hover overlay with buttons */}
               <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/10">
                 <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 transform translate-y-[10px] transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDownload?.(photo);
-                    }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
-                  >
-                    <Download size={16} strokeWidth={1.5} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onFavorite?.();
-                    }}
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
-                  >
-                    <Heart size={16} strokeWidth={1.5} />
-                  </button>
+                  {showDownload && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDownload?.(photo);
+                      }}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                    >
+                      <Download size={16} strokeWidth={1.5} />
+                    </button>
+                  )}
+                  {showFavorite && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onFavorite?.();
+                      }}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                    >
+                      <Heart size={16} strokeWidth={1.5} />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

@@ -33,10 +33,13 @@ const GalleryView = () => {
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState({ done: 0, total: 0 });
 
-  const handleDownloadClick = async (photo = null) => {
+  const handleDownloadClick = async (photoOrEvent = null) => {
+    // Distinguish between a photo object and a browser event
+    const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
+
     if (photo) {
       const needsEmail = collection?.email_capture_enabled;
-      const needsPin = !!(collection?.download_pin);
+      const needsPin = !!(collection?.download_pin) && (collection?.require_pin_for_single_photo ?? true);
 
       if (!needsEmail && !needsPin) {
         // Single photo: download immediately from Cloudflare R2
@@ -46,35 +49,9 @@ const GalleryView = () => {
         setShowDownloadModal(true);
       }
     } else {
-      // Gallery-wide download: ZIP all visible photos from R2
-      const needsEmail = collection?.email_capture_enabled;
-      const needsPin = !!(collection?.download_pin);
-
-      if (!needsEmail && !needsPin) {
-        const visiblePhotos = activeSetId
-          ? (collection?.photos || []).filter(p => p.set_id === activeSetId)
-          : (collection?.photos || []).filter(p => !p.set_id);
-
-        if (visiblePhotos.length === 0) return;
-
-        const zipName = collection?.name || 'photos';
-        setIsDownloadingAll(true);
-        setDownloadProgress({ done: 0, total: visiblePhotos.length });
-
-        try {
-          await downloadAllPhotosAsZip(
-            visiblePhotos,
-            zipName,
-            (done, total) => setDownloadProgress({ done, total })
-          );
-        } finally {
-          setIsDownloadingAll(false);
-          setDownloadProgress({ done: 0, total: 0 });
-        }
-      } else {
-        setSelectedDownloadPhoto(null);
-        setShowDownloadModal(true);
-      }
+      // Gallery-wide download: Always show modal now to allow set selection (matching GalleryPreview)
+      setSelectedDownloadPhoto(null);
+      setShowDownloadModal(true);
     }
   };
 
@@ -97,7 +74,8 @@ const GalleryView = () => {
       cover_style: previewCoverStyle || collection.cover_style || 'novel',
       font_family: previewFont || collection.font_family || 'sans',
       color_palette: previewColor || collection.color_palette || 'light',
-      grid_style: previewGrid || collection.grid_style || 'vertical'
+      grid_style: previewGrid || collection.grid_style || 'vertical',
+      nav_style: collection.nav_style || 'icons'
     };
   };
 
@@ -287,29 +265,35 @@ const GalleryView = () => {
                 <Play size={14} fill="currentColor" />
                 {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Slideshow</span>}
               </button>
-              <button onClick={() => setShowFavoriteModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
-                <Heart size={14} />
-                {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Favorite</span>}
-              </button>
-              <button
-                onClick={handleDownloadClick}
-                disabled={isDownloadingAll}
-                className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{ color: 'var(--gallery-text)' }}
-              >
-                <Download size={14} className={isDownloadingAll ? 'animate-bounce' : ''} />
-                {effectiveSettings.nav_style !== 'icon' && (
-                  <span className="hidden xl:inline">
-                    {isDownloadingAll
-                      ? `${downloadProgress.done} / ${downloadProgress.total}`
-                      : 'Download'}
-                  </span>
-                )}
-              </button>
-              <button onClick={() => setShowShareModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
-                <Share2 size={14} />
-                {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Share</span>}
-              </button>
+              {collection?.favorites_enabled !== false && (
+                <button onClick={() => setShowFavoriteModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
+                  <Heart size={14} />
+                  {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Favorite</span>}
+                </button>
+              )}
+              {collection?.downloads_enabled !== false && collection?.gallery_download_enabled !== false && (
+                <button
+                  onClick={() => handleDownloadClick()}
+                  disabled={isDownloadingAll}
+                  className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{ color: 'var(--gallery-text)' }}
+                >
+                  <Download size={14} className={isDownloadingAll ? 'animate-bounce' : ''} />
+                  {effectiveSettings.nav_style !== 'icon' && (
+                    <span className="hidden xl:inline">
+                      {isDownloadingAll
+                        ? `${downloadProgress.done} / ${downloadProgress.total}`
+                        : 'Download'}
+                    </span>
+                  )}
+                </button>
+              )}
+              {collection?.social_sharing_enabled !== false && (
+                <button onClick={() => setShowShareModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
+                  <Share2 size={14} />
+                  {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Share</span>}
+                </button>
+              )}
             </div>
           </div>
 
@@ -345,6 +329,8 @@ const GalleryView = () => {
             onFavorite={() => setShowFavoriteModal(true)}
             onDownload={handleDownloadClick}
             onShare={() => setShowShareModal(true)}
+            showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
+            showFavorite={collection?.favorites_enabled !== false}
             customRowHeight={collection.thumbnail_size === 'large' ? 420 : collection.thumbnail_size === 'regular' ? 300 : collection.thumbnail_size === 'small' ? 200 : 140}
             customColumnCount={collection.thumbnail_size === 'large' ? 2 : collection.thumbnail_size === 'regular' ? 3 : 4}
           />
@@ -374,8 +360,9 @@ const GalleryView = () => {
         isSlideshowActive={isSlideshowActive}
         onToggleSlideshow={() => setIsSlideshowActive(!isSlideshowActive)}
         onFavorite={() => setShowFavoriteModal(true)}
-        onDownload={handleDownloadClick}
-        onShare={() => setShowShareModal(true)}
+        onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
+        showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
+        showFavorite={collection?.favorites_enabled !== false}
       />
 
       {/* Favorite Modal */}
@@ -434,8 +421,8 @@ const GalleryView = () => {
       <DownloadModal
         isOpen={showDownloadModal}
         onClose={() => {
-            setShowDownloadModal(false);
-            setSelectedDownloadPhoto(null);
+          setShowDownloadModal(false);
+          setSelectedDownloadPhoto(null);
         }}
         collection={collection}
         photos={collection?.photos || []}

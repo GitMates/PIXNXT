@@ -33,6 +33,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const [rememberSelection, setRememberSelection] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState({ done: 0, total: 0 });
+  const [selectedSet, setSelectedSet] = useState<string | null>('all');
 
   const handleDownloadClick = async (photo?: any) => {
     if (photo) {
@@ -47,28 +48,16 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       }
     } else {
       // Gallery-wide: ZIP all visible photos
+      const activeId = dashboardState?.activeSetId;
+      setSelectedSet(activeId || 'all');
+
       const needsAuth = dashboardState?.downloadPin || dashboardState?.emailTracking;
       if (!needsAuth) {
-        const activeId = dashboardState?.activeSetId;
-        const visiblePhotos = activeId
-          ? gridPhotos.filter((p: any) => p.set_id === activeId)
-          : gridPhotos.filter((p: any) => !p.set_id || p.set_id === null);
-
-        if (visiblePhotos.length === 0) return;
-
-        const zipName = collectionTitle || 'photos';
-        setIsDownloadingAll(true);
-        setDownloadProgress({ done: 0, total: visiblePhotos.length });
-        try {
-          await downloadAllPhotosAsZip(
-            visiblePhotos,
-            zipName,
-            (done, total) => setDownloadProgress({ done, total })
-          );
-        } finally {
-          setIsDownloadingAll(false);
-          setDownloadProgress({ done: 0, total: 0 });
-        }
+        // If no auth needed, we still want to show the selection modal now to match the public gallery
+        setDownloadTarget('gallery');
+        setSinglePhotoToDownload(null);
+        setDownloadStep('config');
+        setShowDownloadModal(true);
       } else {
         setDownloadTarget('gallery');
         setSinglePhotoToDownload(null);
@@ -180,7 +169,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Favorite</span>}
               </div>
             )}
-            {dashboardState?.photoDownload !== false && (
+            {dashboardState?.photoDownload !== false && dashboardState?.galleryDownload !== false && (
               <div
                 className={cn(
                   "flex items-center gap-2 transition-opacity cursor-pointer",
@@ -242,6 +231,8 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 onImageClick={() => {}}
                 onFavorite={() => setShowFavoriteModal(true)}
                 onDownload={handleDownloadClick}
+                showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
+                showFavorite={dashboardState?.favoritePhotos !== false}
                 customRowHeight={grid.size === 'large' ? 155 : grid.size === 'regular' ? 111 : grid.size === 'small' ? 74 : 52}
                 customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
               />
@@ -504,67 +495,81 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                     <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-200">
                       <Download className="text-zinc-600" size={20} strokeWidth={1.5} />
                     </div>
-                    <h3 className="mb-2 text-xl font-serif text-zinc-900 uppercase tracking-widest text-[14px]" style={{ fontFamily: 'var(--font-sans)', fontWeight: 600 }}>Choose Download Size</h3>
-                    <p className="text-[13px] text-zinc-500 mt-2">Select the resolution you would like to download.</p>
+                    <h3 className="mb-2 text-xl font-serif text-zinc-900 uppercase tracking-widest text-[14px]" style={{ fontFamily: 'var(--font-sans)', fontWeight: 600 }}>Choose Photos</h3>
+                    <p className="text-[13px] text-zinc-500 mt-2">Select which photos you would like to download.</p>
                   </div>
 
-                  <div className="space-y-4">
-{/* {(dashboardState?.photoDownloadSizes?.includes('high') ?? true) && (
-                      <button
-                        className={cn(
-                          "w-full py-4 px-5 flex items-center justify-between border cursor-pointer transition-all",
-                          downloadSize === 'high' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
-                        )}
-                        onClick={() => setDownloadSize('high')}
-                      >
-                        <div className="text-left flex-1">
-                          <div className="text-[14px] font-semibold text-zinc-900">High Resolution</div>
-                          <div className="text-[12px] text-zinc-500 mt-0.5">Best for printing (3600px)</div>
-                        </div>
-                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", downloadSize === 'high' ? "border-zinc-950" : "border-zinc-300")}>
-                          {downloadSize === 'high' && <div className="w-2 h-2 rounded-full bg-zinc-950" />}
-                        </div>
-                      </button>
-                    )}
+                  <div className="space-y-6">
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-3">Photo Sets</div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={() => setSelectedSet('all')}
+                          className={cn(
+                            "rounded-full px-4 py-2 text-[12px] font-medium transition-all",
+                            selectedSet === 'all' 
+                              ? "bg-zinc-900 text-white shadow-md" 
+                              : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                          )}
+                        >
+                          All Photos ({gridPhotos.length})
+                        </button>
 
-                    {(dashboardState?.photoDownloadSizes?.includes('web') ?? true) && (
-                      <button
-                        className={cn(
-                          "w-full py-4 px-5 flex items-center justify-between border cursor-pointer transition-all mt-3",
-                          downloadSize === 'web' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
+                        {gridPhotos.some((p: any) => !p.set_id) && (
+                          <button
+                            onClick={() => setSelectedSet(null)}
+                            className={cn(
+                              "rounded-full px-4 py-2 text-[12px] font-medium transition-all",
+                              selectedSet === null 
+                                ? "bg-zinc-900 text-white shadow-md" 
+                                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                            )}
+                          >
+                            Highlights ({gridPhotos.filter((p: any) => !p.set_id).length})
+                          </button>
                         )}
-                        onClick={() => setDownloadSize('web')}
-                      >
-                        <div className="text-left flex-1">
-                          <div className="text-[14px] font-semibold text-zinc-900">Web Size</div>
-                          <div className="text-[12px] text-zinc-500 mt-0.5">Best for sharing (2048px)</div>
-                        </div>
-                        <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", downloadSize === 'web' ? "border-zinc-950" : "border-zinc-300")}>
-                          {downloadSize === 'web' && <div className="w-2 h-2 rounded-full bg-zinc-950" />}
-                        </div>
-                      </button>
-                    )} */}
+
+                        {dashboardState?.sets?.map((set: any) => (
+                          <button
+                            key={set.id}
+                            onClick={() => setSelectedSet(set.id)}
+                            className={cn(
+                              "rounded-full px-4 py-2 text-[12px] font-medium transition-all",
+                              selectedSet === set.id 
+                                ? "bg-zinc-900 text-white shadow-md" 
+                                : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                            )}
+                          >
+                            {set.name} ({gridPhotos.filter((p: any) => p.set_id === set.id).length})
+                          </button>
+                        ))}
+                      </div>
+                    </div>
 
                     <button
                       className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer mt-6"
                       onClick={async () => {
-                        const activeId = dashboardState?.activeSetId;
-                        const visiblePhotos = activeId
-                          ? gridPhotos.filter((p: any) => p.set_id === activeId)
-                          : gridPhotos.filter((p: any) => !p.set_id || p.set_id === null);
+                        let photosToDownload = [];
+                        if (selectedSet === 'all') {
+                          photosToDownload = gridPhotos;
+                        } else if (selectedSet === null) {
+                          photosToDownload = gridPhotos.filter((p: any) => !p.set_id || p.set_id === null);
+                        } else {
+                          photosToDownload = gridPhotos.filter((p: any) => p.set_id === selectedSet);
+                        }
 
-                        if (visiblePhotos.length === 0) {
-                          alert('No photos to download in this view.');
+                        if (photosToDownload.length === 0) {
+                          alert('No photos found in this selection.');
                           return;
                         }
 
                         setShowDownloadModal(false);
                         setIsDownloadingAll(true);
-                        setDownloadProgress({ done: 0, total: visiblePhotos.length });
+                        setDownloadProgress({ done: 0, total: photosToDownload.length });
 
                         try {
                           await downloadAllPhotosAsZip(
-                            visiblePhotos,
+                            photosToDownload,
                             collectionTitle || 'photos',
                             (done, total) => setDownloadProgress({ done, total })
                           );

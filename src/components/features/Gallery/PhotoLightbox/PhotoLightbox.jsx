@@ -13,7 +13,9 @@ export function PhotoLightbox({
   isSlideshowActive,
   onToggleSlideshow,
   onFavorite,
-  onDownload
+  onDownload,
+  showDownload = true,
+  showFavorite = true
 }) {
   // Prevent scrolling when open
   useEffect(() => {
@@ -68,18 +70,22 @@ export function PhotoLightbox({
               {isSlideshowActive ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
               {isSlideshowActive ? 'Pause' : 'Slideshow'}
             </button>
-            <button 
-              onClick={onDownload}
-              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-50 transition-all"
-            >
-              <Download size={14} /> Download
-            </button>
-            <button 
-              onClick={onFavorite}
-              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-50 transition-all"
-            >
-              <Heart size={14} /> Favorite
-            </button>
+            {showDownload && (
+              <button 
+                onClick={onDownload}
+                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-50 transition-all"
+              >
+                <Download size={14} /> Download
+              </button>
+            )}
+            {showFavorite && (
+              <button 
+                onClick={onFavorite}
+                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-50 transition-all"
+              >
+                <Heart size={14} /> Favorite
+              </button>
+            )}
           </div>
         </div>
 
