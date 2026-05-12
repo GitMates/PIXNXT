@@ -36,9 +36,14 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   };
 
   const renderCover = () => {
+    const description = dashboardState.activeSetId 
+      ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.description 
+      : (collectionDescription || dashboardState.collection?.description || dashboardState.sets?.[0]?.description);
+
     const props = {
       title: collectionTitle,
       date: collectionDate,
+      description: description,
       photoUrl: coverPhotoUrl,
       focalX: dashboardState?.focalX,
       focalY: dashboardState?.focalY,
@@ -156,10 +161,11 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           if (!description) return null;
 
           return (
-            <div className="flex flex-col items-center justify-center py-12 px-4 text-center" style={{ backgroundColor: 'var(--gallery-bg)' }}>
-              <p className="text-[10px] leading-relaxed tracking-[0.05em] opacity-80 max-w-lg mx-auto whitespace-pre-wrap" style={{ color: 'var(--gallery-text)' }}>
+            <div className="flex flex-col items-center justify-center py-20 px-8 text-center" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+              <p className="text-[14px] md:text-[15px] leading-[1.8] tracking-[0.02em] opacity-70 max-w-2xl mx-auto whitespace-pre-wrap" style={{ color: 'var(--gallery-text)', fontWeight: 300 }}>
                 {description}
               </p>
+              <div className="w-12 h-px mt-12 opacity-20" style={{ backgroundColor: 'var(--gallery-text)' }}></div>
             </div>
           );
         })()}

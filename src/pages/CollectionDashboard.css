@@ -2834,39 +2834,9 @@
     text-transform: uppercase;
 }
 
-/* PREVIEW TOOLBAR */
-.cd-preview-toolbar {
-    margin: 20px auto 0;
-    padding: 6px;
-    display: flex;
-    gap: 8px;
-    background: transparent;
-    z-index: 100;
-}
+/* PREVIEW TOOLBAR - Removed duplicate, see line 3293 */
 
-.cd-preview-tool-btn {
-    width: 36px;
-    height: 36px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    border: none;
-    background: transparent;
-    color: #999;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.cd-preview-tool-btn:hover {
-    background-color: #ffffff;
-    color: #111;
-}
-
-.cd-preview-tool-btn.active {
-    background-color: #111;
-    color: #fff;
-}
+/* PREVIEW TOOL BUTTONS - Removed duplicate, see line 3307 */
 
 /* MOBILE RESPONSIVE OVERRIDES */
 .cd-design-preview-pane.mobile .h-title {
@@ -3251,6 +3221,7 @@
     flex-direction: column;
     overflow: hidden;
     height: 100%;
+    position: relative; /* Base for absolute toolbar */
 }
 
 .cd-preview-workspace {
@@ -3291,17 +3262,18 @@
 }
 
 .cd-preview-toolbar {
-    position: fixed;
-    bottom: 30px;
-    left: 60%;
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
     transform: translateX(-50%);
     background: #fff;
     padding: 6px;
     border-radius: 40px;
     display: flex;
     gap: 4px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
     z-index: 1000;
+    border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
 .cd-preview-tool-btn {

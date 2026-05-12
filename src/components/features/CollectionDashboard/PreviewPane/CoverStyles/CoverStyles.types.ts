@@ -1,6 +1,7 @@
 export interface CoverProps {
   title: string;
   date: string;
+  description?: string;
   subtitle?: string;
   photoUrl?: string;
   focalX?: number;
