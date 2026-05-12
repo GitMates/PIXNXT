@@ -40,12 +40,15 @@ export function useCollectionDashboard(collectionId: string | null) {
 
   // Download State
   const [photoDownload, setPhotoDownload] = useState(true);
+  const [galleryDownload, setGalleryDownload] = useState(true);
+  const [singlePhotoDownload, setSinglePhotoDownload] = useState(true);
   const [photoDownloadSizes, setPhotoDownloadSizes] = useState<string[]>([
     "high",
     "web",
   ]);
   const [downloadPin, setDownloadPin] = useState(true);
   const [pinValue, setPinValue] = useState("");
+  const [emailTracking, setEmailTracking] = useState(true);
 
   // Favorite State
   const [favoritePhotos, setFavoritePhotos] = useState(true);
@@ -279,12 +282,18 @@ export function useCollectionDashboard(collectionId: string | null) {
     setClientExclusiveAccess,
     photoDownload,
     setPhotoDownload,
+    galleryDownload,
+    setGalleryDownload,
+    singlePhotoDownload,
+    setSinglePhotoDownload,
     photoDownloadSizes,
     setPhotoDownloadSizes,
     downloadPin,
     setDownloadPin,
     pinValue,
     setPinValue,
+    emailTracking,
+    setEmailTracking,
     favoritePhotos,
     setFavoritePhotos,
     favoriteNotes,

@@ -10,6 +10,8 @@ import { cn } from '../../lib/utils';
 import { Container } from '../../components/ui/Container';
 import { Typography } from '../../components/ui/Typography';
 import { X, Mail, Lock, Share2, Link as LinkIcon, Download, Heart, Play } from 'lucide-react';
+import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
+import { downloadPhotoFromR2, downloadAllPhotosAsZip } from '../../lib/downloadPhoto';
 
 const GalleryView = () => {
   const { slug } = useParams();
@@ -27,21 +29,79 @@ const GalleryView = () => {
   const [downloadStep, setDownloadStep] = useState('pin');
   const [downloadSize, setDownloadSize] = useState('high');
   const [activeSetId, setActiveSetId] = useState(null);
+  const [selectedDownloadPhoto, setSelectedDownloadPhoto] = useState(null);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState({ done: 0, total: 0 });
 
-  const handleDownloadClick = () => {
-    if (collection?.download_pin_required) {
-      setDownloadStep('pin');
+  const handleDownloadClick = async (photo = null) => {
+    if (photo) {
+      const needsEmail = collection?.email_capture_enabled;
+      const needsPin = !!(collection?.download_pin);
+
+      if (!needsEmail && !needsPin) {
+        // Single photo: download immediately from Cloudflare R2
+        await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
+      } else {
+        setSelectedDownloadPhoto(photo);
+        setShowDownloadModal(true);
+      }
     } else {
-      setDownloadStep('size');
+      // Gallery-wide download: ZIP all visible photos from R2
+      const needsEmail = collection?.email_capture_enabled;
+      const needsPin = !!(collection?.download_pin);
+
+      if (!needsEmail && !needsPin) {
+        const visiblePhotos = activeSetId
+          ? (collection?.photos || []).filter(p => p.set_id === activeSetId)
+          : (collection?.photos || []).filter(p => !p.set_id);
+
+        if (visiblePhotos.length === 0) return;
+
+        const zipName = collection?.name || 'photos';
+        setIsDownloadingAll(true);
+        setDownloadProgress({ done: 0, total: visiblePhotos.length });
+
+        try {
+          await downloadAllPhotosAsZip(
+            visiblePhotos,
+            zipName,
+            (done, total) => setDownloadProgress({ done, total })
+          );
+        } finally {
+          setIsDownloadingAll(false);
+          setDownloadProgress({ done: 0, total: 0 });
+        }
+      } else {
+        setSelectedDownloadPhoto(null);
+        setShowDownloadModal(true);
+      }
     }
-    setShowDownloadModal(true);
   };
 
   const galleryRef = useRef(null);
+  const { scrollY } = useScroll();
   const [searchParams] = useSearchParams();
   const previewCoverStyle = searchParams.get('coverStyle');
+  const previewFont = searchParams.get('font');
+  const previewColor = searchParams.get('color');
+  const previewGrid = searchParams.get('grid');
 
-  const { scrollY } = useScroll();
+  const getEffectiveSettings = () => {
+    if (!collection) return {
+      cover_style: 'novel',
+      font_family: 'sans',
+      color_palette: 'light',
+      grid_style: 'vertical'
+    };
+    return {
+      cover_style: previewCoverStyle || collection.cover_style || 'novel',
+      font_family: previewFont || collection.font_family || 'sans',
+      color_palette: previewColor || collection.color_palette || 'light',
+      grid_style: previewGrid || collection.grid_style || 'vertical'
+    };
+  };
+
+  const effectiveSettings = getEffectiveSettings();
   const headerOpacity = useTransform(scrollY, [600, 800], [0, 1]);
 
   useEffect(() => {
@@ -137,7 +197,7 @@ const GalleryView = () => {
   const photoUrls = filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url);
 
   return (
-    <div className={cn("min-h-screen transition-colors duration-500", `theme-${collection.color_palette || 'light'}`, `font-${collection.font_family || 'sans'}`)} style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
+    <div className={cn("min-h-screen transition-colors duration-500", `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)} style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
       {/* Hero Section */}
       <div className="w-full h-[100dvh] [&>div]:!h-full">
         {(() => {
@@ -161,7 +221,7 @@ const GalleryView = () => {
             onViewGallery: scrollToGallery
           };
 
-          const activeCoverStyle = previewCoverStyle || collection.cover_style;
+          const activeCoverStyle = effectiveSettings.cover_style;
           switch (activeCoverStyle) {
             case 'center': return <Covers.CenterCover {...props} />;
             case 'left': return <Covers.LeftCover {...props} />;
@@ -225,19 +285,30 @@ const GalleryView = () => {
             <div className="flex-1 flex items-center justify-end gap-6">
               <button onClick={handleStartSlideshow} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
                 <Play size={14} fill="currentColor" />
-                {collection.nav_style !== 'icon' && <span className="hidden xl:inline">Slideshow</span>}
+                {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Slideshow</span>}
               </button>
               <button onClick={() => setShowFavoriteModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
                 <Heart size={14} />
-                {collection.nav_style !== 'icon' && <span className="hidden xl:inline">Favorite</span>}
+                {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Favorite</span>}
               </button>
-              <button onClick={handleDownloadClick} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
-                <Download size={14} />
-                {collection.nav_style !== 'icon' && <span className="hidden xl:inline">Download</span>}
+              <button
+                onClick={handleDownloadClick}
+                disabled={isDownloadingAll}
+                className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                style={{ color: 'var(--gallery-text)' }}
+              >
+                <Download size={14} className={isDownloadingAll ? 'animate-bounce' : ''} />
+                {effectiveSettings.nav_style !== 'icon' && (
+                  <span className="hidden xl:inline">
+                    {isDownloadingAll
+                      ? `${downloadProgress.done} / ${downloadProgress.total}`
+                      : 'Download'}
+                  </span>
+                )}
               </button>
               <button onClick={() => setShowShareModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
                 <Share2 size={14} />
-                {collection.nav_style !== 'icon' && <span className="hidden xl:inline">Share</span>}
+                {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Share</span>}
               </button>
             </div>
           </div>
@@ -261,11 +332,11 @@ const GalleryView = () => {
 
           {/* Flexible Gallery Grid */}
           <MasonryGrid
-            key={`${collection.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}`}
+            key={`${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}`}
             photos={filteredPhotos}
-            isHorizontal={collection.grid_style?.toLowerCase() === 'horizontal'}
+            isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
             gridSettings={{
-              style: collection.grid_style || 'vertical',
+              style: effectiveSettings.grid_style || 'vertical',
               size: collection.thumbnail_size || 'regular',
               spacing: collection.grid_spacing || 'regular',
               aspectRatio: collection.aspect_ratio || 'original'
@@ -303,10 +374,7 @@ const GalleryView = () => {
         isSlideshowActive={isSlideshowActive}
         onToggleSlideshow={() => setIsSlideshowActive(!isSlideshowActive)}
         onFavorite={() => setShowFavoriteModal(true)}
-        onDownload={() => {
-          setDownloadStep('pin');
-          setShowDownloadModal(true);
-        }}
+        onDownload={handleDownloadClick}
         onShare={() => setShowShareModal(true)}
       />
 
@@ -363,118 +431,18 @@ const GalleryView = () => {
       </AnimatePresence>
 
       {/* Download Modal */}
-      <AnimatePresence>
-        {showDownloadModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowDownloadModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white p-10 shadow-2xl"
-            >
-              <button
-                onClick={() => setShowDownloadModal(false)}
-                className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-950 transition-colors"
-              >
-                <X size={20} />
-              </button>
-
-              {downloadStep === 'pin' ? (
-                <>
-                  <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50">
-                      <Lock className="text-zinc-400" size={24} strokeWidth={1.5} />
-                    </div>
-                    <h3 className="mb-2 text-xl font-serif text-zinc-900">Download Photos</h3>
-                    <p className="text-sm text-zinc-500">Please enter the 4-digit PIN provided by your photographer to start the download.</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <input
-                      type="text"
-                      placeholder="Enter Download PIN"
-                      maxLength={4}
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value)}
-                      className="w-full border-b border-zinc-200 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-zinc-950 transition-colors"
-                    />
-                    <button
-                      className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors"
-                      onClick={() => {
-                        if (pin === (collection?.download_pin || '1234')) {
-                          setDownloadStep('size');
-                        } else {
-                          alert('Incorrect PIN. Please try again.');
-                        }
-                      }}
-                    >
-                      Verify PIN
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50">
-                      <Download className="text-zinc-400" size={24} strokeWidth={1.5} />
-                    </div>
-                    <h3 className="mb-2 text-xl font-serif text-zinc-900">Choose Download Size</h3>
-                    <p className="text-sm text-zinc-500">Select the resolution you would like to download.</p>
-                  </div>
-
-                  <div className="space-y-4">
-                    <button
-                      className={cn(
-                        "w-full py-4 px-6 flex items-center justify-between border cursor-pointer transition-all",
-                        downloadSize === 'high' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
-                      )}
-                      onClick={() => setDownloadSize('high')}
-                    >
-                      <div className="text-left">
-                        <div className="text-sm font-bold text-zinc-900">High Resolution</div>
-                        <div className="text-xs text-zinc-500">Best for printing (3600px)</div>
-                      </div>
-                      <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", downloadSize === 'high' ? "border-zinc-950" : "border-zinc-300")}>
-                        {downloadSize === 'high' && <div className="w-2 h-2 rounded-full bg-zinc-950" />}
-                      </div>
-                    </button>
-
-                    <button
-                      className={cn(
-                        "w-full py-4 px-6 flex items-center justify-between border cursor-pointer transition-all mt-3",
-                        downloadSize === 'web' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
-                      )}
-                      onClick={() => setDownloadSize('web')}
-                    >
-                      <div className="text-left">
-                        <div className="text-sm font-bold text-zinc-900">Web Size</div>
-                        <div className="text-xs text-zinc-500">Best for sharing (2048px)</div>
-                      </div>
-                      <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", downloadSize === 'web' ? "border-zinc-950" : "border-zinc-300")}>
-                        {downloadSize === 'web' && <div className="w-2 h-2 rounded-full bg-zinc-950" />}
-                      </div>
-                    </button>
-
-                    <button
-                      className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors mt-6"
-                      onClick={() => setShowDownloadModal(false)}
-                    >
-                      Start Download
-                    </button>
-                  </div>
-                </>
-              )}
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <DownloadModal
+        isOpen={showDownloadModal}
+        onClose={() => {
+            setShowDownloadModal(false);
+            setSelectedDownloadPhoto(null);
+        }}
+        collection={collection}
+        photos={collection?.photos || []}
+        sets={collection?.sets || []}
+        initialPhoto={selectedDownloadPhoto}
+        initialSetId={activeSetId}
+      />
 
       {/* Share Modal */}
       <AnimatePresence>

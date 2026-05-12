@@ -4,6 +4,7 @@ import { galleryService } from '../services/gallery.service';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
+import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import './CollectionDashboard.css';
 
 const CollectionDashboard = () => {
@@ -100,7 +101,7 @@ const CollectionDashboard = () => {
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
 
     // General Settings State
-    const [collectionUrl, setCollectionUrl] = useState('vbn');
+    const [collectionUrl, setCollectionUrl] = useState('');
     const [categoryTags, setCategoryTags] = useState([]);
     const [defaultWatermark, setDefaultWatermark] = useState('No watermark');
     const [autoExpiry, setAutoExpiry] = useState('');
@@ -121,6 +122,8 @@ const CollectionDashboard = () => {
     // Download State
     const [photoDownload, setPhotoDownload] = useState(true);
     const [photoDownloadSizes, setPhotoDownloadSizes] = useState(['high', 'web']);
+    const [highResChoice, setHighResChoice] = useState('3600px'); // original, 3600px
+    const [webSizeChoice, setWebSizeChoice] = useState('1024px'); // 2048px, 1024px, 640px
     const [downloadPin, setDownloadPin] = useState(true);
     const [pinValue, setPinValue] = useState('1060');
     const [showAdditionalOptions, setShowAdditionalOptions] = useState(false);
@@ -129,7 +132,6 @@ const CollectionDashboard = () => {
     const [galleryDownload, setGalleryDownload] = useState(true);
     const [singlePhotoDownload, setSinglePhotoDownload] = useState(true);
     const [requirePinForSinglePhoto, setRequirePinForSinglePhoto] = useState(false);
-    const [emailTracking, setEmailTracking] = useState(true);
     const [restrictSinglePhotoSizes, setRestrictSinglePhotoSizes] = useState(false);
 
     // Advanced settings states
@@ -282,13 +284,8 @@ const CollectionDashboard = () => {
         }
     };
 
-    const handleDownloadPhoto = (photo) => {
-        const link = document.createElement('a');
-        link.href = photo.full_url;
-        link.download = photo.filename;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const handleDownloadPhoto = async (photo) => {
+        await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
     };
 
     const handleRenamePhoto = async () => {
@@ -640,6 +637,66 @@ const CollectionDashboard = () => {
         return () => clearTimeout(timeoutId);
     }, [collectionUrl, collectionPassword, collectionId, collection, loading]);
 
+    // Auto-save download settings
+    useEffect(() => {
+        if (!collection || loading) return;
+
+        const saveDownloadSettings = async () => {
+            try {
+                await galleryService.updateCollection(collectionId, {
+                    downloads_enabled: photoDownload,
+                    download_resolutions: photoDownloadSizes,
+                    download_pin: downloadPin ? pinValue : null,
+                    email_capture_enabled: emailRegistration,
+                    // Granular size settings
+                    high_res_choice: highResChoice,
+                    web_size_choice: webSizeChoice,
+                    // Additional options
+                    gallery_download_enabled: galleryDownload,
+                    single_photo_download_enabled: singlePhotoDownload,
+                    require_pin_for_single_photo: requirePinForSinglePhoto,
+                    restrict_single_photo_sizes: restrictSinglePhotoSizes,
+                    // Advanced settings
+                    download_limit: downloadLimit || null,
+                    restrict_to_emails: restrictToEmails || null,
+                    selected_download_sets: selectedDownloadSets,
+                    pin_usage_limit: pinUsageLimit || null
+                });
+            } catch (err) {
+                console.error('Error auto-saving download settings:', err);
+            }
+        };
+
+        const timeoutId = setTimeout(saveDownloadSettings, 1000);
+        return () => clearTimeout(timeoutId);
+    }, [
+        photoDownload, galleryDownload, singlePhotoDownload, 
+        photoDownloadSizes, downloadPin, pinValue, 
+        emailRegistration, requirePinForSinglePhoto, restrictSinglePhotoSizes,
+        highResChoice, webSizeChoice, downloadLimit, restrictToEmails,
+        selectedDownloadSets, pinUsageLimit,
+        collectionId, collection, loading
+    ]);
+
+    // Auto-save favorite settings
+    useEffect(() => {
+        if (!collection || loading) return;
+
+        const saveFavoriteSettings = async () => {
+            try {
+                await galleryService.updateCollection(collectionId, {
+                    favorites_enabled: favoritePhotos,
+                    favorites_allow_comments: favoriteNotes
+                });
+            } catch (err) {
+                console.error('Error auto-saving favorite settings:', err);
+            }
+        };
+
+        const timeoutId = setTimeout(saveFavoriteSettings, 1000);
+        return () => clearTimeout(timeoutId);
+    }, [favoritePhotos, favoriteNotes, collectionId, collection, loading]);
+
     // Derived values
     const collectionName = collection?.name || 'Loading...';
     const collectionDate = collection?.event_date
@@ -851,7 +908,15 @@ const CollectionDashboard = () => {
                     </div>
                     <button
                         className="cd-text-btn"
-                        onClick={() => window.open(`/gallery/${collectionUrl}?coverStyle=${selectedCoverStyle}`, '_blank')}
+                        onClick={() => {
+                            const params = new URLSearchParams({
+                                coverStyle: selectedCoverStyle,
+                                font: selectedFont,
+                                color: selectedColorPalette,
+                                grid: gridSettings.style
+                            });
+                            window.open(`/gallery/${collectionUrl}?${params.toString()}`, '_blank');
+                        }}
                     >
                         Preview
                     </button>
@@ -1406,8 +1471,18 @@ const CollectionDashboard = () => {
                                     onPreviewModeChange={setPreviewMode}
                                     dashboardState={{
                                         focalX: collection?.focal_x ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[1] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[1]) : 50),
-                                        focalY: collection?.focal_y ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[2] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[2]) : 50)
+                                        focalY: collection?.focal_y ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[2] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[2]) : 50),
+                                        activeSetId: activeSetId,
+                                        sets: sets,
+                                        collection: collection,
+                                        photoDownload: photoDownload,
+                                        favoritePhotos: favoritePhotos,
+                                        socialSharing: socialSharing,
+                                        downloadPin: downloadPin,
+                                        pinValue: pinValue,
+                                        emailTracking: emailRegistration
                                     }}
+                                    onSetActiveSet={setActiveSetId}
                                 />
                             </div>
                         )}
@@ -1673,7 +1748,7 @@ const CollectionDashboard = () => {
                                                                     Require PIN for single photos
                                                                 </label>
                                                                 <label className="custom-checkbox">
-                                                                    <input type="checkbox" checked={emailTracking} onChange={() => setEmailTracking(!emailTracking)} />
+                                                                    <input type="checkbox" checked={emailRegistration} onChange={() => setEmailRegistration(!emailRegistration)} />
                                                                     <span className="checkmark"></span>
                                                                     Email Tracking
                                                                 </label>
@@ -1688,7 +1763,7 @@ const CollectionDashboard = () => {
                                                 )}
                                             </div>
 
-                                            <div className="settings-section">
+{/* <div className="settings-section">
                                                 <label className="settings-label">Photo Download Sizes</label>
                                                 <div className="checkbox-group">
                                                     <div className="checkbox-row">
@@ -1701,12 +1776,22 @@ const CollectionDashboard = () => {
                                                         </label>
                                                         <div className="radio-group-horizontal">
                                                             <label className="custom-radio">
-                                                                <input type="radio" name="high-res" disabled />
+                                                                <input 
+                                                                    type="radio" 
+                                                                    name="high-res" 
+                                                                    checked={highResChoice === 'original'}
+                                                                    onChange={() => setHighResChoice('original')}
+                                                                />
                                                                 <span className="radio-mark"></span>
                                                                 Original - Upgrade required. <span className="settings-link">Upgrade</span>
                                                             </label>
                                                             <label className="custom-radio">
-                                                                <input type="radio" name="high-res" checked onChange={() => { }} />
+                                                                <input 
+                                                                    type="radio" 
+                                                                    name="high-res" 
+                                                                    checked={highResChoice === '3600px'}
+                                                                    onChange={() => setHighResChoice('3600px')}
+                                                                />
                                                                 <span className="radio-mark"></span>
                                                                 3600px
                                                             </label>
@@ -1722,17 +1807,32 @@ const CollectionDashboard = () => {
                                                         </label>
                                                         <div className="radio-group-horizontal">
                                                             <label className="custom-radio">
-                                                                <input type="radio" name="web-res" onChange={() => { }} />
+                                                                <input 
+                                                                    type="radio" 
+                                                                    name="web-res" 
+                                                                    checked={webSizeChoice === '2048px'}
+                                                                    onChange={() => setWebSizeChoice('2048px')}
+                                                                />
                                                                 <span className="radio-mark"></span>
                                                                 2048px
                                                             </label>
                                                             <label className="custom-radio">
-                                                                <input type="radio" name="web-res" checked onChange={() => { }} />
+                                                                <input 
+                                                                    type="radio" 
+                                                                    name="web-res" 
+                                                                    checked={webSizeChoice === '1024px'}
+                                                                    onChange={() => setWebSizeChoice('1024px')}
+                                                                />
                                                                 <span className="radio-mark"></span>
                                                                 1024px
                                                             </label>
                                                             <label className="custom-radio">
-                                                                <input type="radio" name="web-res" onChange={() => { }} />
+                                                                <input 
+                                                                    type="radio" 
+                                                                    name="web-res" 
+                                                                    checked={webSizeChoice === '640px'}
+                                                                    onChange={() => setWebSizeChoice('640px')}
+                                                                />
                                                                 <span className="radio-mark"></span>
                                                                 640px
                                                             </label>
@@ -1740,7 +1840,7 @@ const CollectionDashboard = () => {
                                                     </div>
                                                 </div>
                                                 <p className="settings-desc">Allow photos to be downloaded in select sizes. <span className="settings-link">Learn more</span></p>
-                                            </div>
+                                            </div> */}
 
                                             <div className="settings-toggle-section">
                                                 <div className="settings-toggle-row">

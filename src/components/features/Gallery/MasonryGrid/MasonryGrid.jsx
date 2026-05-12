@@ -114,7 +114,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      onDownload?.();
+                      onDownload?.(photo);
                     }}
                     className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
                   >

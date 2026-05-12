@@ -5,6 +5,7 @@ import { cn } from '../../../../lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Mail, Lock, Share2, Link as LinkIcon, Download, Heart, Play } from 'lucide-react';
 import { MasonryGrid } from '../../Gallery/MasonryGrid/MasonryGrid';
+import { downloadPhotoFromR2, downloadAllPhotosAsZip } from '../../../../lib/downloadPhoto';
 
 export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   settings,
@@ -21,18 +22,60 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const [showFavoriteModal, setShowFavoriteModal] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  
+  const [downloadTarget, setDownloadTarget] = useState<'gallery' | 'single'>('gallery');
+  const [singlePhotoToDownload, setSinglePhotoToDownload] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [pin, setPin] = useState('');
-  const [downloadStep, setDownloadStep] = useState('pin');
+  const [downloadStep, setDownloadStep] = useState<'auth' | 'config'>('auth');
   const [downloadSize, setDownloadSize] = useState('high');
+  const [downloadTo, setDownloadTo] = useState('device');
+  const [rememberSelection, setRememberSelection] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState({ done: 0, total: 0 });
 
-  const handleDownloadClick = () => {
-    if (dashboardState?.downloadPin) {
-      setDownloadStep('pin');
+  const handleDownloadClick = async (photo?: any) => {
+    if (photo) {
+      if ((dashboardState?.requirePinForSinglePhotos && dashboardState?.downloadPin) || dashboardState?.emailTracking) {
+        setDownloadTarget('single');
+        setSinglePhotoToDownload(photo);
+        setDownloadStep('auth');
+        setShowDownloadModal(true);
+      } else {
+        // Single photo: download immediately from Cloudflare R2
+        await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
+      }
     } else {
-      setDownloadStep('size');
+      // Gallery-wide: ZIP all visible photos
+      const needsAuth = dashboardState?.downloadPin || dashboardState?.emailTracking;
+      if (!needsAuth) {
+        const activeId = dashboardState?.activeSetId;
+        const visiblePhotos = activeId
+          ? gridPhotos.filter((p: any) => p.set_id === activeId)
+          : gridPhotos.filter((p: any) => !p.set_id || p.set_id === null);
+
+        if (visiblePhotos.length === 0) return;
+
+        const zipName = collectionTitle || 'photos';
+        setIsDownloadingAll(true);
+        setDownloadProgress({ done: 0, total: visiblePhotos.length });
+        try {
+          await downloadAllPhotosAsZip(
+            visiblePhotos,
+            zipName,
+            (done, total) => setDownloadProgress({ done, total })
+          );
+        } finally {
+          setIsDownloadingAll(false);
+          setDownloadProgress({ done: 0, total: 0 });
+        }
+      } else {
+        setDownloadTarget('gallery');
+        setSinglePhotoToDownload(null);
+        setDownloadStep('auth');
+        setShowDownloadModal(true);
+      }
     }
-    setShowDownloadModal(true);
   };
 
   const renderCover = () => {
@@ -138,9 +181,22 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               </div>
             )}
             {dashboardState?.photoDownload !== false && (
-              <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onClick={handleDownloadClick} style={{ color: 'var(--gallery-text)' }}>
-                <Download size={14} />
-                {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Download</span>}
+              <div
+                className={cn(
+                  "flex items-center gap-2 transition-opacity cursor-pointer",
+                  isDownloadingAll ? "opacity-100" : "opacity-60 hover:opacity-100"
+                )}
+                onClick={() => !isDownloadingAll && handleDownloadClick()}
+                style={{ color: 'var(--gallery-text)' }}
+              >
+                <Download size={14} className={isDownloadingAll ? 'animate-bounce' : ''} />
+                {grid.navigation !== 'icon' && (
+                  <span className="text-[8px] gallery-heading hidden lg:inline">
+                    {isDownloadingAll
+                      ? `${downloadProgress.done} / ${downloadProgress.total}`
+                      : 'Download'}
+                  </span>
+                )}
               </div>
             )}
             {dashboardState?.socialSharing !== false && (
@@ -271,62 +327,199 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 <X size={20} />
               </button>
 
-              {downloadStep === 'pin' ? (
+              {downloadStep === 'auth' ? (
                 <>
                   <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50">
-                      <Lock className="text-zinc-400" size={24} strokeWidth={1.5} />
-                    </div>
-                    <h3 className="mb-2 text-xl font-serif text-zinc-900" style={{ fontFamily: 'var(--font-serif)' }}>Download Photos</h3>
-                    <p className="text-sm text-zinc-500">Please enter the 4-digit PIN provided by your photographer to start the download.</p>
+                    <h3 className="mb-2 text-xl font-serif text-zinc-900 uppercase tracking-widest text-[14px]" style={{ fontFamily: 'var(--font-sans)', fontWeight: 600 }}>
+                      {downloadTarget === 'single' ? 'Download Photo' : 'Download Photos'}
+                    </h3>
+                    <p className="text-[13px] text-zinc-500 leading-[1.8] mt-4 max-w-[90%] mx-auto">
+                      {dashboardState?.emailTracking && "Your email will be used to notify you when the files are ready for download. "}
+                      {dashboardState?.downloadPin && `Please enter the download PIN provided by ${dashboardState?.collection?.name || 'your photographer'} to download this photo collection.`}
+                    </p>
                   </div>
 
                   <div className="space-y-4">
-                    <input
-                      type="text"
-                      placeholder="Enter Download PIN"
-                      maxLength={4}
-                      value={pin}
-                      onChange={(e) => setPin(e.target.value)}
-                      className="w-full border-b border-zinc-200 py-3 text-center text-2xl tracking-[0.5em] outline-none focus:border-zinc-950 transition-colors bg-transparent"
-                      style={{ borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}
-                    />
+                    {dashboardState?.emailTracking && (
+                      <input
+                        type="email"
+                        placeholder="Email Address"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full border border-zinc-200 py-3 px-4 text-sm outline-none focus:border-zinc-950 transition-colors bg-transparent"
+                      />
+                    )}
+                    {dashboardState?.downloadPin && (
+                      <input
+                        type="text"
+                        placeholder="Enter Download PIN"
+                        maxLength={4}
+                        value={pin}
+                        onChange={(e) => setPin(e.target.value)}
+                        className="w-full border border-zinc-200 py-3 px-4 text-center text-xl tracking-[0.5em] outline-none focus:border-zinc-950 transition-colors bg-transparent"
+                      />
+                    )}
                     <button
-                      className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer mt-4"
+                      className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer mt-6"
                       onClick={() => {
-                        if (pin === (dashboardState?.pinValue || '1234')) {
-                          setDownloadStep('size');
-                        } else {
+                        let valid = true;
+                        if (dashboardState?.emailTracking && !email.includes('@')) {
+                          valid = false;
+                          alert('Please enter a valid email address.');
+                        }
+                        if (dashboardState?.downloadPin && pin !== (dashboardState?.pinValue || '1234')) {
+                          valid = false;
                           alert('Incorrect PIN. Please try again.');
+                        }
+                        if (valid) {
+                          setDownloadStep('config');
                         }
                       }}
                     >
-                      Verify PIN
+                      Next
+                    </button>
+                  </div>
+                </>
+              ) : downloadTarget === 'single' ? (
+                <>
+                  <div className="mb-8 text-center">
+                    <h3 className="mb-2 text-xl font-serif text-zinc-900 uppercase tracking-widest text-[14px]" style={{ fontFamily: 'var(--font-sans)', fontWeight: 600 }}>
+                      Download Photo
+                    </h3>
+                  </div>
+
+                  <div className="space-y-6">
+{/* <div>
+                      <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-3">Photo Size</div>
+                      <div className="space-y-2">
+                        {(dashboardState?.photoDownloadSizes?.includes('high') ?? true) && (
+                          <button
+                            className={cn(
+                              "w-full py-3 px-4 flex items-center justify-between border cursor-pointer transition-all",
+                              downloadSize === 'high' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
+                            )}
+                            onClick={() => setDownloadSize('high')}
+                          >
+                            <div className="text-[13px] font-medium text-zinc-900 flex-1 text-center pr-6">High Resolution</div>
+                            <div className="w-6 flex justify-end">
+                              {downloadSize === 'high' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                            </div>
+                          </button>
+                        )}
+                        {(dashboardState?.photoDownloadSizes?.includes('web') ?? true) && (
+                          <button
+                            className={cn(
+                              "w-full py-3 px-4 flex items-center justify-between border cursor-pointer transition-all",
+                              downloadSize === 'web' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
+                            )}
+                            onClick={() => setDownloadSize('web')}
+                          >
+                            <div className="text-[13px] font-medium text-zinc-900 flex-1 text-center pr-6">Web Size</div>
+                            <div className="w-6 flex justify-end">
+                              {downloadSize === 'web' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                            </div>
+                          </button>
+                        )}
+                      </div>
+                    </div> */}
+
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 mb-3">Download To</div>
+                      <div className="space-y-2">
+                        <button
+                          className={cn(
+                            "w-full py-3 px-4 flex items-center justify-between border cursor-pointer transition-all",
+                            downloadTo === 'device' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
+                          )}
+                          onClick={() => setDownloadTo('device')}
+                        >
+                          <div className="text-[13px] font-medium text-zinc-900 flex-1 flex justify-center items-center gap-2 pr-6">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+                            Save to My Device
+                          </div>
+                          <div className="w-6 flex justify-end">
+                            {downloadTo === 'device' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                          </div>
+                        </button>
+                        <button
+                          className={cn(
+                            "w-full py-3 px-4 flex items-center justify-between border cursor-pointer transition-all",
+                            downloadTo === 'google' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
+                          )}
+                          onClick={() => setDownloadTo('google')}
+                        >
+                          <div className="text-[13px] font-medium text-zinc-900 flex-1 flex justify-center items-center gap-2 pr-6">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v20"></path><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                            Save to Google Photos
+                          </div>
+                          <div className="w-6 flex justify-end">
+                            {downloadTo === 'google' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                          </div>
+                        </button>
+                        <button
+                          className={cn(
+                            "w-full py-3 px-4 flex items-center justify-between border cursor-pointer transition-all",
+                            downloadTo === 'dropbox' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
+                          )}
+                          onClick={() => setDownloadTo('dropbox')}
+                        >
+                          <div className="text-[13px] font-medium text-zinc-900 flex-1 flex justify-center items-center gap-2 pr-6">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 11l8-5 8 5-8 5-8-5z"></path><path d="M4 11l8 5v6l-8-5v-6z"></path><path d="M20 11l-8 5v6l8-5v-6z"></path></svg>
+                            Save to Dropbox
+                          </div>
+                          <div className="w-6 flex justify-end">
+                            {downloadTo === 'dropbox' && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="20 6 9 17 4 12"></polyline></svg>}
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    <label className="flex items-center gap-3 cursor-pointer mt-4 py-2">
+                       <input 
+                         type="checkbox" 
+                         checked={rememberSelection} 
+                         onChange={e => setRememberSelection(e.target.checked)} 
+                         className="accent-zinc-950 w-4 h-4 cursor-pointer" 
+                       />
+                       <span className="text-[13px] text-zinc-600">Remember my selection</span>
+                    </label>
+
+                    <button
+                      className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer"
+                      onClick={async () => {
+                        await downloadPhotoFromR2(
+                          singlePhotoToDownload?.full_url,
+                          singlePhotoToDownload?.filename || 'photo.jpg'
+                        );
+                        setShowDownloadModal(false);
+                      }}
+                    >
+                      Download Photo
                     </button>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50">
-                      <Download className="text-zinc-400" size={24} strokeWidth={1.5} />
+                    <div className="mx-auto mb-6 flex h-12 w-12 items-center justify-center rounded-full border border-zinc-200">
+                      <Download className="text-zinc-600" size={20} strokeWidth={1.5} />
                     </div>
-                    <h3 className="mb-2 text-xl font-serif text-zinc-900" style={{ fontFamily: 'var(--font-serif)' }}>Choose Download Size</h3>
-                    <p className="text-sm text-zinc-500">Select the resolution you would like to download.</p>
+                    <h3 className="mb-2 text-xl font-serif text-zinc-900 uppercase tracking-widest text-[14px]" style={{ fontFamily: 'var(--font-sans)', fontWeight: 600 }}>Choose Download Size</h3>
+                    <p className="text-[13px] text-zinc-500 mt-2">Select the resolution you would like to download.</p>
                   </div>
 
                   <div className="space-y-4">
-                    {(dashboardState?.photoDownloadSizes?.includes('high') ?? true) && (
+{/* {(dashboardState?.photoDownloadSizes?.includes('high') ?? true) && (
                       <button
                         className={cn(
-                          "w-full py-4 px-6 flex items-center justify-between border cursor-pointer transition-all",
+                          "w-full py-4 px-5 flex items-center justify-between border cursor-pointer transition-all",
                           downloadSize === 'high' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
                         )}
                         onClick={() => setDownloadSize('high')}
                       >
-                        <div className="text-left">
-                          <div className="text-sm font-bold text-zinc-900">High Resolution</div>
-                          <div className="text-xs text-zinc-500">Best for printing (3600px)</div>
+                        <div className="text-left flex-1">
+                          <div className="text-[14px] font-semibold text-zinc-900">High Resolution</div>
+                          <div className="text-[12px] text-zinc-500 mt-0.5">Best for printing (3600px)</div>
                         </div>
                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", downloadSize === 'high' ? "border-zinc-950" : "border-zinc-300")}>
                           {downloadSize === 'high' && <div className="w-2 h-2 rounded-full bg-zinc-950" />}
@@ -337,24 +530,52 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                     {(dashboardState?.photoDownloadSizes?.includes('web') ?? true) && (
                       <button
                         className={cn(
-                          "w-full py-4 px-6 flex items-center justify-between border cursor-pointer transition-all mt-3",
+                          "w-full py-4 px-5 flex items-center justify-between border cursor-pointer transition-all mt-3",
                           downloadSize === 'web' ? "border-zinc-950 bg-zinc-50" : "border-zinc-200 hover:border-zinc-300 bg-white"
                         )}
                         onClick={() => setDownloadSize('web')}
                       >
-                        <div className="text-left">
-                          <div className="text-sm font-bold text-zinc-900">Web Size</div>
-                          <div className="text-xs text-zinc-500">Best for sharing (2048px)</div>
+                        <div className="text-left flex-1">
+                          <div className="text-[14px] font-semibold text-zinc-900">Web Size</div>
+                          <div className="text-[12px] text-zinc-500 mt-0.5">Best for sharing (2048px)</div>
                         </div>
                         <div className={cn("w-4 h-4 rounded-full border flex items-center justify-center", downloadSize === 'web' ? "border-zinc-950" : "border-zinc-300")}>
                           {downloadSize === 'web' && <div className="w-2 h-2 rounded-full bg-zinc-950" />}
                         </div>
                       </button>
-                    )}
+                    )} */}
 
                     <button
                       className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer mt-6"
-                      onClick={() => setShowDownloadModal(false)}
+                      onClick={async () => {
+                        const activeId = dashboardState?.activeSetId;
+                        const visiblePhotos = activeId
+                          ? gridPhotos.filter((p: any) => p.set_id === activeId)
+                          : gridPhotos.filter((p: any) => !p.set_id || p.set_id === null);
+
+                        if (visiblePhotos.length === 0) {
+                          alert('No photos to download in this view.');
+                          return;
+                        }
+
+                        setShowDownloadModal(false);
+                        setIsDownloadingAll(true);
+                        setDownloadProgress({ done: 0, total: visiblePhotos.length });
+
+                        try {
+                          await downloadAllPhotosAsZip(
+                            visiblePhotos,
+                            collectionTitle || 'photos',
+                            (done, total) => setDownloadProgress({ done, total })
+                          );
+                        } catch (err) {
+                          console.error('Download failed:', err);
+                          alert('Download failed. Please try again.');
+                        } finally {
+                          setIsDownloadingAll(false);
+                          setDownloadProgress({ done: 0, total: 0 });
+                        }
+                      }}
                     >
                       Start Download
                     </button>
