@@ -285,6 +285,14 @@ const CollectionDashboard = () => {
     };
 
     const handleDownloadPhoto = async (photo) => {
+        const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
+        if (collection?.download_pin && pinRequiredForSingle) {
+            const enteredPin = prompt("Please enter the download PIN to download this photo:");
+            if (enteredPin !== collection.download_pin) {
+                alert("Incorrect PIN.");
+                return;
+            }
+        }
         await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
     };
 
@@ -398,6 +406,26 @@ const CollectionDashboard = () => {
                     spacing: data.grid_spacing || 'regular',
                     navigation: data.nav_style || 'icons'
                 });
+
+                // Initialize download settings
+                if (data.downloads_enabled !== undefined) setPhotoDownload(data.downloads_enabled);
+                if (data.download_resolutions) setPhotoDownloadSizes(data.download_resolutions);
+                const dbPin = data.download_pin || data.download_pin_hash;
+                if (dbPin) {
+                    setDownloadPin(true);
+                    setPinValue(dbPin);
+                } else if (data.download_pin === null || data.download_pin_hash === null) {
+                    setDownloadPin(false);
+                }
+                
+                if (data.require_pin_for_single_photo !== undefined) setRequirePinForSinglePhoto(data.require_pin_for_single_photo);
+                if (data.email_capture_enabled !== undefined) setEmailRegistration(data.email_capture_enabled);
+                if (data.gallery_download_enabled !== undefined) setGalleryDownload(data.gallery_download_enabled);
+                if (data.single_photo_download_enabled !== undefined) setSinglePhotoDownload(data.single_photo_download_enabled);
+                
+                // Initialize favorite settings
+                if (data.favorites_enabled !== undefined) setFavoritePhotos(data.favorites_enabled);
+                if (data.favorites_allow_comments !== undefined) setFavoriteNotes(data.favorites_allow_comments);
 
                 // Fetch photos and sets
                 const photoData = data.photos || [];
@@ -646,21 +674,14 @@ const CollectionDashboard = () => {
                 await galleryService.updateCollection(collectionId, {
                     downloads_enabled: photoDownload,
                     download_resolutions: photoDownloadSizes,
-                    download_pin: downloadPin ? pinValue : null,
+                    download_pin_hash: downloadPin ? pinValue : null,
                     email_capture_enabled: emailRegistration,
-                    // Granular size settings
-                    high_res_choice: highResChoice,
-                    web_size_choice: webSizeChoice,
-                    // Additional options
-                    gallery_download_enabled: galleryDownload,
-                    single_photo_download_enabled: singlePhotoDownload,
-                    require_pin_for_single_photo: requirePinForSinglePhoto,
-                    restrict_single_photo_sizes: restrictSinglePhotoSizes,
-                    // Advanced settings
-                    download_limit: downloadLimit || null,
-                    restrict_to_emails: restrictToEmails || null,
-                    selected_download_sets: selectedDownloadSets,
-                    pin_usage_limit: pinUsageLimit || null
+                    // Note: gallery_download_enabled, single_photo_download_enabled, 
+                    // and require_pin_for_single_photo are currently being saved 
+                    // locally but don't exist in the DB schema yet.
+                    // If they are needed, they should be added to the DB.
+                    // For now, we'll exclude them to avoid update errors.
+                    social_sharing_enabled: socialSharing
                 });
             } catch (err) {
                 console.error('Error auto-saving download settings:', err);
@@ -1476,10 +1497,13 @@ const CollectionDashboard = () => {
                                         sets: sets,
                                         collection: collection,
                                         photoDownload: photoDownload,
+                                        galleryDownload: galleryDownload,
+                                        singlePhotoDownload: singlePhotoDownload,
                                         favoritePhotos: favoritePhotos,
                                         socialSharing: socialSharing,
                                         downloadPin: downloadPin,
                                         pinValue: pinValue,
+                                        requirePinForSinglePhoto: requirePinForSinglePhoto,
                                         emailTracking: emailRegistration
                                     }}
                                     onSetActiveSet={setActiveSetId}

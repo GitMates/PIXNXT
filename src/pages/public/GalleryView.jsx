@@ -25,8 +25,6 @@ const GalleryView = () => {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [email, setEmail] = useState('');
-  const [pin, setPin] = useState('');
-  const [downloadStep, setDownloadStep] = useState('pin');
   const [downloadSize, setDownloadSize] = useState('high');
   const [activeSetId, setActiveSetId] = useState(null);
   const [selectedDownloadPhoto, setSelectedDownloadPhoto] = useState(null);
@@ -38,18 +36,23 @@ const GalleryView = () => {
     const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
 
     if (photo) {
-      const needsEmail = collection?.email_capture_enabled;
-      const needsPin = !!(collection?.download_pin) && (collection?.require_pin_for_single_photo ?? true);
+      const needsEmail = !!collection?.email_capture_enabled;
+      
+      // Check if PIN is required for single photo downloads
+      const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
+      const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
+      const needsPin = hasPin && (!photo || pinRequiredForSingle);
 
       if (!needsEmail && !needsPin) {
-        // Single photo: download immediately from Cloudflare R2
+        // Single photo: download immediately from Cloudflare R2 if no auth required
         await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
       } else {
+        // Auth required: Open modal for single photo
         setSelectedDownloadPhoto(photo);
         setShowDownloadModal(true);
       }
     } else {
-      // Gallery-wide download: Always show modal now to allow set selection (matching GalleryPreview)
+      // Gallery-wide download: Always show modal (matching GalleryPreview)
       setSelectedDownloadPhoto(null);
       setShowDownloadModal(true);
     }
