@@ -648,6 +648,7 @@ export const galleryService = {
         .from('activity_log')
         .insert([{
           collection_id: collectionId,
+          photographer_id: data.photographerId || null,
           event_type: eventType,
           visitor_email: data.email || null,
           photo_id: data.photoId || null,

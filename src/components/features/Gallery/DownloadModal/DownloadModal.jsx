@@ -120,6 +120,7 @@ export const DownloadModal = ({
         // Log successful PIN use
         await galleryService.logActivity(collection.id, 'password_attempt', {
           email: email.trim(),
+          photographerId: collection.user_id,
           metadata: { success: true, type: 'download_pin' }
         });
       }
@@ -212,6 +213,7 @@ export const DownloadModal = ({
       // Log download activity
       await galleryService.logActivity(collection.id, 'download', {
         email: email.trim(),
+        photographerId: collection.user_id,
         photoId: initialPhoto?.id
       });
 
