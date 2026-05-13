@@ -606,37 +606,109 @@ export const galleryService = {
 
       const sessionMap = (sessions || []).reduce((acc, s) => ({ ...acc, [s.id]: s.visitor_email }), {});
 
-      // 3. Fetch item counts
+      // 3. Fetch item counts and thumbnails
       const listIds = lists.map(l => l.id);
       const { data: items, error: itemsError } = await supabase
         .from('favorite_items')
-        .select('id, list_id')
+        .select(`
+          id, 
+          list_id,
+          created_at,
+          photo:photos(thumbnail_url, web_url, filename)
+        `)
         .in('list_id', listIds);
 
       if (itemsError) {
         console.warn('Error fetching favorite items for activity:', itemsError);
       }
 
-      const countMap = (items || []).reduce((acc, i) => {
-        acc[i.list_id] = (acc[i.list_id] || 0) + 1;
-        return acc;
-      }, {});
+      const countMap = {};
+      const thumbMap = {};
+      const updatedMap = {};
+
+      (items || []).forEach(item => {
+        countMap[item.list_id] = (countMap[item.list_id] || 0) + 1;
+        
+        // Use the latest item creation date as the updated_at for the list
+        if (!thumbMap[item.list_id] && item.photo) {
+          thumbMap[item.list_id] = item.photo.thumbnail_url || item.photo.web_url;
+        }
+        
+        const itemDate = new Date(item.created_at);
+        if (!updatedMap[item.list_id] || itemDate > updatedMap[item.list_id]) {
+          updatedMap[item.list_id] = itemDate;
+        }
+      });
 
       const results = lists.map(list => ({
         id: list.id,
         name: list.name,
         email: sessionMap[list.session_id] || 'Unknown visitor',
         photoCount: countMap[list.id] || 0,
-        date: list.created_at,
+        thumbnail: thumbMap[list.id] || null,
+        created_at: list.created_at,
+        updated_at: updatedMap[list.id] || list.created_at,
         sessionId: list.session_id
       }));
 
       console.log('Aggregated favorite activity:', results);
-      return results.sort((a, b) => new Date(b.date) - new Date(a.date));
+      return results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     } catch (error) {
       console.error('Error in getFavoriteActivity:', error);
       return [];
     }
+  },
+
+  /**
+   * Get all photos for a favorite list
+   */
+  async getFavoriteListPhotos(listId) {
+    const { data, error } = await supabase
+      .from('favorite_items')
+      .select('photo:photos(*)')
+      .eq('list_id', listId);
+
+    if (error) throw error;
+    return data.map(item => {
+      if (Array.isArray(item.photo)) return item.photo[0];
+      return item.photo;
+    }).filter(p => !!p);
+  },
+
+  /**
+   * Update a favorite list's metadata
+   */
+  async updateFavoriteList(listId, updateData) {
+    const { data, error } = await supabase
+      .from('favorite_lists')
+      .update(updateData)
+      .eq('id', listId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Delete a favorite list and its items
+   */
+  async deleteFavoriteList(listId) {
+    // Items are deleted automatically if cascade is on, but let's be safe
+    const { error: itemsError } = await supabase
+      .from('favorite_items')
+      .delete()
+      .eq('list_id', listId);
+
+    if (itemsError) throw itemsError;
+
+    const { error } = await supabase
+      .from('favorite_lists')
+      .delete()
+      .eq('id', listId);
+
+    if (error) throw error;
+    return true;
   },
 
   /**

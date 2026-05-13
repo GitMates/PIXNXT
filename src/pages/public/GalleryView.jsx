@@ -36,6 +36,8 @@ const GalleryView = () => {
   const [favoritedPhotos, setFavoritedPhotos] = useState([]);
   const [pendingFavoritePhotoId, setPendingFavoritePhotoId] = useState(null);
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
+  const [favoriteListPhotos, setFavoriteListPhotos] = useState([]);
+  const [isFavoriteListMode, setIsFavoriteListMode] = useState(false);
 
   const handleFavoriteEmailSubmit = async () => {
     if (!email || !collection) return;
@@ -44,7 +46,7 @@ const GalleryView = () => {
       const session = await galleryService.createOrGetSession(collection.id, email);
       setSessionId(session.id);
       localStorage.setItem(`pixnxt_fav_email_${collection.id}`, email);
-      
+
       const favs = await galleryService.getFavorites(session.id);
       let newFavs = [...favs];
 
@@ -55,7 +57,7 @@ const GalleryView = () => {
         }
         setPendingFavoritePhotoId(null);
       }
-      
+
       setFavoritedPhotos(newFavs);
       setShowFavoriteModal(false);
     } catch (e) {
@@ -70,16 +72,16 @@ const GalleryView = () => {
 
   const handleFavoriteClick = async (photoId = null) => {
     if (!collection) return;
-    
+
     if (sessionId) {
       if (photoId) {
         // Toggle specific photo
         const isCurrentlyFavorited = favoritedPhotos.includes(photoId);
         try {
           await galleryService.toggleFavorite(sessionId, photoId, !isCurrentlyFavorited);
-          setFavoritedPhotos(prev => 
-            isCurrentlyFavorited 
-              ? prev.filter(id => id !== photoId) 
+          setFavoritedPhotos(prev =>
+            isCurrentlyFavorited
+              ? prev.filter(id => id !== photoId)
               : [...prev, photoId]
           );
         } catch (e) {
@@ -106,12 +108,12 @@ const GalleryView = () => {
 
     if (photo) {
       const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
-      
+
       // Check if PIN is required for single photo downloads
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
       const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
       const needsPin = hasPin && (!photo || pinRequiredForSingle);
-      
+
       const hasDownloadLimit = !!collection?.download_limit_gallery;
 
       if (!needsEmail && !needsPin && !hasDownloadLimit) {
@@ -132,6 +134,7 @@ const GalleryView = () => {
   const galleryRef = useRef(null);
   const { scrollY } = useScroll();
   const [searchParams] = useSearchParams();
+  const listId = searchParams.get('list');
   const previewCoverStyle = searchParams.get('coverStyle');
   const previewFont = searchParams.get('font');
   const previewColor = searchParams.get('color');
@@ -142,7 +145,8 @@ const GalleryView = () => {
       cover_style: 'novel',
       font_family: 'sans',
       color_palette: 'light',
-      grid_style: 'vertical'
+      grid_style: 'vertical',
+      nav_style: 'icons'
     };
     return {
       cover_style: previewCoverStyle || collection.cover_style || 'novel',
@@ -198,6 +202,28 @@ const GalleryView = () => {
     if (slug) fetchGallery();
   }, [slug]);
 
+  useEffect(() => {
+    const fetchFavoriteList = async () => {
+      if (!listId) {
+        setIsFavoriteListMode(false);
+        setFavoriteListPhotos([]);
+        return;
+      }
+
+      try {
+        const photos = await galleryService.getFavoriteListPhotos(listId);
+        setFavoriteListPhotos(photos);
+        setIsFavoriteListMode(true);
+        // Also ensure we scroll to gallery content if in this mode
+        setTimeout(scrollToGallery, 500);
+      } catch (err) {
+        console.error('Failed to fetch favorite list photos:', err);
+      }
+    };
+
+    fetchFavoriteList();
+  }, [listId]);
+
   // Slideshow Logic
   useEffect(() => {
     let interval;
@@ -241,15 +267,21 @@ const GalleryView = () => {
   };
 
   const filteredPhotos = useMemo(() => {
+    if (!collection) return [];
+
+    if (isFavoriteListMode) {
+      return favoriteListPhotos || [];
+    }
+
     let photos = activeSetId
-      ? (collection?.photos || []).filter(p => p.set_id === activeSetId)
-      : (collection?.photos || []).filter(p => !p.set_id);
+      ? (collection.photos || []).filter(p => p.set_id === activeSetId)
+      : (collection.photos || []).filter(p => !p.set_id);
 
     if (showOnlyFavorites) {
       photos = photos.filter(p => favoritedPhotos.includes(p.id));
     }
     return photos;
-  }, [collection?.photos, activeSetId, showOnlyFavorites, favoritedPhotos]);
+  }, [collection, activeSetId, showOnlyFavorites, favoritedPhotos, isFavoriteListMode, favoriteListPhotos]);
 
   const photoUrls = useMemo(() => filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url), [filteredPhotos]);
 
@@ -400,14 +432,24 @@ const GalleryView = () => {
           </div>
 
           {/* Favorites Filter Indicator */}
-          {showOnlyFavorites && (
+          {(showOnlyFavorites || isFavoriteListMode) && (
             <div className="flex flex-col items-center justify-center py-10 px-4 text-center border-b border-black/5 mb-8">
-              <Typography variant="h3" className="text-xl font-serif mb-2" style={{ color: 'var(--gallery-text)' }}>My Favorites</Typography>
+              <Typography variant="h3" className="text-xl font-serif mb-2" style={{ color: 'var(--gallery-text)' }}>
+                {isFavoriteListMode ? 'Client Selections' : 'My Favorites'}
+              </Typography>
               <p className="text-sm opacity-60 mb-4" style={{ color: 'var(--gallery-text)' }}>
                 Showing {filteredPhotos.length} favorited photos
               </p>
-              <button 
-                onClick={() => setShowOnlyFavorites(false)}
+              <button
+                onClick={() => {
+                  if (isFavoriteListMode) {
+                    // Remove list param from URL
+                    window.history.replaceState({}, '', window.location.pathname);
+                    setIsFavoriteListMode(false);
+                  } else {
+                    setShowOnlyFavorites(false);
+                  }
+                }}
                 className="text-[10px] font-bold uppercase tracking-[0.2em] underline hover:opacity-50 transition-all"
                 style={{ color: 'var(--gallery-text)' }}
               >

@@ -116,11 +116,18 @@ export function PhotoLightbox({
             className="relative h-full w-full max-w-6xl py-4"
           >
             <div className="flex h-full w-full items-center justify-center">
-              <img 
-                src={images[currentIndex]} 
-                alt="Fullscreen photo"
-                className="max-h-full max-w-full object-contain shadow-2xl"
-              />
+              {images[currentIndex] ? (
+                <img 
+                  src={images[currentIndex]} 
+                  alt="Fullscreen photo"
+                  className="max-h-full max-w-full object-contain shadow-2xl"
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-4 opacity-20">
+                  <div className="h-12 w-12 rounded-full border border-current border-t-transparent animate-spin" />
+                  <span className="text-[10px] uppercase tracking-widest font-bold">Loading Photo...</span>
+                </div>
+              )}
             </div>
           </motion.div>
 

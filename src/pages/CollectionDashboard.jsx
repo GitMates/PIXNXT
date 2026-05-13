@@ -154,6 +154,7 @@ const CollectionDashboard = () => {
     const [favoriteActivity, setFavoriteActivity] = useState([]);
     const [downloadActivity, setDownloadActivity] = useState([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
+    const [editingFavoriteList, setEditingFavoriteList] = useState(null);
 
     const handleCreateFavoriteList = async () => {
         if (!favoriteListEmail || !favoriteListName) {
@@ -161,33 +162,108 @@ const CollectionDashboard = () => {
             return;
         }
         try {
-            console.log("Creating favorite list:", { collectionId, favoriteListEmail, favoriteListName });
-            const session = await galleryService.createOrGetSession(collectionId, favoriteListEmail);
-            console.log("Session obtained:", session);
-            
-            await galleryService.createFavoriteList(collectionId, session.id, favoriteListName);
-            console.log("List created successfully");
+            if (editingFavoriteList) {
+                // Update existing list
+                await galleryService.updateFavoriteList(editingFavoriteList, {
+                    name: favoriteListName
+                    // We don't update email/session for now as per Pixieset behavior (it's per visitor)
+                });
+                alert("Favorite list updated successfully.");
+            } else {
+                // Create new list
+                console.log("Creating favorite list:", { collectionId, favoriteListEmail, favoriteListName });
+                const session = await galleryService.createOrGetSession(collectionId, favoriteListEmail);
+                console.log("Session obtained:", session);
+                
+                await galleryService.createFavoriteList(collectionId, session.id, favoriteListName);
+                console.log("List created successfully");
+                alert("Favorite list created successfully.");
+            }
             
             setShowCreateFavoriteListModal(false);
             setFavoriteListEmail('');
             setFavoriteListName('');
             setFavoriteListMax('');
             setFavoriteListDesc('');
-            alert("Favorite list created successfully.");
-            // Refresh activity if on that tab
-            if (activeSidebarTab === 'activity' && activeActivitySubTab === 'favorite') {
-                fetchFavoriteActivity();
-            }
+            setEditingFavoriteList(null);
+            
+            // Refresh activity
+            fetchFavoriteActivity();
         } catch (e) {
-            console.error("Failed to create favorite list. Details:", e);
-            alert(`Failed to create list: ${e.message || 'Unknown error'}`);
+            console.error("Failed to save favorite list. Details:", e);
+            alert(`Failed to save list: ${e.message || 'Unknown error'}`);
         }
+    };
+
+    const sortFavoriteActivityByEmail = () => {
+        setFavoriteActivity(prev => [...prev].sort((a, b) => a.email.localeCompare(b.email)));
     };
 
     // Activity State
     const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, email, share, private
     const [activeDownloadActivityTab, setActiveDownloadActivityTab] = useState('gallery'); // gallery, photo, video
     const [activeActivityMenu, setActiveActivityMenu] = useState(null); // id of activity item
+
+    const handleExportFavoriteList = async (listId, listName) => {
+        try {
+            const photos = await galleryService.getFavoriteListPhotos(listId);
+            if (!photos.length) {
+                alert("This list has no photos.");
+                return;
+            }
+
+            const headers = ['Filename', 'Original Name', 'URL'];
+            const rows = photos.map(p => [
+                p.filename,
+                p.original_filename || p.filename,
+                p.full_url
+            ]);
+
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `favorites-${listName.replace(/\s+/g, '-').toLowerCase()}.csv`);
+            link.click();
+        } catch (err) {
+            console.error('Export failed:', err);
+            alert('Failed to export favorite list.');
+        }
+    };
+
+    const handleLightroomCopyList = async (listId) => {
+        try {
+            const photos = await galleryService.getFavoriteListPhotos(listId);
+            if (!photos.length) {
+                alert("This list has no photos.");
+                return;
+            }
+
+            const filenames = photos.map(p => p.filename).join(', ');
+            await navigator.clipboard.writeText(filenames);
+            alert('Filenames copied to clipboard for Lightroom!');
+        } catch (err) {
+            console.error('Copy failed:', err);
+            alert('Failed to copy filenames.');
+        }
+    };
+
+    const handleDeleteFavoriteActivity = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this favorite list and all its info?')) return;
+        try {
+            await galleryService.deleteFavoriteList(id);
+            setFavoriteActivity(prev => prev.filter(a => a.id !== id));
+            setActiveActivityMenu(null);
+        } catch (err) {
+            console.error('Failed to delete favorite list:', err);
+            alert('Failed to delete favorite list.');
+        }
+    };
 
     const handleExportActivity = () => {
         if (!downloadActivity.length) return;
@@ -2189,7 +2265,7 @@ const CollectionDashboard = () => {
                             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
                                 <div className="bg-white rounded-lg shadow-xl w-[600px] max-w-[90vw] flex flex-col">
                                     <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                                        <h3 className="text-xs font-bold tracking-[0.2em] uppercase text-gray-900">Create Favorite List</h3>
+                                        <h3 className="text-xs font-bold tracking-[0.2em] uppercase text-gray-900">{editingFavoriteList ? 'Edit Favorite List' : 'Create Favorite List'}</h3>
                                         <button onClick={() => setShowCreateFavoriteListModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                         </button>
@@ -2257,7 +2333,7 @@ const CollectionDashboard = () => {
                                             onClick={handleCreateFavoriteList}
                                             className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded transition-colors"
                                         >
-                                            Create
+                                            {editingFavoriteList ? 'Save' : 'Create'}
                                         </button>
                                     </div>
                                 </div>
@@ -2279,11 +2355,22 @@ const CollectionDashboard = () => {
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '8px' }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                                         )}
                                     </h2>
-                                    {activeActivitySubTab === 'download' && (
-                                        <button className="export-btn teal" onClick={handleExportActivity}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
-                                            Export
-                                        </button>
+                                    {activeActivitySubTab === 'favorite' && (
+                                        <div className="favorite-activity-actions">
+                                            <button className="sort-btn" onClick={sortFavoriteActivityByEmail}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><line x1="17" y1="10" x2="3" y2="10" /><line x1="21" y1="6" x2="3" y2="6" /><line x1="13" y1="14" x2="3" y2="14" /><line x1="9" y1="18" x2="3" y2="18" /></svg>
+                                                Sort by email
+                                            </button>
+                                            <button className="new-list-btn" onClick={() => {
+                                                setEditingFavoriteList(null);
+                                                setFavoriteListEmail('');
+                                                setFavoriteListName('');
+                                                setShowCreateFavoriteListModal(true);
+                                            }}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+                                                New Favorite List
+                                            </button>
+                                        </div>
                                     )}
                                 </div>
 
@@ -2298,25 +2385,105 @@ const CollectionDashboard = () => {
                                 <div className="cd-empty-state-section">
                                     {activeActivitySubTab === 'favorite' && favoriteActivity.length > 0 ? (
                                         <div className="activity-list-container">
-                                            <div className="activity-table-header">
-                                                <div className="activity-col-client">Client Email</div>
-                                                <div className="activity-col-name">List Name</div>
-                                                <div className="activity-col-count">Favorites</div>
-                                                <div className="activity-col-date">Date</div>
+                                            <div className="activity-table-header favorite">
+                                                <div className="activity-col-email">Email</div>
+                                                <div className="activity-col-list">Favorite List</div>
+                                                <div className="activity-col-photos">Photos</div>
+                                                <div className="activity-col-created">Date Created</div>
+                                                <div className="activity-col-updated">Date Updated</div>
+                                                <div className="activity-col-actions"></div>
                                             </div>
                                             <div className="activity-table-body">
-                                                {favoriteActivity.map((item) => (
-                                                    <div key={item.id} className="activity-row">
-                                                        <div className="activity-col-client">
-                                                            <div className="client-avatar">
-                                                                <Heart size={14} fill="#ff4d4d" stroke="#ff4d4d" />
-                                                            </div>
+                                                {favoriteActivity.map((item, index, array) => (
+                                                    <div key={item.id} className="activity-row favorite">
+                                                        <div className="activity-col-email">
                                                             <span>{item.email}</span>
                                                         </div>
-                                                        <div className="activity-col-name">{item.name}</div>
-                                                        <div className="activity-col-count">{item.photoCount} photos</div>
-                                                        <div className="activity-col-date">
-                                                            {new Date(item.date).toLocaleDateString()}
+                                                        <div className="activity-col-list">
+                                                            <div className="list-thumb">
+                                                                {item.thumbnail ? (
+                                                                    <img src={item.thumbnail} alt="" />
+                                                                ) : (
+                                                                    <div className="thumb-placeholder">
+                                                                        <Heart size={14} fill="#ff4d4d" stroke="#ff4d4d" />
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                            <span className="list-name-link">{item.name}</span>
+                                                        </div>
+                                                        <div className="activity-col-photos">
+                                                            {item.photoCount}
+                                                        </div>
+                                                        <div className="activity-col-created">
+                                                            {new Date(item.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
+                                                        </div>
+                                                        <div className="activity-col-updated">
+                                                            {new Date(item.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
+                                                        </div>
+                                                        <div className="activity-col-actions">
+                                                            <button 
+                                                                className="row-action-btn"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveActivityMenu(activeActivityMenu === item.id ? null : item.id);
+                                                                }}
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                                            </button>
+
+                                                            {activeActivityMenu === item.id && (
+                                                                <div className={`activity-row-menu favorite-menu ${index >= array.length - 4 && array.length > 5 ? 'up' : ''}`}>
+                                                                    <button className="activity-menu-item" onClick={() => handleExportFavoriteList(item.id, item.name)}>
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                                                        Export
+                                                                    </button>
+                                                                    <button className="activity-menu-item" onClick={() => handleLightroomCopyList(item.id)}>
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
+                                                                        Lightroom Copy List
+                                                                    </button>
+                                                                    <button className="activity-menu-item" onClick={() => {
+                                                                        setFavoriteListEmail(item.email);
+                                                                        setFavoriteListName(item.name);
+                                                                        setEditingFavoriteList(item.id);
+                                                                        setShowCreateFavoriteListModal(true);
+                                                                    }}>
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                                        Edit List
+                                                                    </button>
+                                                                    <button className="activity-menu-item" onClick={() => window.open(`/gallery/${collection?.slug}?list=${item.id}`, '_blank')}>
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                                                        View in Gallery
+                                                                    </button>
+                                                                    <button className="activity-menu-item">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                                                        Download all
+                                                                    </button>
+                                                                    <button className="activity-menu-item">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+                                                                        Send as download
+                                                                    </button>
+                                                                    <button className="activity-menu-item">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                                                        Copy to new set
+                                                                    </button>
+                                                                    <button className="activity-menu-item">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+                                                                        Copy to new collection
+                                                                    </button>
+                                                                    <button className="activity-menu-item">
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
+                                                                        Create mobile app
+                                                                    </button>
+                                                                    <div style={{ height: '1px', background: '#f5f5f5', margin: '4px 0' }} />
+                                                                    <button 
+                                                                        className="activity-menu-item delete"
+                                                                        onClick={() => handleDeleteFavoriteActivity(item.id)}
+                                                                    >
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                                                        Delete info
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}
