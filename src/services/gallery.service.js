@@ -640,6 +640,68 @@ export const galleryService = {
   },
 
   /**
+   * Get download activity for a collection
+   */
+  async getDownloadActivity(collectionId) {
+    try {
+      console.log('Fetching download activity for collection:', collectionId);
+      const { data, error } = await supabase
+        .from('activity_log')
+        .select(`
+          id,
+          event_type,
+          visitor_email,
+          created_at,
+          metadata,
+          resolution,
+          photo:photos!activity_log_photo_id_fkey (
+            id,
+            filename
+          )
+        `)
+        .eq('collection_id', collectionId)
+        .eq('event_type', 'download')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      return data.map(item => ({
+        id: item.id,
+        email: item.visitor_email || 'Unknown visitor',
+        date: item.created_at,
+        type: item.metadata?.type || (item.photo_id ? 'single' : 'gallery'),
+        resolution: item.resolution || item.metadata?.resolution || 'Original',
+        filename: item.photo?.filename || null,
+        size: item.metadata?.size || null,
+        pinUsed: item.metadata?.pinUsed || false,
+        setName: item.metadata?.setName || 'Highlights',
+        pin: item.metadata?.pin || '---'
+      }));
+    } catch (error) {
+      console.error('Error in getDownloadActivity:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Delete an activity log entry
+   */
+  async deleteActivity(activityId) {
+    try {
+      const { error } = await supabase
+        .from('activity_log')
+        .delete()
+        .eq('id', activityId);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error in deleteActivity:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Log an activity event
    */
   async logActivity(collectionId, eventType, data = {}) {

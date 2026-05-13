@@ -214,7 +214,16 @@ export const DownloadModal = ({
       await galleryService.logActivity(collection.id, 'download', {
         email: email.trim(),
         photographerId: collection.user_id,
-        photoId: initialPhoto?.id
+        photoId: initialPhoto?.id,
+        metadata: {
+          type: initialPhoto ? 'photo' : 'gallery',
+          resolution: 'High Res',
+          pinUsed: !!(collection?.download_pin && pin.length > 0),
+          pin: pin.length > 0 ? pin : null,
+          size: content.size,
+          photoCount: photosToDownload.length,
+          setName: selectedSet === 'all' ? 'All Photos' : (selectedSet === null ? 'Highlights' : (sets.find(s => s.id === selectedSet)?.name || 'Unknown Set'))
+        }
       });
 
       setStep('complete');

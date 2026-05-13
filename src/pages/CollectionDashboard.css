@@ -5924,37 +5924,38 @@ input:checked+.cd-toggle-slider:before {
 .nav-item {
     white-space: nowrap !important;
 }
-/* Activity List Styles */
+
+/* --- Activity List Container --- */
 .activity-list-container {
-    background: #fff;
-    border: 1px solid #eee;
-    border-radius: 8px;
-    margin-top: 24px;
-    overflow: hidden;
+    width: 100%;
+    margin-top: 8px;
+    border: 1px solid #ebebeb;
+    border-radius: 4px;
 }
 
 .activity-table-header {
     display: grid;
-    grid-template-columns: 2fr 1.5fr 1fr 1fr;
-    padding: 16px 24px;
-    background: #f9fafb;
-    border-bottom: 1px solid #eee;
+    grid-template-columns: 140px minmax(200px, 1fr) 120px 100px 80px;
+    background-color: #f8fafb;
+    border-bottom: 1px solid #ebebeb;
+    padding: 12px 20px;
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: #666;
+    letter-spacing: 0.1em;
+    color: #999;
 }
 
-.activity-table-body {
-    display: flex;
-    flex-direction: column;
+/* Adjust grid for Single Photo/Video tabs which have Filename column */
+.activity-list-container:has(.activity-col-filename) .activity-table-header,
+.activity-list-container:has(.activity-col-filename) .activity-row {
+    grid-template-columns: 140px minmax(180px, 1fr) 120px minmax(150px, 1fr) 100px 80px;
 }
 
 .activity-row {
     display: grid;
-    grid-template-columns: 2fr 1.5fr 1fr 1fr;
-    padding: 16px 24px;
+    grid-template-columns: 140px minmax(200px, 1fr) 120px 100px 80px;
+    padding: 16px 20px;
     border-bottom: 1px solid #f5f5f5;
     align-items: center;
     font-size: 14px;
@@ -5992,7 +5993,7 @@ input:checked+.cd-toggle-slider:before {
     color: #111;
 }
 
-.activity-col-count {
+.activity-col-count, .activity-col-resolution, .activity-col-filename, .activity-col-size {
     color: #666;
     font-size: 13px;
 }
@@ -6001,4 +6002,147 @@ input:checked+.cd-toggle-slider:before {
     color: #999;
     font-size: 13px;
 }
+
+.activity-col-pin {
+    display: flex;
+    justify-content: center;
+}
+
+/* Favorite Activity Table Specific Overrides */
+.activity-list-container:has(.activity-col-count) .activity-table-header,
+.activity-list-container:has(.activity-col-count) .activity-row {
+    grid-template-columns: minmax(200px, 1fr) 150px 100px 120px;
+}
+
+
+.activity-col-email {
+    font-weight: 600;
+    color: #111;
+}
+
+.set-badge {
+    color: #00c0a3;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.activity-col-date-downloaded {
+    color: #666;
+    font-size: 13px;
+}
+
+.row-action-btn {
+    background: none;
+    border: none;
+    color: #bbb;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.row-action-btn:hover {
+    color: #111;
+}
+
+.export-btn {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #ebebeb;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #111;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.export-btn:hover {
+    border-color: #111;
+    background-color: #f8fafb;
+}
+
+.export-btn.teal {
+    border-color: #00c0a3;
+    color: #00c0a3;
+}
+
+.export-btn.teal:hover {
+    background-color: #f0fdfa;
+    border-color: #00c0a3;
+}
+
+/* Download Activity Table Specific Overrides */
+.activity-table-header.download,
+.activity-row.download {
+    grid-template-columns: 2fr 1.2fr 1.2fr 100px 1.8fr 40px;
+    padding-left: 20px;
+    padding-right: 20px;
+    position: relative; /* Allow z-index to work */
+}
+
+/* Ensure the row with an open menu is above other rows */
+.activity-row.download:hover {
+    z-index: 5;
+}
+
+.activity-col-actions {
+    display: flex;
+    justify-content: center;
+    position: relative;
+}
+
+.activity-row-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ebebeb;
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 9999;
+    min-width: 160px;
+    padding: 6px 0;
+    margin-top: 5px;
+}
+
+.activity-row-menu.up {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
+.activity-menu-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    padding: 8px 16px;
+    font-size: 13px;
+    color: #333;
+    background: none;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.2s;
+}
+
+.activity-menu-item:hover {
+    background-color: #f8fafb;
+}
+
+.activity-menu-item.delete {
+    color: #333; /* Pixieset uses dark text even for delete in this menu */
+}
+
+.activity-menu-item.delete:hover {
+    background-color: #f8fafb;
+}
+
+
+
 

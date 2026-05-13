@@ -152,6 +152,7 @@ const CollectionDashboard = () => {
     const [favoriteListMax, setFavoriteListMax] = useState('');
     const [favoriteListDesc, setFavoriteListDesc] = useState('');
     const [favoriteActivity, setFavoriteActivity] = useState([]);
+    const [downloadActivity, setDownloadActivity] = useState([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
 
     const handleCreateFavoriteList = async () => {
@@ -186,8 +187,62 @@ const CollectionDashboard = () => {
     // Activity State
     const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, email, share, private
     const [activeDownloadActivityTab, setActiveDownloadActivityTab] = useState('gallery'); // gallery, photo, video
+    const [activeActivityMenu, setActiveActivityMenu] = useState(null); // id of activity item
 
-    const fileInputRef = useRef(null);
+    const handleExportActivity = () => {
+        if (!downloadActivity.length) return;
+        
+        const filteredData = downloadActivity.filter(a => a.type === activeDownloadActivityTab);
+        if (!filteredData.length) return;
+
+        // Header row
+        const headers = ['Email', 'Photo Set', 'Resolution', 'PIN', 'Date Downloaded'];
+        
+        // Data rows
+        const rows = filteredData.map(item => [
+            item.email,
+            item.setName || 'Highlights',
+            item.resolution,
+            item.pin || (item.pinUsed ? 'Yes' : '---'),
+            new Date(item.date).toLocaleString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                year: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit', 
+                hour12: true 
+            }).replace(',', '')
+        ]);
+
+        // Construct CSV string
+        const csvContent = [
+            headers.join(','),
+            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        // Create download link
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `collection-download-activity-${collectionId}-${activeDownloadActivityTab}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDeleteActivity = async (id) => {
+        try {
+            await galleryService.deleteActivity(id);
+            setDownloadActivity(prev => prev.filter(a => a.id !== id));
+            setFavoriteActivity(prev => prev.filter(a => a.id !== id));
+            setActiveActivityMenu(null);
+        } catch (err) {
+            console.error('Failed to delete activity:', err);
+            alert('Failed to delete activity log.');
+        }
+    };
     const modalFileInputRef = useRef(null);
     const photoMenuRef = useRef(null);
     const gridSettingsRef = useRef(null);
@@ -269,9 +324,26 @@ const CollectionDashboard = () => {
         }
     };
 
+    const fetchDownloadActivity = async () => {
+        if (!collectionId) return;
+        try {
+            setLoadingActivity(true);
+            const activity = await galleryService.getDownloadActivity(collectionId);
+            setDownloadActivity(activity);
+        } catch (err) {
+            console.error('Failed to fetch download activity:', err);
+        } finally {
+            setLoadingActivity(false);
+        }
+    };
+
     useEffect(() => {
-        if (activeSidebarTab === 'activity' && activeActivitySubTab === 'favorite') {
-            fetchFavoriteActivity();
+        if (activeSidebarTab === 'activity') {
+            if (activeActivitySubTab === 'favorite') {
+                fetchFavoriteActivity();
+            } else if (activeActivitySubTab === 'download') {
+                fetchDownloadActivity();
+            }
         }
     }, [activeSidebarTab, activeActivitySubTab, collectionId]);
 
@@ -505,6 +577,22 @@ const CollectionDashboard = () => {
 
         fetchCollectionData();
     }, [collectionId, navigate]);
+
+    // Global click listener to close menus
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (activeActivityMenu) setActiveActivityMenu(null);
+            if (showSortMenu) setShowSortMenu(false);
+            if (showGridSettings) setShowGridSettings(false);
+            if (showMoreDropdown) setShowMoreDropdown(false);
+            if (showShareDropdown) setShowShareDropdown(false);
+            if (showSelectionMore) setShowSelectionMore(false);
+            if (showSelectAllMenu) setShowSelectAllMenu(false);
+            if (showMoveToSetMenu) setShowMoveToSetMenu(false);
+        };
+        document.addEventListener('click', handleClickOutside);
+        return () => document.removeEventListener('click', handleClickOutside);
+    }, [activeActivityMenu, showSortMenu, showGridSettings, showMoreDropdown, showShareDropdown, showSelectionMore, showSelectAllMenu, showMoveToSetMenu]);
 
     // ─── SORT LOGIC ──────────────────────────────────────────
     const sortedPhotos = useMemo(() => {
@@ -2191,9 +2279,12 @@ const CollectionDashboard = () => {
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '8px' }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                                         )}
                                     </h2>
-                                    {activeActivitySubTab === 'download' && <span className="activity-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Download Activity</span>}
-                                    {activeActivitySubTab === 'favorite' && <span className="activity-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Favorite Activity</span>}
-
+                                    {activeActivitySubTab === 'download' && (
+                                        <button className="export-btn teal" onClick={handleExportActivity}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><path d="M15 3h6v6" /><path d="M10 14L21 3" /><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /></svg>
+                                            Export
+                                        </button>
+                                    )}
                                 </div>
 
                                 {activeActivitySubTab === 'download' && (
@@ -2223,9 +2314,64 @@ const CollectionDashboard = () => {
                                                             <span>{item.email}</span>
                                                         </div>
                                                         <div className="activity-col-name">{item.name}</div>
-                                                        <div className="activity-col-count">{item.item_count} photos</div>
+                                                        <div className="activity-col-count">{item.photoCount} photos</div>
                                                         <div className="activity-col-date">
-                                                            {new Date(item.created_at).toLocaleDateString()}
+                                                            {new Date(item.date).toLocaleDateString()}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : activeActivitySubTab === 'download' && downloadActivity.filter(a => a.type === activeDownloadActivityTab).length > 0 ? (
+                                        <div className="activity-list-container">
+                                            <div className="activity-table-header download">
+                                                <div className="activity-col-email">Email</div>
+                                                <div className="activity-col-set">Photo Set</div>
+                                                <div className="activity-col-resolution">Resolution</div>
+                                                <div className="activity-col-pin">PIN</div>
+                                                <div className="activity-col-date-downloaded">Date Downloaded</div>
+                                                <div className="activity-col-actions"></div>
+                                            </div>
+                                            <div className="activity-table-body">
+                                                {downloadActivity.filter(a => a.type === activeDownloadActivityTab).map((item, index, array) => (
+                                                    <div key={item.id} className="activity-row download">
+                                                        <div className="activity-col-email">
+                                                            <span>{item.email}</span>
+                                                        </div>
+                                                        <div className="activity-col-set">
+                                                            <span className="set-badge">{item.setName || 'Highlights'}</span>
+                                                        </div>
+                                                        <div className="activity-col-resolution">
+                                                            {item.resolution}
+                                                        </div>
+                                                        <div className="activity-col-pin">
+                                                            {item.pin !== '---' ? item.pin : (item.pinUsed ? 'Yes' : '---')}
+                                                        </div>
+                                                        <div className="activity-col-date-downloaded">
+                                                            {new Date(item.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
+                                                        </div>
+                                                        <div className="activity-col-actions">
+                                                            <button 
+                                                                className="row-action-btn"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    setActiveActivityMenu(activeActivityMenu === item.id ? null : item.id);
+                                                                }}
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                                            </button>
+
+                                                            {activeActivityMenu === item.id && (
+                                                                <div className={`activity-row-menu ${index >= array.length - 2 && array.length > 3 ? 'up' : ''}`}>
+                                                                    <button 
+                                                                        className="activity-menu-item delete"
+                                                                        onClick={() => handleDeleteActivity(item.id)}
+                                                                    >
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                                                        Delete info
+                                                                    </button>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 ))}
@@ -2272,7 +2418,11 @@ const CollectionDashboard = () => {
                                                 )}
                                             </div>
                                             <h3 className="cd-empty-state-title">
-                                                {activeActivitySubTab === 'download' && 'No gallery downloads yet'}
+                                                {activeActivitySubTab === 'download' && (
+                                                    activeDownloadActivityTab === 'gallery' ? 'No gallery downloads yet' :
+                                                    activeDownloadActivityTab === 'photo' ? 'No single photo downloads yet' :
+                                                    'No single video downloads yet'
+                                                )}
                                                 {activeActivitySubTab === 'favorite' && (loadingActivity ? 'Loading activity...' : 'No favorites activity yet')}
 
                                                 {activeActivitySubTab === 'email' && 'No email registration activity yet'}
@@ -2280,7 +2430,11 @@ const CollectionDashboard = () => {
                                                 {activeActivitySubTab === 'private' && 'No private photo activity yet'}
                                             </h3>
                                             <p className="cd-empty-state-text">
-                                                {activeActivitySubTab === 'download' && 'Gallery download activity details will show here when visitors download all photos from their collection.'}
+                                                {activeActivitySubTab === 'download' && (
+                                                    activeDownloadActivityTab === 'gallery' ? 'Gallery download activity details will show here when visitors download all photos from their collection.' :
+                                                    activeDownloadActivityTab === 'photo' ? 'Single photo download activity details will show here when visitors download individual photos.' :
+                                                    'Single video download activity details will show here when visitors download individual videos.'
+                                                )}
                                                 {activeActivitySubTab === 'favorite' && 'Activity details will show here when visitors favorite photos in their collection.'}
 
                                                 {activeActivitySubTab === 'email' && 'Email registration activity will show here when visitors register their email before viewing the collection.'}
