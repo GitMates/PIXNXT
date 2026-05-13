@@ -446,8 +446,10 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
             onImageClick={(index) => setLightboxIndex(index)}
             onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
             onDownload={handleDownloadClick}
+            onShare={() => {}}
             showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
             showFavorite={favFeatureOn}
+            showShare={dashboardState?.socialSharing !== false}
             favoritedPhotoIds={favoritedPhotos}
             customRowHeight={grid.size === 'large' ? 155 : grid.size === 'regular' ? 111 : grid.size === 'small' ? 74 : 52}
             customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
@@ -484,8 +486,11 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           if (photo) void handleFavoritePhotoToggle(photo.id);
         }}
         onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
+        onShare={() => {}}
         showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
         showFavorite={favFeatureOn}
+        showShare={dashboardState?.socialSharing !== false}
+        favoriteCount={favFeatureOn ? favoritedPhotos.length : undefined}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);

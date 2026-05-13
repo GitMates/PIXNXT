@@ -679,6 +679,49 @@ export const galleryService = {
   },
 
   /**
+   * Visitor's favorite lists for the favorites hub (/gallery/:slug/f).
+   */
+  async getFavoriteListsForSession(sessionId) {
+    if (!sessionId) return [];
+    const { data: lists, error } = await supabase
+      .from('favorite_lists')
+      .select('id, name, created_at')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    if (!lists?.length) return [];
+
+    const listIds = lists.map((l) => l.id);
+    const { data: items, error: itemsError } = await supabase
+      .from('favorite_items')
+      .select('list_id, photo:photos(thumbnail_url, web_url)')
+      .in('list_id', listIds);
+
+    if (itemsError) {
+      console.warn('getFavoriteListsForSession items:', itemsError);
+      return lists.map((l) => ({ ...l, photoCount: 0, coverUrl: null }));
+    }
+
+    const countByList = {};
+    const coverByList = {};
+    (items || []).forEach((it) => {
+      const lid = it.list_id;
+      countByList[lid] = (countByList[lid] || 0) + 1;
+      if (!coverByList[lid] && it.photo) {
+        const ph = Array.isArray(it.photo) ? it.photo[0] : it.photo;
+        coverByList[lid] = ph?.thumbnail_url || ph?.web_url || null;
+      }
+    });
+
+    return lists.map((l) => ({
+      ...l,
+      photoCount: countByList[l.id] || 0,
+      coverUrl: coverByList[l.id] || null,
+    }));
+  },
+
+  /**
    * Update a favorite list's metadata
    */
   async updateFavoriteList(listId, updateData) {

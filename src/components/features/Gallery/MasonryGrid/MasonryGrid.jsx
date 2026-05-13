@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 import { Download, Heart } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 
@@ -66,7 +66,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
   })();
 
   return (
-    <motion.div
+    <Motion.div
       variants={container}
       initial="hidden"
       whileInView="show"
@@ -98,7 +98,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
         const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
 
         return (
-          <motion.div
+          <Motion.div
             key={`${photo.id}-${index}`}
             variants={item}
             className={cn(
@@ -128,11 +128,30 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                 }}
                 loading="lazy"
               />
-              {/* Hover overlay with buttons */}
+              {showFavorite && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFavorite?.(photo);
+                  }}
+                  className={cn(
+                    'absolute left-2 top-2 z-[2] flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all',
+                    isFav
+                      ? 'bg-white text-black shadow-sm'
+                      : 'bg-black/35 text-white hover:bg-white hover:text-black'
+                  )}
+                  aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                >
+                  <Heart size={16} strokeWidth={1.5} fill={isFav ? 'currentColor' : 'none'} />
+                </button>
+              )}
+              {/* Hover overlay — download only (favorites use corner heart) */}
               <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/10">
                 <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 transform translate-y-[10px] transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
                   {showDownload && (
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         onDownload?.(photo);
@@ -142,32 +161,12 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                       <Download size={16} strokeWidth={1.5} />
                     </button>
                   )}
-                  {showFavorite && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onFavorite?.(photo);
-                      }}
-                      className={cn(
-                        "flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all",
-                        isFav
-                          ? "bg-white text-black" 
-                          : "bg-white/20 text-white hover:bg-white hover:text-black"
-                      )}
-                    >
-                      <Heart 
-                        size={16} 
-                        strokeWidth={1.5} 
-                        fill={isFav ? "currentColor" : "none"} 
-                      />
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
-          </motion.div>
+          </Motion.div>
         );
       })}
-    </motion.div>
+    </Motion.div>
   );
 }
