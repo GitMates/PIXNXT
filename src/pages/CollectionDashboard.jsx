@@ -261,7 +261,7 @@ const CollectionDashboard = () => {
             setActiveActivityMenu(null);
         } catch (err) {
             console.error('Failed to delete favorite list:', err);
-            alert('Failed to delete favorite list.');
+            alert(err?.message || err?.error_description || 'Failed to delete favorite list.');
         }
     };
 
@@ -316,7 +316,7 @@ const CollectionDashboard = () => {
             setActiveActivityMenu(null);
         } catch (err) {
             console.error('Failed to delete activity:', err);
-            alert('Failed to delete activity log.');
+            alert(err?.message || err?.error_description || 'Failed to delete activity log.');
         }
     };
     const modalFileInputRef = useRef(null);
@@ -2260,87 +2260,6 @@ const CollectionDashboard = () => {
                             </div>
                         )}
 
-                        {/* Create Favorite List Modal */}
-                        {showCreateFavoriteListModal && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                                <div className="bg-white rounded-lg shadow-xl w-[600px] max-w-[90vw] flex flex-col">
-                                    <div className="flex items-center justify-between p-6 border-b border-gray-100">
-                                        <h3 className="text-xs font-bold tracking-[0.2em] uppercase text-gray-900">{editingFavoriteList ? 'Edit Favorite List' : 'Create Favorite List'}</h3>
-                                        <button onClick={() => setShowCreateFavoriteListModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                                        </button>
-                                    </div>
-                                    
-                                    <div className="p-6 overflow-y-auto" style={{maxHeight: '70vh'}}>
-                                        <div className="mb-6">
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Client email</label>
-                                            <input 
-                                                type="email" 
-                                                className="w-full border border-gray-200 rounded-md p-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" 
-                                                placeholder="e.g. client@email.com" 
-                                                value={favoriteListEmail}
-                                                onChange={(e) => setFavoriteListEmail(e.target.value)}
-                                            />
-                                            <p className="mt-2 text-xs text-gray-500">Your client is required to sign in using this email to see this favorite list</p>
-                                        </div>
-
-                                        <div className="flex gap-6 mb-6">
-                                            <div className="flex-1">
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Favorite list name</label>
-                                                <input 
-                                                    type="text" 
-                                                    className="w-full border border-gray-200 rounded-md p-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" 
-                                                    placeholder="e.g. For retouching" 
-                                                    value={favoriteListName}
-                                                    onChange={(e) => setFavoriteListName(e.target.value)}
-                                                />
-                                                <p className="mt-2 text-xs text-gray-500">Your clients will see this name</p>
-                                            </div>
-                                            <div className="flex-1">
-                                                <label className="block text-sm font-medium text-gray-700 mb-2">Max selection</label>
-                                                <input 
-                                                    type="number" 
-                                                    className="w-full border border-gray-200 rounded-md p-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" 
-                                                    placeholder="e.g. 30" 
-                                                    value={favoriteListMax}
-                                                    onChange={(e) => setFavoriteListMax(e.target.value)}
-                                                />
-                                                <p className="mt-2 text-xs text-gray-500">Limit the number of photos your clients can pick</p>
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">List description</label>
-                                            <textarea 
-                                                className="w-full border border-gray-200 rounded-md p-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 h-32 resize-none" 
-                                                placeholder="Optional"
-                                                maxLength={500}
-                                                value={favoriteListDesc}
-                                                onChange={(e) => setFavoriteListDesc(e.target.value)}
-                                            ></textarea>
-                                            <p className="mt-1 text-xs text-gray-400 text-right">{favoriteListDesc.length} / 500</p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
-                                        <button 
-                                            onClick={() => setShowCreateFavoriteListModal(false)}
-                                            className="px-6 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button 
-                                            onClick={handleCreateFavoriteList}
-                                            className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded transition-colors"
-                                        >
-                                            {editingFavoriteList ? 'Save' : 'Create'}
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-
                         {activeSidebarTab === 'activity' && (
                             <div className="cd-general-settings-view">
                                 <div className="cd-settings-content-header split">
@@ -2365,6 +2284,8 @@ const CollectionDashboard = () => {
                                                 setEditingFavoriteList(null);
                                                 setFavoriteListEmail('');
                                                 setFavoriteListName('');
+                                                setFavoriteListMax('');
+                                                setFavoriteListDesc('');
                                                 setShowCreateFavoriteListModal(true);
                                             }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
@@ -3015,43 +2936,108 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Create Favorite List Modal */}
+            {/* Create Favorite List Modal (single overlay — matches preset list flow) */}
             {showCreateFavoriteListModal && (
-                <div className="cd-modal-overlay" onClick={() => setShowCreateFavoriteListModal(false)}>
-                    <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">CREATE FAVORITE LIST</h3>
-                            <button className="cd-modal-close" onClick={() => setShowCreateFavoriteListModal(false)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                <div
+                    className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-4"
+                    onClick={() => setShowCreateFavoriteListModal(false)}
+                    role="presentation"
+                >
+                    <div
+                        className="flex w-full max-w-[600px] flex-col rounded-lg bg-white shadow-xl"
+                        onClick={(e) => e.stopPropagation()}
+                        role="dialog"
+                        aria-labelledby="favorite-list-modal-title"
+                    >
+                        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+                            <h3 id="favorite-list-modal-title" className="text-sm font-bold uppercase tracking-[0.12em] text-gray-900">
+                                {editingFavoriteList ? 'Edit favorite list' : 'Create favorite list'}
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => setShowCreateFavoriteListModal(false)}
+                                className="text-gray-400 transition-colors hover:text-gray-600"
+                                aria-label="Close"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                             </button>
                         </div>
-                        <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <div className="cd-form-group">
-                                <label className="cd-form-label">CLIENT EMAIL</label>
-                                <input 
-                                    type="email" 
-                                    className="cd-form-input"
-                                    placeholder="Enter client's email"
+
+                        <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
+                            <div className="mb-6">
+                                <label className="mb-2 block text-sm font-semibold text-gray-900">Client email</label>
+                                <input
+                                    type="email"
+                                    disabled={!!editingFavoriteList}
+                                    className="w-full rounded border border-gray-200 p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C] disabled:cursor-not-allowed disabled:bg-gray-50"
+                                    placeholder="e.g. client@email.com"
                                     value={favoriteListEmail}
                                     onChange={(e) => setFavoriteListEmail(e.target.value)}
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', marginTop: '4px' }}
                                 />
+                                <p className="mt-2 text-xs text-gray-500">
+                                    Your client is required to sign in using this email to see this favorite list
+                                </p>
                             </div>
-                            <div className="cd-form-group" style={{ marginTop: '16px' }}>
-                                <label className="cd-form-label">LIST NAME</label>
-                                <input 
-                                    type="text" 
-                                    className="cd-form-input"
-                                    placeholder="e.g. Wedding Selection"
-                                    value={favoriteListName}
-                                    onChange={(e) => setFavoriteListName(e.target.value)}
-                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', marginTop: '4px' }}
-                                />
+
+                            <div className="mb-6 flex flex-col gap-6 sm:flex-row sm:gap-6">
+                                <div className="min-w-0 flex-1">
+                                    <label className="mb-2 block text-sm font-semibold text-gray-900">Favorite list name</label>
+                                    <input
+                                        type="text"
+                                        className="w-full rounded border border-gray-200 p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
+                                        placeholder="e.g. For retouching"
+                                        value={favoriteListName}
+                                        onChange={(e) => setFavoriteListName(e.target.value)}
+                                    />
+                                    <p className="mt-2 text-xs text-gray-500">Your clients will see this name</p>
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <label className="mb-2 block text-sm font-semibold text-gray-900">Max selection</label>
+                                    <input
+                                        type="number"
+                                        min={0}
+                                        className="w-full rounded border border-gray-200 p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
+                                        placeholder="e.g. 30"
+                                        value={favoriteListMax}
+                                        onChange={(e) => setFavoriteListMax(e.target.value)}
+                                    />
+                                    <p className="mt-2 text-xs text-gray-500">Limit the number of photos your clients can pick</p>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="mb-2 block text-sm font-semibold text-gray-900">List description</label>
+                                <div className="relative">
+                                    <textarea
+                                        className="h-32 w-full resize-none rounded border border-gray-200 p-3 pb-8 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
+                                        placeholder="Optional"
+                                        maxLength={500}
+                                        value={favoriteListDesc}
+                                        onChange={(e) => setFavoriteListDesc(e.target.value)}
+                                    />
+                                    <span className="pointer-events-none absolute bottom-2 left-3 text-xs text-gray-400">
+                                        {favoriteListDesc.length} / 500
+                                    </span>
+                                </div>
                             </div>
                         </div>
-                        <div className="cd-modal-footer">
-                            <button className="cd-btn-secondary" onClick={() => setShowCreateFavoriteListModal(false)}>Cancel</button>
-                            <button className="cd-btn-primary" onClick={handleCreateFavoriteList} disabled={!favoriteListEmail || !favoriteListName}>Create List</button>
+
+                        <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-5">
+                            <button
+                                type="button"
+                                onClick={() => setShowCreateFavoriteListModal(false)}
+                                className="px-2 py-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleCreateFavoriteList}
+                                disabled={!favoriteListEmail?.trim() || !favoriteListName?.trim()}
+                                className="rounded bg-[#1ABC9C] px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-[#16a085] disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                                {editingFavoriteList ? 'Save' : 'Create'}
+                            </button>
                         </div>
                     </div>
                 </div>

@@ -70,33 +70,39 @@ const GalleryView = () => {
 
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
 
-  const handleFavoriteClick = async (photoId = null) => {
+  /** Toolbar "Favorite" — toggles My Favorites view only (never pass through lightbox/grid bugs). */
+  const handleFavoriteHeaderClick = () => {
     if (!collection) return;
 
     if (sessionId) {
-      if (photoId) {
-        // Toggle specific photo
-        const isCurrentlyFavorited = favoritedPhotos.includes(photoId);
-        try {
-          await galleryService.toggleFavorite(sessionId, photoId, !isCurrentlyFavorited);
-          setFavoritedPhotos(prev =>
-            isCurrentlyFavorited
-              ? prev.filter(id => id !== photoId)
-              : [...prev, photoId]
-          );
-        } catch (e) {
-          console.error("Failed to toggle favorite:", e);
-        }
+      if (favoritedPhotos.length === 0 && !showOnlyFavorites) {
+        alert("You haven't favorited any photos yet. Click the heart icon on any photo to save it.");
       } else {
-        // Clicked header "FAVORITE" button - toggle favorites filter
-        if (favoritedPhotos.length === 0 && !showOnlyFavorites) {
-          alert("You haven't favorited any photos yet. Click the heart icon on any photo to save it.");
-        } else {
-          setShowOnlyFavorites(!showOnlyFavorites);
-        }
+        setShowOnlyFavorites(!showOnlyFavorites);
       }
     } else {
-      // Need email
+      setPendingFavoritePhotoId(null);
+      setShowFavoriteModal(true);
+    }
+  };
+
+  /** Heart on a photo (grid overlay or lightbox) — toggles that photo only. */
+  const handleFavoritePhotoToggle = async (photoId) => {
+    if (!collection || !photoId) return;
+
+    if (sessionId) {
+      const isCurrentlyFavorited = favoritedPhotos.includes(photoId);
+      try {
+        await galleryService.toggleFavorite(sessionId, photoId, !isCurrentlyFavorited);
+        setFavoritedPhotos((prev) =>
+          isCurrentlyFavorited
+            ? prev.filter((id) => id !== photoId)
+            : [...prev, photoId]
+        );
+      } catch (e) {
+        console.error('Failed to toggle favorite:', e);
+      }
+    } else {
       setPendingFavoritePhotoId(photoId);
       setShowFavoriteModal(true);
     }
@@ -224,17 +230,6 @@ const GalleryView = () => {
     fetchFavoriteList();
   }, [listId]);
 
-  // Slideshow Logic
-  useEffect(() => {
-    let interval;
-    if (isSlideshowActive && lightboxIndex !== -1) {
-      interval = setInterval(() => {
-        setLightboxIndex((prev) => (prev + 1) % (collection.photos?.length || 1));
-      }, 4000); // 4 seconds per slide
-    }
-    return () => clearInterval(interval);
-  }, [isSlideshowActive, lightboxIndex, collection]);
-
   const scrollToGallery = () => {
     galleryRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -284,6 +279,32 @@ const GalleryView = () => {
   }, [collection, activeSetId, showOnlyFavorites, favoritedPhotos, isFavoriteListMode, favoriteListPhotos]);
 
   const photoUrls = useMemo(() => filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url), [filteredPhotos]);
+
+  // Slideshow: advance using the same list as the lightbox (filtered), not full collection length
+  useEffect(() => {
+    let interval;
+    if (isSlideshowActive && lightboxIndex !== -1) {
+      interval = setInterval(() => {
+        setLightboxIndex((prev) => {
+          const n = filteredPhotos.length;
+          if (n < 1) return -1;
+          return (prev + 1) % n;
+        });
+      }, 4000);
+    }
+    return () => clearInterval(interval);
+  }, [isSlideshowActive, lightboxIndex, filteredPhotos]);
+
+  // Keep lightbox index valid when the visible grid shrinks (e.g. unfavorite in "My Favorites" mode)
+  useEffect(() => {
+    const n = filteredPhotos.length;
+    setLightboxIndex((idx) => {
+      if (idx < 0) return idx;
+      if (n === 0) return -1;
+      if (idx >= n) return n - 1;
+      return idx;
+    });
+  }, [filteredPhotos]);
 
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-white">
@@ -393,7 +414,7 @@ const GalleryView = () => {
                 {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Slideshow</span>}
               </button>
               {collection?.favorites_enabled !== false && (
-                <button onClick={() => handleFavoriteClick()} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all relative" style={{ color: 'var(--gallery-text)' }}>
+                <button onClick={() => handleFavoriteHeaderClick()} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all relative" style={{ color: 'var(--gallery-text)' }}>
                   <div className="relative">
                     <Heart size={14} fill={favoritedPhotos.length > 0 ? "currentColor" : "none"} />
                     {favoritedPhotos.length > 0 && (
@@ -487,7 +508,7 @@ const GalleryView = () => {
               aspectRatio: collection.aspect_ratio || 'original'
             }}
             onImageClick={(index) => setLightboxIndex(index)}
-            onFavorite={(photo) => handleFavoriteClick(photo.id)}
+            onFavorite={(photo) => handleFavoritePhotoToggle(photo.id)}
             onDownload={handleDownloadClick}
             onShare={() => setShowShareModal(true)}
             showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
@@ -521,7 +542,10 @@ const GalleryView = () => {
         onPrev={() => setLightboxIndex((prev) => (prev - 1 + photoUrls.length) % photoUrls.length)}
         isSlideshowActive={isSlideshowActive}
         onToggleSlideshow={() => setIsSlideshowActive(!isSlideshowActive)}
-        onFavorite={() => handleFavoriteClick(filteredPhotos[lightboxIndex]?.id)}
+        onFavorite={() => {
+          const photo = filteredPhotos[lightboxIndex];
+          if (photo) handleFavoritePhotoToggle(photo.id);
+        }}
         onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
         showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
         showFavorite={collection?.favorites_enabled !== false}

@@ -691,23 +691,33 @@ export const galleryService = {
   },
 
   /**
-   * Delete a favorite list and its items
+   * Delete a favorite list and its items (collection owner only).
+   * Uses RPC with SECURITY DEFINER so deletes succeed even when direct table DELETE is blocked by RLS.
    */
   async deleteFavoriteList(listId) {
-    // Items are deleted automatically if cascade is on, but let's be safe
-    const { error: itemsError } = await supabase
-      .from('favorite_items')
-      .delete()
-      .eq('list_id', listId);
+    if (!listId) throw new Error('List id is required');
 
-    if (itemsError) throw itemsError;
+    const { data: deletedCount, error } = await supabase.rpc('delete_favorite_list_owned', {
+      p_list_id: listId,
+    });
 
-    const { error } = await supabase
-      .from('favorite_lists')
-      .delete()
-      .eq('id', listId);
+    if (error) {
+      const msg = error.message || '';
+      if (/function .* does not exist|Could not find the function/i.test(msg)) {
+        throw new Error(
+          'Delete is not set up on the server yet. In Supabase → SQL Editor, run the file supabase/migrations/20260513130000_delete_favorite_list_rpc.sql (or push migrations), then try again.'
+        );
+      }
+      throw error;
+    }
 
-    if (error) throw error;
+    const n = Number(deletedCount);
+    if (Number.isNaN(n) || n !== 1) {
+      throw new Error(
+        'This favorite list could not be deleted. Sign in as the account that owns this collection, or confirm the list still exists.'
+      );
+    }
+
     return true;
   },
 
@@ -756,21 +766,37 @@ export const galleryService = {
   },
 
   /**
-   * Delete an activity log entry
+   * Delete an activity log entry (collection owner only).
+   * Uses RPC with SECURITY DEFINER so deletes persist under RLS.
    */
   async deleteActivity(activityId) {
-    try {
-      const { error } = await supabase
-        .from('activity_log')
-        .delete()
-        .eq('id', activityId);
+    const id = Number(activityId);
+    if (!Number.isFinite(id)) {
+      throw new Error('Invalid activity id');
+    }
 
-      if (error) throw error;
-      return true;
-    } catch (error) {
-      console.error('Error in deleteActivity:', error);
+    const { data: deletedCount, error } = await supabase.rpc('delete_activity_log_owned', {
+      p_activity_id: id,
+    });
+
+    if (error) {
+      const msg = error.message || '';
+      if (/function .* does not exist|Could not find the function/i.test(msg)) {
+        throw new Error(
+          'Delete is not set up on the server yet. In Supabase → SQL Editor, run supabase/migrations/20260513140000_delete_activity_log_rpc.sql, then try again.'
+        );
+      }
       throw error;
     }
+
+    const n = Number(deletedCount);
+    if (Number.isNaN(n) || n !== 1) {
+      throw new Error(
+        'This activity row could not be deleted. Sign in as the account that owns this collection, or confirm the entry still exists.'
+      );
+    }
+
+    return true;
   },
 
   /**
