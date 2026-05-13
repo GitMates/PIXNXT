@@ -442,17 +442,17 @@ export const galleryService = {
         console.log('New session created and retrieved:', session);
       }
 
-      // Visitor flows need a default list for heart toggles. Dashboard preset-list creation
-      // supplies its own list name — skip this or you get both "My Favorites" and the preset row.
+      // Visitor flows: only create "My Favorites" when this session has no lists yet.
+      // If the photographer already created a preset list (e.g. retouching) for this email,
+      // do not add a second default list — hearts should target the preset list.
       if (ensureDefaultFavoriteList) {
-        const { data: favLists } = await supabase
+        const { data: anyLists } = await supabase
           .from('favorite_lists')
-          .select('id, name')
+          .select('id')
           .eq('session_id', session.id)
-          .eq('name', 'My Favorites')
           .limit(1);
 
-        if (!favLists || favLists.length === 0) {
+        if (!anyLists?.length) {
           console.log('Creating default favorite list for session:', session.id);
           const { error: insertListError } = await supabase
             .from('favorite_lists')
@@ -476,25 +476,35 @@ export const galleryService = {
   },
 
   /**
-   * Resolve the same default list toggleFavorite() uses (My Favorites, else first list).
+   * Active list for a visitor session: prefer photographer preset (max_selection set), else "My Favorites", else oldest list.
    */
+  async _resolveDefaultFavoriteList(sessionId) {
+    if (!sessionId) return null;
+    const { data: lists, error } = await supabase
+      .from('favorite_lists')
+      .select('id, name, max_selection, created_at')
+      .eq('session_id', sessionId)
+      .order('created_at', { ascending: true });
+
+    if (error || !lists?.length) return null;
+
+    const withCap = lists.filter((l) => l.max_selection != null && Number(l.max_selection) > 0);
+    if (withCap.length) {
+      return withCap[withCap.length - 1];
+    }
+    const my = lists.find((l) => l.name === 'My Favorites');
+    if (my) return my;
+    return lists[0];
+  },
+
   async _getDefaultFavoriteListId(sessionId) {
-    const { data: lists, error: listError } = await supabase
-      .from('favorite_lists')
-      .select('id')
-      .eq('session_id', sessionId)
-      .eq('name', 'My Favorites')
-      .limit(1);
+    const row = await this._resolveDefaultFavoriteList(sessionId);
+    return row?.id ?? null;
+  },
 
-    if (!listError && lists?.length) return lists[0].id;
-
-    const { data: anyLists } = await supabase
-      .from('favorite_lists')
-      .select('id')
-      .eq('session_id', sessionId)
-      .limit(1);
-
-    return anyLists?.[0]?.id ?? null;
+  /** Public: list row used for gallery hearts / toasts (name + cap). */
+  async getSessionDefaultFavoriteList(sessionId) {
+    return this._resolveDefaultFavoriteList(sessionId);
   },
 
   /**
@@ -521,17 +531,32 @@ export const galleryService = {
   },
 
   /**
-   * Create a favorite list explicitly (for Dashboard)
+   * Create a favorite list (dashboard preset or visitor "new list").
+   * @param {{ maxSelection?: number|null, description?: string|null }} [meta]
    */
-  async createFavoriteList(collectionId, sessionId, listName) {
+  async createFavoriteList(collectionId, sessionId, listName, meta = {}) {
+    const name = (listName && String(listName).trim()) || 'My Favorites';
+    let maxVal = null;
+    if (meta.maxSelection != null && meta.maxSelection !== '') {
+      const n = Number(meta.maxSelection);
+      if (Number.isFinite(n) && n > 0) maxVal = Math.floor(n);
+    }
+    const desc = meta.description != null && String(meta.description).trim()
+      ? String(meta.description).trim().slice(0, 2000)
+      : null;
+
+    const insertRow = {
+      collection_id: collectionId,
+      session_id: sessionId,
+      name,
+      ...(maxVal != null ? { max_selection: maxVal } : {}),
+      ...(desc ? { description: desc } : {}),
+    };
+
     const { data, error } = await supabase
       .from('favorite_lists')
-      .insert([{
-        collection_id: collectionId,
-        session_id: sessionId,
-        name: listName || 'My Favorites'
-      }])
-      .select('id, name, session_id')
+      .insert([insertRow])
+      .select('id, name, session_id, max_selection')
       .single();
 
     if (error) {
@@ -555,7 +580,26 @@ export const galleryService = {
     }
 
     if (isFavorite) {
-      // Add favorite
+      const { data: listMeta, error: lmErr } = await supabase
+        .from('favorite_lists')
+        .select('max_selection')
+        .eq('id', targetListId)
+        .maybeSingle();
+
+      if (!lmErr && listMeta?.max_selection != null && Number(listMeta.max_selection) > 0) {
+        const cap = Number(listMeta.max_selection);
+        const { count, error: cErr } = await supabase
+          .from('favorite_items')
+          .select('*', { count: 'exact', head: true })
+          .eq('list_id', targetListId);
+
+        if (!cErr && (count || 0) >= cap) {
+          const err = new Error('Selection limit reached for this list.');
+          err.code = 'SELECTION_LIMIT';
+          throw err;
+        }
+      }
+
       const { error } = await supabase
         .from('favorite_items')
         .insert([{
@@ -583,7 +627,7 @@ export const galleryService = {
       // 1. Fetch lists
       const { data: lists, error: listsError } = await supabase
         .from('favorite_lists')
-        .select('id, name, session_id, collection_id, created_at')
+        .select('id, name, session_id, collection_id, created_at, max_selection, description')
         .eq('collection_id', collectionId);
 
       if (listsError) {
@@ -648,6 +692,8 @@ export const galleryService = {
         name: list.name,
         email: sessionMap[list.session_id] || 'Unknown visitor',
         photoCount: countMap[list.id] || 0,
+        max_selection: list.max_selection ?? null,
+        description: list.description ?? null,
         thumbnail: thumbMap[list.id] || null,
         created_at: list.created_at,
         updated_at: updatedMap[list.id] || list.created_at,
@@ -679,13 +725,37 @@ export const galleryService = {
   },
 
   /**
+   * Favorite list rows with item timestamps (dashboard detail panel).
+   */
+  async getFavoriteListItemRows(listId) {
+    if (!listId) return [];
+    const { data, error } = await supabase
+      .from('favorite_items')
+      .select(`
+        created_at,
+        photo:photos(*)
+      `)
+      .eq('list_id', listId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map((item) => {
+      const photo = Array.isArray(item.photo) ? item.photo[0] : item.photo;
+      return {
+        itemCreatedAt: item.created_at,
+        photo: photo || null,
+      };
+    }).filter((row) => !!row.photo);
+  },
+
+  /**
    * Visitor's favorite lists for the favorites hub (/gallery/:slug/f).
    */
   async getFavoriteListsForSession(sessionId) {
     if (!sessionId) return [];
     const { data: lists, error } = await supabase
       .from('favorite_lists')
-      .select('id, name, created_at')
+      .select('id, name, created_at, max_selection')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 
@@ -718,6 +788,7 @@ export const galleryService = {
       ...l,
       photoCount: countByList[l.id] || 0,
       coverUrl: coverByList[l.id] || null,
+      max_selection: l.max_selection ?? null,
     }));
   },
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import * as Covers from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles';
@@ -44,6 +44,36 @@ const GalleryView = () => {
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   const [favoriteListPhotos, setFavoriteListPhotos] = useState([]);
   const [isFavoriteListMode, setIsFavoriteListMode] = useState(false);
+  const [activeFavoriteList, setActiveFavoriteList] = useState(null);
+
+  const refreshActiveFavoriteList = useCallback(async (sid) => {
+    if (!sid) {
+      setActiveFavoriteList(null);
+      return;
+    }
+    try {
+      const row = await galleryService.getSessionDefaultFavoriteList(sid);
+      setActiveFavoriteList(row);
+    } catch (e) {
+      console.warn('Active favorite list:', e);
+      setActiveFavoriteList(null);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshActiveFavoriteList(sessionId);
+  }, [sessionId, refreshActiveFavoriteList]);
+
+  const favoriteLightboxLabel = useMemo(() => {
+    if (!sessionId) return null;
+    const name = activeFavoriteList?.name || 'My Favorites';
+    const max =
+      activeFavoriteList?.max_selection != null && Number(activeFavoriteList.max_selection) > 0
+        ? Number(activeFavoriteList.max_selection)
+        : null;
+    if (max != null) return `${name} (${favoritedPhotos.length}/${max})`;
+    return `${name} (${favoritedPhotos.length})`;
+  }, [sessionId, activeFavoriteList, favoritedPhotos.length]);
 
   const handleFavoriteEmailSubmit = async () => {
     if (!email || !collection || collection.favorites_enabled === false) return;
@@ -70,7 +100,19 @@ const GalleryView = () => {
       if (pending && newFavs.includes(pending)) {
         const ph = (collection.photos || []).find((p) => normalizeFavoritePhotoId(p.id) === pending);
         const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
-        setFavoriteToast({ thumb, count: newFavs.length });
+        const listMeta = await galleryService.getSessionDefaultFavoriteList(session.id);
+        setActiveFavoriteList(listMeta);
+        const max =
+          listMeta?.max_selection != null && Number(listMeta.max_selection) > 0
+            ? Number(listMeta.max_selection)
+            : null;
+        setFavoriteToast({
+          thumb,
+          listName: listMeta?.name || 'My Favorites',
+          count: newFavs.length,
+          max,
+          limit: false,
+        });
       }
 
       setShowFavoriteModal(false);
@@ -124,9 +166,33 @@ const GalleryView = () => {
         setFavoritedPhotos(next);
         if (!isCurrentlyFavorited) {
           const thumb = photo?.thumbnail_url || photo?.web_url || photo?.full_url;
-          setFavoriteToast({ thumb, count: next.length });
+          const max =
+            activeFavoriteList?.max_selection != null && Number(activeFavoriteList.max_selection) > 0
+              ? Number(activeFavoriteList.max_selection)
+              : null;
+          setFavoriteToast({
+            thumb,
+            listName: activeFavoriteList?.name || 'My Favorites',
+            count: next.length,
+            max,
+            limit: false,
+          });
         }
       } catch (e) {
+        if (e?.code === 'SELECTION_LIMIT') {
+          const thumb = photo?.thumbnail_url || photo?.web_url || photo?.full_url;
+          setFavoriteToast({
+            thumb,
+            listName: activeFavoriteList?.name || 'This list',
+            count: favoritedPhotos.length,
+            max:
+              activeFavoriteList?.max_selection != null && Number(activeFavoriteList.max_selection) > 0
+                ? Number(activeFavoriteList.max_selection)
+                : null,
+            limit: true,
+          });
+          return;
+        }
         console.error('Failed to toggle favorite:', e);
       }
     } else {
@@ -218,6 +284,7 @@ const GalleryView = () => {
             setSessionId(session.id);
             const favs = await galleryService.getFavorites(session.id);
             setFavoritedPhotos((favs || []).map(normalizeFavoritePhotoId).filter(Boolean));
+            await refreshActiveFavoriteList(session.id);
             setEmail(savedEmail);
           } catch (e) {
             console.error("Failed to restore session:", e);
@@ -646,6 +713,7 @@ const GalleryView = () => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);
         })()}
+        favoriteOverlayLabel={favoriteLightboxLabel || undefined}
       />
 
       {/* Favorite Modal */}
@@ -740,13 +808,31 @@ const GalleryView = () => {
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 16 }}
-            className="pointer-events-none fixed bottom-8 left-1/2 z-[190] flex max-w-[min(92vw,420px)] -translate-x-1/2 items-center gap-4 rounded-md bg-zinc-100 px-4 py-3 text-zinc-900 shadow-lg ring-1 ring-black/5"
+            className="pointer-events-none fixed bottom-8 left-1/2 z-[190] flex max-w-[min(92vw,420px)] -translate-x-1/2 items-center gap-4 rounded-md bg-white px-4 py-3 text-zinc-900 shadow-lg ring-1 ring-black/10"
           >
-            {favoriteToast.thumb && (
+            {favoriteToast.thumb && !favoriteToast.limit && (
               <img src={favoriteToast.thumb} alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
             )}
-            <p className="text-left text-[13px] font-medium">
-              Added to My Favorites ({favoriteToast.count})
+            <p className="text-left text-[13px] font-medium leading-snug">
+              {favoriteToast.limit ? (
+                <>
+                  Selection limit reached for <span className="font-semibold">{favoriteToast.listName}</span>
+                  {favoriteToast.max ? (
+                    <span className="text-zinc-600">
+                      {' '}
+                      ({favoriteToast.count}/{favoriteToast.max})
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  Added to <span className="font-semibold">{favoriteToast.listName}</span>{' '}
+                  <span className="text-zinc-700">
+                    (
+                    {favoriteToast.max ? `${favoriteToast.count}/${favoriteToast.max}` : favoriteToast.count})
+                  </span>
+                </>
+              )}
             </p>
           </Motion.div>
         )}

@@ -155,41 +155,52 @@ const CollectionDashboard = () => {
     const [downloadActivity, setDownloadActivity] = useState([]);
     const [loadingActivity, setLoadingActivity] = useState(false);
     const [editingFavoriteList, setEditingFavoriteList] = useState(null);
+    const [selectedFavoriteListId, setSelectedFavoriteListId] = useState(null);
+    const [favoriteDetailRows, setFavoriteDetailRows] = useState([]);
+    const [favoriteDetailLoading, setFavoriteDetailLoading] = useState(false);
+    const [favoriteDetailSort, setFavoriteDetailSort] = useState('name-az');
+
+    const parseFavoriteMaxSelection = () => {
+        const raw = String(favoriteListMax ?? '').trim();
+        if (!raw) return null;
+        const n = Number(raw);
+        if (!Number.isFinite(n) || n <= 0) return null;
+        return Math.floor(n);
+    };
 
     const handleCreateFavoriteList = async () => {
         if (!favoriteListEmail || !favoriteListName) {
             alert("Email and List Name are required.");
             return;
         }
+        const maxSel = parseFavoriteMaxSelection();
+        const descTrim = favoriteListDesc.trim() || null;
         try {
             if (editingFavoriteList) {
-                // Update existing list
                 await galleryService.updateFavoriteList(editingFavoriteList, {
-                    name: favoriteListName
-                    // We don't update email/session for now as per Pixieset behavior (it's per visitor)
+                    name: favoriteListName,
+                    max_selection: maxSel,
+                    description: descTrim,
                 });
                 alert("Favorite list updated successfully.");
             } else {
-                // Create new list
-                console.log("Creating favorite list:", { collectionId, favoriteListEmail, favoriteListName });
                 const session = await galleryService.createOrGetSession(collectionId, favoriteListEmail, {
                     ensureDefaultFavoriteList: false,
                 });
-                console.log("Session obtained:", session);
-
-                await galleryService.createFavoriteList(collectionId, session.id, favoriteListName);
-                console.log("List created successfully");
+                await galleryService.createFavoriteList(collectionId, session.id, favoriteListName, {
+                    maxSelection: maxSel,
+                    description: descTrim || undefined,
+                });
                 alert("Favorite list created successfully.");
             }
-            
+
             setShowCreateFavoriteListModal(false);
             setFavoriteListEmail('');
             setFavoriteListName('');
             setFavoriteListMax('');
             setFavoriteListDesc('');
             setEditingFavoriteList(null);
-            
-            // Refresh activity
+
             fetchFavoriteActivity();
         } catch (e) {
             console.error("Failed to save favorite list. Details:", e);
@@ -261,6 +272,10 @@ const CollectionDashboard = () => {
             await galleryService.deleteFavoriteList(id);
             setFavoriteActivity(prev => prev.filter(a => a.id !== id));
             setActiveActivityMenu(null);
+            if (selectedFavoriteListId === id) {
+                setSelectedFavoriteListId(null);
+                setFavoriteDetailRows([]);
+            }
         } catch (err) {
             console.error('Failed to delete favorite list:', err);
             alert(err?.message || err?.error_description || 'Failed to delete favorite list.');
@@ -424,6 +439,44 @@ const CollectionDashboard = () => {
             }
         }
     }, [activeSidebarTab, activeActivitySubTab, collectionId]);
+
+    useEffect(() => {
+        if (activeActivitySubTab !== 'favorite') {
+            setSelectedFavoriteListId(null);
+            setFavoriteDetailRows([]);
+        }
+    }, [activeActivitySubTab]);
+
+    useEffect(() => {
+        if (!selectedFavoriteListId || activeActivitySubTab !== 'favorite') {
+            setFavoriteDetailRows([]);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            setFavoriteDetailLoading(true);
+            try {
+                const rows = await galleryService.getFavoriteListItemRows(selectedFavoriteListId);
+                if (!cancelled) setFavoriteDetailRows(rows);
+            } catch (e) {
+                console.error(e);
+                if (!cancelled) setFavoriteDetailRows([]);
+            } finally {
+                if (!cancelled) setFavoriteDetailLoading(false);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [selectedFavoriteListId, activeActivitySubTab]);
+
+    useEffect(() => {
+        if (!selectedFavoriteListId) return;
+        if (!favoriteActivity.some((a) => a.id === selectedFavoriteListId)) {
+            setSelectedFavoriteListId(null);
+            setFavoriteDetailRows([]);
+        }
+    }, [favoriteActivity, selectedFavoriteListId]);
 
     useEffect(() => {
         if (showFocalModal) {
@@ -2288,6 +2341,8 @@ const CollectionDashboard = () => {
                                                 setFavoriteListName('');
                                                 setFavoriteListMax('');
                                                 setFavoriteListDesc('');
+                                                setSelectedFavoriteListId(null);
+                                                setFavoriteDetailRows([]);
                                                 setShowCreateFavoriteListModal(true);
                                             }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
@@ -2307,110 +2362,207 @@ const CollectionDashboard = () => {
 
                                 <div className="cd-empty-state-section">
                                     {activeActivitySubTab === 'favorite' && favoriteActivity.length > 0 ? (
-                                        <div className="activity-list-container">
-                                            <div className="activity-table-header favorite">
-                                                <div className="activity-col-email">Email</div>
-                                                <div className="activity-col-list">Favorite List</div>
-                                                <div className="activity-col-photos">Photos</div>
-                                                <div className="activity-col-created">Date Created</div>
-                                                <div className="activity-col-updated">Date Updated</div>
-                                                <div className="activity-col-actions"></div>
-                                            </div>
-                                            <div className="activity-table-body">
-                                                {favoriteActivity.map((item, index, array) => (
-                                                    <div key={item.id} className="activity-row favorite">
-                                                        <div className="activity-col-email">
-                                                            <span>{item.email}</span>
-                                                        </div>
-                                                        <div className="activity-col-list">
-                                                            <div className="list-thumb">
-                                                                {item.thumbnail ? (
-                                                                    <img src={item.thumbnail} alt="" />
-                                                                ) : (
-                                                                    <div className="thumb-placeholder">
-                                                                        <Heart size={14} fill="#ff4d4d" stroke="#ff4d4d" />
+                                        <div className="favorite-activity-layout">
+                                            <div className="activity-list-container favorite-activity-table-wrap">
+                                                <div className="activity-table-header favorite">
+                                                    <div className="activity-col-email">Email</div>
+                                                    <div className="activity-col-list">Favorite List</div>
+                                                    <div className="activity-col-photos">Photos</div>
+                                                    <div className="activity-col-created">Date Created</div>
+                                                    <div className="activity-col-updated">Date Updated</div>
+                                                    <div className="activity-col-actions"></div>
+                                                </div>
+                                                <div className="activity-table-body">
+                                                    {favoriteActivity.map((item, index, array) => (
+                                                        <div
+                                                            key={item.id}
+                                                            role="button"
+                                                            tabIndex={0}
+                                                            className={`activity-row favorite${selectedFavoriteListId === item.id ? ' favorite-row-selected' : ''}`}
+                                                            onClick={() => {
+                                                                setSelectedFavoriteListId(item.id);
+                                                                setActiveActivityMenu(null);
+                                                            }}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                                    e.preventDefault();
+                                                                    setSelectedFavoriteListId(item.id);
+                                                                    setActiveActivityMenu(null);
+                                                                }
+                                                            }}
+                                                        >
+                                                            <div className="activity-col-email">
+                                                                <span>{item.email}</span>
+                                                            </div>
+                                                            <div className="activity-col-list">
+                                                                <div className="list-thumb">
+                                                                    {item.thumbnail ? (
+                                                                        <img src={item.thumbnail} alt="" />
+                                                                    ) : (
+                                                                        <div className="thumb-placeholder">
+                                                                            <Heart size={14} fill="#ff4d4d" stroke="#ff4d4d" />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <span className="list-name-link">{item.name}</span>
+                                                            </div>
+                                                            <div className="activity-col-photos">
+                                                                {item.max_selection != null && Number(item.max_selection) > 0
+                                                                    ? `${item.photoCount} of ${item.max_selection}`
+                                                                    : item.photoCount}
+                                                            </div>
+                                                            <div className="activity-col-created">
+                                                                {new Date(item.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
+                                                            </div>
+                                                            <div className="activity-col-updated">
+                                                                {new Date(item.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
+                                                            </div>
+                                                            <div className="activity-col-actions">
+                                                                <button
+                                                                    type="button"
+                                                                    className="row-action-btn"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setActiveActivityMenu(activeActivityMenu === item.id ? null : item.id);
+                                                                    }}
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                                                </button>
+
+                                                                {activeActivityMenu === item.id && (
+                                                                    <div className={`activity-row-menu favorite-menu ${index >= array.length - 4 && array.length > 5 ? 'up' : ''}`}>
+                                                                        <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); handleExportFavoriteList(item.id, item.name); }}>
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                                                            Export
+                                                                        </button>
+                                                                        <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); handleLightroomCopyList(item.id); }}>
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
+                                                                            Lightroom Copy List
+                                                                        </button>
+                                                                        <button type="button" className="activity-menu-item" onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            setFavoriteListEmail(item.email);
+                                                                            setFavoriteListName(item.name);
+                                                                            setFavoriteListMax(item.max_selection != null && item.max_selection !== '' ? String(item.max_selection) : '');
+                                                                            setFavoriteListDesc(item.description || '');
+                                                                            setEditingFavoriteList(item.id);
+                                                                            setShowCreateFavoriteListModal(true);
+                                                                            setActiveActivityMenu(null);
+                                                                        }}>
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                                            Edit List
+                                                                        </button>
+                                                                        <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); window.open(`/gallery/${collection?.slug}?list=${item.id}`, '_blank'); }}>
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                                                            View in Gallery
+                                                                        </button>
+                                                                        <button type="button" className="activity-menu-item">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                                                            Download all
+                                                                        </button>
+                                                                        <button type="button" className="activity-menu-item">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+                                                                            Send as download
+                                                                        </button>
+                                                                        <button type="button" className="activity-menu-item">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                                                            Copy to new set
+                                                                        </button>
+                                                                        <button type="button" className="activity-menu-item">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+                                                                            Copy to new collection
+                                                                        </button>
+                                                                        <button type="button" className="activity-menu-item">
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
+                                                                            Create mobile app
+                                                                        </button>
+                                                                        <div style={{ height: '1px', background: '#f5f5f5', margin: '4px 0' }} />
+                                                                        <button
+                                                                            type="button"
+                                                                            className="activity-menu-item delete"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                handleDeleteFavoriteActivity(item.id);
+                                                                            }}
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                                                            Delete info
+                                                                        </button>
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                            <span className="list-name-link">{item.name}</span>
                                                         </div>
-                                                        <div className="activity-col-photos">
-                                                            {item.photoCount}
-                                                        </div>
-                                                        <div className="activity-col-created">
-                                                            {new Date(item.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
-                                                        </div>
-                                                        <div className="activity-col-updated">
-                                                            {new Date(item.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
-                                                        </div>
-                                                        <div className="activity-col-actions">
-                                                            <button 
-                                                                className="row-action-btn"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setActiveActivityMenu(activeActivityMenu === item.id ? null : item.id);
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            {selectedFavoriteListId && (() => {
+                                                const detail = favoriteActivity.find((a) => a.id === selectedFavoriteListId);
+                                                const sortedRows = [...favoriteDetailRows].sort((a, b) => {
+                                                    const fa = a.photo?.filename || '';
+                                                    const fb = b.photo?.filename || '';
+                                                    return favoriteDetailSort === 'name-za' ? fb.localeCompare(fa) : fa.localeCompare(fb);
+                                                });
+                                                return (
+                                                    <aside className="favorite-list-detail-panel">
+                                                        <div className="favorite-list-detail-header">
+                                                            <h3 className="favorite-list-detail-title">Favorite List Details</h3>
+                                                            <button
+                                                                type="button"
+                                                                className="favorite-list-detail-close"
+                                                                onClick={() => {
+                                                                    setSelectedFavoriteListId(null);
+                                                                    setFavoriteDetailRows([]);
                                                                 }}
+                                                                aria-label="Close details"
                                                             >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                                             </button>
-
-                                                            {activeActivityMenu === item.id && (
-                                                                <div className={`activity-row-menu favorite-menu ${index >= array.length - 4 && array.length > 5 ? 'up' : ''}`}>
-                                                                    <button className="activity-menu-item" onClick={() => handleExportFavoriteList(item.id, item.name)}>
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                                                                        Export
-                                                                    </button>
-                                                                    <button className="activity-menu-item" onClick={() => handleLightroomCopyList(item.id)}>
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
-                                                                        Lightroom Copy List
-                                                                    </button>
-                                                                    <button className="activity-menu-item" onClick={() => {
-                                                                        setFavoriteListEmail(item.email);
-                                                                        setFavoriteListName(item.name);
-                                                                        setEditingFavoriteList(item.id);
-                                                                        setShowCreateFavoriteListModal(true);
-                                                                    }}>
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                                                        Edit List
-                                                                    </button>
-                                                                    <button className="activity-menu-item" onClick={() => window.open(`/gallery/${collection?.slug}?list=${item.id}`, '_blank')}>
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                                                                        View in Gallery
-                                                                    </button>
-                                                                    <button className="activity-menu-item">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                                                                        Download all
-                                                                    </button>
-                                                                    <button className="activity-menu-item">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
-                                                                        Send as download
-                                                                    </button>
-                                                                    <button className="activity-menu-item">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-                                                                        Copy to new set
-                                                                    </button>
-                                                                    <button className="activity-menu-item">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
-                                                                        Copy to new collection
-                                                                    </button>
-                                                                    <button className="activity-menu-item">
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
-                                                                        Create mobile app
-                                                                    </button>
-                                                                    <div style={{ height: '1px', background: '#f5f5f5', margin: '4px 0' }} />
-                                                                    <button 
-                                                                        className="activity-menu-item delete"
-                                                                        onClick={() => handleDeleteFavoriteActivity(item.id)}
-                                                                    >
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                                                                        Delete info
-                                                                    </button>
-                                                                </div>
+                                                        </div>
+                                                        {detail && (
+                                                            <div className="favorite-list-detail-meta">
+                                                                <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Name</span><span>{detail.name}</span></div>
+                                                                <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Email</span><span>{detail.email}</span></div>
+                                                                <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">No. of photos</span><span>{detail.max_selection != null && Number(detail.max_selection) > 0 ? `${detail.photoCount} of ${detail.max_selection}` : detail.photoCount}</span></div>
+                                                                <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Last modified</span><span>{new Date(detail.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}</span></div>
+                                                            </div>
+                                                        )}
+                                                        <div className="favorite-list-detail-photos-head">
+                                                            <span className="favorite-list-detail-photos-label">Photos</span>
+                                                            <button type="button" className="favorite-detail-sort-btn" onClick={() => setFavoriteDetailSort((s) => (s === 'name-az' ? 'name-za' : 'name-az'))}>
+                                                                Name: {favoriteDetailSort === 'name-az' ? 'A-Z' : 'Z-A'}
+                                                            </button>
+                                                        </div>
+                                                        <div className="favorite-list-detail-photos">
+                                                            {favoriteDetailLoading ? (
+                                                                <p className="favorite-detail-loading">Loading…</p>
+                                                            ) : sortedRows.length === 0 ? (
+                                                                <p className="favorite-detail-empty">No photos in this list yet.</p>
+                                                            ) : (
+                                                                sortedRows.map((row) => {
+                                                                    const ph = row.photo;
+                                                                    const setLabel = !ph?.set_id ? highlightsName : (sets.find((ss) => ss.id === ph.set_id)?.name || 'Highlights');
+                                                                    const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
+                                                                    return (
+                                                                        <div key={`${ph?.id}-${row.itemCreatedAt}`} className="favorite-detail-photo-row">
+                                                                            <div className="favorite-detail-thumb">{thumb ? <img src={thumb} alt="" /> : null}</div>
+                                                                            <div className="favorite-detail-photo-main">
+                                                                                <div className="favorite-detail-filename">{ph?.filename || 'Photo'}</div>
+                                                                                <div className="favorite-detail-sub">
+                                                                                    {new Date(row.itemCreatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
+                                                                                    <span className="favorite-detail-set-pill">{setLabel}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <button type="button" className="favorite-detail-row-more" aria-label="More options">
+                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                                                            </button>
+                                                                        </div>
+                                                                    );
+                                                                })
                                                             )}
                                                         </div>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                                    </aside>
+                                                );
+                                            })()}
                                         </div>
                                     ) : activeActivitySubTab === 'download' && downloadActivity.filter(a => a.type === activeDownloadActivityTab).length > 0 ? (
                                         <div className="activity-list-container">

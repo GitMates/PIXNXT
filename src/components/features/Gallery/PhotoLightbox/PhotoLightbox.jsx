@@ -19,7 +19,9 @@ export function PhotoLightbox({
   showFavorite = true,
   showShare = true,
   isFavorited = false,
-  /** When set, shows Pixieset-style “My Favorites (n)” on the bottom-left of the image stage. */
+  /** Full label for bottom-left badge, e.g. "retouching (2/3)". When set, overrides favoriteCount + "My Favorites". */
+  favoriteOverlayLabel,
+  /** When set (and no favoriteOverlayLabel), shows Pixieset-style "My Favorites (n)" on the bottom-left of the image stage. */
   favoriteCount,
 }) {
   /** Slides where Download/Share were revealed via the bottom heart (Pixieset-style). */
@@ -64,7 +66,7 @@ export function PhotoLightbox({
   if (!isOpen) return null;
 
   const canShare = showShare && typeof onShare === 'function';
-  const showBottomLabel = showFavorite && typeof favoriteCount === 'number';
+  const showBottomLabel = showFavorite && (favoriteOverlayLabel || typeof favoriteCount === 'number');
 
   const secondaryActionsVisible =
     isFavorited && !!bottomSecondaryUnlocked[currentIndex];
@@ -166,7 +168,8 @@ export function PhotoLightbox({
               >
                 {showBottomLabel && (
                   <div className="rounded-md bg-white/95 px-3 py-2 text-[13px] font-medium text-neutral-900 shadow-md ring-1 ring-black/5">
-                    My Favorites ({favoriteCount})
+                    {favoriteOverlayLabel ||
+                      `My Favorites (${favoriteCount})`}
                   </div>
                 )}
 

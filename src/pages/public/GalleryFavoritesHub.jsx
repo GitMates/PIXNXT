@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { motion as Motion } from 'framer-motion';
-import { ArrowLeft, Plus, LogOut } from 'lucide-react';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
+import { ArrowLeft, Plus, MoreHorizontal } from 'lucide-react';
 import { galleryService } from '../../services/gallery.service';
 import { cn } from '../../lib/utils';
 
@@ -15,12 +15,24 @@ export default function GalleryFavoritesHub() {
   const [email, setEmail] = useState('');
   const [lists, setLists] = useState([]);
   const [creating, setCreating] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newListName, setNewListName] = useState('');
+  const moreRef = useRef(null);
 
   const galleryPath = `/gallery/${slug}`;
 
   const loadLists = useCallback(async (sid) => {
     const data = await galleryService.getFavoriteListsForSession(sid);
     setLists(data);
+  }, []);
+
+  useEffect(() => {
+    const onDoc = (e) => {
+      if (!moreRef.current?.contains(e.target)) setMoreOpen(false);
+    };
+    document.addEventListener('click', onDoc);
+    return () => document.removeEventListener('click', onDoc);
   }, []);
 
   useEffect(() => {
@@ -75,20 +87,35 @@ export default function GalleryFavoritesHub() {
     navigate(galleryPath, { replace: true });
   };
 
-  const handleCreateList = async () => {
+  const openCreateModal = () => {
+    setNewListName('');
+    setShowCreateModal(true);
+    setMoreOpen(false);
+  };
+
+  const submitNewList = async () => {
     if (!collection || !sessionId) return;
-    const name = window.prompt('Name your new favorites list', 'New list');
-    if (!name || !name.trim()) return;
+    const name = newListName.trim();
+    if (!name) return;
     try {
       setCreating(true);
-      await galleryService.createFavoriteList(collection.id, sessionId, name.trim());
+      await galleryService.createFavoriteList(collection.id, sessionId, name);
       await loadLists(sessionId);
+      setShowCreateModal(false);
+      setNewListName('');
     } catch (e) {
       console.error(e);
       alert('Could not create list. Please try again.');
     } finally {
       setCreating(false);
     }
+  };
+
+  const listCountLabel = (list) => {
+    if (list.max_selection != null && Number(list.max_selection) > 0) {
+      return `${list.photoCount} of ${list.max_selection} photos`;
+    }
+    return `${list.photoCount} ${list.photoCount === 1 ? 'photo' : 'photos'}`;
   };
 
   const palette = collection?.color_palette || 'dark';
@@ -159,24 +186,49 @@ export default function GalleryFavoritesHub() {
           <ArrowLeft size={18} strokeWidth={1.5} />
           <span>{collection.name}</span>
         </Link>
-        <div className="flex items-center gap-3 md:gap-5">
+        <div className="flex items-center gap-4 md:gap-6" ref={moreRef}>
           <button
             type="button"
-            onClick={handleCreateList}
+            onClick={openCreateModal}
             disabled={creating}
             className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] opacity-90 transition-opacity hover:opacity-60 disabled:opacity-40"
           >
             <Plus size={16} strokeWidth={2} />
-            <span className="hidden sm:inline">Create</span>
+            <span>Create</span>
           </button>
-          <button
-            type="button"
-            onClick={handleSignOut}
-            className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] opacity-90 transition-opacity hover:opacity-60"
-          >
-            <LogOut size={16} strokeWidth={1.5} />
-            <span className="hidden sm:inline">Sign out</span>
-          </button>
+          <div className="relative flex items-center gap-2">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setMoreOpen((v) => !v);
+              }}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] opacity-90 transition-opacity hover:opacity-60"
+            >
+              <MoreHorizontal size={18} strokeWidth={1.75} />
+              <span>More</span>
+            </button>
+            {moreOpen && (
+              <div
+                className={cn(
+                  'absolute right-0 top-full z-50 mt-2 min-w-[160px] rounded border py-1 shadow-lg',
+                  isDark ? 'border-white/15 bg-zinc-900 text-white' : 'border-black/10 bg-white text-zinc-900'
+                )}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="block w-full px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide opacity-90 hover:opacity-100"
+                  onClick={() => {
+                    setMoreOpen(false);
+                    handleSignOut();
+                  }}
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -207,9 +259,7 @@ export default function GalleryFavoritesHub() {
                 <div className="absolute inset-0 bg-black/35 transition-colors group-hover:bg-black/45" />
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white">
                   <span className="text-xl font-bold uppercase tracking-[0.2em] md:text-2xl">{list.name}</span>
-                  <span className="mt-2 text-sm font-normal opacity-90">
-                    {list.photoCount} {list.photoCount === 1 ? 'photo' : 'photos'}
-                  </span>
+                  <span className="mt-2 text-sm font-normal opacity-90">{listCountLabel(list)}</span>
                 </div>
               </Link>
             </Motion.div>
@@ -218,7 +268,7 @@ export default function GalleryFavoritesHub() {
 
         <button
           type="button"
-          onClick={handleCreateList}
+          onClick={openCreateModal}
           disabled={creating}
           className="mx-auto mt-12 flex w-full max-w-md items-center justify-center border border-current py-4 text-[10px] font-bold uppercase tracking-[0.35em] transition-opacity hover:opacity-70 disabled:opacity-40"
         >
@@ -226,6 +276,66 @@ export default function GalleryFavoritesHub() {
           Create new list
         </button>
       </main>
+
+      <AnimatePresence>
+        {showCreateModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <Motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/65"
+              onClick={() => !creating && setShowCreateModal(false)}
+            />
+            <Motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              className={cn(
+                'relative z-[1] w-full max-w-md border px-8 py-8 shadow-2xl',
+                isDark ? 'border-white/15 bg-[#1a1a1a] text-white' : 'border-black/10 bg-white text-zinc-900'
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h2 className="mb-2 text-center text-xs font-bold uppercase tracking-[0.2em]">New list</h2>
+              <p className={cn('mb-6 text-center text-sm', isDark ? 'text-white/55' : 'text-zinc-500')}>
+                Name this favorites list. You can pick photos for it from the gallery.
+              </p>
+              <input
+                type="text"
+                autoFocus
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                placeholder="List name"
+                className={cn(
+                  'mb-6 w-full border px-3 py-3 text-sm outline-none',
+                  isDark ? 'border-white/20 bg-black/30 text-white placeholder:text-white/35' : 'border-zinc-200 bg-white'
+                )}
+                onKeyDown={(e) => e.key === 'Enter' && submitNewList()}
+              />
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  disabled={creating}
+                  onClick={() => setShowCreateModal(false)}
+                  className="px-2 py-2 text-sm font-medium opacity-70 hover:opacity-100 disabled:opacity-40"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={creating || !newListName.trim()}
+                  onClick={submitNewList}
+                  className="rounded bg-white/15 px-6 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:bg-white/25 disabled:opacity-40"
+                  style={!isDark ? { backgroundColor: '#111', color: '#fff' } : undefined}
+                >
+                  {creating ? 'Saving…' : 'Create'}
+                </button>
+              </div>
+            </Motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
