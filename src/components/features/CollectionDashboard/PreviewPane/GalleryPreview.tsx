@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { GalleryPreviewProps } from './PreviewPane.types';
 import * as Covers from './CoverStyles';
 import { cn } from '../../../../lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Mail, Share2, Link as LinkIcon, Download, Heart, Play } from 'lucide-react';
 import { MasonryGrid } from '../../Gallery/MasonryGrid/MasonryGrid';
-import { downloadPhotoFromR2, downloadAllPhotosAsZip } from '../../../../lib/downloadPhoto';
+import { PhotoLightbox } from '../../Gallery/PhotoLightbox/PhotoLightbox';
+import { downloadPhotoFromR2 } from '../../../../lib/downloadPhoto';
 import { DownloadModal } from '../../Gallery/DownloadModal/DownloadModal';
+import { galleryService } from '../../../../services/gallery.service';
+
+function normalizeFavoritePhotoId(id: string | number | null | undefined): string | null {
+  if (id == null || id === '') return null;
+  return String(id);
+}
 
 export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   settings,
@@ -41,6 +48,171 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     single_photo_download_enabled: dashboardState?.singlePhotoDownload !== false,
   };
 
+  const collectionId = dashboardState?.collection?.id as string | undefined;
+  const favFeatureOn = dashboardState?.favoritePhotos !== false;
+  const storageKey = collectionId ? `pixnxt_fav_email_${collectionId}` : null;
+
+  const [lightboxIndex, setLightboxIndex] = useState(-1);
+  const [isSlideshowActive, setIsSlideshowActive] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [favoritedPhotos, setFavoritedPhotos] = useState<string[]>([]);
+  const [pendingFavoritePhotoId, setPendingFavoritePhotoId] = useState<string | null>(null);
+  const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+
+  useEffect(() => {
+    if (!favFeatureOn) setShowOnlyFavorites(false);
+  }, [favFeatureOn]);
+
+  useEffect(() => {
+    if (!storageKey || !collectionId) return;
+    const saved = localStorage.getItem(storageKey);
+    if (!saved) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const session = await galleryService.createOrGetSession(collectionId, saved);
+        if (cancelled) return;
+        setSessionId(session.id);
+        const favs = await galleryService.getFavorites(session.id);
+        setFavoritedPhotos((favs || []).map(normalizeFavoritePhotoId).filter(Boolean) as string[]);
+        setEmail(saved);
+      } catch (e) {
+        console.error('Preview: failed to restore favorite session', e);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [collectionId, storageKey]);
+
+  const photosForActiveSet = useMemo(() => {
+    const activeId = dashboardState?.activeSetId;
+    return activeId
+      ? gridPhotos.filter((p: any) => p.set_id === activeId)
+      : gridPhotos.filter((p: any) => !p.set_id || p.set_id == null);
+  }, [gridPhotos, dashboardState?.activeSetId]);
+
+  const filteredPhotos = useMemo(() => {
+    if (!showOnlyFavorites) return photosForActiveSet;
+    const favSet = new Set(favoritedPhotos);
+    return photosForActiveSet.filter(
+      (p: any) => p.id != null && favSet.has(normalizeFavoritePhotoId(p.id) as string)
+    );
+  }, [photosForActiveSet, showOnlyFavorites, favoritedPhotos]);
+
+  const photoUrls = useMemo(
+    () => filteredPhotos.map((p: any) => p.full_url || p.web_url || p.thumbnail_url),
+    [filteredPhotos]
+  );
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (isSlideshowActive && lightboxIndex !== -1) {
+      interval = setInterval(() => {
+        setLightboxIndex((prev) => {
+          const n = filteredPhotos.length;
+          if (n < 1) return -1;
+          return (prev + 1) % n;
+        });
+      }, 4000);
+    }
+    return () => clearInterval(interval);
+  }, [isSlideshowActive, lightboxIndex, filteredPhotos]);
+
+  useEffect(() => {
+    const n = filteredPhotos.length;
+    setLightboxIndex((idx) => {
+      if (idx < 0) return idx;
+      if (n === 0) return -1;
+      if (idx >= n) return n - 1;
+      return idx;
+    });
+  }, [filteredPhotos]);
+
+  const handleFavoriteEmailSubmit = async () => {
+    if (!email?.trim()) {
+      alert('Enter a valid email.');
+      return;
+    }
+    if (!collectionId) {
+      alert('Save your collection before using favorites in preview.');
+      return;
+    }
+    if (!favFeatureOn) return;
+    try {
+      setIsSubmittingEmail(true);
+      const session = await galleryService.createOrGetSession(collectionId, email.trim());
+      setSessionId(session.id);
+      if (storageKey) localStorage.setItem(storageKey, email.trim());
+
+      const favs = await galleryService.getFavorites(session.id);
+      const newFavs = (favs || []).map(normalizeFavoritePhotoId).filter(Boolean) as string[];
+
+      const pending = normalizeFavoritePhotoId(pendingFavoritePhotoId);
+      if (pending) {
+        if (!newFavs.includes(pending)) {
+          await galleryService.toggleFavorite(session.id, pending, true);
+          newFavs.push(pending);
+        }
+        setPendingFavoritePhotoId(null);
+      }
+
+      setFavoritedPhotos(newFavs);
+      setShowFavoriteModal(false);
+    } catch (e) {
+      console.error('Preview favorites setup failed:', e);
+      alert('Failed to save email. Please try again.');
+    } finally {
+      setIsSubmittingEmail(false);
+    }
+  };
+
+  const handleFavoriteHeaderClick = () => {
+    if (!favFeatureOn) return;
+    if (sessionId) {
+      if (favoritedPhotos.length === 0 && !showOnlyFavorites) {
+        alert("You haven't favorited any photos yet. Use the heart on a photo or in the slideshow viewer.");
+      } else {
+        setShowOnlyFavorites(!showOnlyFavorites);
+      }
+    } else {
+      setPendingFavoritePhotoId(null);
+      setShowFavoriteModal(true);
+    }
+  };
+
+  const handleFavoritePhotoToggle = async (photoId: string | number | null | undefined) => {
+    if (!favFeatureOn) return;
+    const pid = normalizeFavoritePhotoId(photoId);
+    if (!pid) return;
+
+    if (sessionId) {
+      const isCurrentlyFavorited = favoritedPhotos.includes(pid);
+      try {
+        await galleryService.toggleFavorite(sessionId, pid, !isCurrentlyFavorited);
+        setFavoritedPhotos((prev) =>
+          isCurrentlyFavorited ? prev.filter((id) => id !== pid) : [...prev, pid]
+        );
+      } catch (e) {
+        console.error('Preview: toggle favorite failed', e);
+      }
+    } else {
+      if (!collectionId) {
+        alert('Save your collection before favoriting in preview.');
+        return;
+      }
+      setPendingFavoritePhotoId(pid);
+      setShowFavoriteModal(true);
+    }
+  };
+
+  const handleStartSlideshow = () => {
+    if (filteredPhotos.length < 1) return;
+    setLightboxIndex(0);
+    setIsSlideshowActive(true);
+  };
+
   const handleDownloadClick = async (photo?: any) => {
     const needsEmail = !!dashboardState?.emailTracking;
     
@@ -68,9 +240,9 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   };
 
   const renderCover = () => {
-    const description = dashboardState.activeSetId 
-      ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.description 
-      : (collectionDescription || dashboardState.collection?.description || dashboardState.sets?.[0]?.description);
+    const description = dashboardState?.activeSetId
+      ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.description
+      : (collectionDescription || dashboardState?.collection?.description || dashboardState?.sets?.[0]?.description);
 
     const props = {
       title: collectionTitle,
@@ -130,7 +302,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
             <span 
               className={cn(
                 "text-[8px] gallery-heading cursor-pointer transition-opacity", 
-                !dashboardState.activeSetId ? "opacity-100 border-b border-current pb-1" : "opacity-50 hover:opacity-100"
+                !dashboardState?.activeSetId ? "opacity-100 border-b border-current pb-1" : "opacity-50 hover:opacity-100"
               )} 
               style={{ color: 'var(--gallery-text)' }}
               onClick={() => onSetActiveSet?.(null)}
@@ -146,7 +318,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                     key={set.id} 
                   className={cn(
                     "text-[8px] gallery-heading cursor-pointer hover:opacity-100 transition-opacity", 
-                    dashboardState.activeSetId === set.id ? "border-b border-current pb-1" : "opacity-50"
+                    dashboardState?.activeSetId === set.id ? "border-b border-current pb-1" : "opacity-50"
                   )} 
                   style={{ color: 'var(--gallery-text)' }}
                   onClick={() => onSetActiveSet?.(set.id)}
@@ -159,13 +331,44 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
           {/* Right: Action Icons */}
           <div className="flex-1 flex items-center justify-end gap-6">
-            <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" style={{ color: 'var(--gallery-text)' }}>
+            <div
+              className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+              style={{ color: 'var(--gallery-text)' }}
+              onClick={handleStartSlideshow}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  handleStartSlideshow();
+                }
+              }}
+            >
               <Play size={14} fill="currentColor" />
               {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Slideshow</span>}
             </div>
-            {dashboardState?.favoritePhotos !== false && (
-              <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setShowFavoriteModal(true)} style={{ color: 'var(--gallery-text)' }}>
-                <Heart size={14} />
+            {favFeatureOn && (
+              <div
+                className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+                onClick={handleFavoriteHeaderClick}
+                style={{ color: 'var(--gallery-text)' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleFavoriteHeaderClick();
+                  }
+                }}
+              >
+                <div className="relative">
+                  <Heart size={14} fill={favoritedPhotos.length > 0 ? 'currentColor' : 'none'} />
+                  {favoritedPhotos.length > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 flex h-3 min-w-[12px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[7px] font-bold text-white">
+                      {favoritedPhotos.length}
+                    </span>
+                  )}
+                </div>
                 {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Favorite</span>}
               </div>
             )}
@@ -199,9 +402,9 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
         {/* Set Description */}
         {(() => {
-          const description = dashboardState.activeSetId 
-            ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.description 
-            : (collectionDescription || dashboardState.collection?.description || dashboardState.sets?.[0]?.description);
+          const description = dashboardState?.activeSetId
+            ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.description
+            : (collectionDescription || dashboardState?.collection?.description || dashboardState?.sets?.[0]?.description);
 
           if (!description) return null;
 
@@ -215,31 +418,79 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           );
         })()}
 
-        <div className="p-4" style={{ backgroundColor: 'var(--gallery-bg)' }}>
-          {(() => {
-            const activeId = dashboardState?.activeSetId;
-            const visiblePhotos = activeId
-              ? gridPhotos.filter((p: any) => p.set_id === activeId)
-              : gridPhotos.filter((p: any) => !p.set_id || p.set_id === null);
+        {showOnlyFavorites && favFeatureOn && (
+          <div
+            className="flex flex-wrap items-center justify-center gap-2 border-b border-black/5 px-4 py-2 text-center"
+            style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
+          >
+            <span className="text-[8px] font-bold uppercase tracking-widest opacity-70">
+              My favorites ({filteredPhotos.length})
+            </span>
+            <button
+              type="button"
+              className="text-[8px] font-bold uppercase tracking-widest underline opacity-90 hover:opacity-60"
+              style={{ color: 'var(--gallery-text)' }}
+              onClick={() => setShowOnlyFavorites(false)}
+            >
+              Show all
+            </button>
+          </div>
+        )}
 
-            return (
-              <MasonryGrid 
-                key={`${grid.style}-${grid.size}-${grid.spacing}`}
-                photos={visiblePhotos}
-                gridSettings={grid}
-                isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
-                onImageClick={() => {}}
-                onFavorite={() => setShowFavoriteModal(true)}
-                onDownload={handleDownloadClick}
-                showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
-                showFavorite={dashboardState?.favoritePhotos !== false}
-                customRowHeight={grid.size === 'large' ? 155 : grid.size === 'regular' ? 111 : grid.size === 'small' ? 74 : 52}
-                customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
-              />
-            );
-          })()}
+        <div className="p-4" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+          <MasonryGrid
+            key={`${grid.style}-${grid.size}-${grid.spacing}`}
+            photos={filteredPhotos}
+            gridSettings={grid}
+            isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
+            onImageClick={(index) => setLightboxIndex(index)}
+            onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
+            onDownload={handleDownloadClick}
+            showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
+            showFavorite={favFeatureOn}
+            favoritedPhotoIds={favoritedPhotos}
+            customRowHeight={grid.size === 'large' ? 155 : grid.size === 'regular' ? 111 : grid.size === 'small' ? 74 : 52}
+            customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
+          />
         </div>
       </div>
+
+      <PhotoLightbox
+        isOpen={lightboxIndex !== -1}
+        onClose={() => {
+          setLightboxIndex(-1);
+          setIsSlideshowActive(false);
+        }}
+        images={photoUrls}
+        currentIndex={lightboxIndex}
+        onNext={() =>
+          setLightboxIndex((prev) => {
+            const n = photoUrls.length;
+            if (n < 1) return -1;
+            return (prev + 1) % n;
+          })
+        }
+        onPrev={() =>
+          setLightboxIndex((prev) => {
+            const n = photoUrls.length;
+            if (n < 1) return -1;
+            return (prev - 1 + n) % n;
+          })
+        }
+        isSlideshowActive={isSlideshowActive}
+        onToggleSlideshow={() => setIsSlideshowActive(!isSlideshowActive)}
+        onFavorite={() => {
+          const photo = filteredPhotos[lightboxIndex];
+          if (photo) void handleFavoritePhotoToggle(photo.id);
+        }}
+        onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
+        showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
+        showFavorite={favFeatureOn}
+        isFavorited={(() => {
+          const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
+          return !!id && favoritedPhotos.includes(id);
+        })()}
+      />
 
       <AnimatePresence>
         {showFavoriteModal && (
@@ -255,10 +506,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white p-10 shadow-2xl"
+              className="relative z-[1] w-full max-w-md bg-white p-10 shadow-2xl"
               style={{ fontFamily: 'var(--font-sans)', color: '#111' }}
+              onClick={(e) => e.stopPropagation()}
             >
               <button
+                type="button"
                 onClick={() => setShowFavoriteModal(false)}
                 className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-950 transition-colors bg-transparent border-none cursor-pointer"
               >
@@ -279,14 +532,17 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                   placeholder="Enter your email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border-b border-zinc-200 py-3 text-sm outline-none focus:border-zinc-950 transition-colors bg-transparent"
+                  disabled={isSubmittingEmail}
+                  className="w-full border-b border-zinc-200 py-3 text-sm outline-none focus:border-zinc-950 transition-colors bg-transparent disabled:opacity-50"
                   style={{ borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}
                 />
                 <button
-                  className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer mt-4"
-                  onClick={() => setShowFavoriteModal(false)}
+                  type="button"
+                  className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer mt-4 disabled:cursor-not-allowed disabled:opacity-50"
+                  onClick={() => void handleFavoriteEmailSubmit()}
+                  disabled={isSubmittingEmail || !email?.trim()}
                 >
-                  Go to Favorites
+                  {isSubmittingEmail ? 'Setting up…' : 'Go to Favorites'}
                 </button>
               </div>
             </motion.div>

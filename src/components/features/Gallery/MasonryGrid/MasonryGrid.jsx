@@ -29,10 +29,10 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
   // Otherwise we use consistent defaults for the public view.
   const baseRowHeight = customRowHeight || (size === 'large' ? 420 : size === 'regular' ? 300 : size === 'small' ? 200 : 140);
 
+  // Avoid opacity:0 on the multicol container — it can break column layout / paint in some browsers.
   const container = {
-    hidden: { opacity: 0 },
+    hidden: {},
     show: {
-      opacity: 1,
       transition: {
         staggerChildren: 0.02,
         delayChildren: 0.05
@@ -41,26 +41,43 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
   };
 
   const item = {
-    hidden: { opacity: 0, y: 20 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.19, 1, 0.22, 1] } }
+    hidden: { opacity: 0, y: 12 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.19, 1, 0.22, 1] } }
   };
+
+  // Public gallery: fluid columns (column-width) fill the viewport. Dashboard preview keeps fixed column-count.
+  const verticalColumnStyle = (() => {
+    if (isHorizontal) return {};
+    if (customColumnCount != null) {
+      return {
+        columnCount: customColumnCount,
+        columnGap: `${gap}px`,
+      };
+    }
+    const w =
+      size === 'large' ? 380
+        : size === 'regular' ? 300
+          : size === 'small' ? 240
+            : 200;
+    return {
+      columnWidth: `${w}px`,
+      columnGap: `${gap}px`,
+    };
+  })();
 
   return (
     <motion.div
       variants={container}
       initial="hidden"
       whileInView="show"
-      viewport={{ once: true, margin: "-50px" }}
+      viewport={{ once: true, margin: '0px 0px -80px 0px' }}
       className={cn(
-        "w-full",
-        isHorizontal ? "flex flex-wrap masonry-grid-horizontal items-start" : "block"
+        'w-full max-w-full min-w-0',
+        isHorizontal ? 'flex flex-wrap masonry-grid-horizontal items-start' : 'block'
       )}
       style={isHorizontal ? {
         gap: `${gap}px`,
-      } : {
-        columnCount: customColumnCount || (size === 'large' ? 2 : size === 'regular' ? 3 : 4),
-        columnGap: `${gap}px`,
-      }}
+      } : verticalColumnStyle}
     >
       <style>
         {`
@@ -78,13 +95,15 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
           ? (photo.width / photo.height)
           : (dynamicAspectRatios[photo.id] || 1.5);
 
+        const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
+
         return (
           <motion.div
             key={`${photo.id}-${index}`}
             variants={item}
             className={cn(
-              "relative overflow-hidden group cursor-pointer",
-              !isHorizontal && "mb-[var(--grid-gap)] break-inside-avoid"
+              'relative overflow-hidden group cursor-pointer min-w-0',
+              !isHorizontal && 'mb-[var(--grid-gap)] w-full max-w-full break-inside-avoid'
             )}
             style={isHorizontal ? {
               flex: `${aspectRatio} 1 ${baseRowHeight * aspectRatio}px`,
@@ -93,18 +112,19 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
               margin: 0
             } : {
               '--grid-gap': `${gap}px`,
-              marginBottom: `${gap}px`
+              marginBottom: `${gap}px`,
+              width: '100%',
             }}
             onClick={() => onImageClick(index)}
           >
-            <div className="h-full w-full" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
+            <div className="h-full w-full min-w-0" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
               <img
                 src={src}
                 alt={photo.filename || `Gallery image ${index + 1}`}
-                className="w-full h-full transition-transform duration-1000 group-hover:scale-105"
+                className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
                 style={{
                   objectFit: 'cover',
-                  display: 'block'
+                  aspectRatio: String(aspectRatio),
                 }}
                 loading="lazy"
               />
@@ -130,7 +150,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                       }}
                       className={cn(
                         "flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all",
-                        favoritedPhotoIds?.includes(photo.id) 
+                        isFav
                           ? "bg-white text-black" 
                           : "bg-white/20 text-white hover:bg-white hover:text-black"
                       )}
@@ -138,7 +158,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                       <Heart 
                         size={16} 
                         strokeWidth={1.5} 
-                        fill={favoritedPhotoIds?.includes(photo.id) ? "currentColor" : "none"} 
+                        fill={isFav ? "currentColor" : "none"} 
                       />
                     </button>
                   )}

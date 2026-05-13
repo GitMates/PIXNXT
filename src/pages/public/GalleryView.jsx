@@ -13,6 +13,12 @@ import { X, Mail, Lock, Share2, Link as LinkIcon, Download, Heart, Play } from '
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { downloadPhotoFromR2, downloadAllPhotosAsZip } from '../../lib/downloadPhoto';
 
+/** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
+function normalizeFavoritePhotoId(id) {
+  if (id == null || id === '') return null;
+  return String(id);
+}
+
 const GalleryView = () => {
   const { slug } = useParams();
   const [collection, setCollection] = useState(null);
@@ -40,7 +46,7 @@ const GalleryView = () => {
   const [isFavoriteListMode, setIsFavoriteListMode] = useState(false);
 
   const handleFavoriteEmailSubmit = async () => {
-    if (!email || !collection) return;
+    if (!email || !collection || collection.favorites_enabled === false) return;
     try {
       setIsSubmittingEmail(true);
       const session = await galleryService.createOrGetSession(collection.id, email);
@@ -48,12 +54,13 @@ const GalleryView = () => {
       localStorage.setItem(`pixnxt_fav_email_${collection.id}`, email);
 
       const favs = await galleryService.getFavorites(session.id);
-      let newFavs = [...favs];
+      const newFavs = (favs || []).map(normalizeFavoritePhotoId).filter(Boolean);
 
-      if (pendingFavoritePhotoId) {
-        if (!newFavs.includes(pendingFavoritePhotoId)) {
-          await galleryService.toggleFavorite(session.id, pendingFavoritePhotoId, true);
-          newFavs.push(pendingFavoritePhotoId);
+      const pending = normalizeFavoritePhotoId(pendingFavoritePhotoId);
+      if (pending) {
+        if (!newFavs.includes(pending)) {
+          await galleryService.toggleFavorite(session.id, pending, true);
+          newFavs.push(pending);
         }
         setPendingFavoritePhotoId(null);
       }
@@ -72,7 +79,7 @@ const GalleryView = () => {
 
   /** Toolbar "Favorite" — toggles My Favorites view only (never pass through lightbox/grid bugs). */
   const handleFavoriteHeaderClick = () => {
-    if (!collection) return;
+    if (!collection || collection.favorites_enabled === false) return;
 
     if (sessionId) {
       if (favoritedPhotos.length === 0 && !showOnlyFavorites) {
@@ -88,22 +95,24 @@ const GalleryView = () => {
 
   /** Heart on a photo (grid overlay or lightbox) — toggles that photo only. */
   const handleFavoritePhotoToggle = async (photoId) => {
-    if (!collection || !photoId) return;
+    if (!collection || collection.favorites_enabled === false) return;
+    const pid = normalizeFavoritePhotoId(photoId);
+    if (!pid) return;
 
     if (sessionId) {
-      const isCurrentlyFavorited = favoritedPhotos.includes(photoId);
+      const isCurrentlyFavorited = favoritedPhotos.includes(pid);
       try {
-        await galleryService.toggleFavorite(sessionId, photoId, !isCurrentlyFavorited);
+        await galleryService.toggleFavorite(sessionId, pid, !isCurrentlyFavorited);
         setFavoritedPhotos((prev) =>
           isCurrentlyFavorited
-            ? prev.filter((id) => id !== photoId)
-            : [...prev, photoId]
+            ? prev.filter((id) => id !== pid)
+            : [...prev, pid]
         );
       } catch (e) {
         console.error('Failed to toggle favorite:', e);
       }
     } else {
-      setPendingFavoritePhotoId(photoId);
+      setPendingFavoritePhotoId(pid);
       setShowFavoriteModal(true);
     }
   };
@@ -191,7 +200,7 @@ const GalleryView = () => {
             const session = await galleryService.createOrGetSession(data.id, savedEmail);
             setSessionId(session.id);
             const favs = await galleryService.getFavorites(session.id);
-            setFavoritedPhotos(favs);
+            setFavoritedPhotos((favs || []).map(normalizeFavoritePhotoId).filter(Boolean));
             setEmail(savedEmail);
           } catch (e) {
             console.error("Failed to restore session:", e);
@@ -261,24 +270,32 @@ const GalleryView = () => {
     }
   };
 
-  const filteredPhotos = useMemo(() => {
+  /** Base list for the active tab — must NOT get a new array reference when only `favoritedPhotos` changes
+   *  (otherwise MasonryGrid + framer-motion `whileInView` can re-run and leave tiles stuck at opacity 0). */
+  const photosForActiveSet = useMemo(() => {
     if (!collection) return [];
+    if (isFavoriteListMode) return favoriteListPhotos || [];
+    return activeSetId
+      ? (collection.photos || []).filter((p) => p.set_id === activeSetId)
+      : (collection.photos || []).filter((p) => !p.set_id);
+  }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos]);
 
-    if (isFavoriteListMode) {
-      return favoriteListPhotos || [];
-    }
-
-    let photos = activeSetId
-      ? (collection.photos || []).filter(p => p.set_id === activeSetId)
-      : (collection.photos || []).filter(p => !p.set_id);
-
-    if (showOnlyFavorites) {
-      photos = photos.filter(p => favoritedPhotos.includes(p.id));
-    }
-    return photos;
-  }, [collection, activeSetId, showOnlyFavorites, favoritedPhotos, isFavoriteListMode, favoriteListPhotos]);
+  const filteredPhotos = useMemo(() => {
+    if (!showOnlyFavorites) return photosForActiveSet;
+    const favSet = new Set(favoritedPhotos);
+    return photosForActiveSet.filter(
+      (p) => p.id != null && favSet.has(normalizeFavoritePhotoId(p.id))
+    );
+  }, [photosForActiveSet, showOnlyFavorites, favoritedPhotos]);
 
   const photoUrls = useMemo(() => filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url), [filteredPhotos]);
+
+  // Match dashboard "Favorite Photos" off: leave favorites-only view and do not keep stale filter UI
+  useEffect(() => {
+    if (collection?.favorites_enabled === false) {
+      setShowOnlyFavorites(false);
+    }
+  }, [collection?.favorites_enabled]);
 
   // Slideshow: advance using the same list as the lightbox (filtered), not full collection length
   useEffect(() => {
@@ -515,7 +532,6 @@ const GalleryView = () => {
             showFavorite={collection?.favorites_enabled !== false}
             favoritedPhotoIds={favoritedPhotos}
             customRowHeight={collection.thumbnail_size === 'large' ? 420 : collection.thumbnail_size === 'regular' ? 300 : collection.thumbnail_size === 'small' ? 200 : 140}
-            customColumnCount={collection.thumbnail_size === 'large' ? 2 : collection.thumbnail_size === 'regular' ? 3 : 4}
           />
         </Container>
       </main>
@@ -538,8 +554,20 @@ const GalleryView = () => {
         }}
         images={photoUrls}
         currentIndex={lightboxIndex}
-        onNext={() => setLightboxIndex((prev) => (prev + 1) % photoUrls.length)}
-        onPrev={() => setLightboxIndex((prev) => (prev - 1 + photoUrls.length) % photoUrls.length)}
+        onNext={() =>
+          setLightboxIndex((prev) => {
+            const n = photoUrls.length;
+            if (n < 1) return -1;
+            return (prev + 1) % n;
+          })
+        }
+        onPrev={() =>
+          setLightboxIndex((prev) => {
+            const n = photoUrls.length;
+            if (n < 1) return -1;
+            return (prev - 1 + n) % n;
+          })
+        }
         isSlideshowActive={isSlideshowActive}
         onToggleSlideshow={() => setIsSlideshowActive(!isSlideshowActive)}
         onFavorite={() => {
@@ -549,7 +577,10 @@ const GalleryView = () => {
         onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
         showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
         showFavorite={collection?.favorites_enabled !== false}
-        isFavorited={favoritedPhotos.includes(filteredPhotos[lightboxIndex]?.id)}
+        isFavorited={(() => {
+          const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
+          return !!id && favoritedPhotos.includes(id);
+        })()}
       />
 
       {/* Favorite Modal */}

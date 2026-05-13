@@ -172,9 +172,11 @@ const CollectionDashboard = () => {
             } else {
                 // Create new list
                 console.log("Creating favorite list:", { collectionId, favoriteListEmail, favoriteListName });
-                const session = await galleryService.createOrGetSession(collectionId, favoriteListEmail);
+                const session = await galleryService.createOrGetSession(collectionId, favoriteListEmail, {
+                    ensureDefaultFavoriteList: false,
+                });
                 console.log("Session obtained:", session);
-                
+
                 await galleryService.createFavoriteList(collectionId, session.id, favoriteListName);
                 console.log("List created successfully");
                 alert("Favorite list created successfully.");

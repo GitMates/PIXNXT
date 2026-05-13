@@ -378,14 +378,18 @@ export const galleryService = {
 
   /**
    * Create or get a client session for favorites/downloads
+   * @param {string} collectionId
+   * @param {string} email
+   * @param {{ ensureDefaultFavoriteList?: boolean }} [options] Pass `{ ensureDefaultFavoriteList: false }` when the caller will insert their own preset list (e.g. dashboard "Create favorite list") so a duplicate "My Favorites" row is not created.
    */
-  async createOrGetSession(collectionId, email) {
+  async createOrGetSession(collectionId, email, options = {}) {
+    const { ensureDefaultFavoriteList = true } = options;
     if (!collectionId || !email) {
       throw new Error('Collection ID and email are required');
     }
 
     try {
-      console.log('createOrGetSession starting:', { collectionId, email });
+      console.log('createOrGetSession starting:', { collectionId, email, ensureDefaultFavoriteList });
       // 1. Try to find existing session
       const { data: sessions, error: findError } = await supabase
         .from('client_sessions')
@@ -438,26 +442,29 @@ export const galleryService = {
         console.log('New session created and retrieved:', session);
       }
 
-      // Ensure a favorite list exists for this session
-      const { data: favLists, error: favListError } = await supabase
-        .from('favorite_lists')
-        .select('id, name')
-        .eq('session_id', session.id)
-        .eq('name', 'My Favorites')
-        .limit(1);
-
-      if (!favLists || favLists.length === 0) {
-        console.log('Creating default favorite list for session:', session.id);
-        const { error: insertListError } = await supabase
+      // Visitor flows need a default list for heart toggles. Dashboard preset-list creation
+      // supplies its own list name — skip this or you get both "My Favorites" and the preset row.
+      if (ensureDefaultFavoriteList) {
+        const { data: favLists } = await supabase
           .from('favorite_lists')
-          .insert([{
-            collection_id: collectionId,
-            session_id: session.id,
-            name: 'My Favorites'
-          }]);
-        
-        if (insertListError) {
-          console.error('Error creating default favorite list:', insertListError);
+          .select('id, name')
+          .eq('session_id', session.id)
+          .eq('name', 'My Favorites')
+          .limit(1);
+
+        if (!favLists || favLists.length === 0) {
+          console.log('Creating default favorite list for session:', session.id);
+          const { error: insertListError } = await supabase
+            .from('favorite_lists')
+            .insert([{
+              collection_id: collectionId,
+              session_id: session.id,
+              name: 'My Favorites'
+            }]);
+
+          if (insertListError) {
+            console.error('Error creating default favorite list:', insertListError);
+          }
         }
       }
 
@@ -469,29 +476,44 @@ export const galleryService = {
   },
 
   /**
-   * Get all favorited photo IDs for a given session
+   * Resolve the same default list toggleFavorite() uses (My Favorites, else first list).
+   */
+  async _getDefaultFavoriteListId(sessionId) {
+    const { data: lists, error: listError } = await supabase
+      .from('favorite_lists')
+      .select('id')
+      .eq('session_id', sessionId)
+      .eq('name', 'My Favorites')
+      .limit(1);
+
+    if (!listError && lists?.length) return lists[0].id;
+
+    const { data: anyLists } = await supabase
+      .from('favorite_lists')
+      .select('id')
+      .eq('session_id', sessionId)
+      .limit(1);
+
+    return anyLists?.[0]?.id ?? null;
+  },
+
+  /**
+   * Favorited photo IDs for the visitor session — same list as toggleFavorite() (not all preset lists).
    */
   async getFavorites(sessionId) {
     if (!sessionId) return [];
     try {
-      const { data: lists, error: listError } = await supabase
-        .from('favorite_lists')
-        .select('id')
-        .eq('session_id', sessionId);
-
-      if (listError || !lists || lists.length === 0) return [];
-
-      const listIds = lists.map(l => l.id);
+      const listId = await this._getDefaultFavoriteListId(sessionId);
+      if (!listId) return [];
 
       const { data: items, error: itemsError } = await supabase
         .from('favorite_items')
         .select('photo_id')
-        .in('list_id', listIds);
+        .eq('list_id', listId);
 
       if (itemsError) return [];
-      
-      // Return unique IDs
-      return [...new Set(items.map(item => item.photo_id))];
+
+      return [...new Set((items || []).map((item) => item.photo_id).filter(Boolean))];
     } catch (e) {
       console.error('Error in getFavorites:', e);
       return [];
@@ -526,28 +548,9 @@ export const galleryService = {
     let targetListId = listId;
 
     if (!targetListId) {
-      // Find the "My Favorites" list for this session
-      const { data: lists, error: listError } = await supabase
-        .from('favorite_lists')
-        .select('id')
-        .eq('session_id', sessionId)
-        .eq('name', 'My Favorites')
-        .limit(1);
-
-      if (listError || !lists || lists.length === 0) {
-        // Fallback to any list if "My Favorites" not found
-        const { data: anyLists } = await supabase
-          .from('favorite_lists')
-          .select('id')
-          .eq('session_id', sessionId)
-          .limit(1);
-        
-        if (!anyLists || anyLists.length === 0) {
-          throw new Error('Favorite list not found');
-        }
-        targetListId = anyLists[0].id;
-      } else {
-        targetListId = lists[0].id;
+      targetListId = await this._getDefaultFavoriteListId(sessionId);
+      if (!targetListId) {
+        throw new Error('Favorite list not found');
       }
     }
 
@@ -683,11 +686,19 @@ export const galleryService = {
       .from('favorite_lists')
       .update(updateData)
       .eq('id', listId)
-      .select()
-      .single();
+      .select('id, name, collection_id, session_id');
 
     if (error) throw error;
-    return data;
+    const rows = data ?? [];
+    if (rows.length === 0) {
+      throw new Error(
+        'Could not save this list (nothing was returned after update). Run the latest Supabase migrations, or add RLS policies so the collection owner can SELECT and UPDATE favorite_lists.'
+      );
+    }
+    if (rows.length > 1) {
+      throw new Error('Unexpected multiple rows when updating a favorite list.');
+    }
+    return rows[0];
   },
 
   /**
