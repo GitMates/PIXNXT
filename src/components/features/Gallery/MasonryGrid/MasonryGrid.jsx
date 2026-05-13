@@ -128,25 +128,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                 }}
                 loading="lazy"
               />
-              {showFavorite && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onFavorite?.(photo);
-                  }}
-                  className={cn(
-                    'absolute left-2 top-2 z-[2] flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all',
-                    isFav
-                      ? 'bg-white text-black shadow-sm'
-                      : 'bg-black/35 text-white hover:bg-white hover:text-black'
-                  )}
-                  aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
-                >
-                  <Heart size={16} strokeWidth={1.5} fill={isFav ? 'currentColor' : 'none'} />
-                </button>
-              )}
-              {/* Hover overlay — download only (favorites use corner heart) */}
+              {/* Hover overlay: download + favorite (no persistent top-left heart) */}
               <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/10">
                 <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 transform translate-y-[10px] transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
                   {showDownload && (
@@ -159,6 +141,24 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                       className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
                     >
                       <Download size={16} strokeWidth={1.5} />
+                    </button>
+                  )}
+                  {showFavorite && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onFavorite?.(photo);
+                      }}
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all',
+                        isFav
+                          ? 'bg-white text-black'
+                          : 'bg-white/20 text-white hover:bg-white hover:text-black'
+                      )}
+                      aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                    >
+                      <Heart size={16} strokeWidth={1.5} fill={isFav ? 'currentColor' : 'none'} />
                     </button>
                   )}
                 </div>

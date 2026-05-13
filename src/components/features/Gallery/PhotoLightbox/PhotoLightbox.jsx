@@ -69,11 +69,7 @@ export function PhotoLightbox({
   const secondaryActionsVisible =
     isFavorited && !!bottomSecondaryUnlocked[currentIndex];
 
-  const handleTopHeart = () => {
-    onFavorite?.();
-  };
-
-  /** Bottom heart: first click on a favorited-by-top-only slide only unlocks Download/Share; otherwise toggles favorite. */
+  /** Bottom heart: first click when already favorited (e.g. from grid) only unlocks Download/Share; otherwise toggles favorite. */
   const handleBottomHeart = () => {
     const i = currentIndex;
     if (isFavorited) {
@@ -155,23 +151,6 @@ export function PhotoLightbox({
                   <div className="h-12 w-12 animate-spin rounded-full border border-current border-t-transparent" />
                   <span className="text-[10px] font-bold uppercase tracking-widest">Loading photo…</span>
                 </div>
-              )}
-
-              {showFavorite && images[currentIndex] && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleTopHeart();
-                  }}
-                  className={cn(
-                    'absolute left-2 top-2 z-[30] flex h-10 w-10 items-center justify-center rounded-full bg-black/45 text-white shadow-md ring-1 ring-white/10 backdrop-blur-[2px] transition-all hover:bg-black/60 md:left-4 md:top-4 md:h-11 md:w-11',
-                    isFavorited && 'bg-black/55 ring-white/25'
-                  )}
-                  aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-                >
-                  <Heart size={18} strokeWidth={1.75} fill={isFavorited ? 'currentColor' : 'none'} />
-                </button>
               )}
 
               <div
