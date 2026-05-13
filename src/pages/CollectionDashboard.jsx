@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Heart } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
@@ -143,6 +144,44 @@ const CollectionDashboard = () => {
     // Favorite State
     const [favoritePhotos, setFavoritePhotos] = useState(true);
     const [favoriteNotes, setFavoriteNotes] = useState(true);
+    
+    // Create Favorite List Modal State
+    const [showCreateFavoriteListModal, setShowCreateFavoriteListModal] = useState(false);
+    const [favoriteListEmail, setFavoriteListEmail] = useState('');
+    const [favoriteListName, setFavoriteListName] = useState('');
+    const [favoriteListMax, setFavoriteListMax] = useState('');
+    const [favoriteListDesc, setFavoriteListDesc] = useState('');
+    const [favoriteActivity, setFavoriteActivity] = useState([]);
+    const [loadingActivity, setLoadingActivity] = useState(false);
+
+    const handleCreateFavoriteList = async () => {
+        if (!favoriteListEmail || !favoriteListName) {
+            alert("Email and List Name are required.");
+            return;
+        }
+        try {
+            console.log("Creating favorite list:", { collectionId, favoriteListEmail, favoriteListName });
+            const session = await galleryService.createOrGetSession(collectionId, favoriteListEmail);
+            console.log("Session obtained:", session);
+            
+            await galleryService.createFavoriteList(collectionId, session.id, favoriteListName);
+            console.log("List created successfully");
+            
+            setShowCreateFavoriteListModal(false);
+            setFavoriteListEmail('');
+            setFavoriteListName('');
+            setFavoriteListMax('');
+            setFavoriteListDesc('');
+            alert("Favorite list created successfully.");
+            // Refresh activity if on that tab
+            if (activeSidebarTab === 'activity' && activeActivitySubTab === 'favorite') {
+                fetchFavoriteActivity();
+            }
+        } catch (e) {
+            console.error("Failed to create favorite list. Details:", e);
+            alert(`Failed to create list: ${e.message || 'Unknown error'}`);
+        }
+    };
 
     // Activity State
     const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, email, share, private
@@ -216,6 +255,25 @@ const CollectionDashboard = () => {
         setSelectedPhotos(visibleIds);
         setShowSelectAllMenu(false);
     };
+
+    const fetchFavoriteActivity = async () => {
+        if (!collectionId) return;
+        try {
+            setLoadingActivity(true);
+            const activity = await galleryService.getFavoriteActivity(collectionId);
+            setFavoriteActivity(activity);
+        } catch (err) {
+            console.error('Failed to fetch favorite activity:', err);
+        } finally {
+            setLoadingActivity(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeSidebarTab === 'activity' && activeActivitySubTab === 'favorite') {
+            fetchFavoriteActivity();
+        }
+    }, [activeSidebarTab, activeActivitySubTab, collectionId]);
 
     useEffect(() => {
         if (showFocalModal) {
@@ -393,7 +451,7 @@ const CollectionDashboard = () => {
                 // Initialize state from collection data
                 if (data.status) setStatus(data.status.toUpperCase());
                 if (data.slug) setCollectionUrl(data.slug);
-                if (data.password) setCollectionPassword(data.password);
+                if (data.client_password_hash) setCollectionPassword(data.client_password_hash);
 
                 // Map individual columns to state
                 if (data.cover_style) setSelectedCoverStyle(data.cover_style);
@@ -422,6 +480,12 @@ const CollectionDashboard = () => {
                 if (data.email_capture_enabled !== undefined) setEmailRegistration(data.email_capture_enabled);
                 if (data.gallery_download_enabled !== undefined) setGalleryDownload(data.gallery_download_enabled);
                 if (data.single_photo_download_enabled !== undefined) setSinglePhotoDownload(data.single_photo_download_enabled);
+                
+                // Initialize advanced settings
+                if (data.download_limit_gallery) setDownloadLimit(data.download_limit_gallery.toString());
+                if (data.restrict_to_emails) setRestrictToEmails(data.restrict_to_emails);
+                if (data.selected_download_sets) setSelectedDownloadSets(data.selected_download_sets);
+                if (data.pin_usage_limit) setPinUsageLimit(data.pin_usage_limit.toString());
                 
                 // Initialize favorite settings
                 if (data.favorites_enabled !== undefined) setFavoritePhotos(data.favorites_enabled);
@@ -654,7 +718,7 @@ const CollectionDashboard = () => {
             try {
                 await galleryService.updateCollection(collectionId, {
                     slug: collectionUrl,
-                    password: collectionPassword
+                    client_password_hash: collectionPassword
                 });
             } catch (err) {
                 console.error('Error auto-saving general settings:', err);
@@ -676,12 +740,15 @@ const CollectionDashboard = () => {
                     download_resolutions: photoDownloadSizes,
                     download_pin_hash: downloadPin ? pinValue : null,
                     email_capture_enabled: emailRegistration,
-                    // Note: gallery_download_enabled, single_photo_download_enabled, 
-                    // and require_pin_for_single_photo are currently being saved 
-                    // locally but don't exist in the DB schema yet.
-                    // If they are needed, they should be added to the DB.
-                    // For now, we'll exclude them to avoid update errors.
-                    social_sharing_enabled: socialSharing
+                    gallery_download_enabled: galleryDownload,
+                    single_photo_download_enabled: singlePhotoDownload,
+                    require_pin_for_single_photo: requirePinForSinglePhoto,
+                    social_sharing_enabled: socialSharing,
+                    // Advanced settings
+                    download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
+                    restrict_to_emails: restrictToEmails || null,
+                    selected_download_sets: selectedDownloadSets,
+                    pin_usage_limit: pinUsageLimit ? parseInt(pinUsageLimit) : null
                 });
             } catch (err) {
                 console.error('Error auto-saving download settings:', err);
@@ -2022,8 +2089,88 @@ const CollectionDashboard = () => {
                                         <div className="info-box-content">
                                             <h4 className="info-box-title">Preset Favorite Lists</h4>
                                             <p className="info-box-text">Create Favorite lists and set selection limits for your clients to make selections for albums, free downloads, retouching and more.</p>
-                                            <span className="settings-link">Create Favorite List</span>
+                                            <span className="settings-link" onClick={() => setShowCreateFavoriteListModal(true)} style={{cursor: 'pointer'}}>Create Favorite List</span>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Create Favorite List Modal */}
+                        {showCreateFavoriteListModal && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+                                <div className="bg-white rounded-lg shadow-xl w-[600px] max-w-[90vw] flex flex-col">
+                                    <div className="flex items-center justify-between p-6 border-b border-gray-100">
+                                        <h3 className="text-xs font-bold tracking-[0.2em] uppercase text-gray-900">Create Favorite List</h3>
+                                        <button onClick={() => setShowCreateFavoriteListModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                        </button>
+                                    </div>
+                                    
+                                    <div className="p-6 overflow-y-auto" style={{maxHeight: '70vh'}}>
+                                        <div className="mb-6">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Client email</label>
+                                            <input 
+                                                type="email" 
+                                                className="w-full border border-gray-200 rounded-md p-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" 
+                                                placeholder="e.g. client@email.com" 
+                                                value={favoriteListEmail}
+                                                onChange={(e) => setFavoriteListEmail(e.target.value)}
+                                            />
+                                            <p className="mt-2 text-xs text-gray-500">Your client is required to sign in using this email to see this favorite list</p>
+                                        </div>
+
+                                        <div className="flex gap-6 mb-6">
+                                            <div className="flex-1">
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Favorite list name</label>
+                                                <input 
+                                                    type="text" 
+                                                    className="w-full border border-gray-200 rounded-md p-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" 
+                                                    placeholder="e.g. For retouching" 
+                                                    value={favoriteListName}
+                                                    onChange={(e) => setFavoriteListName(e.target.value)}
+                                                />
+                                                <p className="mt-2 text-xs text-gray-500">Your clients will see this name</p>
+                                            </div>
+                                            <div className="flex-1">
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Max selection</label>
+                                                <input 
+                                                    type="number" 
+                                                    className="w-full border border-gray-200 rounded-md p-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500" 
+                                                    placeholder="e.g. 30" 
+                                                    value={favoriteListMax}
+                                                    onChange={(e) => setFavoriteListMax(e.target.value)}
+                                                />
+                                                <p className="mt-2 text-xs text-gray-500">Limit the number of photos your clients can pick</p>
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">List description</label>
+                                            <textarea 
+                                                className="w-full border border-gray-200 rounded-md p-3 text-sm focus:outline-none focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 h-32 resize-none" 
+                                                placeholder="Optional"
+                                                maxLength={500}
+                                                value={favoriteListDesc}
+                                                onChange={(e) => setFavoriteListDesc(e.target.value)}
+                                            ></textarea>
+                                            <p className="mt-1 text-xs text-gray-400 text-right">{favoriteListDesc.length} / 500</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-end gap-3 p-6 border-t border-gray-100">
+                                        <button 
+                                            onClick={() => setShowCreateFavoriteListModal(false)}
+                                            className="px-6 py-2 text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button 
+                                            onClick={handleCreateFavoriteList}
+                                            className="px-6 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded transition-colors"
+                                        >
+                                            Create
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -2058,62 +2205,90 @@ const CollectionDashboard = () => {
                                 )}
 
                                 <div className="cd-empty-state-section">
-                                    <div className="cd-empty-state-content">
-                                        <div className="cd-empty-state-illustration">
-                                            {/* Unified Illustration Container */}
-                                            {activeActivitySubTab === 'download' && (
-                                                <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M40 140H200L180 60H60L40 140Z" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <rect x="80" y="40" width="80" height="60" rx="4" fill="white" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M120 70V110M120 110L110 100M120 110L130 100" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                                </svg>
-                                            )}
-                                            {activeActivitySubTab === 'favorite' && (
-                                                <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <circle cx="120" cy="90" r="50" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M120 75C120 75 115 65 100 65C85 65 80 80 80 90C80 115 120 140 120 140C120 140 160 115 160 90C160 80 155 65 140 65C125 65 120 75 120 75Z" fill="white" stroke="#111111" strokeWidth="2" />
-                                                </svg>
-                                            )}
-
-                                            {activeActivitySubTab === 'email' && (
-                                                <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <rect x="50" y="60" width="140" height="80" rx="4" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M50 60L120 100L190 60" stroke="#666" strokeWidth="1.5" />
-                                                    <circle cx="120" cy="110" r="15" fill="white" stroke="#111111" strokeWidth="2" />
-                                                </svg>
-                                            )}
-                                            {activeActivitySubTab === 'share' && (
-                                                <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M70 110L170 110" stroke="#666" strokeWidth="1.5" strokeDasharray="4 4" />
-                                                    <circle cx="70" cy="110" r="20" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <circle cx="170" cy="110" r="20" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <path d="M120 90V130" stroke="#111111" strokeWidth="2" />
-                                                </svg>
-                                            )}
-                                            {activeActivitySubTab === 'private' && (
-                                                <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                    <path d="M120 60C150 60 180 80 180 110C180 140 150 160 120 160C90 160 60 140 60 110C60 80 90 60 120 60Z" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
-                                                    <circle cx="120" cy="110" r="20" fill="white" stroke="#111111" strokeWidth="2" />
-                                                </svg>
-                                            )}
+                                    {activeActivitySubTab === 'favorite' && favoriteActivity.length > 0 ? (
+                                        <div className="activity-list-container">
+                                            <div className="activity-table-header">
+                                                <div className="activity-col-client">Client Email</div>
+                                                <div className="activity-col-name">List Name</div>
+                                                <div className="activity-col-count">Favorites</div>
+                                                <div className="activity-col-date">Date</div>
+                                            </div>
+                                            <div className="activity-table-body">
+                                                {favoriteActivity.map((item) => (
+                                                    <div key={item.id} className="activity-row">
+                                                        <div className="activity-col-client">
+                                                            <div className="client-avatar">
+                                                                <Heart size={14} fill="#ff4d4d" stroke="#ff4d4d" />
+                                                            </div>
+                                                            <span>{item.email}</span>
+                                                        </div>
+                                                        <div className="activity-col-name">{item.name}</div>
+                                                        <div className="activity-col-count">{item.item_count} photos</div>
+                                                        <div className="activity-col-date">
+                                                            {new Date(item.created_at).toLocaleDateString()}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
                                         </div>
-                                        <h3 className="cd-empty-state-title">
-                                            {activeActivitySubTab === 'download' && 'No gallery downloads yet'}
-                                            {activeActivitySubTab === 'favorite' && 'No favorites activity yet'}
+                                    ) : (
+                                        <div className="cd-empty-state-content">
+                                            <div className="cd-empty-state-illustration">
+                                                {/* Unified Illustration Container */}
+                                                {activeActivitySubTab === 'download' && (
+                                                    <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M40 140H200L180 60H60L40 140Z" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
+                                                        <rect x="80" y="40" width="80" height="60" rx="4" fill="white" stroke="#666" strokeWidth="1.5" />
+                                                        <path d="M120 70V110M120 110L110 100M120 110L130 100" stroke="#111111" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                                    </svg>
+                                                )}
+                                                {activeActivitySubTab === 'favorite' && (
+                                                    <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <circle cx="120" cy="90" r="50" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
+                                                        <path d="M120 75C120 75 115 65 100 65C85 65 80 80 80 90C80 115 120 140 120 140C120 140 160 115 160 90C160 80 155 65 140 65C125 65 120 75 120 75Z" fill="white" stroke="#111111" strokeWidth="2" />
+                                                    </svg>
+                                                )}
 
-                                            {activeActivitySubTab === 'email' && 'No email registration activity yet'}
-                                            {activeActivitySubTab === 'share' && 'No quick share links yet'}
-                                            {activeActivitySubTab === 'private' && 'No private photo activity yet'}
-                                        </h3>
-                                        <p className="cd-empty-state-text">
-                                            {activeActivitySubTab === 'download' && 'Gallery download activity details will show here when visitors download all photos from their collection.'}
-                                            {activeActivitySubTab === 'favorite' && 'Activity details will show here when visitors favorite photos in their collection.'}
+                                                {activeActivitySubTab === 'email' && (
+                                                    <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <rect x="50" y="60" width="140" height="80" rx="4" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
+                                                        <path d="M50 60L120 100L190 60" stroke="#666" strokeWidth="1.5" />
+                                                        <circle cx="120" cy="110" r="15" fill="white" stroke="#111111" strokeWidth="2" />
+                                                    </svg>
+                                                )}
+                                                {activeActivitySubTab === 'share' && (
+                                                    <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M70 110L170 110" stroke="#666" strokeWidth="1.5" strokeDasharray="4 4" />
+                                                        <circle cx="70" cy="110" r="20" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
+                                                        <circle cx="170" cy="110" r="20" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
+                                                        <path d="M120 90V130" stroke="#111111" strokeWidth="2" />
+                                                    </svg>
+                                                )}
+                                                {activeActivitySubTab === 'private' && (
+                                                    <svg width="240" height="180" viewBox="0 0 240 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                        <path d="M120 60C150 60 180 80 180 110C180 140 150 160 120 160C90 160 60 140 60 110C60 80 90 60 120 60Z" fill="#F8FAFB" stroke="#666" strokeWidth="1.5" />
+                                                        <circle cx="120" cy="110" r="20" fill="white" stroke="#111111" strokeWidth="2" />
+                                                    </svg>
+                                                )}
+                                            </div>
+                                            <h3 className="cd-empty-state-title">
+                                                {activeActivitySubTab === 'download' && 'No gallery downloads yet'}
+                                                {activeActivitySubTab === 'favorite' && (loadingActivity ? 'Loading activity...' : 'No favorites activity yet')}
 
-                                            {activeActivitySubTab === 'email' && 'Email registration activity will show here when visitors register their email before viewing the collection.'}
-                                            {activeActivitySubTab === 'share' && 'Quick Share links will show here when you create them from the photos tab.'}
-                                            {activeActivitySubTab === 'private' && 'Private photo activity details will show here when clients mark photos as private.'}
-                                        </p>
-                                    </div>
+                                                {activeActivitySubTab === 'email' && 'No email registration activity yet'}
+                                                {activeActivitySubTab === 'share' && 'No quick share links yet'}
+                                                {activeActivitySubTab === 'private' && 'No private photo activity yet'}
+                                            </h3>
+                                            <p className="cd-empty-state-text">
+                                                {activeActivitySubTab === 'download' && 'Gallery download activity details will show here when visitors download all photos from their collection.'}
+                                                {activeActivitySubTab === 'favorite' && 'Activity details will show here when visitors favorite photos in their collection.'}
+
+                                                {activeActivitySubTab === 'email' && 'Email registration activity will show here when visitors register their email before viewing the collection.'}
+                                                {activeActivitySubTab === 'share' && 'Quick Share links will show here when you create them from the photos tab.'}
+                                                {activeActivitySubTab === 'private' && 'Private photo activity details will show here when clients mark photos as private.'}
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}
@@ -2516,6 +2691,48 @@ const CollectionDashboard = () => {
                             ))}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* Create Favorite List Modal */}
+            {showCreateFavoriteListModal && (
+                <div className="cd-modal-overlay" onClick={() => setShowCreateFavoriteListModal(false)}>
+                    <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+                        <div className="cd-modal-header">
+                            <h3 className="cd-modal-title">CREATE FAVORITE LIST</h3>
+                            <button className="cd-modal-close" onClick={() => setShowCreateFavoriteListModal(false)}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                            </button>
+                        </div>
+                        <div className="cd-modal-body" style={{ padding: '24px' }}>
+                            <div className="cd-form-group">
+                                <label className="cd-form-label">CLIENT EMAIL</label>
+                                <input 
+                                    type="email" 
+                                    className="cd-form-input"
+                                    placeholder="Enter client's email"
+                                    value={favoriteListEmail}
+                                    onChange={(e) => setFavoriteListEmail(e.target.value)}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', marginTop: '4px' }}
+                                />
+                            </div>
+                            <div className="cd-form-group" style={{ marginTop: '16px' }}>
+                                <label className="cd-form-label">LIST NAME</label>
+                                <input 
+                                    type="text" 
+                                    className="cd-form-input"
+                                    placeholder="e.g. Wedding Selection"
+                                    value={favoriteListName}
+                                    onChange={(e) => setFavoriteListName(e.target.value)}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', marginTop: '4px' }}
+                                />
+                            </div>
+                        </div>
+                        <div className="cd-modal-footer">
+                            <button className="cd-btn-secondary" onClick={() => setShowCreateFavoriteListModal(false)}>Cancel</button>
+                            <button className="cd-btn-primary" onClick={handleCreateFavoriteList} disabled={!favoriteListEmail || !favoriteListName}>Create List</button>
+                        </div>
+                    </div>
                 </div>
             )}
             {/* Change Cover Modal */}

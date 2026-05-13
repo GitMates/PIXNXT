@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Download, Heart } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 
-export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true }) {
+export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true, favoritedPhotoIds = [] }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
@@ -126,11 +126,20 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onFavorite?.();
+                        onFavorite?.(photo);
                       }}
-                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                      className={cn(
+                        "flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all",
+                        favoritedPhotoIds?.includes(photo.id) 
+                          ? "bg-white text-black" 
+                          : "bg-white/20 text-white hover:bg-white hover:text-black"
+                      )}
                     >
-                      <Heart size={16} strokeWidth={1.5} />
+                      <Heart 
+                        size={16} 
+                        strokeWidth={1.5} 
+                        fill={favoritedPhotoIds?.includes(photo.id) ? "currentColor" : "none"} 
+                      />
                     </button>
                   )}
                 </div>

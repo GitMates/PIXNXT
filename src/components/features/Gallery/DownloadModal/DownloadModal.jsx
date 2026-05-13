@@ -4,6 +4,7 @@ import { X, Download, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
+import { galleryService } from '@/services/gallery.service';
 
 export const DownloadModal = ({
   isOpen,
@@ -29,11 +30,13 @@ export const DownloadModal = ({
   // Initial step determination
   useEffect(() => {
     if (isOpen && collection) {
-      const needsEmail = !!collection?.email_capture_enabled;
+      const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
       const isSingle = !!initialPhoto;
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
       const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
       const needsPin = hasPin && (!isSingle || pinRequiredForSingle);
+      const hasDownloadLimit = !!collection?.download_limit_gallery;
+      const hasPinUsageLimit = !!(needsPin && collection?.pin_usage_limit);
 
       // Reset fields and set initial step only on initial open
       if (prevIsOpen.current === false) {
@@ -44,7 +47,8 @@ export const DownloadModal = ({
         setEmail('');
         setSelectedSet(initialPhoto ? 'single' : (initialSetId || 'all'));
 
-        if (needsEmail || needsPin) {
+        // Show auth step if any form of gate is required
+        if (needsEmail || needsPin || hasDownloadLimit || hasPinUsageLimit) {
           setStep('auth');
         } else {
           setStep('selection');
@@ -74,13 +78,13 @@ export const DownloadModal = ({
     if (e.key === 'Enter') handleAuth();
   };
 
-  const handleAuth = () => {
+  const handleAuth = async () => {
     if (collection?.email_capture_enabled && !email.trim()) {
       setError('Please enter your email address.');
       return;
     }
 
-    // If PIN is set, always validate it regardless of photo type
+    // Validate PIN if set
     const validPin = collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash;
     const needsPin = !!validPin;
 
@@ -91,6 +95,56 @@ export const DownloadModal = ({
       return;
     }
 
+    // Check email restriction
+    if (collection?.restrict_to_emails) {
+      const allowedEmails = collection.restrict_to_emails.split(',').map(e => e.trim().toLowerCase());
+      const enteredEmail = email.trim().toLowerCase();
+      if (!enteredEmail || !allowedEmails.includes(enteredEmail)) {
+        setError('Your email is not authorized to download this collection.');
+        return;
+      }
+    }
+
+    setIsProcessing(true);
+    setError('');
+
+    try {
+      // ── Check PIN Usage Limit ─────────────────────────────
+      if (needsPin && collection?.pin_usage_limit) {
+        const pinUseCount = await galleryService.getPinUsageCount(collection.id);
+        if (pinUseCount >= collection.pin_usage_limit) {
+          setError(`PIN usage limit reached. This PIN can only be used ${collection.pin_usage_limit} time${collection.pin_usage_limit !== 1 ? 's' : ''}.`);
+          setIsProcessing(false);
+          return;
+        }
+        // Log successful PIN use
+        await galleryService.logActivity(collection.id, 'password_attempt', {
+          email: email.trim(),
+          metadata: { success: true, type: 'download_pin' }
+        });
+      }
+
+      // ── Check Download Limit ──────────────────────────────
+      if (collection?.download_limit_gallery) {
+        const downloadCount = await galleryService.getDownloadCount(collection.id);
+        if (downloadCount >= collection.download_limit_gallery) {
+          setError(`Download limit reached. This collection can only be downloaded ${collection.download_limit_gallery} time${collection.download_limit_gallery !== 1 ? 's' : ''}.`);
+          setIsProcessing(false);
+          return;
+        }
+      }
+
+      // All checks passed
+      setIsProcessing(false);
+      proceedToNextStep();
+    } catch (err) {
+      console.error('Error during auth checks:', err);
+      setIsProcessing(false);
+      setError('Verification failed. Please try again.');
+    }
+  };
+
+  const proceedToNextStep = () => {
     setError('');
     if (initialPhoto) {
       startDownload();
@@ -154,6 +208,13 @@ export const DownloadModal = ({
 
       setStatusText('Saving to your device...');
       saveAs(content, `${collection.name || 'gallery'}.zip`);
+      
+      // Log download activity
+      await galleryService.logActivity(collection.id, 'download', {
+        email: email.trim(),
+        photoId: initialPhoto?.id
+      });
+
       setStep('complete');
     } catch (err) {
       console.error('Download failed:', err);
@@ -167,13 +228,13 @@ export const DownloadModal = ({
   if (!isOpen) return null;
 
   const highlightsCount = photos.filter(p => !p.set_id).length;
-  const needsEmail = !!collection?.email_capture_enabled;
+  const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
   const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
-  // For the final render check, we always consider PIN needed if it's there, 
-  // but we can refine it based on initialPhoto if we want.
-  // To be safe and consistent with handleAuth, we'll just check hasPin.
   const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
   const needsPin = hasPin && (!initialPhoto || pinRequiredForSingle);
+  const hasDownloadLimit = !!collection?.download_limit_gallery;
+  const hasPinUsageLimit = !!(needsPin && collection?.pin_usage_limit);
+  const limitOnly = !needsEmail && !needsPin && (hasDownloadLimit || hasPinUsageLimit);
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
@@ -231,12 +292,24 @@ export const DownloadModal = ({
                   Download Photos
                 </h2>
                 <p className="text-center text-[12px] text-zinc-500 mb-8 leading-relaxed max-w-[280px] mx-auto">
-                  {needsPin && needsEmail
+                  {limitOnly
+                    ? `Verifying download availability for this collection.`
+                    : needsPin && needsEmail
                     ? `Please enter your email and the download PIN provided by ${collection?.name || 'the photographer'} to download this photo collection.`
                     : needsPin
                     ? `Please enter the download PIN provided by ${collection?.name || 'the photographer'} to download this photo collection.`
                     : `Please enter your email address to download this photo collection.`
                   }
+                  {hasDownloadLimit && (
+                    <span className="block mt-2 text-zinc-400 text-[11px]">
+                      {collection.download_limit_gallery} download{collection.download_limit_gallery !== 1 ? 's' : ''} remaining for this collection.
+                    </span>
+                  )}
+                  {hasPinUsageLimit && (
+                    <span className="block text-zinc-400 text-[11px]">
+                      PIN can be used {collection.pin_usage_limit} time{collection.pin_usage_limit !== 1 ? 's' : ''} total.
+                    </span>
+                  )}
                 </p>
 
                 <div className="space-y-4">
@@ -279,9 +352,17 @@ export const DownloadModal = ({
 
                   <button
                     onClick={handleAuth}
-                    className="w-full bg-[#111] text-white py-4 text-[11px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors mt-2"
+                    disabled={isProcessing}
+                    className="w-full bg-[#111] text-white py-4 text-[11px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors mt-2 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
-                    Next
+                    {isProcessing ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Verifying...
+                      </>
+                    ) : (
+                      limitOnly ? 'Continue' : 'Next'
+                    )}
                   </button>
                 </div>
               </motion.div>
@@ -347,6 +428,11 @@ export const DownloadModal = ({
                     {/* Named Sets */}
                     {sets
                       .filter(s => s.name?.toLowerCase() !== 'highlights')
+                      .filter(s => {
+                        // If selected_download_sets is provided, only show those sets
+                        if (!collection?.selected_download_sets || collection.selected_download_sets.length === 0) return true;
+                        return collection.selected_download_sets.includes(s.name) || collection.selected_download_sets.includes(s.id);
+                      })
                       .map(set => (
                         <button
                           key={set.id}
@@ -373,9 +459,15 @@ export const DownloadModal = ({
 
                 <button
                   onClick={startDownload}
-                  className="w-full bg-[#111] text-white py-4 text-[11px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors"
+                  disabled={isProcessing}
+                  className="w-full bg-[#111] text-white py-4 text-[11px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  Start Download
+                  {isProcessing ? (
+                    <>
+                      <Loader2 size={14} className="animate-spin" />
+                      Preparing...
+                    </>
+                  ) : 'Start Download'}
                 </button>
               </motion.div>
             )}

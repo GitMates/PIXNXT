@@ -5924,3 +5924,81 @@ input:checked+.cd-toggle-slider:before {
 .nav-item {
     white-space: nowrap !important;
 }
+/* Activity List Styles */
+.activity-list-container {
+    background: #fff;
+    border: 1px solid #eee;
+    border-radius: 8px;
+    margin-top: 24px;
+    overflow: hidden;
+}
+
+.activity-table-header {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1fr 1fr;
+    padding: 16px 24px;
+    background: #f9fafb;
+    border-bottom: 1px solid #eee;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #666;
+}
+
+.activity-table-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.activity-row {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr 1fr 1fr;
+    padding: 16px 24px;
+    border-bottom: 1px solid #f5f5f5;
+    align-items: center;
+    font-size: 14px;
+    color: #333;
+    transition: background 0.2s;
+}
+
+.activity-row:last-child {
+    border-bottom: none;
+}
+
+.activity-row:hover {
+    background: #fafafa;
+}
+
+.activity-col-client {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.client-avatar {
+    width: 32px;
+    height: 32px;
+    background: #fff5f5;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ff4d4d;
+}
+
+.activity-col-name {
+    font-weight: 500;
+    color: #111;
+}
+
+.activity-col-count {
+    color: #666;
+    font-size: 13px;
+}
+
+.activity-col-date {
+    color: #999;
+    font-size: 13px;
+}
+

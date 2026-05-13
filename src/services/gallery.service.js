@@ -374,5 +374,330 @@ export const galleryService = {
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Create or get a client session for favorites/downloads
+   */
+  async createOrGetSession(collectionId, email) {
+    if (!collectionId || !email) {
+      throw new Error('Collection ID and email are required');
+    }
+
+    try {
+      console.log('createOrGetSession starting:', { collectionId, email });
+      // 1. Try to find existing session
+      const { data: sessions, error: findError } = await supabase
+        .from('client_sessions')
+        .select('id, collection_id, visitor_email, access_level, expires_at')
+        .eq('collection_id', collectionId)
+        .eq('visitor_email', email)
+        .limit(1);
+
+      if (findError) {
+        console.warn('Find session error:', findError);
+      }
+
+      let session = sessions?.[0];
+
+      if (session) {
+        console.log('Existing session found:', session);
+      } else {
+        // 2. Create new session (Blind insert to handle RLS)
+        const insertData = {
+          collection_id: collectionId,
+          visitor_email: email,
+          access_level: 'guest',
+          created_at: new Date().toISOString()
+        };
+        
+        console.log('Attempting blind insert for session:', insertData);
+        const { error: insertError } = await supabase
+          .from('client_sessions')
+          .insert([insertData]);
+
+        if (insertError && insertError.code !== '23505') { // Ignore unique constraint violation
+          console.error('Session insertion failed:', insertError);
+          throw new Error(`Session creation failed: ${insertError.message}`);
+        }
+
+        // 3. Fetch the created session
+        const { data: fetchSession, error: fetchAgainError } = await supabase
+          .from('client_sessions')
+          .select('id, collection_id, visitor_email')
+          .eq('collection_id', collectionId)
+          .eq('visitor_email', email)
+          .limit(1)
+          .single();
+
+        if (fetchAgainError) {
+          console.error('Error fetching session after blind insert:', fetchAgainError);
+          throw new Error('Failed to retrieve created session after insert. Please check RLS policies.');
+        }
+        session = fetchSession;
+        console.log('New session created and retrieved:', session);
+      }
+
+      // Ensure a favorite list exists for this session
+      const { data: favLists, error: favListError } = await supabase
+        .from('favorite_lists')
+        .select('id, name')
+        .eq('session_id', session.id)
+        .eq('name', 'My Favorites')
+        .limit(1);
+
+      if (!favLists || favLists.length === 0) {
+        console.log('Creating default favorite list for session:', session.id);
+        const { error: insertListError } = await supabase
+          .from('favorite_lists')
+          .insert([{
+            collection_id: collectionId,
+            session_id: session.id,
+            name: 'My Favorites'
+          }]);
+        
+        if (insertListError) {
+          console.error('Error creating default favorite list:', insertListError);
+        }
+      }
+
+      return session;
+    } catch (error) {
+      console.error('Error in createOrGetSession:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get all favorited photo IDs for a given session
+   */
+  async getFavorites(sessionId) {
+    if (!sessionId) return [];
+    try {
+      const { data: lists, error: listError } = await supabase
+        .from('favorite_lists')
+        .select('id')
+        .eq('session_id', sessionId);
+
+      if (listError || !lists || lists.length === 0) return [];
+
+      const listIds = lists.map(l => l.id);
+
+      const { data: items, error: itemsError } = await supabase
+        .from('favorite_items')
+        .select('photo_id')
+        .in('list_id', listIds);
+
+      if (itemsError) return [];
+      
+      // Return unique IDs
+      return [...new Set(items.map(item => item.photo_id))];
+    } catch (e) {
+      console.error('Error in getFavorites:', e);
+      return [];
+    }
+  },
+
+  /**
+   * Create a favorite list explicitly (for Dashboard)
+   */
+  async createFavoriteList(collectionId, sessionId, listName) {
+    const { data, error } = await supabase
+      .from('favorite_lists')
+      .insert([{
+        collection_id: collectionId,
+        session_id: sessionId,
+        name: listName || 'My Favorites'
+      }])
+      .select('id, name, session_id')
+      .single();
+
+    if (error) {
+      console.error('Error creating favorite list:', error);
+      throw error;
+    }
+    return data;
+  },
+
+  /**
+   * Toggle a photo as favorite
+   */
+  async toggleFavorite(sessionId, photoId, isFavorite, listId = null) {
+    let targetListId = listId;
+
+    if (!targetListId) {
+      // Find the "My Favorites" list for this session
+      const { data: lists, error: listError } = await supabase
+        .from('favorite_lists')
+        .select('id')
+        .eq('session_id', sessionId)
+        .eq('name', 'My Favorites')
+        .limit(1);
+
+      if (listError || !lists || lists.length === 0) {
+        // Fallback to any list if "My Favorites" not found
+        const { data: anyLists } = await supabase
+          .from('favorite_lists')
+          .select('id')
+          .eq('session_id', sessionId)
+          .limit(1);
+        
+        if (!anyLists || anyLists.length === 0) {
+          throw new Error('Favorite list not found');
+        }
+        targetListId = anyLists[0].id;
+      } else {
+        targetListId = lists[0].id;
+      }
+    }
+
+    if (isFavorite) {
+      // Add favorite
+      const { error } = await supabase
+        .from('favorite_items')
+        .insert([{
+          list_id: targetListId,
+          photo_id: photoId
+        }]);
+      if (error && error.code !== '23505') throw error; // Ignore unique constraint violation
+    } else {
+      // Remove favorite
+      const { error } = await supabase
+        .from('favorite_items')
+        .delete()
+        .eq('list_id', targetListId)
+        .eq('photo_id', photoId);
+      if (error) throw error;
+    }
+  },
+
+  /**
+   * Get favorite activity for a collection
+   */
+  async getFavoriteActivity(collectionId) {
+    try {
+      console.log('Fetching favorite activity for collection:', collectionId);
+      // 1. Fetch lists
+      const { data: lists, error: listsError } = await supabase
+        .from('favorite_lists')
+        .select('id, name, session_id, collection_id, created_at')
+        .eq('collection_id', collectionId);
+
+      if (listsError) {
+        console.error('Error fetching favorite lists:', listsError);
+        throw listsError;
+      }
+
+      if (!lists || lists.length === 0) {
+        console.log('No favorite lists found.');
+        return [];
+      }
+
+      // 2. Fetch sessions
+      const sessionIds = [...new Set(lists.map(l => l.session_id))];
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('client_sessions')
+        .select('id, visitor_email')
+        .in('id', sessionIds);
+
+      if (sessionsError) {
+        console.warn('Error fetching client sessions for activity:', sessionsError);
+      }
+
+      const sessionMap = (sessions || []).reduce((acc, s) => ({ ...acc, [s.id]: s.visitor_email }), {});
+
+      // 3. Fetch item counts
+      const listIds = lists.map(l => l.id);
+      const { data: items, error: itemsError } = await supabase
+        .from('favorite_items')
+        .select('id, list_id')
+        .in('list_id', listIds);
+
+      if (itemsError) {
+        console.warn('Error fetching favorite items for activity:', itemsError);
+      }
+
+      const countMap = (items || []).reduce((acc, i) => {
+        acc[i.list_id] = (acc[i.list_id] || 0) + 1;
+        return acc;
+      }, {});
+
+      const results = lists.map(list => ({
+        id: list.id,
+        name: list.name,
+        email: sessionMap[list.session_id] || 'Unknown visitor',
+        photoCount: countMap[list.id] || 0,
+        date: list.created_at,
+        sessionId: list.session_id
+      }));
+
+      console.log('Aggregated favorite activity:', results);
+      return results.sort((a, b) => new Date(b.date) - new Date(a.date));
+    } catch (error) {
+      console.error('Error in getFavoriteActivity:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Log an activity event
+   */
+  async logActivity(collectionId, eventType, data = {}) {
+    try {
+      const { error } = await supabase
+        .from('activity_log')
+        .insert([{
+          collection_id: collectionId,
+          event_type: eventType,
+          visitor_email: data.email || null,
+          photo_id: data.photoId || null,
+          metadata: data.metadata || null
+        }]);
+      if (error) throw error;
+    } catch (e) {
+      console.warn('Failed to log activity:', e);
+    }
+  },
+
+  /**
+   * Get the download count for a collection
+   */
+  async getDownloadCount(collectionId) {
+    try {
+      const { count, error } = await supabase
+        .from('activity_log')
+        .select('*', { count: 'exact', head: true })
+        .eq('collection_id', collectionId)
+        .eq('event_type', 'download');
+      
+      if (error) throw error;
+      return count || 0;
+    } catch (e) {
+      console.error('Error getting download count:', e);
+      return 0;
+    }
+  },
+
+  /**
+   * Get the number of times the download PIN has been successfully used
+   */
+  async getPinUsageCount(collectionId) {
+    try {
+      const { data, error } = await supabase
+        .from('activity_log')
+        .select('metadata')
+        .eq('collection_id', collectionId)
+        .eq('event_type', 'password_attempt');
+
+      if (error) throw error;
+      // Count only entries where metadata.success === true and type is download_pin
+      const successCount = (data || []).filter(
+        row => row.metadata?.success === true && row.metadata?.type === 'download_pin'
+      ).length;
+      return successCount;
+    } catch (e) {
+      console.error('Error getting PIN usage count:', e);
+      return 0;
+    }
   }
 };

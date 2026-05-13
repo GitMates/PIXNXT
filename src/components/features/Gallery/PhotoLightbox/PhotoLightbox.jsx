@@ -15,7 +15,8 @@ export function PhotoLightbox({
   onFavorite,
   onDownload,
   showDownload = true,
-  showFavorite = true
+  showFavorite = true,
+  isFavorited = false
 }) {
   // Prevent scrolling when open
   useEffect(() => {
@@ -81,9 +82,13 @@ export function PhotoLightbox({
             {showFavorite && (
               <button 
                 onClick={onFavorite}
-                className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest hover:opacity-50 transition-all"
+                className={cn(
+                  "flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-all",
+                  isFavorited ? "text-red-500 hover:opacity-80" : "hover:opacity-50"
+                )}
               >
-                <Heart size={14} /> Favorite
+                <Heart size={14} fill={isFavorited ? "currentColor" : "none"} /> 
+                {isFavorited ? 'Favorited' : 'Favorite'}
               </button>
             )}
           </div>

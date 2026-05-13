@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { useScroll, useTransform, AnimatePresence, motion } from 'framer-motion';
 import * as Covers from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles';
@@ -31,19 +31,90 @@ const GalleryView = () => {
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState({ done: 0, total: 0 });
 
+  // Favorites state
+  const [sessionId, setSessionId] = useState(null);
+  const [favoritedPhotos, setFavoritedPhotos] = useState([]);
+  const [pendingFavoritePhotoId, setPendingFavoritePhotoId] = useState(null);
+  const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
+
+  const handleFavoriteEmailSubmit = async () => {
+    if (!email || !collection) return;
+    try {
+      setIsSubmittingEmail(true);
+      const session = await galleryService.createOrGetSession(collection.id, email);
+      setSessionId(session.id);
+      localStorage.setItem(`pixnxt_fav_email_${collection.id}`, email);
+      
+      const favs = await galleryService.getFavorites(session.id);
+      let newFavs = [...favs];
+
+      if (pendingFavoritePhotoId) {
+        if (!newFavs.includes(pendingFavoritePhotoId)) {
+          await galleryService.toggleFavorite(session.id, pendingFavoritePhotoId, true);
+          newFavs.push(pendingFavoritePhotoId);
+        }
+        setPendingFavoritePhotoId(null);
+      }
+      
+      setFavoritedPhotos(newFavs);
+      setShowFavoriteModal(false);
+    } catch (e) {
+      console.error("Failed to setup session/favorites:", e);
+      alert("Failed to save email. Please try again.");
+    } finally {
+      setIsSubmittingEmail(false);
+    }
+  };
+
+  const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+
+  const handleFavoriteClick = async (photoId = null) => {
+    if (!collection) return;
+    
+    if (sessionId) {
+      if (photoId) {
+        // Toggle specific photo
+        const isCurrentlyFavorited = favoritedPhotos.includes(photoId);
+        try {
+          await galleryService.toggleFavorite(sessionId, photoId, !isCurrentlyFavorited);
+          setFavoritedPhotos(prev => 
+            isCurrentlyFavorited 
+              ? prev.filter(id => id !== photoId) 
+              : [...prev, photoId]
+          );
+        } catch (e) {
+          console.error("Failed to toggle favorite:", e);
+        }
+      } else {
+        // Clicked header "FAVORITE" button - toggle favorites filter
+        if (favoritedPhotos.length === 0 && !showOnlyFavorites) {
+          alert("You haven't favorited any photos yet. Click the heart icon on any photo to save it.");
+        } else {
+          setShowOnlyFavorites(!showOnlyFavorites);
+        }
+      }
+    } else {
+      // Need email
+      setPendingFavoritePhotoId(photoId);
+      setShowFavoriteModal(true);
+    }
+  };
+
   const handleDownloadClick = async (photoOrEvent = null) => {
     // Distinguish between a photo object and a browser event
     const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
 
     if (photo) {
-      const needsEmail = !!collection?.email_capture_enabled;
+      const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
       
       // Check if PIN is required for single photo downloads
       const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
       const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
       const needsPin = hasPin && (!photo || pinRequiredForSingle);
+      
+      const hasDownloadLimit = !!collection?.download_limit_gallery;
 
-      if (!needsEmail && !needsPin) {
+      if (!needsEmail && !needsPin && !hasDownloadLimit) {
         // Single photo: download immediately from Cloudflare R2 if no auth required
         await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
       } else {
@@ -102,6 +173,20 @@ const GalleryView = () => {
           const p = await galleryService.getPhotographerProfile(data.photographer_id);
           setPhotographer(p);
         }
+
+        // Check for existing session email
+        const savedEmail = localStorage.getItem(`pixnxt_fav_email_${data.id}`);
+        if (savedEmail) {
+          try {
+            const session = await galleryService.createOrGetSession(data.id, savedEmail);
+            setSessionId(session.id);
+            const favs = await galleryService.getFavorites(session.id);
+            setFavoritedPhotos(favs);
+            setEmail(savedEmail);
+          } catch (e) {
+            console.error("Failed to restore session:", e);
+          }
+        }
       } catch (err) {
         console.error('Gallery Fetch Error:', err);
         setError(err.message || 'An error occurred while loading the gallery');
@@ -155,6 +240,19 @@ const GalleryView = () => {
     }
   };
 
+  const filteredPhotos = useMemo(() => {
+    let photos = activeSetId
+      ? (collection?.photos || []).filter(p => p.set_id === activeSetId)
+      : (collection?.photos || []).filter(p => !p.set_id);
+
+    if (showOnlyFavorites) {
+      photos = photos.filter(p => favoritedPhotos.includes(p.id));
+    }
+    return photos;
+  }, [collection?.photos, activeSetId, showOnlyFavorites, favoritedPhotos]);
+
+  const photoUrls = useMemo(() => filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url), [filteredPhotos]);
+
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-white">
       <div className="text-sm font-bold tracking-[0.6em] uppercase text-zinc-200 animate-pulse">
@@ -170,12 +268,6 @@ const GalleryView = () => {
       <a href="/" className="text-[10px] font-bold underline uppercase tracking-[0.4em]">Back to Home</a>
     </div>
   );
-
-  const filteredPhotos = activeSetId
-    ? (collection.photos || []).filter(p => p.set_id === activeSetId)
-    : (collection.photos || []).filter(p => !p.set_id);
-
-  const photoUrls = filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url);
 
   return (
     <div className={cn("min-h-screen transition-colors duration-500", `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)} style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
@@ -269,8 +361,15 @@ const GalleryView = () => {
                 {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Slideshow</span>}
               </button>
               {collection?.favorites_enabled !== false && (
-                <button onClick={() => setShowFavoriteModal(true)} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all" style={{ color: 'var(--gallery-text)' }}>
-                  <Heart size={14} />
+                <button onClick={() => handleFavoriteClick()} className="flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase hover:opacity-40 transition-all relative" style={{ color: 'var(--gallery-text)' }}>
+                  <div className="relative">
+                    <Heart size={14} fill={favoritedPhotos.length > 0 ? "currentColor" : "none"} />
+                    {favoritedPhotos.length > 0 && (
+                      <span className="absolute -top-2 -right-2 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[8px] text-white">
+                        {favoritedPhotos.length}
+                      </span>
+                    )}
+                  </div>
                   {effectiveSettings.nav_style !== 'icon' && <span className="hidden xl:inline">Favorite</span>}
                 </button>
               )}
@@ -299,6 +398,23 @@ const GalleryView = () => {
               )}
             </div>
           </div>
+
+          {/* Favorites Filter Indicator */}
+          {showOnlyFavorites && (
+            <div className="flex flex-col items-center justify-center py-10 px-4 text-center border-b border-black/5 mb-8">
+              <Typography variant="h3" className="text-xl font-serif mb-2" style={{ color: 'var(--gallery-text)' }}>My Favorites</Typography>
+              <p className="text-sm opacity-60 mb-4" style={{ color: 'var(--gallery-text)' }}>
+                Showing {filteredPhotos.length} favorited photos
+              </p>
+              <button 
+                onClick={() => setShowOnlyFavorites(false)}
+                className="text-[10px] font-bold uppercase tracking-[0.2em] underline hover:opacity-50 transition-all"
+                style={{ color: 'var(--gallery-text)' }}
+              >
+                Show All Photos
+              </button>
+            </div>
+          )}
 
           {/* Set Description */}
           {(() => {
@@ -329,11 +445,12 @@ const GalleryView = () => {
               aspectRatio: collection.aspect_ratio || 'original'
             }}
             onImageClick={(index) => setLightboxIndex(index)}
-            onFavorite={() => setShowFavoriteModal(true)}
+            onFavorite={(photo) => handleFavoriteClick(photo.id)}
             onDownload={handleDownloadClick}
             onShare={() => setShowShareModal(true)}
             showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
             showFavorite={collection?.favorites_enabled !== false}
+            favoritedPhotoIds={favoritedPhotos}
             customRowHeight={collection.thumbnail_size === 'large' ? 420 : collection.thumbnail_size === 'regular' ? 300 : collection.thumbnail_size === 'small' ? 200 : 140}
             customColumnCount={collection.thumbnail_size === 'large' ? 2 : collection.thumbnail_size === 'regular' ? 3 : 4}
           />
@@ -362,10 +479,11 @@ const GalleryView = () => {
         onPrev={() => setLightboxIndex((prev) => (prev - 1 + photoUrls.length) % photoUrls.length)}
         isSlideshowActive={isSlideshowActive}
         onToggleSlideshow={() => setIsSlideshowActive(!isSlideshowActive)}
-        onFavorite={() => setShowFavoriteModal(true)}
+        onFavorite={() => handleFavoriteClick(filteredPhotos[lightboxIndex]?.id)}
         onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
         showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
         showFavorite={collection?.favorites_enabled !== false}
+        isFavorited={favoritedPhotos.includes(filteredPhotos[lightboxIndex]?.id)}
       />
 
       {/* Favorite Modal */}
@@ -409,10 +527,11 @@ const GalleryView = () => {
                   className="w-full border-b border-zinc-200 py-3 text-sm outline-none focus:border-zinc-950 transition-colors"
                 />
                 <button
-                  className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors"
-                  onClick={() => setShowFavoriteModal(false)}
+                  className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
+                  onClick={handleFavoriteEmailSubmit}
+                  disabled={isSubmittingEmail}
                 >
-                  Go to Favorites
+                  {isSubmittingEmail ? 'Setting up...' : 'Go to Favorites'}
                 </button>
               </div>
             </motion.div>
