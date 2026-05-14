@@ -213,9 +213,10 @@ const CollectionDashboard = () => {
     };
 
     // Activity State
-    const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, email, share, private
+    const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
     const [activeDownloadActivityTab, setActiveDownloadActivityTab] = useState('gallery'); // gallery, photo, video
     const [activeActivityMenu, setActiveActivityMenu] = useState(null); // id of activity item
+    const [favoriteDetailToolbarMenuOpen, setFavoriteDetailToolbarMenuOpen] = useState(false);
 
     const handleExportFavoriteList = async (listId, listName) => {
         try {
@@ -272,6 +273,7 @@ const CollectionDashboard = () => {
             await galleryService.deleteFavoriteList(id);
             setFavoriteActivity(prev => prev.filter(a => a.id !== id));
             setActiveActivityMenu(null);
+            setFavoriteDetailToolbarMenuOpen(false);
             if (selectedFavoriteListId === id) {
                 setSelectedFavoriteListId(null);
                 setFavoriteDetailRows([]);
@@ -280,6 +282,41 @@ const CollectionDashboard = () => {
             console.error('Failed to delete favorite list:', err);
             alert(err?.message || err?.error_description || 'Failed to delete favorite list.');
         }
+    };
+
+    const handleDownloadAllFavoriteList = async (listId) => {
+        try {
+            const photos = await galleryService.getFavoriteListPhotos(listId);
+            if (!photos.length) {
+                alert('This list has no photos.');
+                return;
+            }
+            for (let i = 0; i < photos.length; i++) {
+                const p = photos[i];
+                if (p.full_url) {
+                    await downloadPhotoFromR2(p.full_url, p.filename || 'photo.jpg');
+                    if (i < photos.length - 1) {
+                        await new Promise((r) => setTimeout(r, 350));
+                    }
+                }
+            }
+            setFavoriteDetailToolbarMenuOpen(false);
+        } catch (err) {
+            console.error('Download all failed:', err);
+            alert('Failed to download some photos.');
+        }
+    };
+
+    const openEditFavoriteListModal = (item) => {
+        if (!item) return;
+        setFavoriteListEmail(item.email);
+        setFavoriteListName(item.name);
+        setFavoriteListMax(item.max_selection != null && item.max_selection !== '' ? String(item.max_selection) : '');
+        setFavoriteListDesc(item.description || '');
+        setEditingFavoriteList(item.id);
+        setShowCreateFavoriteListModal(true);
+        setFavoriteDetailToolbarMenuOpen(false);
+        setActiveActivityMenu(null);
     };
 
     const handleExportActivity = () => {
@@ -441,9 +478,16 @@ const CollectionDashboard = () => {
     }, [activeSidebarTab, activeActivitySubTab, collectionId]);
 
     useEffect(() => {
+        if (activeActivitySubTab === 'share' || activeActivitySubTab === 'private') {
+            setActiveActivitySubTab('favorite');
+        }
+    }, [activeActivitySubTab]);
+
+    useEffect(() => {
         if (activeActivitySubTab !== 'favorite') {
             setSelectedFavoriteListId(null);
             setFavoriteDetailRows([]);
+            setFavoriteDetailToolbarMenuOpen(false);
         }
     }, [activeActivitySubTab]);
 
@@ -469,6 +513,10 @@ const CollectionDashboard = () => {
             cancelled = true;
         };
     }, [selectedFavoriteListId, activeActivitySubTab]);
+
+    useEffect(() => {
+        setFavoriteDetailToolbarMenuOpen(false);
+    }, [selectedFavoriteListId]);
 
     useEffect(() => {
         if (!selectedFavoriteListId) return;
@@ -1297,7 +1345,7 @@ const CollectionDashboard = () => {
                             </button>
                             <button
                                 className={`cd-icon-bar-btn ${activeSidebarTab === 'activity' ? 'active' : ''}`}
-                                title="Share Activity"
+                                title="Activity"
                                 onClick={() => setActiveSidebarTab('activity')}
                             >
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 11a9 9 0 0 1 9 9"></path><path d="M4 4a16 16 0 0 1 16 16"></path><circle cx="5" cy="19" r="1"></circle></svg>
@@ -1466,25 +1514,19 @@ const CollectionDashboard = () => {
                                 </div>
 
                                 <div
+                                    className={`cd-design-nav-item ${activeActivitySubTab === 'store' ? 'active' : ''}`}
+                                    onClick={() => setActiveActivitySubTab('store')}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>
+                                    <span>Store Orders</span>
+                                </div>
+
+                                <div
                                     className={`cd-design-nav-item ${activeActivitySubTab === 'email' ? 'active' : ''}`}
                                     onClick={() => setActiveActivitySubTab('email')}
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                                     <span>Email Registration</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'share' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('share')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
-                                    <span>Quick Share Links</span>
-                                </div>
-                                <div
-                                    className={`cd-design-nav-item ${activeActivitySubTab === 'private' ? 'active' : ''}`}
-                                    onClick={() => setActiveActivitySubTab('private')}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                                    <span>Private Photos</span>
                                 </div>
                             </div>
                         )}
@@ -2316,26 +2358,26 @@ const CollectionDashboard = () => {
                         )}
 
                         {activeSidebarTab === 'activity' && (
-                            <div className="cd-general-settings-view">
+                            <div className={`cd-general-settings-view${activeActivitySubTab === 'favorite' && favoriteActivity.length > 0 ? ' cd-favorite-activity-wide' : ''}`}>
                                 <div className="cd-settings-content-header split">
                                     <h2 className="cd-settings-main-title">
                                         {activeActivitySubTab === 'download' && 'Download Activity'}
                                         {activeActivitySubTab === 'favorite' && 'Favorite Activity'}
 
+                                        {activeActivitySubTab === 'store' && 'Store Orders'}
                                         {activeActivitySubTab === 'email' && 'Email Registration'}
-                                        {activeActivitySubTab === 'share' && 'Quick Share Links'}
-                                        {activeActivitySubTab === 'private' && 'Private Photo Activity'}
                                         {(activeActivitySubTab === 'download' || activeActivitySubTab === 'favorite') && (
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '8px' }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
                                         )}
                                     </h2>
                                     {activeActivitySubTab === 'favorite' && (
                                         <div className="favorite-activity-actions">
-                                            <button className="sort-btn" onClick={sortFavoriteActivityByEmail}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><line x1="17" y1="10" x2="3" y2="10" /><line x1="21" y1="6" x2="3" y2="6" /><line x1="13" y1="14" x2="3" y2="14" /><line x1="9" y1="18" x2="3" y2="18" /></svg>
+                                            <button type="button" className="favorite-activity-header-link favorite-activity-header-link--muted" onClick={sortFavoriteActivityByEmail}>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><line x1="17" y1="10" x2="3" y2="10" /><line x1="21" y1="6" x2="3" y2="6" /><line x1="13" y1="14" x2="3" y2="14" /><line x1="9" y1="18" x2="3" y2="18" /></svg>
                                                 Sort by email
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="favorite-activity-header-chevron" aria-hidden><polyline points="6 9 12 15 18 9" /></svg>
                                             </button>
-                                            <button className="new-list-btn" onClick={() => {
+                                            <button type="button" className="favorite-activity-header-link favorite-activity-header-link--teal" onClick={() => {
                                                 setEditingFavoriteList(null);
                                                 setFavoriteListEmail('');
                                                 setFavoriteListName('');
@@ -2343,10 +2385,10 @@ const CollectionDashboard = () => {
                                                 setFavoriteListDesc('');
                                                 setSelectedFavoriteListId(null);
                                                 setFavoriteDetailRows([]);
+                                                setFavoriteDetailToolbarMenuOpen(false);
                                                 setShowCreateFavoriteListModal(true);
                                             }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '6px' }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
-                                                New Favorite List
+                                                + New Favorite List
                                             </button>
                                         </div>
                                     )}
@@ -2362,8 +2404,8 @@ const CollectionDashboard = () => {
 
                                 <div className="cd-empty-state-section">
                                     {activeActivitySubTab === 'favorite' && favoriteActivity.length > 0 ? (
-                                        <div className="favorite-activity-layout">
-                                            <div className="activity-list-container favorite-activity-table-wrap">
+                                        <div className={`favorite-activity-layout${selectedFavoriteListId ? ' favorite-activity-layout--split' : ''}`}>
+                                            <div className={`activity-list-container favorite-activity-table-wrap${selectedFavoriteListId ? ' favorite-activity-table-wrap--compact' : ''}`}>
                                                 <div className="activity-table-header favorite">
                                                     <div className="activity-col-email">Email</div>
                                                     <div className="activity-col-list">Favorite List</div>
@@ -2382,12 +2424,14 @@ const CollectionDashboard = () => {
                                                             onClick={() => {
                                                                 setSelectedFavoriteListId(item.id);
                                                                 setActiveActivityMenu(null);
+                                                                setFavoriteDetailToolbarMenuOpen(false);
                                                             }}
                                                             onKeyDown={(e) => {
                                                                 if (e.key === 'Enter' || e.key === ' ') {
                                                                     e.preventDefault();
                                                                     setSelectedFavoriteListId(item.id);
                                                                     setActiveActivityMenu(null);
+                                                                    setFavoriteDetailToolbarMenuOpen(false);
                                                                 }
                                                             }}
                                                         >
@@ -2423,6 +2467,7 @@ const CollectionDashboard = () => {
                                                                     className="row-action-btn"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
+                                                                        setFavoriteDetailToolbarMenuOpen(false);
                                                                         setActiveActivityMenu(activeActivityMenu === item.id ? null : item.id);
                                                                     }}
                                                                 >
@@ -2431,32 +2476,27 @@ const CollectionDashboard = () => {
 
                                                                 {activeActivityMenu === item.id && (
                                                                     <div className={`activity-row-menu favorite-menu ${index >= array.length - 4 && array.length > 5 ? 'up' : ''}`}>
-                                                                        <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); handleExportFavoriteList(item.id, item.name); }}>
+                                                                        <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); handleExportFavoriteList(item.id, item.name); setActiveActivityMenu(null); }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                                                                             Export
                                                                         </button>
-                                                                        <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); handleLightroomCopyList(item.id); }}>
+                                                                        <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); handleLightroomCopyList(item.id); setActiveActivityMenu(null); }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
                                                                             Lightroom Copy List
                                                                         </button>
                                                                         <button type="button" className="activity-menu-item" onClick={(e) => {
                                                                             e.stopPropagation();
-                                                                            setFavoriteListEmail(item.email);
-                                                                            setFavoriteListName(item.name);
-                                                                            setFavoriteListMax(item.max_selection != null && item.max_selection !== '' ? String(item.max_selection) : '');
-                                                                            setFavoriteListDesc(item.description || '');
-                                                                            setEditingFavoriteList(item.id);
-                                                                            setShowCreateFavoriteListModal(true);
+                                                                            openEditFavoriteListModal(item);
                                                                             setActiveActivityMenu(null);
                                                                         }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
                                                                             Edit List
                                                                         </button>
-                                                                        <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); window.open(`/gallery/${collection?.slug}?list=${item.id}`, '_blank'); }}>
+                                                                        <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); window.open(`/gallery/${collection?.slug}?list=${item.id}`, '_blank'); setActiveActivityMenu(null); }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
                                                                             View in Gallery
                                                                         </button>
-                                                                        <button type="button" className="activity-menu-item">
+                                                                        <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); handleDownloadAllFavoriteList(item.id); setActiveActivityMenu(null); }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                                                                             Download all
                                                                         </button>
@@ -2512,6 +2552,7 @@ const CollectionDashboard = () => {
                                                                 onClick={() => {
                                                                     setSelectedFavoriteListId(null);
                                                                     setFavoriteDetailRows([]);
+                                                                    setFavoriteDetailToolbarMenuOpen(false);
                                                                 }}
                                                                 aria-label="Close details"
                                                             >
@@ -2519,16 +2560,82 @@ const CollectionDashboard = () => {
                                                             </button>
                                                         </div>
                                                         {detail && (
-                                                            <div className="favorite-list-detail-meta">
-                                                                <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Name</span><span>{detail.name}</span></div>
-                                                                <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Email</span><span>{detail.email}</span></div>
-                                                                <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">No. of photos</span><span>{detail.max_selection != null && Number(detail.max_selection) > 0 ? `${detail.photoCount} of ${detail.max_selection}` : detail.photoCount}</span></div>
-                                                                <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Last modified</span><span>{new Date(detail.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}</span></div>
-                                                            </div>
+                                                            <>
+                                                                <div className="favorite-list-detail-toolbar">
+                                                                    <button type="button" className="favorite-detail-toolbar-link" onClick={() => openEditFavoriteListModal(detail)}>
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
+                                                                        Edit List
+                                                                    </button>
+                                                                    <button type="button" className="favorite-detail-toolbar-link" onClick={() => handleDownloadAllFavoriteList(detail.id)}>
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                                                        Download All
+                                                                    </button>
+                                                                    <button type="button" className="favorite-detail-toolbar-link" onClick={() => { handleExportFavoriteList(detail.id, detail.name); setFavoriteDetailToolbarMenuOpen(false); }}>
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                                                        Export
+                                                                    </button>
+                                                                    <div className="favorite-detail-toolbar-more-wrap">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="favorite-detail-toolbar-icon-btn"
+                                                                            aria-label="More actions"
+                                                                            aria-expanded={favoriteDetailToolbarMenuOpen}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setActiveActivityMenu(null);
+                                                                                setFavoriteDetailToolbarMenuOpen((o) => !o);
+                                                                            }}
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                                                        </button>
+                                                                        {favoriteDetailToolbarMenuOpen && (
+                                                                            <div className="favorite-detail-toolbar-menu" role="menu">
+                                                                                <button type="button" className="activity-menu-item" role="menuitem" onClick={() => { handleLightroomCopyList(detail.id); setFavoriteDetailToolbarMenuOpen(false); }}>
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
+                                                                                    Lightroom Copy List
+                                                                                </button>
+                                                                                <button type="button" className="activity-menu-item" role="menuitem" onClick={() => { window.open(`/gallery/${collection?.slug}?list=${detail.id}`, '_blank'); setFavoriteDetailToolbarMenuOpen(false); }}>
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+                                                                                    View in Gallery
+                                                                                </button>
+                                                                                <button type="button" className="activity-menu-item" role="menuitem" onClick={() => handleDownloadAllFavoriteList(detail.id)}>
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                                                                    Send as download
+                                                                                </button>
+                                                                                <button type="button" className="activity-menu-item" role="menuitem" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                                                                                    Copy to new set
+                                                                                </button>
+                                                                                <button type="button" className="activity-menu-item" role="menuitem" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
+                                                                                    Copy to new collection
+                                                                                </button>
+                                                                                <button type="button" className="activity-menu-item" role="menuitem" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
+                                                                                    Create mobile app
+                                                                                </button>
+                                                                                <div style={{ height: '1px', background: '#eee', margin: '4px 0' }} />
+                                                                                <button type="button" className="activity-menu-item delete" role="menuitem" onClick={() => { setFavoriteDetailToolbarMenuOpen(false); handleDeleteFavoriteActivity(detail.id); }}>
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                                                                    Delete info
+                                                                                </button>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                                <div className="favorite-list-detail-meta">
+                                                                    <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Name</span><span>{detail.name}</span></div>
+                                                                    <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Email</span><span>{detail.email}</span></div>
+                                                                    <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">No. of photos</span><span>{detail.max_selection != null && Number(detail.max_selection) > 0 ? `${detail.photoCount} of ${detail.max_selection}` : detail.photoCount}</span></div>
+                                                                    <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Last modified</span><span>{new Date(detail.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}</span></div>
+                                                                </div>
+                                                            </>
                                                         )}
                                                         <div className="favorite-list-detail-photos-head">
-                                                            <span className="favorite-list-detail-photos-label">Photos</span>
                                                             <button type="button" className="favorite-detail-sort-btn" onClick={() => setFavoriteDetailSort((s) => (s === 'name-az' ? 'name-za' : 'name-az'))}>
+                                                                <span className="favorite-detail-sort-arrows" aria-hidden>
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
+                                                                </span>
                                                                 Name: {favoriteDetailSort === 'name-az' ? 'A-Z' : 'Z-A'}
                                                             </button>
                                                         </div>
@@ -2549,7 +2656,7 @@ const CollectionDashboard = () => {
                                                                                 <div className="favorite-detail-filename">{ph?.filename || 'Photo'}</div>
                                                                                 <div className="favorite-detail-sub">
                                                                                     {new Date(row.itemCreatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
-                                                                                    <span className="favorite-detail-set-pill">{setLabel}</span>
+                                                                                    <span className="favorite-detail-set-tag">- {setLabel}</span>
                                                                                 </div>
                                                                             </div>
                                                                             <button type="button" className="favorite-detail-row-more" aria-label="More options">
@@ -2563,6 +2670,18 @@ const CollectionDashboard = () => {
                                                     </aside>
                                                 );
                                             })()}
+                                        </div>
+                                    ) : activeActivitySubTab === 'store' ? (
+                                        <div className="cd-empty-state-content" style={{ padding: '48px 24px', textAlign: 'center' }}>
+                                            <div className="cd-empty-state-illustration" style={{ marginBottom: '24px' }}>
+                                                <svg width="200" height="140" viewBox="0 0 200 140" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                                                    <rect x="40" y="40" width="120" height="80" rx="6" fill="#F8FAFB" stroke="#ddd" strokeWidth="1.5" />
+                                                    <circle cx="100" cy="75" r="18" fill="#fff" stroke="#00c0a3" strokeWidth="1.5" />
+                                                    <path d="M92 75h16M100 67v16" stroke="#00c0a3" strokeWidth="2" strokeLinecap="round" />
+                                                </svg>
+                                            </div>
+                                            <h3 className="cd-empty-state-title">No store orders yet</h3>
+                                            <p className="cd-empty-state-text">When clients place orders from your store, they will appear here.</p>
                                         </div>
                                     ) : activeActivitySubTab === 'download' && downloadActivity.filter(a => a.type === activeDownloadActivityTab).length > 0 ? (
                                         <div className="activity-list-container">
@@ -3797,6 +3916,10 @@ const CollectionDashboard = () => {
                     </div>
                 </div>
             )}
+
+            <button type="button" className="cd-help-fab" aria-label="Help and support" title="Help">
+                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
+            </button>
 
             {/* Toast Notification */}
             {toastMessage && (
