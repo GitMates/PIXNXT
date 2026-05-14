@@ -9,6 +9,7 @@ import { PhotoLightbox } from '../../Gallery/PhotoLightbox/PhotoLightbox';
 import { downloadPhotoFromR2 } from '../../../../lib/downloadPhoto';
 import { DownloadModal } from '../../Gallery/DownloadModal/DownloadModal';
 import { galleryService } from '../../../../services/gallery.service';
+import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
 
 function normalizeFavoritePhotoId(id: string | number | null | undefined): string | null {
   if (id == null || id === '') return null;
@@ -93,13 +94,20 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       : gridPhotos.filter((p: any) => !p.set_id || p.set_id == null);
   }, [gridPhotos, dashboardState?.activeSetId]);
 
+  const gallerySortKey = normalizeGalleryPhotoSort(dashboardState?.galleryPhotoSort);
+
+  const photosSortedForGrid = useMemo(
+    () => sortPhotosForGallery(photosForActiveSet, gallerySortKey),
+    [photosForActiveSet, gallerySortKey]
+  );
+
   const filteredPhotos = useMemo(() => {
-    if (!showOnlyFavorites) return photosForActiveSet;
+    if (!showOnlyFavorites) return photosSortedForGrid;
     const favSet = new Set(favoritedPhotos);
-    return photosForActiveSet.filter(
+    return photosSortedForGrid.filter(
       (p: any) => p.id != null && favSet.has(normalizeFavoritePhotoId(p.id) as string)
     );
-  }, [photosForActiveSet, showOnlyFavorites, favoritedPhotos]);
+  }, [photosSortedForGrid, showOnlyFavorites, favoritedPhotos]);
 
   const photoUrls = useMemo(
     () => filteredPhotos.map((p: any) => p.full_url || p.web_url || p.thumbnail_url),
@@ -453,6 +461,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
             favoritedPhotoIds={favoritedPhotos}
             customRowHeight={grid.size === 'large' ? 155 : grid.size === 'regular' ? 111 : grid.size === 'small' ? 74 : 52}
             customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
+            showFilename={dashboardState?.showFilenameInGrid === true}
           />
         </div>
       </div>

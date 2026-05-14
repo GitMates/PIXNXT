@@ -3,7 +3,7 @@ import { motion as Motion } from 'framer-motion';
 import { Download, Heart } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 
-export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true, favoritedPhotoIds = [] }) {
+export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true, favoritedPhotoIds = [], showFilename = false }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
@@ -128,6 +128,18 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                 }}
                 loading="lazy"
               />
+              {showFilename && (
+                <div
+                  className="pointer-events-none absolute bottom-2 left-2 right-2 z-[12] truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium backdrop-blur-sm"
+                  style={{
+                    color: 'var(--gallery-meta-text, #666)',
+                    backgroundColor: 'rgba(255,255,255,0.82)',
+                    maxWidth: '100%',
+                  }}
+                >
+                  {photo.filename || `photo-${index + 1}.jpg`}
+                </div>
+              )}
               {/* Top-left heart (always visible when favorites on — Pixieset-style) */}
               {showFavorite && (
                 <button

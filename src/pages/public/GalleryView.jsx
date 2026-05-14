@@ -12,6 +12,7 @@ import { Typography } from '../../components/ui/Typography';
 import { X, Mail, Share2, Link as LinkIcon, Download, Heart, Play } from 'lucide-react';
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { downloadPhotoFromR2 } from '../../lib/downloadPhoto';
+import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -364,7 +365,12 @@ const GalleryView = () => {
       : (collection.photos || []).filter((p) => !p.set_id);
   }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos]);
 
-  const filteredPhotos = useMemo(() => photosForActiveSet, [photosForActiveSet]);
+  const filteredPhotos = useMemo(() => {
+    const base = photosForActiveSet;
+    if (!collection) return base;
+    const sortKey = normalizeGalleryPhotoSort(collection.gallery_photo_sort);
+    return sortPhotosForGallery(base, sortKey);
+  }, [collection, photosForActiveSet]);
 
   const photoUrls = useMemo(() => filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url), [filteredPhotos]);
 
@@ -644,7 +650,7 @@ const GalleryView = () => {
 
           {/* Flexible Gallery Grid */}
           <MasonryGrid
-            key={`${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}`}
+            key={`${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}`}
             photos={filteredPhotos}
             isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
             gridSettings={{
@@ -661,6 +667,7 @@ const GalleryView = () => {
             showFavorite={collection?.favorites_enabled !== false}
             favoritedPhotoIds={favoritedPhotos}
             customRowHeight={collection.thumbnail_size === 'large' ? 420 : collection.thumbnail_size === 'regular' ? 300 : collection.thumbnail_size === 'small' ? 200 : 140}
+            showFilename={collection?.show_filenames === true}
           />
         </Container>
       </main>

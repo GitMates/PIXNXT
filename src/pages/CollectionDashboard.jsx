@@ -6,6 +6,7 @@ import { DesignTab } from '../components/features/CollectionDashboard/DesignTab'
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
+import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
 import './CollectionDashboard.css';
 
 const CollectionDashboard = () => {
@@ -159,6 +160,9 @@ const CollectionDashboard = () => {
     const [favoriteDetailRows, setFavoriteDetailRows] = useState([]);
     const [favoriteDetailLoading, setFavoriteDetailLoading] = useState(false);
     const [favoriteDetailSort, setFavoriteDetailSort] = useState('name-az');
+    /** Favorite Activity table: client-side sort (matches Pixieset-style header control). */
+    const [favoriteActivitySortMode, setFavoriteActivitySortMode] = useState('created'); // email | created | updated
+    const [favoriteActivitySortMenuOpen, setFavoriteActivitySortMenuOpen] = useState(false);
 
     const parseFavoriteMaxSelection = () => {
         const raw = String(favoriteListMax ?? '').trim();
@@ -208,15 +212,30 @@ const CollectionDashboard = () => {
         }
     };
 
-    const sortFavoriteActivityByEmail = () => {
-        setFavoriteActivity(prev => [...prev].sort((a, b) => a.email.localeCompare(b.email)));
-    };
-
     // Activity State
     const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
     const [activeDownloadActivityTab, setActiveDownloadActivityTab] = useState('gallery'); // gallery, photo, video
     const [activeActivityMenu, setActiveActivityMenu] = useState(null); // id of activity item
     const [favoriteDetailToolbarMenuOpen, setFavoriteDetailToolbarMenuOpen] = useState(false);
+    const [favoriteDetailPhotoMenuPhotoId, setFavoriteDetailPhotoMenuPhotoId] = useState(null);
+
+    const sortedFavoriteActivity = useMemo(() => {
+        const arr = [...favoriteActivity];
+        if (favoriteActivitySortMode === 'email') {
+            return arr.sort((a, b) => (a.email || '').localeCompare(b.email || ''));
+        }
+        if (favoriteActivitySortMode === 'created') {
+            return arr.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        }
+        return arr.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    }, [favoriteActivity, favoriteActivitySortMode]);
+
+    const favoriteActivitySortTriggerLabel =
+        favoriteActivitySortMode === 'email'
+            ? 'Sort by email'
+            : favoriteActivitySortMode === 'created'
+              ? 'Sort by created date'
+              : 'Sort by updated date';
 
     const handleExportFavoriteList = async (listId, listName) => {
         try {
@@ -274,6 +293,7 @@ const CollectionDashboard = () => {
             setFavoriteActivity(prev => prev.filter(a => a.id !== id));
             setActiveActivityMenu(null);
             setFavoriteDetailToolbarMenuOpen(false);
+            setFavoriteDetailPhotoMenuPhotoId(null);
             if (selectedFavoriteListId === id) {
                 setSelectedFavoriteListId(null);
                 setFavoriteDetailRows([]);
@@ -304,6 +324,42 @@ const CollectionDashboard = () => {
         } catch (err) {
             console.error('Download all failed:', err);
             alert('Failed to download some photos.');
+        }
+    };
+
+    /** Single photo from favorite detail — owner dashboard; no visitor PIN prompt. */
+    const handleFavoriteDetailRowDownload = async (photo) => {
+        if (!photo?.full_url) {
+            alert('Download is not available for this file yet.');
+            return;
+        }
+        try {
+            await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
+            setFavoriteDetailPhotoMenuPhotoId(null);
+        } catch (err) {
+            console.error('Favorite row download failed:', err);
+            alert('Failed to download this photo.');
+        }
+    };
+
+    const handleRemovePhotoFromFavoriteList = async (listId, photoId) => {
+        if (!listId || !photoId) return;
+        if (!window.confirm('Remove this photo from the favorite list?')) return;
+        try {
+            await galleryService.removePhotoFromFavoriteList(listId, photoId);
+            setFavoriteDetailPhotoMenuPhotoId(null);
+            setFavoriteDetailRows((prev) => prev.filter((r) => r.photo?.id !== photoId));
+            setFavoriteActivity((prev) =>
+                prev.map((a) =>
+                    a.id === listId
+                        ? { ...a, photoCount: Math.max(0, (a.photoCount || 0) - 1), updated_at: new Date().toISOString() }
+                        : a
+                )
+            );
+            fetchFavoriteActivity();
+        } catch (err) {
+            console.error('Remove favorite item failed:', err);
+            alert(err?.message || 'Could not remove this photo from the list.');
         }
     };
 
@@ -488,6 +544,8 @@ const CollectionDashboard = () => {
             setSelectedFavoriteListId(null);
             setFavoriteDetailRows([]);
             setFavoriteDetailToolbarMenuOpen(false);
+            setFavoriteDetailPhotoMenuPhotoId(null);
+            setFavoriteActivitySortMenuOpen(false);
         }
     }, [activeActivitySubTab]);
 
@@ -516,6 +574,7 @@ const CollectionDashboard = () => {
 
     useEffect(() => {
         setFavoriteDetailToolbarMenuOpen(false);
+        setFavoriteDetailPhotoMenuPhotoId(null);
     }, [selectedFavoriteListId]);
 
     useEffect(() => {
@@ -759,19 +818,17 @@ const CollectionDashboard = () => {
 
     // Global click listener to close menus
     useEffect(() => {
-        const handleClickOutside = (event) => {
+        const handleClickOutside = () => {
             if (activeActivityMenu) setActiveActivityMenu(null);
-            if (showSortMenu) setShowSortMenu(false);
-            if (showGridSettings) setShowGridSettings(false);
-            if (showMoreDropdown) setShowMoreDropdown(false);
-            if (showShareDropdown) setShowShareDropdown(false);
+            if (favoriteDetailPhotoMenuPhotoId) setFavoriteDetailPhotoMenuPhotoId(null);
             if (showSelectionMore) setShowSelectionMore(false);
             if (showSelectAllMenu) setShowSelectAllMenu(false);
             if (showMoveToSetMenu) setShowMoveToSetMenu(false);
+            if (favoriteActivitySortMenuOpen) setFavoriteActivitySortMenuOpen(false);
         };
         document.addEventListener('click', handleClickOutside);
         return () => document.removeEventListener('click', handleClickOutside);
-    }, [activeActivityMenu, showSortMenu, showGridSettings, showMoreDropdown, showShareDropdown, showSelectionMore, showSelectAllMenu, showMoveToSetMenu]);
+    }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen, showSelectionMore, showSelectAllMenu, showMoveToSetMenu]);
 
     // ─── SORT LOGIC ──────────────────────────────────────────
     const sortedPhotos = useMemo(() => {
@@ -784,44 +841,7 @@ const CollectionDashboard = () => {
             filtered = photos.filter(p => !p.set_id);
         }
 
-        const sorted = [...filtered];
-        switch (sortOption) {
-            case 'upload-new-old':
-                sorted.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-                break;
-            case 'upload-old-new':
-                sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-                break;
-            case 'taken-new-old':
-                sorted.sort((a, b) => {
-                    const aDate = a.exif_taken_at ? new Date(a.exif_taken_at) : new Date(a.created_at);
-                    const bDate = b.exif_taken_at ? new Date(b.exif_taken_at) : new Date(b.created_at);
-                    return bDate - aDate;
-                });
-                break;
-            case 'taken-old-new':
-                sorted.sort((a, b) => {
-                    const aDate = a.exif_taken_at ? new Date(a.exif_taken_at) : new Date(a.created_at);
-                    const bDate = b.exif_taken_at ? new Date(b.exif_taken_at) : new Date(b.created_at);
-                    return aDate - bDate;
-                });
-                break;
-            case 'name-az':
-                sorted.sort((a, b) => (a.filename || '').localeCompare(b.filename || ''));
-                break;
-            case 'name-za':
-                sorted.sort((a, b) => (b.filename || '').localeCompare(a.filename || ''));
-                break;
-            case 'random':
-                for (let i = sorted.length - 1; i > 0; i--) {
-                    const j = Math.floor(Math.random() * (i + 1));
-                    [sorted[i], sorted[j]] = [sorted[j], sorted[i]];
-                }
-                break;
-            default:
-                break;
-        }
-        return sorted;
+        return sortDashboardPhotos(filtered, sortOption);
     }, [photos, activeSetId, sortOption]);
 
     // Get the active set object
@@ -1217,7 +1237,7 @@ const CollectionDashboard = () => {
 
                 <div className="cd-topbar-right">
                     <div className="cd-more-wrapper" ref={moreRef}>
-                        <button className="cd-text-btn" onClick={() => setShowMoreDropdown(!showMoreDropdown)}>
+                        <button className="cd-text-btn" onClick={() => { setShowShareDropdown(false); setShowMoreDropdown(!showMoreDropdown); }}>
                             More <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </button>
                         {showMoreDropdown && (
@@ -1278,7 +1298,7 @@ const CollectionDashboard = () => {
                     <div className="cd-share-wrapper" ref={shareRef}>
                         <div className="cd-share-split-btn">
                             <button className="cd-share-main" onClick={() => navigate('/shared-collection')}>Share</button>
-                            <button className="cd-share-arrow" onClick={() => setShowShareDropdown(!showShareDropdown)}>
+                            <button className="cd-share-arrow" onClick={() => { setShowMoreDropdown(false); setShowShareDropdown(!showShareDropdown); }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </button>
                         </div>
@@ -1557,7 +1577,7 @@ const CollectionDashboard = () => {
                                     <h2 className="cd-main-title">{activeSetName} ({activeSetPhotoCount})</h2>
                                     <div className="cd-main-actions">
                                         <div className="cd-sort-wrapper" ref={sortRef}>
-                                            <button className="cd-icon-btn sort-btn" onClick={() => setShowSortMenu(!showSortMenu)}>
+                                            <button type="button" className="cd-icon-btn sort-btn" onClick={() => { setShowGridSettings(false); setShowSortMenu(!showSortMenu); }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="16" y2="12"></line><line x1="8" y1="18" x2="12" y2="18"></line><line x1="3" y1="6" x2="3" y2="18"></line><polyline points="1 15 3 18 5 15"></polyline></svg>
                                             </button>
                                             {showSortMenu && (
@@ -1574,68 +1594,39 @@ const CollectionDashboard = () => {
                                             )}
                                         </div>
                                         <div className="cd-grid-settings-wrapper" ref={gridSettingsRef}>
-                                            <button className="cd-icon-btn active grid-btn" onClick={() => setShowGridSettings(!showGridSettings)}>
+                                            <button type="button" className="cd-icon-btn active grid-btn" onClick={() => { setShowSortMenu(false); setShowGridSettings(!showGridSettings); }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                             </button>
                                             {showGridSettings && (
-                                                <div className="cd-grid-dropdown">
-                                                    <div className="cd-grid-section-label">Grid Style</div>
-                                                    <div className="cd-grid-style-row">
-                                                        <div
-                                                            className={`cd-grid-style-card ${gridSettings.style === 'vertical' ? 'selected' : ''}`}
-                                                            onClick={() => setGridSettings(prev => ({ ...prev, style: 'vertical' }))}
-                                                        >
-                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="2" y="2" width="12" height="14" rx="1" /><rect x="18" y="2" width="12" height="8" rx="1" /><rect x="2" y="20" width="12" height="10" rx="1" /><rect x="18" y="14" width="12" height="16" rx="1" /></svg>
-                                                            <span>Vertical</span>
-                                                        </div>
-                                                        <div
-                                                            className={`cd-grid-style-card ${gridSettings.style === 'horizontal' ? 'selected' : ''}`}
-                                                            onClick={() => setGridSettings(prev => ({ ...prev, style: 'horizontal' }))}
-                                                        >
-                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="2" y="2" width="10" height="13" rx="1" /><rect x="16" y="2" width="14" height="13" rx="1" /><rect x="2" y="19" width="14" height="11" rx="1" /><rect x="20" y="19" width="10" height="11" rx="1" /></svg>
-                                                            <span>Horizontal</span>
-                                                        </div>
+                                                <div className="cd-grid-dropdown" role="menu">
+                                                    <div className="cd-grid-section-label">Grid Size</div>
+                                                    <div
+                                                        className={`cd-grid-option ${gridSize === 'small' ? 'selected' : ''}`}
+                                                        role="menuitemradio"
+                                                        aria-checked={gridSize === 'small'}
+                                                        onClick={() => setGridSize('small')}
+                                                    >
+                                                        <span>Small</span>
+                                                        {gridSize === 'small' && (
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                        )}
+                                                    </div>
+                                                    <div
+                                                        className={`cd-grid-option ${gridSize === 'large' ? 'selected' : ''}`}
+                                                        role="menuitemradio"
+                                                        aria-checked={gridSize === 'large'}
+                                                        onClick={() => setGridSize('large')}
+                                                    >
+                                                        <span>Large</span>
+                                                        {gridSize === 'large' && (
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                                        )}
                                                     </div>
                                                     <div className="cd-grid-divider"></div>
-                                                    <div className="cd-grid-section-label">Thumbnail Size</div>
-                                                    <div className="cd-grid-style-row">
-                                                        <div
-                                                            className={`cd-grid-style-card ${gridSettings.size === 'regular' ? 'selected' : ''}`}
-                                                            onClick={() => setGridSettings(prev => ({ ...prev, size: 'regular' }))}
-                                                        >
-                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="2" y="2" width="8" height="8" rx="1" /><rect x="13" y="2" width="8" height="8" rx="1" /><rect x="24" y="2" width="6" height="8" rx="1" /><rect x="2" y="13" width="8" height="8" rx="1" /><rect x="13" y="13" width="8" height="8" rx="1" /><rect x="24" y="13" width="6" height="8" rx="1" /></svg>
-                                                            <span>Regular</span>
-                                                        </div>
-                                                        <div
-                                                            className={`cd-grid-style-card ${gridSettings.size === 'large' ? 'selected' : ''}`}
-                                                            onClick={() => setGridSettings(prev => ({ ...prev, size: 'large' }))}
-                                                        >
-                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="1" /><rect x="18" y="2" width="12" height="12" rx="1" /><rect x="2" y="18" width="12" height="12" rx="1" /><rect x="18" y="18" width="12" height="12" rx="1" /></svg>
-                                                            <span>Large</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="cd-grid-divider"></div>
-                                                    <div className="cd-grid-section-label">Grid Spacing</div>
-                                                    <div className="cd-grid-style-row">
-                                                        <div
-                                                            className={`cd-grid-style-card ${gridSettings.spacing === 'regular' || gridSettings.spacing === 'small' ? 'selected' : ''}`}
-                                                            onClick={() => setGridSettings(prev => ({ ...prev, spacing: 'regular' }))}
-                                                        >
-                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="1" y="1" width="13" height="13" rx="1" /><rect x="18" y="1" width="13" height="13" rx="1" /><rect x="1" y="18" width="13" height="13" rx="1" /><rect x="18" y="18" width="13" height="13" rx="1" /></svg>
-                                                            <span>Regular</span>
-                                                        </div>
-                                                        <div
-                                                            className={`cd-grid-style-card ${gridSettings.spacing === 'large' ? 'selected' : ''}`}
-                                                            onClick={() => setGridSettings(prev => ({ ...prev, spacing: 'large' }))}
-                                                        >
-                                                            <svg width="32" height="32" viewBox="0 0 32 32" fill="currentColor"><rect x="1" y="1" width="12" height="12" rx="1" /><rect x="19" y="1" width="12" height="12" rx="1" /><rect x="1" y="19" width="12" height="12" rx="1" /><rect x="19" y="19" width="12" height="12" rx="1" /></svg>
-                                                            <span>Large</span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="cd-grid-divider"></div>
+                                                    <div className="cd-grid-section-label">Show</div>
                                                     <div className="cd-grid-toggle-row">
                                                         <span>Filename</span>
-                                                        <label className="cd-toggle">
+                                                        <label className="cd-toggle" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
                                                             <input type="checkbox" checked={showFilename} onChange={() => setShowFilename(!showFilename)} />
                                                             <span className="cd-toggle-slider"></span>
                                                         </label>
@@ -1655,11 +1646,11 @@ const CollectionDashboard = () => {
 
                                 {sortedPhotos.length > 0 ? (
                                     <div
-                                        className="cd-photo-grid"
+                                        className={`cd-photo-grid ${gridSize === 'large' ? 'grid-large' : ''}`}
                                         style={{
                                             display: 'grid',
-                                            gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-                                            gap: '16px',
+                                            gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize === 'large' ? 280 : 200}px, 1fr))`,
+                                            gap: gridSize === 'large' ? '20px' : '16px',
                                             padding: '16px 0'
                                         }}
                                     >
@@ -2372,11 +2363,65 @@ const CollectionDashboard = () => {
                                     </h2>
                                     {activeActivitySubTab === 'favorite' && (
                                         <div className="favorite-activity-actions">
-                                            <button type="button" className="favorite-activity-header-link favorite-activity-header-link--muted" onClick={sortFavoriteActivityByEmail}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><line x1="17" y1="10" x2="3" y2="10" /><line x1="21" y1="6" x2="3" y2="6" /><line x1="13" y1="14" x2="3" y2="14" /><line x1="9" y1="18" x2="3" y2="18" /></svg>
-                                                Sort by email
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="favorite-activity-header-chevron" aria-hidden><polyline points="6 9 12 15 18 9" /></svg>
-                                            </button>
+                                            <div className="favorite-activity-sort-wrap">
+                                                <button
+                                                    type="button"
+                                                    className="favorite-activity-header-link favorite-activity-header-link--muted"
+                                                    aria-expanded={favoriteActivitySortMenuOpen}
+                                                    aria-haspopup="menu"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setActiveActivityMenu(null);
+                                                        setFavoriteDetailToolbarMenuOpen(false);
+                                                        setFavoriteDetailPhotoMenuPhotoId(null);
+                                                        setFavoriteActivitySortMenuOpen((o) => !o);
+                                                    }}
+                                                >
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><line x1="17" y1="10" x2="3" y2="10" /><line x1="21" y1="6" x2="3" y2="6" /><line x1="13" y1="14" x2="3" y2="14" /><line x1="9" y1="18" x2="3" y2="18" /></svg>
+                                                    {favoriteActivitySortTriggerLabel}
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`favorite-activity-header-chevron${favoriteActivitySortMenuOpen ? ' favorite-activity-header-chevron--open' : ''}`} aria-hidden><polyline points="6 9 12 15 18 9" /></svg>
+                                                </button>
+                                                {favoriteActivitySortMenuOpen && (
+                                                    <div className="favorite-activity-sort-menu cd-sort-dropdown" role="menu" onClick={(e) => e.stopPropagation()}>
+                                                        <button
+                                                            type="button"
+                                                            role="menuitem"
+                                                            className={`cd-sort-option w-full text-left ${favoriteActivitySortMode === 'email' ? 'selected' : ''}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFavoriteActivitySortMode('email');
+                                                                setFavoriteActivitySortMenuOpen(false);
+                                                            }}
+                                                        >
+                                                            Sort by email
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            role="menuitem"
+                                                            className={`cd-sort-option w-full text-left ${favoriteActivitySortMode === 'created' ? 'selected' : ''}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFavoriteActivitySortMode('created');
+                                                                setFavoriteActivitySortMenuOpen(false);
+                                                            }}
+                                                        >
+                                                            Sort by created date
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            role="menuitem"
+                                                            className={`cd-sort-option w-full text-left ${favoriteActivitySortMode === 'updated' ? 'selected' : ''}`}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setFavoriteActivitySortMode('updated');
+                                                                setFavoriteActivitySortMenuOpen(false);
+                                                            }}
+                                                        >
+                                                            Sort by updated date
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </div>
                                             <button type="button" className="favorite-activity-header-link favorite-activity-header-link--teal" onClick={() => {
                                                 setEditingFavoriteList(null);
                                                 setFavoriteListEmail('');
@@ -2386,6 +2431,7 @@ const CollectionDashboard = () => {
                                                 setSelectedFavoriteListId(null);
                                                 setFavoriteDetailRows([]);
                                                 setFavoriteDetailToolbarMenuOpen(false);
+                                                setFavoriteActivitySortMenuOpen(false);
                                                 setShowCreateFavoriteListModal(true);
                                             }}>
                                                 + New Favorite List
@@ -2415,7 +2461,7 @@ const CollectionDashboard = () => {
                                                     <div className="activity-col-actions"></div>
                                                 </div>
                                                 <div className="activity-table-body">
-                                                    {favoriteActivity.map((item, index, array) => (
+                                                    {sortedFavoriteActivity.map((item, index, array) => (
                                                         <div
                                                             key={item.id}
                                                             role="button"
@@ -2425,6 +2471,8 @@ const CollectionDashboard = () => {
                                                                 setSelectedFavoriteListId(item.id);
                                                                 setActiveActivityMenu(null);
                                                                 setFavoriteDetailToolbarMenuOpen(false);
+                                                                setFavoriteDetailPhotoMenuPhotoId(null);
+                                                                setFavoriteActivitySortMenuOpen(false);
                                                             }}
                                                             onKeyDown={(e) => {
                                                                 if (e.key === 'Enter' || e.key === ' ') {
@@ -2432,6 +2480,8 @@ const CollectionDashboard = () => {
                                                                     setSelectedFavoriteListId(item.id);
                                                                     setActiveActivityMenu(null);
                                                                     setFavoriteDetailToolbarMenuOpen(false);
+                                                                    setFavoriteDetailPhotoMenuPhotoId(null);
+                                                                    setFavoriteActivitySortMenuOpen(false);
                                                                 }
                                                             }}
                                                         >
@@ -2468,6 +2518,8 @@ const CollectionDashboard = () => {
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
                                                                         setFavoriteDetailToolbarMenuOpen(false);
+                                                                        setFavoriteDetailPhotoMenuPhotoId(null);
+                                                                        setFavoriteActivitySortMenuOpen(false);
                                                                         setActiveActivityMenu(activeActivityMenu === item.id ? null : item.id);
                                                                     }}
                                                                 >
@@ -2553,6 +2605,7 @@ const CollectionDashboard = () => {
                                                                     setSelectedFavoriteListId(null);
                                                                     setFavoriteDetailRows([]);
                                                                     setFavoriteDetailToolbarMenuOpen(false);
+                                                                    setFavoriteDetailPhotoMenuPhotoId(null);
                                                                 }}
                                                                 aria-label="Close details"
                                                             >
@@ -2583,6 +2636,7 @@ const CollectionDashboard = () => {
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
                                                                                 setActiveActivityMenu(null);
+                                                                                setFavoriteDetailPhotoMenuPhotoId(null);
                                                                                 setFavoriteDetailToolbarMenuOpen((o) => !o);
                                                                             }}
                                                                         >
@@ -2628,6 +2682,12 @@ const CollectionDashboard = () => {
                                                                     <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Email</span><span>{detail.email}</span></div>
                                                                     <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">No. of photos</span><span>{detail.max_selection != null && Number(detail.max_selection) > 0 ? `${detail.photoCount} of ${detail.max_selection}` : detail.photoCount}</span></div>
                                                                     <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Last modified</span><span>{new Date(detail.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}</span></div>
+                                                                    {detail.description?.trim() ? (
+                                                                        <div className="favorite-detail-meta-row favorite-detail-meta-row--multiline">
+                                                                            <span className="favorite-detail-meta-label">Description</span>
+                                                                            <span className="favorite-detail-meta-value-wrap">{detail.description.trim()}</span>
+                                                                        </div>
+                                                                    ) : null}
                                                                 </div>
                                                             </>
                                                         )}
@@ -2645,12 +2705,16 @@ const CollectionDashboard = () => {
                                                             ) : sortedRows.length === 0 ? (
                                                                 <p className="favorite-detail-empty">No photos in this list yet.</p>
                                                             ) : (
-                                                                sortedRows.map((row) => {
+                                                                sortedRows.map((row, index) => {
                                                                     const ph = row.photo;
                                                                     const setLabel = !ph?.set_id ? highlightsName : (sets.find((ss) => ss.id === ph.set_id)?.name || 'Highlights');
                                                                     const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
+                                                                    const menuOpen = favoriteDetailPhotoMenuPhotoId === ph?.id;
                                                                     return (
-                                                                        <div key={`${ph?.id}-${row.itemCreatedAt}`} className="favorite-detail-photo-row">
+                                                                        <div
+                                                                            key={`${ph?.id}-${row.itemCreatedAt}`}
+                                                                            className={`favorite-detail-photo-row${menuOpen ? ' favorite-detail-photo-row--menu-open' : ''}`}
+                                                                        >
                                                                             <div className="favorite-detail-thumb">{thumb ? <img src={thumb} alt="" /> : null}</div>
                                                                             <div className="favorite-detail-photo-main">
                                                                                 <div className="favorite-detail-filename">{ph?.filename || 'Photo'}</div>
@@ -2659,9 +2723,55 @@ const CollectionDashboard = () => {
                                                                                     <span className="favorite-detail-set-tag">- {setLabel}</span>
                                                                                 </div>
                                                                             </div>
-                                                                            <button type="button" className="favorite-detail-row-more" aria-label="More options">
-                                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
-                                                                            </button>
+                                                                            <div className="favorite-detail-row-actions">
+                                                                                <button
+                                                                                    type="button"
+                                                                                    className="favorite-detail-row-more"
+                                                                                    aria-label="More options"
+                                                                                    aria-expanded={menuOpen}
+                                                                                    aria-haspopup="menu"
+                                                                                    onClick={(e) => {
+                                                                                        e.stopPropagation();
+                                                                                        setFavoriteDetailToolbarMenuOpen(false);
+                                                                                        setActiveActivityMenu(null);
+                                                                                        setFavoriteDetailPhotoMenuPhotoId((id) => (id === ph?.id ? null : ph?.id));
+                                                                                    }}
+                                                                                >
+                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                                                                </button>
+                                                                                {menuOpen && (
+                                                                                    <div
+                                                                                        className={`favorite-detail-photo-row-menu${index >= sortedRows.length - 2 && sortedRows.length > 2 ? ' favorite-detail-photo-row-menu--up' : ''}`}
+                                                                                        role="menu"
+                                                                                        onClick={(e) => e.stopPropagation()}
+                                                                                    >
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className="activity-menu-item"
+                                                                                            role="menuitem"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                handleFavoriteDetailRowDownload(ph);
+                                                                                            }}
+                                                                                        >
+                                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                                                                            Download
+                                                                                        </button>
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            className="activity-menu-item delete"
+                                                                                            role="menuitem"
+                                                                                            onClick={(e) => {
+                                                                                                e.stopPropagation();
+                                                                                                handleRemovePhotoFromFavoriteList(selectedFavoriteListId, ph?.id);
+                                                                                            }}
+                                                                                        >
+                                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                                                                            Remove Favorite
+                                                                                        </button>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
                                                                         </div>
                                                                     );
                                                                 })

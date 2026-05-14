@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase/client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useCollectionDashboard } from '@/hooks/useCollectionDashboard';
@@ -19,6 +19,11 @@ import { PreviewPane } from '@/components/features/CollectionDashboard/PreviewPa
 import { ChangeCoverModal } from '@/components/features/CollectionDashboard/CoverSettings';
 import { ActivityView } from '@/components/features/CollectionDashboard/Activity';
 import { UploadWidget } from '@/components/features/CollectionDashboard/UploadWidget';
+import {
+  DASHBOARD_PHOTO_SORT_OPTIONS,
+  type DashboardPhotoSort,
+  sortDashboardPhotos,
+} from '@/utils/sortDashboardPhotos';
 import './CollectionDashboard.css';
 
 export default function CollectionDashboard() {
@@ -26,6 +31,11 @@ export default function CollectionDashboard() {
   const navigate = useNavigate();
   const collectionId = searchParams.get('id');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const sortRef = useRef<HTMLDivElement>(null);
+  const gridSettingsRef = useRef<HTMLDivElement>(null);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [showGridSettings, setShowGridSettings] = useState(false);
+  const [photoSort, setPhotoSort] = useState<DashboardPhotoSort>('upload-new-old');
 
   const dashboardState = useCollectionDashboard(collectionId || '');
   const photoOps = usePhotoOperations({
@@ -50,8 +60,11 @@ export default function CollectionDashboard() {
     setActiveMediaTab,
     status,
     setStatus,
+    pinValue,
     gridSize,
+    setGridSize,
     showFilename,
+    setShowFilename,
     showAddSetModal,
     setShowAddSetModal,
     newSetName,
@@ -69,6 +82,29 @@ export default function CollectionDashboard() {
     uploadWidget,
     setUploadWidget,
   } = dashboardState;
+
+  const activeSet = activeSetId ? sets.find((s) => s.id === activeSetId) : null;
+  const activeSetName = activeSet ? activeSet.name : 'Highlights';
+
+  const sortedDisplayPhotos = useMemo(() => {
+    const display =
+      activeSetId !== null
+        ? photos.filter((p) => p.set_id === activeSetId)
+        : photos;
+    return sortDashboardPhotos(display, photoSort);
+  }, [photos, activeSetId, photoSort]);
+
+  const activeSetPhotoCount = sortedDisplayPhotos.length;
+
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Node;
+      if (sortRef.current && !sortRef.current.contains(t)) setShowSortMenu(false);
+      if (gridSettingsRef.current && !gridSettingsRef.current.contains(t)) setShowGridSettings(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, []);
 
   if (isLoading) {
     return (
@@ -194,15 +230,108 @@ export default function CollectionDashboard() {
 
   const renderContent = () => {
     if (activeSidebarTab === 'photos') {
-      const displayPhotos = activeSetId
-        ? photos.filter(p => p.set_id === activeSetId)
-        : photos;
-
       return (
         <div className="cd-main-scroll">
           <div className="cd-content-padding">
+            <div className="cd-main-header">
+              <h2 className="cd-main-title">{activeSetName} ({activeSetPhotoCount})</h2>
+              <div className="cd-main-actions">
+                <div className="cd-sort-wrapper" ref={sortRef}>
+                  <button
+                    type="button"
+                    className="cd-icon-btn sort-btn"
+                    aria-expanded={showSortMenu}
+                    aria-haspopup="menu"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowGridSettings(false);
+                      setShowSortMenu((open) => !open);
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="16" y2="12"></line><line x1="8" y1="18" x2="12" y2="18"></line><line x1="3" y1="6" x2="3" y2="18"></line><polyline points="1 15 3 18 5 15"></polyline></svg>
+                  </button>
+                  {showSortMenu && (
+                    <div className="cd-sort-dropdown" role="menu">
+                      <div className="cd-sort-label">Sort by</div>
+                      {DASHBOARD_PHOTO_SORT_OPTIONS.map((opt) => (
+                        <div
+                          key={opt.value}
+                          role="menuitem"
+                          className={`cd-sort-option ${photoSort === opt.value ? 'selected' : ''}`}
+                          onClick={() => {
+                            setPhotoSort(opt.value);
+                            setShowSortMenu(false);
+                          }}
+                        >
+                          {opt.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="cd-main-actions-divider" />
+                <div className="cd-grid-settings-wrapper" ref={gridSettingsRef}>
+                  <button
+                    type="button"
+                    className="cd-icon-btn active grid-btn"
+                    aria-expanded={showGridSettings}
+                    aria-haspopup="menu"
+                    title="Grid size and display"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowSortMenu(false);
+                      setShowGridSettings((open) => !open);
+                    }}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                  </button>
+                  {showGridSettings && (
+                    <div className="cd-grid-dropdown" role="menu">
+                      <div className="cd-grid-section-label">Grid Size</div>
+                      <div
+                        className={`cd-grid-option ${gridSize === 'small' ? 'selected' : ''}`}
+                        role="menuitemradio"
+                        aria-checked={gridSize === 'small'}
+                        onClick={() => setGridSize('small')}
+                      >
+                        <span>Small</span>
+                        {gridSize === 'small' && (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        )}
+                      </div>
+                      <div
+                        className={`cd-grid-option ${gridSize === 'large' ? 'selected' : ''}`}
+                        role="menuitemradio"
+                        aria-checked={gridSize === 'large'}
+                        onClick={() => setGridSize('large')}
+                      >
+                        <span>Large</span>
+                        {gridSize === 'large' && (
+                          <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                        )}
+                      </div>
+                      <div className="cd-grid-divider" />
+                      <div className="cd-grid-section-label">Show</div>
+                      <div className="cd-grid-toggle-row">
+                        <span>Filename</span>
+                        <label className="cd-toggle" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                          <input type="checkbox" checked={showFilename} onChange={() => setShowFilename(!showFilename)} />
+                          <span className="cd-toggle-slider" />
+                        </label>
+                        <span className="cd-toggle-label">{showFilename ? 'On' : 'Off'}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className="cd-main-actions-divider" />
+                <button type="button" className="cd-add-media-btn" onClick={() => setShowUploadModal(true)}>
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                  Add Media
+                </button>
+              </div>
+            </div>
             <MediaGridView
-              photos={displayPhotos || []}
+              photos={sortedDisplayPhotos}
               gridSize={gridSize}
               showFilename={showFilename}
               selectedPhotos={photoOps.selectedPhotos}
@@ -312,6 +441,18 @@ export default function CollectionDashboard() {
           onPreview={() => window.open(`/gallery/${collection?.slug}`, '_blank')}
           onShare={() => { }}
           onBack={() => navigate('/dashboard')}
+          moreMenu={{
+            collectionId: collection?.id,
+            collectionSlug: collection?.slug,
+            photographerId: collection?.photographer_id,
+            eventDate: collection?.event_date,
+            pinValue: pinValue || '',
+            clientPasswordDisplay: '',
+            onOpenDownloadSettings: () => {
+              dashboardState.setActiveSidebarTab('settings');
+              dashboardState.setActiveSettingsTab('download');
+            },
+          }}
         />
 
         <div className="cd-content">

@@ -307,6 +307,7 @@
     background-color: #fff;
     z-index: 100;
     flex-shrink: 0;
+    overflow: visible;
 }
 
 .cd-main-wrapper {
@@ -507,6 +508,9 @@
     display: flex;
     align-items: center;
     gap: 20px;
+    position: relative;
+    z-index: 200;
+    overflow: visible;
 }
 
 .cd-text-btn {
@@ -1213,6 +1217,15 @@
     width: 100%;
 }
 
+/* Media tab (TS MediaGridView): slightly larger cells when "Large" is selected */
+.cd-photo-grid.grid-large .cd-photo-card {
+    min-height: 260px;
+}
+
+.cd-photo-grid:not(.grid-large) .cd-photo-card {
+    min-height: 200px;
+}
+
 /* Vertical = CSS masonry columns */
 .cd-photo-grid--v {
     /* columns + columnGap set inline via JS */
@@ -1588,7 +1601,7 @@
     border-radius: 8px;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
     min-width: 240px;
-    z-index: 100;
+    z-index: 8000;
     padding: 8px 0;
     animation: cdFadeIn 0.12s ease;
     border: 1px solid #f0f0f0;
@@ -6240,6 +6253,7 @@ input:checked+.cd-toggle-slider:before {
 .favorite-activity-header-chevron {
     margin-left: 2px;
     opacity: 0.75;
+    transition: transform 0.15s ease;
 }
 
 .favorite-activity-actions {
@@ -6286,6 +6300,34 @@ input:checked+.cd-toggle-slider:before {
     grid-template-columns: 1.5fr 1.5fr 80px 1.2fr 1.2fr 40px;
     padding-left: 20px;
     padding-right: 20px;
+}
+
+/* Non-compact: lock six columns so Date Created / Date Updated headers line up with data. */
+.favorite-activity-table-wrap.activity-list-container:not(.favorite-activity-table-wrap--compact) .activity-table-header.favorite,
+.favorite-activity-table-wrap.activity-list-container:not(.favorite-activity-table-wrap--compact) .activity-row.favorite {
+    grid-template-columns: minmax(160px, 1.4fr) minmax(160px, 1.4fr) 72px minmax(132px, 1fr) minmax(132px, 1fr) 44px;
+}
+
+.favorite-activity-sort-wrap {
+    position: relative;
+}
+
+.favorite-activity-sort-menu {
+    right: 0;
+    left: auto;
+    z-index: 120;
+}
+
+.favorite-activity-sort-menu .cd-sort-option {
+    width: 100%;
+    border: none;
+    background: none;
+    font: inherit;
+    display: block;
+}
+
+.favorite-activity-header-chevron--open {
+    transform: rotate(180deg);
 }
 
 .activity-col-list {
@@ -6516,6 +6558,18 @@ input:checked+.cd-toggle-slider:before {
     font-size: 12px;
 }
 
+.favorite-detail-meta-row--multiline {
+    align-items: flex-start;
+}
+
+.favorite-detail-meta-value-wrap {
+    flex: 1;
+    min-width: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.45;
+}
+
 .favorite-list-detail-photos-head {
     display: flex;
     align-items: center;
@@ -6623,6 +6677,37 @@ input:checked+.cd-toggle-slider:before {
     font-size: 12px;
     font-weight: 500;
     color: #999;
+}
+
+.favorite-detail-photo-row--menu-open {
+    position: relative;
+    z-index: 12;
+}
+
+.favorite-detail-row-actions {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.favorite-detail-photo-row-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid #ebebeb;
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 10001;
+    min-width: 180px;
+    padding: 6px 0;
+}
+
+.favorite-detail-photo-row-menu--up {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 4px;
 }
 
 .favorite-detail-row-more {

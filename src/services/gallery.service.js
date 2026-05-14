@@ -847,6 +847,20 @@ export const galleryService = {
   },
 
   /**
+   * Remove one photo from a favorite list (collection owner / dashboard).
+   */
+  async removePhotoFromFavoriteList(listId, photoId) {
+    if (!listId || !photoId) throw new Error('List id and photo id are required');
+    const { error } = await supabase
+      .from('favorite_items')
+      .delete()
+      .eq('list_id', listId)
+      .eq('photo_id', photoId);
+    if (error) throw error;
+    return true;
+  },
+
+  /**
    * Get download activity for a collection
    */
   async getDownloadActivity(collectionId) {
