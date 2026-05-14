@@ -143,9 +143,11 @@ export default function CollectionDashboard() {
     try {
       if (editingSet) {
         if (editingSet.id === 'highlights-default') {
-          // Highlights is a virtual set (photos with set_id = null).
-          // There is no DB row for it — nothing to update. Just close the modal.
-          // The name "Highlights" is permanently fixed.
+          const { error: descError } = await supabase
+            .from('collections')
+            .update({ description: newSetDescription.trim() || null })
+            .eq('id', collectionId);
+          if (descError) throw descError;
         } else {
           // Normal set — require a name and update the sets table.
           if (!newSetName.trim()) return;

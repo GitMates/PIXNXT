@@ -109,6 +109,18 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     );
   }, [photosSortedForGrid, showOnlyFavorites, favoritedPhotos]);
 
+  const setDescriptionText = useMemo(() => {
+    const raw = dashboardState?.activeSetId
+      ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.description
+      : (collectionDescription || dashboardState?.collection?.description || dashboardState?.sets?.[0]?.description);
+    return typeof raw === 'string' ? raw.trim() : '';
+  }, [
+    dashboardState?.activeSetId,
+    dashboardState?.sets,
+    dashboardState?.collection?.description,
+    collectionDescription,
+  ]);
+
   const photoUrls = useMemo(
     () => filteredPhotos.map((p: any) => p.full_url || p.web_url || p.thumbnail_url),
     [filteredPhotos]
@@ -248,14 +260,9 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   };
 
   const renderCover = () => {
-    const description = dashboardState?.activeSetId
-      ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.description
-      : (collectionDescription || dashboardState?.collection?.description || dashboardState?.sets?.[0]?.description);
-
     const props = {
       title: collectionTitle,
       date: collectionDate,
-      description: description,
       photoUrl: coverPhotoUrl,
       focalX: dashboardState?.focalX,
       focalY: dashboardState?.focalY,
@@ -408,23 +415,22 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           </div>
         </div>
 
-        {/* Set Description */}
-        {(() => {
-          const description = dashboardState?.activeSetId
-            ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.description
-            : (collectionDescription || dashboardState?.collection?.description || dashboardState?.sets?.[0]?.description);
-
-          if (!description) return null;
-
-          return (
-            <div className="flex flex-col items-center justify-center py-20 px-8 text-center" style={{ backgroundColor: 'var(--gallery-bg)' }}>
-              <p className="text-[14px] md:text-[15px] leading-[1.8] tracking-[0.02em] opacity-70 max-w-2xl mx-auto whitespace-pre-wrap" style={{ color: 'var(--gallery-text)', fontWeight: 300 }}>
-                {description}
-              </p>
-              <div className="w-12 h-px mt-12 opacity-20" style={{ backgroundColor: 'var(--gallery-text)' }}></div>
-            </div>
-          );
-        })()}
+        {setDescriptionText ? (
+          <div
+            className={cn(
+              '-mx-10 border-b px-6 py-5 text-center md:px-10 md:py-6',
+              colorPalette === 'dark' ? 'border-white/10' : 'border-black/5'
+            )}
+            style={{ backgroundColor: 'var(--gallery-bg)' }}
+          >
+            <p
+              className="mx-auto max-w-2xl whitespace-pre-wrap text-[13px] font-light leading-relaxed tracking-wide md:text-[15px]"
+              style={{ color: 'var(--gallery-text)' }}
+            >
+              {setDescriptionText}
+            </p>
+          </div>
+        ) : null}
 
         {showOnlyFavorites && favFeatureOn && (
           <div

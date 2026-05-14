@@ -212,6 +212,7 @@ export type Database = {
           cover_url: string | null
           cover_video_embed: string | null
           created_at: string
+          description: string | null
           download_limit_contact: number | null
           download_limit_gallery: number | null
           download_pin_hash: string | null
@@ -265,6 +266,7 @@ export type Database = {
           cover_url?: string | null
           cover_video_embed?: string | null
           created_at?: string
+          description?: string | null
           download_limit_contact?: number | null
           download_limit_gallery?: number | null
           download_pin_hash?: string | null
@@ -318,6 +320,7 @@ export type Database = {
           cover_url?: string | null
           cover_video_embed?: string | null
           created_at?: string
+          description?: string | null
           download_limit_contact?: number | null
           download_limit_gallery?: number | null
           download_pin_hash?: string | null

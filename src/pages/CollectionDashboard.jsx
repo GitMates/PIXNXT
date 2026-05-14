@@ -883,7 +883,10 @@ const CollectionDashboard = () => {
             setSavingSet(true);
 
             if (editingSet.id === 'highlights') {
-                // Update the highlights name locally since it's a virtual set (not stored in DB as a separate row)
+                // Virtual Highlights set: name is local; description is stored on the collection (public Highlights view).
+                const desc = editSetDescription.trim().slice(0, 500) || null;
+                const updated = await galleryService.updateCollection(collectionId, { description: desc });
+                setCollection((prev) => (prev ? { ...prev, ...updated } : prev));
                 setHighlightsName(editSetName.trim());
                 setEditingSet(null);
                 setSavingSet(false);
@@ -1393,7 +1396,7 @@ const CollectionDashboard = () => {
                                                 </button>
                                                 {showSetMenu === 'highlights' && (
                                                     <div className="cd-set-dropdown">
-                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); openEditSetModal({ id: 'highlights', name: highlightsName, description: '' }); }}>
+                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }); }}>
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                                                             <span>Edit set</span>
                                                         </div>
@@ -1805,6 +1808,11 @@ const CollectionDashboard = () => {
                                     }}
                                     collectionTitle={collection?.name || 'My Collection'}
                                     collectionDate="MARCH 12TH, 2026"
+                                    collectionDescription={
+                                        activeSetId
+                                            ? sets.find((s) => s.id === activeSetId)?.description || ''
+                                            : (collection?.description || sets[0]?.description || '')
+                                    }
                                     coverPhotoUrl={collection?.cover_url || (photos.length > 0 ? photos[0].full_url : null)}
                                     gridPhotos={photos}
                                     previewMode={previewMode}

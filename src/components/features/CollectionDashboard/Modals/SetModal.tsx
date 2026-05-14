@@ -71,16 +71,14 @@ export const SetModal: React.FC<SetModalProps> = ({
         </div>
 
         <div className="cd-modal-footer-actions">
-          <button className="cd-modal-btn secondary" onClick={onClose}>{isHighlights ? 'Close' : 'Cancel'}</button>
-          {!isHighlights && (
-            <button 
-              className="cd-modal-btn primary" 
-              onClick={onSave}
-              disabled={isSaving || !name.trim()}
-            >
-              {isSaving ? 'Saving...' : 'Save'}
-            </button>
-          )}
+          <button className="cd-modal-btn secondary" onClick={onClose}>Cancel</button>
+          <button
+            className="cd-modal-btn primary"
+            onClick={onSave}
+            disabled={isSaving || (!isHighlights && !name.trim())}
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </button>
         </div>
       </div>
     </div>

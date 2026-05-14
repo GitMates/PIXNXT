@@ -372,6 +372,15 @@ const GalleryView = () => {
     return sortPhotosForGallery(base, sortKey);
   }, [collection, photosForActiveSet]);
 
+  /** Storytelling copy for the active tab (Highlights → collection.description; other sets → set.description). */
+  const setDescriptionText = useMemo(() => {
+    if (!collection) return '';
+    const raw = activeSetId
+      ? collection.sets?.find((s) => s.id === activeSetId)?.description
+      : (collection.description || collection.sets?.[0]?.description);
+    return typeof raw === 'string' ? raw.trim() : '';
+  }, [collection, activeSetId]);
+
   const photoUrls = useMemo(() => filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url), [filteredPhotos]);
 
   // Slideshow: advance using the same list as the lightbox (filtered), not full collection length
@@ -590,6 +599,23 @@ const GalleryView = () => {
             </div>
           </div>
 
+          {setDescriptionText ? (
+            <div
+              className={cn(
+                '-mx-4 mb-6 border-b px-6 py-5 text-center md:-mx-8 md:px-12 md:py-6 lg:-mx-12 lg:px-12',
+                isGalleryDark ? 'border-white/10' : 'border-black/5'
+              )}
+              style={{ backgroundColor: 'var(--gallery-bg)' }}
+            >
+              <p
+                className="mx-auto max-w-3xl whitespace-pre-wrap text-base font-light leading-relaxed tracking-wide md:text-lg"
+                style={{ color: 'var(--gallery-text)' }}
+              >
+                {setDescriptionText}
+              </p>
+            </div>
+          ) : null}
+
           {/* Shared list view (link from favorites hub) */}
           {isFavoriteListMode && (
             <div
@@ -618,35 +644,19 @@ const GalleryView = () => {
             </div>
           )}
 
-          {/* Set Description */}
-          {(() => {
-            const description = activeSetId
-              ? collection.sets?.find(s => s.id === activeSetId)?.description
-              : (collection.description || collection.sets?.[0]?.description);
-
-            if (!description) return null;
-
-            return (
-              <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-                <p className="text-[13px] md:text-[15px] leading-relaxed tracking-[0.02em] font-light opacity-70 max-w-3xl mx-auto whitespace-pre-wrap" style={{ color: 'var(--gallery-text)' }}>
-                  {description}
+          {!setDescriptionText &&
+            (() => {
+              const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
+              const label = String(raw).toLowerCase();
+              return (
+                <p
+                  className="mb-8 text-center text-[11px] font-normal lowercase tracking-[0.35em] md:text-xs"
+                  style={{ color: 'var(--gallery-meta-text)' }}
+                >
+                  {label}
                 </p>
-              </div>
-            );
-          })()}
-
-          {(() => {
-            const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
-            const label = String(raw).toLowerCase();
-            return (
-              <p
-                className="mb-8 text-center text-[11px] font-normal lowercase tracking-[0.35em] md:text-xs"
-                style={{ color: 'var(--gallery-meta-text)' }}
-              >
-                {label}
-              </p>
-            );
-          })()}
+              );
+            })()}
 
           {/* Flexible Gallery Grid */}
           <MasonryGrid

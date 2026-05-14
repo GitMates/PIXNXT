@@ -140,23 +140,6 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                   {photo.filename || `photo-${index + 1}.jpg`}
                 </div>
               )}
-              {/* Top-left heart (always visible when favorites on — Pixieset-style) */}
-              {showFavorite && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onFavorite?.(photo);
-                  }}
-                  className={cn(
-                    'absolute left-3 top-3 z-[15] flex h-8 w-8 items-center justify-center rounded-full shadow-md backdrop-blur-md transition-all',
-                    isFav ? 'bg-white text-black' : 'bg-black/35 text-white hover:bg-black/50'
-                  )}
-                  aria-label={isFav ? 'Remove from favorites' : 'Add to favorites'}
-                >
-                  <Heart size={15} strokeWidth={1.75} fill={isFav ? 'currentColor' : 'none'} />
-                </button>
-              )}
               {/* Hover overlay: download + favorite */}
               <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/10">
                 <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 transform translate-y-[10px] transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
