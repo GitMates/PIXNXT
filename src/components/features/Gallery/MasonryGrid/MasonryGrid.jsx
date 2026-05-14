@@ -3,7 +3,7 @@ import { motion as Motion } from 'framer-motion';
 import { Download, Heart } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 
-export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true, favoritedPhotoIds = [], showFilename = false }) {
+export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true, favoritedPhotoIds = [], showFilename = false, isPreviewMobile = false, forceShow = false }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
 
   const gapBase = spacing === 'none' ? 0 : spacing === 'small' ? 4 : spacing === 'regular' ? 12 : 24;
   const gap = customRowHeight ? (gapBase * (customRowHeight / (size === 'large' ? 420 : size === 'regular' ? 300 : size === 'small' ? 200 : 140))) : gapBase;
-  
+
   // Standardized row heights to ensure parity between dashboard and public view
   // If customRowHeight is provided (e.g. from GalleryPreview), we use it.
   // Otherwise we use consistent defaults for the public view.
@@ -50,7 +50,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
     if (isHorizontal) return {};
     if (customColumnCount != null) {
       return {
-        columnCount: customColumnCount,
+        '--desktop-columns': customColumnCount,
         columnGap: `${gap}px`,
       };
     }
@@ -69,11 +69,14 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
     <Motion.div
       variants={container}
       initial="hidden"
-      whileInView="show"
-      viewport={{ once: true, margin: '0px 0px -80px 0px' }}
+      {...(forceShow
+        ? { animate: 'show' }
+        : { whileInView: 'show', viewport: { once: true, margin: '0px 0px -80px 0px' } }
+      )}
       className={cn(
-        'w-full max-w-full min-w-0',
-        isHorizontal ? 'flex flex-wrap masonry-grid-horizontal items-start' : 'block'
+        'w-full max-w-full min-w-0 masonry-grid-container',
+        isHorizontal ? 'flex flex-wrap masonry-grid-horizontal items-start' : 'block masonry-grid-vertical',
+        isPreviewMobile && 'preview-mobile'
       )}
       style={isHorizontal ? {
         gap: `${gap}px`,
@@ -81,6 +84,27 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
     >
       <style>
         {`
+          .masonry-grid-vertical {
+            column-count: var(--desktop-columns, auto);
+          }
+          .masonry-grid-vertical.preview-mobile {
+            column-count: 2 !important;
+          }
+          @media (max-width: 1024px) {
+            .masonry-grid-vertical {
+              column-count: min(var(--desktop-columns, 3), 3) !important;
+            }
+          }
+          @media (max-width: 768px) {
+            .masonry-grid-vertical {
+              column-count: 2 !important;
+            }
+          }
+          @media (max-width: 480px) {
+            .masonry-grid-vertical {
+              column-count: 1 !important;
+            }
+          }
           .masonry-grid-horizontal::after {
             content: '';
             flex-grow: 999999999;

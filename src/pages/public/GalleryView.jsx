@@ -677,6 +677,7 @@ const GalleryView = () => {
             showFavorite={collection?.favorites_enabled !== false}
             favoritedPhotoIds={favoritedPhotos}
             customRowHeight={collection.thumbnail_size === 'large' ? 420 : collection.thumbnail_size === 'regular' ? 300 : collection.thumbnail_size === 'small' ? 200 : 140}
+            customColumnCount={collection.thumbnail_size === 'large' ? 2 : collection.thumbnail_size === 'regular' ? 3 : 4}
             showFilename={collection?.show_filenames === true}
           />
         </Container>

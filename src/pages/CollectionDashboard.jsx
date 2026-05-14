@@ -2,17 +2,20 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
+import { useAuth } from '../hooks/useAuth';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
+import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const collectionId = searchParams.get('id');
+    const { user } = useAuth();
 
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [collection, setCollection] = useState(null);
@@ -1895,7 +1898,8 @@ const CollectionDashboard = () => {
                                         downloadPin: downloadPin,
                                         pinValue: pinValue,
                                         requirePinForSinglePhoto: requirePinForSinglePhoto,
-                                        emailTracking: emailRegistration
+                                        emailTracking: emailRegistration,
+                                        galleryPhotoSort: collection?.gallery_photo_sort,
                                     }}
                                     onSetActiveSet={setActiveSetId}
                                 />
@@ -1946,22 +1950,21 @@ const CollectionDashboard = () => {
 
                                     <div className="settings-section">
                                         <label className="settings-label">Auto Expiry</label>
-                                        <div className="settings-input-wrapper with-icon">
-                                            <input 
-                                                type="date" 
-                                                className="settings-input" 
+                                        <div className="settings-input-wrapper custom-dp">
+                                            <DatePicker 
                                                 value={autoExpiry} 
-                                                onChange={(e) => setAutoExpiry(e.target.value)} 
-                                                onBlur={async () => {
+                                                onChange={async (newDate) => {
+                                                    setAutoExpiry(newDate);
                                                     try {
-                                                        await galleryService.updateCollection(collectionId, { auto_expiry: autoExpiry });
-                                                        setCollection(prev => ({ ...prev, auto_expiry: autoExpiry }));
+                                                        await galleryService.updateCollection(collectionId, { auto_expiry: newDate });
+                                                        setCollection(prev => ({ ...prev, auto_expiry: newDate }));
                                                     } catch (err) {
                                                         console.error('Failed to save auto expiry:', err);
                                                     }
                                                 }}
+                                                placeholder="Optional"
+                                                disablePastDates={true}
                                             />
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="input-icon"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                                         </div>
                                         <p className="settings-desc">Automatically set your collection to hidden on a specific date (at 11:59pm <span className="highlight-text">GMT+5:30</span>)</p>
                                         <button className="settings-action-btn" onClick={() => setShowExpiryReminderModal(true)}>
@@ -4147,9 +4150,9 @@ const CollectionDashboard = () => {
                                     />
                                 </div>
 
-                                <div className="activity-lists-grid">
+                                <div className="activity-lists-container">
                                     <p className="grid-label">Activity Lists</p>
-                                    <div className="lists-row">
+                                    <div className="activity-lists-grid">
                                         <div className="list-item">
                                             <input 
                                                 type="checkbox" 
@@ -4159,7 +4162,7 @@ const CollectionDashboard = () => {
                                                     setExpiryEmailLists(prev => checked ? [...prev, 'contacts'] : prev.filter(l => l !== 'contacts'));
                                                 }}
                                             />
-                                            <span>Contacts {activityCounts.contacts}</span>
+                                            <label>Contacts <span>{activityCounts.contacts}</span></label>
                                         </div>
                                         <div className="list-item">
                                             <input 
@@ -4170,7 +4173,7 @@ const CollectionDashboard = () => {
                                                     setExpiryEmailLists(prev => checked ? [...prev, 'downloaded'] : prev.filter(l => l !== 'downloaded'));
                                                 }}
                                             />
-                                            <span>Downloaded {activityCounts.downloaded}</span>
+                                            <label>Downloaded <span>{activityCounts.downloaded}</span></label>
                                         </div>
                                         <div className="list-item">
                                             <input 
@@ -4181,10 +4184,8 @@ const CollectionDashboard = () => {
                                                     setExpiryEmailLists(prev => checked ? [...prev, 'registered'] : prev.filter(l => l !== 'registered'));
                                                 }}
                                             />
-                                            <span>Registered {activityCounts.registered}</span>
+                                            <label>Registered <span>{activityCounts.registered}</span></label>
                                         </div>
-                                    </div>
-                                    <div className="lists-row">
                                         <div className="list-item">
                                             <input 
                                                 type="checkbox" 
@@ -4194,7 +4195,7 @@ const CollectionDashboard = () => {
                                                     setExpiryEmailLists(prev => checked ? [...prev, 'favorited'] : prev.filter(l => l !== 'favorited'));
                                                 }}
                                             />
-                                            <span>Favorited {activityCounts.favorited}</span>
+                                            <label>Favorited <span>{activityCounts.favorited}</span></label>
                                         </div>
                                         <div className="list-item">
                                             <input 
@@ -4205,9 +4206,10 @@ const CollectionDashboard = () => {
                                                     setExpiryEmailLists(prev => checked ? [...prev, 'purchased'] : prev.filter(l => l !== 'purchased'));
                                                 }}
                                             />
-                                            <span>Purchased {activityCounts.purchased}</span>
+                                            <label>Purchased <span>{activityCounts.purchased}</span></label>
                                         </div>
                                     </div>
+                                    <p className="upgrade-notice">Upgrade to send reminder emails to activity lists.</p>
                                 </div>
 
                                 <div className="form-group">
@@ -4260,40 +4262,44 @@ const CollectionDashboard = () => {
                                 </div>
                             </div>
 
-                            <div className="email-preview-pane">
-                                <div className="email-preview-container">
-                                    <div className="email-preview-card">
-                                        {collection?.cover_photo_url && (
-                                            <div className="email-preview-cover">
-                                                <img src={collection.cover_photo_url} alt="Cover" />
-                                            </div>
-                                        )}
-                                        <div className="email-preview-content">
-                                            <p className="email-preview-photographer">{collection?.photographer_name || 'PHOTOGRAPHER'}</p>
-                                            <h3 className="email-preview-title">{collection?.name || 'WEDDING'}</h3>
-                                            
-                                            <div className="email-preview-body">
-                                                {expiryEmailBody
-                                                    .replace(/{collection.name}/g, collection?.name || 'WEDDING')
-                                                    .replace(/{expiry.date}/g, autoExpiry || 'MM/DD/YYYY')
-                                                    .replace(/{days.prior}/g, expiryEmailTiming.split(' ')[0])
-                                                    .replace(/{collection.url}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
-                                                    .split('\n').map((line, i) => (
-                                                        <p key={i}>{line || <br />}</p>
-                                                    ))
-                                                }
-                                                {expiryEmailIncludePin && (
-                                                    <div style={{ marginTop: '24px', borderTop: '1px solid #eee', paddingTop: '20px', fontSize: '13px', color: '#888' }}>
-                                                        <p>Download PIN: <strong>{pinValue || '1234'}</strong></p>
+                                <div className="email-preview-pane">
+                                    <div className="email-preview-container">
+                                        <div className="email-preview-card">
+                                            <div className="email-preview-content">
+                                                <p className="email-preview-photographer">{user?.full_name || collection?.photographer_name || 'PHOTOGRAPHER'}</p>
+                                                <h3 className="email-preview-title">{collection?.name || 'WEDDING'}</h3>
+                                                
+                                                {collection?.cover_url && (
+                                                    <div className="email-preview-cover">
+                                                        <img src={collection.cover_url} alt="Cover" />
                                                     </div>
                                                 )}
-                                            </div>
 
-                                            <button className="email-preview-view-btn">View Gallery</button>
+                                                <div className="email-preview-body">
+                                                    <p className="preview-greeting">Hi,</p>
+                                                    {expiryEmailBody
+                                                        .replace(/{collection.name}/g, collection?.name || 'WEDDING')
+                                                        .replace(/{expiry.date}/g, autoExpiry || 'MM/DD/YYYY')
+                                                        .replace(/{days.prior}/g, expiryEmailTiming.split(' ')[0])
+                                                        .replace(/{collection.url}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
+                                                        .split('\n').map((line, i) => {
+                                                            const trimmedLine = line.trim().toLowerCase();
+                                                            if (i === 0 && (trimmedLine === 'hi,' || trimmedLine === 'hi')) return null;
+                                                            return <p key={i}>{line || <br />}</p>;
+                                                        })
+                                                    }
+                                                    {expiryEmailIncludePin && (
+                                                        <div style={{ marginTop: '24px', borderTop: '1px solid #eee', paddingTop: '20px', fontSize: '13px', color: '#888' }}>
+                                                            <p>Download PIN: <strong>{pinValue || '1234'}</strong></p>
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                <button className="email-preview-view-btn">View Gallery</button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-                            </div>
                         </div>
                     </div>
                 </div>

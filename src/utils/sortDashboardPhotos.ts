@@ -46,29 +46,29 @@ export function sortDashboardPhotos(
   const sorted = [...photos];
   switch (sort) {
     case "upload-new-old":
-      sorted.sort((a, b) => uploadDate(b) - uploadDate(a));
+      sorted.sort((a, b) => uploadDate(b) - uploadDate(a) || (a.position || 0) - (b.position || 0) || (a.id || "").localeCompare(b.id || ""));
       break;
     case "upload-old-new":
-      sorted.sort((a, b) => uploadDate(a) - uploadDate(b));
+      sorted.sort((a, b) => uploadDate(a) - uploadDate(b) || (a.position || 0) - (b.position || 0) || (a.id || "").localeCompare(b.id || ""));
       break;
     case "taken-new-old":
-      sorted.sort((a, b) => takenDate(b) - takenDate(a));
+      sorted.sort((a, b) => takenDate(b) - takenDate(a) || (a.position || 0) - (b.position || 0) || (a.id || "").localeCompare(b.id || ""));
       break;
     case "taken-old-new":
-      sorted.sort((a, b) => takenDate(a) - takenDate(b));
+      sorted.sort((a, b) => takenDate(a) - takenDate(b) || (a.position || 0) - (b.position || 0) || (a.id || "").localeCompare(b.id || ""));
       break;
     case "name-az":
       sorted.sort((a, b) =>
         (a.filename || "").localeCompare(b.filename || "", undefined, {
           sensitivity: "base",
-        }),
+        }) || (a.position || 0) - (b.position || 0) || (a.id || "").localeCompare(b.id || "")
       );
       break;
     case "name-za":
       sorted.sort((a, b) =>
         (b.filename || "").localeCompare(a.filename || "", undefined, {
           sensitivity: "base",
-        }),
+        }) || (a.position || 0) - (b.position || 0) || (a.id || "").localeCompare(b.id || "")
       );
       break;
     case "random":

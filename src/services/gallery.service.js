@@ -129,6 +129,10 @@ export const galleryService = {
     if (data.sets) {
       data.sets.sort((a, b) => a.position - b.position);
     }
+    // Sort photos by position (crucial for deterministic sorting when created_at timestamps match)
+    if (data.photos) {
+      data.photos.sort((a, b) => (a.position || 0) - (b.position || 0));
+    }
 
     return data;
   },

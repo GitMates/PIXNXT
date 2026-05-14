@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { GalleryPreviewProps } from './PreviewPane.types';
 import * as Covers from './CoverStyles';
 import { cn } from '../../../../lib/utils';
@@ -60,6 +60,63 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const [pendingFavoritePhotoId, setPendingFavoritePhotoId] = useState<string | null>(null);
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+
+  // Scale preview grid to match public gallery layout.
+  // Strategy: render MasonryGrid in a 1280px-wide div (matching the live gallery viewport),
+  // then apply transform:scale so it visually fits the preview pane.
+  // We track the inner div's LAYOUT height (unaffected by transform) via ResizeObserver
+  // and set the outer container's height to innerHeight*scale so the canvas doesn't collapse.
+  // Scale preview grid to match public gallery layout dynamically based on current viewport.
+  const [galleryRefWidth, setGalleryRefWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
+  const gridWrapperRef = useRef<HTMLDivElement>(null);
+  const innerGridRef = useRef<HTMLDivElement>(null);
+  const [gridScale, setGridScale] = useState(0.45);
+  const [innerGridH, setInnerGridH] = useState(0);
+
+  const getPadding = (w: number) => {
+    if (w >= 1024) return '0 48px'; // lg:px-12
+    if (w >= 768) return '0 32px'; // md:px-8
+    return '0 16px'; // px-4
+  };
+
+  useEffect(() => {
+    let outerObs: ResizeObserver | null = null;
+    let innerObs: ResizeObserver | null = null;
+
+    const setup = () => {
+      const outer = gridWrapperRef.current;
+      const inner = innerGridRef.current;
+      if (!outer || !inner) return;
+
+      outerObs = new ResizeObserver(() => {
+        const w = outer.offsetWidth;
+        if (w > 0) setGridScale(w / window.innerWidth);
+      });
+      innerObs = new ResizeObserver(() => {
+        const h = inner.offsetHeight;
+        if (h > 0) setInnerGridH(h);
+      });
+      outerObs.observe(outer);
+      innerObs.observe(inner);
+    };
+
+    const handleResize = () => {
+      setGalleryRefWidth(window.innerWidth);
+      const outer = gridWrapperRef.current;
+      if (outer && outer.offsetWidth > 0) {
+        setGridScale(outer.offsetWidth / window.innerWidth);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
+    const raf = requestAnimationFrame(setup);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', handleResize);
+      outerObs?.disconnect();
+      innerObs?.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     if (!favFeatureOn) setShowOnlyFavorites(false);
@@ -235,13 +292,13 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
   const handleDownloadClick = async (photo?: any) => {
     const needsEmail = !!dashboardState?.emailTracking;
-    
+
     // downloadPin is a boolean toggle; only consider PIN required if toggle is ON and a PIN value exists
     const hasPin = !!((dashboardState?.downloadPin && dashboardState?.pinValue) || dashboardState?.collection?.download_pin || dashboardState?.collection?.download_pin_hash);
-    
+
     // Check if PIN is required for single photo downloads
     const pinRequiredForSingle = dashboardState?.requirePinForSinglePhoto !== false;
-    
+
     const needsPin = hasPin && (!photo || pinRequiredForSingle);
 
     if (photo) {
@@ -314,33 +371,33 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
           {/* Center: Sets Navigation */}
           <div className="flex-1 flex items-center justify-center gap-8">
-            <span 
+            <span
               className={cn(
-                "text-[8px] gallery-heading cursor-pointer transition-opacity", 
+                "text-[8px] gallery-heading cursor-pointer transition-opacity",
                 !dashboardState?.activeSetId ? "opacity-100 border-b border-current pb-1" : "opacity-50 hover:opacity-100"
-              )} 
+              )}
               style={{ color: 'var(--gallery-text)' }}
               onClick={() => onSetActiveSet?.(null)}
             >
               Highlights
             </span>
-            {dashboardState?.sets && dashboardState.sets.length > 0 && 
+            {dashboardState?.sets && dashboardState.sets.length > 0 &&
               dashboardState.sets
                 .filter((s: any) => s.name?.toLowerCase() !== 'highlights')
                 .slice(0, 5)
                 .map((set: any) => (
-                  <span 
-                    key={set.id} 
-                  className={cn(
-                    "text-[8px] gallery-heading cursor-pointer hover:opacity-100 transition-opacity", 
-                    dashboardState?.activeSetId === set.id ? "border-b border-current pb-1" : "opacity-50"
-                  )} 
-                  style={{ color: 'var(--gallery-text)' }}
-                  onClick={() => onSetActiveSet?.(set.id)}
-                >
-                  {set.name}
-                </span>
-              ))
+                  <span
+                    key={set.id}
+                    className={cn(
+                      "text-[8px] gallery-heading cursor-pointer hover:opacity-100 transition-opacity",
+                      dashboardState?.activeSetId === set.id ? "border-b border-current pb-1" : "opacity-50"
+                    )}
+                    style={{ color: 'var(--gallery-text)' }}
+                    onClick={() => onSetActiveSet?.(set.id)}
+                  >
+                    {set.name}
+                  </span>
+                ))
             }
           </div>
 
@@ -451,24 +508,54 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           </div>
         )}
 
-        <div className="p-4" style={{ backgroundColor: 'var(--gallery-bg)' }}>
-          <MasonryGrid
-            key={`${grid.style}-${grid.size}-${grid.spacing}`}
-            photos={filteredPhotos}
-            gridSettings={grid}
-            isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
-            onImageClick={(index) => setLightboxIndex(index)}
-            onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
-            onDownload={handleDownloadClick}
-            onShare={() => {}}
-            showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
-            showFavorite={favFeatureOn}
-            showShare={dashboardState?.socialSharing !== false}
-            favoritedPhotoIds={favoritedPhotos}
-            customRowHeight={grid.size === 'large' ? 155 : grid.size === 'regular' ? 111 : grid.size === 'small' ? 74 : 52}
-            customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
-            showFilename={dashboardState?.showFilenameInGrid === true}
-          />
+        {/* transform:scale grid:
+            - inner div is position:absolute → taken out of flow → parent stays at pane width
+            - MasonryGrid sees a true 1280px container → same column widths as public gallery
+            - scale(gridScale) shrinks the visual rendering to fit the pane
+            - outer overflow:hidden clips at its own boundary (not the 1280px layout box)
+            - explicit outer height = innerGridH * gridScale keeps the canvas the right size */}
+        <div
+          ref={gridWrapperRef}
+          style={{
+            backgroundColor: 'var(--gallery-bg)',
+            width: '100%',
+            overflow: 'hidden',
+            position: 'relative',
+            /* Fallback height while ResizeObserver fires on the first frame */
+            height: innerGridH > 0 ? `${innerGridH * gridScale}px` : `${200 * gridScale}px`,
+          }}
+        >
+          <div
+            ref={innerGridRef}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: `${galleryRefWidth}px`,
+              transform: `scale(${gridScale})`,
+              transformOrigin: 'top left',
+              padding: getPadding(galleryRefWidth),
+            }}
+          >
+            <MasonryGrid
+              key={`${grid.style}-${grid.size}-${grid.spacing}`}
+              photos={filteredPhotos}
+              gridSettings={grid}
+              isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
+              onImageClick={(index) => setLightboxIndex(index)}
+              onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
+              onDownload={handleDownloadClick}
+              onShare={() => { }}
+              showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
+              showFavorite={favFeatureOn}
+              showShare={dashboardState?.socialSharing !== false}
+              favoritedPhotoIds={favoritedPhotos}
+              customRowHeight={grid.size === 'large' ? 420 : grid.size === 'regular' ? 300 : grid.size === 'small' ? 200 : 140}
+              customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
+              showFilename={dashboardState?.showFilenameInGrid === true}
+              forceShow={true}
+            />
+          </div>
         </div>
       </div>
 
@@ -501,7 +588,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           if (photo) void handleFavoritePhotoToggle(photo.id);
         }}
         onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
-        onShare={() => {}}
+        onShare={() => { }}
         showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
         showFavorite={favFeatureOn}
         showShare={dashboardState?.socialSharing !== false}

@@ -22,4 +22,5 @@ export interface GalleryPreviewProps {
   gridPhotos: { full_url: string; id?: string; set_id?: string | null; width?: number; height?: number }[];
   dashboardState?: any;
   onSetActiveSet?: (setId: string | null) => void;
+  isPreviewMobile?: boolean;
 }

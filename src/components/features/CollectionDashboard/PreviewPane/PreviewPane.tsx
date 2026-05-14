@@ -28,6 +28,7 @@ export const PreviewPane: React.FC<PreviewPaneProps> = ({
             gridPhotos={gridPhotos}
             dashboardState={dashboardState}
             onSetActiveSet={onSetActiveSet}
+            isPreviewMobile={previewMode === 'mobile'}
           />
         </div>
       </div>
