@@ -2347,10 +2347,11 @@
 
 .preview-title {
     position: absolute;
-    font-size: 6px;
-    font-weight: 800;
+    font-size: 8px;
+    font-weight: 700;
     color: #fff;
     letter-spacing: 1.5px;
+    text-transform: uppercase;
     text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
     z-index: 2;
     pointer-events: none;
@@ -2396,7 +2397,8 @@
     color: #111;
     text-shadow: none;
     position: static;
-    font-size: 5px;
+    font-size: 7px;
+    padding: 0 4px;
 }
 
 /* 4. Vintage */
@@ -6739,3 +6741,348 @@ input:checked+.cd-toggle-slider:before {
         max-height: none;
     }
 }
+
+/* --- Expiry Reminder Email Modal Styles --- */
+.expiry-email-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    background-color: #fff;
+    color: #333;
+}
+
+.expiry-email-header {
+    height: 70px;
+    padding: 0 24px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.expiry-email-header .header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.expiry-email-header .header-left .close-btn {
+    background: none;
+    border: none;
+    color: #999;
+    cursor: pointer;
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s;
+}
+
+.expiry-email-header .header-left .close-btn:hover {
+    color: #111;
+}
+
+.expiry-email-header .header-left .header-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: #111;
+    margin: 0;
+}
+
+.expiry-email-header .header-right {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.expiry-email-header .timing-dropdown {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.expiry-email-header .timing-dropdown select {
+    appearance: none;
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px 32px 8px 12px;
+    font-size: 14px;
+    color: #333;
+    cursor: pointer;
+    outline: none;
+}
+
+.expiry-email-header .timing-dropdown svg {
+    position: absolute;
+    right: 12px;
+    pointer-events: none;
+    color: #999;
+}
+
+.expiry-email-header .save-btn {
+    background-color: #009070;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.expiry-email-header .save-btn:hover {
+    background-color: #007a5f;
+}
+
+.expiry-email-content {
+    flex: 1;
+    display: flex;
+    overflow: hidden;
+}
+
+.email-editor-pane {
+    flex: 1;
+    max-width: 600px;
+    padding: 40px;
+    overflow-y: auto;
+    border-right: 1px solid #eee;
+}
+
+.email-editor-pane .form-group {
+    margin-bottom: 24px;
+}
+
+.email-editor-pane .form-group label {
+    display: block;
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.email-editor-pane .form-group input[type="text"],
+.email-editor-pane .form-group textarea {
+ width: 100%;
+ padding: 12px;
+ border: 1px solid #ddd;
+ border-radius: 4px;
+ font-size: 14px;
+ outline: none;
+ transition: border-color 0.2s;
+}
+
+.email-editor-pane .form-group input:focus,
+.email-editor-pane .form-group textarea:focus {
+ border-color: #111;
+}
+
+.email-editor-pane .subject-input {
+ font-weight: 600;
+ font-size: 16px !important;
+}
+
+.email-editor-pane .body-editor {
+ min-height: 200px;
+ resize: vertical;
+ line-height: 1.6;
+}
+
+.activity-lists-grid {
+ background-color: #f9f9f9;
+ border: 1px solid #eee;
+ border-radius: 8px;
+ padding: 20px;
+ margin-bottom: 32px;
+}
+
+.activity-lists-grid .grid-label {
+ font-size: 12px;
+ font-weight: 700;
+ color: #999;
+ text-transform: uppercase;
+ letter-spacing: 0.5px;
+ margin-bottom: 16px;
+}
+
+.activity-lists-grid .lists-row {
+ display: flex;
+ gap: 24px;
+ margin-bottom: 12px;
+}
+
+.activity-lists-grid .list-item {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ font-size: 14px;
+ color: #555;
+}
+
+.activity-lists-grid .list-item.disabled {
+ opacity: 0.5;
+ cursor: not-allowed;
+}
+
+.activity-lists-grid .upgrade-notice {
+ font-size: 13px;
+ color: #009070;
+ margin-top: 16px;
+ font-weight: 500;
+}
+
+.dynamic-text-section {
+ margin-bottom: 32px;
+}
+
+.dynamic-text-section .section-header {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ color: #111;
+ font-size: 14px;
+ font-weight: 500;
+ cursor: pointer;
+ padding: 8px 0;
+}
+
+.dynamic-text-section .section-content {
+ padding: 12px 0;
+ font-size: 13px;
+ color: #666;
+}
+
+.dynamic-text-section .section-content p {
+ margin-bottom: 12px;
+}
+
+.dynamic-text-section .section-content ul {
+ list-style: none;
+ padding: 0;
+}
+
+.dynamic-text-section .section-content li {
+ margin-bottom: 8px;
+}
+
+.dynamic-text-section .section-content li strong {
+ color: #333;
+}
+
+.include-info-section .section-label {
+ font-size: 14px;
+ font-weight: 500;
+ margin-bottom: 16px;
+}
+
+.include-info-section .checkbox-row {
+ display: flex;
+ gap: 24px;
+}
+
+.include-info-section .checkbox-item {
+ display: flex;
+ align-items: center;
+ gap: 8px;
+ font-size: 14px;
+ color: #333;
+ cursor: pointer;
+}
+
+/* Email Preview Pane */
+.email-preview-pane {
+ flex: 1;
+ background-color: #f5f5f5;
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ padding: 40px;
+ overflow-y: auto;
+}
+
+.email-preview-container {
+ width: 100%;
+ max-width: 500px;
+}
+
+.email-preview-card {
+ background-color: #fff;
+ box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+ border-radius: 0;
+ overflow: hidden;
+}
+
+.email-preview-cover {
+ height: 240px;
+ width: 100%;
+}
+
+.email-preview-cover img {
+ width: 100%;
+ height: 100%;
+ object-fit: cover;
+}
+
+.email-preview-content {
+ padding: 48px;
+ text-align: center;
+}
+
+.email-preview-photographer {
+ font-size: 11px;
+ font-weight: 700;
+ letter-spacing: 2px;
+ text-transform: uppercase;
+ color: #999;
+ margin-bottom: 12px;
+}
+
+.email-preview-title {
+ font-size: 32px;
+ font-weight: 700;
+ text-transform: uppercase;
+ letter-spacing: 3px;
+ color: #111;
+ margin-bottom: 40px;
+}
+
+.email-preview-body {
+ text-align: left;
+ font-size: 15px;
+ line-height: 1.8;
+ color: #555;
+ margin-bottom: 40px;
+}
+
+.email-preview-body p {
+ margin-bottom: 16px;
+}
+
+.email-preview-view-btn {
+ display: inline-block;
+ background-color: #111;
+ color: #fff;
+ padding: 14px 40px;
+ font-size: 13px;
+ font-weight: 600;
+ text-transform: uppercase;
+ letter-spacing: 1px;
+ border: none;
+ cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+ .expiry-email-content {
+ flex-direction: column;
+ }
+ .email-editor-pane {
+ max-width: none;
+ height: 60%;
+ border-right: none;
+ border-bottom: 1px solid #eee;
+ }
+ .email-preview-pane {
+ height: 40%;
+ }
+}
+

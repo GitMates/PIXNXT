@@ -164,6 +164,18 @@ const CollectionDashboard = () => {
     const [favoriteActivitySortMode, setFavoriteActivitySortMode] = useState('created'); // email | created | updated
     const [favoriteActivitySortMenuOpen, setFavoriteActivitySortMenuOpen] = useState(false);
 
+    // Expiry Reminder Modal State
+    const [showExpiryReminderModal, setShowExpiryReminderModal] = useState(false);
+    const [expiryEmailTiming, setExpiryEmailTiming] = useState('1 day before auto expiry date');
+    const [expiryEmailTo, setExpiryEmailTo] = useState('');
+    const [expiryEmailSubject, setExpiryEmailSubject] = useState('The gallery {collection.name} is about to expire');
+    const [expiryEmailBody, setExpiryEmailBody] = useState('Hi,\n\nThe gallery {collection.name} will expire in {days.prior} on {expiry.date}. You will no longer be able to access this gallery after the expiry date.\n\nIf you have any questions, please don\'t hesitate to get in touch!');
+    const [expiryEmailIncludePin, setExpiryEmailIncludePin] = useState(false);
+    const [expiryEmailSendCopy, setExpiryEmailSendCopy] = useState(true);
+    const [expiryEmailLists, setExpiryEmailLists] = useState([]); // ['downloaded', 'favorited', etc.]
+    const [showDynamicTextInfo, setShowDynamicTextInfo] = useState(false);
+
+
     const parseFavoriteMaxSelection = () => {
         const raw = String(favoriteListMax ?? '').trim();
         if (!raw) return null;
@@ -236,6 +248,18 @@ const CollectionDashboard = () => {
             : favoriteActivitySortMode === 'created'
               ? 'Sort by created date'
               : 'Sort by updated date';
+
+    const activityCounts = useMemo(() => {
+        const downloadedEmails = new Set(downloadActivity.map(a => a.email));
+        const favoritedEmails = new Set(favoriteActivity.map(a => a.email));
+        return {
+            downloaded: downloadedEmails.size,
+            favorited: favoritedEmails.size,
+            contacts: 0,
+            registered: 0,
+            purchased: 0
+        };
+    }, [downloadActivity, favoriteActivity]);
 
     const handleExportFavoriteList = async (listId, listName) => {
         try {
@@ -524,14 +548,11 @@ const CollectionDashboard = () => {
     };
 
     useEffect(() => {
-        if (activeSidebarTab === 'activity') {
-            if (activeActivitySubTab === 'favorite') {
-                fetchFavoriteActivity();
-            } else if (activeActivitySubTab === 'download') {
-                fetchDownloadActivity();
-            }
+        if (collectionId) {
+            fetchFavoriteActivity();
+            fetchDownloadActivity();
         }
-    }, [activeSidebarTab, activeActivitySubTab, collectionId]);
+    }, [collectionId]);
 
     useEffect(() => {
         if (activeActivitySubTab === 'share' || activeActivitySubTab === 'private') {
@@ -745,6 +766,39 @@ const CollectionDashboard = () => {
         }
     };
 
+    const handleSaveExpiryEmail = async () => {
+        try {
+            setSaving(true);
+            await galleryService.updateCollection(collectionId, {
+                expiry_email_timing: expiryEmailTiming,
+                expiry_email_to: expiryEmailTo,
+                expiry_email_subject: expiryEmailSubject,
+                expiry_email_body: expiryEmailBody,
+                expiry_email_include_pin: expiryEmailIncludePin,
+                expiry_email_send_copy: expiryEmailSendCopy,
+                expiry_email_lists: expiryEmailLists
+            });
+            setCollection(prev => ({
+                ...prev,
+                expiry_email_timing: expiryEmailTiming,
+                expiry_email_to: expiryEmailTo,
+                expiry_email_subject: expiryEmailSubject,
+                expiry_email_body: expiryEmailBody,
+                expiry_email_include_pin: expiryEmailIncludePin,
+                expiry_email_send_copy: expiryEmailSendCopy,
+                expiry_email_lists: expiryEmailLists
+            }));
+            setShowExpiryReminderModal(false);
+            setToastMessage('Expiry reminder email saved!');
+            setTimeout(() => setToastMessage(null), 3000);
+        } catch (err) {
+            console.error('Failed to save expiry email:', err);
+            alert('Failed to save expiry email settings.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
     // Load real data from Supabase
     useEffect(() => {
         const fetchCollectionData = async () => {
@@ -800,6 +854,16 @@ const CollectionDashboard = () => {
                 // Initialize favorite settings
                 if (data.favorites_enabled !== undefined) setFavoritePhotos(data.favorites_enabled);
                 if (data.favorites_allow_comments !== undefined) setFavoriteNotes(data.favorites_allow_comments);
+
+                // Initialize expiry email settings
+                if (data.expiry_email_timing) setExpiryEmailTiming(data.expiry_email_timing);
+                if (data.expiry_email_to) setExpiryEmailTo(data.expiry_email_to);
+                if (data.expiry_email_subject) setExpiryEmailSubject(data.expiry_email_subject);
+                if (data.expiry_email_body) setExpiryEmailBody(data.expiry_email_body);
+                if (data.expiry_email_include_pin !== undefined) setExpiryEmailIncludePin(data.expiry_email_include_pin);
+                if (data.expiry_email_send_copy !== undefined) setExpiryEmailSendCopy(data.expiry_email_send_copy);
+                if (data.expiry_email_lists) setExpiryEmailLists(data.expiry_email_lists);
+                if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
 
                 // Fetch photos and sets
                 const photoData = data.photos || [];
@@ -1883,13 +1947,26 @@ const CollectionDashboard = () => {
                                     <div className="settings-section">
                                         <label className="settings-label">Auto Expiry</label>
                                         <div className="settings-input-wrapper with-icon">
-                                            <input type="text" className="settings-input" placeholder="Optional" value={autoExpiry} onChange={(e) => setAutoExpiry(e.target.value)} />
+                                            <input 
+                                                type="date" 
+                                                className="settings-input" 
+                                                value={autoExpiry} 
+                                                onChange={(e) => setAutoExpiry(e.target.value)} 
+                                                onBlur={async () => {
+                                                    try {
+                                                        await galleryService.updateCollection(collectionId, { auto_expiry: autoExpiry });
+                                                        setCollection(prev => ({ ...prev, auto_expiry: autoExpiry }));
+                                                    } catch (err) {
+                                                        console.error('Failed to save auto expiry:', err);
+                                                    }
+                                                }}
+                                            />
                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="input-icon"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                                         </div>
                                         <p className="settings-desc">Automatically set your collection to hidden on a specific date (at 11:59pm <span className="highlight-text">GMT+5:30</span>)</p>
-                                        <button className="settings-action-btn">
+                                        <button className="settings-action-btn" onClick={() => setShowExpiryReminderModal(true)}>
                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                                            Add expiry reminder email
+                                            {collection?.expiry_email_to ? 'Edit expiry reminder email' : 'Add expiry reminder email'}
                                         </button>
                                     </div>
 
@@ -3999,6 +4076,7 @@ const CollectionDashboard = () => {
             )}
 
             {/* Delete Confirmation Modal */}
+            <>
             {showDeleteConfirm && (
                 <div className="cd-modal-overlay" onClick={() => setShowDeleteConfirm(false)}>
                     <div className="cd-modal cd-modal-sm" onClick={(e) => e.stopPropagation()}>
@@ -4023,6 +4101,199 @@ const CollectionDashboard = () => {
                             >
                                 {saving ? 'Deleting...' : 'Delete'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Expiry Reminder Email Modal */}
+            {showExpiryReminderModal && (
+                <div className="cd-modal-overlay" style={{ backgroundColor: '#fff', zIndex: 100000 }}>
+                    <div className="expiry-email-container">
+                        <div className="expiry-email-header">
+                            <div className="header-left">
+                                <button className="close-btn" onClick={() => setShowExpiryReminderModal(false)}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                </button>
+                                <h2 className="header-title">Add Auto Expiry Reminder Email</h2>
+                            </div>
+                            <div className="header-right">
+                                <div className="timing-dropdown">
+                                    <select value={expiryEmailTiming} onChange={(e) => setExpiryEmailTiming(e.target.value)}>
+                                        <option>1 day before auto expiry date</option>
+                                        <option>2 days before auto expiry date</option>
+                                        <option>3 days before auto expiry date</option>
+                                        <option>5 days before auto expiry date</option>
+                                        <option>7 days before auto expiry date</option>
+                                        <option>14 days before auto expiry date</option>
+                                        <option>30 days before auto expiry date</option>
+                                    </select>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                </div>
+                                <button className="save-btn" onClick={handleSaveExpiryEmail} disabled={saving}>
+                                    {saving ? 'Saving...' : 'Save'}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="expiry-email-content">
+                            <div className="email-editor-pane">
+                                <div className="form-group">
+                                    <label>To:</label>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Enter email or select an activity list" 
+                                        value={expiryEmailTo}
+                                        onChange={(e) => setExpiryEmailTo(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="activity-lists-grid">
+                                    <p className="grid-label">Activity Lists</p>
+                                    <div className="lists-row">
+                                        <div className="list-item">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={expiryEmailLists.includes('contacts')}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setExpiryEmailLists(prev => checked ? [...prev, 'contacts'] : prev.filter(l => l !== 'contacts'));
+                                                }}
+                                            />
+                                            <span>Contacts {activityCounts.contacts}</span>
+                                        </div>
+                                        <div className="list-item">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={expiryEmailLists.includes('downloaded')}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setExpiryEmailLists(prev => checked ? [...prev, 'downloaded'] : prev.filter(l => l !== 'downloaded'));
+                                                }}
+                                            />
+                                            <span>Downloaded {activityCounts.downloaded}</span>
+                                        </div>
+                                        <div className="list-item">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={expiryEmailLists.includes('registered')}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setExpiryEmailLists(prev => checked ? [...prev, 'registered'] : prev.filter(l => l !== 'registered'));
+                                                }}
+                                            />
+                                            <span>Registered {activityCounts.registered}</span>
+                                        </div>
+                                    </div>
+                                    <div className="lists-row">
+                                        <div className="list-item">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={expiryEmailLists.includes('favorited')}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setExpiryEmailLists(prev => checked ? [...prev, 'favorited'] : prev.filter(l => l !== 'favorited'));
+                                                }}
+                                            />
+                                            <span>Favorited {activityCounts.favorited}</span>
+                                        </div>
+                                        <div className="list-item">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={expiryEmailLists.includes('purchased')}
+                                                onChange={(e) => {
+                                                    const checked = e.target.checked;
+                                                    setExpiryEmailLists(prev => checked ? [...prev, 'purchased'] : prev.filter(l => l !== 'purchased'));
+                                                }}
+                                            />
+                                            <span>Purchased {activityCounts.purchased}</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="form-group">
+                                    <input 
+                                        type="text" 
+                                        className="subject-input"
+                                        value={expiryEmailSubject}
+                                        onChange={(e) => setExpiryEmailSubject(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="form-group">
+                                    <textarea 
+                                        className="body-editor"
+                                        value={expiryEmailBody}
+                                        onChange={(e) => setExpiryEmailBody(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="dynamic-text-section">
+                                    <div className="section-header" onClick={() => setShowDynamicTextInfo(!showDynamicTextInfo)}>
+                                        <span>How to insert dynamic text</span>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showDynamicTextInfo ? 'rotate(180deg)' : 'none' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                    </div>
+                                    {showDynamicTextInfo && (
+                                        <div className="section-content">
+                                            <p>Use these placeholders to automatically insert collection information:</p>
+                                            <ul>
+                                                <li><strong>{`{collection.name}`}</strong> - Name of the collection</li>
+                                                <li><strong>{`{expiry.date}`}</strong> - The date the collection expires</li>
+                                                <li><strong>{`{days.prior}`}</strong> - Number of days before expiry</li>
+                                                <li><strong>{`{collection.url}`}</strong> - Link to the gallery</li>
+                                            </ul>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="include-info-section">
+                                    <p className="section-label">Include collection info:</p>
+                                    <div className="checkbox-row">
+                                        <label className="checkbox-item">
+                                            <input type="checkbox" checked={expiryEmailIncludePin} onChange={(e) => setExpiryEmailIncludePin(e.target.checked)} />
+                                            <span>Download PIN</span>
+                                        </label>
+                                        <label className="checkbox-item">
+                                            <input type="checkbox" checked={expiryEmailSendCopy} onChange={(e) => setExpiryEmailSendCopy(e.target.checked)} />
+                                            <span>Send me a copy</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="email-preview-pane">
+                                <div className="email-preview-container">
+                                    <div className="email-preview-card">
+                                        {collection?.cover_photo_url && (
+                                            <div className="email-preview-cover">
+                                                <img src={collection.cover_photo_url} alt="Cover" />
+                                            </div>
+                                        )}
+                                        <div className="email-preview-content">
+                                            <p className="email-preview-photographer">{collection?.photographer_name || 'PHOTOGRAPHER'}</p>
+                                            <h3 className="email-preview-title">{collection?.name || 'WEDDING'}</h3>
+                                            
+                                            <div className="email-preview-body">
+                                                {expiryEmailBody
+                                                    .replace(/{collection.name}/g, collection?.name || 'WEDDING')
+                                                    .replace(/{expiry.date}/g, autoExpiry || 'MM/DD/YYYY')
+                                                    .replace(/{days.prior}/g, expiryEmailTiming.split(' ')[0])
+                                                    .replace(/{collection.url}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
+                                                    .split('\n').map((line, i) => (
+                                                        <p key={i}>{line || <br />}</p>
+                                                    ))
+                                                }
+                                                {expiryEmailIncludePin && (
+                                                    <div style={{ marginTop: '24px', borderTop: '1px solid #eee', paddingTop: '20px', fontSize: '13px', color: '#888' }}>
+                                                        <p>Download PIN: <strong>{pinValue || '1234'}</strong></p>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <button className="email-preview-view-btn">View Gallery</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -4056,6 +4327,7 @@ const CollectionDashboard = () => {
                     </button>
                 </div>
             )}
+            </>
         </div>
     );
 };
