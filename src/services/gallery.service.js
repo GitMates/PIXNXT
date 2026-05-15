@@ -893,7 +893,8 @@ export const galleryService = {
           resolution,
           photo:photos!activity_log_photo_id_fkey (
             id,
-            filename
+            filename,
+            set_id
           )
         `)
         .eq('collection_id', collectionId)
@@ -909,9 +910,10 @@ export const galleryService = {
         type: item.metadata?.type || (item.photo_id ? 'single' : 'gallery'),
         resolution: item.resolution || item.metadata?.resolution || 'Original',
         filename: item.photo?.filename || null,
+        photoSetId: item.photo?.set_id || null,
         size: item.metadata?.size || null,
         pinUsed: item.metadata?.pinUsed || false,
-        setName: item.metadata?.setName || 'Highlights',
+        setName: item.metadata?.setName || null, // Let UI resolve if null
         pin: item.metadata?.pin || '---'
       }));
     } catch (error) {

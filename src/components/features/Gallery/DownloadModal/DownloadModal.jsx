@@ -179,7 +179,11 @@ export const DownloadModal = ({
         throw new Error('No photos found in this selection.');
       }
 
-      setStatusText(`Downloading ${photosToDownload.length} photos...`);
+      const setName = selectedSet === 'all' ? 'All Photos' : 
+                   selectedSet === 'single' ? 'Single Photo' :
+                   (selectedSet === null ? 'Highlights' : (sets.find(s => s.id === selectedSet)?.name || 'Photos'));
+
+      setStatusText(`Downloading ${photosToDownload.length} ${photosToDownload.length === 1 ? 'photo' : 'photos'} from ${setName}...`);
 
       const CHUNK_SIZE = 5;
       for (let i = 0; i < photosToDownload.length; i += CHUNK_SIZE) {
@@ -222,7 +226,9 @@ export const DownloadModal = ({
           pin: pin.length > 0 ? pin : null,
           size: content.size,
           photoCount: photosToDownload.length,
-          setName: selectedSet === 'all' ? 'All Photos' : (selectedSet === null ? 'Highlights' : (sets.find(s => s.id === selectedSet)?.name || 'Unknown Set'))
+          setName: selectedSet === 'all' ? 'All Photos' : 
+                   selectedSet === 'single' ? (sets.find(s => s.id === initialPhoto?.set_id)?.name || 'Highlights') :
+                   (selectedSet === null ? 'Highlights' : (sets.find(s => s.id === selectedSet)?.name || 'Unknown Set'))
         }
       });
 

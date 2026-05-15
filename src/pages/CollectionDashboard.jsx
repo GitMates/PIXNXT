@@ -241,6 +241,9 @@ const CollectionDashboard = () => {
     const [activeActivitySubTab, setActiveActivitySubTab] = useState('download'); // download, favorite, store, email, share, private
     const [activeDownloadActivityTab, setActiveDownloadActivityTab] = useState('gallery'); // gallery, photo, video
     const [activeActivityMenu, setActiveActivityMenu] = useState(null); // id of activity item
+    const [selectedDownloadId, setSelectedDownloadId] = useState(null);
+    const [downloadDetailLoading, setDownloadDetailLoading] = useState(false);
+    const [downloadDetailToolbarMenuOpen, setDownloadDetailToolbarMenuOpen] = useState(false);
     const [favoriteDetailToolbarMenuOpen, setFavoriteDetailToolbarMenuOpen] = useState(false);
     const [favoriteDetailPhotoMenuPhotoId, setFavoriteDetailPhotoMenuPhotoId] = useState(null);
 
@@ -273,6 +276,27 @@ const CollectionDashboard = () => {
             favorited: favoritedEmails.size || backendActivityCounts.favorited
         };
     }, [downloadActivity, favoriteActivity, backendActivityCounts]);
+
+    const downloadDetailPhotos = useMemo(() => {
+        if (!selectedDownloadId) return [];
+        const item = downloadActivity.find(a => a.id === selectedDownloadId);
+        if (!item) return [];
+
+        if (item.type === 'single' || item.type === 'photo' || item.type === 'video') {
+            const photo = photos.find(p => p.filename === item.filename || p.id === item.id);
+            return photo ? [photo] : [];
+        }
+
+        if (item.type === 'gallery') {
+            const set = sets.find(s => s.name === item.setName);
+            if (set) {
+                return photos.filter(p => p.set_id === set.id);
+            } else if (item.setName === 'Highlights') {
+                return photos.filter(p => !p.set_id);
+            }
+        }
+        return [];
+    }, [selectedDownloadId, downloadActivity, photos, sets]);
 
     const handleExportFavoriteList = async (listId, listName) => {
         try {
@@ -419,13 +443,12 @@ const CollectionDashboard = () => {
         if (!filteredData.length) return;
 
         // Header row
-        const headers = ['Email', 'Photo Set', 'Resolution', 'PIN', 'Date Downloaded'];
+        const headers = ['Email', 'Photo Set', 'PIN', 'Date Downloaded'];
         
         // Data rows
         const rows = filteredData.map(item => [
             item.email,
             item.setName || 'Highlights',
-            item.resolution,
             item.pin || (item.pinUsed ? 'Yes' : '---'),
             new Date(item.date).toLocaleString('en-US', { 
                 month: 'short', 
@@ -476,6 +499,10 @@ const CollectionDashboard = () => {
     const selectionMoreRef = useRef(null);
     const selectAllMenuRef = useRef(null);
     const moveToSetRef = useRef(null);
+    const favoriteActivityMenuRef = useRef(null);
+    const favoriteDetailToolbarMenuRef = useRef(null);
+    const favoriteDetailPhotoMenuRef = useRef(null);
+    const favoriteActivitySortMenuRef = useRef(null);
 
 
     const togglePhotoSelection = (photoId) => {
@@ -580,6 +607,10 @@ const CollectionDashboard = () => {
             setFavoriteDetailToolbarMenuOpen(false);
             setFavoriteDetailPhotoMenuPhotoId(null);
             setFavoriteActivitySortMenuOpen(false);
+        }
+        if (activeActivitySubTab !== 'download') {
+            setSelectedDownloadId(null);
+            setDownloadDetailToolbarMenuOpen(false);
         }
     }, [activeActivitySubTab]);
 
@@ -876,6 +907,9 @@ const CollectionDashboard = () => {
                 if (data.expiry_email_include_pin !== undefined) setExpiryEmailIncludePin(data.expiry_email_include_pin);
                 if (data.expiry_email_send_copy !== undefined) setExpiryEmailSendCopy(data.expiry_email_send_copy);
                 if (data.expiry_email_lists) setExpiryEmailLists(data.expiry_email_lists);
+                if (data.social_sharing_enabled !== undefined) setSocialSharing(data.social_sharing_enabled);
+                if (data.gallery_assist !== undefined) setGalleryAssist(data.gallery_assist);
+                if (data.slideshow !== undefined) setSlideshow(data.slideshow);
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
 
                 // Fetch photos and sets
@@ -1121,6 +1155,23 @@ const CollectionDashboard = () => {
                     selected_download_sets: selectedDownloadSets,
                     pin_usage_limit: pinUsageLimit ? parseInt(pinUsageLimit) : null
                 });
+
+                // Broadcast update to open gallery tabs
+                const channel = new BroadcastChannel('pixnxt-gallery-update');
+                channel.postMessage({
+                    type: 'SETTINGS_UPDATED',
+                    collectionId,
+                    slug: collectionUrl,
+                    settings: {
+                        downloads_enabled: photoDownload,
+                        social_sharing_enabled: socialSharing,
+                        gallery_download_enabled: galleryDownload,
+                        single_photo_download_enabled: singlePhotoDownload,
+                        require_pin_for_single_photo: requirePinForSinglePhoto,
+                        email_capture_enabled: emailRegistration
+                    }
+                });
+                channel.close();
             } catch (err) {
                 console.error('Error auto-saving download settings:', err);
             }
@@ -1174,6 +1225,10 @@ const CollectionDashboard = () => {
             if (selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) setShowSelectionMore(false);
             if (selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) setShowSelectAllMenu(false);
             if (moveToSetRef.current && !moveToSetRef.current.contains(e.target)) setShowMoveToSetMenu(false);
+            if (favoriteActivityMenuRef.current && !favoriteActivityMenuRef.current.contains(e.target)) setActiveActivityMenu(null);
+            if (favoriteDetailToolbarMenuRef.current && !favoriteDetailToolbarMenuRef.current.contains(e.target)) setFavoriteDetailToolbarMenuOpen(false);
+            if (favoriteDetailPhotoMenuRef.current && !favoriteDetailPhotoMenuRef.current.contains(e.target)) setFavoriteDetailPhotoMenuPhotoId(null);
+            if (favoriteActivitySortMenuRef.current && !favoriteActivitySortMenuRef.current.contains(e.target)) setFavoriteActivitySortMenuOpen(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -2112,7 +2167,15 @@ const CollectionDashboard = () => {
                                             </div>
                                             <div className="toggle-control">
                                                 <label className="cd-toggle">
-                                                    <input type="checkbox" checked={socialSharing} onChange={() => setSocialSharing(!socialSharing)} />
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={socialSharing} 
+                                                        onChange={() => {
+                                                            const newValue = !socialSharing;
+                                                            setSocialSharing(newValue);
+                                                            setCollection(prev => prev ? { ...prev, social_sharing_enabled: newValue } : prev);
+                                                        }} 
+                                                    />
                                                     <span className="cd-toggle-slider"></span>
                                                 </label>
                                                 <span className="toggle-state-label">{socialSharing ? 'On' : 'Off'}</span>
@@ -2200,7 +2263,7 @@ const CollectionDashboard = () => {
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'download' && (
                             <div className="cd-general-settings-view">
                                 <div className="cd-settings-content-header split">
-                                    <h2 className="cd-settings-main-title">Download Settings <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></h2>
+                                    <h2 className="cd-settings-main-title">Download Settings</h2>
                                     <span className="activity-link" onClick={() => { setActiveSidebarTab('activity'); setActiveActivitySubTab('download'); }}><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Download Activity</span>
                                 </div>
 
@@ -2459,7 +2522,7 @@ const CollectionDashboard = () => {
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'favorite' && (
                             <div className="cd-general-settings-view">
                                 <div className="cd-settings-content-header split">
-                                    <h2 className="cd-settings-main-title">Favorite Settings <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></h2>
+                                    <h2 className="cd-settings-main-title">Favorite Settings</h2>
                                     <span className="activity-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Favorite Activity</span>
                                 </div>
 
@@ -2519,9 +2582,6 @@ const CollectionDashboard = () => {
 
                                         {activeActivitySubTab === 'store' && 'Store Orders'}
                                         {activeActivitySubTab === 'email' && 'Email Registration'}
-                                        {(activeActivitySubTab === 'download' || activeActivitySubTab === 'favorite') && (
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginLeft: '8px' }}><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                                        )}
                                     </h2>
                                     {activeActivitySubTab === 'favorite' && (
                                         <div className="favorite-activity-actions">
@@ -2544,7 +2604,7 @@ const CollectionDashboard = () => {
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`favorite-activity-header-chevron${favoriteActivitySortMenuOpen ? ' favorite-activity-header-chevron--open' : ''}`} aria-hidden><polyline points="6 9 12 15 18 9" /></svg>
                                                 </button>
                                                 {favoriteActivitySortMenuOpen && (
-                                                    <div className="favorite-activity-sort-menu cd-sort-dropdown" role="menu" onClick={(e) => e.stopPropagation()}>
+                                                    <div ref={favoriteActivitySortMenuRef} className="favorite-activity-sort-menu cd-sort-dropdown" role="menu" onClick={(e) => e.stopPropagation()}>
                                                         <button
                                                             type="button"
                                                             role="menuitem"
@@ -2689,7 +2749,10 @@ const CollectionDashboard = () => {
                                                                 </button>
 
                                                                 {activeActivityMenu === item.id && (
-                                                                    <div className={`activity-row-menu favorite-menu ${index >= array.length - 4 && array.length > 5 ? 'up' : ''}`}>
+                                                                    <div 
+                                                                        ref={favoriteActivityMenuRef}
+                                                                        className={`activity-row-menu favorite-menu ${index > 0 && index >= array.length - 3 ? 'up' : ''}`}
+                                                                    >
                                                                         <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); handleExportFavoriteList(item.id, item.name); setActiveActivityMenu(null); }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                                                                             Export
@@ -2714,19 +2777,19 @@ const CollectionDashboard = () => {
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
                                                                             Download all
                                                                         </button>
-                                                                        <button type="button" className="activity-menu-item">
+                                                                        <button type="button" className="activity-menu-item" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
                                                                             Send as download
                                                                         </button>
-                                                                        <button type="button" className="activity-menu-item">
+                                                                        <button type="button" className="activity-menu-item" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
                                                                             Copy to new set
                                                                         </button>
-                                                                        <button type="button" className="activity-menu-item">
+                                                                        <button type="button" className="activity-menu-item" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
                                                                             Copy to new collection
                                                                         </button>
-                                                                        <button type="button" className="activity-menu-item">
+                                                                        <button type="button" className="activity-menu-item" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
                                                                             Create mobile app
                                                                         </button>
@@ -2805,7 +2868,7 @@ const CollectionDashboard = () => {
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
                                                                         </button>
                                                                         {favoriteDetailToolbarMenuOpen && (
-                                                                            <div className="favorite-detail-toolbar-menu" role="menu">
+                                                                            <div ref={favoriteDetailToolbarMenuRef} className="favorite-detail-toolbar-menu" role="menu">
                                                                                 <button type="button" className="activity-menu-item" role="menuitem" onClick={() => { handleLightroomCopyList(detail.id); setFavoriteDetailToolbarMenuOpen(false); }}>
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
                                                                                     Lightroom Copy List
@@ -2903,7 +2966,8 @@ const CollectionDashboard = () => {
                                                                                 </button>
                                                                                 {menuOpen && (
                                                                                     <div
-                                                                                        className={`favorite-detail-photo-row-menu${index >= sortedRows.length - 2 && sortedRows.length > 2 ? ' favorite-detail-photo-row-menu--up' : ''}`}
+                                                                                        ref={favoriteDetailPhotoMenuRef}
+                                                                                        className={`favorite-detail-photo-row-menu${index > 0 && index >= sortedRows.length - 2 ? ' favorite-detail-photo-row-menu--up' : ''}`}
                                                                                         role="menu"
                                                                                         onClick={(e) => e.stopPropagation()}
                                                                                     >
@@ -2956,59 +3020,138 @@ const CollectionDashboard = () => {
                                             <p className="cd-empty-state-text">When clients place orders from your store, they will appear here.</p>
                                         </div>
                                     ) : activeActivitySubTab === 'download' && downloadActivity.filter(a => a.type === activeDownloadActivityTab).length > 0 ? (
-                                        <div className="activity-list-container">
-                                            <div className="activity-table-header download">
-                                                <div className="activity-col-email">Email</div>
-                                                <div className="activity-col-set">Photo Set</div>
-                                                <div className="activity-col-resolution">Resolution</div>
-                                                <div className="activity-col-pin">PIN</div>
-                                                <div className="activity-col-date-downloaded">Date Downloaded</div>
-                                                <div className="activity-col-actions"></div>
+                                        <div className={`download-activity-layout${selectedDownloadId ? ' download-activity-layout--split' : ''}`}>
+                                            <div className={`activity-list-container download-activity-table-wrap${selectedDownloadId ? ' download-activity-table-wrap--compact' : ''}`}>
+                                                <div className="activity-table-header download">
+                                                    <div className="activity-col-email">Email</div>
+                                                    <div className="activity-col-set">Photo Set</div>
+                                                    <div className="activity-col-pin">PIN</div>
+                                                    <div className="activity-col-date-downloaded">Date Downloaded</div>
+                                                    <div className="activity-col-actions"></div>
+                                                </div>
+                                                <div className="activity-table-body">
+                                                    {downloadActivity.filter(a => a.type === activeDownloadActivityTab).map((item, index, array) => (
+                                                        <div 
+                                                            key={item.id} 
+                                                            className={`activity-row download${selectedDownloadId === item.id ? ' download-row-selected' : ''}`}
+                                                            onClick={() => {
+                                                                setSelectedDownloadId(selectedDownloadId === item.id ? null : item.id);
+                                                                setActiveActivityMenu(null);
+                                                                setDownloadDetailToolbarMenuOpen(false);
+                                                            }}
+                                                            style={{ cursor: 'pointer' }}
+                                                        >
+                                                            <div className="activity-col-email">
+                                                                <span>{item.email}</span>
+                                                            </div>
+                                                            <div className="activity-col-set">
+                                                                <span className="set-badge">
+                                                                    {item.setName && item.setName !== 'Unknown Set' 
+                                                                        ? item.setName 
+                                                                        : (sets.find(s => s.id === item.photoSetId)?.name || 'Highlights')}
+                                                                </span>
+                                                            </div>
+                                                            <div className="activity-col-pin">
+                                                                {item.pin !== '---' ? item.pin : (item.pinUsed ? 'Yes' : '---')}
+                                                            </div>
+                                                            <div className="activity-col-date-downloaded">
+                                                                {new Date(item.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
+                                                            </div>
+                                                            <div className="activity-col-actions">
+                                                                <button 
+                                                                    className="row-action-btn"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setActiveActivityMenu(activeActivityMenu === item.id ? null : item.id);
+                                                                    }}
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                                                </button>
+    
+                                                                {activeActivityMenu === item.id && (
+                                                                    <div className={`activity-row-menu ${index >= array.length - 2 && array.length > 3 ? 'up' : ''}`}>
+                                                                        <button 
+                                                                            className="activity-menu-item delete"
+                                                                            onClick={() => handleDeleteActivity(item.id)}
+                                                                        >
+                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
+                                                                            Delete info
+                                                                        </button>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
-                                            <div className="activity-table-body">
-                                                {downloadActivity.filter(a => a.type === activeDownloadActivityTab).map((item, index, array) => (
-                                                    <div key={item.id} className="activity-row download">
-                                                        <div className="activity-col-email">
-                                                            <span>{item.email}</span>
-                                                        </div>
-                                                        <div className="activity-col-set">
-                                                            <span className="set-badge">{item.setName || 'Highlights'}</span>
-                                                        </div>
-                                                        <div className="activity-col-resolution">
-                                                            {item.resolution}
-                                                        </div>
-                                                        <div className="activity-col-pin">
-                                                            {item.pin !== '---' ? item.pin : (item.pinUsed ? 'Yes' : '---')}
-                                                        </div>
-                                                        <div className="activity-col-date-downloaded">
-                                                            {new Date(item.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
-                                                        </div>
-                                                        <div className="activity-col-actions">
-                                                            <button 
-                                                                className="row-action-btn"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setActiveActivityMenu(activeActivityMenu === item.id ? null : item.id);
+                                            {selectedDownloadId && (() => {
+                                                const detail = downloadActivity.find((a) => a.id === selectedDownloadId);
+                                                return (
+                                                    <aside className="download-detail-panel">
+                                                        <div className="download-detail-header">
+                                                            <h3 className="download-detail-title">Download Details</h3>
+                                                            <button
+                                                                type="button"
+                                                                className="download-detail-close"
+                                                                onClick={() => {
+                                                                    setSelectedDownloadId(null);
+                                                                    setDownloadDetailToolbarMenuOpen(false);
                                                                 }}
+                                                                aria-label="Close details"
                                                             >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                                             </button>
-
-                                                            {activeActivityMenu === item.id && (
-                                                                <div className={`activity-row-menu ${index >= array.length - 2 && array.length > 3 ? 'up' : ''}`}>
-                                                                    <button 
-                                                                        className="activity-menu-item delete"
-                                                                        onClick={() => handleDeleteActivity(item.id)}
-                                                                    >
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                                                                        Delete info
+                                                        </div>
+                                                        {detail && (
+                                                            <>
+                                                                <div className="download-detail-toolbar">
+                                                                    <button type="button" className="download-detail-toolbar-link" onClick={() => handleExportActivity()}>
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
+                                                                        Export
                                                                     </button>
                                                                 </div>
+                                                                <div className="download-detail-meta">
+                                                                    <div className="download-detail-meta-row"><span className="download-detail-meta-label">Email</span><span className="download-detail-meta-value">{detail.email}</span></div>
+                                                                    <div className="download-detail-meta-row">
+                                                                        <span className="download-detail-meta-label">Photo Set</span>
+                                                                        <span className="download-detail-meta-value">
+                                                                            {detail.setName && detail.setName !== 'Unknown Set' 
+                                                                                ? detail.setName 
+                                                                                : (sets.find(s => s.id === detail.photoSetId)?.name || 'Highlights')}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div className="download-detail-meta-row"><span className="download-detail-meta-label">PIN</span><span className="download-detail-meta-value">{detail.pin}</span></div>
+                                                                    <div className="download-detail-meta-row"><span className="download-detail-meta-label">Date</span><span className="download-detail-meta-value">{new Date(detail.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}</span></div>
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                        <div className="download-detail-photos-head">
+                                                            <span className="download-detail-photos-title">Photos ({downloadDetailPhotos.length})</span>
+                                                        </div>
+                                                        <div className="download-detail-photos">
+                                                            {downloadDetailPhotos.length === 0 ? (
+                                                                <p className="download-detail-empty">No photos found for this download.</p>
+                                                            ) : (
+                                                                downloadDetailPhotos.map((ph) => {
+                                                                    const setLabel = !ph?.set_id ? highlightsName : (sets.find((ss) => ss.id === ph.set_id)?.name || 'Highlights');
+                                                                    const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
+                                                                    return (
+                                                                        <div key={ph?.id} className="download-detail-photo-row">
+                                                                            <div className="download-detail-thumb">{thumb ? <img src={thumb} alt="" /> : null}</div>
+                                                                            <div className="download-detail-photo-main">
+                                                                                <div className="download-detail-filename">{ph?.filename || 'Photo'}</div>
+                                                                                <div className="download-detail-sub">
+                                                                                    <span className="download-detail-set-tag">{setLabel}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    );
+                                                                })
                                                             )}
                                                         </div>
-                                                    </div>
-                                                ))}
-                                            </div>
+                                                    </aside>
+                                                );
+                                            })()}
                                         </div>
                                     ) : (
                                         <div className="cd-empty-state-content">
@@ -4120,15 +4263,20 @@ const CollectionDashboard = () => {
                                     </button>
                                 </div>
                                 {/* Social share row */}
-                                <div style={{ display: 'flex', gap: 12, marginTop: 16, justifyContent: 'center' }}>
-                                    <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" style={{ width: 38, height: 38, borderRadius: '50%', backgroundColor: '#3b5998', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z" /></svg>
+                                <div style={{ display: 'flex', gap: 16, marginTop: 20, justifyContent: 'center' }}>
+                                    <a 
+                                        href={`mailto:?subject=${encodeURIComponent('Photo from ' + (collection?.name || 'Collection'))}&body=${encodeURIComponent('Check out this photo: ' + shareUrl)}`} 
+                                        style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f5f5f5', color: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', transition: 'all 0.2s' }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
                                     </a>
-                                    <a href={`https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" style={{ width: 38, height: 38, borderRadius: '50%', backgroundColor: '#1da1f2', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z" /></svg>
-                                    </a>
-                                    <a href={`mailto:?subject=Check out this photo&body=${encodeURIComponent(shareUrl)}`} style={{ width: 38, height: 38, borderRadius: '50%', backgroundColor: '#555', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+                                    <a 
+                                        href={`https://wa.me/?text=${encodeURIComponent('Check out this photo: ' + shareUrl)}`} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer" 
+                                        style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#25D366', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)' }}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                                     </a>
                                 </div>
                             </div>
