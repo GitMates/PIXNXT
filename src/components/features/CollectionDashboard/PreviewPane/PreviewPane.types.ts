@@ -11,6 +11,7 @@ export interface PreviewPaneProps {
   onPreviewModeChange: (mode: 'desktop' | 'mobile') => void;
   dashboardState?: any;
   onSetActiveSet?: (setId: string | null) => void;
+  photographerName?: string;
 }
 
 export interface GalleryPreviewProps {
@@ -23,4 +24,5 @@ export interface GalleryPreviewProps {
   dashboardState?: any;
   onSetActiveSet?: (setId: string | null) => void;
   isPreviewMobile?: boolean;
+  photographerName?: string;
 }

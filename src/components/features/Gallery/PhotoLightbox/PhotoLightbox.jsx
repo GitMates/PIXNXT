@@ -143,11 +143,22 @@ export function PhotoLightbox({
           >
             <div className="relative flex max-h-full max-w-full items-center justify-center">
               {images[currentIndex] ? (
-                <img
-                  src={images[currentIndex]}
-                  alt="Fullscreen photo"
-                  className="max-h-[calc(100dvh-8rem)] max-w-full object-contain shadow-2xl"
-                />
+                /\.(mp4|webm|ogg|mov)$/i.test(images[currentIndex]) ? (
+                  <video
+                    src={images[currentIndex]}
+                    className="max-h-[calc(100dvh-8rem)] max-w-full object-contain shadow-2xl"
+                    controls
+                    autoPlay
+                    loop
+                    playsInline
+                  />
+                ) : (
+                  <img
+                    src={images[currentIndex]}
+                    alt="Fullscreen photo"
+                    className="max-h-[calc(100dvh-8rem)] max-w-full object-contain shadow-2xl"
+                  />
+                )
               ) : (
                 <div className="flex flex-col items-center gap-4 opacity-20">
                   <div className="h-12 w-12 animate-spin rounded-full border border-current border-t-transparent" />

@@ -156,7 +156,8 @@ export const galleryService = {
           height,
           position,
           created_at,
-          exif_taken_at
+          exif_taken_at,
+          media_type
         ),
         sets!sets_collection_id_fkey (
           id,
@@ -284,22 +285,30 @@ export const galleryService = {
    * Upload a single photo to Supabase Storage and record in database
    */
   async uploadPhoto(collectionId, photographerId, file, index = 0, setId = null) {
-    const fileExt = file.name.split('.').pop();
+    const fileExt = file.name.split('.').pop().toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
     const filePath = `${photographerId}/${collectionId}/${fileName}`;
 
-    // Get image dimensions
-    const dimensions = await new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve({ width: img.width, height: img.height });
-      img.onerror = () => resolve({ width: 1500, height: 1000 }); // Fallback
-      img.src = URL.createObjectURL(file);
-    });
+    // Detect media type from MIME type
+    const isVideo = file.type.startsWith('video/');
+    const isGif = file.type === 'image/gif';
+    const mediaType = isVideo ? 'video' : isGif ? 'gif' : 'image';
 
-    // 1. Upload to R2
+    // Get dimensions — only for non-video files (videos cannot use Image())
+    let dimensions = { width: null, height: null };
+    if (!isVideo) {
+      dimensions = await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onerror = () => resolve({ width: 1500, height: 1000 }); // Fallback
+        img.src = URL.createObjectURL(file);
+      });
+    }
+
+    // Upload to R2
     const { url: publicUrl } = await storageService.upload(filePath, file);
 
-    // 3. Insert record into 'photos' table
+    // Insert record into 'photos' table
     const { data: photoData, error: dbError } = await supabase
       .from('photos')
       .insert([{
@@ -314,6 +323,7 @@ export const galleryService = {
         size_bytes: file.size,
         width: dimensions.width,
         height: dimensions.height,
+        media_type: mediaType,
         position: index,
         status: 'ready'
       }])
@@ -1004,6 +1014,77 @@ export const galleryService = {
     } catch (e) {
       console.error('Error getting PIN usage count:', e);
       return 0;
+    }
+  },
+
+  /**
+   * Get aggregate counts for different activity types (for Expiry Reminder modal)
+   */
+  async getActivityCounts(collectionId) {
+    if (!collectionId) return { contacts: 0, downloaded: 0, registered: 0, favorited: 0, purchased: 0 };
+
+    try {
+      // 1. Registered (unique emails in client_sessions)
+      const { data: registeredData, error: regError } = await supabase
+        .from('client_sessions')
+        .select('visitor_email', { count: 'exact', head: false })
+        .eq('collection_id', collectionId);
+      
+      const registeredEmails = new Set((registeredData || []).map(s => s.visitor_email).filter(Boolean));
+      const registeredCount = registeredEmails.size;
+
+      // 2. Downloaded (unique emails in activity_log with type 'download')
+      const { data: downloadData, error: dlError } = await supabase
+        .from('activity_log')
+        .select('visitor_email')
+        .eq('collection_id', collectionId)
+        .eq('event_type', 'download');
+      
+      const downloadedEmails = new Set((downloadData || []).map(a => a.visitor_email).filter(Boolean));
+      const downloadedCount = downloadedEmails.size;
+
+      // 3. Favorited (unique emails who have favorite items)
+      // This is a bit more complex, we'll fetch favorite_lists then check items
+      const { data: favoriteLists, error: favError } = await supabase
+        .from('favorite_lists')
+        .select('id, session_id')
+        .eq('collection_id', collectionId);
+
+      let favoritedCount = 0;
+      if (favoriteLists && favoriteLists.length > 0) {
+        const listIds = favoriteLists.map(l => l.id);
+        const { data: favItems } = await supabase
+          .from('favorite_items')
+          .select('list_id')
+          .in('list_id', listIds);
+        
+        const listsWithItems = new Set((favItems || []).map(i => i.list_id));
+        const favoritedSessionIds = new Set(
+          favoriteLists
+            .filter(l => listsWithItems.has(l.id))
+            .map(l => l.session_id)
+        );
+        
+        // Map session IDs back to unique emails
+        const favoritedEmails = new Set(
+          (registeredData || [])
+            .filter(s => favoritedSessionIds.has(s.id))
+            .map(s => s.visitor_email)
+            .filter(Boolean)
+        );
+        favoritedCount = favoritedEmails.size;
+      }
+
+      return {
+        contacts: registeredCount, // For now, contacts = registered
+        downloaded: downloadedCount,
+        registered: registeredCount,
+        favorited: favoritedCount,
+        purchased: 0 // Not implemented yet
+      };
+    } catch (err) {
+      console.error('Error fetching activity counts:', err);
+      return { contacts: 0, downloaded: 0, registered: 0, favorited: 0, purchased: 0 };
     }
   }
 };

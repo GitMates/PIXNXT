@@ -177,6 +177,16 @@ const CollectionDashboard = () => {
     const [expiryEmailSendCopy, setExpiryEmailSendCopy] = useState(true);
     const [expiryEmailLists, setExpiryEmailLists] = useState([]); // ['downloaded', 'favorited', etc.]
     const [showDynamicTextInfo, setShowDynamicTextInfo] = useState(false);
+    const [backendActivityCounts, setBackendActivityCounts] = useState({
+        contacts: 0,
+        downloaded: 0,
+        registered: 0,
+        favorited: 0,
+        purchased: 0
+    });
+
+
+
 
 
     const parseFavoriteMaxSelection = () => {
@@ -256,13 +266,13 @@ const CollectionDashboard = () => {
         const downloadedEmails = new Set(downloadActivity.map(a => a.email));
         const favoritedEmails = new Set(favoriteActivity.map(a => a.email));
         return {
-            downloaded: downloadedEmails.size,
-            favorited: favoritedEmails.size,
-            contacts: 0,
-            registered: 0,
-            purchased: 0
+            contacts: backendActivityCounts.contacts,
+            registered: backendActivityCounts.registered,
+            purchased: backendActivityCounts.purchased,
+            downloaded: downloadedEmails.size || backendActivityCounts.downloaded,
+            favorited: favoritedEmails.size || backendActivityCounts.favorited
         };
-    }, [downloadActivity, favoriteActivity]);
+    }, [downloadActivity, favoriteActivity, backendActivityCounts]);
 
     const handleExportFavoriteList = async (listId, listName) => {
         try {
@@ -873,6 +883,10 @@ const CollectionDashboard = () => {
                 setPhotos(photoData);
                 const setsData = data.sets || [];
                 setSets(setsData);
+
+                // Fetch activity counts
+                const counts = await galleryService.getActivityCounts(collectionId);
+                setBackendActivityCounts(counts);
             } catch (err) {
                 console.error('Error fetching collection:', err);
             } finally {
@@ -1166,7 +1180,13 @@ const CollectionDashboard = () => {
     }, []);
 
     const handleFileSelect = (e) => {
-        const files = Array.from(e.target.files);
+        const rawFiles = Array.from(e.target.files);
+        const files = rawFiles.filter(f => f.size > 0);
+        
+        if (rawFiles.length > 0 && files.length === 0) {
+            alert("The selected files are empty or corrupted. If you are uploading a file from another app, please save it to your computer first.");
+            return;
+        }
         if (files.length === 0) return;
 
         setShowUploadModal(false);
@@ -1242,24 +1262,66 @@ const CollectionDashboard = () => {
     const handleModalDrop = async (e) => {
         e.preventDefault();
         setIsDraggingModal(false);
-        const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+        const rawFiles = Array.from(e.dataTransfer.files).filter(f =>
+            f.type.startsWith('image/') || f.type.startsWith('video/')
+        );
+        const files = rawFiles.filter(f => f.size > 0);
+
+        if (rawFiles.length > 0 && files.length === 0) {
+            alert("The dropped files are empty (0 bytes). This commonly happens when dragging directly from apps like WhatsApp. Please save the file to your computer first, then upload.");
+            return;
+        }
         if (files.length === 0) return;
 
-        try {
-            setSaving(true);
-            const uploadedPhotos = await galleryService.uploadPhotos(
-                collectionId,
-                collection.photographer_id,
-                files
-            );
-            setPhotos(prev => [...prev, ...uploadedPhotos]);
-            setShowUploadModal(false);
-        } catch (err) {
-            console.error('Upload failed:', err);
-            alert('Failed to upload photos. Please try again.');
-        } finally {
-            setSaving(false);
-        }
+        setShowUploadModal(false);
+
+        const newUploadFiles = files.map(file => ({
+            id: Math.random().toString(36).substr(2, 9),
+            file: file,
+            name: file.name,
+            size: file.size,
+            progress: 0,
+            status: 'uploading'
+        }));
+
+        setUploadWidget(prev => ({
+            isOpen: true,
+            isMinimized: false,
+            files: [...prev.files, ...newUploadFiles]
+        }));
+
+        newUploadFiles.forEach(uf => {
+            const interval = setInterval(() => {
+                setUploadWidget(prev => ({
+                    ...prev,
+                    files: prev.files.map(f => {
+                        if (f.id === uf.id && f.status === 'uploading') {
+                            const add = Math.floor(Math.random() * 15) + 5;
+                            return { ...f, progress: Math.min(f.progress + add, 90) };
+                        }
+                        return f;
+                    })
+                }));
+            }, 400);
+
+            galleryService.uploadPhoto(collectionId, collection.photographer_id, uf.file, photos.length, activeSetId)
+                .then(photoData => {
+                    clearInterval(interval);
+                    setUploadWidget(prev => ({
+                        ...prev,
+                        files: prev.files.map(f => f.id === uf.id ? { ...f, progress: 100, status: 'completed' } : f)
+                    }));
+                    setPhotos(prev => [...prev, photoData]);
+                })
+                .catch(err => {
+                    clearInterval(interval);
+                    console.error('Upload failed:', err);
+                    setUploadWidget(prev => ({
+                        ...prev,
+                        files: prev.files.map(f => f.id === uf.id ? { ...f, status: 'error' } : f)
+                    }));
+                });
+        });
     };
 
     const toggleStatus = async () => {
@@ -1742,17 +1804,35 @@ const CollectionDashboard = () => {
                                                 }}
                                             >
                                                 <div className="cd-photo-card-inner">
-                                                    <img
-                                                        src={photo.full_url}
-                                                        alt={photo.filename || `Photo ${index + 1}`}
-                                                        className="cd-photo-img"
-                                                        style={{
-                                                            width: '100%',
-                                                            height: '100%',
-                                                            objectFit: 'contain',
-                                                            display: 'block'
-                                                        }}
-                                                    />
+                                                    {/\.(mp4|webm|ogg|mov)$/i.test(photo.filename || photo.full_url || '') ? (
+                                                        <video
+                                                            src={photo.full_url}
+                                                            className="cd-photo-img"
+                                                            style={{
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                objectFit: 'contain',
+                                                                display: 'block'
+                                                            }}
+                                                            muted
+                                                            loop
+                                                            playsInline
+                                                            onMouseEnter={(e) => e.target.play().catch(() => {})}
+                                                            onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                                                        />
+                                                    ) : (
+                                                        <img
+                                                            src={photo.full_url}
+                                                            alt={photo.filename || `Photo ${index + 1}`}
+                                                            className="cd-photo-img"
+                                                            style={{
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                objectFit: 'contain',
+                                                                display: 'block'
+                                                            }}
+                                                        />
+                                                    )}
                                                     {showFilename && <div className="cd-photo-filename" style={{ position: 'absolute', bottom: 8, left: 8, fontSize: 12, color: '#666', background: 'rgba(255,255,255,0.8)', padding: '2px 6px', borderRadius: 4 }}>{photo.filename || `photo-${index + 1}.jpg`}</div>}
                                                 </div>
 
@@ -1823,7 +1903,7 @@ const CollectionDashboard = () => {
                                             type="file"
                                             ref={fileInputRef}
                                             style={{ display: 'none' }}
-                                            accept="image/*"
+                                            accept="image/*,video/*"
                                             multiple
                                             onChange={handleFileSelect}
                                         />
@@ -1884,6 +1964,7 @@ const CollectionDashboard = () => {
                                     gridPhotos={photos}
                                     previewMode={previewMode}
                                     onPreviewModeChange={setPreviewMode}
+                                    photographerName={user?.display_name || 'PHOTOGRAPHER'}
                                     dashboardState={{
                                         focalX: collection?.focal_x ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[1] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[1]) : 50),
                                         focalY: collection?.focal_y ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[2] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[2]) : 50),
@@ -3147,7 +3228,7 @@ const CollectionDashboard = () => {
                                                 type="file"
                                                 ref={modalFileInputRef}
                                                 style={{ display: 'none' }}
-                                                accept="image/*"
+                                                accept="image/*,video/*"
                                                 multiple
                                                 onChange={handleFileSelect}
                                             />
@@ -3220,7 +3301,10 @@ const CollectionDashboard = () => {
                                                 className="focal-crosshair"
                                                 style={{ left: `${focalX}%`, top: `${focalY}%` }}
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.5))' }}><circle cx="12" cy="12" r="10" /><line x1="12" y1="8" x2="12" y2="16" /><line x1="8" y1="12" x2="16" y2="12" /></svg>
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))' }}>
+                                                    <circle cx="16" cy="16" r="12" fill="rgba(255, 255, 255, 0.85)" />
+                                                    <circle cx="16" cy="16" r="5" fill="#26a69a" />
+                                                </svg>
                                             </div>
                                         </div>
                                     ) : (
@@ -3957,13 +4041,26 @@ const CollectionDashboard = () => {
                             </button>
                         )}
 
-                        {/* Image */}
-                        <img
-                            src={lbPhoto.full_url}
-                            alt={lbPhoto.filename}
-                            className="cd-lightbox-image"
-                            onClick={(e) => e.stopPropagation()}
-                        />
+                        {/* Image / Video */}
+                        {/\.(mp4|webm|ogg|mov)$/i.test(lbPhoto.filename || lbPhoto.full_url || '') ? (
+                            <video
+                                src={lbPhoto.full_url}
+                                className="cd-lightbox-image"
+                                style={{ maxHeight: 'calc(100vh - 200px)', maxWidth: '100%', objectFit: 'contain' }}
+                                controls
+                                autoPlay
+                                loop
+                                playsInline
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        ) : (
+                            <img
+                                src={lbPhoto.full_url}
+                                alt={lbPhoto.filename}
+                                className="cd-lightbox-image"
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        )}
 
                         {/* Caption */}
                         <div className="cd-lightbox-caption">

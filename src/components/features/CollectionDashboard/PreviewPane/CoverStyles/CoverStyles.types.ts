@@ -7,5 +7,6 @@ export interface CoverProps {
   focalX?: number;
   focalY?: number;
   className?: string;
+  isPreview?: boolean;
   onViewGallery?: () => void;
 }

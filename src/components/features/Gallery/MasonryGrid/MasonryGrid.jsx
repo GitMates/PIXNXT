@@ -7,13 +7,20 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
+    const VIDEO_EXTS = /\.(mp4|webm|ogg|mov)$/i;
     photos.forEach(photo => {
       if (!photo.width || !photo.height) {
+        const src = photo.full_url || photo.web_url || photo.thumbnail_url;
+        // Skip dimension probing for video files — use 16:9 fallback
+        if (photo.media_type === 'video' || VIDEO_EXTS.test(photo.filename || src || '')) {
+          setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: 16 / 9 }));
+          return;
+        }
         const img = new Image();
         img.onload = () => {
           setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: img.width / img.height }));
         };
-        img.src = photo.full_url || photo.web_url || photo.thumbnail_url;
+        img.src = src;
       }
     });
   }, [photos]);
@@ -142,16 +149,32 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
             onClick={() => onImageClick(index)}
           >
             <div className="h-full w-full min-w-0" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
-              <img
-                src={src}
-                alt={photo.filename || `Gallery image ${index + 1}`}
-                className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
-                style={{
-                  objectFit: 'cover',
-                  aspectRatio: String(aspectRatio),
-                }}
-                loading="lazy"
-              />
+              {/\.(mp4|webm|ogg|mov)$/i.test(photo.filename || src || '') ? (
+                <video
+                  src={src}
+                  className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
+                  style={{
+                    objectFit: 'cover',
+                    aspectRatio: String(aspectRatio),
+                  }}
+                  muted
+                  loop
+                  playsInline
+                  onMouseEnter={(e) => e.target.play().catch(() => {})}
+                  onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                />
+              ) : (
+                <img
+                  src={src}
+                  alt={photo.filename || `Gallery image ${index + 1}`}
+                  className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
+                  style={{
+                    objectFit: 'cover',
+                    aspectRatio: String(aspectRatio),
+                  }}
+                  loading="lazy"
+                />
+              )}
               {showFilename && (
                 <div
                   className="pointer-events-none absolute bottom-2 left-2 right-2 z-[12] truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium backdrop-blur-sm"

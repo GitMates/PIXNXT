@@ -24,7 +24,8 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   coverPhotoUrl,
   gridPhotos,
   dashboardState,
-  onSetActiveSet
+  onSetActiveSet,
+  photographerName = 'PHOTOGRAPHER'
 }) => {
   const { coverStyle, fontFamily, colorPalette, grid } = settings;
 
@@ -323,6 +324,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       photoUrl: coverPhotoUrl,
       focalX: dashboardState?.focalX,
       focalY: dashboardState?.focalY,
+      isPreview: true,
     };
 
     switch (coverStyle) {
@@ -361,114 +363,120 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         `nav-style-${grid.navigation}`,
         `aspect-${grid.aspectRatio}`
       )}>
-        <div className="sticky top-0 z-[40] flex items-center justify-between w-full px-10 py-4 border-b border-black/5 backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 20%)' }}>
-          {/* Left: Collection Title */}
-          <div className="flex-1 flex items-center">
-            <span className="text-[8px] gallery-heading" style={{ color: 'var(--gallery-text)' }}>
+        <div className="sticky top-0 z-[40] flex items-center justify-between w-full px-3 md:px-6 py-3 md:py-4 border-b border-black/5 backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 15%)' }}>
+          {/* Left: Brand section (Matches Pixieset) */}
+          <div className="flex-[0.8] flex flex-col items-start min-w-[80px] md:min-w-[120px]">
+            <span className="text-[10px] md:text-[14px] font-serif font-bold uppercase leading-none tracking-tight truncate w-full" style={{ color: 'var(--gallery-text)' }}>
               {collectionTitle}
             </span>
+            {photographerName && (
+              <span className="mt-0.5 text-[6px] md:text-[7px] font-bold uppercase tracking-[0.15em] opacity-60 truncate w-full" style={{ color: 'var(--gallery-text)' }}>
+                {photographerName}
+              </span>
+            )}
           </div>
 
           {/* Center: Sets Navigation */}
-          <div className="flex-1 flex items-center justify-center gap-8">
-            <span
-              className={cn(
-                "text-[8px] gallery-heading cursor-pointer transition-opacity",
-                !dashboardState?.activeSetId ? "opacity-100 border-b border-current pb-1" : "opacity-50 hover:opacity-100"
-              )}
-              style={{ color: 'var(--gallery-text)' }}
+          <div className="flex-1 flex items-center justify-center gap-3 md:gap-8">
+            <button
+              type="button"
+              className="group relative py-1"
               onClick={() => onSetActiveSet?.(null)}
             >
-              Highlights
-            </span>
+              <span
+                className={cn(
+                  "text-[8px] md:text-[9px] font-bold uppercase tracking-[0.1em] md:tracking-[0.15em] transition-opacity",
+                  !dashboardState?.activeSetId ? "opacity-100" : "opacity-45 hover:opacity-100"
+                )}
+                style={{ color: 'var(--gallery-text)' }}
+              >
+                Highlights
+              </span>
+              {!dashboardState?.activeSetId && (
+                <div
+                  className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100"
+                  style={{ backgroundColor: 'var(--gallery-text)' }}
+                />
+              )}
+            </button>
             {dashboardState?.sets && dashboardState.sets.length > 0 &&
               dashboardState.sets
                 .filter((s: any) => s.name?.toLowerCase() !== 'highlights')
-                .slice(0, 5)
+                .slice(0, isPreviewMobile ? 1 : 3)
                 .map((set: any) => (
-                  <span
+                  <button
                     key={set.id}
-                    className={cn(
-                      "text-[8px] gallery-heading cursor-pointer hover:opacity-100 transition-opacity",
-                      dashboardState?.activeSetId === set.id ? "border-b border-current pb-1" : "opacity-50"
-                    )}
-                    style={{ color: 'var(--gallery-text)' }}
+                    type="button"
+                    className="group relative py-1"
                     onClick={() => onSetActiveSet?.(set.id)}
                   >
-                    {set.name}
-                  </span>
+                    <span
+                      className={cn(
+                        "text-[8px] md:text-[9px] font-bold uppercase tracking-[0.1em] md:tracking-[0.15em] transition-opacity",
+                        dashboardState?.activeSetId === set.id ? "opacity-100" : "opacity-45 hover:opacity-100"
+                      )}
+                      style={{ color: 'var(--gallery-text)' }}
+                    >
+                      {set.name}
+                    </span>
+                    {dashboardState?.activeSetId === set.id && (
+                      <div
+                        className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100"
+                        style={{ backgroundColor: 'var(--gallery-text)' }}
+                      />
+                    )}
+                  </button>
                 ))
             }
           </div>
 
-          {/* Right: Action Icons */}
-          <div className="flex-1 flex items-center justify-end gap-6">
-            <div
-              className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
-              style={{ color: 'var(--gallery-text)' }}
-              onClick={handleStartSlideshow}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  handleStartSlideshow();
-                }
-              }}
-            >
-              <Play size={14} fill="currentColor" />
-              {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Slideshow</span>}
-            </div>
+          {/* Right: Action Icons (Order & Labels match Pixieset) */}
+          <div className="flex-[0.8] flex items-center justify-end gap-2 md:gap-5">
             {favFeatureOn && (
-              <div
-                className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer"
+              <button
+                type="button"
+                className="flex items-center gap-1 md:gap-2 opacity-60 hover:opacity-100 transition-opacity"
                 onClick={handleFavoriteHeaderClick}
                 style={{ color: 'var(--gallery-text)' }}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    handleFavoriteHeaderClick();
-                  }
-                }}
               >
-                <div className="relative">
-                  <Heart size={14} fill={favoritedPhotos.length > 0 ? 'currentColor' : 'none'} />
-                  {favoritedPhotos.length > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 flex h-3 min-w-[12px] items-center justify-center rounded-full bg-red-500 px-0.5 text-[7px] font-bold text-white">
-                      {favoritedPhotos.length}
-                    </span>
-                  )}
-                </div>
-                {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Favorite</span>}
-              </div>
+                <Heart size={12} md:size={13} fill={favoritedPhotos.length > 0 ? 'currentColor' : 'none'} />
+                <span className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.1em] hidden xl:inline">Favorites</span>
+              </button>
             )}
             {dashboardState?.photoDownload !== false && dashboardState?.galleryDownload !== false && (
-              <div
+              <button
+                type="button"
                 className={cn(
-                  "flex items-center gap-2 transition-opacity cursor-pointer",
+                  "flex items-center gap-1 md:gap-2 transition-opacity",
                   isDownloadingAll ? "opacity-100" : "opacity-60 hover:opacity-100"
                 )}
                 onClick={() => !isDownloadingAll && handleDownloadClick()}
                 style={{ color: 'var(--gallery-text)' }}
               >
-                <Download size={14} className={isDownloadingAll ? 'animate-bounce' : ''} />
-                {grid.navigation !== 'icon' && (
-                  <span className="text-[8px] gallery-heading hidden lg:inline">
-                    {isDownloadingAll
-                      ? `${downloadProgress.done} / ${downloadProgress.total}`
-                      : 'Download'}
-                  </span>
-                )}
-              </div>
+                <Download size={12} md:size={13} className={isDownloadingAll ? 'animate-bounce' : ''} />
+                <span className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.1em] hidden xl:inline">Download</span>
+              </button>
             )}
             {dashboardState?.socialSharing !== false && (
-              <div className="flex items-center gap-2 opacity-60 hover:opacity-100 transition-opacity cursor-pointer" onClick={() => setShowShareModal(true)} style={{ color: 'var(--gallery-text)' }}>
-                <Share2 size={14} />
-                {grid.navigation !== 'icon' && <span className="text-[8px] gallery-heading hidden lg:inline">Share</span>}
-              </div>
+              <button
+                type="button"
+                className="flex items-center gap-1 md:gap-2 opacity-60 hover:opacity-100 transition-opacity"
+                onClick={() => setShowShareModal(true)}
+                style={{ color: 'var(--gallery-text)' }}
+              >
+                <Share2 size={12} md:size={13} />
+                <span className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.1em] hidden xl:inline">Share</span>
+              </button>
             )}
+            <button
+              type="button"
+              className="flex items-center gap-1 md:gap-2 opacity-60 hover:opacity-100 transition-opacity"
+              onClick={handleStartSlideshow}
+              style={{ color: 'var(--gallery-text)' }}
+            >
+              <Play size={12} md:size={13} fill="currentColor" />
+              <span className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.1em] hidden xl:inline">Slideshow</span>
+            </button>
           </div>
         </div>
 
