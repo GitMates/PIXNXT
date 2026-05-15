@@ -2971,7 +2971,8 @@ const CollectionDashboard = () => {
                                                                                 <div className="favorite-detail-filename">{ph?.filename || 'Photo'}</div>
                                                                                 <div className="favorite-detail-sub">
                                                                                     {new Date(row.itemCreatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
-                                                                                    <span className="favorite-detail-set-tag">- {setLabel}</span>
+                                                                                    <span className="favorite-detail-sub-sep"> - </span>
+                                                                                    <span className="favorite-detail-set-tag">{setLabel}</span>
                                                                                 </div>
                                                                             </div>
                                                                             <div className="favorite-detail-row-actions">
@@ -3049,7 +3050,6 @@ const CollectionDashboard = () => {
                                         <div className={`download-activity-layout${selectedDownloadId ? ' download-activity-layout--split' : ''}`}>
                                             <div className={`activity-list-container download-activity-table-wrap${selectedDownloadId ? ' download-activity-table-wrap--compact' : ''}`}>
                                                 <div className="activity-table-header download">
-                                                    <div className="activity-col-preview">Preview</div>
                                                     <div className="activity-col-email">Email</div>
                                                     <div className="activity-col-set">Photo Set</div>
                                                     <div className="activity-col-photos">Photos</div>
@@ -3069,7 +3069,10 @@ const CollectionDashboard = () => {
                                                             }}
                                                             style={{ cursor: 'pointer' }}
                                                         >
-                                                            <div className="activity-col-preview">
+                                                            <div className="activity-col-email">
+                                                                <span>{item.email}</span>
+                                                            </div>
+                                                            <div className="activity-col-set activity-col-list">
                                                                 <div className="list-thumb">
                                                                     {(() => {
                                                                         let ph = null;
@@ -3104,11 +3107,6 @@ const CollectionDashboard = () => {
                                                                         );
                                                                     })()}
                                                                 </div>
-                                                            </div>
-                                                            <div className="activity-col-email">
-                                                                <span>{item.email}</span>
-                                                            </div>
-                                                            <div className="activity-col-set">
                                                                 <span className="list-name-link">
                                                                     {item.setName && item.setName !== 'Unknown Set' 
                                                                         ? item.setName 

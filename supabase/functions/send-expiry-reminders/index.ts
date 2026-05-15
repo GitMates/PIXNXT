@@ -1,8 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+import { SmtpClient } from "https://deno.land/x/smtp@v0.7.0/mod.ts"
 
 serve(async (req) => {
   try {
@@ -24,6 +23,15 @@ serve(async (req) => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
+    // Setup SMTP Client
+    const client = new SmtpClient()
+    const smtpConfig = {
+      hostname: Deno.env.get('SMTP_HOST') || 'smtp.gmail.com',
+      port: parseInt(Deno.env.get('SMTP_PORT') || '465'),
+      username: Deno.env.get('SMTP_USER') || '',
+      password: Deno.env.get('SMTP_PASS') || '',
+    }
+
     const results = []
 
     for (const collection of collections) {
@@ -39,7 +47,7 @@ serve(async (req) => {
       // Check if today is the day to send
       if (today.getTime() === targetDate.getTime()) {
         // 2. Identify Recipients
-        const recipients = new Set()
+        const recipients = new Set<string>()
         if (collection.expiry_email_to) {
           collection.expiry_email_to.split(',').forEach(email => recipients.add(email.trim()))
         }
@@ -88,42 +96,38 @@ serve(async (req) => {
           }
         }
 
-        // 3. Send Emails
-        for (const email of Array.from(recipients)) {
-          console.log(`Sending expiry reminder to ${email} for collection ${collection.name}`)
-          
-          // Replace placeholders in subject and body
-          let subject = collection.expiry_email_subject || 'Your gallery is expiring soon!'
-          let body = collection.expiry_email_body || ''
-          
-          const replacements = {
-            '{collection.name}': collection.name,
-            '{expiry.date}': expiryDate.toLocaleDateString(),
-            '{days.prior}': `${daysBefore} day${daysBefore > 1 ? 's' : ''}`,
-            '{collection.url}': `${Deno.env.get('PUBLIC_SITE_URL')}/gallery/${collection.slug}`
-          }
+        // 3. Connect and Send Emails via SMTP
+        if (recipients.size > 0) {
+          await client.connectTLS(smtpConfig)
 
-          Object.entries(replacements).forEach(([key, value]) => {
-            subject = subject.replace(new RegExp(key, 'g'), value)
-            body = body.replace(new RegExp(key, 'g'), value)
-          })
+          for (const email of Array.from(recipients)) {
+            console.log(`Sending SMTP expiry reminder to ${email} for collection ${collection.name}`)
+            
+            // Replace placeholders in subject and body
+            let subject = collection.expiry_email_subject || 'Your gallery is expiring soon!'
+            let body = collection.expiry_email_body || ''
+            
+            const replacements = {
+              '{collection.name}': collection.name,
+              '{expiry.date}': expiryDate.toLocaleDateString(),
+              '{days.prior}': `${daysBefore} day${daysBefore > 1 ? 's' : ''}`,
+              '{collection.url}': `${Deno.env.get('PUBLIC_SITE_URL')}/gallery/${collection.slug}`
+            }
 
-          // Integration with email provider (e.g., Resend)
-          if (RESEND_API_KEY) {
-            await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${RESEND_API_KEY}`
-              },
-              body: JSON.stringify({
-                from: 'PIXNXT <notifications@pixnxt.com>',
-                to: email,
-                subject: subject,
-                html: body.replace(/\n/g, '<br>')
-              })
+            Object.entries(replacements).forEach(([key, value]) => {
+              subject = subject.replace(new RegExp(key, 'g'), value)
+              body = body.replace(new RegExp(key, 'g'), value)
+            })
+
+            await client.send({
+              from: smtpConfig.username,
+              to: email,
+              subject: subject,
+              content: body,
             })
           }
+
+          await client.close()
         }
 
         // 4. Update collection to mark as sent
@@ -140,6 +144,7 @@ serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (error) {
+    console.error('SMTP Error:', error)
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
