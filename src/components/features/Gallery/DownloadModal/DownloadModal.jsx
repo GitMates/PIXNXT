@@ -183,7 +183,10 @@ export const DownloadModal = ({
                    selectedSet === 'single' ? 'Single Photo' :
                    (selectedSet === null ? 'Highlights' : (sets.find(s => s.id === selectedSet)?.name || 'Photos'));
 
-      setStatusText(`Downloading ${photosToDownload.length} ${photosToDownload.length === 1 ? 'photo' : 'photos'} from ${setName}...`);
+      const isVideo = selectedSet === 'single' && initialPhoto?.media_type === 'video';
+      const itemType = isVideo ? 'video' : (photosToDownload.length === 1 && !initialPhoto ? 'item' : (photosToDownload.length === 1 ? 'photo' : 'items'));
+      
+      setStatusText(`Downloading ${photosToDownload.length} ${photosToDownload.length === 1 ? (isVideo ? 'video' : 'photo') : 'items'} from ${setName}...`);
 
       const CHUNK_SIZE = 5;
       for (let i = 0; i < photosToDownload.length; i += CHUNK_SIZE) {
@@ -220,7 +223,7 @@ export const DownloadModal = ({
         photographerId: collection.user_id,
         photoId: initialPhoto?.id,
         metadata: {
-          type: initialPhoto ? 'photo' : 'gallery',
+          type: initialPhoto ? (initialPhoto.media_type === 'video' ? 'video' : 'photo') : 'gallery',
           resolution: 'High Res',
           pinUsed: !!(collection?.download_pin && pin.length > 0),
           pin: pin.length > 0 ? pin : null,
@@ -231,6 +234,11 @@ export const DownloadModal = ({
                    (selectedSet === null ? 'Highlights' : (sets.find(s => s.id === selectedSet)?.name || 'Unknown Set'))
         }
       });
+
+      // Broadcast update to dashboard
+      const channel = new BroadcastChannel('pixnxt-gallery-update');
+      channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
+      channel.close();
 
       setStep('complete');
     } catch (err) {

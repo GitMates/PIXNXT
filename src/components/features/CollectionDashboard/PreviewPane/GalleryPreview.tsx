@@ -252,6 +252,11 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
       setFavoritedPhotos(newFavs);
       setShowFavoriteModal(false);
+
+      // Broadcast update to dashboard
+      const channel = new BroadcastChannel('pixnxt-gallery-update');
+      channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collectionId });
+      channel.close();
     } catch (e) {
       console.error('Preview favorites setup failed:', e);
       alert('Failed to save email. Please try again.');
@@ -286,6 +291,11 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         setFavoritedPhotos((prev) =>
           isCurrentlyFavorited ? prev.filter((id) => id !== pid) : [...prev, pid]
         );
+
+        // Broadcast update to dashboard
+        const channel = new BroadcastChannel('pixnxt-gallery-update');
+        channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collectionId });
+        channel.close();
       } catch (e) {
         console.error('Preview: toggle favorite failed', e);
       }
@@ -320,6 +330,26 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       if (!needsPin && !needsEmail) {
         // Only download directly if auth is NOT required
         await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
+
+        // Log activity for direct download
+        if (collectionId) {
+          const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collectionId}`) || 'Visitor';
+          await galleryService.logActivity(collectionId, 'download', {
+            email: savedEmail,
+            photographerId: dashboardState?.collection?.user_id,
+            photoId: photo.id,
+            metadata: {
+              type: photo.media_type === 'video' ? 'video' : 'photo',
+              resolution: 'High Res',
+              source: 'Preview Direct'
+            }
+          });
+
+          // Broadcast update to dashboard
+          const channel = new BroadcastChannel('pixnxt-gallery-update');
+          channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collectionId });
+          channel.close();
+        }
       } else {
         setSelectedDownloadPhoto(photo);
         setShowDownloadModal(true);

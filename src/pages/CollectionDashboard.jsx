@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Heart } from 'lucide-react';
+import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
@@ -1114,6 +1114,19 @@ const CollectionDashboard = () => {
         const timeoutId = setTimeout(saveSettings, 1000);
         return () => clearTimeout(timeoutId);
     }, [selectedCoverStyle, selectedFont, selectedColorPalette, gridSettings, collectionId, collection, loading]);
+
+    // Listen for activity updates from gallery tabs
+    useEffect(() => {
+        const channel = new BroadcastChannel('pixnxt-gallery-update');
+        channel.onmessage = (event) => {
+            if (event.data?.type === 'ACTIVITY_UPDATED' && event.data?.collectionId === collectionId) {
+                console.log('Activity update received, refreshing logs...');
+                fetchDownloadActivity();
+                fetchFavoriteActivity();
+            }
+        };
+        return () => channel.close();
+    }, [collectionId]);
 
     // Auto-save general settings
     useEffect(() => {
@@ -2940,7 +2953,20 @@ const CollectionDashboard = () => {
                                                                             key={`${ph?.id}-${row.itemCreatedAt}`}
                                                                             className={`favorite-detail-photo-row${menuOpen ? ' favorite-detail-photo-row--menu-open' : ''}`}
                                                                         >
-                                                                            <div className="favorite-detail-thumb">{thumb ? <img src={thumb} alt="" /> : null}</div>
+                                                                            <div className="favorite-detail-thumb">
+                                                                                {thumb ? (
+                                                                                    /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '') ? (
+                                                                                        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                                                                                            <video src={thumb} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                                                                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
+                                                                                                <Play size={16} fill="white" stroke="white" />
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <img src={thumb} alt="" />
+                                                                                    )
+                                                                                ) : null}
+                                                                            </div>
                                                                             <div className="favorite-detail-photo-main">
                                                                                 <div className="favorite-detail-filename">{ph?.filename || 'Photo'}</div>
                                                                                 <div className="favorite-detail-sub">
@@ -3023,8 +3049,10 @@ const CollectionDashboard = () => {
                                         <div className={`download-activity-layout${selectedDownloadId ? ' download-activity-layout--split' : ''}`}>
                                             <div className={`activity-list-container download-activity-table-wrap${selectedDownloadId ? ' download-activity-table-wrap--compact' : ''}`}>
                                                 <div className="activity-table-header download">
+                                                    <div className="activity-col-preview">Preview</div>
                                                     <div className="activity-col-email">Email</div>
                                                     <div className="activity-col-set">Photo Set</div>
+                                                    <div className="activity-col-photos">Photos</div>
                                                     <div className="activity-col-pin">PIN</div>
                                                     <div className="activity-col-date-downloaded">Date Downloaded</div>
                                                     <div className="activity-col-actions"></div>
@@ -3041,15 +3069,54 @@ const CollectionDashboard = () => {
                                                             }}
                                                             style={{ cursor: 'pointer' }}
                                                         >
+                                                            <div className="activity-col-preview">
+                                                                <div className="list-thumb">
+                                                                    {(() => {
+                                                                        let ph = null;
+                                                                        if (item.type === 'photo' || item.type === 'video' || item.type === 'single') {
+                                                                            ph = photos.find(p => p.filename === item.filename || p.id === item.id);
+                                                                        } else if (item.type === 'gallery') {
+                                                                            const set = sets.find(s => s.name === item.setName);
+                                                                            if (set) ph = photos.find(p => p.set_id === set.id);
+                                                                            else if (item.setName === 'Highlights') ph = photos.find(p => !p.set_id);
+                                                                        }
+                                                                        
+                                                                        const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
+                                                                        const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '');
+
+                                                                        if (thumb) {
+                                                                            if (isVideo) {
+                                                                                return (
+                                                                                    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                                                                                        <video src={thumb} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                                                                                        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.1)' }}>
+                                                                                            <Play size={10} fill="white" stroke="white" />
+                                                                                        </div>
+                                                                                    </div>
+                                                                                );
+                                                                            }
+                                                                            return <img src={thumb} alt="" />;
+                                                                        }
+                                                                        return (
+                                                                            <div className="thumb-placeholder">
+                                                                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+                                                                            </div>
+                                                                        );
+                                                                    })()}
+                                                                </div>
+                                                            </div>
                                                             <div className="activity-col-email">
                                                                 <span>{item.email}</span>
                                                             </div>
                                                             <div className="activity-col-set">
-                                                                <span className="set-badge">
+                                                                <span className="list-name-link">
                                                                     {item.setName && item.setName !== 'Unknown Set' 
                                                                         ? item.setName 
                                                                         : (sets.find(s => s.id === item.photoSetId)?.name || 'Highlights')}
                                                                 </span>
+                                                            </div>
+                                                            <div className="activity-col-photos">
+                                                                {item.photoCount || 1}
                                                             </div>
                                                             <div className="activity-col-pin">
                                                                 {item.pin !== '---' ? item.pin : (item.pinUsed ? 'Yes' : '---')}
@@ -3137,7 +3204,20 @@ const CollectionDashboard = () => {
                                                                     const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
                                                                     return (
                                                                         <div key={ph?.id} className="download-detail-photo-row">
-                                                                            <div className="download-detail-thumb">{thumb ? <img src={thumb} alt="" /> : null}</div>
+                                                                            <div className="download-detail-thumb">
+                                                                                {thumb ? (
+                                                                                    /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '') ? (
+                                                                                        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                                                                                            <video src={thumb} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
+                                                                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
+                                                                                                <Play size={16} fill="white" stroke="white" />
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    ) : (
+                                                                                        <img src={thumb} alt="" />
+                                                                                    )
+                                                                                ) : null}
+                                                                            </div>
                                                                             <div className="download-detail-photo-main">
                                                                                 <div className="download-detail-filename">{ph?.filename || 'Photo'}</div>
                                                                                 <div className="download-detail-sub">

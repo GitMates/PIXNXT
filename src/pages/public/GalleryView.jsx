@@ -93,10 +93,14 @@ const GalleryView = () => {
           await galleryService.toggleFavorite(session.id, pending, true);
           newFavs.push(pending);
         }
-        setPendingFavoritePhotoId(null);
       }
-
+      setPendingFavoritePhotoId(null);
       setFavoritedPhotos(newFavs);
+
+      // Broadcast update to dashboard
+      const channel = new BroadcastChannel('pixnxt-gallery-update');
+      channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
+      channel.close();
 
       if (pending && newFavs.includes(pending)) {
         const ph = (collection.photos || []).find((p) => normalizeFavoritePhotoId(p.id) === pending);
@@ -179,6 +183,11 @@ const GalleryView = () => {
             limit: false,
           });
         }
+
+        // Broadcast update to dashboard
+        const channel = new BroadcastChannel('pixnxt-gallery-update');
+        channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
+        channel.close();
       } catch (e) {
         if (e?.code === 'SELECTION_LIMIT') {
           const thumb = photo?.thumbnail_url || photo?.web_url || photo?.full_url;
@@ -219,6 +228,24 @@ const GalleryView = () => {
       if (!needsEmail && !needsPin && !hasDownloadLimit) {
         // Single photo: download immediately from Cloudflare R2 if no auth required
         await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
+
+        // Log activity for direct download
+        const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`) || 'Visitor';
+        await galleryService.logActivity(collection.id, 'download', {
+          email: savedEmail,
+          photographerId: collection.user_id,
+          photoId: photo.id,
+          metadata: {
+            type: photo.media_type === 'video' ? 'video' : 'photo',
+            resolution: 'High Res',
+            source: 'Gallery Direct'
+          }
+        });
+
+        // Broadcast update to dashboard
+        const channel = new BroadcastChannel('pixnxt-gallery-update');
+        channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
+        channel.close();
       } else {
         // Auth required: Open modal for single photo
         setSelectedDownloadPhoto(photo);

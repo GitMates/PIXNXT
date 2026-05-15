@@ -6101,11 +6101,17 @@ input:checked+.cd-toggle-slider:before {
 /* Download Activity Table Specific Overrides */
 .activity-table-header.download,
 .activity-row.download {
-    grid-template-columns: 2.2fr 1.5fr 100px 1.8fr 40px;
+    grid-template-columns: 70px 2fr 1.2fr 80px 100px 1.6fr 40px;
     padding-left: 20px;
     padding-right: 20px;
     position: relative;
     /* Allow z-index to work */
+}
+
+.activity-col-preview {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Ensure the row with an open menu is above other rows */
@@ -7136,9 +7142,11 @@ input:checked+.cd-toggle-slider:before {
 
 .download-activity-table-wrap--compact .activity-table-header.download,
 .download-activity-table-wrap--compact .activity-row.download {
-    grid-template-columns: minmax(160px, 1.2fr) minmax(120px, 1fr);
+    grid-template-columns: 60px 1fr;
 }
 
+.download-activity-table-wrap--compact .activity-col-set,
+.download-activity-table-wrap--compact .activity-col-photos,
 .download-activity-table-wrap--compact .activity-col-pin,
 .download-activity-table-wrap--compact .activity-col-date-downloaded,
 .download-activity-table-wrap--compact .activity-col-actions {
