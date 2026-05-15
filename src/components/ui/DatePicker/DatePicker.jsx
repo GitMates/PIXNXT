@@ -10,9 +10,42 @@ const DatePicker = ({
   className,
   disablePastDates = false
 }) => {
+  const parseDateLocal = (dateStr) => {
+    if (!dateStr || typeof dateStr !== 'string' || dateStr === "Invalid Date") {
+      return null;
+    }
+    
+    // Match YYYY-MM-DD pattern at the start of the string
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) {
+      const year = parseInt(match[1], 10);
+      const month = parseInt(match[2], 10);
+      const day = parseInt(match[3], 10);
+      const d = new Date(year, month - 1, day);
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    // Fallback to standard Date constructor if it's some other format
+    const fallback = new Date(dateStr);
+    if (!isNaN(fallback.getTime())) {
+      // Normalize to local midnight to avoid timezone shifts in the UI
+      return new Date(fallback.getFullYear(), fallback.getMonth(), fallback.getDate());
+    }
+
+    return null;
+  };
+
   const [isOpen, setIsOpen] = useState(false);
-  const [viewDate, setViewDate] = useState(value ? new Date(value) : new Date());
+  const [viewDate, setViewDate] = useState(() => parseDateLocal(value) || new Date());
   const containerRef = useRef(null);
+
+  // Sync viewDate when value changes externally
+  useEffect(() => {
+    const parsed = parseDateLocal(value);
+    if (parsed) {
+      setViewDate(parsed);
+    }
+  }, [value]);
 
   // Close on click outside
   useEffect(() => {
@@ -30,9 +63,7 @@ const DatePicker = ({
 
   const selectedDate = useMemo(() => {
     if (!value) return null;
-    const d = new Date(value);
-    d.setHours(0, 0, 0, 0);
-    return d;
+    return parseDateLocal(value);
   }, [value]);
 
   const monthNames = ["January", "February", "March", "April", "May", "June",
@@ -44,26 +75,35 @@ const DatePicker = ({
 
   const handlePrevMonth = (e) => {
     e.stopPropagation();
-    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1));
+    const safeDate = (viewDate && !isNaN(viewDate.getTime())) ? viewDate : new Date();
+    setViewDate(new Date(safeDate.getFullYear(), safeDate.getMonth() - 1, 1));
   };
 
   const handleNextMonth = (e) => {
     e.stopPropagation();
-    setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1));
+    const safeDate = (viewDate && !isNaN(viewDate.getTime())) ? viewDate : new Date();
+    setViewDate(new Date(safeDate.getFullYear(), safeDate.getMonth() + 1, 1));
+  };
+
+  const formatDate = (date) => {
+    if (!date || isNaN(date.getTime())) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   const handleDateSelect = (day) => {
     const newDate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
     if (disablePastDates && newDate < today) return;
     
-    // Format as YYYY-MM-DD for consistency with native inputs if needed, or just ISO
-    const formattedDate = newDate.toISOString().split('T')[0];
-    onChange(formattedDate);
+    onChange(formatDate(newDate));
     setIsOpen(false);
   };
 
   const handleQuickSearch = (type) => {
     let newDate = new Date();
+    newDate.setHours(0, 0, 0, 0);
     switch (type) {
       case '1w': newDate.setDate(newDate.getDate() + 7); break;
       case '2w': newDate.setDate(newDate.getDate() + 14); break;
@@ -72,14 +112,14 @@ const DatePicker = ({
       case '1y': newDate.setFullYear(newDate.getFullYear() + 1); break;
       default: break;
     }
-    const formattedDate = newDate.toISOString().split('T')[0];
-    onChange(formattedDate);
+    onChange(formatDate(newDate));
     setIsOpen(false);
   };
 
   const renderCalendar = () => {
-    const year = viewDate.getFullYear();
-    const month = viewDate.getMonth();
+    const safeViewDate = (viewDate && !isNaN(viewDate.getTime())) ? viewDate : new Date();
+    const year = safeViewDate.getFullYear();
+    const month = safeViewDate.getMonth();
     const daysCount = daysInMonth(year, month);
     const firstDay = firstDayOfMonth(year, month);
     const prevMonthDays = daysInMonth(year, month - 1);
@@ -136,9 +176,12 @@ const DatePicker = ({
 
   const displayValue = useMemo(() => {
     if (!value) return "";
-    const d = new Date(value);
+    const d = parseDateLocal(value);
+    if (!d || isNaN(d.getTime())) return "Invalid Date";
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }, [value]);
+
+  const safeViewDate = (viewDate && !isNaN(viewDate.getTime())) ? viewDate : new Date();
 
   return (
     <div className={cn("custom-datepicker", className)} ref={containerRef}>
@@ -157,7 +200,7 @@ const DatePicker = ({
           <div className="dp-calendar-section">
             <div className="calendar-header">
               <div className="month-year">
-                {monthNames[viewDate.getMonth()]} {viewDate.getFullYear()}
+                {monthNames[safeViewDate.getMonth()]} {safeViewDate.getFullYear()}
               </div>
               <div className="nav-buttons">
                 <button onClick={handlePrevMonth}><ChevronLeft size={16} /></button>

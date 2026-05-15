@@ -1088,5 +1088,60 @@ export const galleryService = {
       console.error('Error fetching activity counts:', err);
       return { contacts: 0, downloaded: 0, registered: 0, favorited: 0, purchased: 0 };
     }
+  },
+
+  /**
+   * Fetch all expiry reminders for a collection
+   */
+  async getCollectionReminders(collectionId) {
+    const { data, error } = await supabase
+      .from('collection_reminders')
+      .select('*')
+      .eq('collection_id', collectionId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  /**
+   * Create a new expiry reminder
+   */
+  async createCollectionReminder(reminderData) {
+    const { data, error } = await supabase
+      .from('collection_reminders')
+      .insert([reminderData])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Update an existing expiry reminder
+   */
+  async updateCollectionReminder(id, updateData) {
+    const { data, error } = await supabase
+      .from('collection_reminders')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Delete an expiry reminder
+   */
+  async deleteCollectionReminder(id) {
+    const { error } = await supabase
+      .from('collection_reminders')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
   }
 };

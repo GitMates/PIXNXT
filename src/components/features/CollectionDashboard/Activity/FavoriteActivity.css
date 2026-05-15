@@ -1,0 +1,537 @@
+/* Favorite Activity Table Specific Overrides */
+.activity-list-container:has(.activity-col-count) .activity-table-header,
+.activity-list-container:has(.activity-col-count) .activity-row {
+    grid-template-columns: minmax(200px, 1fr) 150px 100px 120px;
+}
+
+
+.activity-col-email {
+    font-weight: 400;
+    color: #111;
+    font-size: 15px;
+}
+
+.set-badge {
+    color: #00c0a3;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.activity-col-date-downloaded {
+    color: #666;
+    font-size: 13px;
+}
+
+.row-action-btn {
+    background: none;
+    border: none;
+    color: #bbb;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+
+.row-action-btn:hover {
+    color: #111;
+}
+
+.export-btn {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border: 1px solid #ebebeb;
+    border-radius: 4px;
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #111;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.export-btn:hover {
+    border-color: #111;
+    background-color: #f8fafb;
+}
+
+.export-btn.teal {
+    border-color: #00c0a3;
+    color: #00c0a3;
+}
+
+.export-btn.teal:hover {
+    background-color: #f0fdfa;
+    border-color: #00c0a3;
+}
+
+/* Favorite Activity Table Specific Overrides */
+.activity-table-header.favorite,
+.activity-row.favorite {
+    grid-template-columns: 1.5fr 1.5fr 80px 1.2fr 1.2fr 40px;
+    padding-left: 20px;
+    padding-right: 20px;
+}
+
+/* Non-compact: lock six columns so Date Created / Date Updated headers line up with data. */
+.favorite-activity-table-wrap.activity-list-container:not(.favorite-activity-table-wrap--compact) .activity-table-header.favorite,
+.favorite-activity-table-wrap.activity-list-container:not(.favorite-activity-table-wrap--compact) .activity-row.favorite {
+    grid-template-columns: minmax(160px, 1.4fr) minmax(160px, 1.4fr) 72px minmax(132px, 1fr) minmax(132px, 1fr) 44px;
+}
+
+.favorite-activity-sort-wrap {
+    position: relative;
+}
+
+.favorite-activity-sort-menu {
+    right: 0;
+    left: auto;
+    z-index: 120;
+}
+
+.favorite-activity-sort-menu .cd-sort-option {
+    width: 100%;
+    border: none;
+    background: none;
+    font: inherit;
+    display: block;
+}
+
+.favorite-activity-header-chevron--open {
+    transform: rotate(180deg);
+}
+
+.activity-col-list {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.list-thumb {
+    width: 48px;
+    height: 48px;
+    border-radius: 2px;
+    overflow: hidden;
+    background: #f5f5f5;
+    flex-shrink: 0;
+}
+
+.list-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.thumb-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff5f5;
+}
+
+.thumb-placeholder--favorite {
+    background: #f0f0f0;
+    color: #bbb;
+}
+
+.list-name-link {
+    font-weight: 500;
+    color: #111;
+}
+
+.activity-col-photos {
+    font-weight: 500;
+    color: #333;
+}
+
+/* Favorite activity: table + detail panel (Pixieset-style) */
+.favorite-activity-layout {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    width: 100%;
+    margin-top: 8px;
+    min-height: 320px;
+    border: 1px solid #ebebeb;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.favorite-activity-layout--split .favorite-activity-table-wrap {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    border: none;
+    border-radius: 0;
+    margin-top: 0;
+    border-right: 1px solid #ebebeb;
+}
+
+.favorite-activity-layout .favorite-activity-table-wrap.activity-list-container {
+    border: none;
+    border-radius: 0;
+    margin-top: 0;
+}
+
+.favorite-activity-table-wrap--compact .activity-table-header.favorite,
+.favorite-activity-table-wrap--compact .activity-row.favorite {
+    grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr);
+}
+
+.favorite-activity-table-wrap--compact .activity-col-photos,
+.favorite-activity-table-wrap--compact .activity-col-created,
+.favorite-activity-table-wrap--compact .activity-col-updated,
+.favorite-activity-table-wrap--compact .activity-col-actions {
+    display: none;
+}
+
+.favorite-activity-table-wrap {
+    flex: 1;
+    min-width: 0;
+}
+
+.activity-row.favorite.favorite-row-selected {
+    background: #f4f4f4;
+    box-shadow: inset 3px 0 0 #26a69a;
+}
+
+.favorite-list-detail-panel,
+.download-detail-panel {
+    flex: 0 0 440px;
+    min-width: 440px;
+    max-width: 440px;
+    border: none;
+    border-left: 1px solid #f2f2f2;
+    background: #fff;
+    min-height: 200px;
+    max-height: none;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.favorite-list-detail-toolbar,
+.download-detail-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 24px;
+    padding: 16px 20px 16px;
+    border-bottom: none;
+}
+
+.favorite-detail-toolbar-link,
+.download-detail-toolbar-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: #00c0a3;
+    cursor: pointer;
+    transition: opacity 0.15s;
+}
+
+.favorite-detail-toolbar-link:hover,
+.download-detail-toolbar-link:hover {
+    opacity: 0.8;
+}
+
+.favorite-detail-toolbar-more-wrap {
+    position: relative;
+    margin-left: 0;
+}
+
+.favorite-detail-toolbar-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    background: none;
+    color: #00c0a3;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.favorite-detail-toolbar-icon-btn:hover {
+    background: rgba(0, 192, 163, 0.08);
+}
+
+.favorite-detail-toolbar-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    min-width: 220px;
+    background: #fff;
+    border: 1px solid #ebebeb;
+    border-radius: 6px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+    z-index: 50;
+    padding: 6px 0;
+}
+
+.favorite-list-detail-header,
+.download-detail-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 24px 20px 16px;
+    border-bottom: 1px solid #f2f2f2;
+}
+
+.favorite-list-detail-title,
+.download-detail-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #111;
+    letter-spacing: -0.01em;
+}
+
+.favorite-list-detail-close,
+.download-detail-close {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: #999;
+    line-height: 0;
+}
+
+.favorite-list-detail-close:hover {
+    color: #111;
+}
+
+.favorite-list-detail-meta,
+.download-detail-meta {
+    padding: 24px 20px;
+    border-bottom: 1px solid #f2f2f2;
+    font-size: 15px;
+    color: #111;
+}
+
+.favorite-detail-meta-row,
+.download-detail-meta-row {
+    display: flex;
+    gap: 32px;
+    margin-bottom: 18px;
+    align-items: baseline;
+}
+
+.favorite-detail-meta-row:last-child {
+    margin-bottom: 0;
+}
+
+.favorite-detail-meta-label,
+.download-detail-meta-label {
+    flex: 0 0 100px;
+    color: #999;
+    font-size: 13px;
+    text-align: right;
+}
+
+.favorite-detail-meta-row--multiline {
+    align-items: flex-start;
+}
+
+.favorite-detail-meta-value-wrap {
+    flex: 1;
+    min-width: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.45;
+}
+
+.favorite-list-detail-photos-head {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 8px 20px 12px;
+    background: #fff;
+}
+
+.favorite-list-detail-photos-label {
+    display: none;
+}
+
+.favorite-detail-sort-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: none;
+    font-size: 12px;
+    color: #888;
+    font-weight: 400;
+    cursor: pointer;
+    padding: 4px 0;
+}
+
+.favorite-detail-sort-arrows {
+    display: inline-flex;
+    align-items: center;
+}
+
+.favorite-detail-sort-arrows svg {
+    stroke: #888;
+    width: 14px;
+    height: 14px;
+}
+
+.favorite-detail-sort-btn:hover {
+    text-decoration: underline;
+}
+
+.favorite-list-detail-photos {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+}
+
+.favorite-detail-loading,
+.favorite-detail-empty {
+    padding: 24px 16px;
+    font-size: 13px;
+    color: #888;
+    text-align: center;
+}
+
+.favorite-detail-photo-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 20px;
+    border-bottom: 1px solid #f5f5f5;
+}
+
+.favorite-detail-thumb,
+.download-detail-thumb {
+    width: 60px;
+    height: 60px;
+    flex-shrink: 0;
+    border-radius: 2px;
+    overflow: hidden;
+    background: #f5f5f5;
+}
+
+.favorite-detail-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.favorite-detail-photo-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.favorite-detail-filename,
+.download-detail-filename {
+    font-size: 15px;
+    font-weight: 600;
+    color: #111;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 4px;
+}
+
+.favorite-detail-sub,
+.download-detail-sub {
+    font-size: 13px;
+    color: #999;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.favorite-detail-set-tag {
+    font-size: 13px;
+    font-weight: 400;
+    color: #999;
+}
+
+.download-detail-set-tag {
+    font-size: 13px;
+    font-weight: 400;
+    color: #00c0a3;
+}
+
+.favorite-detail-photo-row--menu-open {
+    position: relative;
+    z-index: 12;
+}
+
+.favorite-detail-row-actions {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.favorite-detail-photo-row-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid #ebebeb;
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    z-index: 10001;
+    min-width: 180px;
+    padding: 6px 0;
+}
+
+.favorite-detail-photo-row-menu--up {
+    top: auto;
+    bottom: 100%;
+    margin-top: 0;
+    margin-bottom: 4px;
+}
+
+.favorite-detail-row-more {
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    color: #bbb;
+    flex-shrink: 0;
+}
+
+.favorite-detail-row-more:hover {
+    color: #111;
+}
+
+@media (max-width: 1100px) {
+    .favorite-activity-layout {
+        flex-direction: column;
+    }
+
+    .favorite-activity-layout--split .favorite-activity-table-wrap {
+        flex: 1 1 auto;
+        max-width: none;
+        border-right: none;
+        border-bottom: 1px solid #ebebeb;
+    }
+
+    .favorite-list-detail-panel {
+        max-width: none;
+        border-left: none;
+        max-height: none;
+    }
+}
+
