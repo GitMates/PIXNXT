@@ -3,7 +3,7 @@ import {
   type DashboardPhotoSort,
 } from "@/utils/sortDashboardPhotos";
 
-const DEFAULT_SORT: DashboardPhotoSort = "upload-new-old";
+const DEFAULT_SORT: DashboardPhotoSort = "custom";
 
 const VALID_SORTS = new Set<DashboardPhotoSort>([
   "upload-new-old",
@@ -13,6 +13,7 @@ const VALID_SORTS = new Set<DashboardPhotoSort>([
   "name-az",
   "name-za",
   "random",
+  "custom"
 ]);
 
 /**

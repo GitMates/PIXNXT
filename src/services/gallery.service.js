@@ -154,7 +154,9 @@ export const galleryService = {
           full_url,
           width,
           height,
-          position
+          position,
+          created_at,
+          exif_taken_at
         ),
         sets!sets_collection_id_fkey (
           id,

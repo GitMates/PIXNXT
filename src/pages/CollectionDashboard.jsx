@@ -83,7 +83,7 @@ const CollectionDashboard = () => {
     const [toastMessage, setToastMessage] = useState(null);
 
     // SORT STATE
-    const [sortOption, setSortOption] = useState('upload-new-old');
+    const [sortOption, setSortOption] = useState('custom');
 
     // TAB STATES
     const [activeSidebarTab, setActiveSidebarTab] = useState('photos'); // photos, design, settings, activity

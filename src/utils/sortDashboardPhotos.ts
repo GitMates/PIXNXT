@@ -7,7 +7,8 @@ export type DashboardPhotoSort =
   | "taken-old-new"
   | "name-az"
   | "name-za"
-  | "random";
+  | "random"
+  | "custom";
 
 export const DASHBOARD_PHOTO_SORT_OPTIONS: {
   value: DashboardPhotoSort;
@@ -20,6 +21,7 @@ export const DASHBOARD_PHOTO_SORT_OPTIONS: {
   { value: "name-az", label: "Name: A-Z" },
   { value: "name-za", label: "Name: Z-A" },
   { value: "random", label: "Random" },
+  { value: "custom", label: "Custom" },
 ];
 
 function takenDate(p: Photo): number {
@@ -73,6 +75,9 @@ export function sortDashboardPhotos(
       break;
     case "random":
       shuffleInPlace(sorted);
+      break;
+    case "custom":
+      sorted.sort((a, b) => (a.position || 0) - (b.position || 0) || (a.id || "").localeCompare(b.id || ""));
       break;
     default:
       break;
