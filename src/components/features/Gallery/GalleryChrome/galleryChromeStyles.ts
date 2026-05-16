@@ -35,8 +35,8 @@ export const galleryChromeStyles = {
   },
   galleryView: {
     nav: 'gallery-sticky-nav gallery-sticky-nav--gallery-view',
-    navInner: `${galleryChromeLayout.navInner} justify-between gap-4 py-4 pl-4 pr-0 sm:flex-row md:py-5 md:pl-8 lg:pl-12`,
-    navLeft: `${galleryChromeLayout.navLeft} shrink-0 flex-row items-center gap-8 md:gap-12 lg:gap-20`,
+    navInner: `${galleryChromeLayout.navInner} justify-between gap-4 py-4 pl-0 pr-0 sm:flex-row md:py-5`,
+    navLeft: `${galleryChromeLayout.navLeft} shrink-0 flex-row items-center gap-3 md:gap-4 lg:gap-5`,
     navRight: `${galleryChromeLayout.navRight} gap-2 md:gap-3 ml-auto`,
     brandBlock: `${galleryChromeLayout.brandBlock} shrink-0`,
     tabsBlock: `${galleryChromeLayout.tabsBlock} shrink-0 gap-6 md:gap-10`,
