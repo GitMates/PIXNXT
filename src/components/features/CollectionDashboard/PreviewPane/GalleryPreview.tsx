@@ -502,7 +502,8 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               onImageClick={(index) => setLightboxIndex(index)}
               onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
               onDownload={handleDownloadClick}
-              onShare={() => { }}
+              onShare={() => setShowShareModal(true)}
+              showPrivateBadge={Boolean(dashboardState?.collection?.client_exclusive_enabled)}
               showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
               showFavorite={favFeatureOn}
               showShare={dashboardState?.socialSharing !== false}

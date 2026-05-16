@@ -131,6 +131,9 @@ const CollectionDashboard = () => {
     const [collectionPassword, setCollectionPassword] = useState('');
     const [showOnHomepage, setShowOnHomepage] = useState(true);
     const [clientExclusiveAccess, setClientExclusiveAccess] = useState(false);
+    const [clientPrivatePassword, setClientPrivatePassword] = useState('');
+    const [allowClientsMarkPrivate, setAllowClientsMarkPrivate] = useState(false);
+    const [clientOnlyHighlights, setClientOnlyHighlights] = useState(false);
 
     // Download State
     const [photoDownload, setPhotoDownload] = useState(true);
@@ -935,7 +938,14 @@ const CollectionDashboard = () => {
                 // Initialize state from collection data
                 if (data.status) setStatus(data.status.toUpperCase());
                 if (data.slug) setCollectionUrl(data.slug);
-                if (data.client_password_hash) setCollectionPassword(data.client_password_hash);
+                if (data.guest_password_hash) setCollectionPassword(data.guest_password_hash);
+                else if (data.client_password_hash && !data.guest_password_hash) {
+                    setCollectionPassword(data.client_password_hash);
+                }
+                if (data.client_password_hash) setClientPrivatePassword(data.client_password_hash);
+                if (data.client_exclusive_enabled !== undefined) setClientExclusiveAccess(data.client_exclusive_enabled);
+                if (data.allow_clients_mark_private !== undefined) setAllowClientsMarkPrivate(data.allow_clients_mark_private);
+                if (data.client_only_highlights !== undefined) setClientOnlyHighlights(data.client_only_highlights);
 
                 // Map individual columns to state
                 if (data.cover_style) setSelectedCoverStyle(data.cover_style);
@@ -1212,7 +1222,7 @@ const CollectionDashboard = () => {
             try {
                 await galleryService.updateCollection(collectionId, {
                     slug: collectionUrl,
-                    client_password_hash: collectionPassword
+                    guest_password_hash: collectionPassword,
                 });
             } catch (err) {
                 console.error('Error auto-saving general settings:', err);
@@ -1222,6 +1232,46 @@ const CollectionDashboard = () => {
         const timeoutId = setTimeout(saveGeneralSettings, 1500); // Slightly longer debounce for URL
         return () => clearTimeout(timeoutId);
     }, [collectionUrl, collectionPassword, collectionId, collection, loading]);
+
+    // Auto-save privacy / client exclusive access
+    useEffect(() => {
+        if (!collection || loading) return;
+
+        const savePrivacySettings = async () => {
+            try {
+                await galleryService.updateCollection(collectionId, {
+                    client_exclusive_enabled: clientExclusiveAccess,
+                    client_password_hash: clientPrivatePassword || null,
+                    allow_clients_mark_private: allowClientsMarkPrivate,
+                    client_only_highlights: clientOnlyHighlights,
+                    privacy: clientExclusiveAccess ? 'client_exclusive' : collection?.privacy === 'client_exclusive' ? 'public' : collection?.privacy,
+                });
+            } catch (err) {
+                console.error('Error auto-saving privacy settings:', err);
+            }
+        };
+
+        const timeoutId = setTimeout(savePrivacySettings, 1200);
+        return () => clearTimeout(timeoutId);
+    }, [
+        clientExclusiveAccess,
+        clientPrivatePassword,
+        allowClientsMarkPrivate,
+        clientOnlyHighlights,
+        collectionId,
+        collection,
+        loading,
+    ]);
+
+    const handleSetClientOnlyChange = async (setId, isClientOnly) => {
+        setSets((prev) => prev.map((s) => (s.id === setId ? { ...s, is_private: isClientOnly } : s)));
+        try {
+            const { clientExclusiveAccessService } = await import('../services/clientExclusiveAccess.service');
+            await clientExclusiveAccessService.updateSetClientOnly(setId, isClientOnly);
+        } catch (err) {
+            console.error('Error updating client-only set:', err);
+        }
+    };
 
     // Auto-save download settings
     useEffect(() => {
@@ -2166,6 +2216,20 @@ const CollectionDashboard = () => {
                                 setShowOnHomepage={setShowOnHomepage}
                                 clientExclusiveAccess={clientExclusiveAccess}
                                 setClientExclusiveAccess={setClientExclusiveAccess}
+                                clientPrivatePassword={clientPrivatePassword}
+                                setClientPrivatePassword={setClientPrivatePassword}
+                                allowClientsMarkPrivate={allowClientsMarkPrivate}
+                                setAllowClientsMarkPrivate={setAllowClientsMarkPrivate}
+                                clientOnlyHighlights={clientOnlyHighlights}
+                                setClientOnlyHighlights={setClientOnlyHighlights}
+                                clientOnlySets={(sets || [])
+                                    .filter((s) => s.name?.toLowerCase() !== 'highlights')
+                                    .map((s) => ({
+                                        id: s.id,
+                                        name: s.name,
+                                        isClientOnly: Boolean(s.is_private),
+                                    }))}
+                                onSetClientOnlyChange={handleSetClientOnlyChange}
                             />
                         )}
 

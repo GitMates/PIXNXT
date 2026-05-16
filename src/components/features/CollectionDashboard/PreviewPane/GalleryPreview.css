@@ -880,12 +880,14 @@
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__set-heading {
-    font-size: 8px !important;
-    letter-spacing: 0.26em !important;
-    padding-top: 0.75rem !important;
-    padding-bottom: 0.75rem !important;
+    font-size: 5px !important;
+    line-height: 1.15 !important;
+    letter-spacing: 0.16em !important;
+    padding-top: 0.125rem !important;
+    padding-bottom: 0.125rem !important;
     margin-bottom: 0 !important;
     text-align: left !important;
+    opacity: 0.65;
 }
 
 /* Mobile preview frame only — stacked nav; desktop preview unchanged */

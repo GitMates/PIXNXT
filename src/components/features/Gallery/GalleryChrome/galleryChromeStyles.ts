@@ -20,7 +20,7 @@ export const galleryChromeStyles = {
     action: 'gallery-chrome__action gallery-body-text text-[7px] md:text-[8px] font-bold uppercase tracking-[0.1em]',
     actionIcon: 12,
     setHeading:
-      'gallery-chrome__set-heading gallery-body-text px-2 py-3 text-left text-[8px] font-normal lowercase tracking-[0.28em] mb-0 md:px-3',
+      'gallery-chrome__set-heading gallery-body-text px-2 py-0.5 text-left text-[6px] font-normal lowercase tracking-[0.16em] mb-0 md:px-3',
     setDescription:
       'gallery-chrome__set-description mx-auto max-w-2xl whitespace-pre-wrap text-[11px] font-light leading-relaxed tracking-wide md:text-[12px]',
     setDescriptionWrap: '-mx-6 border-b px-4 py-4 text-center md:px-6',

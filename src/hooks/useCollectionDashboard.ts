@@ -37,6 +37,9 @@ export function useCollectionDashboard(collectionId: string | null) {
   const [collectionPassword, setCollectionPassword] = useState("");
   const [showOnHomepage, setShowOnHomepage] = useState(true);
   const [clientExclusiveAccess, setClientExclusiveAccess] = useState(false);
+  const [clientPrivatePassword, setClientPrivatePassword] = useState("");
+  const [allowClientsMarkPrivate, setAllowClientsMarkPrivate] = useState(false);
+  const [clientOnlyHighlights, setClientOnlyHighlights] = useState(false);
 
   // Download State
   const [photoDownload, setPhotoDownload] = useState(true);
@@ -132,6 +135,17 @@ export function useCollectionDashboard(collectionId: string | null) {
         }
       });
 
+      if (collectionData.client_password_hash) setClientPrivatePassword(collectionData.client_password_hash);
+      if (collectionData.client_exclusive_enabled !== undefined) {
+        setClientExclusiveAccess(collectionData.client_exclusive_enabled);
+      }
+      if (collectionData.allow_clients_mark_private !== undefined) {
+        setAllowClientsMarkPrivate(collectionData.allow_clients_mark_private);
+      }
+      if (collectionData.client_only_highlights !== undefined) {
+        setClientOnlyHighlights(collectionData.client_only_highlights);
+      }
+
       const { data: setsData, error: setsError } = await supabase
         .from("sets")
         .select("*")
@@ -216,7 +230,12 @@ export function useCollectionDashboard(collectionId: string | null) {
           grid_spacing: designSettings.grid.spacing,
           aspect_ratio: designSettings.grid.aspectRatio,
           nav_style:
-            designSettings.grid.navigation === 'text' ? 'icons_labels' : 'icons'
+            designSettings.grid.navigation === 'text' ? 'icons_labels' : 'icons',
+          client_exclusive_enabled: clientExclusiveAccess,
+          client_password_hash: clientPrivatePassword || null,
+          allow_clients_mark_private: allowClientsMarkPrivate,
+          client_only_highlights: clientOnlyHighlights,
+          privacy: clientExclusiveAccess ? 'client_exclusive' : undefined,
         })
         .eq('id', collectionId);
 
@@ -227,7 +246,15 @@ export function useCollectionDashboard(collectionId: string | null) {
 
     const debounceTimer = setTimeout(saveDesignSettings, 1000);
     return () => clearTimeout(debounceTimer);
-  }, [designSettings, collectionId]);
+  }, [
+    designSettings,
+    clientExclusiveAccess,
+    clientPrivatePassword,
+    allowClientsMarkPrivate,
+    clientOnlyHighlights,
+    collectionId,
+    collection,
+  ]);
 
   // Sync photos when activeSetId changes
   useEffect(() => {

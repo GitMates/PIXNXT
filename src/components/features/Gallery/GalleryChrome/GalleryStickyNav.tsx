@@ -34,6 +34,7 @@ export interface GalleryStickyNavProps {
   isPreviewMobile?: boolean;
   /** icon = icons only; text = icons + labels */
   navigationStyle?: NavigationStyleSetting;
+  showHighlightsTab?: boolean;
   className?: string;
 }
 
@@ -61,6 +62,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   isDark,
   isPreviewMobile = false,
   navigationStyle = 'icon',
+  showHighlightsTab = true,
   className,
 }) => {
   const variant = variantProp ?? getGalleryChromeVariant(isPreview, isGalleryView);
@@ -92,21 +94,23 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
 
   const renderTabs = () => (
     <>
-      <button
-        type="button"
-        className={cn('group relative flex shrink-0 items-center', isCompact ? 'py-0' : 'py-2')}
-        onClick={() => onSetChange?.(null)}
-      >
-        <span className={tabButtonClass(!activeSetId)} style={{ color: 'var(--gallery-text)' }}>
-          Highlights
-        </span>
-        {!activeSetId && (
-          <div
-            className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
-            style={{ backgroundColor: 'var(--gallery-text)' }}
-          />
-        )}
-      </button>
+      {showHighlightsTab ? (
+        <button
+          type="button"
+          className={cn('group relative flex shrink-0 items-center', isCompact ? 'py-0' : 'py-2')}
+          onClick={() => onSetChange?.(null)}
+        >
+          <span className={tabButtonClass(!activeSetId)} style={{ color: 'var(--gallery-text)' }}>
+            Highlights
+          </span>
+          {!activeSetId && (
+            <div
+              className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
+              style={{ backgroundColor: 'var(--gallery-text)' }}
+            />
+          )}
+        </button>
+      ) : null}
       {visibleSets.map((set) => (
         <button
           key={set.id}

@@ -157,7 +157,8 @@ export const galleryService = {
           position,
           created_at,
           exif_taken_at,
-          media_type
+          media_type,
+          is_private
         ),
         sets!sets_collection_id_fkey (
           id,

@@ -1,0 +1,276 @@
+/* —— Dashboard: Privacy settings (Client Exclusive Access block) —— */
+.cea-settings-block {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-top: 8px;
+  border-top: 1px solid #eee;
+  margin-top: 8px;
+}
+
+.cea-settings-block .settings-toggle-section {
+  margin: 0;
+}
+
+.cea-password-field {
+  display: flex;
+  align-items: stretch;
+  max-width: 420px;
+  border: 1px solid #ddd;
+  border-radius: 2px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.cea-password-field input {
+  flex: 1;
+  border: none;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  outline: none;
+  min-width: 0;
+}
+
+.cea-password-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  border-left: 1px solid #eee;
+}
+
+.cea-icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: #666;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cea-icon-btn:hover {
+  background: #f5f5f5;
+  color: #111;
+}
+
+.cea-set-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.cea-set-list .custom-checkbox {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
+/* —— Gallery: private badge on thumbnail —— */
+.cea-photo-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  color: #111;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.cea-photo-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* —— Gallery: hover action bar (client) —— */
+.cea-photo-actions {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 20;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.group:hover .cea-photo-actions,
+.cea-photo-actions.cea-photo-actions--visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.cea-photo-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+
+.cea-photo-action-btn:hover {
+  background: #fff;
+  color: #111;
+}
+
+.cea-photo-action-btn.cea-photo-action-btn--active {
+  background: #fff;
+  color: #111;
+}
+
+/* —— Toast: "This photo is now private" —— */
+.cea-toast {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px 10px 10px;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  max-width: min(90vw, 360px);
+  pointer-events: none;
+}
+
+.cea-toast-thumb {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: #f0f0f0;
+}
+
+.cea-toast-message {
+  font-size: 13px;
+  font-weight: 500;
+  color: #111;
+  line-height: 1.35;
+}
+
+/* —— Client login modal —— */
+.cea-login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+}
+
+.cea-login-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 32px 28px;
+  background: var(--gallery-bg, #fff);
+  color: var(--gallery-text, #111);
+  border-radius: 4px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.2);
+}
+
+.cea-login-card h3 {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.cea-login-card p {
+  margin: 0 0 20px;
+  font-size: 13px;
+  opacity: 0.7;
+  line-height: 1.5;
+}
+
+.cea-login-card input {
+  width: 100%;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  border: 1px solid var(--gallery-border, rgba(0, 0, 0, 0.12));
+  font-size: 14px;
+  outline: none;
+}
+
+.cea-login-card input:focus {
+  border-color: var(--gallery-accent, #111);
+}
+
+.cea-login-error {
+  font-size: 12px;
+  color: #c0392b;
+  margin-bottom: 12px;
+}
+
+.cea-login-submit {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: var(--gallery-accent, #111);
+  color: var(--gallery-bg, #fff);
+  transition: filter 0.2s;
+}
+
+.cea-login-submit:hover {
+  filter: brightness(1.08);
+}
+
+.cea-client-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--gallery-border, rgba(0, 0, 0, 0.08));
+  background: color-mix(in srgb, var(--gallery-accent, #111) 8%, var(--gallery-bg, #fff));
+  color: var(--gallery-text, #111);
+}
+
+.cea-client-bar button {
+  border: none;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: var(--gallery-accent, #111);
+  text-decoration: underline;
+}

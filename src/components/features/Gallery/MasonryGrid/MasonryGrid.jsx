@@ -1,9 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { motion as Motion } from 'framer-motion';
-import { Download, Heart } from 'lucide-react';
+import { Download, Heart, Share2 } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
+import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 
-export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true, favoritedPhotoIds = [], showFilename = false, isPreviewMobile = false, forceShow = false, className }) {
+export function MasonryGrid({
+  photos,
+  gridSettings,
+  onImageClick,
+  onFavorite,
+  onDownload,
+  onShare,
+  onTogglePrivate,
+  customRowHeight,
+  customColumnCount,
+  isHorizontal: isHorizontalProp,
+  showDownload = true,
+  showFavorite = true,
+  showShare = false,
+  favoritedPhotoIds = [],
+  showFilename = false,
+  isPreviewMobile = false,
+  forceShow = false,
+  className,
+  isClientViewer = false,
+  allowMarkPrivate = false,
+  showPrivateBadge = false,
+}) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
@@ -97,6 +120,8 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
           : (dynamicAspectRatios[photo.id] || 1.5);
 
         const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
+        const isPrivate = Boolean(photo.is_private);
+        const useClientActionBar = Boolean(isClientViewer && allowMarkPrivate);
 
         return (
           <Motion.div
@@ -160,6 +185,31 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
               )}
               {/* Hover overlay: download + favorite */}
               <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/10">
+                {showPrivateBadge && isPrivate ? <PhotoPrivateBadge visible /> : null}
+                {useClientActionBar ? (
+                  <PhotoPrivateControls
+                    isPrivate={isPrivate}
+                    showBadge={false}
+                    showPrivateToggle
+                    showFavorite={showFavorite}
+                    showDownload={showDownload}
+                    showShare={showShare}
+                    isFavorited={isFav}
+                    onTogglePrivate={() => onTogglePrivate?.(photo)}
+                    onFavorite={(e) => {
+                      e.stopPropagation();
+                      onFavorite?.(photo);
+                    }}
+                    onDownload={(e) => {
+                      e.stopPropagation();
+                      onDownload?.(photo);
+                    }}
+                    onShare={(e) => {
+                      e.stopPropagation();
+                      onShare?.(photo);
+                    }}
+                  />
+                ) : (
                 <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 transform translate-y-[10px] transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
                   {showDownload && (
                     <button
@@ -191,7 +241,21 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                       <Heart size={16} strokeWidth={1.5} fill={isFav ? 'currentColor' : 'none'} />
                     </button>
                   )}
+                  {showShare && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShare?.(photo);
+                      }}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                      aria-label="Share"
+                    >
+                      <Share2 size={16} strokeWidth={1.5} />
+                    </button>
+                  )}
                 </div>
+                )}
               </div>
             </div>
           </Motion.div>

@@ -17,6 +17,20 @@ import { GalleryStickyNav, GallerySetHeading, GallerySetDescription } from '../.
 import './GalleryView.css';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
 import { normalizeNavigationStyle } from '../../lib/navStyle';
+import {
+  isClientSessionActive,
+  setClientSessionActive,
+  isClientExclusiveEnabled,
+  filterPhotosForViewer,
+  filterSetsForViewer,
+  canViewHighlights,
+} from '../../lib/clientExclusiveAccess';
+import {
+  ClientExclusiveLoginModal,
+  ClientExclusiveToast,
+  ClientExclusiveClientBar,
+} from '../../components/features/ClientExclusiveAccess';
+import { clientExclusiveAccessService } from '../../services/clientExclusiveAccess.service';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -50,6 +64,10 @@ const GalleryView = () => {
   const [favoriteListPhotos, setFavoriteListPhotos] = useState([]);
   const [isFavoriteListMode, setIsFavoriteListMode] = useState(false);
   const [activeFavoriteList, setActiveFavoriteList] = useState(null);
+  const [isClientViewer, setIsClientViewer] = useState(false);
+  const [showClientLogin, setShowClientLogin] = useState(false);
+  const [privateToast, setPrivateToast] = useState(null);
+  const [privateToastThumb, setPrivateToastThumb] = useState(null);
 
   const refreshActiveFavoriteList = useCallback(async (sid) => {
     if (!sid) {
@@ -306,6 +324,11 @@ const GalleryView = () => {
         }
 
         setCollection(data);
+        if (isClientExclusiveEnabled(data)) {
+          setIsClientViewer(isClientSessionActive(data.id));
+        } else {
+          setIsClientViewer(false);
+        }
 
         if (data.photographer_id) {
           const p = await galleryService.getPhotographerProfile(data.photographer_id);
@@ -410,12 +433,83 @@ const GalleryView = () => {
       : (collection.photos || []).filter((p) => !p.set_id);
   }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos]);
 
+  const visibleSets = useMemo(() => {
+    if (!collection?.sets) return [];
+    return filterSetsForViewer(collection.sets, collection, isClientViewer);
+  }, [collection, isClientViewer]);
+
   const filteredPhotos = useMemo(() => {
-    const base = photosForActiveSet;
+    let base = photosForActiveSet;
     if (!collection) return base;
+    if (isClientExclusiveEnabled(collection)) {
+      base = filterPhotosForViewer(
+        base,
+        collection,
+        isClientViewer,
+        activeSetId,
+        collection.sets || []
+      );
+    }
     const sortKey = normalizeGalleryPhotoSort(collection.gallery_photo_sort);
     return sortPhotosForGallery(base, sortKey);
-  }, [collection, photosForActiveSet]);
+  }, [collection, photosForActiveSet, isClientViewer, activeSetId]);
+
+  const handleTogglePhotoPrivate = useCallback(
+    async (photo) => {
+      if (!collection?.id) return;
+      if (!isClientViewer) {
+        setShowClientLogin(true);
+        return;
+      }
+      if (!collection.allow_clients_mark_private) return;
+
+      const nextPrivate = !photo.is_private;
+      try {
+        await clientExclusiveAccessService.setPhotoPrivate(photo.id, nextPrivate, collection.id);
+        setCollection((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            photos: (prev.photos || []).map((p) =>
+              p.id === photo.id ? { ...p, is_private: nextPrivate } : p
+            ),
+          };
+        });
+        setPrivateToastThumb(photo.thumbnail_url || photo.web_url || photo.full_url);
+        setPrivateToast(
+          nextPrivate ? 'This photo is now private.' : 'This photo is now visible to guests.'
+        );
+        window.setTimeout(() => setPrivateToast(null), 4000);
+      } catch (err) {
+        console.error('Failed to update photo privacy:', err);
+      }
+    },
+    [collection, isClientViewer]
+  );
+
+  const handleClientLoginSuccess = useCallback(() => {
+    if (!collection?.id) return;
+    setClientSessionActive(collection.id, true);
+    setIsClientViewer(true);
+    setShowClientLogin(false);
+  }, [collection?.id]);
+
+  const handleClientSignOut = useCallback(() => {
+    if (!collection?.id) return;
+    setClientSessionActive(collection.id, false);
+    setIsClientViewer(false);
+    if (!canViewHighlights(collection, false) && !activeSetId) {
+      const firstPublic = filterSetsForViewer(collection.sets || [], collection, false)[0];
+      if (firstPublic) setActiveSetId(firstPublic.id);
+    }
+  }, [collection, activeSetId]);
+
+  useEffect(() => {
+    if (!collection || !isClientExclusiveEnabled(collection)) return;
+    if (!canViewHighlights(collection, isClientViewer) && !activeSetId && visibleSets.length > 0) {
+      setActiveSetId(visibleSets[0].id);
+    }
+  }, [collection, isClientViewer, activeSetId, visibleSets]);
 
   /** Storytelling copy for the active tab (Highlights → collection.description; other sets → set.description). */
   const setDescriptionText = useMemo(() => {
@@ -524,12 +618,23 @@ const GalleryView = () => {
       {/* Main Gallery Content */}
       <main ref={galleryRef} className="pb-24 pt-0" style={{ backgroundColor: 'var(--gallery-bg)' }}>
         <Container className="max-w-none px-2 md:px-4 lg:px-4">
+          {isClientExclusiveEnabled(collection) && isClientViewer ? (
+            <ClientExclusiveClientBar onSignOut={handleClientSignOut} />
+          ) : null}
+          {isClientExclusiveEnabled(collection) && !isClientViewer ? (
+            <div className="cea-client-bar" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setShowClientLogin(true)}>
+                Client login
+              </button>
+            </div>
+          ) : null}
           <GalleryStickyNav
             isGalleryView
             navigationStyle={navigationStyle}
             collectionTitle={collection.name}
             photographerName={photographer?.display_name}
-            sets={(collection.sets || []).map((set) => ({ id: set.id, name: set.name }))}
+            sets={visibleSets.map((set) => ({ id: set.id, name: set.name }))}
+            showHighlightsTab={canViewHighlights(collection, isClientViewer)}
             activeSetId={activeSetId}
             onSetChange={setActiveSetId}
             showFavorites={collection?.favorites_enabled !== false}
@@ -586,7 +691,7 @@ const GalleryView = () => {
 
           {/* Flexible Gallery Grid */}
           <MasonryGrid
-            key={`${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}`}
+            key={`${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}`}
             photos={filteredPhotos}
             isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
             gridSettings={{
@@ -599,6 +704,10 @@ const GalleryView = () => {
             onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
             onDownload={handleDownloadClick}
             onShare={() => setShowShareModal(true)}
+            onTogglePrivate={handleTogglePhotoPrivate}
+            isClientViewer={isClientViewer}
+            allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
+            showPrivateBadge={isClientViewer}
             showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
             showFavorite={collection?.favorites_enabled !== false}
             showShare={collection?.social_sharing_enabled !== false}
@@ -809,6 +918,15 @@ const GalleryView = () => {
         isDark={isGalleryDark}
         initialSenderEmail={email}
       />
+
+      <ClientExclusiveLoginModal
+        open={showClientLogin}
+        storedPassword={collection?.client_password_hash}
+        onSuccess={handleClientLoginSuccess}
+        onClose={() => setShowClientLogin(false)}
+      />
+
+      <ClientExclusiveToast message={privateToast} thumbnailUrl={privateToastThumb} />
     </div>
   );
 };
