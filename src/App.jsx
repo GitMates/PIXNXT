@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -20,7 +20,15 @@ import GalleryFavoritesHub from './pages/public/GalleryFavoritesHub';
 
 function App() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [themeTick, setThemeTick] = useState(0);
+
+  useEffect(() => {
+    const redirect = new URLSearchParams(location.search).get('redirect');
+    if (!redirect) return;
+    const target = redirect.startsWith('/') ? redirect : `/${redirect}`;
+    navigate(target, { replace: true });
+  }, [location.search, navigate]);
 
   useEffect(() => {
     // Listen for cross-component theme updates

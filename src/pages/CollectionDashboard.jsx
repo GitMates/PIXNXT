@@ -7,6 +7,7 @@ import { DesignTab } from '../components/features/CollectionDashboard/DesignTab'
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
+import { openSpaPath } from '../lib/spaNavigation';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
@@ -1616,7 +1617,7 @@ const CollectionDashboard = () => {
                                 color: selectedColorPalette,
                                 grid: gridSettings.style
                             });
-                            window.open(`/gallery/${collectionUrl}?${params.toString()}`, '_blank');
+                            openSpaPath(`/gallery/${collectionUrl}?${params.toString()}`);
                         }}
                     >
                         Preview

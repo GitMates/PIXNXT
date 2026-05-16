@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { openSpaPath } from '@/lib/spaNavigation';
 import { supabase } from '@/lib/supabase/client';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useCollectionDashboard } from '@/hooks/useCollectionDashboard';
@@ -440,7 +441,7 @@ export default function CollectionDashboard() {
           collectionName={collection?.name || ''}
           status={status}
           onStatusChange={(newStatus: 'DRAFT' | 'PUBLISHED') => setStatus(newStatus)}
-          onPreview={() => window.open(`/gallery/${collection?.slug}`, '_blank')}
+          onPreview={() => openSpaPath(`/gallery/${collection?.slug}`)}
           onShare={() => { }}
           onBack={() => navigate('/dashboard')}
           moreMenu={{
