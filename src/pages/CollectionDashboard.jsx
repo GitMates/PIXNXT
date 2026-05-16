@@ -12,7 +12,6 @@ import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
 import '../components/features/CollectionDashboard/Activity/DownloadActivity.css';
 import '../components/features/CollectionDashboard/Activity/FavoriteActivity.css';
-import '../components/features/CollectionDashboard/PreviewPane/PreviewPane.css';
 import '../components/features/CollectionDashboard/Settings/Settings.css';
 import { ActivityView } from '../components/features/CollectionDashboard/Activity/ActivityView';
 import { DownloadSettings } from '../components/features/CollectionDashboard/Settings/DownloadSettings';

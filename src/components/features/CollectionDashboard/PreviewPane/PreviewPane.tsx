@@ -2,6 +2,7 @@ import React from 'react';
 import { PreviewPaneProps } from './PreviewPane.types';
 import { GalleryPreview } from './GalleryPreview';
 import { cn } from '../../../../lib/utils';
+import './PreviewPane.css';
 
 export const PreviewPane: React.FC<PreviewPaneProps> = ({ 
   settings, 

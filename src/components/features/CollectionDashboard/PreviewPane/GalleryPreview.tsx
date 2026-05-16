@@ -11,6 +11,7 @@ import { downloadPhotoFromR2 } from '../../../../lib/downloadPhoto';
 import { DownloadModal } from '../../Gallery/DownloadModal/DownloadModal';
 import { galleryService } from '../../../../services/gallery.service';
 import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
+import './GalleryPreview.css';
 
 function normalizeFavoritePhotoId(id: string | number | null | undefined): string | null {
   if (id == null || id === '') return null;

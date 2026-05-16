@@ -53,26 +53,74 @@ export const LeftCover: React.FC<CoverProps> = ({ title, subtitle, date, descrip
 );
 
 export const NovelCover: React.FC<CoverProps> = ({ title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, onViewGallery }) => (
-  <div className="h-[400px] w-full flex flex-col md:flex-row overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)' }}>
-    <div className="flex-1 flex flex-col items-center justify-center p-12" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
-      <div className={cn("tracking-[0.5em] uppercase opacity-80 font-medium", isPreview ? "text-[8px] mb-1" : "text-[10px] mb-2")} style={{ color: 'var(--gallery-text)' }}>{subtitle || 'GALLERY'}</div>
-      <h1 className={cn("gallery-heading leading-tight font-bold", isPreview ? "text-[18px] mb-1" : "text-[24px] mb-2")} style={{ color: 'var(--gallery-text)', textShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>{title}</h1>
-      <div className={cn("tracking-[0.3em] uppercase opacity-80 font-medium", isPreview ? "text-[9px] mb-4" : "text-[11px] mb-6")} style={{ color: 'var(--gallery-text)' }}>{date}</div>
+  <div className="h-full min-h-[400px] w-full flex flex-col md:flex-row overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+    <div
+      className={cn(
+        'flex flex-1 flex-col items-center justify-center text-center',
+        isPreview ? 'p-8' : 'p-12'
+      )}
+      style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
+    >
+      <div
+        className={cn(
+          'uppercase opacity-60',
+          isPreview ? 'mb-2 text-[7px] tracking-[0.3em]' : 'mb-4 text-[9px] tracking-[0.3em]'
+        )}
+        style={{ color: 'var(--gallery-text)' }}
+      >
+        {subtitle || 'GALLERY'}
+      </div>
+      <h1
+        className={cn('gallery-heading', isPreview ? 'mb-3 text-lg' : 'mb-6 text-2xl')}
+        style={{ color: 'var(--gallery-text)' }}
+      >
+        {title}
+      </h1>
+      <div
+        className={cn(
+          'uppercase opacity-70',
+          isPreview ? 'mb-2 text-[8px] tracking-[0.2em]' : 'mb-4 text-[10px] tracking-[0.2em]'
+        )}
+        style={{ color: 'var(--gallery-text)' }}
+      >
+        {date}
+      </div>
       {description && (
-        <p className={cn("leading-relaxed opacity-60 whitespace-pre-wrap text-center max-w-sm", isPreview ? "text-[10px] mb-4" : "text-[11px] mb-6")} style={{ color: 'var(--gallery-text)' }}>
+        <p
+          className={cn(
+            'max-w-sm whitespace-pre-wrap leading-relaxed opacity-60',
+            isPreview ? 'mb-4 text-[9px]' : 'mb-8 text-[11px]'
+          )}
+          style={{ color: 'var(--gallery-text)' }}
+        >
           {description}
         </p>
       )}
       <button
-        className={cn("tracking-[0.2em] uppercase transition-colors font-medium", isPreview ? "px-6 py-2.5 text-[9px]" : "px-8 py-3 text-[10px]")}
-        style={{ backgroundColor: 'var(--gallery-accent)', color: 'var(--gallery-bg)' }}
+        type="button"
+        className={cn(
+          'border uppercase tracking-[0.2em] transition-all',
+          isPreview ? 'px-6 py-2 text-[9px]' : 'px-10 py-3 text-[10px]'
+        )}
+        style={{
+          borderColor: 'var(--gallery-text)',
+          color: 'var(--gallery-text)',
+          backgroundColor: 'transparent',
+        }}
         onClick={onViewGallery}
       >
         VIEW GALLERY
       </button>
     </div>
-    <div className="flex-1 h-full">
-      {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
+    <div className="h-full min-h-[200px] flex-1 md:min-h-0">
+      {photoUrl && (
+        <img
+          src={photoUrl}
+          alt=""
+          className="h-full w-full object-cover"
+          style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }}
+        />
+      )}
     </div>
   </div>
 );
