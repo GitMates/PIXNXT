@@ -16,6 +16,7 @@ import { downloadPhotoFromR2 } from '../../lib/downloadPhoto';
 import { GalleryStickyNav, GallerySetHeading, GallerySetDescription } from '../../components/features/Gallery/GalleryChrome';
 import './GalleryView.css';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
+import { normalizeNavigationStyle } from '../../lib/navStyle';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -287,6 +288,7 @@ const GalleryView = () => {
   };
 
   const effectiveSettings = getEffectiveSettings();
+  const navigationStyle = normalizeNavigationStyle(effectiveSettings.nav_style);
   const isGalleryDark = effectiveSettings.color_palette === 'dark';
 
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
@@ -470,7 +472,7 @@ const GalleryView = () => {
 
   return (
     <div
-      className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)}
+      className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`, `nav-style-${navigationStyle}`)}
       style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
       data-gallery-chrome="large"
     >
@@ -524,6 +526,7 @@ const GalleryView = () => {
         <Container className="max-w-none px-2 md:px-4 lg:px-4">
           <GalleryStickyNav
             isGalleryView
+            navigationStyle={navigationStyle}
             collectionTitle={collection.name}
             photographerName={photographer?.display_name}
             sets={(collection.sets || []).map((set) => ({ id: set.id, name: set.name }))}

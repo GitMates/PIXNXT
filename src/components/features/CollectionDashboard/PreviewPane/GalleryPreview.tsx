@@ -12,6 +12,7 @@ import { DownloadModal } from '../../Gallery/DownloadModal/DownloadModal';
 import { galleryService } from '../../../../services/gallery.service';
 import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
 import { GalleryStickyNav, GallerySetHeading, GallerySetDescription } from '../../Gallery/GalleryChrome';
+import { normalizeNavigationStyle } from '../../../../lib/navStyle';
 import './GalleryPreview.css';
 
 function normalizeFavoritePhotoId(id: string | number | null | undefined): string | null {
@@ -32,6 +33,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   isPreviewMobile = false,
 }) => {
   const { coverStyle, fontFamily, colorPalette, grid } = settings;
+  const navigationStyle = normalizeNavigationStyle(grid.navigation);
 
   const [showFavoriteModal, setShowFavoriteModal] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -406,16 +408,21 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         {renderCover()}
       </div>
 
-      <div className={cn(
-        'cd-preview-gallery-body',
-        `grid-style-${grid.style}`,
-        `grid-size-${grid.size}`,
-        `grid-spacing-${grid.spacing}`,
-        `nav-style-${grid.navigation}`,
-        `aspect-${grid.aspectRatio}`
-      )}>
+      <div
+        className={cn(
+          'cd-preview-gallery-body',
+          `grid-style-${grid.style}`,
+          `grid-size-${grid.size}`,
+          `grid-spacing-${grid.spacing}`,
+          `nav-style-${navigationStyle}`,
+          isPreviewMobile && 'cd-preview-gallery-body--mobile-frame',
+          `aspect-${grid.aspectRatio}`
+        )}
+      >
         <GalleryStickyNav
           isPreview
+          isPreviewMobile={isPreviewMobile}
+          navigationStyle={navigationStyle}
           collectionTitle={collectionTitle}
           photographerName={photographerName}
           sets={(dashboardState?.sets || []).map((s: any) => ({ id: s.id, name: s.name }))}

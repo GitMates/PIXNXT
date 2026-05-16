@@ -182,7 +182,6 @@ export const DividerCover: React.FC<CoverProps> = ({
         showSubtitle={false}
         showTitle={false}
         buttonClassName="transition-colors"
-        buttonStyle={{ backgroundColor: 'var(--gallery-accent)', color: 'var(--gallery-bg)', border: 'none' }}
       />
     </div>
   </div>
@@ -205,7 +204,6 @@ export const JournalCover: React.FC<CoverProps> = ({
         description={description}
         onViewGallery={onViewGallery}
         buttonClassName="transition-colors"
-        buttonStyle={{ backgroundColor: 'var(--gallery-accent)', color: 'var(--gallery-bg)', border: 'none' }}
       />
     </div>
   </div>
@@ -272,7 +270,15 @@ export const ClassicCover: React.FC<CoverProps> = ({
         />
         <button
           type="button"
-          className={cn('shrink-0 bg-white text-black tracking-[0.2em] uppercase hover:bg-gray-200 transition-colors', isPreview ? 'px-4 py-2 text-[8px]' : isGalleryView ? 'px-10 py-3.5 text-[10px]' : 'px-8 py-3 text-[9px]')}
+          className={cn(
+            'cover-text-grid__button view-gallery-btn shrink-0 tracking-[0.2em] uppercase transition-all duration-300 font-medium',
+            isPreview ? 'px-4 py-2 text-[8px]' : isGalleryView ? 'px-10 py-3.5 text-[10px]' : 'px-8 py-3 text-[9px]'
+          )}
+          style={{
+            backgroundColor: 'var(--gallery-accent)',
+            color: 'var(--gallery-bg)',
+            border: 'none',
+          }}
           onClick={onViewGallery}
         >
           VIEW GALLERY

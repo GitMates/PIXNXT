@@ -163,6 +163,19 @@
   font-style: normal;
 }
 
+/* VIEW GALLERY — uses active color theme (GalleryPreview + GalleryView) */
+.cover-text-grid__button.view-gallery-btn {
+  background-color: var(--gallery-accent);
+  color: var(--gallery-bg);
+  border: none;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.cover-text-grid__button.view-gallery-btn:hover {
+  filter: brightness(1.08);
+}
+
 /* Color Theme Variable Definitions */
 .theme-light {
   --gallery-bg: #ffffff;

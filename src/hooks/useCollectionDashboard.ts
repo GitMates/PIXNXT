@@ -127,7 +127,8 @@ export function useCollectionDashboard(collectionId: string | null) {
           size: collectionData.thumbnail_size || 'regular',
           spacing: collectionData.grid_spacing || 'regular',
           aspectRatio: collectionData.aspect_ratio || '3-2',
-          navigation: collectionData.navigation_style || 'icon'
+          navigation:
+            collectionData.nav_style === 'icons_labels' ? 'text' : 'icon'
         }
       });
 
@@ -214,7 +215,8 @@ export function useCollectionDashboard(collectionId: string | null) {
           thumbnail_size: designSettings.grid.size,
           grid_spacing: designSettings.grid.spacing,
           aspect_ratio: designSettings.grid.aspectRatio,
-          navigation_style: designSettings.grid.navigation
+          nav_style:
+            designSettings.grid.navigation === 'text' ? 'icons_labels' : 'icons'
         })
         .eq('id', collectionId);
 

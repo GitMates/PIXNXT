@@ -24,6 +24,14 @@ export const galleryChromeStyles = {
     setDescription:
       'gallery-chrome__set-description mx-auto max-w-2xl whitespace-pre-wrap text-[11px] font-light leading-relaxed tracking-wide md:text-[12px]',
     setDescriptionWrap: '-mx-6 border-b px-4 py-4 text-center md:px-6',
+    navInnerMobile: 'gallery-chrome__nav-inner gallery-chrome__nav-inner--mobile flex-col items-stretch gap-1.5 py-2 px-2',
+    navRowMobile: 'gallery-chrome__nav-row flex w-full min-w-0 items-center justify-between gap-2',
+    brandBlockMobile:
+      'gallery-chrome__brand gallery-chrome__brand--mobile min-w-0 flex-1 max-w-[58%] flex flex-col items-start',
+    tabsBlockMobile:
+      'gallery-chrome__tabs gallery-chrome__tabs--mobile w-full min-w-0 flex-nowrap items-center gap-3 overflow-x-auto no-scrollbar',
+    actionsBlockMobile:
+      'gallery-chrome__actions gallery-chrome__actions--mobile flex shrink-0 flex-row flex-nowrap items-center justify-end gap-1',
   },
   galleryView: {
     nav: 'gallery-sticky-nav gallery-sticky-nav--gallery-view',

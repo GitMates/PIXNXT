@@ -946,7 +946,7 @@ const CollectionDashboard = () => {
                     style: data.grid_style || 'vertical',
                     size: data.thumbnail_size || 'regular',
                     spacing: data.grid_spacing || 'regular',
-                    navigation: data.nav_style || 'icons'
+                    navigation: data.nav_style === 'icons_labels' ? 'text' : 'icon'
                 });
 
                 // Initialize download settings

@@ -53,13 +53,11 @@ export const CoverTextGrid: React.FC<CoverTextGridProps> = ({
   const dateOpacity = variant === 'vintage' ? 'opacity-70' : 'opacity-80';
   const descriptionOpacity = variant === 'vintage' ? 'opacity-60' : 'opacity-70';
 
-  const defaultButtonStyle: React.CSSProperties = isLight
-    ? { borderColor: '#fff', color: '#fff', backgroundColor: 'transparent' }
-    : {
-        borderColor: 'var(--gallery-text)',
-        color: 'var(--gallery-text)',
-        backgroundColor: 'transparent',
-      };
+  const defaultButtonStyle: React.CSSProperties = {
+    backgroundColor: 'var(--gallery-accent)',
+    color: 'var(--gallery-bg)',
+    border: 'none',
+  };
 
   return (
     <div
@@ -117,7 +115,7 @@ export const CoverTextGrid: React.FC<CoverTextGridProps> = ({
         <button
           type="button"
           className={cn(
-            'gallery-body-text border tracking-[0.2em] uppercase transition-all duration-300 font-medium',
+            'cover-text-grid__button view-gallery-btn gallery-body-text tracking-[0.2em] uppercase transition-all duration-300 font-medium',
             styles.button,
             buttonClassName
           )}

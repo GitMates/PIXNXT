@@ -2,6 +2,7 @@ import React from 'react';
 import { Heart, Download, Share2, Play } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
+import { NavigationStyleSetting } from '../../../../lib/navStyle';
 
 export interface GallerySetTab {
   id: string;
@@ -30,6 +31,9 @@ export interface GalleryStickyNavProps {
   onShareClick?: () => void;
   onSlideshowClick?: () => void;
   isDark?: boolean;
+  isPreviewMobile?: boolean;
+  /** icon = icons only; text = icons + labels */
+  navigationStyle?: NavigationStyleSetting;
   className?: string;
 }
 
@@ -55,12 +59,25 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   onShareClick,
   onSlideshowClick,
   isDark,
+  isPreviewMobile = false,
+  navigationStyle = 'icon',
   className,
 }) => {
   const variant = variantProp ?? getGalleryChromeVariant(isPreview, isGalleryView);
   const styles = galleryChromeStyles[variant];
   const isCompact = variant === 'preview';
+  const isMobilePreviewNav = isCompact && isPreviewMobile;
   const iconSize = styles.actionIcon;
+  const previewStyles = isCompact ? galleryChromeStyles.preview : null;
+
+  const showActionLabels = navigationStyle === 'text' && !isMobilePreviewNav;
+
+  const actionLabelClass = (labelClass: string) =>
+    cn(
+      labelClass,
+      'gallery-chrome__action-label',
+      showActionLabels ? (isCompact ? 'inline' : 'hidden md:inline') : 'sr-only'
+    );
 
   const visibleSets = sets
     .filter((s) => s.name?.toLowerCase() !== 'highlights')
@@ -77,7 +94,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
     <>
       <button
         type="button"
-        className={cn('group relative flex items-center', isCompact ? 'py-0' : 'py-2')}
+        className={cn('group relative flex shrink-0 items-center', isCompact ? 'py-0' : 'py-2')}
         onClick={() => onSetChange?.(null)}
       >
         <span className={tabButtonClass(!activeSetId)} style={{ color: 'var(--gallery-text)' }}>
@@ -94,7 +111,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           key={set.id}
           type="button"
-          className={cn('group relative flex items-center', isCompact ? 'py-0' : 'py-2')}
+          className={cn('group relative flex shrink-0 items-center', isCompact ? 'py-0' : 'py-2')}
           onClick={() => onSetChange?.(set.id)}
         >
           <span className={tabButtonClass(activeSetId === set.id)} style={{ color: 'var(--gallery-text)' }}>
@@ -117,7 +134,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           type="button"
           className={cn(
-            'flex items-center gap-1 md:gap-2 transition-opacity',
+            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
             isCompact ? 'opacity-60 hover:opacity-100' : 'hover:opacity-50',
             !isCompact && 'relative'
           )}
@@ -137,14 +154,14 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               )}
             </span>
           )}
-          <span className={cn(styles.action, isCompact ? 'hidden xl:inline' : 'hidden md:inline')}>Favorites</span>
+          <span className={actionLabelClass(styles.action)}>Favorites</span>
         </button>
       )}
       {showDownload && (
         <button
           type="button"
           className={cn(
-            'flex items-center gap-1 md:gap-2 transition-opacity',
+            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
             isCompact ? (isDownloadingAll ? 'opacity-100' : 'opacity-60 hover:opacity-100') : 'hover:opacity-50',
             !isCompact && isDownloadingAll && 'disabled:cursor-not-allowed disabled:opacity-40'
           )}
@@ -153,37 +170,50 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           style={{ color: 'var(--gallery-text)' }}
         >
           <Download size={iconSize} className={isDownloadingAll ? 'animate-bounce' : ''} />
-          <span className={cn(styles.action, isCompact ? 'hidden xl:inline' : 'hidden md:inline')}>{downloadLabel}</span>
+          <span className={actionLabelClass(styles.action)}>{downloadLabel}</span>
         </button>
       )}
       {showShare && (
         <button
           type="button"
           className={cn(
-            'flex items-center gap-1 md:gap-2 transition-opacity',
+            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
             isCompact ? 'opacity-60 hover:opacity-100' : 'hover:opacity-50'
           )}
           onClick={onShareClick}
           style={{ color: 'var(--gallery-text)' }}
         >
           <Share2 size={iconSize} />
-          <span className={cn(styles.action, isCompact ? 'hidden xl:inline' : 'hidden md:inline')}>Share</span>
+          <span className={actionLabelClass(styles.action)}>Share</span>
         </button>
       )}
       {showSlideshow && (
         <button
           type="button"
           className={cn(
-            'flex items-center gap-1 md:gap-2 transition-opacity',
+            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
             isCompact ? 'opacity-60 hover:opacity-100' : 'hover:opacity-50'
           )}
           onClick={onSlideshowClick}
           style={{ color: 'var(--gallery-text)' }}
         >
           <Play size={iconSize} fill="currentColor" />
-          <span className={cn(styles.action, isCompact ? 'hidden xl:inline' : 'hidden md:inline')}>Slideshow</span>
+          <span className={actionLabelClass(styles.action)}>Slideshow</span>
         </button>
       )}
+    </>
+  );
+
+  const renderBrand = () => (
+    <>
+      <span className={styles.brandTitle} style={{ color: 'var(--gallery-text)' }}>
+        {collectionTitle}
+      </span>
+      {photographerName ? (
+        <span className={styles.brandSubtitle} style={{ color: 'var(--gallery-meta-text)' }}>
+          {photographerName}
+        </span>
+      ) : null}
     </>
   );
 
@@ -197,20 +227,24 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
       )}
       style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 15%)' }}
     >
-      <div className={cn(styles.navInner, !isCompact && 'w-full')}>
-        {isCompact ? (
+      <div
+        className={cn(
+          isMobilePreviewNav && previewStyles ? previewStyles.navInnerMobile : styles.navInner,
+          !isCompact && 'w-full'
+        )}
+      >
+        {isMobilePreviewNav && previewStyles ? (
+          <>
+            <div className={previewStyles.navRowMobile}>
+              <div className={previewStyles.brandBlockMobile}>{renderBrand()}</div>
+              <div className={previewStyles.actionsBlockMobile}>{renderActions()}</div>
+            </div>
+            <div className={previewStyles.tabsBlockMobile}>{renderTabs()}</div>
+          </>
+        ) : isCompact ? (
           <>
             <div className={styles.navLeft}>
-              <div className={styles.brandBlock}>
-                <span className={styles.brandTitle} style={{ color: 'var(--gallery-text)' }}>
-                  {collectionTitle}
-                </span>
-                {photographerName ? (
-                  <span className={styles.brandSubtitle} style={{ color: 'var(--gallery-meta-text)' }}>
-                    {photographerName}
-                  </span>
-                ) : null}
-              </div>
+              <div className={styles.brandBlock}>{renderBrand()}</div>
               <div className={styles.tabsBlock}>{renderTabs()}</div>
             </div>
             <div className={styles.actionsBlock}>{renderActions()}</div>
@@ -218,16 +252,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         ) : (
           <>
             <div className={styles.navLeft}>
-              <div className={styles.brandBlock}>
-                <span className={styles.brandTitle} style={{ color: 'var(--gallery-text)' }}>
-                  {collectionTitle}
-                </span>
-                {photographerName ? (
-                  <span className={styles.brandSubtitle} style={{ color: 'var(--gallery-meta-text)' }}>
-                    {photographerName}
-                  </span>
-                ) : null}
-              </div>
+              <div className={styles.brandBlock}>{renderBrand()}</div>
               <div className={styles.tabsBlock}>{renderTabs()}</div>
             </div>
             <div className={styles.navRailSpacer} aria-hidden />

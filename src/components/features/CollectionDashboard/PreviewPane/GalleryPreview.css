@@ -784,22 +784,10 @@
     min-height: 280px;
 }
 
+/* Button colors live in index.css (.cover-text-grid__button.view-gallery-btn); sizes below for legacy layouts */
 .view-gallery-btn {
-    background-color: var(--gallery-accent) !important;
-    color: var(--gallery-bg) !important;
-    border: none;
-    padding: 12px 32px;
-    font-size: 13px;
     font-weight: 600;
-    letter-spacing: 1px;
-    cursor: pointer;
-    transition: all 0.2s ease;
     border-radius: 0;
-}
-
-.view-gallery-btn:hover {
-    filter: brightness(1.1);
-    transform: translateY(-1px);
 }
 
 /* Compact cover hero text — dashboard GalleryPreview only (not public /gallery) */
@@ -898,4 +886,72 @@
     padding-bottom: 0.75rem !important;
     margin-bottom: 0 !important;
     text-align: left !important;
+}
+
+/* Mobile preview frame only — stacked nav; desktop preview unchanged */
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__nav-inner--mobile {
+    flex-wrap: nowrap;
+    justify-content: flex-start !important;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__nav-row {
+    min-width: 0;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__brand {
+    max-width: 58%;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__tabs--mobile {
+    padding-top: 2px;
+    border-top: 1px solid var(--gallery-border);
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__actions,
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__actions--mobile {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.35rem !important;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__actions--mobile > button {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+}
+
+/* Navigation style — preview body */
+.cd-preview-gallery-body.nav-style-icon .gallery-chrome__action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+.cd-preview-gallery-body.nav-style-text:not(.cd-preview-gallery-body--mobile-frame) .gallery-chrome__action-label {
+    display: inline;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-body.nav-style-text .gallery-chrome__action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
 }
