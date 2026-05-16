@@ -7,7 +7,7 @@ const ParallaxProofing = () => {
     return (
         <section 
           className="relative min-h-[70vh] flex items-center py-24 md:py-32 bg-cover bg-center bg-no-repeat transition-all md:bg-fixed"
-          style={{ backgroundImage: "url('/image copy.png')" }}
+          style={{ backgroundImage: "url('/proofing-bg.png')" }}
         >
             {/* Dark Overlay */}
             <div className="absolute inset-0 z-10 bg-black/40" />

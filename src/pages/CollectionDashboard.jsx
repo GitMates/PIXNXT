@@ -185,6 +185,9 @@ const CollectionDashboard = () => {
     const [expiryEmailIncludePin, setExpiryEmailIncludePin] = useState(false);
     const [expiryEmailSendCopy, setExpiryEmailSendCopy] = useState(true);
     const [expiryEmailLists, setExpiryEmailLists] = useState([]); // ['downloaded', 'favorited', etc.]
+    const [whatsappEnabled, setWhatsappEnabled] = useState(false);
+    const [whatsappBody, setWhatsappBody] = useState('Hi, the gallery {collection.name} is expiring on {expiry.date}. View it here: {collection.url}');
+    const [toWhatsapp, setToWhatsapp] = useState('');
     const [showDynamicTextInfo, setShowDynamicTextInfo] = useState(false);
     const [backendActivityCounts, setBackendActivityCounts] = useState({
         contacts: 0,
@@ -845,7 +848,10 @@ const CollectionDashboard = () => {
                 body: expiryEmailBody,
                 include_pin: expiryEmailIncludePin,
                 send_copy: expiryEmailSendCopy,
-                activity_lists: expiryEmailLists
+                activity_lists: expiryEmailLists,
+                whatsapp_enabled: whatsappEnabled,
+                whatsapp_body: whatsappBody,
+                to_whatsapp: toWhatsapp
             };
 
             if (editingReminderId) {
@@ -893,6 +899,9 @@ const CollectionDashboard = () => {
         setExpiryEmailIncludePin(reminder.include_pin);
         setExpiryEmailSendCopy(reminder.send_copy);
         setExpiryEmailLists(reminder.activity_lists || []);
+        setWhatsappEnabled(reminder.whatsapp_enabled || false);
+        setWhatsappBody(reminder.whatsapp_body || '');
+        setToWhatsapp(reminder.to_whatsapp || '');
         setShowExpiryReminderModal(true);
     };
 
@@ -905,6 +914,9 @@ const CollectionDashboard = () => {
         setExpiryEmailIncludePin(false);
         setExpiryEmailSendCopy(true);
         setExpiryEmailLists([]);
+        setWhatsappEnabled(false);
+        setWhatsappBody('Hi, the gallery {collection.name} is expiring on {expiry.date}. View it here: {collection.url}');
+        setToWhatsapp('');
         setShowExpiryReminderModal(true);
     };
 
@@ -3523,8 +3535,7 @@ const CollectionDashboard = () => {
                                     </div>
                                     {showDynamicTextInfo && (
                                         <div className="section-content">
-                                            <p>Use these placeholders to automatically insert collection information:</p>
-                                            <ul>
+                                            <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0 0", display: "flex", flexDirection: "column", gap: "8px" }}>
                                                 <li><strong>{`{collection.name}`}</strong> - Name of the collection</li>
                                                 <li><strong>{`{expiry.date}`}</strong> - The date the collection expires</li>
                                                 <li><strong>{`{days.prior}`}</strong> - Number of days before expiry</li>
@@ -3547,8 +3558,58 @@ const CollectionDashboard = () => {
                                         </label>
                                     </div>
                                 </div>
-                            </div>
 
+                                <div className="whatsapp-section" style={{ marginTop: '32px', borderTop: '1px solid #eee', paddingTop: '24px' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+                                        <h3 style={{ fontSize: '14px', fontWeight: '600', color: '#111', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                                            WhatsApp Notification
+                                        </h3>
+                                        <label className="cd-switch" style={{ position: 'relative', display: 'inline-block', width: '36px', height: '20px', cursor: 'pointer' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={whatsappEnabled} 
+                                                onChange={(e) => setWhatsappEnabled(e.target.checked)} 
+                                                style={{ opacity: 0, width: 0, height: 0 }}
+                                            />
+                                            <span style={{ 
+                                                position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
+                                                backgroundColor: whatsappEnabled ? '#25D366' : '#ccc', 
+                                                transition: '.4s', borderRadius: '20px' 
+                                            }}></span>
+                                            <span style={{
+                                                position: 'absolute', height: '14px', width: '14px', left: whatsappEnabled ? '19px' : '3px', bottom: '3px',
+                                                backgroundColor: 'white', transition: '.4s', borderRadius: '50%'
+                                            }}></span>
+                                        </label>
+                                    </div>
+
+                                    {whatsappEnabled && (
+                                        <div className="whatsapp-details">
+                                            <div className="form-group" style={{ marginBottom: '16px' }}>
+                                                <label style={{ fontSize: '12px', fontWeight: '600', color: '#666', display: 'block', marginBottom: '8px' }}>Send to Phone Number:</label>
+                                                <input 
+                                                    type="text" 
+                                                    placeholder="e.g. +1234567890" 
+                                                    value={toWhatsapp}
+                                                    onChange={(e) => setToWhatsapp(e.target.value)}
+                                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px' }}
+                                                />
+                                                <p style={{ fontSize: '11px', color: '#888', marginTop: '4px' }}>Include country code. Multiple numbers separated by commas.</p>
+                                            </div>
+
+                                            <div className="form-group">
+                                                <label style={{ fontSize: '12px', fontWeight: '600', color: '#666', display: 'block', marginBottom: '8px' }}>WhatsApp Message:</label>
+                                                <textarea 
+                                                    value={whatsappBody}
+                                                    onChange={(e) => setWhatsappBody(e.target.value)}
+                                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #ddd', borderRadius: '4px', fontSize: '13px', height: '80px', resize: 'vertical' }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
                                 <div className="email-preview-pane">
                                     <div className="email-preview-container">
                                         <div className="email-preview-card">
