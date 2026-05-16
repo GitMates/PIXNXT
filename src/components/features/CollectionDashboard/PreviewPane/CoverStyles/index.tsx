@@ -1,320 +1,260 @@
 import React from 'react';
 import { CoverProps } from './CoverStyles.types';
 import { cn } from '../../../../../lib/utils';
+import { CoverTextGrid } from './CoverTextGrid';
 
-export const CenterCover: React.FC<CoverProps> = ({ title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, onViewGallery }) => (
+export const CenterCover: React.FC<CoverProps> = ({
+  title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
   <div className="relative h-[400px] w-full flex flex-col items-center justify-center overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
     {photoUrl && (
       <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />
     )}
-    <div className="relative z-10 flex flex-col items-center text-center px-6">
-      <div className={cn("tracking-[0.5em] uppercase opacity-80 font-medium", isPreview ? "text-[8px] mb-1" : "text-[10px] mb-2")} style={{ color: 'var(--gallery-text)' }}>{subtitle || 'GALLERY'}</div>
-      <h1 className={cn("gallery-heading leading-tight font-bold", isPreview ? "text-[20px] mb-1" : "text-[26px] mb-2")} style={{ color: 'var(--gallery-text)', textShadow: '0 1px 4px rgba(0,0,0,0.2)' }}>{title}</h1>
-      <div className={cn("tracking-[0.3em] uppercase opacity-80 font-medium", isPreview ? "text-[9px] mb-4" : "text-[11px] mb-6")} style={{ color: 'var(--gallery-text)' }}>{date}</div>
-      {description && (
-        <p className={cn("leading-relaxed opacity-70 max-w-lg whitespace-pre-wrap", isPreview ? "text-[10px] mb-4" : "text-[11px] mb-6")} style={{ color: 'var(--gallery-text)' }}>
-          {description}
-        </p>
-      )}
-      <button
-        className={cn("border tracking-[0.2em] uppercase transition-all duration-300 font-medium", isPreview ? "px-6 py-2 text-[9px]" : "px-8 py-3 text-[10px]")}
-        style={{ borderColor: 'var(--gallery-text)', color: 'var(--gallery-text)', backgroundColor: 'transparent' }}
-        onClick={onViewGallery}
-      >
-        VIEW GALLERY
-      </button>
-    </div>
+    <CoverTextGrid
+      variant="center"
+      isPreview={isPreview}
+      isGalleryView={isGalleryView}
+      title={title}
+      subtitle={subtitle}
+      date={date}
+      description={description}
+      onViewGallery={onViewGallery}
+      className="relative z-10 px-6"
+    />
   </div>
 );
 
-export const LeftCover: React.FC<CoverProps> = ({ title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, onViewGallery }) => (
-  <div className="relative h-[400px] w-full flex flex-col items-start justify-center overflow-hidden px-16" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
+export const LeftCover: React.FC<CoverProps> = ({
+  title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
+  <div className={cn('relative h-[400px] w-full flex flex-col justify-center overflow-hidden', isPreview ? 'px-8' : 'px-16')} style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
     {photoUrl && (
       <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />
     )}
-    <div className="relative z-10 flex flex-col items-start text-left max-w-lg">
-      <div className={cn("tracking-[0.5em] uppercase opacity-80 font-medium", isPreview ? "text-[8px] mb-1" : "text-[10px] mb-2")} style={{ color: 'var(--gallery-text)' }}>{subtitle || 'GALLERY'}</div>
-      <h1 className={cn("gallery-heading leading-tight font-bold", isPreview ? "text-[20px] mb-1" : "text-[26px] mb-2")} style={{ color: 'var(--gallery-text)', textShadow: '0 1px 4px rgba(0,0,0,0.2)' }}>{title}</h1>
-      <div className={cn("tracking-[0.3em] uppercase opacity-80 font-medium", isPreview ? "text-[9px] mb-4" : "text-[11px] mb-6")} style={{ color: 'var(--gallery-text)' }}>{date}</div>
-      {description && (
-        <p className={cn("leading-relaxed opacity-70 whitespace-pre-wrap", isPreview ? "text-[10px] mb-4" : "text-[11px] mb-6")} style={{ color: 'var(--gallery-text)' }}>
-          {description}
-        </p>
-      )}
-      <button
-        className={cn("border tracking-[0.2em] uppercase transition-all duration-300 font-medium", isPreview ? "px-6 py-2 text-[9px]" : "px-8 py-3 text-[10px]")}
-        style={{ borderColor: 'var(--gallery-text)', color: 'var(--gallery-text)', backgroundColor: 'transparent' }}
-        onClick={onViewGallery}
-      >
-        VIEW GALLERY
-      </button>
-    </div>
+    <CoverTextGrid
+      isPreview={isPreview}
+      isGalleryView={isGalleryView}
+      align="start"
+      title={title}
+      subtitle={subtitle}
+      date={date}
+      description={description}
+      onViewGallery={onViewGallery}
+      className="relative z-10 max-w-lg"
+    />
   </div>
 );
 
-export const NovelCover: React.FC<CoverProps> = ({ title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, onViewGallery }) => (
+export const NovelCover: React.FC<CoverProps> = ({
+  title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
   <div className="h-full min-h-[400px] w-full flex flex-col md:flex-row overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)' }}>
     <div
-      className={cn(
-        'flex flex-1 flex-col items-center justify-center text-center',
-        isPreview ? 'p-8' : 'p-12'
-      )}
+      className={cn('flex flex-1 flex-col items-center justify-center', isPreview ? 'p-6' : 'p-12')}
       style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
     >
-      <div
-        className={cn(
-          'uppercase opacity-60',
-          isPreview ? 'mb-2 text-[7px] tracking-[0.3em]' : 'mb-4 text-[9px] tracking-[0.3em]'
-        )}
-        style={{ color: 'var(--gallery-text)' }}
-      >
-        {subtitle || 'GALLERY'}
-      </div>
-      <h1
-        className={cn('gallery-heading', isPreview ? 'mb-3 text-lg' : 'mb-6 text-2xl')}
-        style={{ color: 'var(--gallery-text)' }}
-      >
-        {title}
-      </h1>
-      <div
-        className={cn(
-          'uppercase opacity-70',
-          isPreview ? 'mb-2 text-[8px] tracking-[0.2em]' : 'mb-4 text-[10px] tracking-[0.2em]'
-        )}
-        style={{ color: 'var(--gallery-text)' }}
-      >
-        {date}
-      </div>
-      {description && (
-        <p
-          className={cn(
-            'max-w-sm whitespace-pre-wrap leading-relaxed opacity-60',
-            isPreview ? 'mb-4 text-[9px]' : 'mb-8 text-[11px]'
-          )}
-          style={{ color: 'var(--gallery-text)' }}
-        >
-          {description}
-        </p>
-      )}
-      <button
-        type="button"
-        className={cn(
-          'border uppercase tracking-[0.2em] transition-all',
-          isPreview ? 'px-6 py-2 text-[9px]' : 'px-10 py-3 text-[10px]'
-        )}
-        style={{
-          borderColor: 'var(--gallery-text)',
-          color: 'var(--gallery-text)',
-          backgroundColor: 'transparent',
-        }}
-        onClick={onViewGallery}
-      >
-        VIEW GALLERY
-      </button>
+      <CoverTextGrid
+        isPreview={isPreview}
+        isGalleryView={isGalleryView}
+        title={title}
+        subtitle={subtitle}
+        date={date}
+        description={description}
+        onViewGallery={onViewGallery}
+      />
     </div>
     <div className="h-full min-h-[200px] flex-1 md:min-h-0">
       {photoUrl && (
-        <img
-          src={photoUrl}
-          alt=""
-          className="h-full w-full object-cover"
-          style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }}
-        />
+        <img src={photoUrl} alt="" className="h-full w-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />
       )}
     </div>
   </div>
 );
 
-export const VintageCover: React.FC<CoverProps> = ({ title, subtitle, date, description, photoUrl, focalX, focalY, onViewGallery }) => (
+export const VintageCover: React.FC<CoverProps> = ({
+  title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
   <div className="h-[400px] w-full flex flex-col md:flex-row overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
-    <div className="flex-1 h-full p-6">
-      <div className="w-full h-full border p-3 overflow-hidden" style={{ borderColor: 'var(--gallery-border)' }}>
+    <div className={cn('flex-1 h-full', isPreview ? 'p-4' : 'p-6')}>
+      <div className={cn('w-full h-full border overflow-hidden', isPreview ? 'p-2' : 'p-3')} style={{ borderColor: 'var(--gallery-border)' }}>
         {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover grayscale opacity-80" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
       </div>
     </div>
-    <div className="flex-1 flex flex-col items-center justify-center p-12">
-      <div className="text-[9px] tracking-[0.3em] uppercase opacity-60 mb-4" style={{ color: 'var(--gallery-text)' }}>{subtitle || 'GALLERY'}</div>
-      <h1 className="text-2xl mb-6 gallery-heading" style={{ color: 'var(--gallery-text)' }}>{title}</h1>
-      <div className="text-[10px] tracking-[0.2em] uppercase opacity-70 mb-4" style={{ color: 'var(--gallery-text)' }}>{date}</div>
-      {description && (
-        <p className="text-[11px] leading-relaxed opacity-60 mb-8 whitespace-pre-wrap" style={{ color: 'var(--gallery-text)' }}>
-          {description}
-        </p>
-      )}
-      <button
-        className="px-10 py-3 border text-[10px] tracking-[0.2em] uppercase transition-all"
-        style={{ borderColor: 'var(--gallery-text)', color: 'var(--gallery-text)', backgroundColor: 'transparent' }}
-        onClick={onViewGallery}
-      >
-        VIEW GALLERY
-      </button>
+    <div className={cn('flex-1 flex flex-col items-center justify-center', isPreview ? 'p-4' : 'p-12')}>
+      <CoverTextGrid
+        variant="vintage"
+        isPreview={isPreview}
+        isGalleryView={isGalleryView}
+        title={title}
+        subtitle={subtitle}
+        date={date}
+        description={description}
+        onViewGallery={onViewGallery}
+      />
     </div>
   </div>
 );
 
-export const FrameCover: React.FC<CoverProps> = ({ title, subtitle, date, description, photoUrl, focalX, focalY, onViewGallery }) => (
-  <div className="h-[400px] w-full flex items-center justify-center p-6" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+export const FrameCover: React.FC<CoverProps> = ({
+  title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
+  <div className={cn('h-[400px] w-full flex items-center justify-center', isPreview ? 'p-4' : 'p-6')} style={{ backgroundColor: 'var(--gallery-bg)' }}>
     <div className="relative w-full h-full flex items-center justify-center overflow-hidden" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
       {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
-      <div className="absolute inset-0 border-[16px] z-20 pointer-events-none" style={{ borderColor: 'var(--gallery-bg)' }}></div>
-      <div className="relative z-10 flex flex-col items-center justify-center w-full h-full p-8" style={{ backgroundColor: 'rgba(0,0,0,0.3)', color: '#fff' }}>
-        <div className="text-[9px] tracking-[0.3em] uppercase opacity-90 mb-3"> {subtitle || 'GALLERY'}</div>
-        <h1 className="text-2xl mb-4 gallery-heading">{title}</h1>
-        <div className="w-16 h-px bg-white/60 mb-4"></div>
-        <div className="text-[10px] tracking-[0.2em] uppercase opacity-90 mb-4">{date}</div>
-        {description && (
-          <p className="text-[10px] leading-relaxed opacity-80 mb-6 text-center max-w-xs whitespace-pre-wrap">
-            {description}
-          </p>
-        )}
-        <button
-          className="px-8 py-2 border border-white text-[9px] tracking-[0.2em] uppercase hover:bg-white hover:text-black transition-all"
-          onClick={onViewGallery}
-        >
-          VIEW GALLERY
-        </button>
+      <div className={cn('absolute inset-0 z-20 pointer-events-none border-[16px]', isPreview && 'border-[10px]')} style={{ borderColor: 'var(--gallery-bg)' }} />
+      <CoverTextGrid
+        variant="light"
+        isPreview={isPreview}
+        isGalleryView={isGalleryView}
+        title={title}
+        subtitle={subtitle}
+        date={date}
+        description={description}
+        onViewGallery={onViewGallery}
+        className={cn('relative z-10 flex w-full h-full items-center justify-center', isPreview ? 'p-4' : 'p-8')}
+        buttonClassName={isPreview ? undefined : 'hover:bg-white hover:text-black'}
+      >
+        <div className={cn('bg-white/60', isPreview ? 'w-10 h-px mb-2' : 'w-16 h-px mb-4')} />
+      </CoverTextGrid>
+    </div>
+  </div>
+);
+
+export const StripeCover: React.FC<CoverProps> = ({
+  title, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
+    <div className="relative h-[400px] w-full flex flex-col items-center justify-center overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
+      {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-50" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
+      <div className={cn('relative z-10 flex flex-col items-center backdrop-blur-sm border-y w-full max-w-3xl', isPreview ? 'px-6 py-6' : 'px-12 py-10')} style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'var(--gallery-border)' }}>
+        <div className={cn('bg-[var(--gallery-text)] opacity-70', isPreview ? 'w-12 h-px mb-3' : 'w-24 h-px mb-6')} />
+        <h1 className={cn('gallery-heading cover-text-grid__title text-center font-bold', isPreview ? 'mb-2' : isGalleryView ? 'text-4xl mb-7' : 'text-3xl mb-6')} style={{ color: 'var(--gallery-text)' }}>{title}</h1>
+        <div className={cn('bg-[var(--gallery-text)] opacity-70', isPreview ? 'w-12 h-px mb-3' : 'w-24 h-px mb-6')} />
+        <CoverTextGrid
+          isPreview={isPreview}
+        isGalleryView={isGalleryView}
+          title={title}
+          date={date}
+          description={description}
+          onViewGallery={onViewGallery}
+          showSubtitle={false}
+          showTitle={false}
+          className="!gap-0"
+        />
       </div>
     </div>
-  </div>
 );
 
-export const StripeCover: React.FC<CoverProps> = ({ title, date, description, photoUrl, focalX, focalY, onViewGallery }) => (
-  <div className="relative h-[400px] w-full flex flex-col items-center justify-center overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
-    {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-50" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
-    <div className="relative z-10 flex flex-col items-center px-12 py-10 backdrop-blur-sm border-y w-full max-w-3xl" style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'var(--gallery-border)' }}>
-      <div className="w-24 h-px mb-6" style={{ backgroundColor: 'var(--gallery-text)', opacity: 0.7 }}></div>
-      <h1 className="text-3xl mb-6 text-center gallery-heading" style={{ color: 'var(--gallery-text)' }}>{title}</h1>
-      <div className="w-24 h-px mb-6" style={{ backgroundColor: 'var(--gallery-text)', opacity: 0.7 }}></div>
-      <div className="text-[10px] tracking-[0.2em] uppercase opacity-80 mb-4" style={{ color: 'var(--gallery-text)' }}>{date}</div>
-      {description && (
-        <p className="text-[11px] leading-relaxed opacity-70 mb-8 text-center max-w-lg whitespace-pre-wrap" style={{ color: 'var(--gallery-text)' }}>
-          {description}
-        </p>
-      )}
-      <button
-        className="px-10 py-3 border text-[10px] tracking-[0.2em] uppercase transition-all"
-        style={{ borderColor: 'var(--gallery-text)', color: 'var(--gallery-text)', backgroundColor: 'transparent' }}
-        onClick={onViewGallery}
-      >
-        VIEW GALLERY
-      </button>
-    </div>
-  </div>
-);
-
-export const DividerCover: React.FC<CoverProps> = ({ title, subtitle, date, description, photoUrl, focalX, focalY, onViewGallery }) => (
+export const DividerCover: React.FC<CoverProps> = ({
+  title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
   <div className="relative h-[400px] w-full flex overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
     {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
-    <div className="absolute left-1/2 top-0 bottom-0 w-[1px] -translate-x-1/2 z-10" style={{ backgroundColor: 'var(--gallery-text)', opacity: 0.4 }}></div>
-    <div className="relative z-10 w-1/2 h-full flex flex-col items-center justify-center p-12 text-center">
-      <div className="text-[9px] tracking-[0.3em] uppercase opacity-80 mb-4" style={{ color: 'var(--gallery-text)' }}>{subtitle || 'GALLERY'}</div>
-      <h1 className="text-2xl gallery-heading" style={{ color: 'var(--gallery-text)' }}>{title}</h1>
+    <div className="absolute left-1/2 top-0 bottom-0 w-px -translate-x-1/2 z-10" style={{ backgroundColor: 'var(--gallery-text)', opacity: 0.4 }} />
+    <div className={cn('relative z-10 w-1/2 h-full flex flex-col items-center justify-center', isPreview ? 'p-6' : 'p-12')}>
+      <CoverTextGrid isPreview={isPreview} isGalleryView={isGalleryView} title={title} subtitle={subtitle} date={date} showDate={false} showDescription={false} showButton={false} />
     </div>
-    <div className="relative z-10 w-1/2 h-full flex flex-col items-center justify-center p-12 text-center">
-      <div className="text-[10px] tracking-[0.2em] uppercase opacity-80 mb-4" style={{ color: 'var(--gallery-text)' }}>{date}</div>
-      {description && (
-        <p className="text-[11px] leading-relaxed opacity-70 mb-8 whitespace-pre-wrap" style={{ color: 'var(--gallery-text)' }}>
-          {description}
-        </p>
-      )}
-      <button
-        className="px-8 py-3 text-[9px] tracking-[0.2em] uppercase transition-colors"
-        style={{ backgroundColor: 'var(--gallery-accent)', color: 'var(--gallery-bg)' }}
-        onClick={onViewGallery}
-      >
-        VIEW GALLERY
-      </button>
+    <div className={cn('relative z-10 w-1/2 h-full flex flex-col items-center justify-center', isPreview ? 'p-6' : 'p-12')}>
+      <CoverTextGrid
+        isPreview={isPreview}
+        isGalleryView={isGalleryView}
+        title=""
+        date={date}
+        description={description}
+        onViewGallery={onViewGallery}
+        showSubtitle={false}
+        showTitle={false}
+        buttonClassName="transition-colors"
+        buttonStyle={{ backgroundColor: 'var(--gallery-accent)', color: 'var(--gallery-bg)', border: 'none' }}
+      />
     </div>
   </div>
 );
 
-export const JournalCover: React.FC<CoverProps> = ({ title, subtitle, date, description, photoUrl, focalX, focalY, onViewGallery }) => (
-  <div className="h-[400px] w-full flex overflow-hidden p-8 gap-8 items-center justify-center" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+export const JournalCover: React.FC<CoverProps> = ({
+  title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
+  <div className={cn('h-[400px] w-full flex overflow-hidden items-center justify-center', isPreview ? 'p-4 gap-4' : 'p-8 gap-8')} style={{ backgroundColor: 'var(--gallery-bg)' }}>
     <div className="w-1/2 h-[90%] overflow-hidden shadow-sm" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
       {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
     </div>
-    <div className="w-1/2 flex flex-col items-center text-center p-8" style={{ color: 'var(--gallery-text)' }}>
-      <div className="text-[9px] tracking-[0.3em] uppercase mb-4 opacity-60">{subtitle || 'GALLERY'}</div>
-      <h1 className="text-2xl mb-6 gallery-heading">{title}</h1>
-      <div className="text-[10px] tracking-[0.2em] uppercase mb-4 opacity-60">{date}</div>
-      {description && (
-        <p className="text-[11px] leading-relaxed opacity-60 mb-8 whitespace-pre-wrap">
-          {description}
-        </p>
-      )}
-      <button
-        className="px-8 py-3 text-[9px] tracking-[0.2em] uppercase transition-colors"
-        style={{ backgroundColor: 'var(--gallery-accent)', color: 'var(--gallery-bg)' }}
-        onClick={onViewGallery}
-      >
-        VIEW GALLERY
-      </button>
+    <div className="w-1/2 flex flex-col items-center justify-center" style={{ color: 'var(--gallery-text)' }}>
+      <CoverTextGrid
+        isPreview={isPreview}
+        isGalleryView={isGalleryView}
+        title={title}
+        subtitle={subtitle}
+        date={date}
+        description={description}
+        onViewGallery={onViewGallery}
+        buttonClassName="transition-colors"
+        buttonStyle={{ backgroundColor: 'var(--gallery-accent)', color: 'var(--gallery-bg)', border: 'none' }}
+      />
     </div>
   </div>
 );
 
-export const StampCover: React.FC<CoverProps> = ({ title, subtitle, date, description, photoUrl, focalX, focalY, onViewGallery }) => (
-  <div className="h-[400px] w-full flex flex-col items-center justify-center p-12" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
-    <div className="w-48 h-48 overflow-hidden mb-8 shadow-sm" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
+export const StampCover: React.FC<CoverProps> = ({
+  title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
+  <div className={cn('h-[400px] w-full flex flex-col items-center justify-center', isPreview ? 'p-6' : 'p-12')} style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
+    <div className={cn('overflow-hidden shadow-sm mb-4', isPreview ? 'w-28 h-28' : 'w-48 h-48')} style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
       {photoUrl && <img src={photoUrl} alt="Preview" className="w-full h-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
     </div>
-    <div className="text-[9px] tracking-[0.3em] uppercase mb-3 opacity-60">{subtitle || 'GALLERY'}</div>
-    <h1 className="text-2xl mb-4 gallery-heading">{title}</h1>
-    <div className="text-[10px] tracking-[0.2em] mb-4 opacity-60">{date}</div>
-    {description && (
-      <p className="text-[10px] leading-relaxed opacity-60 mb-8 text-center max-w-xs whitespace-pre-wrap">
-        {description}
-      </p>
-    )}
-    <button
-      className="px-8 py-3 border text-[9px] tracking-[0.2em] uppercase transition-all"
-      style={{ borderColor: 'var(--gallery-accent)', color: 'var(--gallery-accent)', backgroundColor: 'transparent' }}
-      onClick={onViewGallery}
-    >
-      VIEW GALLERY
-    </button>
+    <CoverTextGrid
+      isPreview={isPreview}
+      isGalleryView={isGalleryView}
+      title={title}
+      subtitle={subtitle}
+      date={date}
+      description={description}
+      onViewGallery={onViewGallery}
+      buttonClassName="transition-all"
+      buttonStyle={{ borderColor: 'var(--gallery-accent)', color: 'var(--gallery-accent)', backgroundColor: 'transparent' }}
+    />
   </div>
 );
 
-export const OutlineCover: React.FC<CoverProps> = ({ title, subtitle, date, description, photoUrl, focalX, focalY, onViewGallery }) => (
-  <div className="relative h-[400px] w-full flex items-center justify-center overflow-hidden p-8" style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
+export const OutlineCover: React.FC<CoverProps> = ({
+  title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
+  <div className={cn('relative h-[400px] w-full flex items-center justify-center overflow-hidden', isPreview ? 'p-4' : 'p-8')} style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
     {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
-    <div className="relative z-10 w-full h-full max-w-2xl border-[2px] flex flex-col items-center justify-center p-12 bg-black/10 backdrop-blur-[2px]" style={{ borderColor: 'var(--gallery-text)' }}>
-      <div className="text-[9px] tracking-[0.4em] uppercase opacity-90 mb-4">{subtitle || 'GALLERY'}</div>
-      <h1 className="text-3xl mb-6 text-center gallery-heading">{title}</h1>
-      <div className="text-[10px] tracking-[0.2em] uppercase opacity-90 mb-4">{date}</div>
-      {description && (
-        <p className="text-[11px] leading-relaxed opacity-80 mb-8 text-center max-w-lg whitespace-pre-wrap">
-          {description}
-        </p>
-      )}
-      <button
-        className="px-10 py-3 border text-[10px] tracking-[0.2em] uppercase transition-all"
-        style={{ borderColor: 'var(--gallery-text)', color: 'var(--gallery-text)', backgroundColor: 'transparent' }}
-        onClick={onViewGallery}
-      >
-        VIEW GALLERY
-      </button>
+    <div className={cn('relative z-10 w-full h-full max-w-2xl border-[2px] flex flex-col items-center justify-center bg-black/10 backdrop-blur-[2px]', isPreview ? 'p-6' : 'p-12')} style={{ borderColor: 'var(--gallery-text)' }}>
+      <CoverTextGrid
+        isPreview={isPreview}
+        isGalleryView={isGalleryView}
+        title={title}
+        subtitle={subtitle}
+        date={date}
+        description={description}
+        onViewGallery={onViewGallery}
+      />
     </div>
   </div>
 );
 
-export const ClassicCover: React.FC<CoverProps> = ({ title, date, description, photoUrl, focalX, focalY, onViewGallery }) => (
+export const ClassicCover: React.FC<CoverProps> = ({
+  title, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
+}) => (
   <div className="relative h-[400px] w-full overflow-hidden" style={{ backgroundColor: 'var(--gallery-bg)', color: '#fff' }}>
     {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
-    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-10">
-      <div className="flex justify-between items-end w-full">
-        <div>
-          <h1 className="text-2xl mb-2 gallery-heading">{title}</h1>
-          <div className="text-[10px] tracking-[0.2em] uppercase opacity-80 mb-2">{date}</div>
-          {description && (
-            <p className="text-[11px] leading-relaxed opacity-70 max-w-md whitespace-pre-wrap">
-              {description}
-            </p>
-          )}
-        </div>
+    <div className={cn('absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end', isPreview ? 'p-5' : 'p-10')}>
+      <div className="flex justify-between items-end w-full gap-4">
+        <CoverTextGrid
+          variant="light"
+          isPreview={isPreview}
+          isGalleryView={isGalleryView}
+          title={title}
+          date={date}
+          description={description}
+          showSubtitle={false}
+          showButton={false}
+          align="start"
+          className="flex-1 min-w-0"
+        />
         <button
-          className="px-8 py-3 bg-white text-black text-[9px] tracking-[0.2em] uppercase hover:bg-gray-200 transition-colors"
+          type="button"
+          className={cn('shrink-0 bg-white text-black tracking-[0.2em] uppercase hover:bg-gray-200 transition-colors', isPreview ? 'px-4 py-2 text-[8px]' : isGalleryView ? 'px-10 py-3.5 text-[10px]' : 'px-8 py-3 text-[9px]')}
           onClick={onViewGallery}
         >
           VIEW GALLERY
@@ -323,5 +263,3 @@ export const ClassicCover: React.FC<CoverProps> = ({ title, date, description, p
     </div>
   </div>
 );
-
-

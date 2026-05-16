@@ -13,6 +13,8 @@ import { X, Mail, Share2, Download, Heart, Play } from 'lucide-react';
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadPhotoFromR2 } from '../../lib/downloadPhoto';
+import { GalleryStickyNav, GallerySetHeading, GallerySetDescription } from '../../components/features/Gallery/GalleryChrome';
+import './GalleryView.css';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
@@ -467,9 +469,13 @@ const GalleryView = () => {
   );
 
   return (
-    <div className={cn("min-h-screen transition-colors duration-500", `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)} style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
+    <div
+      className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)}
+      style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
+      data-gallery-chrome="large"
+    >
       {/* Hero Section */}
-      <div className="w-full h-[100dvh] [&>div]:!h-full">
+      <div className="gallery-view-hero w-full h-[100dvh] [&>div]:!h-full" data-cover-text-scale="large">
         {(() => {
           const activePhotoUrl = collection.cover_url || (collection.photos?.[0]?.web_url);
           let extractedFocalX = 50;
@@ -488,7 +494,8 @@ const GalleryView = () => {
             photoUrl: activePhotoUrl,
             focalX: collection.focal_x ?? extractedFocalX,
             focalY: collection.focal_y ?? extractedFocalY,
-            onViewGallery: scrollToGallery
+            onViewGallery: scrollToGallery,
+            isGalleryView: true,
           };
 
           const activeCoverStyle = effectiveSettings.cover_style;
@@ -515,146 +522,28 @@ const GalleryView = () => {
       {/* Main Gallery Content */}
       <main ref={galleryRef} className="pb-24 pt-0" style={{ backgroundColor: 'var(--gallery-bg)' }}>
         <Container className="max-w-none px-4 md:px-8 lg:px-12">
-          {/* Sticky bar — Pixieset-style: brand + sets + actions (Favorites, Download, Share, Slideshow) */}
-          <div
-            className={cn(
-              'sticky top-0 z-[40] -mx-4 md:-mx-8 lg:-mx-12 mb-6 px-4 md:px-8 lg:px-12 flex flex-col gap-5 py-4 md:py-5 transition-all duration-300 border-b backdrop-blur-md',
-              isGalleryDark ? 'border-white/10' : 'border-black/5'
-            )}
-            style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 15%)' }}
-          >
-            <div className="flex flex-col items-stretch gap-5 lg:flex-row lg:items-center lg:justify-between">
-              {/* Brand: event title + photographer */}
-              <div className="flex shrink-0 flex-col lg:min-w-[140px]">
-                <span
-                  className="font-serif text-2xl font-bold uppercase leading-none tracking-tight md:text-3xl"
-                  style={{ color: 'var(--gallery-text)' }}
-                >
-                  {collection.name}
-                </span>
-                {photographer?.display_name ? (
-                  <span
-                    className="mt-1 text-[9px] font-bold uppercase tracking-[0.28em] opacity-70"
-                    style={{ color: 'var(--gallery-meta-text)' }}
-                  >
-                    {photographer.display_name}
-                  </span>
-                ) : null}
-              </div>
-
-              {/* Set tabs */}
-              <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10 lg:flex-1">
-                <button type="button" className="group relative py-2" onClick={() => setActiveSetId(null)}>
-                  <span
-                    className={cn(
-                      'gallery-heading text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity',
-                      !activeSetId ? 'opacity-100' : 'opacity-45 hover:opacity-100'
-                    )}
-                    style={{ color: 'var(--gallery-text)' }}
-                  >
-                    Highlights
-                  </span>
-                  {!activeSetId && (
-                    <div
-                      className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
-                      style={{ backgroundColor: 'var(--gallery-text)' }}
-                    />
-                  )}
-                </button>
-                {(collection.sets || [])
-                  .filter((s) => s.name?.toLowerCase() !== 'highlights')
-                  .map((set) => (
-                    <button type="button" key={set.id} className="group relative py-2" onClick={() => setActiveSetId(set.id)}>
-                      <span
-                        className={cn(
-                          'gallery-heading text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity',
-                          activeSetId === set.id ? 'opacity-100' : 'opacity-45 hover:opacity-100'
-                        )}
-                        style={{ color: 'var(--gallery-text)' }}
-                      >
-                        {set.name}
-                      </span>
-                      {activeSetId === set.id && (
-                        <div
-                          className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
-                          style={{ backgroundColor: 'var(--gallery-text)' }}
-                        />
-                      )}
-                    </button>
-                  ))}
-              </div>
-
-              {/* Actions — order matches Pixieset */}
-              <div className="flex flex-wrap items-center justify-center gap-5 md:justify-end lg:min-w-[280px] xl:min-w-[340px]">
-                {collection?.favorites_enabled !== false && (
-                  <button
-                    type="button"
-                    onClick={() => handleFavoriteHeaderClick()}
-                    className="relative flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-50"
-                    style={{ color: 'var(--gallery-text)' }}
-                  >
-                    <span className="relative inline-flex">
-                      <Heart size={14} className={favoritedPhotos.length > 0 ? 'fill-current' : ''} />
-                      {favoritedPhotos.length > 0 && (
-                        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-[var(--gallery-bg)]" aria-hidden />
-                      )}
-                    </span>
-                    <span className="hidden md:inline">Favorites</span>
-                  </button>
-                )}
-                {collection?.downloads_enabled !== false && collection?.gallery_download_enabled !== false && (
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadClick()}
-                    disabled={isDownloadingAll}
-                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    style={{ color: 'var(--gallery-text)' }}
-                  >
-                    <Download size={14} className={isDownloadingAll ? 'animate-bounce' : ''} />
-                    <span className="hidden md:inline">
-                      {isDownloadingAll ? `${downloadProgress.done} / ${downloadProgress.total}` : 'Download'}
-                    </span>
-                  </button>
-                )}
-                {collection?.social_sharing_enabled !== false && (
-                  <button
-                    type="button"
-                    onClick={() => setShowShareModal(true)}
-                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-50"
-                    style={{ color: 'var(--gallery-text)' }}
-                  >
-                    <Share2 size={14} />
-                    <span className="hidden md:inline">Share</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleStartSlideshow}
-                  className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-50"
-                  style={{ color: 'var(--gallery-text)' }}
-                >
-                  <Play size={14} fill="currentColor" />
-                  <span className="hidden md:inline">Slideshow</span>
-                </button>
-              </div>
-            </div>
-          </div>
+          <GalleryStickyNav
+            isGalleryView
+            collectionTitle={collection.name}
+            photographerName={photographer?.display_name}
+            sets={(collection.sets || []).map((set) => ({ id: set.id, name: set.name }))}
+            activeSetId={activeSetId}
+            onSetChange={setActiveSetId}
+            showFavorites={collection?.favorites_enabled !== false}
+            showDownload={collection?.downloads_enabled !== false && collection?.gallery_download_enabled !== false}
+            showShare={collection?.social_sharing_enabled !== false}
+            favoritedCount={favoritedPhotos.length}
+            isDownloadingAll={isDownloadingAll}
+            downloadLabel={isDownloadingAll ? `${downloadProgress.done} / ${downloadProgress.total}` : 'Download'}
+            onFavoriteClick={handleFavoriteHeaderClick}
+            onDownloadClick={handleDownloadClick}
+            onShareClick={() => setShowShareModal(true)}
+            onSlideshowClick={handleStartSlideshow}
+            isDark={isGalleryDark}
+          />
 
           {setDescriptionText ? (
-            <div
-              className={cn(
-                '-mx-4 mb-6 border-b px-6 py-5 text-center md:-mx-8 md:px-12 md:py-6 lg:-mx-12 lg:px-12',
-                isGalleryDark ? 'border-white/10' : 'border-black/5'
-              )}
-              style={{ backgroundColor: 'var(--gallery-bg)' }}
-            >
-              <p
-                className="mx-auto max-w-3xl whitespace-pre-wrap text-base font-light leading-relaxed tracking-wide md:text-lg"
-                style={{ color: 'var(--gallery-text)' }}
-              >
-                {setDescriptionText}
-              </p>
-            </div>
+            <GallerySetDescription variant="galleryView" text={setDescriptionText} isDark={isGalleryDark} />
           ) : null}
 
           {/* Shared list view (link from favorites hub) */}
@@ -686,17 +575,10 @@ const GalleryView = () => {
           )}
 
           {!setDescriptionText &&
+            !isFavoriteListMode &&
             (() => {
               const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
-              const label = String(raw).toLowerCase();
-              return (
-                <p
-                  className="mb-8 text-center text-[11px] font-normal lowercase tracking-[0.35em] md:text-xs"
-                  style={{ color: 'var(--gallery-meta-text)' }}
-                >
-                  {label}
-                </p>
-              );
+              return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
             })()}
 
           {/* Flexible Gallery Grid */}

@@ -787,3 +787,93 @@
     filter: brightness(1.1);
     transform: translateY(-1px);
 }
+
+/* Compact cover hero text — dashboard GalleryPreview only (not public /gallery) */
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__subtitle {
+    font-size: 7px !important;
+    line-height: 1.2 !important;
+    margin-bottom: 4px !important;
+    letter-spacing: 0.35em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__title {
+    font-size: 14px !important;
+    line-height: 1.15 !important;
+    margin-bottom: 4px !important;
+    letter-spacing: 0.04em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__date {
+    font-size: 8px !important;
+    line-height: 1.2 !important;
+    margin-bottom: 8px !important;
+    letter-spacing: 0.2em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__description {
+    font-size: 8px !important;
+    line-height: 1.35 !important;
+    margin-bottom: 8px !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__button {
+    font-size: 7px !important;
+    padding: 4px 12px !important;
+    letter-spacing: 0.18em !important;
+}
+
+/* Stripe + any stray headings in the preview cover header */
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .gallery-heading {
+    font-size: 14px !important;
+    line-height: 1.15 !important;
+    margin-bottom: 6px !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header button {
+    font-size: 7px !important;
+    padding: 4px 12px !important;
+    letter-spacing: 0.18em !important;
+}
+
+/* Gallery chrome (nav + set heading) — dashboard preview only */
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__brand-title {
+    font-size: 11px !important;
+    line-height: 1.15 !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__brand-subtitle {
+    font-size: 6px !important;
+    letter-spacing: 0.14em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__tab,
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__action {
+    font-size: 7px !important;
+    letter-spacing: 0.12em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__nav-inner {
+    align-items: center;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__nav-left {
+    gap: 0.5rem !important;
+}
+
+@media (min-width: 768px) {
+    .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__nav-left {
+        gap: 0.75rem !important;
+    }
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__tabs {
+    align-items: center;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__set-heading {
+    font-size: 8px !important;
+    letter-spacing: 0.26em !important;
+    padding-top: 0.75rem !important;
+    padding-bottom: 0.75rem !important;
+    margin-bottom: 0 !important;
+}
