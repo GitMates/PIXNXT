@@ -75,7 +75,11 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
 
   const renderTabs = () => (
     <>
-      <button type="button" className={cn('group relative', isCompact ? 'py-1' : 'py-2')} onClick={() => onSetChange?.(null)}>
+      <button
+        type="button"
+        className={cn('group relative flex items-center', isCompact ? 'py-0' : 'py-2')}
+        onClick={() => onSetChange?.(null)}
+      >
         <span className={tabButtonClass(!activeSetId)} style={{ color: 'var(--gallery-text)' }}>
           Highlights
         </span>
@@ -90,7 +94,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           key={set.id}
           type="button"
-          className={cn('group relative', isCompact ? 'py-1' : 'py-2')}
+          className={cn('group relative flex items-center', isCompact ? 'py-0' : 'py-2')}
           onClick={() => onSetChange?.(set.id)}
         >
           <span className={tabButtonClass(activeSetId === set.id)} style={{ color: 'var(--gallery-text)' }}>
@@ -194,19 +198,18 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
       style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 15%)' }}
     >
       <div className={cn(styles.navInner, !isCompact && '-mx-4 md:-mx-8 lg:-mx-12')}>
-        <div className={styles.navLeft}>
-          <div className={styles.brandBlock}>
-            <span className={styles.brandTitle} style={{ color: 'var(--gallery-text)' }}>
-              {collectionTitle}
+        <div className={styles.brandBlock}>
+          <span className={styles.brandTitle} style={{ color: 'var(--gallery-text)' }}>
+            {collectionTitle}
+          </span>
+          {photographerName ? (
+            <span className={styles.brandSubtitle} style={{ color: 'var(--gallery-meta-text)' }}>
+              {photographerName}
             </span>
-            {photographerName ? (
-              <span className={styles.brandSubtitle} style={{ color: 'var(--gallery-meta-text)' }}>
-                {photographerName}
-              </span>
-            ) : null}
-          </div>
-          <div className={styles.tabsBlock}>{renderTabs()}</div>
+          ) : null}
         </div>
+        <div className={styles.tabsBlock}>{renderTabs()}</div>
+        <div className={styles.navRailSpacer} aria-hidden />
         <div className={styles.actionsBlock}>{renderActions()}</div>
       </div>
     </div>

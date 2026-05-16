@@ -152,6 +152,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
               {/\.(mp4|webm|ogg|mov)$/i.test(photo.filename || src || '') ? (
                 <video
                   src={src}
+                  poster={photo.thumbnail_url}
                   className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
                   style={{
                     objectFit: 'cover',
@@ -160,8 +161,8 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                   muted
                   loop
                   playsInline
-                  onMouseEnter={(e) => e.target.play().catch(() => {})}
-                  onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                  onMouseEnter={(e) => e.currentTarget.play().catch(() => {})}
+                  onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                 />
               ) : (
                 <img

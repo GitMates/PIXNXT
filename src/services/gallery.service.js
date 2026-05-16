@@ -296,17 +296,51 @@ export const galleryService = {
 
     // Get dimensions — only for non-video files (videos cannot use Image())
     let dimensions = { width: null, height: null };
-    if (!isVideo) {
+    let thumbnailBlob = null;
+
+    if (isVideo) {
+      // Capture first frame of video for thumbnail
+      thumbnailBlob = await new Promise((resolve) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+        video.onloadedmetadata = () => {
+          video.currentTime = 0.5; // Capture at 0.5s
+        };
+        video.onseeked = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0);
+          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.8);
+          URL.revokeObjectURL(video.src);
+        };
+        video.onerror = () => resolve(null);
+        video.src = URL.createObjectURL(file);
+      });
+    } else {
       dimensions = await new Promise((resolve) => {
         const img = new Image();
-        img.onload = () => resolve({ width: img.width, height: img.height });
+        img.onload = () => {
+          const result = { width: img.width, height: img.height };
+          URL.revokeObjectURL(img.src);
+          resolve(result);
+        };
         img.onerror = () => resolve({ width: 1500, height: 1000 }); // Fallback
         img.src = URL.createObjectURL(file);
       });
     }
 
-    // Upload to R2
+    // Upload original file to R2
     const { url: publicUrl } = await storageService.upload(filePath, file);
+    let thumbnailUrl = publicUrl;
+
+    // If video, upload the captured thumbnail as well
+    if (isVideo && thumbnailBlob) {
+      const thumbnailPath = filePath.replace(/\.[^.]+$/, '_thumb.jpg');
+      const { url: thumbUrl } = await storageService.upload(thumbnailPath, thumbnailBlob);
+      thumbnailUrl = thumbUrl;
+    }
 
     // Insert record into 'photos' table
     const { data: photoData, error: dbError } = await supabase
@@ -318,7 +352,7 @@ export const galleryService = {
         filename: file.name,
         full_url: publicUrl,
         web_url: publicUrl,
-        thumbnail_url: publicUrl,
+        thumbnail_url: thumbnailUrl,
         original_storage_path: filePath,
         size_bytes: file.size,
         width: dimensions.width,

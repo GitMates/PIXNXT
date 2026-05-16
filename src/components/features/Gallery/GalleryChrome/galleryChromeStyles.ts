@@ -5,10 +5,11 @@ export type GalleryChromeVariant = 'preview' | 'galleryView';
 export const galleryChromeStyles = {
   preview: {
     nav: 'gallery-sticky-nav gallery-sticky-nav--preview',
-    navInner: `${galleryChromeLayout.navInner} px-3 py-3 md:px-6 md:py-4 gap-2`,
+    navInner: `${galleryChromeLayout.navInner} px-3 py-3 md:px-6 md:py-4 gap-3 md:gap-4`,
     navLeft: `${galleryChromeLayout.navLeft} flex-row gap-3 md:gap-5`,
-    brandBlock: galleryChromeLayout.brandBlock,
-    tabsBlock: `${galleryChromeLayout.tabsBlock} gap-2 md:gap-3`,
+    brandBlock: `${galleryChromeLayout.brandBlock} shrink-0`,
+    tabsBlock: `${galleryChromeLayout.tabsBlock} shrink-0 gap-2 md:gap-3`,
+    navRailSpacer: galleryChromeLayout.navRailSpacer,
     actionsBlock: `${galleryChromeLayout.actionsBlock} gap-1.5 md:gap-2.5`,
     brandTitle:
       'gallery-chrome__brand-title text-[10px] md:text-[14px] font-serif font-bold uppercase leading-none tracking-tight truncate max-w-full',
@@ -25,10 +26,11 @@ export const galleryChromeStyles = {
   },
   galleryView: {
     nav: 'gallery-sticky-nav gallery-sticky-nav--gallery-view',
-    navInner: `${galleryChromeLayout.navInner} flex-col gap-5 px-4 py-4 sm:flex-row sm:gap-0 md:px-8 md:py-5 lg:px-12`,
+    navInner: `${galleryChromeLayout.navInner} flex-col gap-5 px-4 py-4 sm:flex-row sm:gap-4 md:px-8 md:py-5 lg:px-12`,
     navLeft: `${galleryChromeLayout.navLeft} flex-col gap-5 sm:flex-row sm:gap-10 md:gap-14 lg:gap-20`,
-    brandBlock: galleryChromeLayout.brandBlock,
-    tabsBlock: `${galleryChromeLayout.tabsBlock} gap-6 md:gap-10`,
+    brandBlock: `${galleryChromeLayout.brandBlock} shrink-0`,
+    tabsBlock: `${galleryChromeLayout.tabsBlock} shrink-0 gap-6 md:gap-10`,
+    navRailSpacer: galleryChromeLayout.navRailSpacer,
     actionsBlock: `${galleryChromeLayout.actionsBlock} gap-5 sm:gap-6 lg:gap-8`,
     brandTitle:
       'gallery-chrome__brand-title font-serif text-[1.75rem] font-bold uppercase leading-none tracking-tight md:text-3xl',

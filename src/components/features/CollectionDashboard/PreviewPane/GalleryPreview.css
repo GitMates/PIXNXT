@@ -871,18 +871,12 @@
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__nav-left {
-    align-items: flex-end !important;
+    align-items: center !important;
     gap: 0.5rem !important;
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__tabs {
-    align-items: flex-end !important;
-    padding-bottom: 0 !important;
-}
-
-.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__tabs button {
-    padding-top: 0 !important;
-    padding-bottom: 0 !important;
+    align-items: center !important;
 }
 
 @media (min-width: 768px) {
