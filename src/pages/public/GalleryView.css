@@ -61,7 +61,13 @@
 }
 
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__nav-left {
+    align-items: flex-end;
     gap: 2.5rem;
+}
+
+.gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__tabs {
+    align-items: flex-end;
+    padding-bottom: 0;
 }
 
 @media (min-width: 768px) {

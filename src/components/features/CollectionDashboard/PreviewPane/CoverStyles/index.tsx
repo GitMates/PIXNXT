@@ -27,21 +27,39 @@ export const CenterCover: React.FC<CoverProps> = ({
 export const LeftCover: React.FC<CoverProps> = ({
   title, subtitle, date, description, photoUrl, focalX, focalY, isPreview, isGalleryView, onViewGallery,
 }) => (
-  <div className={cn('relative h-[400px] w-full flex flex-col justify-center overflow-hidden', isPreview ? 'px-8' : 'px-16')} style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
-    {photoUrl && (
-      <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-60" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />
-    )}
-    <CoverTextGrid
-      isPreview={isPreview}
-      isGalleryView={isGalleryView}
-      align="start"
-      title={title}
-      subtitle={subtitle}
-      date={date}
-      description={description}
-      onViewGallery={onViewGallery}
-      className="relative z-10 max-w-lg"
-    />
+  <div
+    className="cover-left-layout flex h-[400px] min-h-[400px] w-full flex-row overflow-hidden"
+    style={{ backgroundColor: 'var(--gallery-bg)' }}
+  >
+    <div
+      className={cn(
+        'cover-left-layout__text flex w-1/2 min-w-0 flex-col items-center justify-center',
+        isPreview ? 'px-3 py-4' : 'px-12 py-10'
+      )}
+      style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
+    >
+      <CoverTextGrid
+        isPreview={isPreview}
+        isGalleryView={isGalleryView}
+        align="center"
+        title={title}
+        subtitle={subtitle}
+        date={date}
+        description={description}
+        onViewGallery={onViewGallery}
+        className="w-full max-w-full"
+      />
+    </div>
+    <div className="cover-left-layout__media relative w-1/2 min-w-0">
+      {photoUrl && (
+        <img
+          src={photoUrl}
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }}
+        />
+      )}
+    </div>
   </div>
 );
 
