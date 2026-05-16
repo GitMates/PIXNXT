@@ -6,4 +6,6 @@ export const galleryChromeLayout = {
   navRailSpacer: 'gallery-chrome__nav-rail-spacer hidden min-w-0 flex-1 sm:block',
   navLeft: 'gallery-chrome__nav-left flex items-center flex-1 min-w-0',
   navInner: 'gallery-chrome__nav-inner flex items-center w-full min-w-0',
+  navRight: 'gallery-chrome__nav-right flex shrink-0 flex-col items-end justify-center',
+  photographerCorner: 'gallery-chrome__photographer',
 } as const;

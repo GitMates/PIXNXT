@@ -3,7 +3,7 @@ import { motion as Motion } from 'framer-motion';
 import { Download, Heart } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 
-export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true, favoritedPhotoIds = [], showFilename = false, isPreviewMobile = false, forceShow = false }) {
+export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true, favoritedPhotoIds = [], showFilename = false, isPreviewMobile = false, forceShow = false, className }) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
@@ -83,43 +83,13 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
       className={cn(
         'w-full max-w-full min-w-0 masonry-grid-container',
         isHorizontal ? 'flex flex-wrap masonry-grid-horizontal items-start' : 'block masonry-grid-vertical',
-        isPreviewMobile && 'preview-mobile'
+        isPreviewMobile && 'preview-mobile',
+        className
       )}
       style={isHorizontal ? {
         gap: `${gap}px`,
       } : verticalColumnStyle}
     >
-      <style>
-        {`
-          .masonry-grid-vertical {
-            column-count: var(--desktop-columns, auto);
-          }
-          .masonry-grid-vertical.preview-mobile {
-            column-count: 2 !important;
-          }
-          @media (max-width: 1024px) {
-            .masonry-grid-vertical {
-              column-count: min(var(--desktop-columns, 3), 3) !important;
-            }
-          }
-          @media (max-width: 768px) {
-            .masonry-grid-vertical {
-              column-count: 2 !important;
-            }
-          }
-          @media (max-width: 480px) {
-            .masonry-grid-vertical {
-              column-count: 1 !important;
-            }
-          }
-          .masonry-grid-horizontal::after {
-            content: '';
-            flex-grow: 999999999;
-            min-width: 50%;
-            height: 0;
-          }
-        `}
-      </style>
       {photos.map((photo, index) => {
         const src = photo.full_url || photo.web_url || photo.thumbnail_url;
         const aspectRatio = (photo.width && photo.height)
@@ -161,7 +131,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                   muted
                   loop
                   playsInline
-                  onMouseEnter={(e) => e.currentTarget.play().catch(() => {})}
+                  onMouseEnter={(e) => e.currentTarget.play().catch(() => { })}
                   onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                 />
               ) : (

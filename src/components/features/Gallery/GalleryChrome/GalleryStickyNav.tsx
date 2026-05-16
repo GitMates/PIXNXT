@@ -197,20 +197,43 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
       )}
       style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 15%)' }}
     >
-      <div className={cn(styles.navInner, !isCompact && '-mx-4 md:-mx-8 lg:-mx-12')}>
-        <div className={styles.brandBlock}>
-          <span className={styles.brandTitle} style={{ color: 'var(--gallery-text)' }}>
-            {collectionTitle}
-          </span>
-          {photographerName ? (
-            <span className={styles.brandSubtitle} style={{ color: 'var(--gallery-meta-text)' }}>
-              {photographerName}
-            </span>
-          ) : null}
-        </div>
-        <div className={styles.tabsBlock}>{renderTabs()}</div>
-        <div className={styles.navRailSpacer} aria-hidden />
-        <div className={styles.actionsBlock}>{renderActions()}</div>
+      <div className={cn(styles.navInner, !isCompact && 'w-full')}>
+        {isCompact ? (
+          <>
+            <div className={styles.navLeft}>
+              <div className={styles.brandBlock}>
+                <span className={styles.brandTitle} style={{ color: 'var(--gallery-text)' }}>
+                  {collectionTitle}
+                </span>
+                {photographerName ? (
+                  <span className={styles.brandSubtitle} style={{ color: 'var(--gallery-meta-text)' }}>
+                    {photographerName}
+                  </span>
+                ) : null}
+              </div>
+              <div className={styles.tabsBlock}>{renderTabs()}</div>
+            </div>
+            <div className={styles.actionsBlock}>{renderActions()}</div>
+          </>
+        ) : (
+          <>
+            <div className={styles.navLeft}>
+              <div className={styles.brandBlock}>
+                <span className={styles.brandTitle} style={{ color: 'var(--gallery-text)' }}>
+                  {collectionTitle}
+                </span>
+                {photographerName ? (
+                  <span className={styles.brandSubtitle} style={{ color: 'var(--gallery-meta-text)' }}>
+                    {photographerName}
+                  </span>
+                ) : null}
+              </div>
+              <div className={styles.tabsBlock}>{renderTabs()}</div>
+            </div>
+            <div className={styles.navRailSpacer} aria-hidden />
+            <div className={styles.actionsBlock}>{renderActions()}</div>
+          </>
+        )}
       </div>
     </div>
   );

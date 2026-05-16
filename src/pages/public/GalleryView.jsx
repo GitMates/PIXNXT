@@ -521,7 +521,7 @@ const GalleryView = () => {
 
       {/* Main Gallery Content */}
       <main ref={galleryRef} className="pb-24 pt-0" style={{ backgroundColor: 'var(--gallery-bg)' }}>
-        <Container className="max-w-none px-4 md:px-8 lg:px-12">
+        <Container className="max-w-none px-2 md:px-4 lg:px-4">
           <GalleryStickyNav
             isGalleryView
             collectionTitle={collection.name}
@@ -603,6 +603,7 @@ const GalleryView = () => {
             customRowHeight={collection.thumbnail_size === 'large' ? 420 : collection.thumbnail_size === 'regular' ? 300 : collection.thumbnail_size === 'small' ? 200 : 140}
             customColumnCount={collection.thumbnail_size === 'large' ? 2 : collection.thumbnail_size === 'regular' ? 3 : 4}
             showFilename={collection?.show_filenames === true}
+            className="mt-2"
           />
         </Container>
       </main>

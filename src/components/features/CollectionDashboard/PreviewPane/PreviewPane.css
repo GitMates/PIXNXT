@@ -16,14 +16,18 @@
   flex-direction: column;
   padding: 60px 40px;
   overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
   height: 100%;
   align-items: center;
   scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 .cd-preview-workspace::-webkit-scrollbar {
   display: none;
+  width: 0;
+  height: 0;
 }
 
 .cd-preview-canvas {
@@ -37,7 +41,16 @@
   flex-direction: column;
   transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
   position: relative;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.cd-preview-canvas::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .cd-design-preview-pane.mobile .cd-preview-workspace {
@@ -52,8 +65,17 @@
   min-height: 667px;
   border-radius: 40px;
   border: 12px solid #1a1a1a;
+  overflow-x: hidden;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   flex: none;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-canvas::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .cd-preview-toolbar {

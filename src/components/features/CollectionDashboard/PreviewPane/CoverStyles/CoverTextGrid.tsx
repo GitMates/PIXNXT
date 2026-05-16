@@ -74,7 +74,7 @@ export const CoverTextGrid: React.FC<CoverTextGridProps> = ({
       {children}
       {showSubtitle && (
         <div
-          className={cn('uppercase font-medium', subtitleOpacity, styles.subtitle)}
+          className={cn('gallery-heading uppercase font-medium', subtitleOpacity, styles.subtitle)}
           style={{ color: textColor }}
         >
           {subtitle || 'GALLERY'}
@@ -82,7 +82,7 @@ export const CoverTextGrid: React.FC<CoverTextGridProps> = ({
       )}
       {showTitle && (
         <h1
-          className={cn('gallery-heading leading-tight font-bold', styles.title)}
+          className={cn('gallery-heading leading-tight', styles.title)}
           style={
             variant === 'center' && !isLight
               ? { color: textColor, textShadow: '0 1px 4px rgba(0,0,0,0.2)' }
@@ -94,7 +94,7 @@ export const CoverTextGrid: React.FC<CoverTextGridProps> = ({
       )}
       {showDate && (
         <div
-          className={cn('uppercase font-medium', dateOpacity, styles.date)}
+          className={cn('gallery-body-text uppercase font-medium', dateOpacity, styles.date)}
           style={{ color: textColor }}
         >
           {date}
@@ -103,7 +103,7 @@ export const CoverTextGrid: React.FC<CoverTextGridProps> = ({
       {showDescription && description && (
         <p
           className={cn(
-            'leading-relaxed whitespace-pre-wrap',
+            'gallery-body-text leading-relaxed whitespace-pre-wrap',
             descriptionOpacity,
             styles.description,
             align === 'center' ? 'max-w-lg' : 'max-w-md'
@@ -117,7 +117,7 @@ export const CoverTextGrid: React.FC<CoverTextGridProps> = ({
         <button
           type="button"
           className={cn(
-            'border tracking-[0.2em] uppercase transition-all duration-300 font-medium',
+            'gallery-body-text border tracking-[0.2em] uppercase transition-all duration-300 font-medium',
             styles.button,
             buttonClassName
           )}

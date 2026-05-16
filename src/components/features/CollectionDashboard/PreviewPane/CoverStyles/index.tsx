@@ -145,7 +145,7 @@ export const StripeCover: React.FC<CoverProps> = ({
       {photoUrl && <img src={photoUrl} alt="Preview" className="absolute inset-0 w-full h-full object-cover opacity-50" style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }} />}
       <div className={cn('relative z-10 flex flex-col items-center backdrop-blur-sm border-y w-full max-w-3xl', isPreview ? 'px-6 py-6' : 'px-12 py-10')} style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderColor: 'var(--gallery-border)' }}>
         <div className={cn('bg-[var(--gallery-text)] opacity-70', isPreview ? 'w-12 h-px mb-3' : 'w-24 h-px mb-6')} />
-        <h1 className={cn('gallery-heading cover-text-grid__title text-center font-bold', isPreview ? 'mb-2' : isGalleryView ? 'text-4xl mb-7' : 'text-3xl mb-6')} style={{ color: 'var(--gallery-text)' }}>{title}</h1>
+        <h1 className={cn('gallery-heading cover-text-grid__title text-center', isPreview ? 'mb-2' : isGalleryView ? 'text-4xl mb-7' : 'text-3xl mb-6')} style={{ color: 'var(--gallery-text)' }}>{title}</h1>
         <div className={cn('bg-[var(--gallery-text)] opacity-70', isPreview ? 'w-12 h-px mb-3' : 'w-24 h-px mb-6')} />
         <CoverTextGrid
           isPreview={isPreview}
