@@ -1143,5 +1143,42 @@ export const galleryService = {
       .eq('id', id);
 
     if (error) throw error;
-  }
+  },
+
+  /**
+   * Send a gallery share email from one visitor to another (public share modal).
+   */
+  async shareCollectionByEmail({ collectionSlug, recipientEmail, senderEmail, personalMessage }) {
+    const { data, error } = await supabase.functions.invoke('share-collection-email', {
+      body: {
+        collectionSlug,
+        recipientEmail,
+        senderEmail,
+        personalMessage,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Could not send email');
+    }
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+    return data;
+  },
+
+  /**
+   * Email history for photographer dashboard (visitor share emails).
+   */
+  async getCollectionShareEmailHistory(collectionId) {
+    const { data, error } = await supabase
+      .from('collection_share_emails')
+      .select('id, sender_email, recipient_email, subject, status, created_at')
+      .eq('collection_id', collectionId)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+    return data ?? [];
+  },
 };
