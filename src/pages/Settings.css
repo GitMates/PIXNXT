@@ -5,7 +5,7 @@
     padding: 40px 48px;
     height: 100vh;
     overflow-y: auto;
-    background-color: #fdfaf4;
+    background-color: #ffffff;
 }
 
 .set-header {
@@ -51,7 +51,7 @@
     left: 0;
     width: 100%;
     height: 2px;
-    background-color: #593116;
+    background-color: #111111;
 }
 
 .set-content {
@@ -89,7 +89,7 @@
 }
 
 .set-input-wrap {
-    background-color: #fdfaf4;
+    background-color: #ffffff;
     border-radius: 4px;
     height: 44px;
     display: flex;
@@ -124,13 +124,13 @@
 }
 
 .text-teal {
-    color: #593116;
+    color: #111111;
     cursor: pointer;
 }
 
 .set-rocket-pill {
-    background-color: #fdfaf4;
-    color: #593116;
+    background-color: #ffffff;
+    color: #111111;
     font-size: 10px;
     font-weight: 700;
     padding: 6px 12px;
@@ -143,7 +143,7 @@
 }
 
 .set-upgrade-box {
-    background-color: rgba(89, 49, 22, 0.04);
+    background-color: rgba(0, 0, 0, 0.04);
     border-radius: 8px;
     padding: 32px 40px;
     display: flex;
@@ -256,7 +256,7 @@
 }
 
 .teal-link {
-    color: #593116;
+    color: #111111;
 }
 
 .mt-2 {
@@ -384,7 +384,7 @@
 }
 
 .set-integration-card {
-    background-color: rgba(89, 49, 22, 0.04);
+    background-color: rgba(0, 0, 0, 0.04);
     display: flex;
     gap: 32px;
     padding: 48px;

@@ -5,4 +5,14 @@ export interface DashboardTopbarProps {
   onPreview: () => void;
   onShare: () => void;
   onBack: () => void;
+  /** When set, shows Pixieset-style "More" menu with collection actions */
+  moreMenu?: {
+    collectionId?: string | null;
+    collectionSlug?: string | null;
+    photographerId?: string | null;
+    eventDate?: string | null;
+    pinValue?: string;
+    clientPasswordDisplay?: string;
+    onOpenDownloadSettings?: () => void;
+  };
 }

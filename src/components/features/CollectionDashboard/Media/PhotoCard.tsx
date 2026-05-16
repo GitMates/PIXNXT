@@ -34,7 +34,26 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({
       onClick={onSelect}
     >
       <div className="cd-photo-card-inner">
-        <img src={photo.full_url} alt={photo.filename} loading="lazy" />
+        {photo.media_type === 'video' ? (
+          <video 
+            src={photo.full_url} 
+            className="cd-photo-video-thumb cd-photo-img"
+            preload="metadata"
+            muted
+            playsInline
+            onMouseEnter={(e) => {
+              const target = e.target as HTMLVideoElement;
+              target.play().catch(() => {});
+            }}
+            onMouseLeave={(e) => {
+              const target = e.target as HTMLVideoElement;
+              target.pause();
+              target.currentTime = 0;
+            }}
+          />
+        ) : (
+          <img src={photo.full_url} alt={photo.filename} loading="lazy" className="cd-photo-img" />
+        )}
       </div>
       
       {showFilename && (

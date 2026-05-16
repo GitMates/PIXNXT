@@ -11,6 +11,7 @@ interface SetModalProps {
   description: string;
   setDescription: (desc: string) => void;
   isSaving: boolean;
+  isHighlights?: boolean;
 }
 
 export const SetModal: React.FC<SetModalProps> = ({
@@ -22,7 +23,8 @@ export const SetModal: React.FC<SetModalProps> = ({
   setName,
   description,
   setDescription,
-  isSaving
+  isSaving,
+  isHighlights = false
 }) => {
   if (!isOpen) return null;
 
@@ -37,34 +39,43 @@ export const SetModal: React.FC<SetModalProps> = ({
         </div>
         
         <div className="cd-modal-body">
+          {isHighlights ? (
+            <div className="cd-form-group">
+              <label className="cd-form-label">Set Name</label>
+              <div style={{ padding: '10px 14px', background: '#f5f5f5', borderRadius: '4px', fontSize: '14px', color: '#555', border: '1px solid #e0e0e0' }}>
+                Highlights <span style={{ fontSize: '12px', color: '#999', marginLeft: '8px' }}>(fixed — cannot be renamed)</span>
+              </div>
+            </div>
+          ) : (
+            <div className="cd-form-group">
+              <label className="cd-form-label">Photo Set Name</label>
+              <input 
+                type="text" 
+                className="cd-form-input" 
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Ceremony, Portrait"
+                autoFocus
+              />
+            </div>
+          )}
           <div className="cd-form-group">
-            <label className="cd-form-label">Set Name</label>
-            <input 
-              type="text" 
-              className="cd-form-input" 
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Ceremony, Portrait"
-              autoFocus
-            />
-          </div>
-          <div className="cd-form-group">
-            <label className="cd-form-label">Description (Optional)</label>
+            <label className="cd-form-label">Description</label>
             <textarea 
               className="cd-form-input textarea" 
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Add a description for this set"
+              placeholder={isHighlights ? 'Add a description for the Highlights set (shown to clients)' : 'Add a description for this set'}
             />
           </div>
         </div>
 
         <div className="cd-modal-footer-actions">
           <button className="cd-modal-btn secondary" onClick={onClose}>Cancel</button>
-          <button 
-            className="cd-modal-btn primary" 
+          <button
+            className="cd-modal-btn primary"
             onClick={onSave}
-            disabled={isSaving || !name.trim()}
+            disabled={isSaving || (!isHighlights && !name.trim())}
           >
             {isSaving ? 'Saving...' : 'Save'}
           </button>

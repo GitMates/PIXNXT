@@ -16,6 +16,7 @@ import AuthPage from './pages/AuthPage';
 import { ProtectedRoute } from './components/features/Auth';
 import CollectionList from './pages/public/CollectionList';
 import GalleryView from './pages/public/GalleryView';
+import GalleryFavoritesHub from './pages/public/GalleryFavoritesHub';
 
 function App() {
   const location = useLocation();
@@ -73,6 +74,7 @@ function App() {
         
         {/* Public Gallery Routes */}
         <Route path="/collections" element={<CollectionList />} />
+        <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
         <Route path="/gallery/:slug" element={<GalleryView />} />
       </Routes>
 

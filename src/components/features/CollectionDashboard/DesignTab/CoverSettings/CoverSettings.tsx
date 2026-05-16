@@ -3,12 +3,15 @@ import { CoverSettingsProps } from './CoverSettings.types';
 import { COVER_STYLES } from '../../../../../constants/designOptions';
 import { cn } from '../../../../../lib/utils';
 
-export const CoverSettings: React.FC<CoverSettingsProps> = ({ 
-  selectedStyle, 
-  onChange, 
-  onOpenCoverModal, 
-  onOpenFocalModal 
+export const CoverSettings: React.FC<CoverSettingsProps> = ({
+  selectedStyle,
+  coverPhotoUrl,
+  onChange,
+  onOpenCoverModal,
+  onOpenFocalModal
 }) => {
+  const imageStyle = coverPhotoUrl ? { backgroundImage: `url(${coverPhotoUrl})` } : {};
+
   return (
     <div className="cd-design-settings-pane">
       <div className="cd-design-settings-header">
@@ -34,27 +37,17 @@ export const CoverSettings: React.FC<CoverSettingsProps> = ({
               onClick={() => onChange(style.id)}
             >
               <div className="cd-cover-card-preview">
-                <div className={cn('preview-placeholder', `style-${style.id}`)}>
-                  {style.id === 'none' ? (
-                    <div className="none-preview">/</div>
-                  ) : (
-                    <div className="preview-image-mock">
-                      <div className="preview-title-mock">TITLE</div>
-                    </div>
-                  )}
+                <div className={cn('preview-box', `style-${style.id}`)}>
+                  <div className="preview-content">
+                    <div className="preview-image" style={imageStyle}></div>
+                    {style.id === 'divider' && <div className="preview-image" style={imageStyle}></div>}
+                    <div className="preview-title">TITLE</div>
+                  </div>
                 </div>
               </div>
               <span className="cd-cover-card-name">{style.name}</span>
             </div>
           ))}
-          <div className="cd-cover-card cd-cover-more">
-            <div className="cd-cover-card-preview">
-              <div className="preview-placeholder more">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-              </div>
-            </div>
-            <span className="cd-cover-card-name">More</span>
-          </div>
         </div>
       </div>
     </div>

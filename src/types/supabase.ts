@@ -212,6 +212,7 @@ export type Database = {
           cover_url: string | null
           cover_video_embed: string | null
           created_at: string
+          description: string | null
           download_limit_contact: number | null
           download_limit_gallery: number | null
           download_pin_hash: string | null
@@ -224,6 +225,7 @@ export type Database = {
           folder_id: string | null
           font_family: string
           gallery_assist: boolean
+          gallery_photo_sort: string
           grid_spacing: Database["public"]["Enums"]["grid_spacing"]
           grid_style: Database["public"]["Enums"]["grid_style"]
           guest_password_hash: string | null
@@ -240,6 +242,7 @@ export type Database = {
           price_sheet_id: string | null
           privacy: Database["public"]["Enums"]["privacy_mode"]
           published_at: string | null
+          show_filenames: boolean
           show_on_homepage: boolean
           slug: string
           social_sharing_enabled: boolean
@@ -263,6 +266,7 @@ export type Database = {
           cover_url?: string | null
           cover_video_embed?: string | null
           created_at?: string
+          description?: string | null
           download_limit_contact?: number | null
           download_limit_gallery?: number | null
           download_pin_hash?: string | null
@@ -275,6 +279,7 @@ export type Database = {
           folder_id?: string | null
           font_family?: string
           gallery_assist?: boolean
+          gallery_photo_sort?: string
           grid_spacing?: Database["public"]["Enums"]["grid_spacing"]
           grid_style?: Database["public"]["Enums"]["grid_style"]
           guest_password_hash?: string | null
@@ -291,6 +296,7 @@ export type Database = {
           price_sheet_id?: string | null
           privacy?: Database["public"]["Enums"]["privacy_mode"]
           published_at?: string | null
+          show_filenames?: boolean
           show_on_homepage?: boolean
           slug: string
           social_sharing_enabled?: boolean
@@ -314,6 +320,7 @@ export type Database = {
           cover_url?: string | null
           cover_video_embed?: string | null
           created_at?: string
+          description?: string | null
           download_limit_contact?: number | null
           download_limit_gallery?: number | null
           download_pin_hash?: string | null
@@ -326,6 +333,7 @@ export type Database = {
           folder_id?: string | null
           font_family?: string
           gallery_assist?: boolean
+          gallery_photo_sort?: string
           grid_spacing?: Database["public"]["Enums"]["grid_spacing"]
           grid_style?: Database["public"]["Enums"]["grid_style"]
           guest_password_hash?: string | null
@@ -342,6 +350,7 @@ export type Database = {
           price_sheet_id?: string | null
           privacy?: Database["public"]["Enums"]["privacy_mode"]
           published_at?: string | null
+          show_filenames?: boolean
           show_on_homepage?: boolean
           slug?: string
           social_sharing_enabled?: boolean

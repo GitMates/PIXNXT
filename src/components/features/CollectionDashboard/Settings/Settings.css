@@ -1,0 +1,470 @@
+/* --- Unified Settings View (Full BG, No Card) --- */
+.cd-main-content {
+    background-color: #ffffff !important;
+    /* Force white background for the whole area */
+}
+
+.cd-general-settings-view {
+    padding: 0 0 100px 0 !important;
+    max-width: 100% !important;
+    background-color: transparent !important;
+    /* Inherit from main content */
+    min-height: 100%;
+}
+
+.cd-settings-content-header {
+    margin-bottom: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cd-settings-main-title {
+    font-size: 26px !important;
+    font-weight: 700 !important;
+    color: #111;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+}
+
+.cd-settings-main-title svg {
+    stroke: #bbb;
+}
+
+.activity-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* --- Settings Form Alignment --- */
+.cd-settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 36px !important;
+    /* Wider spacing between sections like in the image */
+}
+
+.settings-section {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.settings-label {
+    font-size: 14px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.settings-desc {
+    font-size: 13px;
+    color: #777;
+    line-height: 1.6;
+    margin: 4px 0 0 0;
+}
+
+.settings-desc.small {
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+.settings-link {
+    color: #111111;
+    cursor: pointer;
+    text-decoration: underline;
+}
+
+.settings-input-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+}
+
+.settings-input-wrapper.custom-dp {
+    border-radius: 4px;
+    overflow: visible;
+}
+
+.settings-input {
+    width: 100%;
+    height: 44px;
+    padding: 0 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    color: #333;
+}
+
+.settings-select-wrapper {
+    position: relative;
+    width: 100%;
+    max-width: 500px;
+}
+
+.settings-select {
+    width: 100%;
+    height: 44px;
+    padding: 0 16px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    appearance: none;
+    background-color: #ffffff;
+}
+
+.select-arrow {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+.cd-add-contact-btn,
+.settings-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: none;
+    color: #111111;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+
+.settings-toggle-section {
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-toggle-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    max-width: 500px;
+}
+
+.toggle-state-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #333;
+    text-transform: uppercase;
+    width: 24px;
+}
+
+.tab-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 4px;
+    border-radius: 4px;
+    background-color: #e6f3f1;
+    color: #111111;
+    margin-left: auto;
+}
+
+.tab-badge.off {
+    background-color: #f2f2f2;
+    color: #888;
+}
+
+/* --- Sidebar active state adjustment --- */
+.cd-sidebar-settings-header,
+.cd-sidebar-design-header {
+    padding: 24px 20px 12px 20px;
+}
+
+.cd-design-nav-item.active {
+    background-color: rgba(0, 0, 0, 0.06);
+    color: #111111;
+}
+
+.cd-design-nav-item.active svg {
+    stroke: #111111;
+}
+
+.cd-sidebar-settings-header,
+.cd-sidebar-design-header {
+    padding: 24px 20px 12px 20px;
+}
+
+/* --- Refined General Settings (No Card BG) --- */
+.cd-general-settings-view {
+    padding: 0 0 80px 0;
+    max-width: 900px;
+    background-color: #ffffff;
+    min-height: 100%;
+}
+
+.cd-settings-content-header {
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cd-settings-content-header.split {
+    margin-bottom: 20px;
+}
+
+.cd-settings-main-title {
+    font-size: 24px;
+    font-weight: 700;
+    color: #111;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+}
+
+.activity-link {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #666;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.activity-link:hover {
+    color: #111111;
+}
+
+/* --- Settings Navigation Tabs --- */
+.settings-tab-nav {
+    display: flex;
+    gap: 32px;
+    border-bottom: 1px solid #ebebeb;
+    margin-bottom: 32px;
+    margin-top: 16px;
+}
+
+.settings-tab-item {
+    padding: 12px 0;
+    font-size: 14px;
+    font-weight: 700;
+    color: #888;
+    cursor: pointer;
+    position: relative;
+    border-bottom: 2px solid transparent;
+    transition: color 0.2s;
+}
+
+.settings-tab-item:hover {
+    color: #111111;
+}
+
+.settings-tab-item.active {
+    color: #111111;
+    border-bottom-color: #111111;
+}
+
+/* --- Input Groups & Actions --- */
+.settings-input-wrapper.with-action {
+    display: flex;
+    gap: 12px;
+    max-width: 500px;
+}
+
+.input-action-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 0 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #111111;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.input-action-btn:hover {
+    border-color: #111111;
+    background-color: #f0fdf9;
+}
+
+.input-action-btn.no-icon {
+    padding: 0 20px;
+}
+
+/* --- Toggles Refinement --- */
+.cd-toggle {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.cd-toggle input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.cd-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #e5e5e5;
+    transition: .3s;
+    border-radius: 24px;
+}
+
+.cd-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .3s;
+    border-radius: 50%;
+}
+
+input:checked+.cd-toggle-slider {
+    background-color: #111111;
+}
+
+input:checked+.cd-toggle-slider:before {
+    transform: translateX(20px);
+}
+
+/* --- Checkboxes & Radios --- */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin: 8px 0;
+}
+
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.custom-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    cursor: pointer;
+}
+
+.radio-group-horizontal {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.custom-radio {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #555;
+    cursor: pointer;
+}
+
+.custom-radio input[type="radio"] {
+    accent-color: #111111;
+}
+
+/* --- Info Boxes (Privacy / Favorite / Store) --- */
+.settings-info-box {
+    display: flex;
+    gap: 16px;
+    padding: 24px;
+    background-color: rgba(0, 0, 0, 0.04);
+    border-radius: 4px;
+    border-left: 4px solid #111111;
+    margin-top: 24px;
+}
+
+.info-box-icon {
+    flex-shrink: 0;
+}
+
+.info-box-content {
+    flex: 1;
+}
+
+.info-box-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #333;
+    margin: 0 0 8px 0;
+}
+
+.info-box-text {
+    font-size: 13px;
+    color: #666;
+    line-height: 1.6;
+    margin: 0 0 12px 0;
+}
+
+.mt-12 {
+    margin-top: 12px;
+}
+
+.no-margin {
+    margin: 0;
+}
+
+/* --- Expanded Additional Options --- */
+.additional-options-panel {
+    background-color: #f9f9f9;
+    padding: 16px 20px;
+    border-radius: 4px;
+    margin-top: 16px;
+    border: 1px solid #eee;
+    max-width: 520px;
+}
+
+.indent-options {
+    margin-left: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #eee;
+}
+
+.settings-action-btn.secondary.active {
+    color: #111;
+}
+
+.settings-textarea {
+    resize: none;
+    line-height: 1.5;
+    font-family: inherit;
+}
+
+.advanced-settings-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+

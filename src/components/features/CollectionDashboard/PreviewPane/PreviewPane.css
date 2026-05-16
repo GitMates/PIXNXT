@@ -1,0 +1,1137 @@
+/* --- DESIGN PREVIEW PANE REWORK --- */
+.cd-design-preview-pane {
+    flex: 1;
+    background-color: rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    position: relative;
+}
+
+.cd-preview-workspace {
+    flex: 1;
+    overflow-y: auto;
+    padding: 60px;
+    display: flex;
+    flex-direction: column;
+    scrollbar-width: none;
+    /* Firefox */
+    align-items: center;
+}
+
+.cd-preview-workspace::-webkit-scrollbar {
+    display: none;
+    /* Chrome/Safari */
+}
+
+.cd-preview-canvas {
+    width: 100%;
+    max-width: 1100px;
+    background-color: #ffffff;
+    box-shadow: 0 40px 100px rgba(0, 0, 0, 0.1);
+    display: flex;
+    flex-direction: column;
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+/* Mobile Preview Mode Transitions */
+.cd-design-preview-pane.mobile .cd-preview-canvas {
+    max-width: 375px;
+    border-radius: 8px;
+    /* Subtle radius as per reference */
+    border: none;
+    /* No black frame */
+    aspect-ratio: 9/19.5;
+    height: auto;
+    margin: 0 auto;
+}
+
+.cd-preview-gallery-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.cd-preview-gallery-card::-webkit-scrollbar {
+    display: none;
+    /* Chrome/Safari */
+}
+
+.cd-preview-gallery-header {
+    width: 100%;
+    min-height: 450px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+}
+
+/* --- THE 12 COVER STYLE LAYOUTS --- */
+
+/* 1. CENTER */
+.style-center .header-center-layout {
+    width: 100%;
+    position: relative;
+}
+
+.style-center .header-overlay {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* 2. LEFT */
+.style-left .header-left-layout .header-content {
+    position: absolute;
+    bottom: 60px;
+    left: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+}
+
+/* 3. NOVEL */
+.style-novel .cd-preview-gallery-header {
+    display: flex;
+    height: 500px;
+    width: 100%;
+}
+
+.style-novel .header-left {
+    flex: 0 0 50%;
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    padding: 40px;
+    box-sizing: border-box;
+}
+
+.style-novel .header-right {
+    flex: 0 0 50%;
+    width: 50%;
+    position: relative;
+    overflow: hidden;
+}
+
+.style-novel .header-right img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* 4. VINTAGE */
+.header-bg-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.header-bg-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.header-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px;
+}
+
+/* 6. STRIPE */
+.style-stripe .header-overlay {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.style-stripe .stripe-line {
+    width: 100px;
+    height: 1.5px;
+    background-color: #ffffff;
+    margin: 20px auto;
+}
+
+/* 7. DIVIDER */
+.style-divider .header-divider-layout {
+    display: flex;
+    height: 500px;
+    width: 100%;
+}
+
+.style-divider .divider-left {
+    flex: 1;
+    border-right: 1px solid #eee;
+    position: relative;
+}
+
+.style-divider .divider-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+/* 8. JOURNAL */
+.style-journal .header-journal-layout {
+    display: flex;
+    height: 500px;
+    width: 100%;
+}
+
+.style-journal .journal-left {
+    flex: 1;
+    padding: 40px;
+}
+
+.style-journal .journal-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 9. STAMP */
+.style-stamp .header-stamp-layout {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    background-color: #ffffff;
+}
+
+.style-stamp .stamp-img {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-bottom: 30px;
+}
+
+/* 10. OUTLINE */
+.style-outline .header-outline-layout {
+    width: 100%;
+    padding: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.style-outline .outline-box {
+    border: 2px solid #111;
+    padding: 80px 40px;
+    text-align: center;
+    width: 100%;
+    max-width: 500px;
+}
+
+/* 11. CLASSIC */
+.style-classic .header-classic-layout {
+    width: 100%;
+    position: relative;
+    height: 500px;
+}
+
+/* 12. NONE */
+.style-none .cd-preview-gallery-header {
+    display: none;
+}
+
+/* REFINED TYPOGRAPHY */
+.h-super {
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: #888;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+}
+
+.h-title {
+    font-family: inherit;
+    font-size: 48px;
+    font-weight: 400;
+    color: #111;
+    margin-bottom: 20px;
+    line-height: 1.1;
+    word-break: break-word;
+}
+
+.style-novel .h-title {
+    font-size: 42px;
+}
+
+.h-date {
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #666;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+}
+
+/* PREVIEW TOOLBAR - Removed duplicate, see line 3293 */
+
+/* PREVIEW TOOL BUTTONS - Removed duplicate, see line 3307 */
+
+/* MOBILE RESPONSIVE OVERRIDES */
+.cd-design-preview-pane.mobile .h-title {
+    font-size: 42px;
+}
+
+.cd-design-preview-pane.mobile .style-novel .cd-preview-gallery-header {
+    flex-direction: column-reverse;
+    height: auto;
+}
+
+.cd-design-preview-pane.mobile .style-novel .header-left {
+    padding: 40px 20px;
+}
+
+.cd-design-preview-pane.mobile .style-novel .header-right {
+    height: 350px;
+}
+
+
+/* Sidebar Design Nav Item */
+.cd-sidebar-design-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.cd-sidebar-design-section .cd-design-nav-item {
+    margin-bottom: 0px;
+    border-bottom: 1px solid transparent;
+}
+
+.cd-design-nav-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 24px;
+    margin: 0;
+    border-radius: 0;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    color: #444;
+    transition: all 0.2s;
+}
+
+.cd-design-nav-item:hover {
+    background-color: #ffffff;
+    color: #111;
+}
+
+.cd-design-nav-item.active {
+    background-color: rgba(0, 0, 0, 0.06);
+    color: #111111;
+}
+
+.cd-design-nav-item svg {
+    stroke: currentColor;
+}
+
+.cd-sidebar-design-header {
+    padding: 24px 24px 12px 24px;
+}
+
+/* Sidebar Collapsed Polish */
+.sidebar-collapsed .cd-photos-label,
+.sidebar-collapsed .cd-design-nav-item span,
+.sidebar-collapsed .cd-set-name,
+.sidebar-collapsed .cd-add-set-btn,
+.sidebar-collapsed .cd-sidebar-photos-header,
+.sidebar-collapsed .cd-sidebar-design-header {
+    display: none;
+}
+
+.sidebar-collapsed .cd-design-nav-item {
+    padding: 12px 0;
+    justify-content: center;
+}
+
+.cd-sidebar {
+    overflow-x: hidden;
+}
+
+
+/* --- Preview Pane Layout --- */
+.cd-design-preview-pane {
+    flex: 1;
+    background-color: #f0f2f3;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    height: 100%;
+    position: relative;
+    /* Base for absolute toolbar */
+}
+
+.cd-preview-workspace {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 60px 40px;
+    overflow-y: auto;
+    position: relative;
+    height: 100%;
+}
+
+.cd-preview-canvas {
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.1);
+    background: #fff;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-workspace {
+    padding: 40px;
+    align-items: center;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-canvas {
+    max-width: 375px;
+    width: 375px;
+    height: 667px;
+    min-height: 667px;
+    border-radius: 40px;
+    border: 12px solid #1a1a1a;
+    overflow-y: auto;
+    flex: none;
+}
+
+.cd-preview-toolbar {
+    position: absolute;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #fff;
+    padding: 6px;
+    border-radius: 40px;
+    display: flex;
+    gap: 4px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12);
+    z-index: 1000;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.cd-preview-tool-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.cd-preview-tool-btn:hover {
+    color: #111;
+    background: #f5f5f5;
+}
+
+.cd-preview-tool-btn.active {
+    background: #111;
+    color: #fff;
+}
+
+/* --- Preview Gallery Styling --- */
+/* --- Grid Preview Implementation --- */
+.gallery-meta-bar {
+    padding: 60px 40px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--gallery-bg);
+}
+
+.collection-nav-mock {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.nav-item {
+    white-space: nowrap;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--gallery-text);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    cursor: pointer;
+    position: relative;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.hi-label {
+    font-size: 7px;
+    font-weight: 400;
+    color: #888;
+    margin-bottom: 2px;
+}
+
+.nav-item.active {
+    opacity: 1;
+}
+
+.nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: #fff;
+}
+
+.meta-right {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.meta-icon-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--gallery-text);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.meta-icon-item svg {
+    stroke: currentColor !important;
+}
+
+.meta-icon-item:hover {
+    color: #fff;
+}
+
+.gallery-preview-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Vertical (Masonry-style) */
+.cd-preview-gallery-body.grid-style-vertical .gallery-preview-grid {
+    display: block;
+    column-gap: var(--grid-gap, 12px);
+}
+
+.cd-preview-gallery-body.grid-style-vertical.grid-size-x-small .gallery-preview-grid {
+    column-count: 6;
+}
+
+.cd-preview-gallery-body.grid-style-vertical.grid-size-small .gallery-preview-grid {
+    column-count: 4;
+}
+
+.cd-preview-gallery-body.grid-style-vertical.grid-size-regular .gallery-preview-grid {
+    column-count: 3;
+}
+
+.cd-preview-gallery-body.grid-style-vertical.grid-size-large .gallery-preview-grid {
+    column-count: 2;
+}
+
+.cd-preview-gallery-body.grid-spacing-none .gallery-preview-grid {
+    gap: 0;
+    padding: 0;
+}
+
+.cd-preview-gallery-body.grid-spacing-small .gallery-preview-grid {
+    gap: 4px;
+    padding: 4px;
+}
+
+.cd-preview-gallery-body.grid-spacing-regular .gallery-preview-grid {
+    gap: 12px;
+    padding: 12px;
+}
+
+.cd-preview-gallery-body.grid-spacing-large .gallery-preview-grid {
+    gap: 24px;
+    padding: 24px;
+}
+
+.gallery-grid-item {
+    width: 100%;
+    margin-bottom: var(--grid-gap, 12px);
+    break-inside: avoid;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+}
+
+.gallery-grid-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.gallery-grid-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.gallery-grid-item:hover img {
+    transform: scale(1.05);
+}
+
+/* Hover Overlay */
+.item-hover-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transition: opacity 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gallery-grid-item:hover .item-hover-overlay {
+    opacity: 1;
+}
+
+.hover-top-right {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+}
+
+.heart-icon:hover {
+    fill: white;
+}
+
+/* Horizontal (Justified Row) */
+.cd-preview-gallery-body.grid-style-horizontal .gallery-preview-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--grid-gap, 12px);
+    justify-content: flex-start;
+}
+
+/* Prevent the last row from stretching to fill the entire width if it has too few items */
+.cd-preview-gallery-body.grid-style-horizontal .gallery-preview-grid::after {
+    content: '';
+    flex-grow: 999999999;
+    min-width: 50%;
+    height: 0;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal .gallery-grid-item {
+    margin-bottom: 0;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal .gallery-grid-item img {
+    width: auto;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Grid Size Variations for Horizontal - Controls Row Height */
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-x-small .gallery-grid-item {
+    height: 100px;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-small .gallery-grid-item {
+    height: 130px;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-regular .gallery-grid-item {
+    height: 160px;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-large .gallery-grid-item {
+    height: 240px;
+}
+
+/* Set Selector Mock */
+.set-selector-mock {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.set-selector-mock:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* --- PREVIEW HEADER LAYOUTS --- */
+.cd-preview-gallery-header {
+    min-height: 400px;
+    height: auto;
+    background-color: #ffffff;
+    overflow: hidden;
+}
+
+/* NOVEL (Split 50/50) */
+.style-novel .cd-preview-gallery-header {
+    display: flex;
+}
+
+/* CENTER (Centered Over Overlay) */
+.header-center-layout {
+    position: relative;
+    width: 100%;
+    height: 400px;
+}
+
+.header-bg-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.header-bg-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.header-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    text-align: center;
+}
+
+.header-overlay .h-title {
+    font-size: 80px;
+    color: #fff;
+}
+
+.header-overlay .h-date {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.header-overlay .view-gallery-btn {
+    border-color: #fff;
+    color: #fff;
+}
+
+/* LEFT (Left Bottom Aligned) */
+.header-left-layout {
+    position: relative;
+    width: 100%;
+    height: 400px;
+}
+
+.header-left-layout .header-content {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+    color: #fff;
+}
+
+.header-left-layout .h-title {
+    font-size: 60px;
+    margin-bottom: 10px;
+    color: #fff;
+}
+
+.header-left-layout .view-gallery-btn {
+    border-color: rgba(255, 255, 255, 0.5);
+    color: #fff;
+    float: right;
+    margin-top: -60px;
+}
+
+/* VINTAGE (Large Image Left, Content Right) */
+.header-vintage-layout {
+    display: flex;
+    height: 500px;
+}
+
+.header-vintage-layout .header-left {
+    flex: 1.5;
+    padding: 40px;
+}
+
+.vintage-img-box {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.vintage-img-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.header-vintage-layout .header-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* JOURNAL */
+.header-journal-layout {
+    display: flex;
+    height: 500px;
+}
+
+.journal-left {
+    flex: 1;
+    overflow: hidden;
+    border-right: 20px solid #fff;
+}
+
+.journal-left img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.journal-right {
+    flex: 1;
+    background-color: #ffffff;
+    display: flex;
+    align-items: center;
+    padding: 60px;
+}
+
+/* STRIPE */
+.header-stripe-layout {
+    position: relative;
+    height: 500px;
+    padding: 60px;
+}
+
+.header-stripe-layout .header-overlay {
+    background: none;
+    position: relative;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding-left: 80px;
+}
+
+.stripe-line {
+    width: 200px;
+    height: 1px;
+    background-color: #ffffff;
+    margin: 20px 0;
+}
+
+/* --- MOBILE PREVIEW MODE REFINEMENT --- */
+.cd-design-preview-pane.mobile .cd-preview-workspace {
+    padding: 20px;
+}
+
+/* --- COVER STYLE LAYOUT REFINEMENTS --- */
+
+/* STRIPE */
+.style-stripe .header-overlay {
+    background: none;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.style-stripe .stripe-line {
+    width: 120px;
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.8);
+    margin: 15px 0;
+}
+
+.style-stripe .h-title {
+    color: #fff;
+    font-size: 48px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* NOVEL */
+.style-novel .cd-preview-gallery-header {
+    background-color: #ffffff;
+}
+
+.style-novel .header-left {
+    background-color: #ffffff;
+    flex: 1;
+}
+
+.style-novel .h-title {
+    font-size: 64px;
+    color: #111;
+}
+
+/* VINTAGE */
+.style-vintage .cd-preview-gallery-header {
+    background-color: #f8f6f2;
+    /* Creamy background */
+}
+
+/* FRAME */
+.style-frame .cd-preview-gallery-header {
+    padding: 30px;
+    background-color: #ffffff;
+}
+
+.style-frame .header-bg-img {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border: 1px solid #ddd;
+    padding: 10px;
+}
+
+/* JOURNAL */
+.style-journal .journal-right {
+    background-color: #ffffff;
+    flex: 1;
+}
+
+/* Specific adjustments for mobile layouts in different styles */
+.cd-design-preview-pane.mobile .style-novel .cd-preview-gallery-header {
+    flex-direction: column-reverse;
+}
+
+.cd-design-preview-pane.mobile .style-novel .header-right {
+    height: 300px;
+}
+
+
+/* Photos Tab Synchronized Preview */
+.cd-photos-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    background-color: #fff;
+    width: 100%;
+}
+
+.cd-photos-preview-top {
+    width: 100%;
+    border-bottom: 1px solid #eee;
+    background-color: #fafafa;
+}
+
+.cd-photos-preview-top .cd-design-preview-pane {
+    height: auto;
+    background: transparent;
+}
+
+.cd-photos-preview-top .cd-preview-workspace {
+    padding: 0;
+}
+
+.cd-photos-preview-top .cd-preview-canvas {
+    box-shadow: none;
+    max-width: 100%;
+    border-radius: 0;
+}
+
+/* Hide toolbar in the top preview since we have icons on the grid */
+.cd-photos-preview-top .cd-preview-toolbar {
+    display: none;
+}
+
+/* Cover Image Toggle on Grid */
+.cd-photo-cover-toggle {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 3px;
+    display: flex;
+    gap: 2px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 20;
+    opacity: 0.9;
+    transition: opacity 0.2s;
+}
+
+.cd-photo-card:hover .cd-photo-cover-toggle {
+    opacity: 1;
+}
+
+.cd-photo-cover-toggle .toggle-icon {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    color: #666;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.cd-photo-cover-toggle .toggle-icon:hover {
+    background-color: #f0f0f0;
+    color: #111;
+}
+
+.cd-photo-cover-toggle .toggle-icon.active {
+    background-color: #111111;
+    color: #ffffff;
+}
+
+.cd-photo-card.is-cover {
+    border-color: #111 !important;
+}
+
+/* Email Preview Pane */
+.email-preview-pane {
+    flex: 1;
+    background-color: #f5f5f5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    overflow-y: auto;
+}
+
+.email-preview-container {
+    width: 100%;
+    max-width: 500px;
+}
+
+.email-preview-card {
+    background-color: #fff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
+    border-radius: 0;
+    overflow: hidden;
+}
+
+.email-preview-cover {
+    height: auto;
+    width: 100%;
+    margin-bottom: 30px;
+}
+
+.email-preview-cover img {
+    width: 100%;
+    height: auto;
+    max-height: 400px;
+    object-fit: cover;
+}
+
+.email-preview-content {
+    padding: 48px;
+    text-align: center;
+}
+
+.email-preview-photographer {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #999;
+    margin-bottom: 12px;
+}
+
+.email-preview-title {
+    font-size: 28px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    color: #111;
+    margin-bottom: 30px;
+}
+
+.email-preview-body {
+    text-align: left;
+    font-size: 15px;
+    line-height: 1.8;
+    color: #555;
+    margin-bottom: 40px;
+}
+
+.email-preview-body p {
+    margin-bottom: 16px;
+}
+
+.email-preview-view-btn {
+    display: inline-block;
+    background-color: #111;
+    color: #fff;
+    padding: 14px 40px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border: none;
+    cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+    .expiry-email-content {
+        flex-direction: column;
+    }
+
+    .email-editor-pane {
+        max-width: none;
+        height: 60%;
+        border-right: none;
+        border-bottom: 1px solid #eee;
+    }
+
+    .email-preview-pane {
+        height: 40%;
+    }
+}
+

@@ -9,6 +9,7 @@ import { DesignSettings, CoverStyleId, FontId, PaletteId, GridSettings as IGridS
 export const DesignTab: React.FC<DesignTabProps> = ({ 
   activeTab, 
   settings, 
+  coverPhotoUrl,
   onSettingsChange,
   onOpenCoverModal,
   onOpenFocalModal
@@ -34,6 +35,7 @@ export const DesignTab: React.FC<DesignTabProps> = ({
       {activeTab === 'cover' && (
         <CoverSettings 
           selectedStyle={settings.coverStyle} 
+          coverPhotoUrl={coverPhotoUrl}
           onChange={handleCoverChange}
           onOpenCoverModal={onOpenCoverModal}
           onOpenFocalModal={onOpenFocalModal}
