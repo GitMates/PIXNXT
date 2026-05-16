@@ -3627,7 +3627,7 @@ const CollectionDashboard = () => {
                                                     <p className="preview-greeting">Hi,</p>
                                                     {expiryEmailBody
                                                         .replace(/{collection.name}/g, collection?.name || 'WEDDING')
-                                                        .replace(/{expiry.date}/g, autoExpiry || 'MM/DD/YYYY')
+                                                        .replace(/{expiry.date}/g, autoExpiry ? `${new Date(autoExpiry).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at 11:59 PM` : 'MM/DD/YYYY at 11:59 PM')
                                                         .replace(/{days.prior}/g, expiryEmailTiming.split(' ')[0])
                                                         .replace(/{collection.url}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
                                                         .split('\n').map((line, i) => {
