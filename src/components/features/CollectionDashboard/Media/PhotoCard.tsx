@@ -37,16 +37,17 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({
         {photo.media_type === 'video' ? (
           <video 
             src={photo.full_url} 
+            poster={photo.thumbnail_url || undefined}
             className="cd-photo-video-thumb cd-photo-img"
             preload="metadata"
             muted
             playsInline
             onMouseEnter={(e) => {
-              const target = e.target as HTMLVideoElement;
+              const target = e.currentTarget as HTMLVideoElement;
               target.play().catch(() => {});
             }}
             onMouseLeave={(e) => {
-              const target = e.target as HTMLVideoElement;
+              const target = e.currentTarget as HTMLVideoElement;
               target.pause();
               target.currentTime = 0;
             }}

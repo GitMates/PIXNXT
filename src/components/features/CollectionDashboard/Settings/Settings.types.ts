@@ -30,6 +30,14 @@ export interface PrivacySettingsProps {
     setShowOnHomepage: (val: boolean) => void;
     clientExclusiveAccess: boolean;
     setClientExclusiveAccess: (val: boolean) => void;
+    clientPrivatePassword: string;
+    setClientPrivatePassword: (val: string) => void;
+    allowClientsMarkPrivate: boolean;
+    setAllowClientsMarkPrivate: (val: boolean) => void;
+    clientOnlyHighlights: boolean;
+    setClientOnlyHighlights: (val: boolean) => void;
+    clientOnlySets: import('../../ClientExclusiveAccess').ClientExclusiveSetOption[];
+    onSetClientOnlyChange: (setId: string, isClientOnly: boolean) => void;
 }
 
 export interface DownloadSettingsProps {

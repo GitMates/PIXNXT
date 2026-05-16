@@ -1,0 +1,959 @@
+/* GalleryPreview – in-dashboard live gallery (cover, nav, grid, cover style overrides) */
+.cd-preview-gallery-card {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+    overflow-y: auto;
+    scrollbar-width: none;
+    /* Firefox */
+}
+
+.cd-preview-gallery-card::-webkit-scrollbar {
+    display: none;
+    /* Chrome/Safari */
+}
+
+.cd-preview-gallery-header {
+    width: 100%;
+    min-height: 450px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+}
+
+/* --- THE 12 COVER STYLE LAYOUTS --- */
+
+/* 1. CENTER */
+.style-center .header-center-layout {
+    width: 100%;
+    position: relative;
+}
+
+.style-center .header-overlay {
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* 2. LEFT — split panel (matches LeftCover component) */
+.style-left .cd-preview-gallery-header {
+    display: flex;
+}
+
+.cd-preview-gallery-card.style-left .cover-left-layout__text {
+    box-sizing: border-box;
+}
+
+.cd-preview-gallery-card.style-left .cover-left-layout__text .cover-text-grid {
+    width: 100%;
+    align-items: center;
+    text-align: center;
+}
+
+.style-left .header-left-layout .header-content {
+    position: absolute;
+    bottom: 60px;
+    left: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+}
+
+/* 3. NOVEL */
+.style-novel .cd-preview-gallery-header {
+    display: flex;
+    height: 500px;
+    width: 100%;
+}
+
+.style-novel .header-left {
+    flex: 0 0 50%;
+    width: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    padding: 40px;
+    box-sizing: border-box;
+}
+
+.style-novel .header-right {
+    flex: 0 0 50%;
+    width: 50%;
+    position: relative;
+    overflow: hidden;
+}
+
+.style-novel .header-right img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* 4. VINTAGE */
+.header-bg-img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.header-bg-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.header-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px;
+}
+
+/* 6. STRIPE */
+.style-stripe .header-overlay {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.style-stripe .stripe-line {
+    width: 100px;
+    height: 1.5px;
+    background-color: #ffffff;
+    margin: 20px auto;
+}
+
+/* 7. DIVIDER */
+.style-divider .header-divider-layout {
+    display: flex;
+    height: 500px;
+    width: 100%;
+}
+
+.style-divider .divider-left {
+    flex: 1;
+    border-right: 1px solid #eee;
+    position: relative;
+}
+
+.style-divider .divider-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+/* 8. JOURNAL */
+.style-journal .header-journal-layout {
+    display: flex;
+    height: 500px;
+    width: 100%;
+}
+
+.style-journal .journal-left {
+    flex: 1;
+    padding: 40px;
+}
+
+.style-journal .journal-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 9. STAMP */
+.style-stamp .header-stamp-layout {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px;
+    background-color: #ffffff;
+}
+
+.style-stamp .stamp-img {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-bottom: 30px;
+}
+
+/* 10. OUTLINE */
+.style-outline .header-outline-layout {
+    width: 100%;
+    padding: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.style-outline .outline-box {
+    border: 2px solid #111;
+    padding: 80px 40px;
+    text-align: center;
+    width: 100%;
+    max-width: 500px;
+}
+
+/* 11. CLASSIC */
+.style-classic .header-classic-layout {
+    width: 100%;
+    position: relative;
+    height: 500px;
+}
+
+/* 12. NONE */
+.style-none .cd-preview-gallery-header {
+    display: none;
+}
+
+/* REFINED TYPOGRAPHY */
+.h-super {
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 4px;
+    color: #888;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+}
+
+.h-title {
+    font-family: inherit;
+    font-size: 48px;
+    font-weight: 400;
+    color: #111;
+    margin-bottom: 20px;
+    line-height: 1.1;
+    word-break: break-word;
+}
+
+.style-novel .h-title {
+    font-size: 42px;
+}
+
+.h-date {
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 2px;
+    color: #666;
+    margin-bottom: 40px;
+    text-transform: uppercase;
+}
+
+/* PREVIEW TOOLBAR - Removed duplicate, see line 3293 */
+
+/* PREVIEW TOOL BUTTONS - Removed duplicate, see line 3307 */
+
+/* MOBILE RESPONSIVE OVERRIDES */
+.cd-design-preview-pane.mobile .h-title {
+    font-size: 42px;
+}
+
+.cd-design-preview-pane.mobile .style-novel .cd-preview-gallery-header {
+    flex-direction: column-reverse;
+    height: auto;
+}
+
+.cd-design-preview-pane.mobile .style-novel .header-left {
+    padding: 40px 20px;
+}
+
+.cd-design-preview-pane.mobile .style-novel .header-right {
+    height: 350px;
+}
+/* --- Preview Gallery Styling --- */
+/* --- Grid Preview Implementation --- */
+.gallery-meta-bar {
+    padding: 60px 40px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    box-sizing: border-box;
+    background-color: var(--gallery-bg);
+}
+
+.collection-nav-mock {
+    display: flex;
+    align-items: center;
+    gap: 32px;
+}
+
+.nav-item {
+    white-space: nowrap;
+    font-size: 10px;
+    font-weight: 700;
+    color: var(--gallery-text);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    cursor: pointer;
+    position: relative;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+}
+
+.hi-label {
+    font-size: 7px;
+    font-weight: 400;
+    color: #888;
+    margin-bottom: 2px;
+}
+
+.nav-item.active {
+    opacity: 1;
+}
+
+.nav-item.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background: #fff;
+}
+
+.meta-right {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+
+.meta-icon-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--gallery-text);
+    cursor: pointer;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.meta-icon-item svg {
+    stroke: currentColor !important;
+}
+
+.meta-icon-item:hover {
+    color: #fff;
+}
+
+.gallery-preview-grid {
+    display: grid;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Vertical (Masonry-style) */
+.cd-preview-gallery-body.grid-style-vertical .gallery-preview-grid {
+    display: block;
+    column-gap: var(--grid-gap, 12px);
+}
+
+.cd-preview-gallery-body.grid-style-vertical.grid-size-x-small .gallery-preview-grid {
+    column-count: 6;
+}
+
+.cd-preview-gallery-body.grid-style-vertical.grid-size-small .gallery-preview-grid {
+    column-count: 4;
+}
+
+.cd-preview-gallery-body.grid-style-vertical.grid-size-regular .gallery-preview-grid {
+    column-count: 3;
+}
+
+.cd-preview-gallery-body.grid-style-vertical.grid-size-large .gallery-preview-grid {
+    column-count: 2;
+}
+
+.cd-preview-gallery-body.grid-spacing-none .gallery-preview-grid {
+    gap: 0;
+    padding: 0;
+}
+
+.cd-preview-gallery-body.grid-spacing-small .gallery-preview-grid {
+    gap: 4px;
+    padding: 4px;
+}
+
+.cd-preview-gallery-body.grid-spacing-regular .gallery-preview-grid {
+    gap: 12px;
+    padding: 12px;
+}
+
+.cd-preview-gallery-body.grid-spacing-large .gallery-preview-grid {
+    gap: 24px;
+    padding: 24px;
+}
+
+.gallery-grid-item {
+    width: 100%;
+    margin-bottom: var(--grid-gap, 12px);
+    break-inside: avoid;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+}
+
+.gallery-grid-item img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.gallery-grid-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.gallery-grid-item:hover img {
+    transform: scale(1.05);
+}
+
+/* Hover Overlay */
+.item-hover-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transition: opacity 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.gallery-grid-item:hover .item-hover-overlay {
+    opacity: 1;
+}
+
+.hover-top-right {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+}
+
+.heart-icon:hover {
+    fill: white;
+}
+
+/* Horizontal (Justified Row) */
+.cd-preview-gallery-body.grid-style-horizontal .gallery-preview-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--grid-gap, 12px);
+    justify-content: flex-start;
+}
+
+/* Prevent the last row from stretching to fill the entire width if it has too few items */
+.cd-preview-gallery-body.grid-style-horizontal .gallery-preview-grid::after {
+    content: '';
+    flex-grow: 999999999;
+    min-width: 50%;
+    height: 0;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal .gallery-grid-item {
+    margin-bottom: 0;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal .gallery-grid-item img {
+    width: auto;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* Grid Size Variations for Horizontal - Controls Row Height */
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-x-small .gallery-grid-item {
+    height: 100px;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-small .gallery-grid-item {
+    height: 130px;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-regular .gallery-grid-item {
+    height: 160px;
+}
+
+.cd-preview-gallery-body.grid-style-horizontal.grid-size-large .gallery-grid-item {
+    height: 240px;
+}
+
+/* Set Selector Mock */
+.set-selector-mock {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.set-selector-mock:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* --- PREVIEW HEADER LAYOUTS --- */
+.cd-preview-gallery-header {
+    min-height: 400px;
+    height: auto;
+    background-color: #ffffff;
+    overflow: hidden;
+}
+
+/* NOVEL (Split 50/50) */
+.style-novel .cd-preview-gallery-header {
+    display: flex;
+}
+
+/* CENTER (Centered Over Overlay) */
+.header-center-layout {
+    position: relative;
+    width: 100%;
+    height: 400px;
+}
+
+.header-bg-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+.header-bg-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.header-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.15);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    text-align: center;
+}
+
+.header-overlay .h-title {
+    font-size: 80px;
+    color: #fff;
+}
+
+.header-overlay .h-date {
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.header-overlay .view-gallery-btn {
+    border-color: #fff;
+    color: #fff;
+}
+
+/* LEFT (Left Bottom Aligned) */
+.header-left-layout {
+    position: relative;
+    width: 100%;
+    height: 400px;
+}
+
+.header-left-layout .header-content {
+    position: absolute;
+    bottom: 40px;
+    left: 40px;
+    color: #fff;
+}
+
+.header-left-layout .h-title {
+    font-size: 60px;
+    margin-bottom: 10px;
+    color: #fff;
+}
+
+.header-left-layout .view-gallery-btn {
+    border-color: rgba(255, 255, 255, 0.5);
+    color: #fff;
+    float: right;
+    margin-top: -60px;
+}
+
+/* VINTAGE (Large Image Left, Content Right) */
+.header-vintage-layout {
+    display: flex;
+    height: 500px;
+}
+
+.header-vintage-layout .header-left {
+    flex: 1.5;
+    padding: 40px;
+}
+
+.vintage-img-box {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
+.vintage-img-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.header-vintage-layout .header-right {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* JOURNAL */
+.header-journal-layout {
+    display: flex;
+    height: 500px;
+}
+
+.journal-left {
+    flex: 1;
+    overflow: hidden;
+    border-right: 20px solid #fff;
+}
+
+.journal-left img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.journal-right {
+    flex: 1;
+    background-color: #ffffff;
+    display: flex;
+    align-items: center;
+    padding: 60px;
+}
+
+/* STRIPE */
+.header-stripe-layout {
+    position: relative;
+    height: 500px;
+    padding: 60px;
+}
+
+.header-stripe-layout .header-overlay {
+    background: none;
+    position: relative;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: flex-start;
+    padding-left: 80px;
+}
+
+.stripe-line {
+    width: 200px;
+    height: 1px;
+    background-color: #ffffff;
+    margin: 20px 0;
+}
+
+/* --- MOBILE PREVIEW MODE REFINEMENT --- */
+.cd-design-preview-pane.mobile .cd-preview-workspace {
+    padding: 20px;
+}
+
+/* --- COVER STYLE LAYOUT REFINEMENTS --- */
+
+/* STRIPE */
+.style-stripe .header-overlay {
+    background: none;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+}
+
+.style-stripe .stripe-line {
+    width: 120px;
+    height: 1px;
+    background-color: rgba(255, 255, 255, 0.8);
+    margin: 15px 0;
+}
+
+.style-stripe .h-title {
+    color: #fff;
+    font-size: 48px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+/* NOVEL */
+.style-novel .cd-preview-gallery-header {
+    background-color: #ffffff;
+}
+
+.style-novel .header-left {
+    background-color: #ffffff;
+    flex: 1;
+}
+
+.style-novel .h-title {
+    font-size: 64px;
+    color: #111;
+}
+
+/* VINTAGE */
+.style-vintage .cd-preview-gallery-header {
+    background-color: #f8f6f2;
+    /* Creamy background */
+}
+
+/* FRAME */
+.style-frame .cd-preview-gallery-header {
+    padding: 30px;
+    background-color: #ffffff;
+}
+
+.style-frame .header-bg-img {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border: 1px solid #ddd;
+    padding: 10px;
+}
+
+/* JOURNAL */
+.style-journal .journal-right {
+    background-color: #ffffff;
+    flex: 1;
+}
+
+/* Specific adjustments for mobile layouts in different styles */
+.cd-design-preview-pane.mobile .style-novel .cd-preview-gallery-header {
+    flex-direction: column-reverse;
+}
+
+.cd-design-preview-pane.mobile .style-novel .header-right {
+    height: 300px;
+}
+
+/* Theme variables (from dashboard global tokens) */
+.cd-preview-gallery-card {
+    background-color: var(--gallery-bg) !important;
+    color: var(--gallery-text) !important;
+}
+
+.cd-preview-gallery-body {
+    background-color: var(--gallery-bg) !important;
+}
+
+/* Fill preview pane canvas frame */
+.cd-design-preview-pane:not(.mobile) .cd-preview-gallery-card {
+    min-height: 625px;
+}
+
+.cd-design-preview-pane:not(.mobile) .cd-preview-gallery-header {
+    min-height: 350px;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-header {
+    min-height: 280px;
+}
+
+/* Button colors live in index.css (.cover-text-grid__button.view-gallery-btn); sizes below for legacy layouts */
+.view-gallery-btn {
+    font-weight: 600;
+    border-radius: 0;
+}
+
+/* Compact cover hero text — dashboard GalleryPreview only (not public /gallery) */
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__subtitle {
+    font-size: 7px !important;
+    line-height: 1.2 !important;
+    margin-bottom: 4px !important;
+    letter-spacing: 0.35em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__title {
+    font-size: 14px !important;
+    line-height: 1.15 !important;
+    margin-bottom: 4px !important;
+    letter-spacing: 0.04em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__date {
+    font-size: 8px !important;
+    line-height: 1.2 !important;
+    margin-bottom: 8px !important;
+    letter-spacing: 0.2em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__description {
+    font-size: 8px !important;
+    line-height: 1.35 !important;
+    margin-bottom: 8px !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__button {
+    font-size: 7px !important;
+    padding: 4px 12px !important;
+    letter-spacing: 0.18em !important;
+}
+
+/* Stripe + any stray headings in the preview cover header */
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .gallery-heading {
+    font-size: 14px !important;
+    line-height: 1.15 !important;
+    margin-bottom: 6px !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header button {
+    font-size: 7px !important;
+    padding: 4px 12px !important;
+    letter-spacing: 0.18em !important;
+}
+
+/* Gallery chrome (nav + set heading) — dashboard preview only */
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__brand-title {
+    font-size: 11px !important;
+    line-height: 1.15 !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__brand-subtitle {
+    font-size: 6px !important;
+    letter-spacing: 0.14em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__tab,
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__action {
+    font-size: 7px !important;
+    letter-spacing: 0.12em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__nav-inner {
+    align-items: center;
+    justify-content: space-between !important;
+    gap: 0.35rem !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__nav-left {
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    gap: 0.5rem !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__actions {
+    flex: 0 0 auto;
+    flex-wrap: nowrap;
+    margin-left: auto;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__tabs {
+    align-items: center;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__set-heading {
+    font-size: 5px !important;
+    line-height: 1.15 !important;
+    letter-spacing: 0.16em !important;
+    padding-top: 0.125rem !important;
+    padding-bottom: 0.125rem !important;
+    margin-bottom: 0 !important;
+    text-align: left !important;
+    opacity: 0.65;
+}
+
+/* Mobile preview frame only — stacked nav; desktop preview unchanged */
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__nav-inner--mobile {
+    flex-wrap: nowrap;
+    justify-content: flex-start !important;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__nav-row {
+    min-width: 0;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__brand {
+    max-width: 58%;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__tabs--mobile {
+    padding-top: 2px;
+    border-top: 1px solid var(--gallery-border);
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__actions,
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__actions--mobile {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.35rem !important;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card .gallery-chrome__actions--mobile > button {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+}
+
+/* Navigation style — preview body */
+.cd-preview-gallery-body.nav-style-icon .gallery-chrome__action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}
+
+.cd-preview-gallery-body.nav-style-text:not(.cd-preview-gallery-body--mobile-frame) .gallery-chrome__action-label {
+    display: inline;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-body.nav-style-text .gallery-chrome__action-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+}

@@ -9,10 +9,28 @@ import { galleryService } from '../../services/gallery.service';
 import { cn } from '../../lib/utils';
 import { Container } from '../../components/ui/Container';
 import { Typography } from '../../components/ui/Typography';
-import { X, Mail, Share2, Link as LinkIcon, Download, Heart, Play } from 'lucide-react';
+import { X, Mail, Share2, Download, Heart, Play } from 'lucide-react';
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
+import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadPhotoFromR2 } from '../../lib/downloadPhoto';
+import { GalleryStickyNav, GallerySetHeading, GallerySetDescription } from '../../components/features/Gallery/GalleryChrome';
+import './GalleryView.css';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
+import { normalizeNavigationStyle } from '../../lib/navStyle';
+import {
+  isClientSessionActive,
+  setClientSessionActive,
+  isClientExclusiveEnabled,
+  filterPhotosForViewer,
+  filterSetsForViewer,
+  canViewHighlights,
+} from '../../lib/clientExclusiveAccess';
+import {
+  ClientExclusiveLoginModal,
+  ClientExclusiveToast,
+  ClientExclusiveClientBar,
+} from '../../components/features/ClientExclusiveAccess';
+import { clientExclusiveAccessService } from '../../services/clientExclusiveAccess.service';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -46,6 +64,10 @@ const GalleryView = () => {
   const [favoriteListPhotos, setFavoriteListPhotos] = useState([]);
   const [isFavoriteListMode, setIsFavoriteListMode] = useState(false);
   const [activeFavoriteList, setActiveFavoriteList] = useState(null);
+  const [isClientViewer, setIsClientViewer] = useState(false);
+  const [showClientLogin, setShowClientLogin] = useState(false);
+  const [privateToast, setPrivateToast] = useState(null);
+  const [privateToastThumb, setPrivateToastThumb] = useState(null);
 
   const refreshActiveFavoriteList = useCallback(async (sid) => {
     if (!sid) {
@@ -284,26 +306,11 @@ const GalleryView = () => {
   };
 
   const effectiveSettings = getEffectiveSettings();
+  const navigationStyle = normalizeNavigationStyle(effectiveSettings.nav_style);
   const isGalleryDark = effectiveSettings.color_palette === 'dark';
 
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
   const shareTitle = collection?.name || 'Collection';
-  const shareText = `Check out this collection: ${shareTitle}`;
-
-  const handleEmailShare = () => {
-    const subject = encodeURIComponent(shareTitle);
-    const body = encodeURIComponent(`${shareText}\n\n${shareUrl}`);
-    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
-  };
-
-  const handleWhatsAppShare = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`, '_blank');
-  };
-
-  const handleCopyLink = () => {
-    navigator.clipboard.writeText(shareUrl);
-    alert('Link copied to clipboard!');
-  };
 
   useEffect(() => {
     const fetchGallery = async () => {
@@ -317,6 +324,11 @@ const GalleryView = () => {
         }
 
         setCollection(data);
+        if (isClientExclusiveEnabled(data)) {
+          setIsClientViewer(isClientSessionActive(data.id));
+        } else {
+          setIsClientViewer(false);
+        }
 
         if (data.photographer_id) {
           const p = await galleryService.getPhotographerProfile(data.photographer_id);
@@ -421,12 +433,83 @@ const GalleryView = () => {
       : (collection.photos || []).filter((p) => !p.set_id);
   }, [collection, activeSetId, isFavoriteListMode, favoriteListPhotos]);
 
+  const visibleSets = useMemo(() => {
+    if (!collection?.sets) return [];
+    return filterSetsForViewer(collection.sets, collection, isClientViewer);
+  }, [collection, isClientViewer]);
+
   const filteredPhotos = useMemo(() => {
-    const base = photosForActiveSet;
+    let base = photosForActiveSet;
     if (!collection) return base;
+    if (isClientExclusiveEnabled(collection)) {
+      base = filterPhotosForViewer(
+        base,
+        collection,
+        isClientViewer,
+        activeSetId,
+        collection.sets || []
+      );
+    }
     const sortKey = normalizeGalleryPhotoSort(collection.gallery_photo_sort);
     return sortPhotosForGallery(base, sortKey);
-  }, [collection, photosForActiveSet]);
+  }, [collection, photosForActiveSet, isClientViewer, activeSetId]);
+
+  const handleTogglePhotoPrivate = useCallback(
+    async (photo) => {
+      if (!collection?.id) return;
+      if (!isClientViewer) {
+        setShowClientLogin(true);
+        return;
+      }
+      if (!collection.allow_clients_mark_private) return;
+
+      const nextPrivate = !photo.is_private;
+      try {
+        await clientExclusiveAccessService.setPhotoPrivate(photo.id, nextPrivate, collection.id);
+        setCollection((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            photos: (prev.photos || []).map((p) =>
+              p.id === photo.id ? { ...p, is_private: nextPrivate } : p
+            ),
+          };
+        });
+        setPrivateToastThumb(photo.thumbnail_url || photo.web_url || photo.full_url);
+        setPrivateToast(
+          nextPrivate ? 'This photo is now private.' : 'This photo is now visible to guests.'
+        );
+        window.setTimeout(() => setPrivateToast(null), 4000);
+      } catch (err) {
+        console.error('Failed to update photo privacy:', err);
+      }
+    },
+    [collection, isClientViewer]
+  );
+
+  const handleClientLoginSuccess = useCallback(() => {
+    if (!collection?.id) return;
+    setClientSessionActive(collection.id, true);
+    setIsClientViewer(true);
+    setShowClientLogin(false);
+  }, [collection?.id]);
+
+  const handleClientSignOut = useCallback(() => {
+    if (!collection?.id) return;
+    setClientSessionActive(collection.id, false);
+    setIsClientViewer(false);
+    if (!canViewHighlights(collection, false) && !activeSetId) {
+      const firstPublic = filterSetsForViewer(collection.sets || [], collection, false)[0];
+      if (firstPublic) setActiveSetId(firstPublic.id);
+    }
+  }, [collection, activeSetId]);
+
+  useEffect(() => {
+    if (!collection || !isClientExclusiveEnabled(collection)) return;
+    if (!canViewHighlights(collection, isClientViewer) && !activeSetId && visibleSets.length > 0) {
+      setActiveSetId(visibleSets[0].id);
+    }
+  }, [collection, isClientViewer, activeSetId, visibleSets]);
 
   /** Storytelling copy for the active tab (Highlights → collection.description; other sets → set.description). */
   const setDescriptionText = useMemo(() => {
@@ -482,9 +565,13 @@ const GalleryView = () => {
   );
 
   return (
-    <div className={cn("min-h-screen transition-colors duration-500", `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)} style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}>
+    <div
+      className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`, `nav-style-${navigationStyle}`)}
+      style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
+      data-gallery-chrome="large"
+    >
       {/* Hero Section */}
-      <div className="w-full h-[100dvh] [&>div]:!h-full">
+      <div className="gallery-view-hero w-full h-[100dvh] [&>div]:!h-full" data-cover-text-scale="large">
         {(() => {
           const activePhotoUrl = collection.cover_url || (collection.photos?.[0]?.web_url);
           let extractedFocalX = 50;
@@ -503,7 +590,8 @@ const GalleryView = () => {
             photoUrl: activePhotoUrl,
             focalX: collection.focal_x ?? extractedFocalX,
             focalY: collection.focal_y ?? extractedFocalY,
-            onViewGallery: scrollToGallery
+            onViewGallery: scrollToGallery,
+            isGalleryView: true,
           };
 
           const activeCoverStyle = effectiveSettings.cover_style;
@@ -529,147 +617,41 @@ const GalleryView = () => {
 
       {/* Main Gallery Content */}
       <main ref={galleryRef} className="pb-24 pt-0" style={{ backgroundColor: 'var(--gallery-bg)' }}>
-        <Container className="max-w-none px-4 md:px-8 lg:px-12">
-          {/* Sticky bar — Pixieset-style: brand + sets + actions (Favorites, Download, Share, Slideshow) */}
-          <div
-            className={cn(
-              'sticky top-0 z-[40] -mx-4 md:-mx-8 lg:-mx-12 mb-6 px-4 md:px-8 lg:px-12 flex flex-col gap-5 py-4 md:py-5 transition-all duration-300 border-b backdrop-blur-md',
-              isGalleryDark ? 'border-white/10' : 'border-black/5'
-            )}
-            style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 15%)' }}
-          >
-            <div className="flex flex-col items-stretch gap-5 lg:flex-row lg:items-center lg:justify-between">
-              {/* Brand: event title + photographer */}
-              <div className="flex shrink-0 flex-col lg:min-w-[140px]">
-                <span
-                  className="font-serif text-2xl font-bold uppercase leading-none tracking-tight md:text-3xl"
-                  style={{ color: 'var(--gallery-text)' }}
-                >
-                  {collection.name}
-                </span>
-                {photographer?.display_name ? (
-                  <span
-                    className="mt-1 text-[9px] font-bold uppercase tracking-[0.28em] opacity-70"
-                    style={{ color: 'var(--gallery-meta-text)' }}
-                  >
-                    {photographer.display_name}
-                  </span>
-                ) : null}
-              </div>
-
-              {/* Set tabs */}
-              <div className="flex flex-wrap items-center justify-center gap-6 md:gap-10 lg:flex-1">
-                <button type="button" className="group relative py-2" onClick={() => setActiveSetId(null)}>
-                  <span
-                    className={cn(
-                      'gallery-heading text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity',
-                      !activeSetId ? 'opacity-100' : 'opacity-45 hover:opacity-100'
-                    )}
-                    style={{ color: 'var(--gallery-text)' }}
-                  >
-                    Highlights
-                  </span>
-                  {!activeSetId && (
-                    <div
-                      className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
-                      style={{ backgroundColor: 'var(--gallery-text)' }}
-                    />
-                  )}
-                </button>
-                {(collection.sets || [])
-                  .filter((s) => s.name?.toLowerCase() !== 'highlights')
-                  .map((set) => (
-                    <button type="button" key={set.id} className="group relative py-2" onClick={() => setActiveSetId(set.id)}>
-                      <span
-                        className={cn(
-                          'gallery-heading text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity',
-                          activeSetId === set.id ? 'opacity-100' : 'opacity-45 hover:opacity-100'
-                        )}
-                        style={{ color: 'var(--gallery-text)' }}
-                      >
-                        {set.name}
-                      </span>
-                      {activeSetId === set.id && (
-                        <div
-                          className="absolute bottom-0 left-0 h-[1.5px] w-full origin-left scale-x-100"
-                          style={{ backgroundColor: 'var(--gallery-text)' }}
-                        />
-                      )}
-                    </button>
-                  ))}
-              </div>
-
-              {/* Actions — order matches Pixieset */}
-              <div className="flex flex-wrap items-center justify-center gap-5 md:justify-end lg:min-w-[280px] xl:min-w-[340px]">
-                {collection?.favorites_enabled !== false && (
-                  <button
-                    type="button"
-                    onClick={() => handleFavoriteHeaderClick()}
-                    className="relative flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-50"
-                    style={{ color: 'var(--gallery-text)' }}
-                  >
-                    <span className="relative inline-flex">
-                      <Heart size={14} className={favoritedPhotos.length > 0 ? 'fill-current' : ''} />
-                      {favoritedPhotos.length > 0 && (
-                        <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-[var(--gallery-bg)]" aria-hidden />
-                      )}
-                    </span>
-                    <span className="hidden md:inline">Favorites</span>
-                  </button>
-                )}
-                {collection?.downloads_enabled !== false && collection?.gallery_download_enabled !== false && (
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadClick()}
-                    disabled={isDownloadingAll}
-                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-50 disabled:cursor-not-allowed disabled:opacity-40"
-                    style={{ color: 'var(--gallery-text)' }}
-                  >
-                    <Download size={14} className={isDownloadingAll ? 'animate-bounce' : ''} />
-                    <span className="hidden md:inline">
-                      {isDownloadingAll ? `${downloadProgress.done} / ${downloadProgress.total}` : 'Download'}
-                    </span>
-                  </button>
-                )}
-                {collection?.social_sharing_enabled !== false && (
-                  <button
-                    type="button"
-                    onClick={() => setShowShareModal(true)}
-                    className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-50"
-                    style={{ color: 'var(--gallery-text)' }}
-                  >
-                    <Share2 size={14} />
-                    <span className="hidden md:inline">Share</span>
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleStartSlideshow}
-                  className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity hover:opacity-50"
-                  style={{ color: 'var(--gallery-text)' }}
-                >
-                  <Play size={14} fill="currentColor" />
-                  <span className="hidden md:inline">Slideshow</span>
-                </button>
-              </div>
+        <Container className="max-w-none px-2 md:px-4 lg:px-4">
+          {isClientExclusiveEnabled(collection) && isClientViewer ? (
+            <ClientExclusiveClientBar onSignOut={handleClientSignOut} />
+          ) : null}
+          {isClientExclusiveEnabled(collection) && !isClientViewer ? (
+            <div className="cea-client-bar" style={{ justifyContent: 'flex-end' }}>
+              <button type="button" onClick={() => setShowClientLogin(true)}>
+                Client login
+              </button>
             </div>
-          </div>
+          ) : null}
+          <GalleryStickyNav
+            isGalleryView
+            navigationStyle={navigationStyle}
+            collectionTitle={collection.name}
+            photographerName={photographer?.display_name}
+            sets={visibleSets.map((set) => ({ id: set.id, name: set.name }))}
+            showHighlightsTab={canViewHighlights(collection, isClientViewer)}
+            activeSetId={activeSetId}
+            onSetChange={setActiveSetId}
+            showFavorites={collection?.favorites_enabled !== false}
+            showDownload={collection?.downloads_enabled !== false && collection?.gallery_download_enabled !== false}
+            showShare={collection?.social_sharing_enabled !== false}
+            favoritedCount={favoritedPhotos.length}
+            isDownloadingAll={isDownloadingAll}
+            downloadLabel={isDownloadingAll ? `${downloadProgress.done} / ${downloadProgress.total}` : 'Download'}
+            onFavoriteClick={handleFavoriteHeaderClick}
+            onDownloadClick={handleDownloadClick}
+            onShareClick={() => setShowShareModal(true)}
+            onSlideshowClick={handleStartSlideshow}
+            isDark={isGalleryDark}
+          />
 
           {setDescriptionText ? (
-            <div
-              className={cn(
-                '-mx-4 mb-6 border-b px-6 py-5 text-center md:-mx-8 md:px-12 md:py-6 lg:-mx-12 lg:px-12',
-                isGalleryDark ? 'border-white/10' : 'border-black/5'
-              )}
-              style={{ backgroundColor: 'var(--gallery-bg)' }}
-            >
-              <p
-                className="mx-auto max-w-3xl whitespace-pre-wrap text-base font-light leading-relaxed tracking-wide md:text-lg"
-                style={{ color: 'var(--gallery-text)' }}
-              >
-                {setDescriptionText}
-              </p>
-            </div>
+            <GallerySetDescription variant="galleryView" text={setDescriptionText} isDark={isGalleryDark} />
           ) : null}
 
           {/* Shared list view (link from favorites hub) */}
@@ -701,22 +683,15 @@ const GalleryView = () => {
           )}
 
           {!setDescriptionText &&
+            !isFavoriteListMode &&
             (() => {
               const raw = (activeSetId ? collection.sets?.find((s) => s.id === activeSetId)?.name : 'Highlights') || 'Highlights';
-              const label = String(raw).toLowerCase();
-              return (
-                <p
-                  className="mb-8 text-center text-[11px] font-normal lowercase tracking-[0.35em] md:text-xs"
-                  style={{ color: 'var(--gallery-meta-text)' }}
-                >
-                  {label}
-                </p>
-              );
+              return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
             })()}
 
           {/* Flexible Gallery Grid */}
           <MasonryGrid
-            key={`${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}`}
+            key={`${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}`}
             photos={filteredPhotos}
             isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
             gridSettings={{
@@ -729,6 +704,10 @@ const GalleryView = () => {
             onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
             onDownload={handleDownloadClick}
             onShare={() => setShowShareModal(true)}
+            onTogglePrivate={handleTogglePhotoPrivate}
+            isClientViewer={isClientViewer}
+            allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
+            showPrivateBadge={isClientViewer}
             showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
             showFavorite={collection?.favorites_enabled !== false}
             showShare={collection?.social_sharing_enabled !== false}
@@ -736,6 +715,7 @@ const GalleryView = () => {
             customRowHeight={collection.thumbnail_size === 'large' ? 420 : collection.thumbnail_size === 'regular' ? 300 : collection.thumbnail_size === 'small' ? 200 : 140}
             customColumnCount={collection.thumbnail_size === 'large' ? 2 : collection.thumbnail_size === 'regular' ? 3 : 4}
             showFilename={collection?.show_filenames === true}
+            className="mt-2"
           />
         </Container>
       </main>
@@ -929,87 +909,24 @@ const GalleryView = () => {
         initialSetId={activeSetId}
       />
 
-      {/* Share Modal */}
-      <AnimatePresence>
-        {showShareModal && (
-          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-            <Motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowShareModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <Motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white p-10 shadow-2xl"
-            >
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-950 transition-colors"
-              >
-                <X size={20} />
-              </button>
+      <ShareCollectionModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        shareUrl={shareUrl}
+        shareTitle={shareTitle}
+        collectionId={collection?.id}
+        isDark={isGalleryDark}
+        initialSenderEmail={email}
+      />
 
-              <div className="mb-8 text-center">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50">
-                  <Share2 className="text-zinc-400" size={24} strokeWidth={1.5} />
-                </div>
-                <h3 className="mb-2 text-xl font-serif text-zinc-900">Share Collection</h3>
-                <p className="text-sm text-zinc-500">Share these memories with family and friends.</p>
-              </div>
+      <ClientExclusiveLoginModal
+        open={showClientLogin}
+        storedPassword={collection?.client_password_hash}
+        onSuccess={handleClientLoginSuccess}
+        onClose={() => setShowClientLogin(false)}
+      />
 
-              <div className="flex justify-center gap-10 mb-10">
-                <button 
-                  onClick={handleEmailShare}
-                  className="flex flex-col items-center gap-3 hover:opacity-70 transition-opacity group"
-                >
-                  <div className="w-14 h-14 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-900 group-hover:bg-zinc-200 transition-colors">
-                    <Mail size={24} strokeWidth={1.5} />
-                  </div>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest">Email</span>
-                </button>
-                <button 
-                  onClick={handleWhatsAppShare}
-                  className="flex flex-col items-center gap-3 hover:opacity-70 transition-opacity group"
-                >
-                  <div className="w-14 h-14 rounded-full bg-[#25D366] flex items-center justify-center text-white shadow-lg shadow-emerald-200/50">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                  </div>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest">WhatsApp</span>
-                </button>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-zinc-200"></div>
-                </div>
-                <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest text-zinc-400">
-                  <span className="bg-white px-4">Or copy link</span>
-                </div>
-              </div>
-
-              <div className="mt-6 flex border border-zinc-200 rounded overflow-hidden p-1">
-                <input
-                  type="text"
-                  readOnly
-                  value={shareUrl}
-                  className="flex-1 px-3 text-sm text-zinc-500 outline-none bg-zinc-50"
-                />
-                <button 
-                  onClick={handleCopyLink}
-                  className="bg-zinc-900 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors rounded-sm flex items-center gap-2"
-                >
-                  <LinkIcon size={14} />
-                  Copy
-                </button>
-              </div>
-            </Motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ClientExclusiveToast message={privateToast} thumbnailUrl={privateToastThumb} />
     </div>
   );
 };

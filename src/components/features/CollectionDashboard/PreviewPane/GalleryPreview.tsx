@@ -3,13 +3,17 @@ import { GalleryPreviewProps } from './PreviewPane.types';
 import * as Covers from './CoverStyles';
 import { cn } from '../../../../lib/utils';
 import { AnimatePresence, motion } from 'framer-motion';
-import { X, Mail, Share2, Link as LinkIcon, Download, Heart, Play } from 'lucide-react';
+import { X, Mail } from 'lucide-react';
+import { ShareCollectionModal } from '../../Gallery/ShareCollectionModal/ShareCollectionModal';
 import { MasonryGrid } from '../../Gallery/MasonryGrid/MasonryGrid';
 import { PhotoLightbox } from '../../Gallery/PhotoLightbox/PhotoLightbox';
 import { downloadPhotoFromR2 } from '../../../../lib/downloadPhoto';
 import { DownloadModal } from '../../Gallery/DownloadModal/DownloadModal';
 import { galleryService } from '../../../../services/gallery.service';
 import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
+import { GalleryStickyNav, GallerySetHeading, GallerySetDescription } from '../../Gallery/GalleryChrome';
+import { normalizeNavigationStyle } from '../../../../lib/navStyle';
+import './GalleryPreview.css';
 
 function normalizeFavoritePhotoId(id: string | number | null | undefined): string | null {
   if (id == null || id === '') return null;
@@ -25,9 +29,11 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   gridPhotos,
   dashboardState,
   onSetActiveSet,
-  photographerName = 'PHOTOGRAPHER'
+  photographerName = 'PHOTOGRAPHER',
+  isPreviewMobile = false,
 }) => {
   const { coverStyle, fontFamily, colorPalette, grid } = settings;
+  const navigationStyle = normalizeNavigationStyle(grid.navigation);
 
   const [showFavoriteModal, setShowFavoriteModal] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
@@ -37,19 +43,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState({ done: 0, total: 0 });
 
-  const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (dashboardState?.collection?.slug || '') : '';
+  const collectionSlug = dashboardState?.collection?.slug as string | undefined;
+  const shareUrl = typeof window !== 'undefined'
+    ? window.location.origin + '/gallery/' + (collectionSlug || 'preview')
+    : '';
   const shareTitle = collectionTitle || dashboardState?.collection?.name || 'Collection';
-  const shareText = `Check out this collection: ${shareTitle}`;
-
-  const handleEmailShare = () => {
-    const subject = encodeURIComponent(shareTitle);
-    const body = encodeURIComponent(`${shareText}\n\n${shareUrl}`);
-    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
-  };
-
-  const handleWhatsAppShare = () => {
-    window.open(`https://wa.me/?text=${encodeURIComponent(shareText + ' ' + shareUrl)}`, '_blank');
-  };
+  const isPreviewDark = colorPalette === 'dark';
 
   // Build a collection-shaped object the shared DownloadModal understands
   // Note: dashboardState.downloadPin is the boolean toggle, pinValue is the actual PIN string
@@ -192,6 +191,13 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     dashboardState?.collection?.description,
     collectionDescription,
   ]);
+
+  const activeSetLabel = useMemo(() => {
+    const raw = dashboardState?.activeSetId
+      ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.name
+      : 'Highlights';
+    return String(raw || 'Highlights').toLowerCase();
+  }, [dashboardState?.activeSetId, dashboardState?.sets]);
 
   const photoUrls = useMemo(
     () => filteredPhotos.map((p: any) => p.full_url || p.web_url || p.thumbnail_url),
@@ -368,7 +374,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       photoUrl: coverPhotoUrl,
       focalX: dashboardState?.focalX,
       focalY: dashboardState?.focalY,
-      isPreview: true,
+      isPreview: true, // dashboard pane layout only
     };
 
     switch (coverStyle) {
@@ -389,157 +395,56 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   };
 
   return (
-    <div className={cn(
-      'cd-preview-gallery-card',
-      `style-${coverStyle}`,
-      `font-${fontFamily}`,
-      `theme-${colorPalette}`
-    )}>
+    <div
+      className={cn(
+        'cd-preview-gallery-card',
+        `style-${coverStyle}`,
+        `font-${fontFamily}`,
+        `theme-${colorPalette}`
+      )}
+      data-cover-text-scale="compact"
+    >
       <div className="cd-preview-gallery-header">
         {renderCover()}
       </div>
 
-      <div className={cn(
-        'cd-preview-gallery-body',
-        `grid-style-${grid.style}`,
-        `grid-size-${grid.size}`,
-        `grid-spacing-${grid.spacing}`,
-        `nav-style-${grid.navigation}`,
-        `aspect-${grid.aspectRatio}`
-      )}>
-        <div className="sticky top-0 z-[40] flex items-center justify-between w-full px-3 md:px-6 py-3 md:py-4 border-b border-black/5 backdrop-blur-md" style={{ backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 15%)' }}>
-          {/* Left: Brand section (Matches Pixieset) */}
-          <div className="flex-[0.8] flex flex-col items-start min-w-[80px] md:min-w-[120px]">
-            <span className="text-[10px] md:text-[14px] font-serif font-bold uppercase leading-none tracking-tight truncate w-full" style={{ color: 'var(--gallery-text)' }}>
-              {collectionTitle}
-            </span>
-            {photographerName && (
-              <span className="mt-0.5 text-[6px] md:text-[7px] font-bold uppercase tracking-[0.15em] opacity-60 truncate w-full" style={{ color: 'var(--gallery-text)' }}>
-                {photographerName}
-              </span>
-            )}
-          </div>
-
-          {/* Center: Sets Navigation */}
-          <div className="flex-1 flex items-center justify-center gap-3 md:gap-8">
-            <button
-              type="button"
-              className="group relative py-1"
-              onClick={() => onSetActiveSet?.(null)}
-            >
-              <span
-                className={cn(
-                  "text-[8px] md:text-[9px] font-bold uppercase tracking-[0.1em] md:tracking-[0.15em] transition-opacity",
-                  !dashboardState?.activeSetId ? "opacity-100" : "opacity-45 hover:opacity-100"
-                )}
-                style={{ color: 'var(--gallery-text)' }}
-              >
-                Highlights
-              </span>
-              {!dashboardState?.activeSetId && (
-                <div
-                  className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100"
-                  style={{ backgroundColor: 'var(--gallery-text)' }}
-                />
-              )}
-            </button>
-            {dashboardState?.sets && dashboardState.sets.length > 0 &&
-              dashboardState.sets
-                .filter((s: any) => s.name?.toLowerCase() !== 'highlights')
-                .slice(0, isPreviewMobile ? 1 : 3)
-                .map((set: any) => (
-                  <button
-                    key={set.id}
-                    type="button"
-                    className="group relative py-1"
-                    onClick={() => onSetActiveSet?.(set.id)}
-                  >
-                    <span
-                      className={cn(
-                        "text-[8px] md:text-[9px] font-bold uppercase tracking-[0.1em] md:tracking-[0.15em] transition-opacity",
-                        dashboardState?.activeSetId === set.id ? "opacity-100" : "opacity-45 hover:opacity-100"
-                      )}
-                      style={{ color: 'var(--gallery-text)' }}
-                    >
-                      {set.name}
-                    </span>
-                    {dashboardState?.activeSetId === set.id && (
-                      <div
-                        className="absolute bottom-0 left-0 h-[1.5px] w-full scale-x-100"
-                        style={{ backgroundColor: 'var(--gallery-text)' }}
-                      />
-                    )}
-                  </button>
-                ))
-            }
-          </div>
-
-          {/* Right: Action Icons (Order & Labels match Pixieset) */}
-          <div className="flex-[0.8] flex items-center justify-end gap-2 md:gap-5">
-            {favFeatureOn && (
-              <button
-                type="button"
-                className="flex items-center gap-1 md:gap-2 opacity-60 hover:opacity-100 transition-opacity"
-                onClick={handleFavoriteHeaderClick}
-                style={{ color: 'var(--gallery-text)' }}
-              >
-                <Heart size={12} md:size={13} fill={favoritedPhotos.length > 0 ? 'currentColor' : 'none'} />
-                <span className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.1em] hidden xl:inline">Favorites</span>
-              </button>
-            )}
-            {dashboardState?.photoDownload !== false && dashboardState?.galleryDownload !== false && (
-              <button
-                type="button"
-                className={cn(
-                  "flex items-center gap-1 md:gap-2 transition-opacity",
-                  isDownloadingAll ? "opacity-100" : "opacity-60 hover:opacity-100"
-                )}
-                onClick={() => !isDownloadingAll && handleDownloadClick()}
-                style={{ color: 'var(--gallery-text)' }}
-              >
-                <Download size={12} md:size={13} className={isDownloadingAll ? 'animate-bounce' : ''} />
-                <span className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.1em] hidden xl:inline">Download</span>
-              </button>
-            )}
-            {dashboardState?.socialSharing !== false && (
-              <button
-                type="button"
-                className="flex items-center gap-1 md:gap-2 opacity-60 hover:opacity-100 transition-opacity"
-                onClick={() => setShowShareModal(true)}
-                style={{ color: 'var(--gallery-text)' }}
-              >
-                <Share2 size={12} md:size={13} />
-                <span className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.1em] hidden xl:inline">Share</span>
-              </button>
-            )}
-            <button
-              type="button"
-              className="flex items-center gap-1 md:gap-2 opacity-60 hover:opacity-100 transition-opacity"
-              onClick={handleStartSlideshow}
-              style={{ color: 'var(--gallery-text)' }}
-            >
-              <Play size={12} md:size={13} fill="currentColor" />
-              <span className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.1em] hidden xl:inline">Slideshow</span>
-            </button>
-          </div>
-        </div>
+      <div
+        className={cn(
+          'cd-preview-gallery-body',
+          `grid-style-${grid.style}`,
+          `grid-size-${grid.size}`,
+          `grid-spacing-${grid.spacing}`,
+          `nav-style-${navigationStyle}`,
+          isPreviewMobile && 'cd-preview-gallery-body--mobile-frame',
+          `aspect-${grid.aspectRatio}`
+        )}
+      >
+        <GalleryStickyNav
+          isPreview
+          isPreviewMobile={isPreviewMobile}
+          navigationStyle={navigationStyle}
+          collectionTitle={collectionTitle}
+          photographerName={photographerName}
+          sets={(dashboardState?.sets || []).map((s: any) => ({ id: s.id, name: s.name }))}
+          activeSetId={dashboardState?.activeSetId ?? null}
+          onSetChange={onSetActiveSet}
+          maxVisibleSets={isPreviewMobile ? 1 : 3}
+          showFavorites={favFeatureOn}
+          showDownload={dashboardState?.photoDownload !== false && dashboardState?.galleryDownload !== false}
+          showShare={dashboardState?.socialSharing !== false}
+          favoritedCount={favoritedPhotos.length}
+          isDownloadingAll={isDownloadingAll}
+          onFavoriteClick={handleFavoriteHeaderClick}
+          onDownloadClick={handleDownloadClick}
+          onShareClick={() => setShowShareModal(true)}
+          onSlideshowClick={handleStartSlideshow}
+        />
 
         {setDescriptionText ? (
-          <div
-            className={cn(
-              '-mx-10 border-b px-6 py-5 text-center md:px-10 md:py-6',
-              colorPalette === 'dark' ? 'border-white/10' : 'border-black/5'
-            )}
-            style={{ backgroundColor: 'var(--gallery-bg)' }}
-          >
-            <p
-              className="mx-auto max-w-2xl whitespace-pre-wrap text-[13px] font-light leading-relaxed tracking-wide md:text-[15px]"
-              style={{ color: 'var(--gallery-text)' }}
-            >
-              {setDescriptionText}
-            </p>
-          </div>
-        ) : null}
+          <GallerySetDescription variant="preview" text={setDescriptionText} isDark={isPreviewDark} />
+        ) : (
+          <GallerySetHeading variant="preview" label={activeSetLabel} />
+        )}
 
         {showOnlyFavorites && favFeatureOn && (
           <div
@@ -597,7 +502,8 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               onImageClick={(index) => setLightboxIndex(index)}
               onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
               onDownload={handleDownloadClick}
-              onShare={() => { }}
+              onShare={() => setShowShareModal(true)}
+              showPrivateBadge={Boolean(dashboardState?.collection?.client_exclusive_enabled)}
               showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
               showFavorite={favFeatureOn}
               showShare={dashboardState?.socialSharing !== false}
@@ -722,85 +628,15 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         initialSetId={dashboardState?.activeSetId || 'all'}
       />
 
-      {/* Share Modal */}
-      <AnimatePresence>
-        {showShareModal && (
-          <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowShareModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            />
-            <motion.div
-              initial={{ opacity: 0, y: 20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="relative w-full max-w-md bg-white p-10 shadow-2xl"
-              style={{ fontFamily: 'var(--font-sans)', color: '#111' }}
-            >
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="absolute right-4 top-4 text-zinc-400 hover:text-zinc-950 transition-colors bg-transparent border-none cursor-pointer"
-              >
-                <X size={20} />
-              </button>
-
-              <div className="mb-8 text-center">
-                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50">
-                  <Share2 className="text-zinc-400" size={24} strokeWidth={1.5} />
-                </div>
-                <h3 className="mb-2 text-xl font-serif text-zinc-900" style={{ fontFamily: 'var(--font-serif)' }}>Share Collection</h3>
-                <p className="text-sm text-zinc-500">Share these memories with family and friends.</p>
-              </div>
-
-              <div className="flex justify-center gap-10 mb-10">
-                <button 
-                  onClick={handleEmailShare}
-                  className="flex flex-col items-center gap-3 bg-transparent border-none cursor-pointer hover:opacity-70 transition-opacity group"
-                >
-                  <div className="w-14 h-14 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-900 group-hover:bg-zinc-200 transition-colors">
-                    <Mail size={24} strokeWidth={1.5} />
-                  </div>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest">Email</span>
-                </button>
-                <button 
-                  onClick={handleWhatsAppShare}
-                  className="flex flex-col items-center gap-3 bg-transparent border-none cursor-pointer hover:opacity-70 transition-opacity group"
-                >
-                  <div className="w-14 h-14 rounded-full bg-[#25D366] flex items-center justify-center text-white shadow-lg shadow-emerald-200/50">
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                  </div>
-                  <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest">WhatsApp</span>
-                </button>
-              </div>
-
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-zinc-200"></div>
-                </div>
-                <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest text-zinc-400">
-                  <span className="bg-white px-4">Or copy link</span>
-                </div>
-              </div>
-
-              <div className="mt-6 flex border border-zinc-200 rounded overflow-hidden p-1">
-                <input
-                  type="text"
-                  readOnly
-                  value={window.location.origin + "/gallery/" + (dashboardState?.collection?.slug || 'preview')}
-                  className="flex-1 px-3 text-sm text-zinc-500 outline-none bg-zinc-50 border-none"
-                />
-                <button className="bg-zinc-900 text-white px-4 py-2 text-xs font-bold uppercase tracking-wider hover:bg-zinc-800 transition-colors border-none cursor-pointer rounded-sm flex items-center gap-2">
-                  <LinkIcon size={14} />
-                  Copy
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ShareCollectionModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        shareUrl={shareUrl}
+        shareTitle={shareTitle}
+        collectionId={collectionId}
+        isDark={isPreviewDark}
+        initialSenderEmail={email}
+      />
     </div>
   );
 };

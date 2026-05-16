@@ -1,9 +1,32 @@
 import React, { useState, useEffect } from 'react';
 import { motion as Motion } from 'framer-motion';
-import { Download, Heart } from 'lucide-react';
+import { Download, Heart, Share2 } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
+import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 
-export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, onDownload, customRowHeight, customColumnCount, isHorizontal: isHorizontalProp, showDownload = true, showFavorite = true, favoritedPhotoIds = [], showFilename = false, isPreviewMobile = false, forceShow = false }) {
+export function MasonryGrid({
+  photos,
+  gridSettings,
+  onImageClick,
+  onFavorite,
+  onDownload,
+  onShare,
+  onTogglePrivate,
+  customRowHeight,
+  customColumnCount,
+  isHorizontal: isHorizontalProp,
+  showDownload = true,
+  showFavorite = true,
+  showShare = false,
+  favoritedPhotoIds = [],
+  showFilename = false,
+  isPreviewMobile = false,
+  forceShow = false,
+  className,
+  isClientViewer = false,
+  allowMarkPrivate = false,
+  showPrivateBadge = false,
+}) {
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
@@ -83,43 +106,13 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
       className={cn(
         'w-full max-w-full min-w-0 masonry-grid-container',
         isHorizontal ? 'flex flex-wrap masonry-grid-horizontal items-start' : 'block masonry-grid-vertical',
-        isPreviewMobile && 'preview-mobile'
+        isPreviewMobile && 'preview-mobile',
+        className
       )}
       style={isHorizontal ? {
         gap: `${gap}px`,
       } : verticalColumnStyle}
     >
-      <style>
-        {`
-          .masonry-grid-vertical {
-            column-count: var(--desktop-columns, auto);
-          }
-          .masonry-grid-vertical.preview-mobile {
-            column-count: 2 !important;
-          }
-          @media (max-width: 1024px) {
-            .masonry-grid-vertical {
-              column-count: min(var(--desktop-columns, 3), 3) !important;
-            }
-          }
-          @media (max-width: 768px) {
-            .masonry-grid-vertical {
-              column-count: 2 !important;
-            }
-          }
-          @media (max-width: 480px) {
-            .masonry-grid-vertical {
-              column-count: 1 !important;
-            }
-          }
-          .masonry-grid-horizontal::after {
-            content: '';
-            flex-grow: 999999999;
-            min-width: 50%;
-            height: 0;
-          }
-        `}
-      </style>
       {photos.map((photo, index) => {
         const src = photo.full_url || photo.web_url || photo.thumbnail_url;
         const aspectRatio = (photo.width && photo.height)
@@ -127,6 +120,8 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
           : (dynamicAspectRatios[photo.id] || 1.5);
 
         const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
+        const isPrivate = Boolean(photo.is_private);
+        const useClientActionBar = Boolean(isClientViewer && allowMarkPrivate);
 
         return (
           <Motion.div
@@ -152,6 +147,7 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
               {/\.(mp4|webm|ogg|mov)$/i.test(photo.filename || src || '') ? (
                 <video
                   src={src}
+                  poster={photo.thumbnail_url}
                   className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
                   style={{
                     objectFit: 'cover',
@@ -160,8 +156,8 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                   muted
                   loop
                   playsInline
-                  onMouseEnter={(e) => e.target.play().catch(() => {})}
-                  onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
+                  onMouseEnter={(e) => e.currentTarget.play().catch(() => { })}
+                  onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                 />
               ) : (
                 <img
@@ -189,6 +185,31 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
               )}
               {/* Hover overlay: download + favorite */}
               <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/10">
+                {showPrivateBadge && isPrivate ? <PhotoPrivateBadge visible /> : null}
+                {useClientActionBar ? (
+                  <PhotoPrivateControls
+                    isPrivate={isPrivate}
+                    showBadge={false}
+                    showPrivateToggle
+                    showFavorite={showFavorite}
+                    showDownload={showDownload}
+                    showShare={showShare}
+                    isFavorited={isFav}
+                    onTogglePrivate={() => onTogglePrivate?.(photo)}
+                    onFavorite={(e) => {
+                      e.stopPropagation();
+                      onFavorite?.(photo);
+                    }}
+                    onDownload={(e) => {
+                      e.stopPropagation();
+                      onDownload?.(photo);
+                    }}
+                    onShare={(e) => {
+                      e.stopPropagation();
+                      onShare?.(photo);
+                    }}
+                  />
+                ) : (
                 <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 transform translate-y-[10px] transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
                   {showDownload && (
                     <button
@@ -220,7 +241,21 @@ export function MasonryGrid({ photos, gridSettings, onImageClick, onFavorite, on
                       <Heart size={16} strokeWidth={1.5} fill={isFav ? 'currentColor' : 'none'} />
                     </button>
                   )}
+                  {showShare && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShare?.(photo);
+                      }}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                      aria-label="Share"
+                    >
+                      <Share2 size={16} strokeWidth={1.5} />
+                    </button>
+                  )}
                 </div>
+                )}
               </div>
             </div>
           </Motion.div>

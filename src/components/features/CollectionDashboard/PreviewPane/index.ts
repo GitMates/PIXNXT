@@ -1,2 +1,3 @@
 export { PreviewPane } from './PreviewPane';
-export type { PreviewPaneProps } from './PreviewPane.types';
+export { GalleryPreview } from './GalleryPreview';
+export type { PreviewPaneProps, GalleryPreviewProps } from './PreviewPane.types';
