@@ -17,6 +17,7 @@ import { ProtectedRoute } from './components/features/Auth';
 import CollectionList from './pages/public/CollectionList';
 import GalleryView from './pages/public/GalleryView';
 import GalleryFavoritesHub from './pages/public/GalleryFavoritesHub';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 function App() {
   const location = useLocation();
@@ -78,7 +79,7 @@ function App() {
         <Route path="/settings/:tab" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
         <Route path="/collections/get-started" element={<ProtectedRoute><GetStarted /></ProtectedRoute>} />
         <Route path="/collections/create" element={<ProtectedRoute><CreateCollection /></ProtectedRoute>} />
-        <Route path="/collections/manage" element={<ProtectedRoute><CollectionDashboard /></ProtectedRoute>} />
+        <Route path="/collections/manage" element={<ProtectedRoute><ErrorBoundary><CollectionDashboard /></ErrorBoundary></ProtectedRoute>} />
         
         {/* Public Gallery Routes */}
         <Route path="/collections" element={<CollectionList />} />
