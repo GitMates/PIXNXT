@@ -30,6 +30,7 @@ const CollectionDashboard = () => {
     const [collection, setCollection] = useState(null);
     const [photos, setPhotos] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [activeMediaTab, setActiveMediaTab] = useState('upload');
@@ -508,6 +509,7 @@ const CollectionDashboard = () => {
             alert(err?.message || err?.error_description || 'Failed to delete activity log.');
         }
     };
+    const fileInputRef = useRef(null);
     const modalFileInputRef = useRef(null);
     const photoMenuRef = useRef(null);
     const gridSettingsRef = useRef(null);
@@ -933,7 +935,14 @@ const CollectionDashboard = () => {
 
             try {
                 setLoading(true);
+                setError(null);
                 const data = await galleryService.getCollectionById(collectionId);
+                
+                if (!data) {
+                    setError('Collection not found');
+                    return;
+                }
+                
                 setCollection(data);
 
                 // Initialize state from collection data
@@ -1005,11 +1014,16 @@ const CollectionDashboard = () => {
                 const setsData = data.sets || [];
                 setSets(setsData);
 
-                // Fetch activity counts
-                const counts = await galleryService.getActivityCounts(collectionId);
-                setBackendActivityCounts(counts);
+                // Activity counts are optional; don't block the dashboard if they fail
+                try {
+                    const counts = await galleryService.getActivityCounts(collectionId);
+                    setBackendActivityCounts(counts);
+                } catch (activityErr) {
+                    console.warn('Activity counts unavailable:', activityErr);
+                }
             } catch (err) {
                 console.error('Error fetching collection:', err);
+                setError(err.message || 'Failed to load collection');
             } finally {
                 setLoading(false);
             }
@@ -1535,6 +1549,28 @@ const CollectionDashboard = () => {
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-[#111111] border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-[#111111] font-medium tracking-widest uppercase text-sm">Loading Collection...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !collection) {
+        return (
+            <div className="flex h-screen items-center justify-center bg-white">
+                <div className="flex flex-col items-center gap-4 max-w-md text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <div>
+                        <h2 className="text-xl font-semibold text-[#111111] mb-2">
+                            {error === 'Collection not found' ? 'Collection Not Found' : 'Failed to Load Collection'}
+                        </h2>
+                        <p className="text-[#666] mb-4">{error || 'This collection may have been deleted or you may not have permission to access it.'}</p>
+                        <button 
+                            onClick={() => navigate('/client-gallery')}
+                            className="px-6 py-2 bg-[#111111] text-white rounded hover:bg-[#333] transition-colors"
+                        >
+                            Back to Collections
+                        </button>
+                    </div>
                 </div>
             </div>
         );
