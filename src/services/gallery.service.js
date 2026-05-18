@@ -1,4 +1,6 @@
 import { supabase } from '../lib/supabase/client';
+import { getImageDimensionsFast } from '../lib/imageDimensions';
+import { getFileMime, isVideoMime } from '../lib/fileMime';
 import { storageService } from './storage.service';
 
 export const galleryService = {
@@ -283,67 +285,40 @@ export const galleryService = {
   },
 
   /**
-   * Upload a single photo to Supabase Storage and record in database
+   * Upload a single photo to R2 and record in database.
+   * @param {(percent: number) => void} [onProgress] — 0–100 based on bytes sent to R2
    */
-  async uploadPhoto(collectionId, photographerId, file, index = 0, setId = null) {
-    const fileExt = file.name.split('.').pop().toLowerCase();
+  async uploadPhoto(collectionId, photographerId, file, index = 0, setId = null, onProgress = null) {
+    if (!collectionId || !photographerId) {
+      throw new Error('Collection or photographer is missing. Refresh the page and try again.');
+    }
+
+    const mime = getFileMime(file);
+    const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
     const filePath = `${photographerId}/${collectionId}/${fileName}`;
 
-    // Detect media type from MIME type
-    const isVideo = file.type.startsWith('video/');
-    const isGif = file.type === 'image/gif';
+    const isVideo = isVideoMime(mime);
+    const isGif = mime === 'image/gif' || /\.gif$/i.test(file.name);
     const mediaType = isVideo ? 'video' : isGif ? 'gif' : 'image';
 
-    // Get dimensions — only for non-video files (videos cannot use Image())
-    let dimensions = { width: null, height: null };
-    let thumbnailBlob = null;
+    const uploadBody =
+      file.type === mime
+        ? file
+        : new File([file], file.name, { type: mime, lastModified: file.lastModified });
 
-    if (isVideo) {
-      // Capture first frame of video for thumbnail
-      thumbnailBlob = await new Promise((resolve) => {
-        const video = document.createElement('video');
-        video.preload = 'metadata';
-        video.onloadedmetadata = () => {
-          video.currentTime = 0.5; // Capture at 0.5s
-        };
-        video.onseeked = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(video, 0, 0);
-          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.8);
-          URL.revokeObjectURL(video.src);
-        };
-        video.onerror = () => resolve(null);
-        video.src = URL.createObjectURL(file);
-      });
-    } else {
-      dimensions = await new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => {
-          const result = { width: img.width, height: img.height };
-          URL.revokeObjectURL(img.src);
-          resolve(result);
-        };
-        img.onerror = () => resolve({ width: 1500, height: 1000 }); // Fallback
-        img.src = URL.createObjectURL(file);
-      });
-    }
+    const uploadPromise = storageService.upload(filePath, uploadBody, onProgress);
 
-    // Upload original file to R2
-    const { url: publicUrl } = await storageService.upload(filePath, file);
-    let thumbnailUrl = publicUrl;
+    const [{ url: publicUrl }, meta] = await Promise.all([
+      uploadPromise,
+      isVideo
+        ? this._captureVideoThumbnail(file)
+        : getImageDimensionsFast(file).then((dimensions) => ({ dimensions, thumbnailBlob: null })),
+    ]);
 
-    // If video, upload the captured thumbnail as well
-    if (isVideo && thumbnailBlob) {
-      const thumbnailPath = filePath.replace(/\.[^.]+$/, '_thumb.jpg');
-      const { url: thumbUrl } = await storageService.upload(thumbnailPath, thumbnailBlob);
-      thumbnailUrl = thumbUrl;
-    }
+    const dimensions = meta.dimensions ?? { width: null, height: null };
+    const thumbnailBlob = meta.thumbnailBlob ?? null;
 
-    // Insert record into 'photos' table
     const { data: photoData, error: dbError } = await supabase
       .from('photos')
       .insert([{
@@ -353,7 +328,7 @@ export const galleryService = {
         filename: file.name,
         full_url: publicUrl,
         web_url: publicUrl,
-        thumbnail_url: thumbnailUrl,
+        thumbnail_url: publicUrl,
         original_storage_path: filePath,
         size_bytes: file.size,
         width: dimensions.width,
@@ -366,7 +341,51 @@ export const galleryService = {
       .single();
 
     if (dbError) throw dbError;
+
+    if (isVideo && thumbnailBlob) {
+      const thumbnailPath = filePath.replace(/\.[^.]+$/, '_thumb.jpg');
+      void storageService.upload(thumbnailPath, thumbnailBlob).then(({ url: thumbUrl }) =>
+        supabase.from('photos').update({ thumbnail_url: thumbUrl }).eq('id', photoData.id)
+      ).catch((err) => console.warn('Video thumbnail upload deferred failed:', err));
+    }
+
     return photoData;
+  },
+
+  _captureVideoThumbnail(file) {
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const video = document.createElement('video');
+      video.preload = 'metadata';
+      video.muted = true;
+      const cleanup = () => URL.revokeObjectURL(url);
+
+      video.onloadedmetadata = () => {
+        video.currentTime = Math.min(0.5, (video.duration || 1) / 2);
+      };
+      video.onseeked = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 360;
+        canvas.getContext('2d')?.drawImage(video, 0, 0);
+        canvas.toBlob(
+          (blob) => {
+            cleanup();
+            resolve({
+              dimensions: { width: video.videoWidth || null, height: video.videoHeight || null },
+              thumbnailBlob: blob,
+            });
+          },
+          'image/jpeg',
+          0.8
+        );
+      };
+      video.onerror = () => {
+        cleanup();
+        resolve({ dimensions: { width: null, height: null }, thumbnailBlob: null });
+      };
+      video.src = url;
+    });
   },
 
   /**

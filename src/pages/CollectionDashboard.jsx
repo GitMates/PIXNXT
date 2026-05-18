@@ -24,6 +24,8 @@ import { DownloadSettings } from '../components/features/CollectionDashboard/Set
 import { FavoriteSettings } from '../components/features/CollectionDashboard/Settings/FavoriteSettings';
 import { GeneralSettings } from '../components/features/CollectionDashboard/Settings/GeneralSettings';
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
+import { UploadManager } from '../components/features/CollectionDashboard/Upload/UploadManager';
+import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -79,12 +81,6 @@ const CollectionDashboard = () => {
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
     const [showDeleteCollectionModal, setShowDeleteCollectionModal] = useState(false);
     const [deleteCollectionConfirm, setDeleteCollectionConfirm] = useState(false);
-    const [uploadWidget, setUploadWidget] = useState({
-        isOpen: false,
-        isMinimized: false,
-        files: [] // { id, name, size, progress, status }
-    });
-
     // SET STATES
     const [sets, setSets] = useState([]);
     const [activeSetId, setActiveSetId] = useState(null); // null = Highlights (all photos)
@@ -1095,6 +1091,29 @@ const CollectionDashboard = () => {
     // Get the active set object
     const activeSet = activeSetId ? sets.find(s => s.id === activeSetId) : null;
     const activeSetName = activeSet ? activeSet.name : highlightsName;
+
+    const {
+        state: uploadState,
+        processFiles,
+        pause: pauseUploads,
+        resume: resumeUploads,
+        cancel: cancelUploads,
+        minimize: minimizeUploads,
+        expand: expandUploads,
+        setActiveTab: setUploadTab,
+        toggleDetails: toggleUploadDetails,
+    } = useUploadQueue({
+        collectionId,
+        photographerId: collection?.photographer_id ?? user?.id,
+        activeSetId,
+        photosLength: photos.length,
+        onPhotoUploaded: (photoData) => setPhotos((prev) => [...prev, photoData]),
+    });
+
+    const uploadDestinationLabel = collection
+        ? `${collection.name || 'Collection'} / ${activeSetName}`
+        : activeSetName;
+
     const activeSetPhotoCount = activeSetId
         ? photos.filter(p => p.set_id === activeSetId).length
         : photos.filter(p => !p.set_id).length;
@@ -1444,66 +1463,9 @@ const CollectionDashboard = () => {
     }, []);
 
     const processSelectedUploadFiles = (fileList) => {
-        const rawFiles = Array.from(fileList || []);
-        const files = rawFiles.filter((f) => f.size > 0);
-
-        if (rawFiles.length > 0 && files.length === 0) {
-            alert('The selected files are empty or corrupted. If you are uploading a file from another app, please save it to your computer first.');
-            return;
+        if (processFiles(fileList)) {
+            setShowUploadModal(false);
         }
-        if (files.length === 0) return;
-
-        setShowUploadModal(false);
-
-        const newUploadFiles = files.map(file => ({
-            id: Math.random().toString(36).substr(2, 9),
-            file: file,
-            name: file.name,
-            size: file.size,
-            progress: 0,
-            status: 'uploading'
-        }));
-
-        setUploadWidget(prev => ({
-            isOpen: true,
-            isMinimized: false,
-            files: [...prev.files, ...newUploadFiles]
-        }));
-
-        newUploadFiles.forEach(uf => {
-            // Simulate progress while uploading
-            const interval = setInterval(() => {
-                setUploadWidget(prev => ({
-                    ...prev,
-                    files: prev.files.map(f => {
-                        if (f.id === uf.id && f.status === 'uploading') {
-                            const add = Math.floor(Math.random() * 15) + 5;
-                            return { ...f, progress: Math.min(f.progress + add, 90) };
-                        }
-                        return f;
-                    })
-                }));
-            }, 400);
-
-            // Upload with activeSetId so photos are assigned to the current set
-            galleryService.uploadPhoto(collectionId, collection.photographer_id, uf.file, photos.length, activeSetId)
-                .then(photoData => {
-                    clearInterval(interval);
-                    setUploadWidget(prev => ({
-                        ...prev,
-                        files: prev.files.map(f => f.id === uf.id ? { ...f, progress: 100, status: 'completed' } : f)
-                    }));
-                    setPhotos(prev => [...prev, photoData]);
-                })
-                .catch(err => {
-                    clearInterval(interval);
-                    console.error('Upload failed:', err);
-                    setUploadWidget(prev => ({
-                        ...prev,
-                        files: prev.files.map(f => f.id === uf.id ? { ...f, status: 'error' } : f)
-                    }));
-                });
-        });
     };
 
     const handleFileSelect = (e) => {
@@ -1538,69 +1500,16 @@ const CollectionDashboard = () => {
         setIsDraggingModal(false);
     };
 
-    const handleModalDrop = async (e) => {
+    const handleModalDrop = (e) => {
         e.preventDefault();
         setIsDraggingModal(false);
-        const rawFiles = Array.from(e.dataTransfer.files).filter(f =>
-            f.type.startsWith('image/') || f.type.startsWith('video/')
+        const mediaFiles = Array.from(e.dataTransfer.files).filter(
+            (f) => f.type.startsWith('image/') || f.type.startsWith('video/')
         );
-        const files = rawFiles.filter(f => f.size > 0);
-
-        if (rawFiles.length > 0 && files.length === 0) {
-            alert("The dropped files are empty (0 bytes). This commonly happens when dragging directly from apps like WhatsApp. Please save the file to your computer first, then upload.");
-            return;
+        if (mediaFiles.length === 0) return;
+        if (processFiles(mediaFiles)) {
+            setShowUploadModal(false);
         }
-        if (files.length === 0) return;
-
-        setShowUploadModal(false);
-
-        const newUploadFiles = files.map(file => ({
-            id: Math.random().toString(36).substr(2, 9),
-            file: file,
-            name: file.name,
-            size: file.size,
-            progress: 0,
-            status: 'uploading'
-        }));
-
-        setUploadWidget(prev => ({
-            isOpen: true,
-            isMinimized: false,
-            files: [...prev.files, ...newUploadFiles]
-        }));
-
-        newUploadFiles.forEach(uf => {
-            const interval = setInterval(() => {
-                setUploadWidget(prev => ({
-                    ...prev,
-                    files: prev.files.map(f => {
-                        if (f.id === uf.id && f.status === 'uploading') {
-                            const add = Math.floor(Math.random() * 15) + 5;
-                            return { ...f, progress: Math.min(f.progress + add, 90) };
-                        }
-                        return f;
-                    })
-                }));
-            }, 400);
-
-            galleryService.uploadPhoto(collectionId, collection.photographer_id, uf.file, photos.length, activeSetId)
-                .then(photoData => {
-                    clearInterval(interval);
-                    setUploadWidget(prev => ({
-                        ...prev,
-                        files: prev.files.map(f => f.id === uf.id ? { ...f, progress: 100, status: 'completed' } : f)
-                    }));
-                    setPhotos(prev => [...prev, photoData]);
-                })
-                .catch(err => {
-                    clearInterval(interval);
-                    console.error('Upload failed:', err);
-                    setUploadWidget(prev => ({
-                        ...prev,
-                        files: prev.files.map(f => f.id === uf.id ? { ...f, status: 'error' } : f)
-                    }));
-                });
-        });
     };
 
     const toggleStatus = async () => {
@@ -2826,75 +2735,20 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Upload Widget */}
-            {uploadWidget.isOpen && (
-                <div className={`upload-widget ${uploadWidget.isMinimized ? 'minimized' : ''}`}>
-                    <div className="upload-widget-header" onClick={() => setUploadWidget(prev => ({ ...prev, isMinimized: !prev.isMinimized }))}>
-                        <div className="upload-header-left">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-                            <div className="upload-progress-info">
-                                <h4>Uploading {uploadWidget.files.filter(f => f.status === 'uploading').length} Items</h4>
-                                {uploadWidget.files.filter(f => f.status === 'uploading').length > 0 && (
-                                    <span>
-                                        {Math.round(uploadWidget.files.reduce((acc, f) => acc + (f.size * f.progress / 100), 0) / 1024 / 1024 * 100) / 100} MB /
-                                        {Math.round(uploadWidget.files.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024 * 100) / 100} MB
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        <div className="upload-header-actions">
-                            <button className="upload-action-btn">{uploadWidget.isMinimized ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            )}</button>
-                            <button className="upload-action-btn" onClick={(e) => { e.stopPropagation(); setUploadWidget({ isOpen: false, isMinimized: false, files: [] }); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    {!uploadWidget.isMinimized && (
-                        <div className="upload-widget-list">
-                            {uploadWidget.files.map(file => (
-                                <div key={file.id} className="upload-widget-item">
-                                    <div className="upload-item-icon">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                                    </div>
-                                    <div className="upload-item-details">
-                                        <p className="upload-item-name">{file.name}</p>
-                                        <p className="upload-item-status">
-                                            {file.status === 'uploading' ? `Uploading • ${(file.size / 1024 / 1024).toFixed(2)} MB`
-                                                : file.status === 'completed' ? 'Completed'
-                                                    : 'Failed'}
-                                        </p>
-                                    </div>
-                                    <div className="upload-item-progress">
-                                        {file.status === 'uploading' && (
-                                            <div className="progress-circle-wrap">
-                                                <svg className="progress-circle" viewBox="0 0 36 36">
-                                                    <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                                    <path className="circle-progress" strokeDasharray={`${file.progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                                </svg>
-                                            </div>
-                                        )}
-                                        {file.status === 'completed' && (
-                                            <span style={{ color: '#10b981' }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                                            </span>
-                                        )}
-                                        {file.status === 'error' && (
-                                            <span style={{ color: '#ef4444' }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
+            <UploadManager
+                state={uploadState}
+                destinationLabel={uploadDestinationLabel}
+                isPaused={uploadState.isPaused}
+                onMinimize={minimizeUploads}
+                onExpand={expandUploads}
+                onClose={cancelUploads}
+                onPause={pauseUploads}
+                onResume={resumeUploads}
+                onCancel={cancelUploads}
+                onTabChange={setUploadTab}
+                onToggleDetails={toggleUploadDetails}
+                onViewCompleted={minimizeUploads}
+            />
 
             {/* Create Favorite List Modal (single overlay — matches preset list flow) */}
             {showCreateFavoriteListModal && (
