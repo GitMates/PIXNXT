@@ -51,7 +51,8 @@
   line-height: 1.05 !important;
   margin-bottom: clamp(0.75rem, 1.8vh, 1.25rem) !important;
   color: #222222 !important;
-  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif !important;
+  font-family: var(--heading-font, 'Playfair Display', Georgia, 'Times New Roman', serif) !important;
+  font-style: var(--heading-style, normal) !important;
   text-shadow: none !important;
 }
 

@@ -980,7 +980,8 @@
     font-size: 22px !important;
     line-height: 1 !important;
     color: #222222 !important;
-    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif !important;
+    font-family: var(--heading-font, 'Playfair Display', Georgia, 'Times New Roman', serif) !important;
+    font-style: var(--heading-style, normal) !important;
 }
 
 .cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__date.cover-text-grid__date {

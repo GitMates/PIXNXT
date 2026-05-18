@@ -24,7 +24,7 @@ export const galleryChromeStyles = {
     setHeading:
       'gallery-chrome__set-heading gallery-body-text px-2 py-0.5 text-left text-[6px] font-normal lowercase tracking-[0.16em] mb-0 md:px-3',
     setDescription:
-      'gallery-chrome__set-description mx-auto max-w-2xl whitespace-pre-wrap text-[11px] font-light leading-relaxed tracking-wide md:text-[12px]',
+      'gallery-chrome__set-description gallery-body-text mx-auto max-w-2xl whitespace-pre-wrap text-[11px] font-light leading-relaxed tracking-wide md:text-[12px]',
     setDescriptionWrap: '-mx-6 border-b px-4 py-4 text-center md:px-6',
     navInnerMobile:
       'gallery-chrome__nav-inner gallery-chrome__nav-inner--mobile flex flex-col items-stretch gap-1 py-1.5 px-2',
@@ -43,7 +43,7 @@ export const galleryChromeStyles = {
     navRight: `${galleryChromeLayout.navRight} gap-2 md:gap-3 ml-auto`,
     brandBlock: `${galleryChromeLayout.brandBlock} shrink-0`,
     tabsBlock: `${galleryChromeLayout.tabsBlock} shrink-0 gap-6 md:gap-10`,
-    photographerCorner: `${galleryChromeLayout.photographerCorner} text-[9px] font-bold uppercase tracking-[0.28em] leading-none`,
+    photographerCorner: `${galleryChromeLayout.photographerCorner} gallery-body-text text-[9px] font-bold uppercase tracking-[0.28em] leading-none`,
     navRailSpacer: galleryChromeLayout.navRailSpacer,
     actionsBlock: `${galleryChromeLayout.actionsBlock} gap-5 sm:gap-6 lg:gap-8`,
     brandTitle:
@@ -56,7 +56,7 @@ export const galleryChromeStyles = {
     setHeading:
       'gallery-chrome__set-heading gallery-body-text py-10 text-center text-[11px] font-normal lowercase tracking-[0.35em] md:py-12 md:text-xs mb-0',
     setDescription:
-      'gallery-chrome__set-description mx-auto max-w-3xl whitespace-pre-wrap text-base font-light leading-relaxed tracking-wide md:text-lg',
+      'gallery-chrome__set-description gallery-body-text mx-auto max-w-3xl whitespace-pre-wrap text-base font-light leading-relaxed tracking-wide md:text-lg',
     setDescriptionWrap: '-mx-2 mb-6 border-b px-4 py-5 text-center md:-mx-4 md:px-6 md:py-6',
   },
 } as const;

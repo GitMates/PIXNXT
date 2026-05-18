@@ -689,10 +689,10 @@ const GalleryView = () => {
                 isGalleryDark ? 'border-white/10' : 'border-black/5'
               )}
             >
-              <Typography variant="h3" className="mb-2 text-xl font-bold uppercase tracking-[0.15em]" style={{ color: 'var(--gallery-text)' }}>
+              <Typography variant="h3" className="gallery-heading mb-2 text-xl font-bold uppercase tracking-[0.15em]" style={{ color: 'var(--gallery-text)' }}>
                 Client selections
               </Typography>
-              <p className="mb-4 text-sm opacity-60" style={{ color: 'var(--gallery-text)' }}>
+              <p className="gallery-body-text mb-4 text-sm opacity-60" style={{ color: 'var(--gallery-text)' }}>
                 Showing {filteredPhotos.length} photos from this list
               </p>
               <button
@@ -701,7 +701,7 @@ const GalleryView = () => {
                   window.history.replaceState({}, '', window.location.pathname);
                   setIsFavoriteListMode(false);
                 }}
-                className="text-[10px] font-bold uppercase tracking-[0.2em] underline transition-opacity hover:opacity-50"
+                className="gallery-body-text text-[10px] font-bold uppercase tracking-[0.2em] underline transition-opacity hover:opacity-50"
                 style={{ color: 'var(--gallery-text)' }}
               >
                 Show all photos
@@ -850,15 +850,10 @@ const GalleryView = () => {
                     <Mail className="text-zinc-400" size={24} strokeWidth={1.5} />
                   </div>
                 )}
-                <h3
-                  className={cn(
-                    'mb-3 text-lg font-bold uppercase tracking-[0.2em] md:text-xl',
-                    isGalleryDark ? 'font-sans' : 'font-serif'
-                  )}
-                >
+                <h3 className="gallery-heading mb-3 text-lg font-bold uppercase tracking-[0.2em] md:text-xl">
                   Favorites
                 </h3>
-                <p className={cn('text-sm leading-relaxed', isGalleryDark ? 'text-white/60' : 'text-zinc-500')}>
+                <p className={cn('gallery-body-text text-sm leading-relaxed', isGalleryDark ? 'text-white/60' : 'text-zinc-500')}>
                   Save your favorite photos and revisit them at anytime using your email address. You can share this list
                   with your photographer, family and friends.
                 </p>
@@ -871,7 +866,7 @@ const GalleryView = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className={cn(
-                    'w-full rounded-none border px-3 py-3 text-sm outline-none transition-colors',
+                    'gallery-body-text w-full rounded-none border px-3 py-3 text-sm outline-none transition-colors',
                     isGalleryDark
                       ? 'border-white/20 bg-black/40 text-white placeholder:text-white/35 focus:border-white/50'
                       : 'border-zinc-200 bg-white py-3 focus:border-zinc-950'
@@ -881,7 +876,7 @@ const GalleryView = () => {
                   <button
                     type="button"
                     className={cn(
-                      'px-8 py-3 text-[10px] font-bold uppercase tracking-[0.25em] transition-opacity disabled:opacity-50',
+                      'gallery-body-text px-8 py-3 text-[10px] font-bold uppercase tracking-[0.25em] transition-opacity disabled:opacity-50',
                       isGalleryDark
                         ? 'bg-white/10 text-white hover:bg-white/20'
                         : 'w-full bg-zinc-950 py-4 text-white hover:bg-zinc-800 md:w-auto'
@@ -957,6 +952,7 @@ const GalleryView = () => {
         collectionId={collection?.id}
         isDark={isGalleryDark}
         initialSenderEmail={email}
+        themeClassName={cn(`theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)}
       />
 
       <ClientExclusiveLoginModal

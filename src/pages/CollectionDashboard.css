@@ -2877,21 +2877,21 @@
 }
 
 .font-preview-timeless .sample-text {
-    font-family: 'Playfair Display', 'Lora', serif;
-    font-weight: 400;
+    font-family: 'Lora', serif;
+    font-weight: 300;
     font-style: italic;
 }
 
 .font-preview-bold .sample-text {
-    font-family: 'Montserrat', 'Inter', sans-serif;
-    font-weight: 900;
+    font-family: 'Unbounded', 'Inter', sans-serif;
+    font-weight: 700;
     text-transform: uppercase;
 }
 
 .font-preview-subtle .sample-text {
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 300;
-    letter-spacing: 0.3em;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 200;
+    letter-spacing: 0.25em;
     text-transform: uppercase;
 }
 
@@ -3065,13 +3065,13 @@
     background: white;
 }
 
-/* --- Font Preview Mappings --- */
+/* --- Font Preview Mappings (match index.css gallery presets) --- */
 .font-preview-sans {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Inter', sans-serif;
 }
 
 .font-preview-serif {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Lora', serif;
 }
 
 .font-preview-modern {
@@ -3083,12 +3083,11 @@
 }
 
 .font-preview-bold {
-    font-family: 'Unbounded', sans-serif;
+    font-family: 'Inter', sans-serif;
 }
 
 .font-preview-subtle {
     font-family: 'Outfit', sans-serif;
-    font-weight: 300;
 }
 
 /* --- DESIGN MODAL STYLES --- */
