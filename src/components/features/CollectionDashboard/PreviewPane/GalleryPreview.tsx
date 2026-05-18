@@ -597,6 +597,10 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);
         })()}
+        themeClassName={cn(
+          `theme-${colorPalette}`,
+          `font-${fontFamily}`
+        )}
       />
 
       <AnimatePresence>

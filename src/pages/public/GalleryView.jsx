@@ -589,7 +589,7 @@ const GalleryView = () => {
   return (
     <div
       className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`, `nav-style-${navigationStyle}`, `style-${effectiveSettings.cover_style}`)}
-      style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
+      style={{ backgroundColor: 'var(--gallery-secondary-bg)', color: 'var(--gallery-text)' }}
       data-gallery-chrome="large"
     >
       {/* Hero Section */}
@@ -639,7 +639,7 @@ const GalleryView = () => {
 
 
       {/* Main Gallery Content */}
-      <main ref={galleryRef} className="pb-24 pt-0" style={{ backgroundColor: 'var(--gallery-bg)' }}>
+      <main ref={galleryRef} className="pb-24 pt-0" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
         <Container className="max-w-none px-2 md:px-4 lg:px-4">
           {isClientExclusiveEnabled(collection) && isClientViewer ? (
             <ClientExclusiveClientBar onSignOut={handleClientSignOut} />

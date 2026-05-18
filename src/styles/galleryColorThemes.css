@@ -1,0 +1,251 @@
+/**
+ * Pixieset-style gallery color themes — shared by gallery preview + gallery view.
+ * Swatch order in design picker: surface (bg), page tint (secondary), accent.
+ */
+
+/* --- Theme tokens (Pixieset parity) --- */
+.theme-light {
+  --gallery-bg: #ffffff;
+  --gallery-secondary-bg: #f7f9fa;
+  --gallery-text: #111111;
+  --gallery-accent: #111111;
+  --gallery-meta-text: #888888;
+  --gallery-border: rgba(0, 0, 0, 0.05);
+  --gallery-on-accent: #ffffff;
+}
+
+.theme-gold {
+  --gallery-bg: #ffffff;
+  --gallery-secondary-bg: #faf7f2;
+  --gallery-text: #5e4f3a;
+  --gallery-accent: #a68c5b;
+  --gallery-meta-text: #a68c5b;
+  --gallery-border: rgba(94, 79, 58, 0.1);
+  --gallery-on-accent: #ffffff;
+}
+
+.theme-rose {
+  --gallery-bg: #ffffff;
+  --gallery-secondary-bg: #faf4f4;
+  --gallery-text: #5e4a4a;
+  --gallery-accent: #a67d7d;
+  --gallery-meta-text: #a67d7d;
+  --gallery-border: rgba(94, 74, 74, 0.1);
+  --gallery-on-accent: #ffffff;
+}
+
+.theme-terracotta {
+  --gallery-bg: #ffffff;
+  --gallery-secondary-bg: #faf5f2;
+  --gallery-text: #5e463a;
+  --gallery-accent: #a66d5b;
+  --gallery-meta-text: #a66d5b;
+  --gallery-border: rgba(94, 70, 58, 0.1);
+  --gallery-on-accent: #ffffff;
+}
+
+.theme-sand {
+  --gallery-bg: #ffffff;
+  --gallery-secondary-bg: #f7f5f2;
+  --gallery-text: #5e524a;
+  --gallery-accent: #967b6b;
+  --gallery-meta-text: #967b6b;
+  --gallery-border: rgba(94, 82, 74, 0.1);
+  --gallery-on-accent: #ffffff;
+}
+
+.theme-olive {
+  --gallery-bg: #ffffff;
+  --gallery-secondary-bg: #f5f7f2;
+  --gallery-text: #4e5e3a;
+  --gallery-accent: #8c966b;
+  --gallery-meta-text: #8c966b;
+  --gallery-border: rgba(78, 94, 58, 0.1);
+  --gallery-on-accent: #ffffff;
+}
+
+.theme-agave {
+  --gallery-bg: #ffffff;
+  --gallery-secondary-bg: #f2f7f6;
+  --gallery-text: #3a5e55;
+  --gallery-accent: #6b968c;
+  --gallery-meta-text: #6b968c;
+  --gallery-border: rgba(58, 94, 85, 0.1);
+  --gallery-on-accent: #ffffff;
+}
+
+.theme-sea {
+  --gallery-bg: #ffffff;
+  --gallery-secondary-bg: #f2f4f7;
+  --gallery-text: #3a455e;
+  --gallery-accent: #6b7a96;
+  --gallery-meta-text: #6b7a96;
+  --gallery-border: rgba(58, 69, 94, 0.1);
+  --gallery-on-accent: #ffffff;
+}
+
+.theme-dark {
+  --gallery-bg: #1a1a1a;
+  --gallery-secondary-bg: #111111;
+  --gallery-text: #ffffff;
+  --gallery-accent: #988383;
+  --gallery-meta-text: rgba(255, 255, 255, 0.55);
+  --gallery-border: rgba(255, 255, 255, 0.1);
+  --gallery-on-accent: #ffffff;
+}
+
+/* Page canvas uses tinted background; nav + cover panels use --gallery-bg */
+.gallery-view-page,
+.cd-preview-gallery-card {
+  background-color: var(--gallery-secondary-bg) !important;
+  color: var(--gallery-text);
+}
+
+.gallery-view-page main,
+.cd-preview-gallery-body {
+  background-color: var(--gallery-secondary-bg) !important;
+  color: var(--gallery-text);
+}
+
+.gallery-sticky-nav {
+  background-color: var(--gallery-bg) !important;
+  color: var(--gallery-text);
+  border-bottom: 1px solid var(--gallery-border);
+}
+
+.cover-text-grid__button.view-gallery-btn,
+.cover-novel-layout__cta .view-gallery-btn,
+.cover-stamp-layout__cta .view-gallery-btn,
+.cover-journal-layout__cta .view-gallery-btn,
+.cover-vintage-layout__cta .view-gallery-btn {
+  background-color: var(--gallery-accent) !important;
+  color: var(--gallery-on-accent) !important;
+  border: none !important;
+}
+
+/* Novel split cover */
+[class*='theme-'] .cover-novel-layout {
+  --novel-text-bg: var(--gallery-bg);
+  --novel-media-bg: var(--gallery-secondary-bg);
+  --novel-text: var(--gallery-text);
+  --novel-muted: var(--gallery-meta-text);
+  background-color: var(--gallery-secondary-bg);
+}
+
+[class*='theme-'] .cover-novel-layout__text {
+  background-color: var(--novel-text-bg) !important;
+  color: var(--novel-text) !important;
+}
+
+[class*='theme-'] .cover-novel-layout__media {
+  background-color: var(--novel-media-bg) !important;
+}
+
+[class*='theme-'] .cover-novel-layout__brand,
+[class*='theme-'] .cover-novel-layout__date {
+  color: var(--novel-muted) !important;
+}
+
+[class*='theme-'] .cover-novel-layout__title {
+  color: var(--novel-text) !important;
+}
+
+[class*='theme-'] .cover-novel-layout__image-frame {
+  background: var(--gallery-bg) !important;
+}
+
+.gallery-view-page.style-novel .gallery-view-hero,
+.gallery-view-hero .cover-novel-layout {
+  background-color: var(--gallery-secondary-bg) !important;
+}
+
+.gallery-view-hero .cover-novel-layout__text {
+  background-color: var(--gallery-bg) !important;
+}
+
+/* Stamp cover */
+[class*='theme-'] .cover-stamp-layout {
+  --stamp-bg: var(--gallery-secondary-bg);
+  --stamp-text: var(--gallery-text);
+  --stamp-muted: var(--gallery-meta-text);
+  background-color: var(--stamp-bg) !important;
+  color: var(--stamp-text) !important;
+}
+
+[class*='theme-'] .cover-stamp-layout__brand,
+[class*='theme-'] .cover-stamp-layout__date {
+  color: var(--stamp-muted) !important;
+}
+
+[class*='theme-'] .cover-stamp-layout__title {
+  color: var(--stamp-text) !important;
+}
+
+.gallery-view-page.style-stamp .gallery-view-hero,
+.cd-preview-gallery-card.style-stamp .cd-preview-gallery-header {
+  background-color: var(--gallery-secondary-bg) !important;
+}
+
+/* Journal cover */
+[class*='theme-'] .cover-journal-layout {
+  --journal-panel-bg: var(--gallery-bg);
+  --journal-media-bg: var(--gallery-secondary-bg);
+  --journal-text: var(--gallery-text);
+  --journal-muted: var(--gallery-meta-text);
+  background-color: var(--journal-panel-bg) !important;
+}
+
+[class*='theme-'] .cover-journal-layout__media {
+  background-color: var(--journal-media-bg) !important;
+}
+
+[class*='theme-'] .cover-journal-layout__panel {
+  background-color: var(--journal-panel-bg) !important;
+  color: var(--journal-text) !important;
+}
+
+[class*='theme-'] .cover-journal-layout__brand,
+[class*='theme-'] .cover-journal-layout__date {
+  color: var(--journal-muted) !important;
+}
+
+[class*='theme-'] .cover-journal-layout__title {
+  color: var(--journal-text) !important;
+}
+
+[class*='theme-'] .cover-journal-layout__image-frame {
+  background: var(--gallery-bg) !important;
+}
+
+/* Vintage cover */
+[class*='theme-'] .cover-vintage-layout {
+  --vintage-text: var(--gallery-text);
+  --vintage-muted: var(--gallery-meta-text);
+}
+
+[class*='theme-'] .cover-vintage-layout__title {
+  color: var(--vintage-text) !important;
+}
+
+[class*='theme-'] .cover-vintage-layout__brand,
+[class*='theme-'] .cover-vintage-layout__date {
+  color: var(--vintage-muted) !important;
+}
+
+/* Classic cover — hero only shows photo; page tint still applies below */
+
+/* Chrome text */
+[class*='theme-'] .gallery-chrome__brand-title,
+[class*='theme-'] .gallery-chrome__set-heading {
+  color: var(--gallery-text);
+}
+
+[class*='theme-'] .gallery-chrome__brand-subtitle,
+[class*='theme-'] .gallery-chrome__tab,
+[class*='theme-'] .gallery-chrome__action {
+  color: var(--gallery-text);
+}
+
+[class*='theme-'] .gallery-chrome__set-description {
+  color: var(--gallery-text);
+}

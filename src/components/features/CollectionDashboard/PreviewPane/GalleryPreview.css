@@ -894,14 +894,13 @@
     height: 300px;
 }
 
-/* Theme variables (from dashboard global tokens) */
+/* Theme variables — page tint + chrome (see galleryColorThemes.css) */
 .cd-preview-gallery-card {
-    background-color: var(--gallery-bg) !important;
     color: var(--gallery-text) !important;
 }
 
 .cd-preview-gallery-body {
-    background-color: var(--gallery-bg) !important;
+    color: var(--gallery-text);
 }
 
 /* Fill preview pane canvas frame */
@@ -945,7 +944,8 @@
     letter-spacing: 0.35em !important;
 }
 
-.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__title,
+/* White text only on photo-overlay covers — not novel/journal/stamp/vintage panels */
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__title:not(.cover-novel-layout__title):not(.cover-journal-layout__title):not(.cover-vintage-layout__title):not(.cover-stamp-layout__title),
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cover-left-layout__footer .cover-text-grid__title {
     font-size: 14px !important;
     line-height: 1.15 !important;
@@ -956,45 +956,51 @@
 }
 
 .cd-preview-gallery-card.style-novel[data-cover-text-scale='compact'] .cover-novel-layout__title.cover-text-grid__title {
-    font-size: 20px !important;
-    line-height: 0.92 !important;
-    color: #222222 !important;
+    font-size: 22px !important;
+    line-height: 0.95 !important;
     letter-spacing: 0.02em !important;
+    color: var(--gallery-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-novel[data-cover-text-scale='compact'] .cover-novel-layout__brand.cover-text-grid__subtitle {
-    font-size: 5px !important;
-    color: rgba(34, 34, 34, 0.72) !important;
+    font-size: 6px !important;
     letter-spacing: 0.38em !important;
     font-weight: 400 !important;
+    color: var(--gallery-meta-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-novel[data-cover-text-scale='compact'] .cover-novel-layout__date.cover-text-grid__date {
-    font-size: 7px !important;
-    color: rgba(34, 34, 34, 0.72) !important;
+    font-size: 8px !important;
     letter-spacing: 0.24em !important;
-    margin-top: 5px !important;
+    margin-top: 6px !important;
+    color: var(--gallery-meta-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__title.cover-text-grid__title {
     font-size: 22px !important;
     line-height: 1 !important;
-    color: #222222 !important;
     font-family: var(--heading-font, 'Playfair Display', Georgia, 'Times New Roman', serif) !important;
     font-style: var(--heading-style, normal) !important;
+    color: var(--gallery-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__date.cover-text-grid__date {
     font-size: 6px !important;
-    color: rgba(34, 34, 34, 0.72) !important;
     letter-spacing: 0.28em !important;
     margin-bottom: 4px !important;
+    color: var(--gallery-meta-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__brand.cover-text-grid__subtitle {
     font-size: 5px !important;
-    color: rgba(34, 34, 34, 0.72) !important;
     letter-spacing: 0.36em !important;
+    color: var(--gallery-meta-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__panel .gallery-heading {
@@ -1009,45 +1015,51 @@
 .cd-preview-gallery-card.style-journal[data-cover-text-scale='compact'] .cover-journal-layout__title.cover-text-grid__title {
     font-size: 20px !important;
     line-height: 1 !important;
-    color: #1a1a1a !important;
     letter-spacing: 0.02em !important;
+    color: var(--gallery-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-journal[data-cover-text-scale='compact'] .cover-journal-layout__brand.cover-text-grid__subtitle {
     font-size: 5px !important;
-    color: rgba(26, 26, 26, 0.62) !important;
     letter-spacing: 0.36em !important;
     font-weight: 400 !important;
+    color: var(--gallery-meta-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-journal[data-cover-text-scale='compact'] .cover-journal-layout__date.cover-text-grid__date {
-    font-size: 6px !important;
-    color: rgba(26, 26, 26, 0.62) !important;
+    font-size: 7px !important;
     letter-spacing: 0.28em !important;
     margin-bottom: 4px !important;
+    color: var(--gallery-meta-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__title.cover-text-grid__title {
     font-size: 38px !important;
     line-height: 0.95 !important;
-    color: #1a1a1a !important;
     letter-spacing: 0.01em !important;
     margin-bottom: 14px !important;
+    color: var(--gallery-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__brand.cover-text-grid__subtitle {
     font-size: 8px !important;
-    color: rgba(26, 26, 26, 0.58) !important;
     letter-spacing: 0.4em !important;
     font-weight: 400 !important;
     margin-bottom: 14px !important;
+    color: var(--gallery-meta-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__date.cover-text-grid__date {
     font-size: 8px !important;
-    color: rgba(26, 26, 26, 0.58) !important;
     letter-spacing: 0.26em !important;
     margin-bottom: 6px !important;
+    color: var(--gallery-meta-text) !important;
+    opacity: 1 !important;
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__image-frame {
@@ -1062,7 +1074,6 @@
     font-size: 8px !important;
     padding: 5px 16px !important;
     letter-spacing: 0.2em !important;
-    background: #1a1a1a !important;
     border-radius: 0 !important;
 }
 
@@ -1074,7 +1085,7 @@
     font-size: 14px !important;
 }
 
-.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__date,
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__date:not(.cover-novel-layout__date):not(.cover-journal-layout__date):not(.cover-vintage-layout__date):not(.cover-stamp-layout__date),
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cover-left-layout__footer .cover-text-grid__date {
     font-size: 8px !important;
     line-height: 1.2 !important;

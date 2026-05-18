@@ -57,9 +57,6 @@
 }
 
 .cover-stamp-layout__cta .view-gallery-btn {
-  background: #1a1a1a !important;
-  color: #ffffff !important;
-  border: none !important;
   border-radius: 0 !important;
   font-weight: 500 !important;
 }
@@ -100,13 +97,8 @@
   letter-spacing: 0.24em !important;
 }
 
-.gallery-view-page.style-stamp .gallery-view-hero {
-  background-color: #f2f2f2;
-}
-
 /* Dashboard preview — larger stamp elements (gallery view unchanged) */
 .cd-preview-gallery-card.style-stamp .cd-preview-gallery-header {
-  background-color: #f2f2f2;
   min-height: 520px;
 }
 

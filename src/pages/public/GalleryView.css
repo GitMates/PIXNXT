@@ -18,7 +18,6 @@
   font-size: clamp(1.25rem, 2.75vw, 2rem) !important;
   line-height: 1 !important;
   margin-bottom: 0 !important;
-  color: #222222 !important;
   text-shadow: none !important;
   letter-spacing: 0.04em !important;
 }
@@ -31,7 +30,6 @@
   font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
   letter-spacing: 0.42em !important;
   margin-bottom: 0.75rem !important;
-  color: rgba(34, 34, 34, 0.72) !important;
   text-shadow: none !important;
   font-weight: 400 !important;
 }
@@ -41,7 +39,6 @@
   letter-spacing: 0.28em !important;
   margin-top: 1rem !important;
   margin-bottom: 0 !important;
-  color: rgba(34, 34, 34, 0.72) !important;
   text-shadow: none !important;
 }
 
@@ -50,7 +47,6 @@
   font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
   line-height: 1.05 !important;
   margin-bottom: clamp(0.75rem, 1.8vh, 1.25rem) !important;
-  color: #222222 !important;
   font-family: var(--heading-font, 'Playfair Display', Georgia, 'Times New Roman', serif) !important;
   font-style: var(--heading-style, normal) !important;
   text-shadow: none !important;
@@ -60,14 +56,12 @@
   font-size: clamp(0.62rem, 1.1vw, 0.82rem) !important;
   letter-spacing: 0.32em !important;
   margin-bottom: 0.65rem !important;
-  color: rgba(34, 34, 34, 0.72) !important;
   text-shadow: none !important;
 }
 
 .gallery-view-hero .cover-vintage-layout__brand.cover-text-grid__subtitle {
   font-size: clamp(0.5rem, 0.85vw, 0.68rem) !important;
   letter-spacing: 0.4em !important;
-  color: rgba(34, 34, 34, 0.72) !important;
   text-shadow: none !important;
   font-weight: 400 !important;
 }
@@ -81,7 +75,6 @@
   font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
   line-height: 1 !important;
   margin-bottom: clamp(0.65rem, 1.5vh, 1rem) !important;
-  color: #1a1a1a !important;
   text-shadow: none !important;
   letter-spacing: 0.02em !important;
   font-weight: 700 !important;
@@ -95,7 +88,6 @@
   font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
   letter-spacing: 0.38em !important;
   margin-bottom: auto !important;
-  color: rgba(26, 26, 26, 0.62) !important;
   text-shadow: none !important;
   font-weight: 500 !important;
 }
@@ -104,7 +96,6 @@
   font-size: clamp(0.62rem, 1.05vw, 0.8rem) !important;
   letter-spacing: 0.32em !important;
   margin-bottom: clamp(0.5rem, 1.2vh, 0.75rem) !important;
-  color: rgba(26, 26, 26, 0.62) !important;
   text-shadow: none !important;
 }
 
@@ -112,7 +103,6 @@
 .gallery-view-hero .cover-stamp-layout__brand.cover-text-grid__subtitle {
   font-size: clamp(0.5rem, 0.82vw, 0.62rem) !important;
   letter-spacing: 0.44em !important;
-  color: rgba(26, 26, 26, 0.58) !important;
   text-shadow: none !important;
   font-weight: 400 !important;
   margin-bottom: clamp(1.35rem, 3.2vh, 2.25rem) !important;
@@ -121,7 +111,6 @@
 .gallery-view-hero .cover-stamp-layout__date.cover-text-grid__date {
   font-size: clamp(0.65rem, 1.1vw, 0.82rem) !important;
   letter-spacing: 0.3em !important;
-  color: rgba(26, 26, 26, 0.58) !important;
   text-shadow: none !important;
   margin-bottom: clamp(0.4rem, 1vh, 0.55rem) !important;
 }
@@ -129,7 +118,6 @@
 .gallery-view-hero .cover-stamp-layout__title.cover-text-grid__title {
   font-size: clamp(2.25rem, 6vw, 3.5rem) !important;
   line-height: 0.95 !important;
-  color: #1a1a1a !important;
   text-shadow: none !important;
   letter-spacing: 0.01em !important;
   font-weight: 700 !important;
@@ -144,8 +132,6 @@
   font-size: clamp(0.55rem, 0.9vw, 0.68rem) !important;
   padding: 0.85rem 2.1rem !important;
   letter-spacing: 0.24em !important;
-  background: #1a1a1a !important;
-  color: #ffffff !important;
   border-radius: 0 !important;
 }
 
