@@ -1,8 +1,17 @@
 import { buildGmailComposeUrl } from './gmailComposeUrl';
+import { generateCollectionSlug } from './collectionSlug';
 
 export function getCollectionShareUrl(slug) {
     if (!slug) return `${window.location.origin}/gallery`;
     return `${window.location.origin}/gallery/${slug}`;
+}
+
+/** Resolve a shareable gallery URL from a collection row (slug or generated from name). */
+export function getShareUrlForCollection(collection) {
+    if (!collection) return getCollectionShareUrl('');
+    if (collection.slug) return getCollectionShareUrl(collection.slug);
+    if (collection.name) return getCollectionShareUrl(generateCollectionSlug(collection.name));
+    return getCollectionShareUrl('');
 }
 
 export function openShareByEmail(url, title = 'Photo Gallery') {

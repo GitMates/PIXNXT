@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getGalleryPublicUrl } from '../../../lib/collectionSlug';
+import { getShareUrlForCollection } from '../../../lib/shareCollection';
 import './CollectionShareModals.css';
 
 function ModalShell({ title, onClose, children }) {
@@ -47,7 +47,7 @@ function CopyField({ label, value }) {
 
 export function CollectionDirectLinkModal({ collection, isOpen, onClose }) {
     if (!isOpen || !collection) return null;
-    const url = getGalleryPublicUrl(collection.slug);
+    const url = getShareUrlForCollection(collection);
 
     return (
         <ModalShell title="GET DIRECT LINK" onClose={onClose}>
@@ -59,7 +59,7 @@ export function CollectionDirectLinkModal({ collection, isOpen, onClose }) {
 
 export function CollectionQrModal({ collection, isOpen, onClose }) {
     if (!isOpen || !collection) return null;
-    const url = getGalleryPublicUrl(collection.slug);
+    const url = getShareUrlForCollection(collection);
     const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
 
     return (

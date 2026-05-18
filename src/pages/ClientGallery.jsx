@@ -4,8 +4,8 @@ import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { openSpaPath } from '../lib/spaNavigation';
-import { generateCollectionSlug, getGalleryPublicUrl } from '../lib/collectionSlug';
-import { openShareByEmail, openWhatsAppShare } from '../lib/shareCollection';
+import { generateCollectionSlug } from '../lib/collectionSlug';
+import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
@@ -87,15 +87,29 @@ const ClientGallery = () => {
     }, [closeContextMenu]);
 
     const handleShareByEmail = useCallback((collection) => {
+        if (!collection) return;
+        const url = getShareUrlForCollection(collection);
         closeContextMenu();
-        if (!collection?.slug) return;
-        openShareByEmail(getGalleryPublicUrl(collection.slug), collection.name || 'Photo Gallery');
+        openShareByEmail(url, collection.name || 'Photo Gallery');
     }, [closeContextMenu]);
 
     const handleShareWhatsApp = useCallback((collection) => {
+        if (!collection) return;
+        const url = getShareUrlForCollection(collection);
         closeContextMenu();
-        if (!collection?.slug) return;
-        openWhatsAppShare(getGalleryPublicUrl(collection.slug), collection.name || 'Gallery');
+        openWhatsAppShare(url, collection.name || 'Gallery');
+    }, [closeContextMenu]);
+
+    const handleGetDirectLink = useCallback((collection) => {
+        if (!collection) return;
+        setDirectLinkCollection(collection);
+        closeContextMenu();
+    }, [closeContextMenu]);
+
+    const handleGetQrCode = useCallback((collection) => {
+        if (!collection) return;
+        setQrCollection(collection);
+        closeContextMenu();
     }, [closeContextMenu]);
 
     const handleQuickEdit = useCallback((collection) => {
@@ -174,8 +188,8 @@ const ClientGallery = () => {
                 onDuplicate={() => { closeContextMenu(); setDuplicateCollection(collection); }}
                 onDelete={() => { closeContextMenu(); handleDeleteCollection(collection.id); }}
                 onShareByEmail={() => handleShareByEmail(collection)}
-                onGetDirectLink={() => { closeContextMenu(); setDirectLinkCollection(collection); }}
-                onGetQrCode={() => { closeContextMenu(); setQrCollection(collection); }}
+                onGetDirectLink={() => handleGetDirectLink(collection)}
+                onGetQrCode={() => handleGetQrCode(collection)}
                 onShareWhatsApp={() => handleShareWhatsApp(collection)}
             />
         );
@@ -221,7 +235,14 @@ const ClientGallery = () => {
         const handleClickOutside = (e) => {
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortDropdown(false);
             if (viewRef.current && !viewRef.current.contains(e.target)) setShowViewDropdown(false);
-            if (contextRef.current && !contextRef.current.contains(e.target)) setContextMenuId(null);
+            const inSharePortal = e.target.closest?.('.cg-ctx-submenu--portal, .cg-ctx-submenu-bridge, .cgm-overlay');
+            if (
+                contextRef.current &&
+                !contextRef.current.contains(e.target) &&
+                !inSharePortal
+            ) {
+                setContextMenuId(null);
+            }
             if (filterRef.current && !filterRef.current.contains(e.target)) setActiveFilter(null);
             if (newCollectionRef.current && !newCollectionRef.current.contains(e.target)) setShowNewCollectionDropdown(false);
         };
@@ -473,7 +494,7 @@ const ClientGallery = () => {
                         {sortedCollections.map(collection => (
                             <div
                                 key={collection.id}
-                                className={`cg-style-73 group`}
+                                className={`cg-style-73 group ${contextMenuId === collection.id ? 'cg-style-73--ctx-open' : ''}`}
                                 onClick={() => handleCardClick(collection)}
                             >
                                 <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'cg-style-74--selected' : ''}`}>

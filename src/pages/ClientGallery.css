@@ -160,6 +160,10 @@
     @apply absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-[20px] font-bold text-white z-[6] opacity-0 transition-opacity duration-200 cursor-pointer drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)] rounded group-hover:opacity-100 hover:bg-black/20;
   }
 
+  .cg-style-73--ctx-open .cg-style-74 {
+    @apply overflow-visible;
+  }
+
   .cg-style-40 {
     @apply absolute top-9 right-2 bg-[#ffffff] rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] z-[200] py-3 min-w-[200px] animate-[cgFadeIn_0.12s_ease] max-md:fixed max-md:right-3 max-md:left-3 max-md:top-[20%] max-md:w-auto max-md:max-w-[300px] max-md:mx-auto max-md:z-[99999] max-md:shadow-[0_12px_48px_rgba(0,0,0,0.25)] max-md:rounded-xl;
   }
@@ -329,11 +333,15 @@
   }
 
   .cg-ctx-menu {
-    @apply absolute top-9 right-2 bg-white rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] z-[500] py-2 min-w-[220px] animate-[cgFadeIn_0.12s_ease] border border-[#eee];
+    @apply absolute top-3 right-3 bg-white rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] z-[500] py-2.5 min-w-[228px] animate-[cgFadeIn_0.12s_ease] border border-[#eee] overflow-visible;
   }
 
-  .cg-ctx-share-group {
-    @apply relative;
+  .cg-ctx-menu--share-open {
+    @apply z-[501];
+  }
+
+  .cg-style-73--ctx-open {
+    @apply z-[50];
   }
 
   .cg-ctx-item {
@@ -344,6 +352,10 @@
     @apply justify-between pr-4;
   }
 
+  .cg-ctx-item--active {
+    @apply bg-[#f5f7f8];
+  }
+
   .cg-ctx-item-main {
     @apply flex items-center gap-3;
   }
@@ -352,12 +364,28 @@
     @apply shrink-0 text-[#999];
   }
 
-  .cg-ctx-submenu {
-    @apply absolute right-[calc(100%+4px)] top-0 bg-white rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] py-2 min-w-[220px] z-[600] border border-[#eee];
+  .cg-ctx-submenu--portal {
+    position: fixed;
+    z-index: 10001;
+    width: 240px;
+    min-width: 240px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+    border: 1px solid #eee;
+    padding: 10px 0;
+    @apply animate-[cgFadeIn_0.12s_ease];
   }
 
-  .cg-ctx-submenu--list {
-    @apply right-auto left-[calc(100%+4px)];
+  .cg-ctx-submenu--portal .cg-ctx-item {
+    @apply px-6 py-3.5 text-[15px];
+  }
+
+  .cg-ctx-submenu-bridge {
+    position: fixed;
+    z-index: 10000;
+    background: transparent;
+    pointer-events: auto;
   }
 
   .cg-ctx-item--whatsapp svg {

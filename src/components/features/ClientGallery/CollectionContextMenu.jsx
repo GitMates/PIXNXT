@@ -1,4 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useLayoutEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
+
+const SUBMENU_WIDTH = 240;
+const SUBMENU_GAP = 8;
+const CLOSE_DELAY_MS = 220;
 
 const IconShare = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
@@ -34,6 +39,122 @@ const IconChevron = () => (
     <svg className="cg-ctx-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6" /></svg>
 );
 
+function ShareSubmenu({
+    shareBtnRef,
+    shareOpen,
+    cancelClose,
+    scheduleClose,
+    onShareByEmail,
+    onGetDirectLink,
+    onGetQrCode,
+    onShareWhatsApp,
+    onClose,
+}) {
+    const [layout, setLayout] = useState(null);
+
+    const updatePosition = useCallback(() => {
+        const anchor = shareBtnRef.current;
+        if (!anchor) return;
+
+        const rect = anchor.getBoundingClientRect();
+        const viewportPad = 8;
+        const submenuHeight = 4 * 48 + 8;
+
+        let submenuLeft = rect.right + SUBMENU_GAP;
+        let opensLeft = false;
+
+        if (submenuLeft + SUBMENU_WIDTH > window.innerWidth - viewportPad) {
+            submenuLeft = rect.left - SUBMENU_WIDTH - SUBMENU_GAP;
+            opensLeft = true;
+        }
+
+        submenuLeft = Math.max(viewportPad, Math.min(submenuLeft, window.innerWidth - SUBMENU_WIDTH - viewportPad));
+
+        const bridgeLeft = opensLeft ? submenuLeft + SUBMENU_WIDTH : rect.right;
+        const bridgeWidth = opensLeft
+            ? Math.max(SUBMENU_GAP, rect.left - bridgeLeft)
+            : Math.max(SUBMENU_GAP, submenuLeft - rect.right);
+
+        setLayout({
+            submenuTop: rect.top,
+            submenuLeft,
+            bridgeTop: rect.top,
+            bridgeLeft,
+            bridgeWidth,
+            bridgeHeight: Math.max(rect.height, submenuHeight),
+        });
+    }, [shareBtnRef]);
+
+    useLayoutEffect(() => {
+        if (!shareOpen) {
+            setLayout(null);
+            return undefined;
+        }
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+        };
+    }, [shareOpen, updatePosition]);
+
+    const run = (fn) => (e) => {
+        e.stopPropagation();
+        fn?.();
+        onClose();
+    };
+
+    const pointerInside = () => cancelClose();
+    const pointerOutside = () => scheduleClose();
+
+    if (!shareOpen || !layout) return null;
+
+    return createPortal(
+        <>
+            <div
+                className="cg-ctx-submenu-bridge"
+                style={{
+                    top: layout.bridgeTop,
+                    left: layout.bridgeLeft,
+                    width: layout.bridgeWidth,
+                    height: layout.bridgeHeight,
+                }}
+                onMouseEnter={pointerInside}
+                onMouseLeave={pointerOutside}
+                aria-hidden
+            />
+            <div
+                className="cg-ctx-submenu cg-ctx-submenu--portal"
+                style={{ top: layout.submenuTop, left: layout.submenuLeft }}
+                role="menu"
+                onMouseEnter={pointerInside}
+                onMouseLeave={pointerOutside}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+            >
+                <button type="button" className="cg-ctx-item" onMouseDown={(e) => e.stopPropagation()} onClick={run(onShareByEmail)}>
+                    <IconMail />
+                    Share by email
+                </button>
+                <button type="button" className="cg-ctx-item" onMouseDown={(e) => e.stopPropagation()} onClick={run(onGetDirectLink)}>
+                    <IconLink />
+                    Get direct link
+                </button>
+                <button type="button" className="cg-ctx-item" onMouseDown={(e) => e.stopPropagation()} onClick={run(onGetQrCode)}>
+                    <IconQr />
+                    Get QR code
+                </button>
+                <button type="button" className="cg-ctx-item cg-ctx-item--whatsapp" onMouseDown={(e) => e.stopPropagation()} onClick={run(onShareWhatsApp)}>
+                    <IconWhatsApp />
+                    Share on WhatsApp
+                </button>
+            </div>
+        </>,
+        document.body
+    );
+}
+
 export function CollectionContextMenu({
     menuRef,
     variant = 'grid',
@@ -48,10 +169,34 @@ export function CollectionContextMenu({
     onShareWhatsApp,
 }) {
     const [shareOpen, setShareOpen] = useState(false);
+    const shareBtnRef = useRef(null);
+    const closeTimerRef = useRef(null);
+
+    const cancelClose = useCallback(() => {
+        if (closeTimerRef.current) {
+            clearTimeout(closeTimerRef.current);
+            closeTimerRef.current = null;
+        }
+    }, []);
+
+    const scheduleClose = useCallback(() => {
+        cancelClose();
+        closeTimerRef.current = window.setTimeout(() => setShareOpen(false), CLOSE_DELAY_MS);
+    }, [cancelClose]);
+
+    const closeShare = useCallback(() => {
+        cancelClose();
+        setShareOpen(false);
+    }, [cancelClose]);
+
+    const openShare = useCallback(() => {
+        cancelClose();
+        setShareOpen(true);
+    }, [cancelClose]);
 
     const run = (fn) => (e) => {
         e.stopPropagation();
-        setShareOpen(false);
+        closeShare();
         fn?.();
     };
 
@@ -61,21 +206,20 @@ export function CollectionContextMenu({
     };
 
     return (
-        <div
-            className={`cg-ctx-menu ${variant === 'list' ? 'cg-ctx-menu--list' : ''}`}
-            ref={menuRef}
-            onClick={(e) => e.stopPropagation()}
-            role="menu"
-        >
+        <>
             <div
-                className="cg-ctx-share-group"
-                onMouseEnter={() => setShareOpen(true)}
-                onMouseLeave={() => setShareOpen(false)}
+                className={`cg-ctx-menu ${variant === 'list' ? 'cg-ctx-menu--list' : ''} ${shareOpen ? 'cg-ctx-menu--share-open' : ''}`}
+                ref={menuRef}
+                onClick={(e) => e.stopPropagation()}
+                role="menu"
             >
                 <button
                     type="button"
-                    className="cg-ctx-item cg-ctx-item--share"
+                    ref={shareBtnRef}
+                    className={`cg-ctx-item cg-ctx-item--share ${shareOpen ? 'cg-ctx-item--active' : ''}`}
                     onClick={toggleShare}
+                    onMouseEnter={openShare}
+                    onMouseLeave={scheduleClose}
                     aria-expanded={shareOpen}
                 >
                     <span className="cg-ctx-item-main">
@@ -84,50 +228,39 @@ export function CollectionContextMenu({
                     </span>
                     <IconChevron />
                 </button>
-                {shareOpen && (
-                    <div
-                        className={`cg-ctx-submenu ${variant === 'list' ? 'cg-ctx-submenu--list' : ''}`}
-                        role="menu"
-                    >
-                        <button type="button" className="cg-ctx-item" onClick={run(onShareByEmail)}>
-                            <IconMail />
-                            Share by email
-                        </button>
-                        <button type="button" className="cg-ctx-item" onClick={run(onGetDirectLink)}>
-                            <IconLink />
-                            Get direct link
-                        </button>
-                        <button type="button" className="cg-ctx-item" onClick={run(onGetQrCode)}>
-                            <IconQr />
-                            Get QR code
-                        </button>
-                        <button type="button" className="cg-ctx-item cg-ctx-item--whatsapp" onClick={run(onShareWhatsApp)}>
-                            <IconWhatsApp />
-                            Share on WhatsApp
-                        </button>
-                    </div>
-                )}
+                <button type="button" className="cg-ctx-item" onClick={run(onPreview)}>
+                    <IconEye />
+                    Preview
+                </button>
+                <button type="button" className="cg-ctx-item" onClick={run(onQuickEdit)}>
+                    <IconEdit />
+                    Quick edit
+                </button>
+                <button type="button" className="cg-ctx-item" onClick={run(onMoveTo)}>
+                    <IconMove />
+                    Move to
+                </button>
+                <button type="button" className="cg-ctx-item" onClick={run(onDuplicate)}>
+                    <IconDuplicate />
+                    Duplicate
+                </button>
+                <button type="button" className="cg-ctx-item cg-ctx-item--danger" onClick={run(onDelete)}>
+                    <IconTrash />
+                    Delete
+                </button>
             </div>
-            <button type="button" className="cg-ctx-item" onClick={run(onPreview)}>
-                <IconEye />
-                Preview
-            </button>
-            <button type="button" className="cg-ctx-item" onClick={run(onQuickEdit)}>
-                <IconEdit />
-                Quick edit
-            </button>
-            <button type="button" className="cg-ctx-item" onClick={run(onMoveTo)}>
-                <IconMove />
-                Move to
-            </button>
-            <button type="button" className="cg-ctx-item" onClick={run(onDuplicate)}>
-                <IconDuplicate />
-                Duplicate
-            </button>
-            <button type="button" className="cg-ctx-item cg-ctx-item--danger" onClick={run(onDelete)}>
-                <IconTrash />
-                Delete
-            </button>
-        </div>
+
+            <ShareSubmenu
+                shareBtnRef={shareBtnRef}
+                shareOpen={shareOpen}
+                cancelClose={cancelClose}
+                scheduleClose={scheduleClose}
+                onClose={closeShare}
+                onShareByEmail={onShareByEmail}
+                onGetDirectLink={onGetDirectLink}
+                onGetQrCode={onGetQrCode}
+                onShareWhatsApp={onShareWhatsApp}
+            />
+        </>
     );
 }
