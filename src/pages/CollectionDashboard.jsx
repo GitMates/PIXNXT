@@ -27,8 +27,9 @@ import { GeneralSettings } from '../components/features/CollectionDashboard/Sett
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
 import { UploadManager } from '../components/features/CollectionDashboard/Upload/UploadManager';
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
-import { SmoothMediaImage } from '../components/ui/SmoothMediaImage';
 import { getFileMime } from '../lib/fileMime';
+import { clearMediaUrlCache } from '../lib/imageLoadCache';
+import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -1002,7 +1003,7 @@ const CollectionDashboard = () => {
             try {
                 setLoading(true);
                 setError(null);
-                const data = await galleryService.getCollectionById(collectionId);
+                const data = await galleryService.getCollectionDashboardData(collectionId);
                 
                 if (!data) {
                     setError('Collection not found');
@@ -1074,19 +1075,16 @@ const CollectionDashboard = () => {
                 if (data.slideshow !== undefined) setSlideshow(data.slideshow);
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
 
-                // Fetch photos and sets
                 const photoData = data.photos || [];
                 setPhotos(photoData);
                 const setsData = data.sets || [];
                 setSets(setsData);
 
-                // Activity counts are optional; don't block the dashboard if they fail
-                try {
-                    const counts = await galleryService.getActivityCounts(collectionId);
-                    setBackendActivityCounts(counts);
-                } catch (activityErr) {
-                    console.warn('Activity counts unavailable:', activityErr);
-                }
+                // Activity counts load in background — do not block grid render
+                galleryService
+                    .getActivityCounts(collectionId)
+                    .then((counts) => setBackendActivityCounts(counts))
+                    .catch((activityErr) => console.warn('Activity counts unavailable:', activityErr));
             } catch (err) {
                 console.error('Error fetching collection:', err);
                 setError(err.message || 'Failed to load collection');
@@ -1097,6 +1095,10 @@ const CollectionDashboard = () => {
 
         fetchCollectionData();
     }, [collectionId, navigate]);
+
+    useEffect(() => {
+        clearMediaUrlCache();
+    }, [collectionId]);
 
     // Global click listener to close menus (ref-aware so toolbar toggles work)
     useEffect(() => {
@@ -2272,13 +2274,7 @@ const CollectionDashboard = () => {
 
                                 {gridPhotos.length > 0 ? (
                                     <div
-                                        className={`cd-photo-grid ${gridSize === 'large' ? 'grid-large' : ''}`}
-                                        style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize === 'large' ? 280 : 200}px, 1fr))`,
-                                            gap: gridSize === 'large' ? '20px' : '16px',
-                                            padding: '16px 0'
-                                        }}
+                                        className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}`}
                                     >
                                         {gridPhotos.map((photo, index) => {
                                             const menuAlignLeft = index % 4 >= 2;
@@ -2295,49 +2291,12 @@ const CollectionDashboard = () => {
                                                 }}
                                                 onDragEnd={() => endCoverPhotoDrag()}
                                                 onClick={() => togglePhotoSelection(photo.id)}
-                                                style={{
-                                                    aspectRatio: '1 / 1',
-                                                    backgroundColor: '#f8f8f8',
-                                                    position: 'relative',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    overflow: 'visible',
-                                                    cursor: 'pointer',
-                                                    border: selectedPhotos.includes(photo.id) ? '2px solid #12b8a6' : '1px solid #f0f0f0'
-                                                }}
                                             >
-                                                <div className="cd-photo-card-inner">
-                                                    {/\.(mp4|webm|ogg|mov)$/i.test(photo.filename || photo.full_url || '') ? (
-                                                        <video
-                                                            src={photo.full_url}
-                                                            className="cd-photo-img"
-                                                            style={{
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                objectFit: 'contain',
-                                                                display: 'block'
-                                                            }}
-                                                            muted
-                                                            loop
-                                                            playsInline
-                                                            onMouseEnter={(e) => e.target.play().catch(() => {})}
-                                                            onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
-                                                        />
-                                                    ) : (
-                                                        <SmoothMediaImage
-                                                            src={photo.full_url}
-                                                            thumbSrc={photo.thumbnail_url}
-                                                            alt={photo.filename || `Photo ${index + 1}`}
-                                                            className="cd-photo-img"
-                                                            objectFit="contain"
-                                                            style={{
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                display: 'block'
-                                                            }}
-                                                        />
-                                                    )}
+                                                <div className="cd-photo-card-inner cd-photo-card-inner--contain">
+                                                    <CollectionGridPhoto
+                                                        photo={photo}
+                                                        index={index}
+                                                    />
                                                     {isPending && (
                                                         <div
                                                             className="cd-photo-upload-overlay"

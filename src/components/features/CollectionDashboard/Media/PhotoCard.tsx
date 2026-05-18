@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PhotoCardProps } from './Media.types';
-import { SmoothMediaImage } from '../../ui/SmoothMediaImage';
+import { CollectionGridPhoto } from './CollectionGridPhoto';
 
 export const PhotoCard: React.FC<PhotoCardProps> = ({
   photo,
@@ -35,33 +35,7 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({
       onClick={onSelect}
     >
       <div className="cd-photo-card-inner">
-        {photo.media_type === 'video' ? (
-          <video 
-            src={photo.full_url} 
-            poster={photo.thumbnail_url || undefined}
-            className="cd-photo-video-thumb cd-photo-img"
-            preload="metadata"
-            muted
-            playsInline
-            onMouseEnter={(e) => {
-              const target = e.currentTarget as HTMLVideoElement;
-              target.play().catch(() => {});
-            }}
-            onMouseLeave={(e) => {
-              const target = e.currentTarget as HTMLVideoElement;
-              target.pause();
-              target.currentTime = 0;
-            }}
-          />
-        ) : (
-          <SmoothMediaImage
-            src={photo.full_url}
-            thumbSrc={photo.thumbnail_url}
-            alt={photo.filename}
-            className="cd-photo-img"
-            objectFit="cover"
-          />
-        )}
+        <CollectionGridPhoto photo={photo} index={0} />
       </div>
       
       {showFilename && (

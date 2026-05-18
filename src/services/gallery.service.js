@@ -4,6 +4,29 @@ import { getFileMime, isVideoMime } from '../lib/fileMime';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { storageService } from './storage.service';
 
+/** Columns needed for dashboard grid (avoids heavy nested * payload). */
+const DASHBOARD_PHOTO_FIELDS = `
+  id,
+  collection_id,
+  set_id,
+  filename,
+  thumbnail_url,
+  web_url,
+  full_url,
+  width,
+  height,
+  position,
+  media_type,
+  status,
+  is_starred,
+  is_private,
+  exif_taken_at,
+  original_storage_path,
+  size_bytes,
+  photographer_id,
+  created_at
+`.replace(/\s+/g, '');
+
 export const galleryService = {
   /**
    * Fetch all collections for a specific photographer (Dashboard view)
@@ -219,14 +242,42 @@ export const galleryService = {
   },
 
   /**
-   * Fetch a single collection by ID (for management) — includes sets
+   * Fetch collection + sets + photos for the manage dashboard (parallel, slim photo fields).
+   */
+  async getCollectionDashboardData(id) {
+    const [collectionRes, photosRes] = await Promise.all([
+      supabase
+        .from('collections')
+        .select(`*, sets!sets_collection_id_fkey (*)`)
+        .eq('id', id)
+        .single(),
+      supabase
+        .from('photos')
+        .select(DASHBOARD_PHOTO_FIELDS)
+        .eq('collection_id', id)
+        .order('position', { ascending: true }),
+    ]);
+
+    if (collectionRes.error) throw collectionRes.error;
+    if (photosRes.error) throw photosRes.error;
+
+    const data = collectionRes.data;
+    if (data.sets) {
+      data.sets.sort((a, b) => (a.position || 0) - (b.position || 0));
+    }
+    data.photos = photosRes.data || [];
+    return data;
+  },
+
+  /**
+   * Fetch a single collection by ID (for management) — includes sets and photos
    */
   async getCollectionById(id) {
     const { data, error } = await supabase
       .from('collections')
       .select(`
         *,
-        photos!photos_collection_id_fkey (*),
+        photos!photos_collection_id_fkey (${DASHBOARD_PHOTO_FIELDS}),
         sets!sets_collection_id_fkey (*)
       `)
       .eq('id', id)
@@ -234,11 +285,9 @@ export const galleryService = {
 
     if (error) throw error;
 
-    // Sort sets by position
     if (data.sets) {
-      data.sets.sort((a, b) => a.position - b.position);
+      data.sets.sort((a, b) => (a.position || 0) - (b.position || 0));
     }
-    // Sort photos by position (crucial for deterministic sorting when created_at timestamps match)
     if (data.photos) {
       data.photos.sort((a, b) => (a.position || 0) - (b.position || 0));
     }

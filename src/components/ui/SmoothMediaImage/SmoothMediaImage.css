@@ -7,6 +7,13 @@
   background: #ebebeb;
 }
 
+.smooth-media-placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: #ebebeb;
+}
+
 .smooth-media-shimmer {
   position: absolute;
   inset: 0;
