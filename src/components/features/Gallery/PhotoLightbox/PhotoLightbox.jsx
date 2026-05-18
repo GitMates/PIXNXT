@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Download, Heart, Play, Pause, Share2 } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
+import { isGalleryVideo } from '../../../../lib/galleryMediaType';
 
 export function PhotoLightbox({
   isOpen,
@@ -42,18 +43,24 @@ export function PhotoLightbox({
       if (e.key === 'ArrowLeft') onPrev();
       if (e.key === 'Escape') onClose();
       if (e.key === ' ') {
+        const url = images[currentIndex];
+        const onVideo = url && isGalleryVideo({ full_url: url, web_url: url });
+        if (onVideo) return;
         e.preventDefault();
         onToggleSlideshow?.();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onNext, onPrev, onClose, onToggleSlideshow]);
+  }, [isOpen, currentIndex, images, onNext, onPrev, onClose, onToggleSlideshow]);
 
   const canShare = showShare && typeof onShare === 'function';
   const showBottomLabel = showFavorite && (favoriteOverlayLabel || typeof favoriteCount === 'number');
 
-  const isVideoUrl = (url) => /\.(mp4|webm|ogg|mov)$/i.test(url || '');
+  const currentMediaUrl = images[currentIndex];
+  const isCurrentVideo = currentMediaUrl
+    ? isGalleryVideo({ full_url: currentMediaUrl, web_url: currentMediaUrl })
+    : false;
 
   const handleBottomHeart = () => {
     onFavorite?.();
@@ -88,14 +95,18 @@ export function PhotoLightbox({
             <X size={18} strokeWidth={1} /> Close
           </button>
 
-          <button
-            type="button"
-            onClick={onToggleSlideshow}
-            className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-opacity hover:opacity-50"
-          >
-            {isSlideshowActive ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-            {isSlideshowActive ? 'Pause' : 'Resume'}
-          </button>
+          {!isCurrentVideo ? (
+            <button
+              type="button"
+              onClick={onToggleSlideshow}
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-opacity hover:opacity-50"
+            >
+              {isSlideshowActive ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
+              {isSlideshowActive ? 'Pause' : 'Resume'}
+            </button>
+          ) : (
+            <span className="w-[72px]" aria-hidden />
+          )}
         </div>
 
         <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-3 pb-3 md:px-12 md:pb-6">
@@ -119,19 +130,20 @@ export function PhotoLightbox({
             className="relative flex h-full max-h-full w-full max-w-6xl items-center justify-center"
           >
             <div className="group/media relative inline-flex max-h-[calc(100dvh-8rem)] max-w-full items-center justify-center">
-              {images[currentIndex] ? (
-                isVideoUrl(images[currentIndex]) ? (
+              {currentMediaUrl ? (
+                isCurrentVideo ? (
                   <video
-                    src={images[currentIndex]}
-                    className="block max-h-[calc(100dvh-8rem)] max-w-full object-contain shadow-2xl"
+                    key={currentMediaUrl}
+                    src={currentMediaUrl}
+                    className="photo-lightbox-video block max-h-[calc(100dvh-8rem)] w-full max-w-full object-contain shadow-2xl"
                     controls
                     autoPlay
-                    loop
                     playsInline
+                    preload="auto"
                   />
                 ) : (
                   <img
-                    src={images[currentIndex]}
+                    src={currentMediaUrl}
                     alt="Fullscreen photo"
                     className="block max-h-[calc(100dvh-8rem)] max-w-full object-contain shadow-2xl"
                   />
@@ -143,7 +155,7 @@ export function PhotoLightbox({
                 </div>
               )}
 
-              {images[currentIndex] && (
+              {currentMediaUrl && !isCurrentVideo && (
                 <>
               <div
                 className="pointer-events-none absolute inset-0 z-[20] opacity-0 transition-opacity duration-200 group-hover/media:opacity-100"

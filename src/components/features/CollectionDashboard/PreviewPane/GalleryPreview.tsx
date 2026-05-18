@@ -11,7 +11,18 @@ import { downloadPhotoFromR2 } from '../../../../lib/downloadPhoto';
 import { DownloadModal } from '../../Gallery/DownloadModal/DownloadModal';
 import { galleryService } from '../../../../services/gallery.service';
 import { sortPhotosForGallery, normalizeGalleryPhotoSort } from '../../../../lib/galleryPhotoSort';
-import { GalleryStickyNav, GallerySetHeading, GallerySetDescription } from '../../Gallery/GalleryChrome';
+import {
+  GalleryStickyNav,
+  GallerySetHeading,
+  GallerySetDescription,
+  GalleryMediaFilter,
+} from '../../Gallery/GalleryChrome';
+import {
+  countGalleryMedia,
+  filterGalleryMediaByType,
+  shouldShowGalleryMediaFilter,
+  type GalleryMediaFilterValue,
+} from '../../../../lib/galleryMediaType';
 import { normalizeNavigationStyle } from '../../../../lib/navStyle';
 import './GalleryPreview.css';
 
@@ -74,6 +85,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const [pendingFavoritePhotoId, setPendingFavoritePhotoId] = useState<string | null>(null);
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+  const [mediaFilter, setMediaFilter] = useState<GalleryMediaFilterValue>('photos');
 
   // Scale preview grid to match public gallery layout.
   // Strategy: render MasonryGrid in a 1280px-wide div (matching the live gallery viewport),
@@ -172,13 +184,28 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     [photosForActiveSet, gallerySortKey]
   );
 
+  const mediaCounts = useMemo(() => countGalleryMedia(photosSortedForGrid), [photosSortedForGrid]);
+
+  useEffect(() => {
+    if (mediaCounts.photos > 0) setMediaFilter('photos');
+    else if (mediaCounts.videos > 0) setMediaFilter('videos');
+  }, [dashboardState?.activeSetId, mediaCounts.photos, mediaCounts.videos]);
+
+  const showMediaFilter = shouldShowGalleryMediaFilter(mediaCounts);
+
   const filteredPhotos = useMemo(() => {
-    if (!showOnlyFavorites) return photosSortedForGrid;
-    const favSet = new Set(favoritedPhotos);
-    return photosSortedForGrid.filter(
-      (p: any) => p.id != null && favSet.has(normalizeFavoritePhotoId(p.id) as string)
-    );
-  }, [photosSortedForGrid, showOnlyFavorites, favoritedPhotos]);
+    let list = photosSortedForGrid;
+    if (showOnlyFavorites) {
+      const favSet = new Set(favoritedPhotos);
+      list = list.filter(
+        (p: any) => p.id != null && favSet.has(normalizeFavoritePhotoId(p.id) as string)
+      );
+    }
+    if (showMediaFilter) {
+      list = filterGalleryMediaByType(list, mediaFilter);
+    }
+    return list;
+  }, [photosSortedForGrid, showOnlyFavorites, favoritedPhotos, showMediaFilter, mediaFilter]);
 
   const setDescriptionText = useMemo(() => {
     const raw = dashboardState?.activeSetId
@@ -440,6 +467,14 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           onSlideshowClick={handleStartSlideshow}
         />
 
+        <GalleryMediaFilter
+          variant="preview"
+          value={mediaFilter}
+          onChange={setMediaFilter}
+          photoCount={mediaCounts.photos}
+          videoCount={mediaCounts.videos}
+        />
+
         {setDescriptionText ? (
           <GallerySetDescription variant="preview" text={setDescriptionText} isDark={isPreviewDark} />
         ) : (
@@ -494,8 +529,16 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               padding: getPadding(galleryRefWidth),
             }}
           >
+            {filteredPhotos.length === 0 && showMediaFilter ? (
+              <p
+                className="gallery-body-text py-10 text-center text-[10px] font-bold uppercase tracking-[0.2em] opacity-40 md:text-[11px]"
+                style={{ color: 'var(--gallery-text)' }}
+              >
+                No {mediaFilter} in this set
+              </p>
+            ) : null}
             <MasonryGrid
-              key={`${grid.style}-${grid.size}-${grid.spacing}`}
+              key={`${grid.style}-${grid.size}-${grid.spacing}-${mediaFilter}`}
               photos={filteredPhotos}
               gridSettings={grid}
               isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
