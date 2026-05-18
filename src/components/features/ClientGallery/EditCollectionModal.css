@@ -1,0 +1,274 @@
+.ecm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.ecm-modal {
+    width: 100%;
+    max-width: 560px;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
+    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.ecm-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 0;
+}
+
+.ecm-title {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #333;
+}
+
+.ecm-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+    border-radius: 4px;
+}
+
+.ecm-close:hover {
+    color: #111;
+    background: #f5f5f5;
+}
+
+.ecm-body {
+    padding: 20px 24px 24px;
+}
+
+.ecm-field {
+    margin-bottom: 20px;
+}
+
+.ecm-field--half {
+    flex: 1;
+    min-width: 0;
+}
+
+.ecm-row {
+    display: flex;
+    gap: 16px;
+}
+
+.ecm-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #555;
+}
+
+.ecm-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 11px 12px;
+    font-size: 14px;
+    color: #222;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.ecm-input:focus {
+    border-color: #20b2aa;
+}
+
+.ecm-input::placeholder {
+    color: #aaa;
+}
+
+.ecm-select-wrap {
+    position: relative;
+}
+
+.ecm-select {
+    width: 100%;
+    appearance: none;
+    padding: 11px 36px 11px 12px;
+    font-size: 14px;
+    color: #222;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+    outline: none;
+}
+
+.ecm-select:focus {
+    border-color: #20b2aa;
+}
+
+.ecm-select-chevron {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: #888;
+}
+
+.ecm-toggle-block {
+    margin-bottom: 8px;
+}
+
+.ecm-toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+
+.ecm-toggle-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+}
+
+.ecm-toggle {
+    position: relative;
+    width: 44px;
+    height: 24px;
+    padding: 0;
+    border: none;
+    border-radius: 12px;
+    background: #d1d5db;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.ecm-toggle--on {
+    background: #20b2aa;
+}
+
+.ecm-toggle-knob {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: transform 0.2s;
+}
+
+.ecm-toggle--on .ecm-toggle-knob {
+    transform: translateX(20px);
+}
+
+.ecm-toggle-state {
+    font-size: 13px;
+    color: #666;
+}
+
+.ecm-toggle-hint {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #888;
+}
+
+.ecm-link {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: #20b2aa;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.ecm-link:hover {
+    text-decoration: underline;
+}
+
+.ecm-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 28px;
+    padding-top: 8px;
+}
+
+.ecm-advanced {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0;
+    border: none;
+    background: none;
+    font-size: 13px;
+    font-weight: 500;
+    color: #20b2aa;
+    cursor: pointer;
+}
+
+.ecm-advanced:hover {
+    text-decoration: underline;
+}
+
+.ecm-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.ecm-cancel {
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    font-weight: 500;
+    color: #555;
+    cursor: pointer;
+}
+
+.ecm-cancel:hover {
+    color: #111;
+}
+
+.ecm-save {
+    padding: 10px 28px;
+    border: none;
+    border-radius: 4px;
+    background: #20b2aa;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.ecm-save:hover:not(:disabled) {
+    background: #1a9e97;
+}
+
+.ecm-save:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ecm-body .date-picker-container {
+    width: 100%;
+}

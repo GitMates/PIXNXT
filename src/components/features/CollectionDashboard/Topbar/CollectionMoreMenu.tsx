@@ -110,9 +110,12 @@ export function CollectionMoreMenu({
             </svg>
             <span>View email history</span>
           </div>
-          <div className="cd-ctx-item preset-item" style={{ position: 'relative' }}>
-            <div
-              style={{ display: 'flex', alignItems: 'center', width: '100%' }}
+          <div className={`cd-ctx-item--has-flyout ${presetsOpen ? 'is-open' : ''}`}>
+            <button
+              type="button"
+              className="cd-ctx-item-trigger"
+              aria-expanded={presetsOpen}
+              aria-haspopup="menu"
               onClick={(e) => {
                 e.stopPropagation();
                 setPresetsOpen((p) => !p);
@@ -130,43 +133,34 @@ export function CollectionMoreMenu({
                 <line x1="18" x2="22" y1="12" y2="12" />
               </svg>
               <span>Manage presets</span>
-            </div>
+              <svg className="cd-ctx-item-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
             {presetsOpen && (
-              <div
-                className="cd-preset-submenu"
-                style={{
-                  position: 'absolute',
-                  right: '-190px',
-                  top: '-4px',
-                  background: 'white',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
-                  padding: '6px 0',
-                  width: '180px',
-                  zIndex: 1000,
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                }}
-              >
-                <div
+              <div className="cd-preset-flyout" role="menu" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
                   className="cd-ctx-item"
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  role="menuitem"
+                  onClick={() => {
                     closeAll();
                     setApplyPresetOpen(true);
                   }}
                 >
                   <span>Apply preset</span>
-                </div>
-                <div
+                </button>
+                <button
+                  type="button"
                   className="cd-ctx-item"
-                  onClick={(e) => {
-                    e.stopPropagation();
+                  role="menuitem"
+                  onClick={() => {
                     closeAll();
                     setSavePresetOpen(true);
                   }}
                 >
                   <span>Save as preset</span>
-                </div>
+                </button>
               </div>
             )}
           </div>
@@ -516,21 +510,11 @@ export function CollectionMoreMenu({
                   if (!photographerId) return;
                   try {
                     setBusy(true);
-                    const newRow = await galleryService.createCollection({
-                      photographer_id: photographerId,
-                      name: `${collectionName} (Copy)`,
-                      slug: `${generateSlug(collectionName)}-copy-${Date.now().toString(36)}`,
-                      event_date: eventDate || null,
-                      status: 'draft',
-                      font_family: 'sans_1',
-                      color_palette: 'light_1',
-                      grid_style: 'vertical',
-                      thumbnail_size: 'regular',
-                      grid_spacing: 'regular',
-                      nav_style: 'icons',
-                      privacy: 'public',
-                      cover_style: 'photo',
-                    });
+                    if (!collectionId) {
+                      alert('Collection not loaded. Refresh and try again.');
+                      return;
+                    }
+                    const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
                     setDuplicateOpen(false);
                     navigate(`/collections/manage?id=${newRow.id}`);
                   } catch (err) {

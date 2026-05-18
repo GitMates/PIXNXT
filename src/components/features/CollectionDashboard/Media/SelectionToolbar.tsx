@@ -51,17 +51,18 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
       </div>
 
       <div className="cd-selection-actions">
-        <button className="cd-sel-action-btn" title="Add to Starred">
+        <button type="button" className="cd-sel-action-btn" data-tooltip="Add to Starred" aria-label="Add to Starred">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
         </button>
-        <button className="cd-sel-action-btn" title="Share link">
+        <button type="button" className="cd-sel-action-btn" data-tooltip="Share link" aria-label="Share link">
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
         </button>
         
         <div className="cd-selection-move-wrapper" ref={moveMenuRef}>
           <button 
             className="cd-sel-action-btn" 
-            title="Move/Copy" 
+            data-tooltip="Move to set"
+            aria-label="Move to set"
             onClick={() => setShowMoveMenu(!showMoveMenu)}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" /></svg>
@@ -86,7 +87,7 @@ export const SelectionToolbar: React.FC<SelectionToolbarProps> = ({
           )}
         </div>
 
-        <button className="cd-sel-action-btn" title="Delete" onClick={onDelete}>
+        <button type="button" className="cd-sel-action-btn" data-tooltip="Delete" aria-label="Delete" onClick={onDelete}>
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
         </button>
       </div>

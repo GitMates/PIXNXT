@@ -957,3 +957,13 @@
     white-space: nowrap;
     border-width: 0;
 }
+
+.gallery-video-play {
+    opacity: 1;
+    visibility: visible;
+}
+
+.gallery-video-play > span {
+    background-color: #fff;
+    color: #171717;
+}

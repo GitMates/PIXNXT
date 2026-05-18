@@ -13,10 +13,25 @@ import { X, Mail, Share2, Download, Heart, Play } from 'lucide-react';
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadPhotoFromR2 } from '../../lib/downloadPhoto';
-import { GalleryStickyNav, GallerySetHeading, GallerySetDescription } from '../../components/features/Gallery/GalleryChrome';
+import {
+  GalleryStickyNav,
+  GallerySetHeading,
+  GallerySetDescription,
+} from '../../components/features/Gallery/GalleryChrome';
+import {
+  countGalleryMedia,
+  filterGalleryMediaByType,
+  shouldShowGalleryMediaFilter,
+  isGalleryVideo,
+} from '../../lib/galleryMediaType';
 import './GalleryView.css';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
 import { normalizeNavigationStyle } from '../../lib/navStyle';
+import {
+  normalizePaletteId,
+  normalizeFontId,
+  normalizeCoverStyleId,
+} from '../../lib/normalizeDesignTokens';
 import {
   isClientSessionActive,
   setClientSessionActive,
@@ -52,6 +67,7 @@ const GalleryView = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [email, setEmail] = useState('');
   const [activeSetId, setActiveSetId] = useState(null);
+  const [mediaFilter, setMediaFilter] = useState('photos');
   const [selectedDownloadPhoto, setSelectedDownloadPhoto] = useState(null);
   const isDownloadingAll = false;
   const downloadProgress = { done: 0, total: 0 };
@@ -297,9 +313,9 @@ const GalleryView = () => {
       nav_style: 'icons'
     };
     return {
-      cover_style: previewCoverStyle || collection.cover_style || 'novel',
-      font_family: previewFont || collection.font_family || 'sans',
-      color_palette: previewColor || collection.color_palette || 'light',
+      cover_style: normalizeCoverStyleId(previewCoverStyle || collection.cover_style || 'novel'),
+      font_family: normalizeFontId(previewFont || collection.font_family || 'sans'),
+      color_palette: normalizePaletteId(previewColor || collection.color_palette || 'light'),
       grid_style: previewGrid || collection.grid_style || 'vertical',
       nav_style: collection.nav_style || 'icons'
     };
@@ -396,9 +412,13 @@ const GalleryView = () => {
     galleryRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleStartSlideshow = () => {
-    setLightboxIndex(0);
+  const openLightbox = useCallback((index) => {
+    setLightboxIndex(index);
     setIsSlideshowActive(true);
+  }, []);
+
+  const handleStartSlideshow = () => {
+    openLightbox(0);
   };
 
   const formatDate = (dateStr) => {
@@ -438,7 +458,7 @@ const GalleryView = () => {
     return filterSetsForViewer(collection.sets, collection, isClientViewer);
   }, [collection, isClientViewer]);
 
-  const filteredPhotos = useMemo(() => {
+  const filteredPhotosBase = useMemo(() => {
     let base = photosForActiveSet;
     if (!collection) return base;
     if (isClientExclusiveEnabled(collection)) {
@@ -453,6 +473,20 @@ const GalleryView = () => {
     const sortKey = normalizeGalleryPhotoSort(collection.gallery_photo_sort);
     return sortPhotosForGallery(base, sortKey);
   }, [collection, photosForActiveSet, isClientViewer, activeSetId]);
+
+  const mediaCounts = useMemo(() => countGalleryMedia(filteredPhotosBase), [filteredPhotosBase]);
+
+  useEffect(() => {
+    if (mediaCounts.photos > 0) setMediaFilter('photos');
+    else if (mediaCounts.videos > 0) setMediaFilter('videos');
+  }, [activeSetId, mediaCounts.photos, mediaCounts.videos]);
+
+  const showMediaFilter = shouldShowGalleryMediaFilter(mediaCounts);
+
+  const filteredPhotos = useMemo(() => {
+    if (!showMediaFilter) return filteredPhotosBase;
+    return filterGalleryMediaByType(filteredPhotosBase, mediaFilter);
+  }, [filteredPhotosBase, showMediaFilter, mediaFilter]);
 
   const handleTogglePhotoPrivate = useCallback(
     async (photo) => {
@@ -521,6 +555,14 @@ const GalleryView = () => {
   }, [collection, activeSetId]);
 
   const photoUrls = useMemo(() => filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url), [filteredPhotos]);
+
+  useEffect(() => {
+    if (lightboxIndex < 0) return;
+    const photo = filteredPhotos[lightboxIndex];
+    if (photo && isGalleryVideo(photo)) {
+      setIsSlideshowActive(false);
+    }
+  }, [lightboxIndex, filteredPhotos]);
 
   // Slideshow: advance using the same list as the lightbox (filtered), not full collection length
   useEffect(() => {
@@ -648,6 +690,10 @@ const GalleryView = () => {
             onShareClick={() => setShowShareModal(true)}
             onSlideshowClick={handleStartSlideshow}
             isDark={isGalleryDark}
+            mediaFilter={!isFavoriteListMode ? mediaFilter : undefined}
+            onMediaFilterChange={!isFavoriteListMode ? setMediaFilter : undefined}
+            mediaPhotoCount={mediaCounts.photos}
+            mediaVideoCount={mediaCounts.videos}
           />
 
           {setDescriptionText ? (
@@ -689,9 +735,18 @@ const GalleryView = () => {
               return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
             })()}
 
+          {filteredPhotos.length === 0 && showMediaFilter && !isFavoriteListMode ? (
+            <p
+              className="gallery-body-text py-16 text-center text-[11px] font-bold uppercase tracking-[0.35em] opacity-40"
+              style={{ color: 'var(--gallery-text)' }}
+            >
+              No {mediaFilter} in this set
+            </p>
+          ) : null}
+
           {/* Flexible Gallery Grid */}
           <MasonryGrid
-            key={`${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}`}
+            key={`${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}`}
             photos={filteredPhotos}
             isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
             gridSettings={{
@@ -700,7 +755,7 @@ const GalleryView = () => {
               spacing: collection.grid_spacing || 'regular',
               aspectRatio: collection.aspect_ratio || 'original'
             }}
-            onImageClick={(index) => setLightboxIndex(index)}
+            onImageClick={openLightbox}
             onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
             onDownload={handleDownloadClick}
             onShare={() => setShowShareModal(true)}
@@ -771,6 +826,10 @@ const GalleryView = () => {
           return !!id && favoritedPhotos.includes(id);
         })()}
         favoriteOverlayLabel={favoriteLightboxLabel || undefined}
+        themeClassName={cn(
+          `theme-${effectiveSettings.color_palette}`,
+          `font-${effectiveSettings.font_family}`
+        )}
       />
 
       {/* Favorite Modal */}

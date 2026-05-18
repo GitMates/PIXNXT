@@ -1,63 +1,104 @@
 import { PutObjectCommand, DeleteObjectsCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { getFileMime } from '../lib/fileMime';
 import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '../lib/r2';
 
+/**
+ * Upload via presigned PUT + XHR (reliable in browser; avoids SDK fetch/CORS/checksum issues).
+ */
+function uploadWithPresignedPut(path, file, contentType, onProgress) {
+  const command = new PutObjectCommand({
+    Bucket: R2_BUCKET_NAME,
+    Key: path,
+    ContentType: contentType,
+  });
+
+  return getSignedUrl(r2Client, command, { expiresIn: 3600 }).then(
+    (signedUrl) =>
+      new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', signedUrl, true);
+        xhr.setRequestHeader('Content-Type', contentType);
+
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable && onProgress) {
+            onProgress(Math.min(99, Math.round((event.loaded / event.total) * 100)));
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            onProgress?.(100);
+            resolve({ path, url: storageService.getPublicUrl(path) });
+            return;
+          }
+          reject(
+            new Error(
+              `Upload rejected (${xhr.status}). Check R2 CORS allows PUT from ${window.location.origin}.`
+            )
+          );
+        };
+
+        xhr.onerror = () => {
+          reject(
+            new Error(
+              `Network error uploading to storage. Add CORS on bucket "${R2_BUCKET_NAME}" for origin ${window.location.origin} (methods: PUT, GET, HEAD).`
+            )
+          );
+        };
+
+        xhr.onabort = () => reject(new Error('Upload cancelled.'));
+
+        xhr.send(file);
+      })
+  );
+}
+
 export const storageService = {
-  /**
-   * Upload a file to R2
-   * @param {string} path - The destination path in the bucket
-   * @param {File | Blob} file - The file to upload
-   * @returns {Promise<{path: string, url: string}>}
-   */
-  async upload(path, file) {
+  async upload(path, file, onProgress) {
     try {
-      console.log('Starting R2 upload for:', path);
-      
-      // Convert File/Blob to Uint8Array for better compatibility in browser environments
-      const arrayBuffer = await file.arrayBuffer();
-      const body = new Uint8Array(arrayBuffer);
+      if (!R2_BUCKET_NAME) {
+        throw new Error('R2 bucket is not configured (VITE_R2_BUCKET_NAME).');
+      }
 
-      const command = new PutObjectCommand({
-        Bucket: R2_BUCKET_NAME,
-        Key: path,
-        Body: body,
-        ContentType: file.type,
-      });
+      const contentType = getFileMime(file);
+      const body =
+        file.type === contentType
+          ? file
+          : new File([file], file.name || 'upload', {
+              type: contentType,
+              lastModified: file.lastModified,
+            });
 
-      await r2Client.send(command);
-      console.log('R2 upload successful:', path);
-      
-      const url = this.getPublicUrl(path);
-      return { path, url };
+      onProgress?.(2);
+      return await uploadWithPresignedPut(path, body, contentType, onProgress);
     } catch (error) {
-      console.error('R2 Upload Error Detailed:', {
+      console.error('R2 Upload Error:', {
         message: error.message,
         name: error.name,
-        stack: error.stack,
-        path: path,
-        bucket: R2_BUCKET_NAME
+        path,
+        bucket: R2_BUCKET_NAME,
       });
-      
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        throw new Error('Upload failed. This is likely a CORS issue. Please ensure your R2 bucket CORS policy allows this domain.');
+
+      if (error.message?.includes('Failed to fetch') || error.name === 'TypeError') {
+        throw new Error(
+          `Upload blocked by browser or CORS. In Cloudflare R2 → ${R2_BUCKET_NAME} → Settings → CORS, allow origin ${typeof window !== 'undefined' ? window.location.origin : 'your site'} with methods PUT, GET, HEAD.`
+        );
       }
-      
+
       throw error;
     }
   },
 
-  /**
-   * Delete one or more files from R2
-   * @param {string | string[]} paths - The path(s) to delete
-   */
   async delete(paths) {
     try {
       if (Array.isArray(paths)) {
         if (paths.length === 0) return;
-        
+
         const command = new DeleteObjectsCommand({
           Bucket: R2_BUCKET_NAME,
           Delete: {
-            Objects: paths.map(path => ({ Key: path })),
+            Objects: paths.map((path) => ({ Key: path })),
           },
         });
         await r2Client.send(command);
@@ -74,18 +115,12 @@ export const storageService = {
     }
   },
 
-  /**
-   * Get the public URL for a file
-   * @param {string} path - The path in the bucket
-   * @returns {string}
-   */
   getPublicUrl(path) {
     if (!R2_PUBLIC_URL) {
       console.warn('VITE_R2_PUBLIC_URL is not defined');
-      return path; // Fallback
+      return path;
     }
-    // If public URL doesn't have a trailing slash, add one
     const baseUrl = R2_PUBLIC_URL.endsWith('/') ? R2_PUBLIC_URL : `${R2_PUBLIC_URL}/`;
     return `${baseUrl}${path}`;
-  }
+  },
 };

@@ -1,9 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
+import { openSpaPath } from '../lib/spaNavigation';
+import { generateCollectionSlug } from '../lib/collectionSlug';
+import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
+import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
+import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
+import {
+    CollectionDirectLinkModal,
+    CollectionQrModal,
+    CollectionDuplicateModal,
+    CollectionMoveToModal,
+} from '../components/features/ClientGallery/CollectionShareModals';
 import './ClientGallery.css';
+import { sortCollections } from '../utils/sortCollections';
 
 
 const ClientGallery = () => {
@@ -23,7 +35,13 @@ const ClientGallery = () => {
     const [activeFilter, setActiveFilter] = useState(null);
     const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
     const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
-    const [starredCollections, setStarredCollections] = useState([]);
+    const [editCollection, setEditCollection] = useState(null);
+    const [directLinkCollection, setDirectLinkCollection] = useState(null);
+    const [qrCollection, setQrCollection] = useState(null);
+    const [duplicateCollection, setDuplicateCollection] = useState(null);
+    const [moveToOpen, setMoveToOpen] = useState(false);
+    const [duplicateBusy, setDuplicateBusy] = useState(false);
+    const [editSaving, setEditSaving] = useState(false);
     const [showNewCollectionDropdown, setShowNewCollectionDropdown] = useState(false);
     const fileInputRef = useRef(null);
     const sortRef = useRef(null);
@@ -52,7 +70,130 @@ const ClientGallery = () => {
         fetchCollections();
     }, [user]);
 
+    const sortedCollections = useMemo(
+        () => sortCollections(collections, activeSort),
+        [collections, activeSort]
+    );
 
+    const closeContextMenu = useCallback(() => setContextMenuId(null), []);
+
+    const getCoverSrc = (collection) => collection.cover_url || collection.cover || '';
+
+    const handlePreviewCollection = useCallback((collection) => {
+        closeContextMenu();
+        if (collection?.slug) {
+            openSpaPath(`/gallery/${collection.slug}`);
+        }
+    }, [closeContextMenu]);
+
+    const handleShareByEmail = useCallback((collection) => {
+        if (!collection) return;
+        const url = getShareUrlForCollection(collection);
+        closeContextMenu();
+        openShareByEmail(url, collection.name || 'Photo Gallery');
+    }, [closeContextMenu]);
+
+    const handleShareWhatsApp = useCallback((collection) => {
+        if (!collection) return;
+        const url = getShareUrlForCollection(collection);
+        closeContextMenu();
+        openWhatsAppShare(url, collection.name || 'Gallery');
+    }, [closeContextMenu]);
+
+    const handleGetDirectLink = useCallback((collection) => {
+        if (!collection) return;
+        setDirectLinkCollection(collection);
+        closeContextMenu();
+    }, [closeContextMenu]);
+
+    const handleGetQrCode = useCallback((collection) => {
+        if (!collection) return;
+        setQrCollection(collection);
+        closeContextMenu();
+    }, [closeContextMenu]);
+
+    const handleQuickEdit = useCallback((collection) => {
+        closeContextMenu();
+        setEditCollection(collection);
+    }, [closeContextMenu]);
+
+    const handleEditSave = async (payload) => {
+        if (!editCollection) return;
+        setEditSaving(true);
+        try {
+            const updated = await galleryService.updateCollection(editCollection.id, payload);
+            setCollections((prev) =>
+                prev.map((c) => (c.id === updated.id ? { ...c, ...updated, photo_count: c.photo_count } : c))
+            );
+            setEditCollection(null);
+        } catch (err) {
+            console.error('Failed to update collection:', err);
+            alert('Failed to save changes. Please try again.');
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
+    const handleDuplicateConfirm = async () => {
+        if (!duplicateCollection || !user) return;
+        setDuplicateBusy(true);
+        try {
+            const newRow = await galleryService.createCollection({
+                photographer_id: user.id,
+                name: `${duplicateCollection.name} (Copy)`,
+                slug: `${generateCollectionSlug(duplicateCollection.name)}-copy-${Date.now().toString(36)}`,
+                event_date: duplicateCollection.event_date || null,
+                status: 'draft',
+                font_family: 'sans_1',
+                color_palette: 'light_1',
+                grid_style: 'vertical',
+                thumbnail_size: 'regular',
+                grid_spacing: 'regular',
+                nav_style: 'icons',
+                privacy: 'public',
+                cover_style: 'photo',
+            });
+            setDuplicateCollection(null);
+            navigate(`/collections/manage?id=${newRow.id}`);
+        } catch (err) {
+            console.error('Failed to duplicate collection:', err);
+            alert('Failed to duplicate collection. Please try again.');
+        } finally {
+            setDuplicateBusy(false);
+        }
+    };
+
+    const handleToggleCollectionStar = async (e, collection) => {
+        e.stopPropagation();
+        const next = !collection.is_starred;
+        try {
+            await galleryService.updateCollection(collection.id, { is_starred: next });
+            setCollections((prev) =>
+                prev.map((c) => (c.id === collection.id ? { ...c, is_starred: next } : c))
+            );
+        } catch (err) {
+            console.error('Failed to update star:', err);
+        }
+    };
+
+    const renderContextMenu = (collection, variant = 'grid') => {
+        if (contextMenuId !== collection.id) return null;
+        return (
+            <CollectionContextMenu
+                menuRef={contextRef}
+                variant={variant}
+                onPreview={() => handlePreviewCollection(collection)}
+                onQuickEdit={() => handleQuickEdit(collection)}
+                onMoveTo={() => { closeContextMenu(); setMoveToOpen(true); }}
+                onDuplicate={() => { closeContextMenu(); setDuplicateCollection(collection); }}
+                onDelete={() => { closeContextMenu(); handleDeleteCollection(collection.id); }}
+                onShareByEmail={() => handleShareByEmail(collection)}
+                onGetDirectLink={() => handleGetDirectLink(collection)}
+                onGetQrCode={() => handleGetQrCode(collection)}
+                onShareWhatsApp={() => handleShareWhatsApp(collection)}
+            />
+        );
+    };
 
     const handleCardClick = (collection) => {
         if (selectedCards.length > 0) return;
@@ -94,7 +235,14 @@ const ClientGallery = () => {
         const handleClickOutside = (e) => {
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortDropdown(false);
             if (viewRef.current && !viewRef.current.contains(e.target)) setShowViewDropdown(false);
-            if (contextRef.current && !contextRef.current.contains(e.target)) setContextMenuId(null);
+            const inSharePortal = e.target.closest?.('.cg-ctx-submenu--portal, .cg-ctx-submenu-bridge, .cgm-overlay');
+            if (
+                contextRef.current &&
+                !contextRef.current.contains(e.target) &&
+                !inSharePortal
+            ) {
+                setContextMenuId(null);
+            }
             if (filterRef.current && !filterRef.current.contains(e.target)) setActiveFilter(null);
             if (newCollectionRef.current && !newCollectionRef.current.contains(e.target)) setShowNewCollectionDropdown(false);
         };
@@ -308,12 +456,12 @@ const ClientGallery = () => {
                             {showSortDropdown && (
                                 <div className="cg-style-33">
                                     <div className="cg-style-34">Sort dashboard by</div>
-                                    <div className={`cg-style-71 ${activeSort === 'created-new' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('created-new'); setShowSortDropdown(false); }}>Created: New → Old</div>
-                                    <div className={`cg-style-71 ${activeSort === 'created-old' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('created-old'); setShowSortDropdown(false); }}>Created: Old → New</div>
-                                    <div className={`cg-style-71 ${activeSort === 'event-new' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('event-new'); setShowSortDropdown(false); }}>Event Date: New → Old</div>
-                                    <div className={`cg-style-71 ${activeSort === 'event-old' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('event-old'); setShowSortDropdown(false); }}>Event Date: Old → New</div>
-                                    <div className={`cg-style-71 ${activeSort === 'name-az' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('name-az'); setShowSortDropdown(false); }}>Name: A-Z</div>
-                                    <div className={`cg-style-71 ${activeSort === 'name-za' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('name-za'); setShowSortDropdown(false); }}>Name: Z-A</div>
+                                    <div className={`cg-style-71 ${activeSort === 'created-new' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('created-new'); setShowSortDropdown(false); }}>Created: New → Old</div>
+                                    <div className={`cg-style-71 ${activeSort === 'created-old' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('created-old'); setShowSortDropdown(false); }}>Created: Old → New</div>
+                                    <div className={`cg-style-71 ${activeSort === 'event-new' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('event-new'); setShowSortDropdown(false); }}>Event Date: New → Old</div>
+                                    <div className={`cg-style-71 ${activeSort === 'event-old' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('event-old'); setShowSortDropdown(false); }}>Event Date: Old → New</div>
+                                    <div className={`cg-style-71 ${activeSort === 'name-az' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('name-az'); setShowSortDropdown(false); }}>Name: A-Z</div>
+                                    <div className={`cg-style-71 ${activeSort === 'name-za' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('name-za'); setShowSortDropdown(false); }}>Name: Z-A</div>
                                 </div>
                             )}
                         </div>
@@ -341,17 +489,17 @@ const ClientGallery = () => {
                 </div>
 
                 {/* Collection Cards - Grid View */}
-                {collections.length > 0 && activeView === 'grid' ? (
+                {sortedCollections.length > 0 && activeView === 'grid' ? (
                     <div className="cg-style-37">
-                        {collections.map(collection => (
+                        {sortedCollections.map(collection => (
                             <div
                                 key={collection.id}
-                                className={`cg-style-73 group`}
+                                className={`cg-style-73 group ${contextMenuId === collection.id ? 'cg-style-73--ctx-open' : ''}`}
                                 onClick={() => handleCardClick(collection)}
                             >
-                                <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'rounded-md border-[3px] border-[#593116]' : 'rounded'}`}>
-                                    {(collection.cover_url || collection.cover) ? (
-                                        <img src={collection.cover_url || collection.cover} alt={collection.name} />
+                                <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'cg-style-74--selected' : ''}`}>
+                                    {getCoverSrc(collection) ? (
+                                        <img src={getCoverSrc(collection)} alt={collection.name} loading="lazy" />
                                     ) : (
                                         <div className="cg-style-38">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
@@ -366,37 +514,9 @@ const ClientGallery = () => {
                                     {/* Three-dot menu overlay */}
                                     <div className="cg-style-39" onClick={(e) => openContextMenu(e, collection.id)}>⋮</div>
                                     {/* Star icon overlay - clickable toggle */}
-                                    <svg className={`cg-style-76 ${starredCollections.includes(collection.id) ? 'opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]' : 'opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] group-hover:opacity-100'}`} xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={starredCollections.includes(collection.id) ? '#f5c518' : 'none'} stroke={starredCollections.includes(collection.id) ? '#f5c518' : 'white'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" onClick={(e) => { e.stopPropagation(); setStarredCollections(prev => prev.includes(collection.id) ? prev.filter(id => id !== collection.id) : [...prev, collection.id]); }}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                    <svg className={`cg-style-76 ${collection.is_starred ? 'opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]' : 'opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] group-hover:opacity-100'}`} xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={collection.is_starred ? '#f5c518' : 'none'} stroke={collection.is_starred ? '#f5c518' : 'white'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" onClick={(e) => handleToggleCollectionStar(e, collection)}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                 </div>
-                                {/* Context menu - OUTSIDE the thumb */}
-                                {contextMenuId === collection.id && (
-                                    <div className="cg-style-40" ref={contextRef} onClick={(e) => e.stopPropagation()}>
-                                        <div className="cg-style-41" onClick={() => setContextMenuId(null)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                                            Share
-                                        </div>
-                                        <div className="cg-style-41" onClick={() => setContextMenuId(null)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                                            Preview
-                                        </div>
-                                        <div className="cg-style-41" onClick={() => setContextMenuId(null)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                            Quick edit
-                                        </div>
-                                        <div className="cg-style-41" onClick={() => setContextMenuId(null)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path><line x1="19" y1="12" x2="19" y2="5"></line></svg>
-                                            Move to
-                                        </div>
-                                        <div className="cg-style-41" onClick={() => setContextMenuId(null)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="14" height="14" rx="2" ry="2"></rect><path d="M4 16V4a2 2 0 0 1 2-2h12"></path></svg>
-                                            Duplicate
-                                        </div>
-                                        <div className="cg-style-42" onClick={(e) => { e.stopPropagation(); handleDeleteCollection(collection.id); setContextMenuId(null); }}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                            Delete
-                                        </div>
-                                    </div>
-                                )}
+                                {renderContextMenu(collection)}
                                 <div className="px-1">
                                     <h3 className="cg-style-43">{collection.name}</h3>
                                     <div className="cg-style-44">
@@ -409,7 +529,7 @@ const ClientGallery = () => {
                             </div>
                         ))}
                     </div>
-                ) : collections.length > 0 && activeView === 'list' ? (
+                ) : sortedCollections.length > 0 && activeView === 'list' ? (
                     /* List View */
                     <div className="px-10">
                         <div className="cg-style-47">
@@ -419,16 +539,16 @@ const ClientGallery = () => {
                             <span className="cg-style-50">DATE CREATED</span>
                             <span className="cg-style-51"></span>
                         </div>
-                        {collections.map(collection => (
+                        {sortedCollections.map(collection => (
                             <div
                                 key={collection.id}
-                                className="cg-style-52"
+                                className="cg-style-52 cg-style-52--menu"
                                 onClick={() => handleCardClick(collection)}
                             >
                                 <div className="cg-style-48">
                                     <div className="cg-style-53">
-                                        {collection.cover ? (
-                                            <img src={collection.cover} alt={collection.name} />
+                                        {getCoverSrc(collection) ? (
+                                            <img src={getCoverSrc(collection)} alt={collection.name} loading="lazy" />
                                         ) : (
                                             <div className="cg-style-38">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
@@ -448,11 +568,18 @@ const ClientGallery = () => {
                                     <span className="cg-style-57">••••</span>
                                 </div>
                                 <div className="cg-style-50">
-                                    {collection.date || 'Mar 12, 2026'}
+                                    {collection.created_at
+                                        ? new Date(collection.created_at).toLocaleDateString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            year: 'numeric',
+                                        })
+                                        : '—'}
                                 </div>
-                                <div className="cg-style-51">
-                                    <svg className="cg-style-58" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                                    <span className="cg-style-59" onClick={(e) => { e.stopPropagation(); }}>···</span>
+                                <div className="cg-style-51 cg-style-51--relative">
+                                    <svg className="cg-style-58" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={collection.is_starred ? '#f5c518' : 'none'} stroke={collection.is_starred ? '#f5c518' : '#ccc'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" onClick={(e) => handleToggleCollectionStar(e, collection)}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                    <span className="cg-style-59" onClick={(e) => openContextMenu(e, collection.id)}>···</span>
+                                    {renderContextMenu(collection, 'list')}
                                 </div>
                             </div>
                         ))}
@@ -500,6 +627,35 @@ const ClientGallery = () => {
                     </div>
                 )}
 
+                <EditCollectionModal
+                    collection={editCollection}
+                    isOpen={Boolean(editCollection)}
+                    onClose={() => setEditCollection(null)}
+                    onSave={handleEditSave}
+                    onAdvanced={(c) => navigate(`/collections/manage?id=${c.id}`)}
+                    saving={editSaving}
+                />
+                <CollectionDirectLinkModal
+                    collection={directLinkCollection}
+                    isOpen={Boolean(directLinkCollection)}
+                    onClose={() => setDirectLinkCollection(null)}
+                />
+                <CollectionQrModal
+                    collection={qrCollection}
+                    isOpen={Boolean(qrCollection)}
+                    onClose={() => setQrCollection(null)}
+                />
+                <CollectionDuplicateModal
+                    collection={duplicateCollection}
+                    isOpen={Boolean(duplicateCollection)}
+                    onClose={() => setDuplicateCollection(null)}
+                    onConfirm={handleDuplicateConfirm}
+                    busy={duplicateBusy}
+                />
+                <CollectionMoveToModal
+                    isOpen={moveToOpen}
+                    onClose={() => setMoveToOpen(false)}
+                />
             </main>
         </SidebarLayout>
     );

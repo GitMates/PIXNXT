@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
@@ -6,9 +7,14 @@ import { useAuth } from '../hooks/useAuth';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
+import { SidebarCoverUpload } from '../components/features/CollectionDashboard/CoverSettings/SidebarCoverUpload';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import { openSpaPath } from '../lib/spaNavigation';
+import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
+import { CollectionQrModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
+import { MEDIA_FILE_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
+import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
 import '../components/features/CollectionDashboard/Activity/DownloadActivity.css';
@@ -19,6 +25,11 @@ import { DownloadSettings } from '../components/features/CollectionDashboard/Set
 import { FavoriteSettings } from '../components/features/CollectionDashboard/Settings/FavoriteSettings';
 import { GeneralSettings } from '../components/features/CollectionDashboard/Settings/GeneralSettings';
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
+import { UploadManager } from '../components/features/CollectionDashboard/Upload/UploadManager';
+import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
+import { getFileMime } from '../lib/fileMime';
+import { clearMediaUrlCache } from '../lib/imageLoadCache';
+import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -61,23 +72,20 @@ const CollectionDashboard = () => {
     const [showSelectionMore, setShowSelectionMore] = useState(false);
     const [showSelectAllMenu, setShowSelectAllMenu] = useState(false);
     const [showMoveToSetMenu, setShowMoveToSetMenu] = useState(false);
+    const [moveMenuPosition, setMoveMenuPosition] = useState(null);
 
     // MORE DROPDOWN MODAL STATES
     const [showGetDirectLinkModal, setShowGetDirectLinkModal] = useState(false);
+    const [showQrCodeModal, setShowQrCodeModal] = useState(false);
+    const [quickShareShowQr, setQuickShareShowQr] = useState(false);
     const [showEmailHistoryModal, setShowEmailHistoryModal] = useState(false);
-    const [showManagePresetsModal, setShowManagePresetsModal] = useState(false);
+    const [showPresetsSubmenu, setShowPresetsSubmenu] = useState(false);
     const [showApplyPresetModal, setShowApplyPresetModal] = useState(false);
     const [showSavePresetModal, setShowSavePresetModal] = useState(false);
     const [showMoveToModal, setShowMoveToModal] = useState(false);
     const [showDuplicateModal, setShowDuplicateModal] = useState(false);
     const [showDeleteCollectionModal, setShowDeleteCollectionModal] = useState(false);
     const [deleteCollectionConfirm, setDeleteCollectionConfirm] = useState(false);
-    const [uploadWidget, setUploadWidget] = useState({
-        isOpen: false,
-        isMinimized: false,
-        files: [] // { id, name, size, progress, status }
-    });
-
     // SET STATES
     const [sets, setSets] = useState([]);
     const [activeSetId, setActiveSetId] = useState(null); // null = Highlights (all photos)
@@ -113,6 +121,9 @@ const CollectionDashboard = () => {
     const [focalY, setFocalY] = useState(50);
     const [isDraggingFocal, setIsDraggingFocal] = useState(false);
     const [showCoverModal, setShowCoverModal] = useState(false);
+    /** 'all' | 'highlights' | set uuid */
+    const [coverModalScope, setCoverModalScope] = useState('all');
+    const [isCoverUploading, setIsCoverUploading] = useState(false);
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
 
     // General Settings State
@@ -520,7 +531,41 @@ const CollectionDashboard = () => {
     const selectionMoreRef = useRef(null);
     const selectAllMenuRef = useRef(null);
     const moveToSetRef = useRef(null);
+    const moveMenuPortalRef = useRef(null);
     const favoriteActivityMenuRef = useRef(null);
+
+    const updateMoveMenuPosition = useCallback(() => {
+        const anchor = moveToSetRef.current?.querySelector('.cd-sel-action-btn');
+        if (!anchor) return null;
+        const rect = anchor.getBoundingClientRect();
+        const menuWidth = 220;
+        const left = Math.min(
+            Math.max(8, rect.right - menuWidth),
+            window.innerWidth - menuWidth - 8
+        );
+        return {
+            position: 'fixed',
+            left,
+            bottom: window.innerHeight - rect.top + 12,
+            minWidth: menuWidth,
+            zIndex: 1500,
+        };
+    }, []);
+
+    useLayoutEffect(() => {
+        if (!showMoveToSetMenu) {
+            setMoveMenuPosition(null);
+            return undefined;
+        }
+        const apply = () => setMoveMenuPosition(updateMoveMenuPosition());
+        apply();
+        window.addEventListener('resize', apply);
+        window.addEventListener('scroll', apply, true);
+        return () => {
+            window.removeEventListener('resize', apply);
+            window.removeEventListener('scroll', apply, true);
+        };
+    }, [showMoveToSetMenu, sets.length, highlightsName, updateMoveMenuPosition]);
     const favoriteDetailToolbarMenuRef = useRef(null);
     const favoriteDetailPhotoMenuRef = useRef(null);
     const favoriteActivitySortMenuRef = useRef(null);
@@ -738,15 +783,36 @@ const CollectionDashboard = () => {
         }
     };
 
-    const handleSetAsCover = async (photo) => {
+    const handleCoverPhotoSelect = async (photo) => {
+        if (!photo?.full_url || !collectionId) return;
         try {
-            await galleryService.updateCollection(collectionId, { cover_url: photo.full_url });
-            setCollection(prev => ({ ...prev, cover_url: photo.full_url }));
-            alert('Collection cover updated!');
+            setIsCoverUploading(true);
+            await galleryService.updateCollection(collectionId, {
+                cover_photo_id: photo.id,
+                cover_url: photo.full_url,
+            });
+            setCollection((prev) => ({
+                ...prev,
+                cover_url: photo.full_url,
+                cover_photo_id: photo.id,
+            }));
         } catch (err) {
             console.error('Failed to set cover:', err);
             alert('Failed to set cover photo.');
+        } finally {
+            setIsCoverUploading(false);
         }
+    };
+
+    const handleSetAsCover = (photo) => {
+        void handleCoverPhotoSelect(photo);
+    };
+
+    const handleCoverPhotoDropById = (photoId) => {
+        const photo = photos.find((p) => String(p.id) === String(photoId));
+        if (!photo) return;
+        if (!isGalleryImagePhoto(photo)) return;
+        void handleCoverPhotoSelect(photo);
     };
 
     const handleDownloadPhoto = async (photo) => {
@@ -808,6 +874,7 @@ const CollectionDashboard = () => {
 
     const handleQuickShare = (photo) => {
         setEditingPhoto(photo);
+        setQuickShareShowQr(false);
         setShowQuickShareModal(true);
     };
 
@@ -936,7 +1003,7 @@ const CollectionDashboard = () => {
             try {
                 setLoading(true);
                 setError(null);
-                const data = await galleryService.getCollectionById(collectionId);
+                const data = await galleryService.getCollectionDashboardData(collectionId);
                 
                 if (!data) {
                     setError('Collection not found');
@@ -1008,19 +1075,16 @@ const CollectionDashboard = () => {
                 if (data.slideshow !== undefined) setSlideshow(data.slideshow);
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
 
-                // Fetch photos and sets
                 const photoData = data.photos || [];
                 setPhotos(photoData);
                 const setsData = data.sets || [];
                 setSets(setsData);
 
-                // Activity counts are optional; don't block the dashboard if they fail
-                try {
-                    const counts = await galleryService.getActivityCounts(collectionId);
-                    setBackendActivityCounts(counts);
-                } catch (activityErr) {
-                    console.warn('Activity counts unavailable:', activityErr);
-                }
+                // Activity counts load in background — do not block grid render
+                galleryService
+                    .getActivityCounts(collectionId)
+                    .then((counts) => setBackendActivityCounts(counts))
+                    .catch((activityErr) => console.warn('Activity counts unavailable:', activityErr));
             } catch (err) {
                 console.error('Error fetching collection:', err);
                 setError(err.message || 'Failed to load collection');
@@ -1032,18 +1096,33 @@ const CollectionDashboard = () => {
         fetchCollectionData();
     }, [collectionId, navigate]);
 
-    // Global click listener to close menus
     useEffect(() => {
-        const handleClickOutside = () => {
+        clearMediaUrlCache();
+    }, [collectionId]);
+
+    // Global click listener to close menus (ref-aware so toolbar toggles work)
+    useEffect(() => {
+        const handleClickOutside = (e) => {
             if (activeActivityMenu) setActiveActivityMenu(null);
             if (favoriteDetailPhotoMenuPhotoId) setFavoriteDetailPhotoMenuPhotoId(null);
-            if (showSelectionMore) setShowSelectionMore(false);
-            if (showSelectAllMenu) setShowSelectAllMenu(false);
-            if (showMoveToSetMenu) setShowMoveToSetMenu(false);
+            if (showSelectionMore && selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) {
+                setShowSelectionMore(false);
+            }
+            if (showSelectAllMenu && selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) {
+                setShowSelectAllMenu(false);
+            }
+            if (
+                showMoveToSetMenu
+                && moveToSetRef.current
+                && !moveToSetRef.current.contains(e.target)
+                && (!moveMenuPortalRef.current || !moveMenuPortalRef.current.contains(e.target))
+            ) {
+                setShowMoveToSetMenu(false);
+            }
             if (favoriteActivitySortMenuOpen) setFavoriteActivitySortMenuOpen(false);
         };
-        document.addEventListener('click', handleClickOutside);
-        return () => document.removeEventListener('click', handleClickOutside);
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen, showSelectionMore, showSelectAllMenu, showMoveToSetMenu]);
 
     // ─── SORT LOGIC ──────────────────────────────────────────
@@ -1063,9 +1142,77 @@ const CollectionDashboard = () => {
     // Get the active set object
     const activeSet = activeSetId ? sets.find(s => s.id === activeSetId) : null;
     const activeSetName = activeSet ? activeSet.name : highlightsName;
+
+    const {
+        state: uploadState,
+        processFiles,
+        pause: pauseUploads,
+        resume: resumeUploads,
+        cancel: cancelUploads,
+        minimize: minimizeUploads,
+        expand: expandUploads,
+        setActiveTab: setUploadTab,
+        toggleDetails: toggleUploadDetails,
+    } = useUploadQueue({
+        collectionId,
+        photographerId: collection?.photographer_id ?? user?.id,
+        activeSetId,
+        photosLength: photos.length,
+        onPhotoUploaded: (photoData) => setPhotos((prev) => [...prev, photoData]),
+    });
+
+    const uploadDestinationLabel = collection
+        ? `${collection.name || 'Collection'} / ${activeSetName}`
+        : activeSetName;
+
+    const gridPhotos = useMemo(() => {
+        const completedNames = new Set(sortedPhotos.map((p) => p.filename));
+        const pending = uploadState.files
+            .filter(
+                (f) =>
+                    f.previewUrl &&
+                    f.status !== 'completed' &&
+                    f.status !== 'error' &&
+                    !completedNames.has(f.name)
+            )
+            .map((f) => ({
+                id: `upload-pending-${f.id}`,
+                filename: f.name,
+                full_url: f.previewUrl,
+                thumbnail_url: f.previewUrl,
+                media_type: getFileMime(f.file).startsWith('video/') ? 'video' : 'image',
+                _uploadPending: true,
+                _uploadProgress: f.progress,
+            }));
+        return [...sortedPhotos, ...pending];
+    }, [sortedPhotos, uploadState.files]);
+
     const activeSetPhotoCount = activeSetId
         ? photos.filter(p => p.set_id === activeSetId).length
         : photos.filter(p => !p.set_id).length;
+
+    const coverModalPhotos = useMemo(() => {
+        if (coverModalScope === 'all') return photos;
+        if (coverModalScope === 'highlights') return photos.filter((p) => !p.set_id);
+        return photos.filter((p) => p.set_id === coverModalScope);
+    }, [photos, coverModalScope]);
+
+    const coverModalScopeLabel = useMemo(() => {
+        if (coverModalScope === 'all') return 'All photos';
+        if (coverModalScope === 'highlights') return highlightsName;
+        const set = sets.find((s) => s.id === coverModalScope);
+        return set?.name || 'Set';
+    }, [coverModalScope, highlightsName, sets]);
+
+    const openCoverModal = (scope = 'all') => {
+        setCoverModalScope(scope);
+        setShowCoverModal(true);
+    };
+
+    const closeCoverModal = () => {
+        setShowCoverModal(false);
+        setCoverModalScope('all');
+    };
 
     // ─── SET HANDLERS ────────────────────────────────────────
     const handleCreateSet = async () => {
@@ -1187,6 +1334,152 @@ const CollectionDashboard = () => {
         } catch (err) {
             console.error('Move failed:', err);
             alert('Failed to move photos. Please try again.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const getSelectedPhotoRecords = () => {
+        const idSet = new Set(selectedPhotos);
+        return photos.filter((p) => idSet.has(p.id) && p.full_url);
+    };
+
+    const closeSelectionChrome = () => {
+        setShowSelectionMore(false);
+        setShowSelectAllMenu(false);
+        setShowMoveToSetMenu(false);
+    };
+
+    const requireSingleSelectedPhoto = (actionLabel) => {
+        const sel = getSelectedPhotoRecords();
+        if (sel.length !== 1) {
+            alert(`Select exactly one photo to ${actionLabel}.`);
+            return null;
+        }
+        return sel[0];
+    };
+
+    const handleSelectionOpen = () => {
+        const sel = getSelectedPhotoRecords();
+        if (sel.length === 0) return;
+        const idx = sortedPhotos.findIndex((p) => p.id === sel[0].id);
+        closeSelectionChrome();
+        setLightboxOpenIndex(idx >= 0 ? idx : 0);
+    };
+
+    const handleSelectionStar = async () => {
+        const sel = getSelectedPhotoRecords();
+        if (sel.length === 0) return;
+        const targetStarred = !sel.every((p) => p.is_starred);
+        closeSelectionChrome();
+        try {
+            await Promise.all(sel.map((p) => galleryService.togglePhotoStar(p.id, targetStarred)));
+            const ids = new Set(sel.map((p) => p.id));
+            setPhotos((prev) => prev.map((p) => (ids.has(p.id) ? { ...p, is_starred: targetStarred } : p)));
+        } catch (err) {
+            console.error('Bulk star failed:', err);
+            alert('Failed to update starred photos.');
+        }
+    };
+
+    const handleSelectionShareLink = () => {
+        const photo = requireSingleSelectedPhoto('share a link');
+        if (!photo) return;
+        closeSelectionChrome();
+        handleQuickShare(photo);
+    };
+
+    const handleSelectionCopyFilenames = () => {
+        const sel = getSelectedPhotoRecords();
+        if (sel.length === 0) return;
+        const text = sel.map((p) => p.filename).filter(Boolean).join('\n');
+        navigator.clipboard.writeText(text);
+        closeSelectionChrome();
+        alert(sel.length === 1 ? 'Filename copied to clipboard!' : `${sel.length} filenames copied to clipboard!`);
+    };
+
+    const handleSelectionSetAsCover = () => {
+        const sel = getSelectedPhotoRecords();
+        const photo = sel.find((p) => isGalleryImagePhoto(p)) || sel[0];
+        if (!photo) return;
+        closeSelectionChrome();
+        handleSetAsCover(photo);
+    };
+
+    const handleSelectionRename = () => {
+        const photo = requireSingleSelectedPhoto('rename');
+        if (!photo) return;
+        closeSelectionChrome();
+        setEditingPhoto(photo);
+        setNewPhotoName(photo.filename || '');
+        setShowRenameModal(true);
+    };
+
+    const handleSelectionReplace = () => {
+        const photo = requireSingleSelectedPhoto('replace');
+        if (!photo) return;
+        closeSelectionChrome();
+        setEditingPhoto(photo);
+        setShowReplaceModal(true);
+    };
+
+    const handleSelectionWatermark = () => {
+        const photo = requireSingleSelectedPhoto('watermark');
+        if (!photo) return;
+        closeSelectionChrome();
+        setEditingPhoto(photo);
+        setShowWatermarkModal(true);
+    };
+
+    const handleSelectionDownload = async () => {
+        const sel = getSelectedPhotoRecords();
+        if (sel.length === 0) return;
+        closeSelectionChrome();
+        const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
+        if (collection?.download_pin && pinRequiredForSingle) {
+            const enteredPin = prompt('Please enter the download PIN to download:');
+            if (enteredPin !== collection.download_pin) {
+                alert('Incorrect PIN.');
+                return;
+            }
+        }
+        try {
+            for (let i = 0; i < sel.length; i++) {
+                const p = sel[i];
+                if (p.full_url) {
+                    await downloadPhotoFromR2(p.full_url, p.filename || 'photo.jpg');
+                    if (i < sel.length - 1) {
+                        await new Promise((r) => setTimeout(r, 350));
+                    }
+                }
+            }
+        } catch (err) {
+            console.error('Selection download failed:', err);
+            alert('Failed to download some photos.');
+        }
+    };
+
+    const handleSelectionReorder = async (toEnd) => {
+        const selIds = new Set(getSelectedPhotoRecords().map((p) => p.id));
+        if (selIds.size === 0) return;
+
+        let pool = photos.filter((p) => (activeSetId ? p.set_id === activeSetId : !p.set_id));
+        pool = [...pool].sort((a, b) => (a.position || 0) - (b.position || 0));
+
+        const selected = pool.filter((p) => selIds.has(p.id));
+        const rest = pool.filter((p) => !selIds.has(p.id));
+        const reordered = toEnd ? [...rest, ...selected] : [...selected, ...rest];
+
+        closeSelectionChrome();
+        try {
+            setSaving(true);
+            await Promise.all(reordered.map((p, index) => galleryService.updatePhoto(p.id, { position: index })));
+            const posMap = new Map(reordered.map((p, index) => [p.id, index]));
+            setPhotos((prev) => prev.map((p) => (posMap.has(p.id) ? { ...p, position: posMap.get(p.id) } : p)));
+            if (sortOption !== 'custom') setSortOption('custom');
+        } catch (err) {
+            console.error('Reorder failed:', err);
+            alert('Failed to reorder photos.');
         } finally {
             setSaving(false);
         }
@@ -1371,14 +1664,23 @@ const CollectionDashboard = () => {
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (shareRef.current && !shareRef.current.contains(e.target)) setShowShareDropdown(false);
-            if (photoMenuRef.current && !photoMenuRef.current.contains(e.target)) setActivePhotoMenu(null);
+            if (photoMenuRef.current && !photoMenuRef.current.contains(e.target)) setPhotoMenu(null);
             if (gridSettingsRef.current && !gridSettingsRef.current.contains(e.target)) setShowGridSettings(false);
-            if (moreRef.current && !moreRef.current.contains(e.target)) setShowMoreDropdown(false);
+            if (moreRef.current && !moreRef.current.contains(e.target)) {
+                setShowMoreDropdown(false);
+                setShowPresetsSubmenu(false);
+            }
             if (setMenuRef.current && !setMenuRef.current.contains(e.target)) setShowSetMenu(null);
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortMenu(false);
             if (selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) setShowSelectionMore(false);
             if (selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) setShowSelectAllMenu(false);
-            if (moveToSetRef.current && !moveToSetRef.current.contains(e.target)) setShowMoveToSetMenu(false);
+            if (
+                moveToSetRef.current
+                && !moveToSetRef.current.contains(e.target)
+                && (!moveMenuPortalRef.current || !moveMenuPortalRef.current.contains(e.target))
+            ) {
+                setShowMoveToSetMenu(false);
+            }
             if (favoriteActivityMenuRef.current && !favoriteActivityMenuRef.current.contains(e.target)) setActiveActivityMenu(null);
             if (favoriteDetailToolbarMenuRef.current && !favoriteDetailToolbarMenuRef.current.contains(e.target)) setFavoriteDetailToolbarMenuOpen(false);
             if (favoriteDetailPhotoMenuRef.current && !favoriteDetailPhotoMenuRef.current.contains(e.target)) setFavoriteDetailPhotoMenuPhotoId(null);
@@ -1388,75 +1690,33 @@ const CollectionDashboard = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleFileSelect = (e) => {
-        const rawFiles = Array.from(e.target.files);
-        const files = rawFiles.filter(f => f.size > 0);
-        
-        if (rawFiles.length > 0 && files.length === 0) {
-            alert("The selected files are empty or corrupted. If you are uploading a file from another app, please save it to your computer first.");
-            return;
+    const processSelectedUploadFiles = (fileList) => {
+        if (processFiles(fileList)) {
+            setShowUploadModal(false);
         }
-        if (files.length === 0) return;
+    };
 
-        setShowUploadModal(false);
+    const handleFileSelect = (e) => {
+        processSelectedUploadFiles(e.target.files);
+        e.target.value = '';
+    };
 
-        const newUploadFiles = files.map(file => ({
-            id: Math.random().toString(36).substr(2, 9),
-            file: file,
-            name: file.name,
-            size: file.size,
-            progress: 0,
-            status: 'uploading'
-        }));
-
-        setUploadWidget(prev => ({
-            isOpen: true,
-            isMinimized: false,
-            files: [...prev.files, ...newUploadFiles]
-        }));
-
-        newUploadFiles.forEach(uf => {
-            // Simulate progress while uploading
-            const interval = setInterval(() => {
-                setUploadWidget(prev => ({
-                    ...prev,
-                    files: prev.files.map(f => {
-                        if (f.id === uf.id && f.status === 'uploading') {
-                            const add = Math.floor(Math.random() * 15) + 5;
-                            return { ...f, progress: Math.min(f.progress + add, 90) };
-                        }
-                        return f;
-                    })
-                }));
-            }, 400);
-
-            // Upload with activeSetId so photos are assigned to the current set
-            galleryService.uploadPhoto(collectionId, collection.photographer_id, uf.file, photos.length, activeSetId)
-                .then(photoData => {
-                    clearInterval(interval);
-                    setUploadWidget(prev => ({
-                        ...prev,
-                        files: prev.files.map(f => f.id === uf.id ? { ...f, progress: 100, status: 'completed' } : f)
-                    }));
-                    setPhotos(prev => [...prev, photoData]);
-                })
-                .catch(err => {
-                    clearInterval(interval);
-                    console.error('Upload failed:', err);
-                    setUploadWidget(prev => ({
-                        ...prev,
-                        files: prev.files.map(f => f.id === uf.id ? { ...f, status: 'error' } : f)
-                    }));
-                });
+    const openMediaFileDialog = (inputRef) => {
+        void pickMediaFilesOrFallback({
+            multiple: true,
+            fallback: () => inputRef.current?.click(),
+        }).then((files) => {
+            if (files?.length) processSelectedUploadFiles(files);
         });
     };
 
     const handleDropzoneClick = () => {
-        fileInputRef.current?.click();
+        openMediaFileDialog(fileInputRef);
     };
 
-    const handleModalBrowse = () => {
-        modalFileInputRef.current?.click();
+    const handleModalBrowse = (e) => {
+        e?.stopPropagation?.();
+        openMediaFileDialog(modalFileInputRef);
     };
 
     const handleModalDragOver = (e) => {
@@ -1468,69 +1728,16 @@ const CollectionDashboard = () => {
         setIsDraggingModal(false);
     };
 
-    const handleModalDrop = async (e) => {
+    const handleModalDrop = (e) => {
         e.preventDefault();
         setIsDraggingModal(false);
-        const rawFiles = Array.from(e.dataTransfer.files).filter(f =>
-            f.type.startsWith('image/') || f.type.startsWith('video/')
+        const mediaFiles = Array.from(e.dataTransfer.files).filter(
+            (f) => f.type.startsWith('image/') || f.type.startsWith('video/')
         );
-        const files = rawFiles.filter(f => f.size > 0);
-
-        if (rawFiles.length > 0 && files.length === 0) {
-            alert("The dropped files are empty (0 bytes). This commonly happens when dragging directly from apps like WhatsApp. Please save the file to your computer first, then upload.");
-            return;
+        if (mediaFiles.length === 0) return;
+        if (processFiles(mediaFiles)) {
+            setShowUploadModal(false);
         }
-        if (files.length === 0) return;
-
-        setShowUploadModal(false);
-
-        const newUploadFiles = files.map(file => ({
-            id: Math.random().toString(36).substr(2, 9),
-            file: file,
-            name: file.name,
-            size: file.size,
-            progress: 0,
-            status: 'uploading'
-        }));
-
-        setUploadWidget(prev => ({
-            isOpen: true,
-            isMinimized: false,
-            files: [...prev.files, ...newUploadFiles]
-        }));
-
-        newUploadFiles.forEach(uf => {
-            const interval = setInterval(() => {
-                setUploadWidget(prev => ({
-                    ...prev,
-                    files: prev.files.map(f => {
-                        if (f.id === uf.id && f.status === 'uploading') {
-                            const add = Math.floor(Math.random() * 15) + 5;
-                            return { ...f, progress: Math.min(f.progress + add, 90) };
-                        }
-                        return f;
-                    })
-                }));
-            }, 400);
-
-            galleryService.uploadPhoto(collectionId, collection.photographer_id, uf.file, photos.length, activeSetId)
-                .then(photoData => {
-                    clearInterval(interval);
-                    setUploadWidget(prev => ({
-                        ...prev,
-                        files: prev.files.map(f => f.id === uf.id ? { ...f, progress: 100, status: 'completed' } : f)
-                    }));
-                    setPhotos(prev => [...prev, photoData]);
-                })
-                .catch(err => {
-                    clearInterval(interval);
-                    console.error('Upload failed:', err);
-                    setUploadWidget(prev => ({
-                        ...prev,
-                        files: prev.files.map(f => f.id === uf.id ? { ...f, status: 'error' } : f)
-                    }));
-                });
-        });
     };
 
     const toggleStatus = async () => {
@@ -1600,47 +1807,71 @@ const CollectionDashboard = () => {
 
                 <div className="cd-topbar-right">
                     <div className="cd-more-wrapper" ref={moreRef}>
-                        <button className="cd-text-btn" onClick={() => { setShowShareDropdown(false); setShowMoreDropdown(!showMoreDropdown); }}>
+                        <button
+                            type="button"
+                            className="cd-text-btn"
+                            aria-expanded={showMoreDropdown}
+                            aria-haspopup="menu"
+                            onClick={() => {
+                                setShowShareDropdown(false);
+                                if (showMoreDropdown) {
+                                    setShowMoreDropdown(false);
+                                    setShowPresetsSubmenu(false);
+                                } else {
+                                    setShowMoreDropdown(true);
+                                }
+                            }}
+                        >
                             More <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </button>
                         {showMoreDropdown && (
-                            <div className="cd-more-dropdown">
-                                <div className="cd-ctx-item" onClick={() => { setShowMoreDropdown(false); setShowGetDirectLinkModal(true); }}>
+                            <div className="cd-more-dropdown" role="menu">
+                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowGetDirectLinkModal(true); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                                     <span>Get direct link</span>
-                                </div>
-                                <div className="cd-ctx-item" onClick={() => { setShowMoreDropdown(false); setShowEmailHistoryModal(true); }}>
+                                </button>
+                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowEmailHistoryModal(true); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 4v6h6" /><path d="M3.32 14A9 9 0 1 0 3 10l-2 1" /></svg>
                                     <span>View email history</span>
-                                </div>
-                                <div className="cd-ctx-item preset-item" onClick={() => setShowManagePresetsModal(!showManagePresetsModal)} style={{ position: 'relative' }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+                                </button>
+                                <div className={`cd-ctx-item--has-flyout ${showPresetsSubmenu ? 'is-open' : ''}`}>
+                                    <button
+                                        type="button"
+                                        className="cd-ctx-item-trigger"
+                                        aria-expanded={showPresetsSubmenu}
+                                        aria-haspopup="menu"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowPresetsSubmenu((open) => !open);
+                                        }}
+                                    >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" x2="4" y1="21" y2="14" /><line x1="4" x2="4" y1="10" y2="3" /><line x1="12" x2="12" y1="21" y2="12" /><line x1="12" x2="12" y1="8" y2="3" /><line x1="20" x2="20" y1="21" y2="16" /><line x1="20" x2="20" y1="12" y2="3" /><line x1="2" x2="6" y1="14" y2="14" /><line x1="10" x2="14" y1="8" y2="8" /><line x1="18" x2="22" y1="12" y2="12" /></svg>
                                         <span>Manage presets</span>
-                                    </div>
-                                    {showManagePresetsModal && (
-                                        <div className="cd-preset-submenu" style={{ position: 'absolute', right: '-190px', top: '-4px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '6px 0', width: '180px', zIndex: 1000, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowMoreDropdown(false); setShowManagePresetsModal(false); setShowApplyPresetModal(true); }}>
+                                        <svg className="cd-ctx-item-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><polyline points="9 18 15 12 9 6" /></svg>
+                                    </button>
+                                    {showPresetsSubmenu && (
+                                        <div className="cd-preset-flyout" role="menu" onClick={(e) => e.stopPropagation()}>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowApplyPresetModal(true); }}>
                                                 <span>Apply preset</span>
-                                            </div>
-                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowMoreDropdown(false); setShowManagePresetsModal(false); setShowSavePresetModal(true); }}>
+                                            </button>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowSavePresetModal(true); }}>
                                                 <span>Save as preset</span>
-                                            </div>
+                                            </button>
                                         </div>
                                     )}
                                 </div>
-                                <div className="cd-ctx-item" onClick={() => { setShowMoreDropdown(false); setShowMoveToModal(true); }}>
+                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowMoveToModal(true); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 12H3" /><path d="m11 18 6-6-6-6" /><path d="M21 5v14" /></svg>
                                     <span>Move to</span>
-                                </div>
-                                <div className="cd-ctx-item" onClick={() => { setShowMoreDropdown(false); setShowDuplicateModal(true); }}>
+                                </button>
+                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowDuplicateModal(true); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
                                     <span>Duplicate</span>
-                                </div>
-                                <div className="cd-ctx-item" onClick={() => { setShowMoreDropdown(false); setShowDeleteCollectionModal(true); setDeleteCollectionConfirm(false); }}>
+                                </button>
+                                <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowDeleteCollectionModal(true); setDeleteCollectionConfirm(false); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                                     <span>Delete collection</span>
-                                </div>
+                                </button>
                             </div>
                         )}
                     </div>
@@ -1661,23 +1892,55 @@ const CollectionDashboard = () => {
                     <div className="cd-share-wrapper" ref={shareRef}>
                         <div className="cd-share-split-btn">
                             <button className="cd-share-main" onClick={() => navigate('/shared-collection')}>Share</button>
-                            <button className="cd-share-arrow" onClick={() => { setShowMoreDropdown(false); setShowShareDropdown(!showShareDropdown); }}>
+                            <button className="cd-share-arrow" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowShareDropdown(!showShareDropdown); }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </button>
                         </div>
                         {showShareDropdown && (
                             <div className="cd-share-dropdown">
-                                <div className="cd-share-item" onClick={() => setShowShareDropdown(false)}>
+                                <div
+                                    className="cd-share-item"
+                                    onClick={() => {
+                                        setShowShareDropdown(false);
+                                        if (collectionUrl) {
+                                            openShareByEmail(getCollectionShareUrl(collectionUrl), collection?.name || 'Collection');
+                                        }
+                                    }}
+                                >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                                     <span>Share by email</span>
                                 </div>
-                                <div className="cd-share-item" onClick={() => setShowShareDropdown(false)}>
+                                <div
+                                    className="cd-share-item"
+                                    onClick={() => {
+                                        setShowShareDropdown(false);
+                                        setShowGetDirectLinkModal(true);
+                                    }}
+                                >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                                     <span>Get direct link</span>
                                 </div>
-                                <div className="cd-share-item" onClick={() => setShowShareDropdown(false)}>
+                                <div
+                                    className="cd-share-item"
+                                    onClick={() => {
+                                        setShowShareDropdown(false);
+                                        setShowQrCodeModal(true);
+                                    }}
+                                >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="3" height="3"></rect><rect x="14" y="7" width="3" height="3"></rect><rect x="7" y="14" width="3" height="3"></rect><rect x="14" y="14" width="3" height="3"></rect></svg>
                                     <span>Get QR code</span>
+                                </div>
+                                <div
+                                    className="cd-share-item"
+                                    onClick={() => {
+                                        setShowShareDropdown(false);
+                                        if (collectionUrl) {
+                                            openWhatsAppShare(getCollectionShareUrl(collectionUrl), collection?.name || 'Collection');
+                                        }
+                                    }}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#25D366" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" fill="currentColor" /></svg>
+                                    <span>Share on WhatsApp</span>
                                 </div>
                             </div>
                         )}
@@ -1690,19 +1953,13 @@ const CollectionDashboard = () => {
                 <aside className="cd-sidebar">
                     <div className="cd-sidebar-scrollable">
 
-                        <div className="cd-cover-image">
-                            {collection?.cover_url ? (
-                                <img src={collection.cover_url} alt="Cover" />
-                            ) : photos.length > 0 ? (
-                                <img src={photos[0].full_url} alt="Cover" />
-                            ) : (
-                                <img src="https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&auto=format&fit=crop&q=60" alt="Cover" />
-                            )}
-                            <div className="cd-cover-hover-overlay" onClick={() => setShowCoverModal(true)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-                                <span>Change Cover</span>
-                            </div>
-                        </div>
+                        <SidebarCoverUpload
+                            coverUrl={collection?.cover_url}
+                            isUpdating={isCoverUploading}
+                            activeSetName={activeSetName}
+                            onPhotoDrop={handleCoverPhotoDropById}
+                            onSelectFromCollection={() => openCoverModal('all')}
+                        />
 
                         <div className="cd-icon-bar">
                             <button
@@ -1756,7 +2013,11 @@ const CollectionDashboard = () => {
                                                 </button>
                                                 {showSetMenu === 'highlights' && (
                                                     <div className="cd-set-dropdown">
-                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }); }}>
+                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal('highlights'); }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                                            <span>Change cover</span>
+                                                        </div>
+                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }); }}>
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                                                             <span>Edit set</span>
                                                         </div>
@@ -1783,7 +2044,11 @@ const CollectionDashboard = () => {
                                                     </button>
                                                     {showSetMenu === set.id && (
                                                         <div className="cd-set-dropdown">
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); openEditSetModal(set); }}>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                                                <span>Change cover</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal(set); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                                                                 <span>Edit set</span>
                                                             </div>
@@ -2007,72 +2272,48 @@ const CollectionDashboard = () => {
                                     </div>
                                 </div>
 
-                                {sortedPhotos.length > 0 ? (
+                                {gridPhotos.length > 0 ? (
                                     <div
-                                        className={`cd-photo-grid ${gridSize === 'large' ? 'grid-large' : ''}`}
-                                        style={{
-                                            display: 'grid',
-                                            gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize === 'large' ? 280 : 200}px, 1fr))`,
-                                            gap: gridSize === 'large' ? '20px' : '16px',
-                                            padding: '16px 0'
-                                        }}
+                                        className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}`}
                                     >
-                                        {sortedPhotos.map((photo, index) => (
+                                        {gridPhotos.map((photo, index) => {
+                                            const menuAlignLeft = index % 4 >= 2;
+                                            const isPending = Boolean(photo._uploadPending);
+                                            return (
                                             <div
-                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''}`}
+                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${isGalleryImagePhoto(photo) && !isPending ? 'cd-photo-card--cover-draggable' : ''} ${photoMenu === photo.id ? 'cd-photo-card--menu-open' : ''} ${isPending ? 'cd-photo-card--pending' : ''}`}
                                                 key={photo.id || index}
-                                                onClick={() => togglePhotoSelection(photo.id)}
-                                                style={{
-                                                    aspectRatio: '1 / 1',
-                                                    backgroundColor: '#f8f8f8',
-                                                    position: 'relative',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    overflow: 'visible',
-                                                    cursor: 'pointer',
-                                                    border: selectedPhotos.includes(photo.id) ? '2px solid #12b8a6' : '1px solid #f0f0f0'
+                                                draggable={isGalleryImagePhoto(photo) && !isPending}
+                                                onDragStart={(e) => {
+                                                    if (!isGalleryImagePhoto(photo)) return;
+                                                    e.stopPropagation();
+                                                    setCoverPhotoDragData(e.dataTransfer, photo.id);
                                                 }}
+                                                onDragEnd={() => endCoverPhotoDrag()}
+                                                onClick={() => togglePhotoSelection(photo.id)}
                                             >
-                                                <div className="cd-photo-card-inner">
-                                                    {/\.(mp4|webm|ogg|mov)$/i.test(photo.filename || photo.full_url || '') ? (
-                                                        <video
-                                                            src={photo.full_url}
-                                                            className="cd-photo-img"
-                                                            style={{
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                objectFit: 'contain',
-                                                                display: 'block'
-                                                            }}
-                                                            muted
-                                                            loop
-                                                            playsInline
-                                                            onMouseEnter={(e) => e.target.play().catch(() => {})}
-                                                            onMouseLeave={(e) => { e.target.pause(); e.target.currentTime = 0; }}
-                                                        />
-                                                    ) : (
-                                                        <img
-                                                            src={photo.full_url}
-                                                            alt={photo.filename || `Photo ${index + 1}`}
-                                                            className="cd-photo-img"
-                                                            style={{
-                                                                width: '100%',
-                                                                height: '100%',
-                                                                objectFit: 'contain',
-                                                                display: 'block'
-                                                            }}
+                                                <div className="cd-photo-card-inner cd-photo-card-inner--contain">
+                                                    <CollectionGridPhoto
+                                                        photo={photo}
+                                                        index={index}
+                                                    />
+                                                    {isPending && (
+                                                        <div
+                                                            className="cd-photo-upload-overlay"
+                                                            style={{ width: `${photo._uploadProgress || 0}%` }}
                                                         />
                                                     )}
                                                     {showFilename && <div className="cd-photo-filename" style={{ position: 'absolute', bottom: 8, left: 8, fontSize: 12, color: '#666', background: 'rgba(255,255,255,0.8)', padding: '2px 6px', borderRadius: 4 }}>{photo.filename || `photo-${index + 1}.jpg`}</div>}
                                                 </div>
 
+                                                {!isPending && (
+                                                <>
                                                 <div className="cd-photo-actions">
                                                     <button className="cd-photo-more-btn" onClick={(e) => { e.stopPropagation(); setPhotoMenu(photoMenu === photo.id ? null : photo.id); }}>
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
                                                     </button>
                                                     {photoMenu === photo.id && (
-                                                        <div className="cd-photo-menu" ref={photoMenuRef}>
+                                                        <div className={`cd-photo-menu ${menuAlignLeft ? 'cd-photo-menu--align-left' : ''}`} ref={photoMenuRef}>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setLightboxOpenIndex(index); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                                                                 <span>Open</span>
@@ -2125,8 +2366,11 @@ const CollectionDashboard = () => {
                                                 >
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#bbb"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                                 </button>
+                                                </>
+                                                )}
                                             </div>
-                                        ))}
+                                        );
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="cd-dropzone" onClick={handleDropzoneClick}>
@@ -2134,7 +2378,7 @@ const CollectionDashboard = () => {
                                             type="file"
                                             ref={fileInputRef}
                                             style={{ display: 'none' }}
-                                            accept="image/*,video/*"
+                                            accept={MEDIA_FILE_ACCEPT}
                                             multiple
                                             onChange={handleFileSelect}
                                         />
@@ -2382,7 +2626,7 @@ const CollectionDashboard = () => {
                     {selectedPhotos.length > 0 && (
                         <div className="cd-selection-toolbar">
                             <div className="cd-selection-left">
-                                <button className="cd-selection-close" onClick={clearSelection}>
+                                <button type="button" className="cd-selection-close" onClick={clearSelection}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                                 </button>
                                 <div className="cd-selection-count-wrapper" onClick={() => setShowSelectAllMenu(!showSelectAllMenu)} ref={selectAllMenuRef}>
@@ -2395,109 +2639,122 @@ const CollectionDashboard = () => {
                                     )}
                                 </div>
                             </div>
-                            <div className="cd-selection-actions">
-                                <button className="cd-sel-action-btn" title="Add to Starred">
+                            <div className="cd-selection-actions" onClick={(e) => e.stopPropagation()}>
+                                <button type="button" className="cd-sel-action-btn" data-tooltip="Add to Starred" aria-label="Add to Starred" onClick={handleSelectionStar}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                 </button>
-                                <button className="cd-sel-action-btn" title="Share link">
+                                <button type="button" className="cd-sel-action-btn" data-tooltip="Share link" aria-label="Share link" onClick={handleSelectionShareLink}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                                 </button>
-                                <div className="cd-selection-move-wrapper" ref={moveToSetRef}>
-                                    <button className="cd-sel-action-btn" title="Move/Copy" onClick={() => setShowMoveToSetMenu(!showMoveToSetMenu)}>
+                                <div className={`cd-selection-move-wrapper${showMoveToSetMenu ? ' is-open' : ''}`} ref={moveToSetRef}>
+                                    <button
+                                        type="button"
+                                        className="cd-sel-action-btn"
+                                        data-tooltip="Move to set"
+                                        aria-label="Move to set"
+                                        aria-expanded={showMoveToSetMenu}
+                                        aria-haspopup="menu"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setShowSelectionMore(false);
+                                            setShowMoveToSetMenu((open) => !open);
+                                        }}
+                                    >
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M13.8 12H3" /></svg>
                                     </button>
-                                    {showMoveToSetMenu && (
-                                        <div className="cd-selection-move-dropdown">
-                                            <div className="cd-sort-label">Move to Set</div>
-                                            <div className={`cd-ctx-item ${!activeSetId ? 'disabled' : ''}`} onClick={() => activeSetId && handleMovePhotosToSet(null)}>
-                                                Highlights
-                                            </div>
-                                            {sets.map(s => (
-                                                <div key={s.id} className={`cd-ctx-item ${activeSetId === s.id ? 'disabled' : ''}`} onClick={() => activeSetId !== s.id && handleMovePhotosToSet(s.id)}>
-                                                    {s.name}
-                                                </div>
-                                            ))}
+                                </div>
+                                {showMoveToSetMenu && moveMenuPosition && createPortal(
+                                    <div
+                                        ref={moveMenuPortalRef}
+                                        className="cd-selection-move-dropdown cd-selection-move-dropdown--portal"
+                                        role="menu"
+                                        style={moveMenuPosition}
+                                        onMouseDown={(e) => e.stopPropagation()}
+                                    >
+                                        <div className="cd-sort-label">Move to set</div>
+                                        <button
+                                            type="button"
+                                            role="menuitem"
+                                            className={`cd-ctx-item${!activeSetId ? ' disabled' : ''}`}
+                                            disabled={!activeSetId}
+                                            onClick={() => handleMovePhotosToSet(null)}
+                                        >
+                                            {highlightsName}
+                                        </button>
+                                        {sets.map((s) => (
+                                            <button
+                                                key={s.id}
+                                                type="button"
+                                                role="menuitem"
+                                                className={`cd-ctx-item${activeSetId === s.id ? ' disabled' : ''}`}
+                                                disabled={activeSetId === s.id}
+                                                onClick={() => handleMovePhotosToSet(s.id)}
+                                            >
+                                                {s.name}
+                                            </button>
+                                        ))}
+                                    </div>,
+                                    document.body
+                                )}
+                                <button type="button" className="cd-sel-action-btn" data-tooltip="Delete" aria-label="Delete" onClick={() => deleteSelectedPhotos()}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                </button>
+                                <div className="cd-selection-more-wrap" ref={selectionMoreRef}>
+                                    <button type="button" className="cd-sel-action-btn" data-tooltip="More" aria-label="More" onClick={(e) => { e.stopPropagation(); setShowMoveToSetMenu(false); setShowSelectionMore(!showSelectionMore); }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
+                                    </button>
+                                    {showSelectionMore && (
+                                        <div className="cd-selection-more-dropdown" role="menu">
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionOpen}>
+                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8M3 3l6 6M3 3v4.8M3 3h4.8M21 3l-6 6M21 3v4.8M21 3h-4.8M3 21l6-6M3 21v-4.8M3 21h4.8" /></svg></div>
+                                                <span className="cd-ctx-text">Open</span>
+                                                <span className="cd-ctx-hotkey">spacebar</span>
+                                            </button>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionDownload}>
+                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg></div>
+                                                <span className="cd-ctx-text">Download</span>
+                                            </button>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionCopyFilenames}>
+                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></div>
+                                                <span className="cd-ctx-text">Copy filenames</span>
+                                            </button>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionSetAsCover}>
+                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>
+                                                <span className="cd-ctx-text">Set as cover</span>
+                                            </button>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionRename}>
+                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></div>
+                                                <span className="cd-ctx-text">Rename</span>
+                                            </button>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionReplace}>
+                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 2l4 4-4 4M3 6h18M7 22l-4-4 4-4M21 18H3" /></svg></div>
+                                                <span className="cd-ctx-text">Replace photo</span>
+                                            </button>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={handleSelectionWatermark}>
+                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M14.5 9a2.5 2.5 0 0 0-5 0v6a2.5 2.5 0 0 0 5 0" /><path d="M10 12h4.5" /></svg></div>
+                                                <span className="cd-ctx-text">Watermark</span>
+                                            </button>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => handleSelectionReorder(false)}>
+                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V6m0 0l-5 5m5-5l5 5M5 6h14" /></svg></div>
+                                                <span className="cd-ctx-text">Move to top</span>
+                                                <span className="cd-ctx-hotkey">⌘ + ↑</span>
+                                            </button>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => handleSelectionReorder(true)}>
+                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v13m0 0l-5-5m5 5l5-5M5 18h14" /></svg></div>
+                                                <span className="cd-ctx-text">Move to bottom</span>
+                                                <span className="cd-ctx-hotkey">⌘ + ↓</span>
+                                            </button>
+                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={() => { closeSelectionChrome(); alert('Mobile app creation is coming soon.'); }}>
+                                                <div className="cd-ctx-item-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg></div>
+                                                <span className="cd-ctx-text">Create mobile app</span>
+                                            </button>
                                         </div>
                                     )}
                                 </div>
-                                <button className="cd-sel-action-btn" title="Delete" onClick={deleteSelectedPhotos}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
-                                </button>
-                                <button className="cd-sel-action-btn" title="More" onClick={() => setShowSelectionMore(!showSelectionMore)} ref={selectionMoreRef}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
-                                    {showSelectionMore && (
-                                        <div className="cd-selection-more-dropdown">
-                                            <div className="cd-ctx-item" onClick={() => setShowSelectionMore(false)}>
-                                                <div className="cd-ctx-item-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="m21 21-6-6m6 6v-4.8m0 4.8h-4.8M3 3l6 6M3 3v4.8M3 3h4.8M21 3l-6 6M21 3v4.8M21 3h-4.8M3 21l6-6M3 21v-4.8M3 21h4.8" /></svg>
-                                                </div>
-                                                <span className="cd-ctx-text">Open</span>
-                                                <span className="cd-ctx-hotkey">spacebar</span>
-                                            </div>
-                                            <div className="cd-ctx-item" onClick={() => setShowSelectionMore(false)}>
-                                                <div className="cd-ctx-item-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-                                                </div>
-                                                <span className="cd-ctx-text">Download</span>
-                                            </div>
-                                            <div className="cd-ctx-item" onClick={() => setShowSelectionMore(false)}>
-                                                <div className="cd-ctx-item-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                                </div>
-                                                <span className="cd-ctx-text">Copy filenames</span>
-                                            </div>
-                                            <div className="cd-ctx-item" onClick={() => setShowSelectionMore(false)}>
-                                                <div className="cd-ctx-item-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                                </div>
-                                                <span className="cd-ctx-text">Set as cover</span>
-                                            </div>
-                                            <div className="cd-ctx-item" onClick={() => setShowSelectionMore(false)}>
-                                                <div className="cd-ctx-item-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                                                </div>
-                                                <span className="cd-ctx-text">Rename</span>
-                                            </div>
-                                            <div className="cd-ctx-item" onClick={() => setShowSelectionMore(false)}>
-                                                <div className="cd-ctx-item-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 2l4 4-4 4M3 6h18M7 22l-4-4 4-4M21 18H3" /></svg>
-                                                </div>
-                                                <span className="cd-ctx-text">Replace photo</span>
-                                            </div>
-                                            <div className="cd-ctx-item" onClick={() => setShowSelectionMore(false)}>
-                                                <div className="cd-ctx-item-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M14.5 9a2.5 2.5 0 0 0-5 0v6a2.5 2.5 0 0 0 5 0" /><path d="M10 12h4.5" /></svg>
-                                                </div>
-                                                <span className="cd-ctx-text">Watermark</span>
-                                            </div>
-                                            <div className="cd-ctx-item" onClick={() => setShowSelectionMore(false)}>
-                                                <div className="cd-ctx-item-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V6m0 0l-5 5m5-5l5 5M5 6h14" /></svg>
-                                                </div>
-                                                <span className="cd-ctx-text">Move to top</span>
-                                                <span className="cd-ctx-hotkey">⌘ + ↑</span>
-                                            </div>
-                                            <div className="cd-ctx-item" onClick={() => setShowSelectionMore(false)}>
-                                                <div className="cd-ctx-item-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v13m0 0l-5-5m5 5l5-5M5 18h14" /></svg>
-                                                </div>
-                                                <span className="cd-ctx-text">Move to bottom</span>
-                                                <span className="cd-ctx-hotkey">⌘ + ↓</span>
-                                            </div>
-                                            <div className="cd-ctx-item" onClick={() => setShowSelectionMore(false)}>
-                                                <div className="cd-ctx-item-icon">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-                                                </div>
-                                                <span className="cd-ctx-text">Create mobile app</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </button>
                             </div>
                         </div>
                     )}
                 </div>
-
                 {/* Add Media Modal */}
                 {
                     showUploadModal && (
@@ -2525,7 +2782,7 @@ const CollectionDashboard = () => {
                                                 type="file"
                                                 ref={modalFileInputRef}
                                                 style={{ display: 'none' }}
-                                                accept="image/*,video/*"
+                                                accept={MEDIA_FILE_ACCEPT}
                                                 multiple
                                                 onChange={handleFileSelect}
                                             />
@@ -2711,75 +2968,20 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Upload Widget */}
-            {uploadWidget.isOpen && (
-                <div className={`upload-widget ${uploadWidget.isMinimized ? 'minimized' : ''}`}>
-                    <div className="upload-widget-header" onClick={() => setUploadWidget(prev => ({ ...prev, isMinimized: !prev.isMinimized }))}>
-                        <div className="upload-header-left">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-                            <div className="upload-progress-info">
-                                <h4>Uploading {uploadWidget.files.filter(f => f.status === 'uploading').length} Items</h4>
-                                {uploadWidget.files.filter(f => f.status === 'uploading').length > 0 && (
-                                    <span>
-                                        {Math.round(uploadWidget.files.reduce((acc, f) => acc + (f.size * f.progress / 100), 0) / 1024 / 1024 * 100) / 100} MB /
-                                        {Math.round(uploadWidget.files.reduce((acc, f) => acc + f.size, 0) / 1024 / 1024 * 100) / 100} MB
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        <div className="upload-header-actions">
-                            <button className="upload-action-btn">{uploadWidget.isMinimized ? (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
-                            ) : (
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            )}</button>
-                            <button className="upload-action-btn" onClick={(e) => { e.stopPropagation(); setUploadWidget({ isOpen: false, isMinimized: false, files: [] }); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    {!uploadWidget.isMinimized && (
-                        <div className="upload-widget-list">
-                            {uploadWidget.files.map(file => (
-                                <div key={file.id} className="upload-widget-item">
-                                    <div className="upload-item-icon">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
-                                    </div>
-                                    <div className="upload-item-details">
-                                        <p className="upload-item-name">{file.name}</p>
-                                        <p className="upload-item-status">
-                                            {file.status === 'uploading' ? `Uploading • ${(file.size / 1024 / 1024).toFixed(2)} MB`
-                                                : file.status === 'completed' ? 'Completed'
-                                                    : 'Failed'}
-                                        </p>
-                                    </div>
-                                    <div className="upload-item-progress">
-                                        {file.status === 'uploading' && (
-                                            <div className="progress-circle-wrap">
-                                                <svg className="progress-circle" viewBox="0 0 36 36">
-                                                    <path className="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                                    <path className="circle-progress" strokeDasharray={`${file.progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                                                </svg>
-                                            </div>
-                                        )}
-                                        {file.status === 'completed' && (
-                                            <span style={{ color: '#10b981' }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                                            </span>
-                                        )}
-                                        {file.status === 'error' && (
-                                            <span style={{ color: '#ef4444' }}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>
-                                            </span>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
+            <UploadManager
+                state={uploadState}
+                destinationLabel={uploadDestinationLabel}
+                isPaused={uploadState.isPaused}
+                onMinimize={minimizeUploads}
+                onExpand={expandUploads}
+                onClose={cancelUploads}
+                onPause={pauseUploads}
+                onResume={resumeUploads}
+                onCancel={cancelUploads}
+                onTabChange={setUploadTab}
+                onToggleDetails={toggleUploadDetails}
+                onViewCompleted={minimizeUploads}
+            />
 
             {/* Create Favorite List Modal (single overlay — matches preset list flow) */}
             {showCreateFavoriteListModal && (
@@ -2890,39 +3092,11 @@ const CollectionDashboard = () => {
             {/* Change Cover Modal */}
             <ChangeCoverModal
                 isOpen={showCoverModal}
-                onClose={() => setShowCoverModal(false)}
-                photos={photos}
-                onSelectPhoto={async (photo) => {
-                    try {
-                        setSaving(true);
-                        await galleryService.updateCollection(collectionId, {
-                            cover_photo_id: photo.id,
-                            cover_url: photo.full_url
-                        });
-                        setCollection(prev => ({ ...prev, cover_url: photo.full_url, cover_photo_id: photo.id }));
-                    } catch (err) {
-                        console.error('Failed to update cover:', err);
-                    } finally {
-                        setSaving(false);
-                    }
-                }}
-                onUploadPhoto={async (file) => {
-                    try {
-                        setSaving(true);
-                        // Upload specifically for cover (index 0 for now as priority)
-                        const photoData = await galleryService.uploadPhoto(collectionId, collection.photographer_id, file, 0);
-                        setPhotos(prev => [photoData, ...prev]);
-
-                        await galleryService.updateCollection(collectionId, {
-                            cover_photo_id: photoData.id,
-                            cover_url: photoData.full_url
-                        });
-                        setCollection(prev => ({ ...prev, cover_url: photoData.full_url, cover_photo_id: photoData.id }));
-                    } catch (err) {
-                        console.error('Cover upload failed:', err);
-                    } finally {
-                        setSaving(false);
-                    }
+                onClose={closeCoverModal}
+                photos={coverModalPhotos}
+                scopeLabel={coverModalScopeLabel}
+                onSelectPhoto={(photo) => {
+                    void handleCoverPhotoSelect(photo);
                 }}
             />
 
@@ -2965,6 +3139,12 @@ const CollectionDashboard = () => {
                     </div>
                 </div>
             )}
+
+            <CollectionQrModal
+                collection={collectionUrl ? { slug: collectionUrl, name: collection?.name } : null}
+                isOpen={showQrCodeModal}
+                onClose={() => setShowQrCodeModal(false)}
+            />
 
             {/* Email History Modal */}
             {showEmailHistoryModal && (
@@ -3106,23 +3286,24 @@ const CollectionDashboard = () => {
                         </div>
                         <div className="cd-modal-footer">
                             <button className="cd-cancel-btn" onClick={() => setShowDuplicateModal(false)}>Cancel</button>
-                            <button className="cd-save-btn" onClick={async () => {
+                            <button className="cd-save-btn" disabled={saving} onClick={async () => {
+                                const photographerId = collection?.photographer_id ?? user?.id;
+                                if (!collectionId || !photographerId) {
+                                    alert('Missing collection or account. Refresh and try again.');
+                                    return;
+                                }
                                 try {
                                     setSaving(true);
-                                    await galleryService.createCollection({
-                                        name: `${collectionName} (Copy)`,
-                                        event_date: collection?.event_date,
-                                        status: 'draft'
-                                    });
+                                    const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
                                     setShowDuplicateModal(false);
-                                    navigate('/client-gallery');
+                                    navigate(`/collections/manage?id=${newRow.id}`);
                                 } catch (err) {
                                     console.error('Failed to duplicate:', err);
-                                    alert('Failed to duplicate collection. Please try again.');
+                                    alert(err?.message || 'Failed to duplicate collection. Please try again.');
                                 } finally {
                                     setSaving(false);
                                 }
-                            }}>Duplicate</button>
+                            }}>{saving ? 'Duplicating…' : 'Duplicate'}</button>
                         </div>
                     </div>
                 </div>
@@ -3412,23 +3593,26 @@ const CollectionDashboard = () => {
                                         Copy Link
                                     </button>
                                 </div>
-                                {/* Social share row */}
-                                <div style={{ display: 'flex', gap: 16, marginTop: 20, justifyContent: 'center' }}>
-                                    <a 
-                                        href={`mailto:?subject=${encodeURIComponent('Photo from ' + (collection?.name || 'Collection'))}&body=${encodeURIComponent('Check out this photo: ' + shareUrl)}`} 
-                                        style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f5f5f5', color: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', transition: 'all 0.2s' }}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
-                                    </a>
-                                    <a 
-                                        href={`https://wa.me/?text=${encodeURIComponent('Check out this photo: ' + shareUrl)}`} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
-                                        style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#25D366', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)' }}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                    </a>
+                                <div className="cd-quick-share-icons" style={{ display: 'flex', gap: 12, marginTop: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
+                                    <button type="button" title="Share by email" onClick={() => openShareByEmail(shareUrl, `Photo from ${collection?.name || 'Collection'}`)} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f5f5f5', color: '#111', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+                                    </button>
+                                    <button type="button" title="Copy direct link" onClick={() => { void navigator.clipboard.writeText(shareUrl); }} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f5f5f5', color: '#111', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                                    </button>
+                                    <button type="button" title="Show QR code" onClick={() => setQuickShareShowQr((v) => !v)} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: quickShareShowQr ? '#e6f7f6' : '#f5f5f5', color: '#111', border: quickShareShowQr ? '2px solid #20b2aa' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><rect x="7" y="7" width="3" height="3" /><rect x="14" y="7" width="3" height="3" /><rect x="7" y="14" width="3" height="3" /><rect x="14" y="14" width="3" height="3" /></svg>
+                                    </button>
+                                    <button type="button" title="Share on WhatsApp" onClick={() => openWhatsAppShare(shareUrl, collection?.name || 'Photo')} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#25D366', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+                                    </button>
                                 </div>
+                                {quickShareShowQr && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 16 }}>
+                                        <img src={getQrCodeImageUrl(shareUrl)} alt="QR code for photo link" width={180} height={180} />
+                                        <p style={{ fontSize: 12, color: '#888', marginTop: 8 }}>Scan to open this photo</p>
+                                    </div>
+                                )}
                             </div>
                             <div className="cd-set-modal-footer">
                                 <button className="cd-cancel-btn" onClick={() => setShowQuickShareModal(false)}>Close</button>

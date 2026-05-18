@@ -7,6 +7,6 @@ export interface ChangeCoverModalProps {
   onClose: () => void;
   photos: Photo[];
   onSelectPhoto: (photo: Photo) => void;
-  onUploadPhoto: (file: File) => void;
-  isUploading?: boolean;
+  /** e.g. "All photos", "Highlights", "wed" */
+  scopeLabel?: string;
 }

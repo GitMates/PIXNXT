@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion as Motion } from 'framer-motion';
-import { Download, Heart, Share2 } from 'lucide-react';
+import { Download, Heart, Share2, Play } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
+import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
+import { isGalleryVideo } from '../../../../lib/galleryMediaType';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 
 export function MasonryGrid({
@@ -30,12 +32,11 @@ export function MasonryGrid({
   const [dynamicAspectRatios, setDynamicAspectRatios] = useState({});
 
   useEffect(() => {
-    const VIDEO_EXTS = /\.(mp4|webm|ogg|mov)$/i;
     photos.forEach(photo => {
       if (!photo.width || !photo.height) {
         const src = photo.full_url || photo.web_url || photo.thumbnail_url;
         // Skip dimension probing for video files — use 16:9 fallback
-        if (photo.media_type === 'video' || VIDEO_EXTS.test(photo.filename || src || '')) {
+        if (isGalleryVideo(photo)) {
           setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: 16 / 9 }));
           return;
         }
@@ -75,6 +76,12 @@ export function MasonryGrid({
     show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.19, 1, 0.22, 1] } }
   };
 
+  /** Remount animation when the visible photo set changes (e.g. Highlights ↔ WED tab). */
+  const photoListKey = useMemo(
+    () => photos.map((p) => p.id).join('|') || 'empty',
+    [photos]
+  );
+
   // Public gallery: fluid columns (column-width) fill the viewport. Dashboard preview keeps fixed column-count.
   const verticalColumnStyle = (() => {
     if (isHorizontal) return {};
@@ -97,12 +104,10 @@ export function MasonryGrid({
 
   return (
     <Motion.div
+      key={photoListKey}
       variants={container}
       initial="hidden"
-      {...(forceShow
-        ? { animate: 'show' }
-        : { whileInView: 'show', viewport: { once: true, margin: '0px 0px -80px 0px' } }
-      )}
+      animate="show"
       className={cn(
         'w-full max-w-full min-w-0 masonry-grid-container',
         isHorizontal ? 'flex flex-wrap masonry-grid-horizontal items-start' : 'block masonry-grid-vertical',
@@ -143,11 +148,12 @@ export function MasonryGrid({
             }}
             onClick={() => onImageClick(index)}
           >
-            <div className="h-full w-full min-w-0" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
-              {/\.(mp4|webm|ogg|mov)$/i.test(photo.filename || src || '') ? (
+            <div className="relative h-full w-full min-w-0" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
+              {isGalleryVideo(photo) ? (
+                <>
                 <video
                   src={src}
-                  poster={photo.thumbnail_url}
+                  poster={photo.thumbnail_url || undefined}
                   className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
                   style={{
                     objectFit: 'cover',
@@ -156,16 +162,19 @@ export function MasonryGrid({
                   muted
                   loop
                   playsInline
+                  preload="metadata"
                   onMouseEnter={(e) => e.currentTarget.play().catch(() => { })}
                   onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                 />
+                </>
               ) : (
-                <img
+                <SmoothMediaImage
                   src={src}
+                  thumbSrc={photo.thumbnail_url}
                   alt={photo.filename || `Gallery image ${index + 1}`}
                   className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
+                  objectFit="cover"
                   style={{
-                    objectFit: 'cover',
                     aspectRatio: String(aspectRatio),
                   }}
                   loading="lazy"
@@ -184,7 +193,7 @@ export function MasonryGrid({
                 </div>
               )}
               {/* Hover overlay: download + favorite */}
-              <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/10">
+              <div className="absolute inset-0 z-[10] bg-black/0 transition-all duration-500 group-hover:bg-black/10">
                 {showPrivateBadge && isPrivate ? <PhotoPrivateBadge visible /> : null}
                 {useClientActionBar ? (
                   <PhotoPrivateControls
@@ -257,6 +266,16 @@ export function MasonryGrid({
                 </div>
                 )}
               </div>
+              {isGalleryVideo(photo) ? (
+                <span
+                  className="gallery-video-play pointer-events-none absolute inset-0 z-[25] flex items-center justify-center"
+                  aria-hidden
+                >
+                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-neutral-900 shadow-[0_4px_20px_rgba(0,0,0,0.35)] ring-2 ring-white/80 transition-transform duration-300 group-hover:scale-105 md:h-16 md:w-16">
+                    <Play size={22} fill="currentColor" className="ml-1 text-neutral-900" strokeWidth={1.5} />
+                  </span>
+                </span>
+              ) : null}
             </div>
           </Motion.div>
         );

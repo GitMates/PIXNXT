@@ -1,0 +1,146 @@
+.cgm-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.cgm-modal {
+    width: 100%;
+    max-width: 480px;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
+    font-family: 'Outfit', sans-serif;
+}
+
+.cgm-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px 0;
+}
+
+.cgm-title {
+    margin: 0;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: #333;
+}
+
+.cgm-close {
+    display: flex;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: #888;
+    cursor: pointer;
+}
+
+.cgm-body {
+    padding: 20px 24px 24px;
+}
+
+.cgm-field {
+    margin-bottom: 16px;
+}
+
+.cgm-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    color: #666;
+}
+
+.cgm-copy-row {
+    display: flex;
+}
+
+.cgm-input {
+    flex: 1;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: #555;
+    border: 1px solid #ddd;
+    border-right: none;
+    border-radius: 4px 0 0 4px;
+    background: #f9f9f9;
+    outline: none;
+}
+
+.cgm-copy-btn {
+    padding: 0 16px;
+    border: 1px solid #ddd;
+    border-radius: 0 4px 4px 0;
+    background: #fff;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.cgm-copy-btn:hover {
+    background: #f5f5f5;
+}
+
+.cgm-hint {
+    margin: 0;
+    font-size: 13px;
+    color: #888;
+}
+
+.cgm-qr-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px;
+}
+
+.cgm-text {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: #444;
+    line-height: 1.5;
+}
+
+.cgm-text--muted {
+    font-size: 13px;
+    color: #888;
+}
+
+.cgm-footer-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    margin-top: 24px;
+}
+
+.cgm-btn-ghost {
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    color: #555;
+    cursor: pointer;
+}
+
+.cgm-btn-primary {
+    padding: 10px 24px;
+    border: none;
+    border-radius: 4px;
+    background: #20b2aa;
+    font-size: 14px;
+    font-weight: 600;
+    color: #fff;
+    cursor: pointer;
+}
+
+.cgm-btn-primary:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

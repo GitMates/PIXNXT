@@ -303,3 +303,27 @@
   min-width: 50%;
   height: 0;
 }
+
+/* Video tile play control — must sit above hover/action overlays */
+.gallery-video-play {
+  opacity: 1;
+  visibility: visible;
+}
+
+.gallery-video-play > span {
+  background-color: #fff;
+  color: #171717;
+}
+
+/* Lightbox: native controls only for video slides */
+.photo-lightbox-video {
+  display: block;
+  max-height: calc(100dvh - 8rem);
+  width: 100%;
+  max-width: 100%;
+  background-color: #000;
+}
+
+.photo-lightbox-video::-webkit-media-controls-panel {
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
+}

@@ -1,0 +1,122 @@
+.cd-cover-file-input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cd-sidebar-cover-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  margin: 0;
+  padding: 20px 16px;
+  border: none;
+  border-radius: 0;
+  background: #fff;
+  cursor: pointer;
+  text-align: center;
+  transition: border-color 0.2s, background-color 0.2s;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.cd-sidebar-cover-dropzone:not(.cd-sidebar-cover-dropzone--overlay) {
+  border: 1px dashed #d9d9d9;
+}
+
+.cd-sidebar-cover-dropzone:hover:not(:disabled) {
+  background: #fafafa;
+}
+
+.cd-sidebar-cover-dropzone.dragging {
+  background: #f0faf7;
+  outline: 2px dashed #26a69a;
+  outline-offset: -2px;
+}
+
+.cd-sidebar-cover-dropzone.uploading {
+  cursor: wait;
+  opacity: 0.85;
+}
+
+.cd-sidebar-cover-dropzone--inactive {
+  opacity: 0.92;
+}
+
+.cd-sidebar-cover-dropzone--inactive .cd-sidebar-cover-drop-hint {
+  color: #b07a2a;
+}
+
+.cd-sidebar-cover-dropzone--overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 12;
+  min-height: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.cd-sidebar-cover-dropzone--overlay.dragging {
+  opacity: 1;
+  background: rgba(240, 250, 247, 0.75);
+  outline: 2px dashed #26a69a;
+  outline-offset: -4px;
+}
+
+.cd-sidebar-cover-drop-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+  color: #b8b8b8;
+}
+
+.cd-sidebar-cover-drop-title {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #3d3d3d;
+  line-height: 1.35;
+}
+
+.cd-sidebar-cover-drop-hint {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+}
+
+.cd-cover-hover-overlay {
+  border: none;
+  font: inherit;
+  z-index: 15;
+  pointer-events: none;
+}
+
+.cd-cover-image:hover .cd-cover-hover-overlay {
+  pointer-events: auto;
+}
+
+.cd-cover-image.dragging-cover .cd-sidebar-cover-dropzone--overlay {
+  opacity: 1;
+  background: rgba(240, 250, 247, 0.75);
+  outline: 2px dashed #26a69a;
+  outline-offset: -4px;
+}
+
+.cd-cover-image.dragging-cover .cd-cover-hover-overlay {
+  pointer-events: none;
+}
+
+.cd-cover-hover-overlay:disabled {
+  cursor: wait;
+}

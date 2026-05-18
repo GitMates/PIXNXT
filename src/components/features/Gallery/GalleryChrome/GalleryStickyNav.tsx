@@ -3,6 +3,8 @@ import { Heart, Download, Share2, Play } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
 import { NavigationStyleSetting } from '../../../../lib/navStyle';
+import { GalleryMediaFilter } from './GalleryMediaFilter';
+import type { GalleryMediaFilterValue } from '../../../../lib/galleryMediaType';
 
 export interface GallerySetTab {
   id: string;
@@ -35,6 +37,11 @@ export interface GalleryStickyNavProps {
   /** icon = icons only; text = icons + labels */
   navigationStyle?: NavigationStyleSetting;
   showHighlightsTab?: boolean;
+  /** Photos / videos toggle (shown in nav when both types exist in the active set). */
+  mediaFilter?: GalleryMediaFilterValue;
+  onMediaFilterChange?: (value: GalleryMediaFilterValue) => void;
+  mediaPhotoCount?: number;
+  mediaVideoCount?: number;
   className?: string;
 }
 
@@ -63,6 +70,10 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   isPreviewMobile = false,
   navigationStyle = 'icon',
   showHighlightsTab = true,
+  mediaFilter,
+  onMediaFilterChange,
+  mediaPhotoCount = 0,
+  mediaVideoCount = 0,
   className,
 }) => {
   const variant = variantProp ?? getGalleryChromeVariant(isPreview, isGalleryView);
@@ -91,6 +102,20 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
       'transition-opacity',
       active ? 'opacity-100' : 'opacity-45 hover:opacity-100'
     );
+
+  const renderMediaFilter = () => {
+    if (mediaFilter == null || !onMediaFilterChange) return null;
+    return (
+      <GalleryMediaFilter
+        layout="inline"
+        variant={variant}
+        value={mediaFilter}
+        onChange={onMediaFilterChange}
+        photoCount={mediaPhotoCount}
+        videoCount={mediaVideoCount}
+      />
+    );
+  };
 
   const renderTabs = () => (
     <>
@@ -243,13 +268,19 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
               <div className={previewStyles.brandBlockMobile}>{renderBrand()}</div>
               <div className={previewStyles.actionsBlockMobile}>{renderActions()}</div>
             </div>
-            <div className={previewStyles.tabsBlockMobile}>{renderTabs()}</div>
+            <div className={previewStyles.tabsBlockMobile}>
+              {renderTabs()}
+              {renderMediaFilter()}
+            </div>
           </>
         ) : isCompact ? (
           <>
             <div className={styles.navLeft}>
               <div className={styles.brandBlock}>{renderBrand()}</div>
-              <div className={styles.tabsBlock}>{renderTabs()}</div>
+              <div className={styles.tabsBlock}>
+                {renderTabs()}
+                {renderMediaFilter()}
+              </div>
             </div>
             <div className={styles.actionsBlock}>{renderActions()}</div>
           </>
@@ -257,7 +288,10 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           <>
             <div className={styles.navLeft}>
               <div className={styles.brandBlock}>{renderBrand()}</div>
-              <div className={styles.tabsBlock}>{renderTabs()}</div>
+              <div className={styles.tabsBlock}>
+                {renderTabs()}
+                {renderMediaFilter()}
+              </div>
             </div>
             <div className={styles.navRailSpacer} aria-hidden />
             <div className={styles.actionsBlock}>{renderActions()}</div>

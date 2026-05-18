@@ -1,0 +1,1 @@
+export { SmoothMediaImage } from './SmoothMediaImage';

@@ -497,9 +497,10 @@
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     min-width: 260px;
-    z-index: 100;
+    z-index: 500;
     padding: 12px 0;
     animation: cdFadeIn 0.15s ease;
+    overflow: visible;
 }
 
 @keyframes cdFadeIn {
@@ -1092,6 +1093,84 @@
     width: 100%;
 }
 
+/* Manage tab — Pixieset-style square cells, contain (no crop), teal selection */
+.cd-photo-grid--manage {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
+    gap: 24px;
+    row-gap: 24px;
+    column-gap: 24px;
+    padding: 8px 24px 32px;
+    align-items: start;
+    box-sizing: border-box;
+}
+
+.cd-photo-grid--manage.grid-large {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 28px;
+    row-gap: 28px;
+    column-gap: 28px;
+    padding: 8px 28px 36px;
+}
+
+.cd-photo-grid--manage .cd-photo-card {
+    aspect-ratio: 1 / 1;
+    background: #ffffff;
+    border: 1px solid #e8e8e8;
+    border-radius: 0;
+    overflow: visible;
+    cursor: pointer;
+    position: relative;
+}
+
+.cd-photo-grid--manage .cd-photo-card.selected {
+    border: 2px solid #12b8a6;
+    outline: none;
+    box-shadow: none;
+}
+
+.cd-photo-grid--manage .cd-photo-card-inner--contain {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+    background: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-wrap {
+    width: 100%;
+    height: 100%;
+    background: #ffffff;
+}
+
+.cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-img,
+.cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-video-thumb {
+    object-fit: contain !important;
+}
+
+.cd-photo-grid--manage .cd-photo-card:hover .cd-photo-img {
+    transform: none;
+}
+
+.cd-photo-grid--manage .smooth-media-placeholder {
+    background: #f5f5f5;
+}
+
+.cd-photo-grid--manage .smooth-media-shimmer {
+    background: linear-gradient(
+        110deg,
+        #f0f0f0 0%,
+        #f0f0f0 35%,
+        #fafafa 50%,
+        #f0f0f0 65%,
+        #f0f0f0 100%
+    );
+    background-size: 220% 100%;
+}
+
 /* Media tab (TS MediaGridView): slightly larger cells when "Large" is selected */
 .cd-photo-grid.grid-large .cd-photo-card {
     min-height: 260px;
@@ -1099,6 +1178,10 @@
 
 .cd-photo-grid:not(.grid-large) .cd-photo-card {
     min-height: 200px;
+}
+
+.cd-photo-grid--manage .cd-photo-card {
+    min-height: unset;
 }
 
 /* Vertical = CSS masonry columns */
@@ -1128,11 +1211,23 @@
     background-color: #f0f0f0;
 }
 
+.cd-photo-card--cover-draggable {
+    cursor: grab;
+}
+
+.cd-photo-card--cover-draggable:active {
+    cursor: grabbing;
+}
+
 .cd-photo-card-inner {
     width: 100%;
     height: 100%;
     overflow: hidden;
     position: relative;
+}
+
+.cd-photo-card-inner .smooth-media-wrap {
+    min-height: 100%;
 }
 
 /* Vertical card */
@@ -1157,6 +1252,11 @@
 .cd-photo-card.selected {
     outline: 2px solid #111111;
     outline-offset: -2px;
+}
+
+.cd-photo-grid--manage .cd-photo-card.selected {
+    outline: none;
+    outline-offset: 0;
 }
 
 /* Photo image — shared */
@@ -1465,6 +1565,7 @@
 /* More Dropdown */
 .cd-more-wrapper {
     position: relative;
+    overflow: visible;
 }
 
 .cd-more-dropdown {
@@ -1480,6 +1581,89 @@
     padding: 8px 0;
     animation: cdFadeIn 0.12s ease;
     border: 1px solid #f0f0f0;
+    overflow: visible;
+}
+
+.cd-more-dropdown > .cd-ctx-item,
+.cd-preset-flyout .cd-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 11px 20px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #333;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    text-align: left;
+    box-sizing: border-box;
+    transition: background 0.12s;
+}
+
+.cd-more-dropdown > .cd-ctx-item:hover,
+.cd-preset-flyout .cd-ctx-item:hover {
+    background-color: #f5f5f5;
+}
+
+.cd-more-dropdown > .cd-ctx-item svg,
+.cd-preset-flyout .cd-ctx-item svg {
+    flex-shrink: 0;
+    color: #555;
+}
+
+.cd-ctx-item--has-flyout {
+    position: relative;
+    padding: 0;
+}
+
+.cd-ctx-item--has-flyout.is-open {
+    background-color: #f5f5f5;
+}
+
+.cd-ctx-item-trigger {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    width: 100%;
+    padding: 11px 20px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+}
+
+.cd-ctx-item-trigger:hover {
+    background-color: #f5f5f5;
+}
+
+.cd-ctx-item-chevron {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: #888;
+    transition: transform 0.15s ease;
+}
+
+.cd-ctx-item--has-flyout.is-open .cd-ctx-item-chevron {
+    transform: rotate(-90deg);
+}
+
+.cd-preset-flyout {
+    position: absolute;
+    right: calc(100% + 6px);
+    top: 0;
+    min-width: 200px;
+    background: #fff;
+    border: 1px solid #e8e8e8;
+    border-radius: 8px;
+    padding: 6px 0;
+    z-index: 8100;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.12);
+    animation: cdFadeIn 0.12s ease;
 }
 
 /* Set Dropdown */
@@ -1839,6 +2023,7 @@
     transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
     animation: cdToolbarSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: visible;
 }
 
 @keyframes cdToolbarSlideUp {
@@ -1914,6 +2099,71 @@
     align-items: center;
     gap: 4px;
     height: 100%;
+    overflow: visible;
+}
+
+.cd-selection-move-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.cd-selection-move-dropdown {
+    min-width: 200px;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    border: 1px solid #e8e8e8;
+    padding: 6px 0;
+    color: #333;
+    overflow: hidden;
+    animation: cdFadeIn 0.12s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    box-sizing: border-box;
+}
+
+.cd-selection-move-dropdown--portal {
+    position: fixed;
+    z-index: 1500;
+}
+
+.cd-selection-move-dropdown .cd-sort-label {
+    padding: 10px 16px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #888;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #eee;
+    margin-bottom: 4px;
+}
+
+.cd-selection-move-dropdown .cd-ctx-item {
+    display: block;
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    font-family: inherit;
+}
+
+.cd-selection-move-dropdown .cd-ctx-item:hover:not(.disabled) {
+    background-color: #f5f5f5;
+}
+
+.cd-selection-move-dropdown .cd-ctx-item.disabled {
+    opacity: 0.45;
+    cursor: default;
+    pointer-events: none;
 }
 
 .cd-sel-action-btn {
@@ -1929,6 +2179,52 @@
     border-radius: 8px;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     opacity: 0.85;
+    position: relative;
+}
+
+.cd-selection-more-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.cd-selection-more-dropdown .cd-ctx-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    text-align: left;
+    box-sizing: border-box;
+}
+
+.cd-selection-more-dropdown .cd-ctx-item:hover {
+    background: #f8f8f8;
+}
+
+.cd-selection-more-dropdown .cd-ctx-item-icon {
+    flex-shrink: 0;
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cd-selection-more-dropdown .cd-ctx-text {
+    flex: 1;
+}
+
+.cd-selection-more-dropdown .cd-ctx-hotkey {
+    margin-left: auto;
+    font-size: 12px;
+    color: #888;
+    background: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 4px;
 }
 
 .cd-sel-action-btn:hover {
@@ -1942,9 +2238,9 @@
     stroke-width: 2;
 }
 
-/* Tooltip style to match screenshot */
-.cd-sel-action-btn[title]::after {
-    content: attr(title);
+/* Tooltips on selection toolbar action buttons only (not inside open menus) */
+.cd-selection-toolbar .cd-sel-action-btn[data-tooltip]::after {
+    content: attr(data-tooltip);
     position: absolute;
     bottom: 100%;
     left: 50%;
@@ -1963,7 +2259,7 @@
     z-index: 1300;
 }
 
-.cd-sel-action-btn[title]::before {
+.cd-selection-toolbar .cd-sel-action-btn[data-tooltip]::before {
     content: '';
     position: absolute;
     bottom: 100%;
@@ -1979,10 +2275,19 @@
     z-index: 1300;
 }
 
-.cd-sel-action-btn:hover::after,
-.cd-sel-action-btn:hover::before {
+.cd-selection-toolbar .cd-sel-action-btn:hover::after,
+.cd-selection-toolbar .cd-sel-action-btn:hover::before {
     opacity: 1;
     transform: translateX(-50%) translateY(0);
+}
+
+.cd-selection-toolbar .cd-selection-move-wrapper.is-open .cd-sel-action-btn::after,
+.cd-selection-toolbar .cd-selection-move-wrapper.is-open .cd-sel-action-btn::before,
+.cd-selection-toolbar:has(.cd-selection-move-wrapper.is-open) .cd-sel-action-btn[data-tooltip]::after,
+.cd-selection-toolbar:has(.cd-selection-move-wrapper.is-open) .cd-sel-action-btn[data-tooltip]::before {
+    opacity: 0 !important;
+    visibility: hidden;
+    pointer-events: none;
 }
 
 .cd-selection-menu,
@@ -3448,6 +3753,13 @@
         z-index: 2000 !important;
     }
 
+    .cd-preset-flyout {
+        right: auto !important;
+        left: 0 !important;
+        top: 100% !important;
+        margin-top: 4px !important;
+    }
+
     /* --- Fix issue 4: Design split view — whole page scrolls, not just sub-boxes --- */
     .cd-design-split-view {
         flex-direction: column !important;
@@ -3937,8 +4249,17 @@
     padding: 8px 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
     border: none;
+}
+
+.cd-photo-menu--align-left {
+    right: auto;
+    left: 0;
+}
+
+.cd-photo-card--menu-open {
+    z-index: 150;
 }
 
 .cd-photo-menu .cd-ctx-item {

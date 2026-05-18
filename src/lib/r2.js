@@ -12,10 +12,13 @@ export const r2Client = new S3Client({
   region: 'auto',
   endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
   credentials: {
-    accessKeyId: accessKeyId,
-    secretAccessKey: secretAccessKey,
+    accessKeyId,
+    secretAccessKey,
   },
   forcePathStyle: true,
+  /** SDK v3 defaults break browser → R2 uploads (extra checksum headers vs CORS). */
+  requestChecksumCalculation: 'WHEN_REQUIRED',
+  responseChecksumValidation: 'WHEN_REQUIRED',
 });
 
 export const R2_BUCKET_NAME = import.meta.env.VITE_R2_BUCKET_NAME;
