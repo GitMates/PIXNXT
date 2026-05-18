@@ -80,7 +80,7 @@ export const GalleryMediaFilter: React.FC<GalleryMediaFilterProps> = ({
         aria-label="Filter by media type"
         className={cn(
           'gallery-media-filter-inline flex shrink-0 flex-wrap items-center',
-          isCompact ? 'gap-2 md:gap-3' : 'gap-6 md:gap-10',
+          isCompact ? 'gap-1.5' : 'gap-6 md:gap-10',
           className
         )}
       >

@@ -163,8 +163,8 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           type="button"
           className={cn(
-            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
-            isCompact ? 'opacity-60 hover:opacity-100' : 'hover:opacity-50',
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
             !isCompact && 'relative'
           )}
           onClick={onFavoriteClick}
@@ -190,8 +190,10 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           type="button"
           className={cn(
-            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
-            isCompact ? (isDownloadingAll ? 'opacity-100' : 'opacity-60 hover:opacity-100') : 'hover:opacity-50',
+            'flex shrink-0 items-center transition-opacity',
+            isCompact
+              ? `gap-0.5 ${isDownloadingAll ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`
+              : 'gap-1 md:gap-2 hover:opacity-50',
             !isCompact && isDownloadingAll && 'disabled:cursor-not-allowed disabled:opacity-40'
           )}
           onClick={() => !isDownloadingAll && onDownloadClick?.()}
@@ -206,8 +208,8 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           type="button"
           className={cn(
-            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
-            isCompact ? 'opacity-60 hover:opacity-100' : 'hover:opacity-50'
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50'
           )}
           onClick={onShareClick}
           style={{ color: 'var(--gallery-text)' }}
@@ -220,8 +222,8 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           type="button"
           className={cn(
-            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
-            isCompact ? 'opacity-60 hover:opacity-100' : 'hover:opacity-50'
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50'
           )}
           onClick={onSlideshowClick}
           style={{ color: 'var(--gallery-text)' }}

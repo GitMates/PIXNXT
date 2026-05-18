@@ -5,20 +5,20 @@ export type GalleryChromeVariant = 'preview' | 'galleryView';
 export const galleryChromeStyles = {
   preview: {
     nav: 'gallery-sticky-nav gallery-sticky-nav--preview',
-    navInner: `${galleryChromeLayout.navInner} justify-between px-2 py-2.5 md:px-3 md:py-3`,
-    navLeft: `${galleryChromeLayout.navLeft} flex-row gap-2 md:gap-3 min-w-0`,
-    navRight: 'gallery-chrome__nav-right flex shrink-0 items-center justify-end gap-2 md:gap-2.5',
-    brandBlock: `${galleryChromeLayout.brandBlock} shrink-0 min-w-0`,
-    tabsBlock: `${galleryChromeLayout.tabsBlock} shrink-0 gap-2`,
+    navInner: `${galleryChromeLayout.navInner} justify-between px-2 py-1.5`,
+    navLeft: `${galleryChromeLayout.navLeft} flex-row gap-1.5 min-w-0`,
+    navRight: 'gallery-chrome__nav-right flex shrink-0 items-center justify-end gap-1',
+    brandBlock: `${galleryChromeLayout.brandBlock} shrink-0 min-w-0 max-w-[38%]`,
+    tabsBlock: `${galleryChromeLayout.tabsBlock} shrink-0 gap-1.5 min-w-0`,
     navRailSpacer: galleryChromeLayout.navRailSpacer,
-    actionsBlock: `${galleryChromeLayout.actionsBlock} gap-1 md:gap-1.5`,
+    actionsBlock: `${galleryChromeLayout.actionsBlock} gap-0.5 shrink-0`,
     brandTitle:
-      'gallery-chrome__brand-title gallery-heading text-[10px] md:text-[14px] uppercase leading-none truncate max-w-full',
+      'gallery-chrome__brand-title gallery-heading text-[9px] uppercase leading-none truncate max-w-full',
     brandSubtitle:
-      'gallery-chrome__brand-subtitle gallery-body-text mt-0.5 text-[6px] md:text-[7px] font-bold uppercase tracking-[0.15em] truncate max-w-full',
-    tab: 'gallery-chrome__tab gallery-body-text text-[8px] md:text-[9px] font-bold uppercase tracking-[0.1em] md:tracking-[0.15em]',
-    action: 'gallery-chrome__action gallery-body-text text-[7px] md:text-[8px] font-bold uppercase tracking-[0.1em]',
-    actionIcon: 12,
+      'gallery-chrome__brand-subtitle gallery-body-text mt-px text-[5px] font-bold uppercase tracking-[0.12em] truncate max-w-full',
+    tab: 'gallery-chrome__tab gallery-body-text text-[6px] font-bold uppercase tracking-[0.1em]',
+    action: 'gallery-chrome__action gallery-body-text text-[6px] font-bold uppercase tracking-[0.08em]',
+    actionIcon: 9,
     setHeading:
       'gallery-chrome__set-heading gallery-body-text px-2 py-0.5 text-left text-[6px] font-normal lowercase tracking-[0.16em] mb-0 md:px-3',
     setDescription:
