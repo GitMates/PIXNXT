@@ -15,7 +15,6 @@ import {
   GalleryStickyNav,
   GallerySetHeading,
   GallerySetDescription,
-  GalleryMediaFilter,
 } from '../../Gallery/GalleryChrome';
 import {
   countGalleryMedia,
@@ -465,14 +464,10 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           onDownloadClick={handleDownloadClick}
           onShareClick={() => setShowShareModal(true)}
           onSlideshowClick={handleStartSlideshow}
-        />
-
-        <GalleryMediaFilter
-          variant="preview"
-          value={mediaFilter}
-          onChange={setMediaFilter}
-          photoCount={mediaCounts.photos}
-          videoCount={mediaCounts.videos}
+          mediaFilter={mediaFilter}
+          onMediaFilterChange={setMediaFilter}
+          mediaPhotoCount={mediaCounts.photos}
+          mediaVideoCount={mediaCounts.videos}
         />
 
         {setDescriptionText ? (

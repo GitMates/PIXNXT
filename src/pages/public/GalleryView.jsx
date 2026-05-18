@@ -17,7 +17,6 @@ import {
   GalleryStickyNav,
   GallerySetHeading,
   GallerySetDescription,
-  GalleryMediaFilter,
 } from '../../components/features/Gallery/GalleryChrome';
 import {
   countGalleryMedia,
@@ -691,17 +690,11 @@ const GalleryView = () => {
             onShareClick={() => setShowShareModal(true)}
             onSlideshowClick={handleStartSlideshow}
             isDark={isGalleryDark}
+            mediaFilter={!isFavoriteListMode ? mediaFilter : undefined}
+            onMediaFilterChange={!isFavoriteListMode ? setMediaFilter : undefined}
+            mediaPhotoCount={mediaCounts.photos}
+            mediaVideoCount={mediaCounts.videos}
           />
-
-          {!isFavoriteListMode && (
-            <GalleryMediaFilter
-              variant="galleryView"
-              value={mediaFilter}
-              onChange={setMediaFilter}
-              photoCount={mediaCounts.photos}
-              videoCount={mediaCounts.videos}
-            />
-          )}
 
           {setDescriptionText ? (
             <GallerySetDescription variant="galleryView" text={setDescriptionText} isDark={isGalleryDark} />
