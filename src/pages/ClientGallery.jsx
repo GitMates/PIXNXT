@@ -1,8 +1,19 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
+import { openSpaPath } from '../lib/spaNavigation';
+import { generateCollectionSlug, getGalleryPublicUrl } from '../lib/collectionSlug';
+import { openShareByEmail, openWhatsAppShare } from '../lib/shareCollection';
+import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
+import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
+import {
+    CollectionDirectLinkModal,
+    CollectionQrModal,
+    CollectionDuplicateModal,
+    CollectionMoveToModal,
+} from '../components/features/ClientGallery/CollectionShareModals';
 import './ClientGallery.css';
 import { sortCollections } from '../utils/sortCollections';
 
@@ -24,7 +35,13 @@ const ClientGallery = () => {
     const [activeFilter, setActiveFilter] = useState(null);
     const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
     const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
-    const [starredCollections, setStarredCollections] = useState([]);
+    const [editCollection, setEditCollection] = useState(null);
+    const [directLinkCollection, setDirectLinkCollection] = useState(null);
+    const [qrCollection, setQrCollection] = useState(null);
+    const [duplicateCollection, setDuplicateCollection] = useState(null);
+    const [moveToOpen, setMoveToOpen] = useState(false);
+    const [duplicateBusy, setDuplicateBusy] = useState(false);
+    const [editSaving, setEditSaving] = useState(false);
     const [showNewCollectionDropdown, setShowNewCollectionDropdown] = useState(false);
     const fileInputRef = useRef(null);
     const sortRef = useRef(null);
@@ -58,7 +75,111 @@ const ClientGallery = () => {
         [collections, activeSort]
     );
 
+    const closeContextMenu = useCallback(() => setContextMenuId(null), []);
+
     const getCoverSrc = (collection) => collection.cover_url || collection.cover || '';
+
+    const handlePreviewCollection = useCallback((collection) => {
+        closeContextMenu();
+        if (collection?.slug) {
+            openSpaPath(`/gallery/${collection.slug}`);
+        }
+    }, [closeContextMenu]);
+
+    const handleShareByEmail = useCallback((collection) => {
+        closeContextMenu();
+        if (!collection?.slug) return;
+        openShareByEmail(getGalleryPublicUrl(collection.slug), collection.name || 'Photo Gallery');
+    }, [closeContextMenu]);
+
+    const handleShareWhatsApp = useCallback((collection) => {
+        closeContextMenu();
+        if (!collection?.slug) return;
+        openWhatsAppShare(getGalleryPublicUrl(collection.slug), collection.name || 'Gallery');
+    }, [closeContextMenu]);
+
+    const handleQuickEdit = useCallback((collection) => {
+        closeContextMenu();
+        setEditCollection(collection);
+    }, [closeContextMenu]);
+
+    const handleEditSave = async (payload) => {
+        if (!editCollection) return;
+        setEditSaving(true);
+        try {
+            const updated = await galleryService.updateCollection(editCollection.id, payload);
+            setCollections((prev) =>
+                prev.map((c) => (c.id === updated.id ? { ...c, ...updated, photo_count: c.photo_count } : c))
+            );
+            setEditCollection(null);
+        } catch (err) {
+            console.error('Failed to update collection:', err);
+            alert('Failed to save changes. Please try again.');
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
+    const handleDuplicateConfirm = async () => {
+        if (!duplicateCollection || !user) return;
+        setDuplicateBusy(true);
+        try {
+            const newRow = await galleryService.createCollection({
+                photographer_id: user.id,
+                name: `${duplicateCollection.name} (Copy)`,
+                slug: `${generateCollectionSlug(duplicateCollection.name)}-copy-${Date.now().toString(36)}`,
+                event_date: duplicateCollection.event_date || null,
+                status: 'draft',
+                font_family: 'sans_1',
+                color_palette: 'light_1',
+                grid_style: 'vertical',
+                thumbnail_size: 'regular',
+                grid_spacing: 'regular',
+                nav_style: 'icons',
+                privacy: 'public',
+                cover_style: 'photo',
+            });
+            setDuplicateCollection(null);
+            navigate(`/collections/manage?id=${newRow.id}`);
+        } catch (err) {
+            console.error('Failed to duplicate collection:', err);
+            alert('Failed to duplicate collection. Please try again.');
+        } finally {
+            setDuplicateBusy(false);
+        }
+    };
+
+    const handleToggleCollectionStar = async (e, collection) => {
+        e.stopPropagation();
+        const next = !collection.is_starred;
+        try {
+            await galleryService.updateCollection(collection.id, { is_starred: next });
+            setCollections((prev) =>
+                prev.map((c) => (c.id === collection.id ? { ...c, is_starred: next } : c))
+            );
+        } catch (err) {
+            console.error('Failed to update star:', err);
+        }
+    };
+
+    const renderContextMenu = (collection, variant = 'grid') => {
+        if (contextMenuId !== collection.id) return null;
+        return (
+            <CollectionContextMenu
+                menuRef={contextRef}
+                variant={variant}
+                onPreview={() => handlePreviewCollection(collection)}
+                onQuickEdit={() => handleQuickEdit(collection)}
+                onMoveTo={() => { closeContextMenu(); setMoveToOpen(true); }}
+                onDuplicate={() => { closeContextMenu(); setDuplicateCollection(collection); }}
+                onDelete={() => { closeContextMenu(); handleDeleteCollection(collection.id); }}
+                onShareByEmail={() => handleShareByEmail(collection)}
+                onGetDirectLink={() => { closeContextMenu(); setDirectLinkCollection(collection); }}
+                onGetQrCode={() => { closeContextMenu(); setQrCollection(collection); }}
+                onShareWhatsApp={() => handleShareWhatsApp(collection)}
+            />
+        );
+    };
 
     const handleCardClick = (collection) => {
         if (selectedCards.length > 0) return;
@@ -372,37 +493,9 @@ const ClientGallery = () => {
                                     {/* Three-dot menu overlay */}
                                     <div className="cg-style-39" onClick={(e) => openContextMenu(e, collection.id)}>⋮</div>
                                     {/* Star icon overlay - clickable toggle */}
-                                    <svg className={`cg-style-76 ${starredCollections.includes(collection.id) ? 'opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]' : 'opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] group-hover:opacity-100'}`} xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={starredCollections.includes(collection.id) ? '#f5c518' : 'none'} stroke={starredCollections.includes(collection.id) ? '#f5c518' : 'white'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" onClick={(e) => { e.stopPropagation(); setStarredCollections(prev => prev.includes(collection.id) ? prev.filter(id => id !== collection.id) : [...prev, collection.id]); }}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                    <svg className={`cg-style-76 ${collection.is_starred ? 'opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]' : 'opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] group-hover:opacity-100'}`} xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={collection.is_starred ? '#f5c518' : 'none'} stroke={collection.is_starred ? '#f5c518' : 'white'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" onClick={(e) => handleToggleCollectionStar(e, collection)}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                 </div>
-                                {/* Context menu - OUTSIDE the thumb */}
-                                {contextMenuId === collection.id && (
-                                    <div className="cg-style-40" ref={contextRef} onClick={(e) => e.stopPropagation()}>
-                                        <div className="cg-style-41" onClick={() => setContextMenuId(null)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-                                            Share
-                                        </div>
-                                        <div className="cg-style-41" onClick={() => setContextMenuId(null)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                                            Preview
-                                        </div>
-                                        <div className="cg-style-41" onClick={() => setContextMenuId(null)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                                            Quick edit
-                                        </div>
-                                        <div className="cg-style-41" onClick={() => setContextMenuId(null)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path><line x1="19" y1="12" x2="19" y2="5"></line></svg>
-                                            Move to
-                                        </div>
-                                        <div className="cg-style-41" onClick={() => setContextMenuId(null)}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="14" height="14" rx="2" ry="2"></rect><path d="M4 16V4a2 2 0 0 1 2-2h12"></path></svg>
-                                            Duplicate
-                                        </div>
-                                        <div className="cg-style-42" onClick={(e) => { e.stopPropagation(); handleDeleteCollection(collection.id); setContextMenuId(null); }}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                                            Delete
-                                        </div>
-                                    </div>
-                                )}
+                                {renderContextMenu(collection)}
                                 <div className="px-1">
                                     <h3 className="cg-style-43">{collection.name}</h3>
                                     <div className="cg-style-44">
@@ -428,7 +521,7 @@ const ClientGallery = () => {
                         {sortedCollections.map(collection => (
                             <div
                                 key={collection.id}
-                                className="cg-style-52"
+                                className="cg-style-52 cg-style-52--menu"
                                 onClick={() => handleCardClick(collection)}
                             >
                                 <div className="cg-style-48">
@@ -462,9 +555,10 @@ const ClientGallery = () => {
                                         })
                                         : '—'}
                                 </div>
-                                <div className="cg-style-51">
-                                    <svg className="cg-style-58" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                                    <span className="cg-style-59" onClick={(e) => { e.stopPropagation(); }}>···</span>
+                                <div className="cg-style-51 cg-style-51--relative">
+                                    <svg className="cg-style-58" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={collection.is_starred ? '#f5c518' : 'none'} stroke={collection.is_starred ? '#f5c518' : '#ccc'} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" onClick={(e) => handleToggleCollectionStar(e, collection)}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                    <span className="cg-style-59" onClick={(e) => openContextMenu(e, collection.id)}>···</span>
+                                    {renderContextMenu(collection, 'list')}
                                 </div>
                             </div>
                         ))}
@@ -512,6 +606,35 @@ const ClientGallery = () => {
                     </div>
                 )}
 
+                <EditCollectionModal
+                    collection={editCollection}
+                    isOpen={Boolean(editCollection)}
+                    onClose={() => setEditCollection(null)}
+                    onSave={handleEditSave}
+                    onAdvanced={(c) => navigate(`/collections/manage?id=${c.id}`)}
+                    saving={editSaving}
+                />
+                <CollectionDirectLinkModal
+                    collection={directLinkCollection}
+                    isOpen={Boolean(directLinkCollection)}
+                    onClose={() => setDirectLinkCollection(null)}
+                />
+                <CollectionQrModal
+                    collection={qrCollection}
+                    isOpen={Boolean(qrCollection)}
+                    onClose={() => setQrCollection(null)}
+                />
+                <CollectionDuplicateModal
+                    collection={duplicateCollection}
+                    isOpen={Boolean(duplicateCollection)}
+                    onClose={() => setDuplicateCollection(null)}
+                    onConfirm={handleDuplicateConfirm}
+                    busy={duplicateBusy}
+                />
+                <CollectionMoveToModal
+                    isOpen={moveToOpen}
+                    onClose={() => setMoveToOpen(false)}
+                />
             </main>
         </SidebarLayout>
     );

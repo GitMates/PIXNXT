@@ -29,7 +29,7 @@ export function sortCollections(collections, sortKey) {
     case 'name-az':
       return list.sort((a, b) => nameKey(a).localeCompare(nameKey(b)));
     case 'name-za':
-      return list.sort((a, b) => nameKey(b).localeCompare(nameKey(a));
+      return list.sort((a, b) => nameKey(b).localeCompare(nameKey(a)));
     case 'created-new':
     default:
       return list.sort((a, b) => createdAt(b) - createdAt(a));

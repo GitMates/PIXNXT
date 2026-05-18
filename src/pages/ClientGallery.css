@@ -149,6 +149,7 @@
     @apply grid gap-6 px-10 py-8 max-md:grid-cols-1 max-md:gap-4 max-md:px-4 max-md:py-4;
     grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
     align-items: start;
+    overflow: visible;
   }
 
   .cg-style-38 {
@@ -325,6 +326,58 @@
 
   .cg-style-77 {
     @apply px-2.5 py-[3px] rounded text-[10px] font-extrabold uppercase whitespace-nowrap shrink-0;
+  }
+
+  .cg-ctx-menu {
+    @apply absolute top-9 right-2 bg-white rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] z-[500] py-2 min-w-[220px] animate-[cgFadeIn_0.12s_ease] border border-[#eee];
+  }
+
+  .cg-ctx-share-group {
+    @apply relative;
+  }
+
+  .cg-ctx-item {
+    @apply relative flex w-full items-center gap-3 border-0 bg-transparent px-5 py-2.5 text-left text-[15px] font-medium text-[#333] cursor-pointer transition-colors duration-150 whitespace-nowrap hover:bg-[#f5f7f8];
+  }
+
+  .cg-ctx-item--share {
+    @apply justify-between pr-4;
+  }
+
+  .cg-ctx-item-main {
+    @apply flex items-center gap-3;
+  }
+
+  .cg-ctx-chevron {
+    @apply shrink-0 text-[#999];
+  }
+
+  .cg-ctx-submenu {
+    @apply absolute right-[calc(100%+4px)] top-0 bg-white rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] py-2 min-w-[220px] z-[600] border border-[#eee];
+  }
+
+  .cg-ctx-submenu--list {
+    @apply right-auto left-[calc(100%+4px)];
+  }
+
+  .cg-ctx-item--whatsapp svg {
+    @apply text-[#25D366];
+  }
+
+  .cg-ctx-item--danger {
+    @apply text-[#c0392b] hover:bg-[#fff5f5];
+  }
+
+  .cg-ctx-menu--list {
+    @apply top-full right-0 mt-1;
+  }
+
+  .cg-style-52--menu {
+    @apply relative overflow-visible;
+  }
+
+  .cg-style-51--relative {
+    @apply relative;
   }
 
 }

@@ -9,6 +9,8 @@ import { ChangeCoverModal } from '../components/features/CollectionDashboard/Cov
 import { SidebarCoverUpload } from '../components/features/CollectionDashboard/CoverSettings/SidebarCoverUpload';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import { openSpaPath } from '../lib/spaNavigation';
+import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
+import { CollectionQrModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
 import { MEDIA_FILE_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
@@ -67,6 +69,8 @@ const CollectionDashboard = () => {
 
     // MORE DROPDOWN MODAL STATES
     const [showGetDirectLinkModal, setShowGetDirectLinkModal] = useState(false);
+    const [showQrCodeModal, setShowQrCodeModal] = useState(false);
+    const [quickShareShowQr, setQuickShareShowQr] = useState(false);
     const [showEmailHistoryModal, setShowEmailHistoryModal] = useState(false);
     const [showManagePresetsModal, setShowManagePresetsModal] = useState(false);
     const [showApplyPresetModal, setShowApplyPresetModal] = useState(false);
@@ -835,6 +839,7 @@ const CollectionDashboard = () => {
 
     const handleQuickShare = (photo) => {
         setEditingPhoto(photo);
+        setQuickShareShowQr(false);
         setShowQuickShareModal(true);
     };
 
@@ -1421,7 +1426,7 @@ const CollectionDashboard = () => {
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (shareRef.current && !shareRef.current.contains(e.target)) setShowShareDropdown(false);
-            if (photoMenuRef.current && !photoMenuRef.current.contains(e.target)) setActivePhotoMenu(null);
+            if (photoMenuRef.current && !photoMenuRef.current.contains(e.target)) setPhotoMenu(null);
             if (gridSettingsRef.current && !gridSettingsRef.current.contains(e.target)) setShowGridSettings(false);
             if (moreRef.current && !moreRef.current.contains(e.target)) setShowMoreDropdown(false);
             if (setMenuRef.current && !setMenuRef.current.contains(e.target)) setShowSetMenu(null);
@@ -1732,17 +1737,49 @@ const CollectionDashboard = () => {
                         </div>
                         {showShareDropdown && (
                             <div className="cd-share-dropdown">
-                                <div className="cd-share-item" onClick={() => setShowShareDropdown(false)}>
+                                <div
+                                    className="cd-share-item"
+                                    onClick={() => {
+                                        setShowShareDropdown(false);
+                                        if (collectionUrl) {
+                                            openShareByEmail(getCollectionShareUrl(collectionUrl), collection?.name || 'Collection');
+                                        }
+                                    }}
+                                >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
                                     <span>Share by email</span>
                                 </div>
-                                <div className="cd-share-item" onClick={() => setShowShareDropdown(false)}>
+                                <div
+                                    className="cd-share-item"
+                                    onClick={() => {
+                                        setShowShareDropdown(false);
+                                        setShowGetDirectLinkModal(true);
+                                    }}
+                                >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
                                     <span>Get direct link</span>
                                 </div>
-                                <div className="cd-share-item" onClick={() => setShowShareDropdown(false)}>
+                                <div
+                                    className="cd-share-item"
+                                    onClick={() => {
+                                        setShowShareDropdown(false);
+                                        setShowQrCodeModal(true);
+                                    }}
+                                >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><rect x="7" y="7" width="3" height="3"></rect><rect x="14" y="7" width="3" height="3"></rect><rect x="7" y="14" width="3" height="3"></rect><rect x="14" y="14" width="3" height="3"></rect></svg>
                                     <span>Get QR code</span>
+                                </div>
+                                <div
+                                    className="cd-share-item"
+                                    onClick={() => {
+                                        setShowShareDropdown(false);
+                                        if (collectionUrl) {
+                                            openWhatsAppShare(getCollectionShareUrl(collectionUrl), collection?.name || 'Collection');
+                                        }
+                                    }}
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#25D366" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" fill="currentColor" /></svg>
+                                    <span>Share on WhatsApp</span>
                                 </div>
                             </div>
                         )}
@@ -2084,9 +2121,11 @@ const CollectionDashboard = () => {
                                             padding: '16px 0'
                                         }}
                                     >
-                                        {sortedPhotos.map((photo, index) => (
+                                        {sortedPhotos.map((photo, index) => {
+                                            const menuAlignLeft = index % 4 >= 2;
+                                            return (
                                             <div
-                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${isGalleryImagePhoto(photo) ? 'cd-photo-card--cover-draggable' : ''}`}
+                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${isGalleryImagePhoto(photo) ? 'cd-photo-card--cover-draggable' : ''} ${photoMenu === photo.id ? 'cd-photo-card--menu-open' : ''}`}
                                                 key={photo.id || index}
                                                 draggable={isGalleryImagePhoto(photo)}
                                                 onDragStart={(e) => {
@@ -2147,7 +2186,7 @@ const CollectionDashboard = () => {
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
                                                     </button>
                                                     {photoMenu === photo.id && (
-                                                        <div className="cd-photo-menu" ref={photoMenuRef}>
+                                                        <div className={`cd-photo-menu ${menuAlignLeft ? 'cd-photo-menu--align-left' : ''}`} ref={photoMenuRef}>
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setLightboxOpenIndex(index); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                                                                 <span>Open</span>
@@ -2201,7 +2240,8 @@ const CollectionDashboard = () => {
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#bbb"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                                 </button>
                                             </div>
-                                        ))}
+                                        );
+                                        })}
                                     </div>
                                 ) : (
                                     <div className="cd-dropzone" onClick={handleDropzoneClick}>
@@ -3013,6 +3053,12 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
+            <CollectionQrModal
+                collection={collectionUrl ? { slug: collectionUrl, name: collection?.name } : null}
+                isOpen={showQrCodeModal}
+                onClose={() => setShowQrCodeModal(false)}
+            />
+
             {/* Email History Modal */}
             {showEmailHistoryModal && (
                 <div className="cd-modal-overlay" onClick={() => setShowEmailHistoryModal(false)}>
@@ -3459,23 +3505,26 @@ const CollectionDashboard = () => {
                                         Copy Link
                                     </button>
                                 </div>
-                                {/* Social share row */}
-                                <div style={{ display: 'flex', gap: 16, marginTop: 20, justifyContent: 'center' }}>
-                                    <a 
-                                        href={`mailto:?subject=${encodeURIComponent('Photo from ' + (collection?.name || 'Collection'))}&body=${encodeURIComponent('Check out this photo: ' + shareUrl)}`} 
-                                        style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f5f5f5', color: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', transition: 'all 0.2s' }}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
-                                    </a>
-                                    <a 
-                                        href={`https://wa.me/?text=${encodeURIComponent('Check out this photo: ' + shareUrl)}`} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
-                                        style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#25D366', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)' }}
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                                    </a>
+                                <div className="cd-quick-share-icons" style={{ display: 'flex', gap: 12, marginTop: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
+                                    <button type="button" title="Share by email" onClick={() => openShareByEmail(shareUrl, `Photo from ${collection?.name || 'Collection'}`)} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f5f5f5', color: '#111', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" /></svg>
+                                    </button>
+                                    <button type="button" title="Copy direct link" onClick={() => { void navigator.clipboard.writeText(shareUrl); }} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#f5f5f5', color: '#111', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></svg>
+                                    </button>
+                                    <button type="button" title="Show QR code" onClick={() => setQuickShareShowQr((v) => !v)} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: quickShareShowQr ? '#e6f7f6' : '#f5f5f5', color: '#111', border: quickShareShowQr ? '2px solid #20b2aa' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><rect x="7" y="7" width="3" height="3" /><rect x="14" y="7" width="3" height="3" /><rect x="7" y="14" width="3" height="3" /><rect x="14" y="14" width="3" height="3" /></svg>
+                                    </button>
+                                    <button type="button" title="Share on WhatsApp" onClick={() => openWhatsAppShare(shareUrl, collection?.name || 'Photo')} style={{ width: 44, height: 44, borderRadius: '50%', backgroundColor: '#25D366', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(37, 211, 102, 0.2)' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+                                    </button>
                                 </div>
+                                {quickShareShowQr && (
+                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 16 }}>
+                                        <img src={getQrCodeImageUrl(shareUrl)} alt="QR code for photo link" width={180} height={180} />
+                                        <p style={{ fontSize: 12, color: '#888', marginTop: 8 }}>Scan to open this photo</p>
+                                    </div>
+                                )}
                             </div>
                             <div className="cd-set-modal-footer">
                                 <button className="cd-cancel-btn" onClick={() => setShowQuickShareModal(false)}>Close</button>

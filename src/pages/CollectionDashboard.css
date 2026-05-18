@@ -497,9 +497,10 @@
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
     min-width: 260px;
-    z-index: 100;
+    z-index: 500;
     padding: 12px 0;
     animation: cdFadeIn 0.15s ease;
+    overflow: visible;
 }
 
 @keyframes cdFadeIn {
@@ -3945,8 +3946,17 @@
     padding: 8px 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: visible;
     border: none;
+}
+
+.cd-photo-menu--align-left {
+    right: auto;
+    left: 0;
+}
+
+.cd-photo-card--menu-open {
+    z-index: 150;
 }
 
 .cd-photo-menu .cd-ctx-item {
