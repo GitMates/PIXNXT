@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Download, Heart, Play, Pause, Share2 } from 'lucide-react';
@@ -27,22 +27,6 @@ export function PhotoLightbox({
   /** When set (and no favoriteOverlayLabel), shows Pixieset-style "My Favorites (n)" on the bottom-left of the image stage. */
   favoriteCount,
 }) {
-  /** Slides where Download/Share were revealed via the bottom heart (Pixieset-style). */
-  const [bottomSecondaryUnlocked, setBottomSecondaryUnlocked] = useState({});
-
-  useEffect(() => {
-    if (isFavorited) return;
-    const idx = currentIndex;
-    queueMicrotask(() => {
-      setBottomSecondaryUnlocked((prev) => {
-        if (prev[idx] == null) return prev;
-        const next = { ...prev };
-        delete next[idx];
-        return next;
-      });
-    });
-  }, [isFavorited, currentIndex]);
-
   useEffect(() => {
     if (isOpen) document.body.style.overflow = 'hidden';
     else document.body.style.overflow = 'unset';
@@ -69,27 +53,10 @@ export function PhotoLightbox({
   const canShare = showShare && typeof onShare === 'function';
   const showBottomLabel = showFavorite && (favoriteOverlayLabel || typeof favoriteCount === 'number');
 
-  const secondaryActionsVisible =
-    isFavorited && !!bottomSecondaryUnlocked[currentIndex];
+  const isVideoUrl = (url) => /\.(mp4|webm|ogg|mov)$/i.test(url || '');
 
-  /** Bottom heart: first click when already favorited (e.g. from grid) only unlocks Download/Share; otherwise toggles favorite. */
   const handleBottomHeart = () => {
-    const i = currentIndex;
-    if (isFavorited) {
-      if (!bottomSecondaryUnlocked[i]) {
-        setBottomSecondaryUnlocked((prev) => ({ ...prev, [i]: true }));
-        return;
-      }
-      onFavorite?.();
-      setBottomSecondaryUnlocked((prev) => {
-        const next = { ...prev };
-        delete next[i];
-        return next;
-      });
-      return;
-    }
     onFavorite?.();
-    setBottomSecondaryUnlocked((prev) => ({ ...prev, [i]: true }));
   };
 
   if (typeof document === 'undefined') return null;
@@ -127,7 +94,7 @@ export function PhotoLightbox({
             className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-opacity hover:opacity-50"
           >
             {isSlideshowActive ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-            {isSlideshowActive ? 'Pause' : 'Slideshow'}
+            {isSlideshowActive ? 'Pause' : 'Resume'}
           </button>
         </div>
 
@@ -149,14 +116,14 @@ export function PhotoLightbox({
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.55, ease: [0.19, 1, 0.22, 1] }}
-            className="group/img relative flex h-full max-h-full w-full max-w-6xl items-center justify-center"
+            className="relative flex h-full max-h-full w-full max-w-6xl items-center justify-center"
           >
-            <div className="relative flex max-h-full max-w-full items-center justify-center">
+            <div className="group/media relative inline-flex max-h-[calc(100dvh-8rem)] max-w-full items-center justify-center">
               {images[currentIndex] ? (
-                /\.(mp4|webm|ogg|mov)$/i.test(images[currentIndex]) ? (
+                isVideoUrl(images[currentIndex]) ? (
                   <video
                     src={images[currentIndex]}
-                    className="max-h-[calc(100dvh-8rem)] max-w-full object-contain shadow-2xl"
+                    className="block max-h-[calc(100dvh-8rem)] max-w-full object-contain shadow-2xl"
                     controls
                     autoPlay
                     loop
@@ -166,7 +133,7 @@ export function PhotoLightbox({
                   <img
                     src={images[currentIndex]}
                     alt="Fullscreen photo"
-                    className="max-h-[calc(100dvh-8rem)] max-w-full object-contain shadow-2xl"
+                    className="block max-h-[calc(100dvh-8rem)] max-w-full object-contain shadow-2xl"
                   />
                 )
               ) : (
@@ -176,14 +143,19 @@ export function PhotoLightbox({
                 </div>
               )}
 
+              {images[currentIndex] && (
+                <>
               <div
-                className="pointer-events-none absolute inset-x-0 bottom-0 z-[20] h-[38%] max-h-[220px] bg-gradient-to-t from-black/65 via-black/20 to-transparent"
+                className="pointer-events-none absolute inset-0 z-[20] opacity-0 transition-opacity duration-200 group-hover/media:opacity-100"
                 aria-hidden
-              />
+              >
+                <div className="absolute inset-x-0 bottom-0 h-[38%] max-h-[220px] bg-gradient-to-t from-black/65 via-black/20 to-transparent" />
+              </div>
 
               <div
                 className={cn(
-                  'pointer-events-none absolute inset-x-0 bottom-0 z-[30] flex w-full items-end gap-4 p-3 md:p-5',
+                  'pointer-events-none absolute inset-0 z-[30] flex items-end gap-4 p-3 opacity-0 transition-opacity duration-200 md:p-5',
+                  'group-hover/media:opacity-100 group-hover/media:pointer-events-auto',
                   showBottomLabel ? 'justify-between' : 'justify-end'
                 )}
               >
@@ -194,7 +166,7 @@ export function PhotoLightbox({
                   </div>
                 )}
 
-                <div className="flex items-center gap-5 md:gap-7">
+                <div className="flex shrink-0 items-center gap-5 md:gap-7">
                   {showFavorite && (
                     <button
                       type="button"
@@ -208,7 +180,7 @@ export function PhotoLightbox({
                       <Heart size={24} strokeWidth={1.75} fill={isFavorited ? 'currentColor' : 'none'} />
                     </button>
                   )}
-                  {secondaryActionsVisible && showDownload && (
+                  {showDownload && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -221,7 +193,7 @@ export function PhotoLightbox({
                       <Download size={24} strokeWidth={1.75} />
                     </button>
                   )}
-                  {secondaryActionsVisible && canShare && (
+                  {canShare && (
                     <button
                       type="button"
                       onClick={(e) => {
@@ -236,6 +208,8 @@ export function PhotoLightbox({
                   )}
                 </div>
               </div>
+                </>
+              )}
             </div>
           </Motion.div>
 

@@ -401,9 +401,13 @@ const GalleryView = () => {
     galleryRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const openLightbox = useCallback((index) => {
+    setLightboxIndex(index);
+    setIsSlideshowActive(true);
+  }, []);
+
   const handleStartSlideshow = () => {
-    setLightboxIndex(0);
-    setIsSlideshowActive(false);
+    openLightbox(0);
   };
 
   const formatDate = (dateStr) => {
@@ -705,7 +709,7 @@ const GalleryView = () => {
               spacing: collection.grid_spacing || 'regular',
               aspectRatio: collection.aspect_ratio || 'original'
             }}
-            onImageClick={(index) => setLightboxIndex(index)}
+            onImageClick={openLightbox}
             onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
             onDownload={handleDownloadClick}
             onShare={() => setShowShareModal(true)}

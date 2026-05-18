@@ -499,7 +499,10 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               photos={filteredPhotos}
               gridSettings={grid}
               isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
-              onImageClick={(index) => setLightboxIndex(index)}
+              onImageClick={(index) => {
+                setLightboxIndex(index);
+                setIsSlideshowActive(true);
+              }}
               onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
               onDownload={handleDownloadClick}
               onShare={() => setShowShareModal(true)}
