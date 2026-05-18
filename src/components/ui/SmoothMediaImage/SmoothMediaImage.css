@@ -1,0 +1,100 @@
+.smooth-media-wrap {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #ebebeb;
+}
+
+.smooth-media-shimmer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: linear-gradient(
+    110deg,
+    #e6e6e6 0%,
+    #e6e6e6 35%,
+    #f4f4f4 50%,
+    #e6e6e6 65%,
+    #e6e6e6 100%
+  );
+  background-size: 220% 100%;
+  animation: smooth-media-shimmer 1.4s ease-in-out infinite;
+}
+
+.smooth-media-blur {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: blur(14px);
+  transform: scale(1.08);
+  opacity: 1;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.smooth-media-blur--hide {
+  opacity: 0;
+}
+
+.smooth-media-img {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity;
+}
+
+.smooth-media-img--visible {
+  opacity: 1;
+}
+
+.smooth-media-img--error {
+  opacity: 0;
+}
+
+.smooth-media-error {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  color: #999;
+}
+
+@keyframes smooth-media-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.cd-photo-upload-overlay {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 8;
+  height: 3px;
+  background: #1a9b8a;
+  transition: width 0.25s ease;
+  pointer-events: none;
+}
+
+.cd-photo-card--pending {
+  pointer-events: none;
+}
+
+.cd-photo-card--pending .cd-photo-card-inner {
+  opacity: 0.92;
+}

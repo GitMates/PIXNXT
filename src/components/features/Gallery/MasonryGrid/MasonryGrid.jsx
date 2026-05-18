@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion as Motion } from 'framer-motion';
 import { Download, Heart, Share2, Play } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
+import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 
@@ -167,12 +168,13 @@ export function MasonryGrid({
                 />
                 </>
               ) : (
-                <img
+                <SmoothMediaImage
                   src={src}
+                  thumbSrc={photo.thumbnail_url}
                   alt={photo.filename || `Gallery image ${index + 1}`}
                   className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
+                  objectFit="cover"
                   style={{
-                    objectFit: 'cover',
                     aspectRatio: String(aspectRatio),
                   }}
                   loading="lazy"

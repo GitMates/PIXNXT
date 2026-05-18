@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { PhotoCardProps } from './Media.types';
+import { SmoothMediaImage } from '../../ui/SmoothMediaImage';
 
 export const PhotoCard: React.FC<PhotoCardProps> = ({
   photo,
@@ -53,7 +54,13 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({
             }}
           />
         ) : (
-          <img src={photo.full_url} alt={photo.filename} loading="lazy" className="cd-photo-img" />
+          <SmoothMediaImage
+            src={photo.full_url}
+            thumbSrc={photo.thumbnail_url}
+            alt={photo.filename}
+            className="cd-photo-img"
+            objectFit="cover"
+          />
         )}
       </div>
       

@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase/client';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
 import { getFileMime, isVideoMime } from '../lib/fileMime';
+import { generateCollectionSlug } from '../lib/collectionSlug';
 import { storageService } from './storage.service';
 
 export const galleryService = {
@@ -58,6 +59,112 @@ export const galleryService = {
 
     if (error) throw error;
     return data;
+  },
+
+  /**
+   * Duplicate a collection: copies metadata, sets, and non-video photos (same storage URLs).
+   */
+  async duplicateCollection(sourceCollectionId, photographerId) {
+    if (!sourceCollectionId || !photographerId) {
+      throw new Error('Collection and photographer are required to duplicate.');
+    }
+
+    const source = await this.getCollectionById(sourceCollectionId);
+
+    const newCollection = await this.createCollection({
+      photographer_id: photographerId,
+      name: `${source.name} (Copy)`,
+      slug: `${generateCollectionSlug(source.name)}-copy-${Date.now().toString(36)}`,
+      event_date: source.event_date ?? null,
+      status: 'draft',
+      description: source.description ?? null,
+      font_family: source.font_family ?? 'sans_1',
+      color_palette: source.color_palette ?? 'light_1',
+      grid_style: source.grid_style ?? 'vertical',
+      thumbnail_size: source.thumbnail_size ?? 'regular',
+      grid_spacing: source.grid_spacing ?? 'regular',
+      nav_style: source.nav_style ?? 'icons',
+      privacy: source.privacy ?? 'public',
+      cover_style: source.cover_style ?? 'photo',
+      cover_url: source.cover_url ?? null,
+      cover_focal_x: source.cover_focal_x ?? null,
+      cover_focal_y: source.cover_focal_y ?? null,
+      download_pin_hash: source.download_pin_hash ?? null,
+      downloads_enabled: source.downloads_enabled,
+      download_resolutions: source.download_resolutions,
+      download_limit_gallery: source.download_limit_gallery ?? null,
+      download_limit_contact: source.download_limit_contact ?? null,
+      email_capture_enabled: source.email_capture_enabled,
+      social_sharing_enabled: source.social_sharing_enabled,
+      watermark_enabled: source.watermark_enabled,
+      favorites_enabled: source.favorites_enabled,
+      favorites_allow_comments: source.favorites_allow_comments,
+      max_favorites: source.max_favorites ?? null,
+      gallery_photo_sort: source.gallery_photo_sort ?? null,
+      show_filenames: source.show_filenames,
+      show_on_homepage: source.show_on_homepage,
+      client_exclusive_enabled: source.client_exclusive_enabled,
+      allow_clients_mark_private: source.allow_clients_mark_private,
+      client_only_highlights: source.client_only_highlights,
+    });
+
+    const setIdMap = new Map();
+    const sourceSets = [...(source.sets || [])].sort((a, b) => (a.position || 0) - (b.position || 0));
+    for (const set of sourceSets) {
+      const created = await this.createSet({
+        collectionId: newCollection.id,
+        photographerId,
+        name: set.name,
+        description: set.description ?? '',
+        position: set.position ?? 0,
+      });
+      setIdMap.set(set.id, created.id);
+    }
+
+    const sourcePhotos = [...(source.photos || [])]
+      .filter((p) => p.media_type !== 'video')
+      .sort((a, b) => (a.position || 0) - (b.position || 0));
+
+    if (sourcePhotos.length > 0) {
+      const rows = sourcePhotos.map((p, index) => ({
+        collection_id: newCollection.id,
+        photographer_id: photographerId,
+        set_id: p.set_id ? setIdMap.get(p.set_id) ?? null : null,
+        filename: p.filename,
+        full_url: p.full_url,
+        web_url: p.web_url,
+        thumbnail_url: p.thumbnail_url,
+        original_storage_path: p.original_storage_path,
+        size_bytes: p.size_bytes,
+        width: p.width,
+        height: p.height,
+        media_type: p.media_type ?? 'image',
+        position: p.position ?? index,
+        status: p.status ?? 'ready',
+        is_starred: p.is_starred ?? false,
+        exif_taken_at: p.exif_taken_at ?? null,
+        is_private: p.is_private ?? false,
+      }));
+
+      const { data: insertedPhotos, error: photoError } = await supabase
+        .from('photos')
+        .insert(rows)
+        .select('id');
+
+      if (photoError) throw photoError;
+
+      if (source.cover_photo_id && insertedPhotos?.length) {
+        const coverIndex = sourcePhotos.findIndex((p) => p.id === source.cover_photo_id);
+        if (coverIndex >= 0 && insertedPhotos[coverIndex]?.id) {
+          await this.updateCollection(newCollection.id, {
+            cover_photo_id: insertedPhotos[coverIndex].id,
+          });
+          newCollection.cover_photo_id = insertedPhotos[coverIndex].id;
+        }
+      }
+    }
+
+    return newCollection;
   },
 
   /**
