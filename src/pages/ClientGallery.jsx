@@ -1,9 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import './ClientGallery.css';
+import { sortCollections } from '../utils/sortCollections';
 
 
 const ClientGallery = () => {
@@ -52,7 +53,12 @@ const ClientGallery = () => {
         fetchCollections();
     }, [user]);
 
+    const sortedCollections = useMemo(
+        () => sortCollections(collections, activeSort),
+        [collections, activeSort]
+    );
 
+    const getCoverSrc = (collection) => collection.cover_url || collection.cover || '';
 
     const handleCardClick = (collection) => {
         if (selectedCards.length > 0) return;
@@ -308,12 +314,12 @@ const ClientGallery = () => {
                             {showSortDropdown && (
                                 <div className="cg-style-33">
                                     <div className="cg-style-34">Sort dashboard by</div>
-                                    <div className={`cg-style-71 ${activeSort === 'created-new' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('created-new'); setShowSortDropdown(false); }}>Created: New → Old</div>
-                                    <div className={`cg-style-71 ${activeSort === 'created-old' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('created-old'); setShowSortDropdown(false); }}>Created: Old → New</div>
-                                    <div className={`cg-style-71 ${activeSort === 'event-new' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('event-new'); setShowSortDropdown(false); }}>Event Date: New → Old</div>
-                                    <div className={`cg-style-71 ${activeSort === 'event-old' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('event-old'); setShowSortDropdown(false); }}>Event Date: Old → New</div>
-                                    <div className={`cg-style-71 ${activeSort === 'name-az' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('name-az'); setShowSortDropdown(false); }}>Name: A-Z</div>
-                                    <div className={`cg-style-71 ${activeSort === 'name-za' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveSort('name-za'); setShowSortDropdown(false); }}>Name: Z-A</div>
+                                    <div className={`cg-style-71 ${activeSort === 'created-new' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('created-new'); setShowSortDropdown(false); }}>Created: New → Old</div>
+                                    <div className={`cg-style-71 ${activeSort === 'created-old' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('created-old'); setShowSortDropdown(false); }}>Created: Old → New</div>
+                                    <div className={`cg-style-71 ${activeSort === 'event-new' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('event-new'); setShowSortDropdown(false); }}>Event Date: New → Old</div>
+                                    <div className={`cg-style-71 ${activeSort === 'event-old' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('event-old'); setShowSortDropdown(false); }}>Event Date: Old → New</div>
+                                    <div className={`cg-style-71 ${activeSort === 'name-az' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('name-az'); setShowSortDropdown(false); }}>Name: A-Z</div>
+                                    <div className={`cg-style-71 ${activeSort === 'name-za' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('name-za'); setShowSortDropdown(false); }}>Name: Z-A</div>
                                 </div>
                             )}
                         </div>
@@ -341,17 +347,17 @@ const ClientGallery = () => {
                 </div>
 
                 {/* Collection Cards - Grid View */}
-                {collections.length > 0 && activeView === 'grid' ? (
+                {sortedCollections.length > 0 && activeView === 'grid' ? (
                     <div className="cg-style-37">
-                        {collections.map(collection => (
+                        {sortedCollections.map(collection => (
                             <div
                                 key={collection.id}
                                 className={`cg-style-73 group`}
                                 onClick={() => handleCardClick(collection)}
                             >
-                                <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'rounded-md border-[3px] border-[#593116]' : 'rounded'}`}>
-                                    {(collection.cover_url || collection.cover) ? (
-                                        <img src={collection.cover_url || collection.cover} alt={collection.name} />
+                                <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'cg-style-74--selected' : ''}`}>
+                                    {getCoverSrc(collection) ? (
+                                        <img src={getCoverSrc(collection)} alt={collection.name} loading="lazy" />
                                     ) : (
                                         <div className="cg-style-38">
                                             <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
@@ -409,7 +415,7 @@ const ClientGallery = () => {
                             </div>
                         ))}
                     </div>
-                ) : collections.length > 0 && activeView === 'list' ? (
+                ) : sortedCollections.length > 0 && activeView === 'list' ? (
                     /* List View */
                     <div className="px-10">
                         <div className="cg-style-47">
@@ -419,7 +425,7 @@ const ClientGallery = () => {
                             <span className="cg-style-50">DATE CREATED</span>
                             <span className="cg-style-51"></span>
                         </div>
-                        {collections.map(collection => (
+                        {sortedCollections.map(collection => (
                             <div
                                 key={collection.id}
                                 className="cg-style-52"
@@ -427,8 +433,8 @@ const ClientGallery = () => {
                             >
                                 <div className="cg-style-48">
                                     <div className="cg-style-53">
-                                        {collection.cover ? (
-                                            <img src={collection.cover} alt={collection.name} />
+                                        {getCoverSrc(collection) ? (
+                                            <img src={getCoverSrc(collection)} alt={collection.name} loading="lazy" />
                                         ) : (
                                             <div className="cg-style-38">
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
@@ -448,7 +454,13 @@ const ClientGallery = () => {
                                     <span className="cg-style-57">••••</span>
                                 </div>
                                 <div className="cg-style-50">
-                                    {collection.date || 'Mar 12, 2026'}
+                                    {collection.created_at
+                                        ? new Date(collection.created_at).toLocaleDateString('en-US', {
+                                            month: 'short',
+                                            day: 'numeric',
+                                            year: 'numeric',
+                                        })
+                                        : '—'}
                                 </div>
                                 <div className="cg-style-51">
                                     <svg className="cg-style-58" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>

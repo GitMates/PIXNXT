@@ -146,7 +146,9 @@
   }
 
   .cg-style-37 {
-    @apply grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-6 px-10 py-8 max-md:grid-cols-1 max-md:gap-4 max-md:px-4 max-md:py-4;
+    @apply grid gap-6 px-10 py-8 max-md:grid-cols-1 max-md:gap-4 max-md:px-4 max-md:py-4;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    align-items: start;
   }
 
   .cg-style-38 {
@@ -282,7 +284,11 @@
   }
 
   .cg-style-71 {
-    @apply flex items-center gap-3 px-6 py-3 text-sm font-medium cursor-pointer transition-colors duration-150 whitespace-nowrap hover:bg-[#ffffff];
+    @apply flex items-center gap-3 px-6 py-3 text-sm font-medium cursor-pointer transition-colors duration-150 whitespace-nowrap hover:bg-[#f5f5f5];
+  }
+
+  .cg-style-71.cg-sort-active {
+    @apply text-[#593116] font-semibold bg-[#fdfaf4];
   }
 
   .cg-style-72 {
@@ -290,11 +296,23 @@
   }
 
   .cg-style-73 {
-    @apply cursor-pointer transition-transform duration-200 relative overflow-visible hover:-translate-y-0.5;
+    @apply flex flex-col cursor-pointer transition-transform duration-200 relative overflow-visible hover:-translate-y-0.5 min-w-0;
   }
 
   .cg-style-74 {
-    @apply w-full aspect-[4/3] bg-[#ffffff] mb-3 relative max-md:h-auto;
+    @apply w-full aspect-[4/3] bg-[#f0f2f3] mb-3 relative overflow-hidden rounded-md max-md:h-auto;
+  }
+
+  .cg-style-74--selected {
+    @apply border-[3px] border-[#593116] rounded-md;
+  }
+
+  .cg-style-74 img {
+    @apply block h-full w-full object-cover;
+  }
+
+  .cg-style-53 img {
+    @apply block h-full w-full object-cover;
   }
 
   .cg-style-75 {
