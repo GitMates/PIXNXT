@@ -1,28 +1,31 @@
 /* Pixieset-style Stamp cover — centered stack on light gray */
 .cover-stamp-layout {
-  --stamp-bg: #f5f5f5;
+  --stamp-bg: #f2f2f2;
   --stamp-text: #1a1a1a;
-  --stamp-muted: rgba(26, 26, 26, 0.62);
+  --stamp-muted: rgba(26, 26, 26, 0.58);
   background-color: var(--stamp-bg) !important;
   color: var(--stamp-text) !important;
-  gap: clamp(1rem, 2.5vh, 1.75rem);
+  gap: 0;
 }
 
 .cover-stamp-layout__brand {
   color: var(--stamp-muted) !important;
-  font-weight: 500 !important;
+  font-weight: 400 !important;
   text-shadow: none !important;
-  letter-spacing: 0.38em !important;
-  margin: 0 !important;
+  letter-spacing: 0.42em !important;
+  margin: 0 0 clamp(1.35rem, 3.2vh, 2.25rem) !important;
 }
 
 .cover-stamp-layout__image-frame {
   position: relative;
   overflow: hidden;
   flex-shrink: 0;
-  background: #ffffff;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
-  aspect-ratio: 1 / 1;
+  background: #e8e8e8;
+  box-shadow: none;
+  border-radius: 0;
+  aspect-ratio: 4 / 5;
+  width: 100%;
+  margin: 0 0 clamp(0.9rem, 2.2vh, 1.35rem);
 }
 
 .cover-stamp-layout__image-frame img {
@@ -36,16 +39,17 @@
   color: var(--stamp-muted) !important;
   font-weight: 400 !important;
   text-shadow: none !important;
-  margin: 0 !important;
+  margin: 0 0 clamp(0.4rem, 1vh, 0.55rem) !important;
+  letter-spacing: 0.28em !important;
 }
 
 .cover-stamp-layout__title {
   color: var(--stamp-text) !important;
   font-weight: 700 !important;
   text-shadow: none !important;
-  letter-spacing: 0.02em !important;
-  line-height: 1 !important;
-  margin: 0 !important;
+  letter-spacing: 0.01em !important;
+  line-height: 0.95 !important;
+  margin: 0 0 clamp(1.1rem, 2.6vh, 1.85rem) !important;
 }
 
 .cover-stamp-layout__cta {
@@ -53,10 +57,11 @@
 }
 
 .cover-stamp-layout__cta .view-gallery-btn {
-  background: #222222 !important;
+  background: #1a1a1a !important;
   color: #ffffff !important;
   border: none !important;
   border-radius: 0 !important;
+  font-weight: 500 !important;
 }
 
 .cover-stamp-layout__cta .view-gallery-btn:hover {
@@ -67,75 +72,88 @@
 .gallery-view-hero .cover-stamp-layout {
   min-height: 100%;
   height: 100%;
-  padding: clamp(2rem, 5vh, 3.5rem) clamp(1.5rem, 4vw, 2.5rem);
-  gap: clamp(1.15rem, 2.8vh, 2rem);
+  padding: clamp(2.5rem, 6vh, 4rem) clamp(1.5rem, 4vw, 2.5rem);
 }
 
 .gallery-view-hero .cover-stamp-layout__brand {
-  font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
-  letter-spacing: 0.4em !important;
+  font-size: clamp(0.5rem, 0.82vw, 0.62rem) !important;
+  letter-spacing: 0.44em !important;
 }
 
 .gallery-view-hero .cover-stamp-layout__image-frame {
-  width: clamp(200px, 32vw, 380px);
-  max-width: min(88vw, 380px);
+  width: clamp(200px, 26vw, 320px);
+  max-width: min(78vw, 320px);
 }
 
 .gallery-view-hero .cover-stamp-layout__date {
-  font-size: clamp(0.68rem, 1.15vw, 0.88rem) !important;
-  letter-spacing: 0.32em !important;
+  font-size: clamp(0.65rem, 1.1vw, 0.82rem) !important;
+  letter-spacing: 0.3em !important;
 }
 
 .gallery-view-hero .cover-stamp-layout__title {
-  font-size: clamp(2.5rem, 7vw, 4.5rem) !important;
+  font-size: clamp(2.25rem, 6vw, 3.5rem) !important;
 }
 
 .gallery-view-hero .cover-stamp-layout__cta .view-gallery-btn {
-  font-size: clamp(0.58rem, 0.95vw, 0.7rem) !important;
-  padding: 0.8rem 2rem !important;
-  letter-spacing: 0.22em !important;
+  font-size: clamp(0.55rem, 0.9vw, 0.68rem) !important;
+  padding: 0.85rem 2.1rem !important;
+  letter-spacing: 0.24em !important;
 }
 
-/* Dashboard preview */
+.gallery-view-page.style-stamp .gallery-view-hero {
+  background-color: #f2f2f2;
+}
+
+/* Dashboard preview — larger stamp elements (gallery view unchanged) */
+.cd-preview-gallery-card.style-stamp .cd-preview-gallery-header {
+  background-color: #f2f2f2;
+  min-height: 520px;
+}
+
 .cd-preview-gallery-card.style-stamp .cover-stamp-layout {
   height: 100% !important;
   min-height: 100% !important;
-  gap: 6px !important;
-  padding: 10px 12px !important;
+  gap: 0 !important;
+  padding: 18px 20px !important;
 }
 
 .cd-preview-gallery-card.style-stamp .cover-stamp-layout__brand {
-  font-size: 5px !important;
-  letter-spacing: 0.36em !important;
+  font-size: 8px !important;
+  letter-spacing: 0.4em !important;
+  margin-bottom: 14px !important;
 }
 
 .cd-preview-gallery-card.style-stamp .cover-stamp-layout__image-frame {
-  width: 52px;
-  height: 52px;
+  width: 115px;
+  max-width: 55%;
+  height: auto;
+  margin-bottom: 12px;
 }
 
 .cd-preview-gallery-card.style-stamp .cover-stamp-layout__date {
-  font-size: 6px !important;
-  letter-spacing: 0.28em !important;
+  font-size: 8px !important;
+  letter-spacing: 0.26em !important;
+  margin-bottom: 6px !important;
 }
 
 .cd-preview-gallery-card.style-stamp .cover-stamp-layout__title {
-  font-size: 22px !important;
-  margin-bottom: 2px !important;
+  font-size: 38px !important;
+  line-height: 0.95 !important;
+  margin-bottom: 14px !important;
 }
 
 .cd-preview-gallery-card.style-stamp .cover-stamp-layout__cta .view-gallery-btn {
-  font-size: 6px !important;
-  padding: 3px 9px !important;
-  letter-spacing: 0.18em !important;
+  font-size: 8px !important;
+  padding: 5px 16px !important;
+  letter-spacing: 0.2em !important;
 }
 
 @media (max-width: 768px) {
   .gallery-view-hero .cover-stamp-layout__image-frame {
-    width: clamp(180px, 55vw, 300px);
+    width: clamp(180px, 52vw, 280px);
   }
 
   .gallery-view-hero .cover-stamp-layout__title {
-    font-size: clamp(2rem, 12vw, 3.25rem) !important;
+    font-size: clamp(1.85rem, 9vw, 2.75rem) !important;
   }
 }

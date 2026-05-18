@@ -3,6 +3,7 @@ import './CoverNovel.css';
 import './CoverVintage.css';
 import './CoverJournal.css';
 import './CoverStamp.css';
+import './CoverClassic.css';
 import { CoverProps } from './CoverStyles.types';
 import { cn } from '../../../../../lib/utils';
 import {
@@ -546,14 +547,14 @@ export const StampCover: React.FC<CoverProps> = ({
       )}
     >
       {brand ? (
-        <span
+        <p
           className={cn(
-            'cover-stamp-layout__brand cover-text-grid__subtitle uppercase font-normal',
+            'cover-stamp-layout__brand cover-text-grid__subtitle gallery-body-text uppercase font-normal',
             s.subtitle
           )}
         >
           {brand}
-        </span>
+        </p>
       ) : null}
 
       <div className="cover-stamp-layout__image-frame relative w-full overflow-hidden">

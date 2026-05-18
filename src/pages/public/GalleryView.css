@@ -1,5 +1,5 @@
 /* Slightly larger cover hero text — public GalleryView only */
-.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__subtitle {
+.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__subtitle:not(.cover-stamp-layout__brand):not(.cover-journal-layout__brand):not(.cover-novel-layout__brand):not(.cover-vintage-layout__brand) {
   font-size: 11px !important;
   line-height: 1.25 !important;
   margin-bottom: 8px !important;
@@ -107,33 +107,45 @@
   text-shadow: none !important;
 }
 
-/* Stamp cover — centered stack */
+/* Stamp cover — centered stack (Pixieset) */
 .gallery-view-hero .cover-stamp-layout__brand.cover-text-grid__subtitle {
-  font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
-  letter-spacing: 0.4em !important;
-  color: rgba(26, 26, 26, 0.62) !important;
+  font-size: clamp(0.5rem, 0.82vw, 0.62rem) !important;
+  letter-spacing: 0.44em !important;
+  color: rgba(26, 26, 26, 0.58) !important;
   text-shadow: none !important;
-  font-weight: 500 !important;
+  font-weight: 400 !important;
+  margin-bottom: clamp(1.35rem, 3.2vh, 2.25rem) !important;
 }
 
 .gallery-view-hero .cover-stamp-layout__date.cover-text-grid__date {
-  font-size: clamp(0.68rem, 1.15vw, 0.88rem) !important;
-  letter-spacing: 0.32em !important;
-  color: rgba(26, 26, 26, 0.62) !important;
+  font-size: clamp(0.65rem, 1.1vw, 0.82rem) !important;
+  letter-spacing: 0.3em !important;
+  color: rgba(26, 26, 26, 0.58) !important;
   text-shadow: none !important;
+  margin-bottom: clamp(0.4rem, 1vh, 0.55rem) !important;
 }
 
 .gallery-view-hero .cover-stamp-layout__title.cover-text-grid__title {
-  font-size: clamp(2.5rem, 7vw, 4.5rem) !important;
-  line-height: 1 !important;
+  font-size: clamp(2.25rem, 6vw, 3.5rem) !important;
+  line-height: 0.95 !important;
   color: #1a1a1a !important;
   text-shadow: none !important;
-  letter-spacing: 0.02em !important;
+  letter-spacing: 0.01em !important;
   font-weight: 700 !important;
+  margin-bottom: clamp(1.1rem, 2.6vh, 1.85rem) !important;
 }
 
 .gallery-view-page.style-stamp .gallery-view-hero .cover-stamp-layout__title.cover-text-grid__title {
-  font-size: clamp(2.5rem, 7vw, 4.5rem) !important;
+  font-size: clamp(2.25rem, 6vw, 3.5rem) !important;
+}
+
+.gallery-view-hero .cover-stamp-layout__cta .view-gallery-btn.cover-text-grid__button {
+  font-size: clamp(0.55rem, 0.9vw, 0.68rem) !important;
+  padding: 0.85rem 2.1rem !important;
+  letter-spacing: 0.24em !important;
+  background: #1a1a1a !important;
+  color: #ffffff !important;
+  border-radius: 0 !important;
 }
 
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__date:not(.cover-vintage-layout__date):not(.cover-journal-layout__date):not(.cover-stamp-layout__date) {
@@ -154,6 +166,12 @@
   font-size: 11px !important;
   padding: 12px 36px !important;
   letter-spacing: 0.2em !important;
+}
+
+.gallery-view-hero[data-cover-text-scale='large'] .cover-stamp-layout .view-gallery-btn {
+  font-size: clamp(0.55rem, 0.9vw, 0.68rem) !important;
+  padding: 0.85rem 2.1rem !important;
+  letter-spacing: 0.24em !important;
 }
 
 .gallery-view-hero .cover-left-layout__footer .cover-text-grid__title,

@@ -53,7 +53,6 @@
 .cd-preview-gallery-card .cover-center-layout__title,
 .cd-preview-gallery-card .cover-novel-layout__text h1,
 .cd-preview-gallery-card .cover-vintage-layout__panel h1,
-.cd-preview-gallery-card .cover-stamp-layout__title,
 .cd-preview-gallery-card .cover-frame-layout h1,
 .cd-preview-gallery-card .cover-stripe-layout h1,
 .cd-preview-gallery-card .cover-outline-layout h1 {
@@ -72,7 +71,8 @@
 .cd-preview-gallery-card.style-vintage .cd-preview-gallery-header,
 .cd-preview-gallery-card.style-frame .cd-preview-gallery-header,
 .cd-preview-gallery-card.style-stripe .cd-preview-gallery-header,
-.cd-preview-gallery-card.style-outline .cd-preview-gallery-header {
+.cd-preview-gallery-card.style-outline .cd-preview-gallery-header,
+.cd-preview-gallery-card.style-classic .cd-preview-gallery-header {
     display: block;
     overflow: hidden;
 }
@@ -302,7 +302,7 @@
     justify-content: center;
 }
 
-/* 9. STAMP */
+/* 9. STAMP — Pixieset centered stack (see CoverStamp.css) */
 .style-stamp .header-stamp-layout {
     width: 100%;
     display: flex;
@@ -310,13 +310,14 @@
     align-items: center;
     justify-content: center;
     padding: 60px;
-    background-color: #ffffff;
+    background-color: #f2f2f2;
 }
 
 .style-stamp .stamp-img {
     width: 200px;
-    height: 200px;
-    border-radius: 50%;
+    aspect-ratio: 4 / 5;
+    height: auto;
+    border-radius: 0;
     overflow: hidden;
     margin-bottom: 30px;
 }
@@ -338,11 +339,11 @@
     max-width: 500px;
 }
 
-/* 11. CLASSIC */
+/* 11. CLASSIC — full-width banner, no overlay text (see CoverClassic.css) */
 .style-classic .header-classic-layout {
     width: 100%;
     position: relative;
-    height: 500px;
+    height: auto;
 }
 
 /* 12. NONE */
@@ -912,6 +913,10 @@
     min-height: 350px;
 }
 
+.cd-design-preview-pane:not(.mobile) .cd-preview-gallery-card.style-classic .cd-preview-gallery-header {
+    min-height: 0;
+}
+
 .cd-design-preview-pane.mobile .cd-preview-gallery-header {
     min-height: 280px;
 }
@@ -1022,23 +1027,46 @@
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__title.cover-text-grid__title {
-    font-size: 22px !important;
-    line-height: 1 !important;
+    font-size: 38px !important;
+    line-height: 0.95 !important;
     color: #1a1a1a !important;
-    letter-spacing: 0.02em !important;
+    letter-spacing: 0.01em !important;
+    margin-bottom: 14px !important;
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__brand.cover-text-grid__subtitle {
-    font-size: 5px !important;
-    color: rgba(26, 26, 26, 0.62) !important;
-    letter-spacing: 0.36em !important;
+    font-size: 8px !important;
+    color: rgba(26, 26, 26, 0.58) !important;
+    letter-spacing: 0.4em !important;
     font-weight: 400 !important;
+    margin-bottom: 14px !important;
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__date.cover-text-grid__date {
-    font-size: 6px !important;
-    color: rgba(26, 26, 26, 0.62) !important;
-    letter-spacing: 0.28em !important;
+    font-size: 8px !important;
+    color: rgba(26, 26, 26, 0.58) !important;
+    letter-spacing: 0.26em !important;
+    margin-bottom: 6px !important;
+}
+
+.cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__image-frame {
+    width: 115px;
+    max-width: 55%;
+    height: auto;
+    aspect-ratio: 4 / 5;
+    margin-bottom: 12px;
+}
+
+.cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__cta .view-gallery-btn {
+    font-size: 8px !important;
+    padding: 5px 16px !important;
+    letter-spacing: 0.2em !important;
+    background: #1a1a1a !important;
+    border-radius: 0 !important;
+}
+
+.cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout {
+    padding: 18px 20px !important;
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .gallery-heading:not(.cover-vintage-layout__title):not(.cover-novel-layout__title):not(.cover-journal-layout__title):not(.cover-stamp-layout__title) {
