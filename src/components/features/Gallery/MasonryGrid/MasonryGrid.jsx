@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion as Motion } from 'framer-motion';
 import { Download, Heart, Share2 } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
@@ -75,6 +75,12 @@ export function MasonryGrid({
     show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.19, 1, 0.22, 1] } }
   };
 
+  /** Remount animation when the visible photo set changes (e.g. Highlights ↔ WED tab). */
+  const photoListKey = useMemo(
+    () => photos.map((p) => p.id).join('|') || 'empty',
+    [photos]
+  );
+
   // Public gallery: fluid columns (column-width) fill the viewport. Dashboard preview keeps fixed column-count.
   const verticalColumnStyle = (() => {
     if (isHorizontal) return {};
@@ -97,12 +103,10 @@ export function MasonryGrid({
 
   return (
     <Motion.div
+      key={photoListKey}
       variants={container}
       initial="hidden"
-      {...(forceShow
-        ? { animate: 'show' }
-        : { whileInView: 'show', viewport: { once: true, margin: '0px 0px -80px 0px' } }
-      )}
+      animate="show"
       className={cn(
         'w-full max-w-full min-w-0 masonry-grid-container',
         isHorizontal ? 'flex flex-wrap masonry-grid-horizontal items-start' : 'block masonry-grid-vertical',

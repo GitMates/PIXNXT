@@ -700,7 +700,7 @@ const GalleryView = () => {
 
           {/* Flexible Gallery Grid */}
           <MasonryGrid
-            key={`${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}`}
+            key={`${activeSetId ?? 'highlights'}-${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}`}
             photos={filteredPhotos}
             isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
             gridSettings={{
