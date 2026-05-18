@@ -6,14 +6,137 @@
   letter-spacing: 0.5em !important;
 }
 
-.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__title,
-.gallery-view-hero[data-cover-text-scale='large'] .gallery-heading {
+.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__title:not(.cover-journal-layout__title):not(.cover-novel-layout__title):not(.cover-vintage-layout__title):not(.cover-stamp-layout__title),
+.gallery-view-hero[data-cover-text-scale='large'] .gallery-heading:not(.cover-novel-layout__title):not(.cover-vintage-layout__title):not(.cover-journal-layout__title):not(.cover-stamp-layout__title) {
   font-size: 32px !important;
   line-height: 1.12 !important;
   margin-bottom: 10px !important;
 }
 
-.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__date {
+/* Novel cover — Pixieset split layout overrides generic hero text scale */
+.gallery-view-hero .cover-novel-layout__title.cover-text-grid__title {
+  font-size: clamp(1.25rem, 2.75vw, 2rem) !important;
+  line-height: 1 !important;
+  margin-bottom: 0 !important;
+  color: #222222 !important;
+  text-shadow: none !important;
+  letter-spacing: 0.04em !important;
+}
+
+.gallery-view-page.style-novel .gallery-view-hero .cover-novel-layout__title.cover-text-grid__title {
+  font-size: clamp(1.25rem, 2.75vw, 2rem) !important;
+}
+
+.gallery-view-hero .cover-novel-layout__brand.cover-text-grid__subtitle {
+  font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
+  letter-spacing: 0.42em !important;
+  margin-bottom: 0.75rem !important;
+  color: rgba(34, 34, 34, 0.72) !important;
+  text-shadow: none !important;
+  font-weight: 400 !important;
+}
+
+.gallery-view-hero .cover-novel-layout__date.cover-text-grid__date {
+  font-size: clamp(0.68rem, 1.35vw, 0.92rem) !important;
+  letter-spacing: 0.28em !important;
+  margin-top: 1rem !important;
+  margin-bottom: 0 !important;
+  color: rgba(34, 34, 34, 0.72) !important;
+  text-shadow: none !important;
+}
+
+/* Vintage cover — wide hero + serif title */
+.gallery-view-hero .cover-vintage-layout__title.cover-text-grid__title {
+  font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
+  line-height: 1.05 !important;
+  margin-bottom: clamp(0.75rem, 1.8vh, 1.25rem) !important;
+  color: #222222 !important;
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif !important;
+  text-shadow: none !important;
+}
+
+.gallery-view-hero .cover-vintage-layout__date.cover-text-grid__date {
+  font-size: clamp(0.62rem, 1.1vw, 0.82rem) !important;
+  letter-spacing: 0.32em !important;
+  margin-bottom: 0.65rem !important;
+  color: rgba(34, 34, 34, 0.72) !important;
+  text-shadow: none !important;
+}
+
+.gallery-view-hero .cover-vintage-layout__brand.cover-text-grid__subtitle {
+  font-size: clamp(0.5rem, 0.85vw, 0.68rem) !important;
+  letter-spacing: 0.4em !important;
+  color: rgba(34, 34, 34, 0.72) !important;
+  text-shadow: none !important;
+  font-weight: 400 !important;
+}
+
+.gallery-view-page.style-vintage .gallery-view-hero .cover-vintage-layout__footer {
+  max-width: 100%;
+}
+
+/* Journal cover — image left, text right */
+.gallery-view-hero .cover-journal-layout__title.cover-text-grid__title {
+  font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
+  line-height: 1 !important;
+  margin-bottom: clamp(0.65rem, 1.5vh, 1rem) !important;
+  color: #1a1a1a !important;
+  text-shadow: none !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 700 !important;
+}
+
+.gallery-view-page.style-journal .gallery-view-hero .cover-journal-layout__title.cover-text-grid__title {
+  font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
+}
+
+.gallery-view-hero .cover-journal-layout__brand.cover-text-grid__subtitle {
+  font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
+  letter-spacing: 0.38em !important;
+  margin-bottom: auto !important;
+  color: rgba(26, 26, 26, 0.62) !important;
+  text-shadow: none !important;
+  font-weight: 500 !important;
+}
+
+.gallery-view-hero .cover-journal-layout__date.cover-text-grid__date {
+  font-size: clamp(0.62rem, 1.05vw, 0.8rem) !important;
+  letter-spacing: 0.32em !important;
+  margin-bottom: clamp(0.5rem, 1.2vh, 0.75rem) !important;
+  color: rgba(26, 26, 26, 0.62) !important;
+  text-shadow: none !important;
+}
+
+/* Stamp cover — centered stack */
+.gallery-view-hero .cover-stamp-layout__brand.cover-text-grid__subtitle {
+  font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
+  letter-spacing: 0.4em !important;
+  color: rgba(26, 26, 26, 0.62) !important;
+  text-shadow: none !important;
+  font-weight: 500 !important;
+}
+
+.gallery-view-hero .cover-stamp-layout__date.cover-text-grid__date {
+  font-size: clamp(0.68rem, 1.15vw, 0.88rem) !important;
+  letter-spacing: 0.32em !important;
+  color: rgba(26, 26, 26, 0.62) !important;
+  text-shadow: none !important;
+}
+
+.gallery-view-hero .cover-stamp-layout__title.cover-text-grid__title {
+  font-size: clamp(2.5rem, 7vw, 4.5rem) !important;
+  line-height: 1 !important;
+  color: #1a1a1a !important;
+  text-shadow: none !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 700 !important;
+}
+
+.gallery-view-page.style-stamp .gallery-view-hero .cover-stamp-layout__title.cover-text-grid__title {
+  font-size: clamp(2.5rem, 7vw, 4.5rem) !important;
+}
+
+.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__date:not(.cover-vintage-layout__date):not(.cover-journal-layout__date):not(.cover-stamp-layout__date) {
   font-size: 12px !important;
   line-height: 1.25 !important;
   margin-bottom: 24px !important;
@@ -111,6 +234,17 @@
 @media (min-width: 768px) {
   .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-title {
     font-size: 2.25rem !important;
+  }
+}
+
+.gallery-view-page.style-novel[data-gallery-chrome='large'] .gallery-chrome__brand-title {
+  font-size: 1.125rem !important;
+  letter-spacing: 0.04em !important;
+}
+
+@media (min-width: 768px) {
+  .gallery-view-page.style-novel[data-gallery-chrome='large'] .gallery-chrome__brand-title {
+    font-size: 1.35rem !important;
   }
 }
 

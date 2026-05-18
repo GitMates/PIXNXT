@@ -30,6 +30,7 @@ import { useUploadQueue } from '../components/features/CollectionDashboard/Uploa
 import { getFileMime } from '../lib/fileMime';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
+import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -1657,8 +1658,13 @@ const CollectionDashboard = () => {
     // Derived values
     const collectionName = collection?.name || 'Loading...';
     const collectionDate = collection?.event_date
-        ? new Date(collection.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        ? formatCollectionHeaderDate(collection.event_date)
         : '...';
+    const coverDisplayDate = collection?.event_date
+        ? formatCoverDate(collection.event_date)
+        : collection?.created_at
+            ? formatCoverDate(collection.created_at)
+            : '';
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -2429,7 +2435,7 @@ const CollectionDashboard = () => {
                                         grid: gridSettings
                                     }}
                                     collectionTitle={collection?.name || 'My Collection'}
-                                    collectionDate="MARCH 12TH, 2026"
+                                    collectionDate={coverDisplayDate}
                                     collectionDescription={
                                         activeSetId
                                             ? sets.find((s) => s.id === activeSetId)?.description || ''

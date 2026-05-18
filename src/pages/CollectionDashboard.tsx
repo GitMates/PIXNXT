@@ -25,6 +25,7 @@ import {
   type DashboardPhotoSort,
   sortDashboardPhotos,
 } from '@/utils/sortDashboardPhotos';
+import { formatCoverDate } from '@/lib/formatCoverDate';
 import './CollectionDashboard.css';
 
 export default function CollectionDashboard() {
@@ -372,7 +373,7 @@ export default function CollectionDashboard() {
             <PreviewPane
               settings={dashboardState.designSettings}
               collectionTitle={collection?.name || ''}
-              collectionDate={collection?.event_date || ''}
+              collectionDate={formatCoverDate(collection?.event_date || collection?.created_at)}
               collectionDescription={activeSetId ? sets.find(s => s.id === activeSetId)?.description || '' : (collection?.description || sets[0]?.description || '')}
               coverPhotoUrl={photos.find(p => p.id === collection?.cover_photo_id)?.full_url || undefined}
               gridPhotos={dashboardState.allPhotos as any}

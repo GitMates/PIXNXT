@@ -49,6 +49,34 @@
     display: none !important;
 }
 
+/* Cover layout previews — image + text placement */
+.cd-preview-gallery-card .cover-center-layout__title,
+.cd-preview-gallery-card .cover-novel-layout__text h1,
+.cd-preview-gallery-card .cover-vintage-layout__panel h1,
+.cd-preview-gallery-card .cover-stamp-layout__title,
+.cd-preview-gallery-card .cover-frame-layout h1,
+.cd-preview-gallery-card .cover-stripe-layout h1,
+.cd-preview-gallery-card .cover-outline-layout h1 {
+    text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+}
+
+.cd-preview-gallery-card .cover-vintage-layout__panel,
+.cd-preview-gallery-card .cover-vintage-layout__panel * {
+    text-shadow: none !important;
+}
+
+.cd-preview-gallery-card.style-center .cd-preview-gallery-header,
+.cd-preview-gallery-card.style-novel .cd-preview-gallery-header,
+.cd-preview-gallery-card.style-journal .cd-preview-gallery-header,
+.cd-preview-gallery-card.style-stamp .cd-preview-gallery-header,
+.cd-preview-gallery-card.style-vintage .cd-preview-gallery-header,
+.cd-preview-gallery-card.style-frame .cd-preview-gallery-header,
+.cd-preview-gallery-card.style-stripe .cd-preview-gallery-header,
+.cd-preview-gallery-card.style-outline .cd-preview-gallery-header {
+    display: block;
+    overflow: hidden;
+}
+
 /* 2. LEFT — full-bleed hero, brand top-left, title/date bottom-left, CTA bottom-right */
 .style-left .cd-preview-gallery-header {
     display: block;
@@ -95,6 +123,60 @@
     position: relative;
     z-index: 31;
     flex-shrink: 0;
+}
+
+.cd-preview-gallery-card.style-novel .cover-novel-layout {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100%;
+}
+
+.cd-preview-gallery-card.style-novel .cover-novel-layout__text h1,
+.cd-preview-gallery-card.style-novel .cover-novel-layout__text .gallery-heading,
+.cd-preview-gallery-card.style-novel .cover-novel-layout__text .gallery-body-text {
+    text-shadow: none !important;
+}
+
+.cd-preview-gallery-card.style-novel .cover-novel-layout__media {
+    min-height: 0;
+}
+
+.cd-preview-gallery-card.style-journal .cover-journal-layout {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100%;
+}
+
+.cd-preview-gallery-card.style-journal .cover-journal-layout__panel,
+.cd-preview-gallery-card.style-journal .cover-journal-layout__panel * {
+    text-shadow: none !important;
+}
+
+.cd-preview-gallery-card.style-stamp .cover-stamp-layout {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100%;
+}
+
+.cd-preview-gallery-card.style-stamp .cover-stamp-layout,
+.cd-preview-gallery-card.style-stamp .cover-stamp-layout * {
+    text-shadow: none !important;
+}
+
+.cd-preview-gallery-card.style-vintage .cover-vintage-layout {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100%;
+}
+
+.cd-preview-gallery-card.style-vintage .cover-vintage-layout__media {
+    min-height: 0;
+}
+
+.cd-preview-gallery-card.style-stripe .cover-stripe-layout {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100%;
 }
 
 .style-left .header-left-layout .header-content {
@@ -780,18 +862,20 @@
     /* Creamy background */
 }
 
-/* FRAME */
+/* FRAME — full-bleed hero + thin inset border (no outer padding) */
 .style-frame .cd-preview-gallery-header {
-    padding: 30px;
-    background-color: #ffffff;
+    padding: 0;
+    background-color: transparent;
 }
 
-.style-frame .header-bg-img {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    border: 1px solid #ddd;
-    padding: 10px;
+.cd-preview-gallery-card.style-frame .cover-frame-layout {
+    height: 100% !important;
+    min-height: 100% !important;
+    max-height: 100%;
+}
+
+.cd-preview-gallery-card.style-frame .cover-frame-layout__cta .view-gallery-btn {
+    letter-spacing: 0.28em;
 }
 
 /* JOURNAL */
@@ -866,6 +950,101 @@
     opacity: 1 !important;
 }
 
+.cd-preview-gallery-card.style-novel[data-cover-text-scale='compact'] .cover-novel-layout__title.cover-text-grid__title {
+    font-size: 20px !important;
+    line-height: 0.92 !important;
+    color: #222222 !important;
+    letter-spacing: 0.02em !important;
+}
+
+.cd-preview-gallery-card.style-novel[data-cover-text-scale='compact'] .cover-novel-layout__brand.cover-text-grid__subtitle {
+    font-size: 5px !important;
+    color: rgba(34, 34, 34, 0.72) !important;
+    letter-spacing: 0.38em !important;
+    font-weight: 400 !important;
+}
+
+.cd-preview-gallery-card.style-novel[data-cover-text-scale='compact'] .cover-novel-layout__date.cover-text-grid__date {
+    font-size: 7px !important;
+    color: rgba(34, 34, 34, 0.72) !important;
+    letter-spacing: 0.24em !important;
+    margin-top: 5px !important;
+}
+
+.cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__title.cover-text-grid__title {
+    font-size: 22px !important;
+    line-height: 1 !important;
+    color: #222222 !important;
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif !important;
+}
+
+.cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__date.cover-text-grid__date {
+    font-size: 6px !important;
+    color: rgba(34, 34, 34, 0.72) !important;
+    letter-spacing: 0.28em !important;
+    margin-bottom: 4px !important;
+}
+
+.cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__brand.cover-text-grid__subtitle {
+    font-size: 5px !important;
+    color: rgba(34, 34, 34, 0.72) !important;
+    letter-spacing: 0.36em !important;
+}
+
+.cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__panel .gallery-heading {
+    font-size: inherit !important;
+    margin-bottom: inherit !important;
+}
+
+.cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__title.cover-text-grid__title {
+    font-size: 22px !important;
+}
+
+.cd-preview-gallery-card.style-journal[data-cover-text-scale='compact'] .cover-journal-layout__title.cover-text-grid__title {
+    font-size: 20px !important;
+    line-height: 1 !important;
+    color: #1a1a1a !important;
+    letter-spacing: 0.02em !important;
+}
+
+.cd-preview-gallery-card.style-journal[data-cover-text-scale='compact'] .cover-journal-layout__brand.cover-text-grid__subtitle {
+    font-size: 5px !important;
+    color: rgba(26, 26, 26, 0.62) !important;
+    letter-spacing: 0.36em !important;
+    font-weight: 400 !important;
+}
+
+.cd-preview-gallery-card.style-journal[data-cover-text-scale='compact'] .cover-journal-layout__date.cover-text-grid__date {
+    font-size: 6px !important;
+    color: rgba(26, 26, 26, 0.62) !important;
+    letter-spacing: 0.28em !important;
+    margin-bottom: 4px !important;
+}
+
+.cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__title.cover-text-grid__title {
+    font-size: 22px !important;
+    line-height: 1 !important;
+    color: #1a1a1a !important;
+    letter-spacing: 0.02em !important;
+}
+
+.cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__brand.cover-text-grid__subtitle {
+    font-size: 5px !important;
+    color: rgba(26, 26, 26, 0.62) !important;
+    letter-spacing: 0.36em !important;
+    font-weight: 400 !important;
+}
+
+.cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__date.cover-text-grid__date {
+    font-size: 6px !important;
+    color: rgba(26, 26, 26, 0.62) !important;
+    letter-spacing: 0.28em !important;
+}
+
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .gallery-heading:not(.cover-vintage-layout__title):not(.cover-novel-layout__title):not(.cover-journal-layout__title):not(.cover-stamp-layout__title) {
+    font-size: 14px !important;
+}
+
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__date,
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cover-left-layout__footer .cover-text-grid__date {
     font-size: 8px !important;
@@ -901,10 +1080,20 @@
 }
 
 /* Stripe + any stray headings in the preview cover header */
-.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .gallery-heading {
+.cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .gallery-heading:not(.cover-novel-layout__brand):not(.cover-journal-layout__brand):not(.cover-stamp-layout__brand) {
     font-size: 14px !important;
     line-height: 1.15 !important;
     margin-bottom: 6px !important;
+}
+
+.cd-preview-gallery-card.style-novel[data-cover-text-scale='compact'] .cover-novel-layout__text h1.gallery-heading {
+    margin-bottom: 0 !important;
+}
+
+.cd-preview-gallery-card.style-novel .gallery-chrome__brand-title {
+    font-size: 7px !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0.06em !important;
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header button {

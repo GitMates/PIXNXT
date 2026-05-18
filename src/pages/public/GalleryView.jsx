@@ -13,6 +13,7 @@ import { X, Mail, Share2, Download, Heart, Play } from 'lucide-react';
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadPhotoFromR2 } from '../../lib/downloadPhoto';
+import { formatCoverDate } from '../../lib/formatCoverDate.js';
 import {
   GalleryStickyNav,
   GallerySetHeading,
@@ -421,27 +422,6 @@ const GalleryView = () => {
     openLightbox(0);
   };
 
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '';
-    try {
-      const date = new Date(dateStr);
-      if (isNaN(date.getTime())) return '';
-
-      const day = date.getDate();
-      const month = date.toLocaleString('en-US', { month: 'long' });
-      const year = date.getFullYear();
-
-      const getOrdinal = (n) => {
-        const s = ["th", "st", "nd", "rd"];
-        const v = n % 100;
-        return n + (s[(v - 20) % 10] || s[v] || s[0]);
-      };
-
-      return `${month} ${getOrdinal(day)}, ${year}`.toUpperCase();
-    } catch {
-      return '';
-    }
-  };
 
   /** Base list for the active tab — must NOT get a new array reference when only `favoritedPhotos` changes
    *  (otherwise MasonryGrid + framer-motion `whileInView` can re-run and leave tiles stuck at opacity 0). */
@@ -608,7 +588,7 @@ const GalleryView = () => {
 
   return (
     <div
-      className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`, `nav-style-${navigationStyle}`)}
+      className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`, `nav-style-${navigationStyle}`, `style-${effectiveSettings.cover_style}`)}
       style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
       data-gallery-chrome="large"
     >
@@ -629,7 +609,7 @@ const GalleryView = () => {
           const props = {
             title: collection.name,
             subtitle: photographer?.display_name || '',
-            date: formatDate(collection.event_date || collection.created_at),
+            date: formatCoverDate(collection.event_date || collection.created_at),
             photoUrl: activePhotoUrl,
             focalX: collection.focal_x ?? extractedFocalX,
             focalY: collection.focal_y ?? extractedFocalY,

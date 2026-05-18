@@ -1,0 +1,141 @@
+/* Pixieset-style Stamp cover — centered stack on light gray */
+.cover-stamp-layout {
+  --stamp-bg: #f5f5f5;
+  --stamp-text: #1a1a1a;
+  --stamp-muted: rgba(26, 26, 26, 0.62);
+  background-color: var(--stamp-bg) !important;
+  color: var(--stamp-text) !important;
+  gap: clamp(1rem, 2.5vh, 1.75rem);
+}
+
+.cover-stamp-layout__brand {
+  color: var(--stamp-muted) !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+  letter-spacing: 0.38em !important;
+  margin: 0 !important;
+}
+
+.cover-stamp-layout__image-frame {
+  position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #ffffff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.08);
+  aspect-ratio: 1 / 1;
+}
+
+.cover-stamp-layout__image-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-stamp-layout__date {
+  color: var(--stamp-muted) !important;
+  font-weight: 400 !important;
+  text-shadow: none !important;
+  margin: 0 !important;
+}
+
+.cover-stamp-layout__title {
+  color: var(--stamp-text) !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+  letter-spacing: 0.02em !important;
+  line-height: 1 !important;
+  margin: 0 !important;
+}
+
+.cover-stamp-layout__cta {
+  margin-top: 0;
+}
+
+.cover-stamp-layout__cta .view-gallery-btn {
+  background: #222222 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 0 !important;
+}
+
+.cover-stamp-layout__cta .view-gallery-btn:hover {
+  opacity: 0.88;
+}
+
+/* Public gallery — full viewport */
+.gallery-view-hero .cover-stamp-layout {
+  min-height: 100%;
+  height: 100%;
+  padding: clamp(2rem, 5vh, 3.5rem) clamp(1.5rem, 4vw, 2.5rem);
+  gap: clamp(1.15rem, 2.8vh, 2rem);
+}
+
+.gallery-view-hero .cover-stamp-layout__brand {
+  font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
+  letter-spacing: 0.4em !important;
+}
+
+.gallery-view-hero .cover-stamp-layout__image-frame {
+  width: clamp(200px, 32vw, 380px);
+  max-width: min(88vw, 380px);
+}
+
+.gallery-view-hero .cover-stamp-layout__date {
+  font-size: clamp(0.68rem, 1.15vw, 0.88rem) !important;
+  letter-spacing: 0.32em !important;
+}
+
+.gallery-view-hero .cover-stamp-layout__title {
+  font-size: clamp(2.5rem, 7vw, 4.5rem) !important;
+}
+
+.gallery-view-hero .cover-stamp-layout__cta .view-gallery-btn {
+  font-size: clamp(0.58rem, 0.95vw, 0.7rem) !important;
+  padding: 0.8rem 2rem !important;
+  letter-spacing: 0.22em !important;
+}
+
+/* Dashboard preview */
+.cd-preview-gallery-card.style-stamp .cover-stamp-layout {
+  height: 100% !important;
+  min-height: 100% !important;
+  gap: 6px !important;
+  padding: 10px 12px !important;
+}
+
+.cd-preview-gallery-card.style-stamp .cover-stamp-layout__brand {
+  font-size: 5px !important;
+  letter-spacing: 0.36em !important;
+}
+
+.cd-preview-gallery-card.style-stamp .cover-stamp-layout__image-frame {
+  width: 52px;
+  height: 52px;
+}
+
+.cd-preview-gallery-card.style-stamp .cover-stamp-layout__date {
+  font-size: 6px !important;
+  letter-spacing: 0.28em !important;
+}
+
+.cd-preview-gallery-card.style-stamp .cover-stamp-layout__title {
+  font-size: 22px !important;
+  margin-bottom: 2px !important;
+}
+
+.cd-preview-gallery-card.style-stamp .cover-stamp-layout__cta .view-gallery-btn {
+  font-size: 6px !important;
+  padding: 3px 9px !important;
+  letter-spacing: 0.18em !important;
+}
+
+@media (max-width: 768px) {
+  .gallery-view-hero .cover-stamp-layout__image-frame {
+    width: clamp(180px, 55vw, 300px);
+  }
+
+  .gallery-view-hero .cover-stamp-layout__title {
+    font-size: clamp(2rem, 12vw, 3.25rem) !important;
+  }
+}
