@@ -6,9 +6,12 @@ import { useAuth } from '../hooks/useAuth';
 import { DesignTab } from '../components/features/CollectionDashboard/DesignTab';
 import { PreviewPane } from '../components/features/CollectionDashboard/PreviewPane';
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
+import { SidebarCoverUpload } from '../components/features/CollectionDashboard/CoverSettings/SidebarCoverUpload';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import { openSpaPath } from '../lib/spaNavigation';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
+import { MEDIA_FILE_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
+import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
 import '../components/features/CollectionDashboard/Activity/DownloadActivity.css';
@@ -113,6 +116,9 @@ const CollectionDashboard = () => {
     const [focalY, setFocalY] = useState(50);
     const [isDraggingFocal, setIsDraggingFocal] = useState(false);
     const [showCoverModal, setShowCoverModal] = useState(false);
+    /** 'all' | 'highlights' | set uuid */
+    const [coverModalScope, setCoverModalScope] = useState('all');
+    const [isCoverUploading, setIsCoverUploading] = useState(false);
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
 
     // General Settings State
@@ -738,15 +744,36 @@ const CollectionDashboard = () => {
         }
     };
 
-    const handleSetAsCover = async (photo) => {
+    const handleCoverPhotoSelect = async (photo) => {
+        if (!photo?.full_url || !collectionId) return;
         try {
-            await galleryService.updateCollection(collectionId, { cover_url: photo.full_url });
-            setCollection(prev => ({ ...prev, cover_url: photo.full_url }));
-            alert('Collection cover updated!');
+            setIsCoverUploading(true);
+            await galleryService.updateCollection(collectionId, {
+                cover_photo_id: photo.id,
+                cover_url: photo.full_url,
+            });
+            setCollection((prev) => ({
+                ...prev,
+                cover_url: photo.full_url,
+                cover_photo_id: photo.id,
+            }));
         } catch (err) {
             console.error('Failed to set cover:', err);
             alert('Failed to set cover photo.');
+        } finally {
+            setIsCoverUploading(false);
         }
+    };
+
+    const handleSetAsCover = (photo) => {
+        void handleCoverPhotoSelect(photo);
+    };
+
+    const handleCoverPhotoDropById = (photoId) => {
+        const photo = photos.find((p) => String(p.id) === String(photoId));
+        if (!photo) return;
+        if (!isGalleryImagePhoto(photo)) return;
+        void handleCoverPhotoSelect(photo);
     };
 
     const handleDownloadPhoto = async (photo) => {
@@ -1066,6 +1093,29 @@ const CollectionDashboard = () => {
     const activeSetPhotoCount = activeSetId
         ? photos.filter(p => p.set_id === activeSetId).length
         : photos.filter(p => !p.set_id).length;
+
+    const coverModalPhotos = useMemo(() => {
+        if (coverModalScope === 'all') return photos;
+        if (coverModalScope === 'highlights') return photos.filter((p) => !p.set_id);
+        return photos.filter((p) => p.set_id === coverModalScope);
+    }, [photos, coverModalScope]);
+
+    const coverModalScopeLabel = useMemo(() => {
+        if (coverModalScope === 'all') return 'All photos';
+        if (coverModalScope === 'highlights') return highlightsName;
+        const set = sets.find((s) => s.id === coverModalScope);
+        return set?.name || 'Set';
+    }, [coverModalScope, highlightsName, sets]);
+
+    const openCoverModal = (scope = 'all') => {
+        setCoverModalScope(scope);
+        setShowCoverModal(true);
+    };
+
+    const closeCoverModal = () => {
+        setShowCoverModal(false);
+        setCoverModalScope('all');
+    };
 
     // ─── SET HANDLERS ────────────────────────────────────────
     const handleCreateSet = async () => {
@@ -1388,12 +1438,12 @@ const CollectionDashboard = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    const handleFileSelect = (e) => {
-        const rawFiles = Array.from(e.target.files);
-        const files = rawFiles.filter(f => f.size > 0);
-        
+    const processSelectedUploadFiles = (fileList) => {
+        const rawFiles = Array.from(fileList || []);
+        const files = rawFiles.filter((f) => f.size > 0);
+
         if (rawFiles.length > 0 && files.length === 0) {
-            alert("The selected files are empty or corrupted. If you are uploading a file from another app, please save it to your computer first.");
+            alert('The selected files are empty or corrupted. If you are uploading a file from another app, please save it to your computer first.');
             return;
         }
         if (files.length === 0) return;
@@ -1451,12 +1501,27 @@ const CollectionDashboard = () => {
         });
     };
 
-    const handleDropzoneClick = () => {
-        fileInputRef.current?.click();
+    const handleFileSelect = (e) => {
+        processSelectedUploadFiles(e.target.files);
+        e.target.value = '';
     };
 
-    const handleModalBrowse = () => {
-        modalFileInputRef.current?.click();
+    const openMediaFileDialog = (inputRef) => {
+        void pickMediaFilesOrFallback({
+            multiple: true,
+            fallback: () => inputRef.current?.click(),
+        }).then((files) => {
+            if (files?.length) processSelectedUploadFiles(files);
+        });
+    };
+
+    const handleDropzoneClick = () => {
+        openMediaFileDialog(fileInputRef);
+    };
+
+    const handleModalBrowse = (e) => {
+        e?.stopPropagation?.();
+        openMediaFileDialog(modalFileInputRef);
     };
 
     const handleModalDragOver = (e) => {
@@ -1690,19 +1755,13 @@ const CollectionDashboard = () => {
                 <aside className="cd-sidebar">
                     <div className="cd-sidebar-scrollable">
 
-                        <div className="cd-cover-image">
-                            {collection?.cover_url ? (
-                                <img src={collection.cover_url} alt="Cover" />
-                            ) : photos.length > 0 ? (
-                                <img src={photos[0].full_url} alt="Cover" />
-                            ) : (
-                                <img src="https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&auto=format&fit=crop&q=60" alt="Cover" />
-                            )}
-                            <div className="cd-cover-hover-overlay" onClick={() => setShowCoverModal(true)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
-                                <span>Change Cover</span>
-                            </div>
-                        </div>
+                        <SidebarCoverUpload
+                            coverUrl={collection?.cover_url}
+                            isUpdating={isCoverUploading}
+                            activeSetName={activeSetName}
+                            onPhotoDrop={handleCoverPhotoDropById}
+                            onSelectFromCollection={() => openCoverModal('all')}
+                        />
 
                         <div className="cd-icon-bar">
                             <button
@@ -1756,7 +1815,11 @@ const CollectionDashboard = () => {
                                                 </button>
                                                 {showSetMenu === 'highlights' && (
                                                     <div className="cd-set-dropdown">
-                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }); }}>
+                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal('highlights'); }}>
+                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                                            <span>Change cover</span>
+                                                        </div>
+                                                        <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal({ id: 'highlights', name: highlightsName, description: collection?.description || '' }); }}>
                                                             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                                                             <span>Edit set</span>
                                                         </div>
@@ -1783,7 +1846,11 @@ const CollectionDashboard = () => {
                                                     </button>
                                                     {showSetMenu === set.id && (
                                                         <div className="cd-set-dropdown">
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); openEditSetModal(set); }}>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
+                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                                                <span>Change cover</span>
+                                                            </div>
+                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal(set); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                                                                 <span>Edit set</span>
                                                             </div>
@@ -2019,8 +2086,15 @@ const CollectionDashboard = () => {
                                     >
                                         {sortedPhotos.map((photo, index) => (
                                             <div
-                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''}`}
+                                                className={`cd-photo-card ${selectedPhotos.includes(photo.id) ? 'selected' : ''} ${isGalleryImagePhoto(photo) ? 'cd-photo-card--cover-draggable' : ''}`}
                                                 key={photo.id || index}
+                                                draggable={isGalleryImagePhoto(photo)}
+                                                onDragStart={(e) => {
+                                                    if (!isGalleryImagePhoto(photo)) return;
+                                                    e.stopPropagation();
+                                                    setCoverPhotoDragData(e.dataTransfer, photo.id);
+                                                }}
+                                                onDragEnd={() => endCoverPhotoDrag()}
                                                 onClick={() => togglePhotoSelection(photo.id)}
                                                 style={{
                                                     aspectRatio: '1 / 1',
@@ -2056,6 +2130,7 @@ const CollectionDashboard = () => {
                                                             src={photo.full_url}
                                                             alt={photo.filename || `Photo ${index + 1}`}
                                                             className="cd-photo-img"
+                                                            draggable={false}
                                                             style={{
                                                                 width: '100%',
                                                                 height: '100%',
@@ -2134,7 +2209,7 @@ const CollectionDashboard = () => {
                                             type="file"
                                             ref={fileInputRef}
                                             style={{ display: 'none' }}
-                                            accept="image/*,video/*"
+                                            accept={MEDIA_FILE_ACCEPT}
                                             multiple
                                             onChange={handleFileSelect}
                                         />
@@ -2525,7 +2600,7 @@ const CollectionDashboard = () => {
                                                 type="file"
                                                 ref={modalFileInputRef}
                                                 style={{ display: 'none' }}
-                                                accept="image/*,video/*"
+                                                accept={MEDIA_FILE_ACCEPT}
                                                 multiple
                                                 onChange={handleFileSelect}
                                             />
@@ -2890,39 +2965,11 @@ const CollectionDashboard = () => {
             {/* Change Cover Modal */}
             <ChangeCoverModal
                 isOpen={showCoverModal}
-                onClose={() => setShowCoverModal(false)}
-                photos={photos}
-                onSelectPhoto={async (photo) => {
-                    try {
-                        setSaving(true);
-                        await galleryService.updateCollection(collectionId, {
-                            cover_photo_id: photo.id,
-                            cover_url: photo.full_url
-                        });
-                        setCollection(prev => ({ ...prev, cover_url: photo.full_url, cover_photo_id: photo.id }));
-                    } catch (err) {
-                        console.error('Failed to update cover:', err);
-                    } finally {
-                        setSaving(false);
-                    }
-                }}
-                onUploadPhoto={async (file) => {
-                    try {
-                        setSaving(true);
-                        // Upload specifically for cover (index 0 for now as priority)
-                        const photoData = await galleryService.uploadPhoto(collectionId, collection.photographer_id, file, 0);
-                        setPhotos(prev => [photoData, ...prev]);
-
-                        await galleryService.updateCollection(collectionId, {
-                            cover_photo_id: photoData.id,
-                            cover_url: photoData.full_url
-                        });
-                        setCollection(prev => ({ ...prev, cover_url: photoData.full_url, cover_photo_id: photoData.id }));
-                    } catch (err) {
-                        console.error('Cover upload failed:', err);
-                    } finally {
-                        setSaving(false);
-                    }
+                onClose={closeCoverModal}
+                photos={coverModalPhotos}
+                scopeLabel={coverModalScopeLabel}
+                onSelectPhoto={(photo) => {
+                    void handleCoverPhotoSelect(photo);
                 }}
             />
 

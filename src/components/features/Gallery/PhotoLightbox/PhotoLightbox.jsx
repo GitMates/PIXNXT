@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Download, Heart, Play, Pause, Share2 } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
@@ -19,6 +20,8 @@ export function PhotoLightbox({
   showFavorite = true,
   showShare = true,
   isFavorited = false,
+  /** Applied on the portal root so theme CSS variables match the gallery page */
+  themeClassName = 'theme-light font-sans',
   /** Full label for bottom-left badge, e.g. "retouching (2/3)". When set, overrides favoriteCount + "My Favorites". */
   favoriteOverlayLabel,
   /** When set (and no favoriteOverlayLabel), shows Pixieset-style "My Favorites (n)" on the bottom-left of the image stage. */
@@ -63,8 +66,6 @@ export function PhotoLightbox({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onNext, onPrev, onClose, onToggleSlideshow]);
 
-  if (!isOpen) return null;
-
   const canShare = showShare && typeof onShare === 'function';
   const showBottomLabel = showFavorite && (favoriteOverlayLabel || typeof favoriteCount === 'number');
 
@@ -91,14 +92,25 @@ export function PhotoLightbox({
     setBottomSecondaryUnlocked((prev) => ({ ...prev, [i]: true }));
   };
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
+      {isOpen ? (
       <Motion.div
+        key="photo-lightbox"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[100] flex flex-col"
+        transition={{ duration: 0.25 }}
+        className={cn(
+          'photo-lightbox-root fixed inset-0 z-[9999] flex flex-col',
+          themeClassName
+        )}
         style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Photo viewer"
       >
         <div className="relative z-[50] flex h-16 shrink-0 items-center justify-between px-4 md:h-20 md:px-8">
           <button
@@ -120,7 +132,6 @@ export function PhotoLightbox({
         </div>
 
         <div className="relative flex min-h-0 flex-1 items-center justify-center overflow-hidden px-3 pb-3 md:px-12 md:pb-6">
-          {!isSlideshowActive && (
             <button
               type="button"
               onClick={onPrev}
@@ -132,7 +143,6 @@ export function PhotoLightbox({
             >
               <ChevronLeft size={22} strokeWidth={1} />
             </button>
-          )}
 
           <Motion.div
             key={currentIndex}
@@ -229,7 +239,6 @@ export function PhotoLightbox({
             </div>
           </Motion.div>
 
-          {!isSlideshowActive && (
             <button
               type="button"
               onClick={onNext}
@@ -238,10 +247,10 @@ export function PhotoLightbox({
                 borderColor: 'var(--gallery-border)',
                 backgroundColor: 'color-mix(in srgb, var(--gallery-bg), transparent 35%)',
               }}
+              aria-label="Next photo"
             >
               <ChevronRight size={22} strokeWidth={1} />
             </button>
-          )}
         </div>
 
         <div className="relative z-[50] flex h-14 shrink-0 items-center justify-center px-6 md:h-16">
@@ -250,6 +259,8 @@ export function PhotoLightbox({
           </span>
         </div>
       </Motion.div>
-    </AnimatePresence>
+      ) : null}
+    </AnimatePresence>,
+    document.body
   );
 }

@@ -18,6 +18,11 @@ import './GalleryView.css';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
 import { normalizeNavigationStyle } from '../../lib/navStyle';
 import {
+  normalizePaletteId,
+  normalizeFontId,
+  normalizeCoverStyleId,
+} from '../../lib/normalizeDesignTokens';
+import {
   isClientSessionActive,
   setClientSessionActive,
   isClientExclusiveEnabled,
@@ -297,9 +302,9 @@ const GalleryView = () => {
       nav_style: 'icons'
     };
     return {
-      cover_style: previewCoverStyle || collection.cover_style || 'novel',
-      font_family: previewFont || collection.font_family || 'sans',
-      color_palette: previewColor || collection.color_palette || 'light',
+      cover_style: normalizeCoverStyleId(previewCoverStyle || collection.cover_style || 'novel'),
+      font_family: normalizeFontId(previewFont || collection.font_family || 'sans'),
+      color_palette: normalizePaletteId(previewColor || collection.color_palette || 'light'),
       grid_style: previewGrid || collection.grid_style || 'vertical',
       nav_style: collection.nav_style || 'icons'
     };
@@ -398,7 +403,7 @@ const GalleryView = () => {
 
   const handleStartSlideshow = () => {
     setLightboxIndex(0);
-    setIsSlideshowActive(true);
+    setIsSlideshowActive(false);
   };
 
   const formatDate = (dateStr) => {
@@ -771,6 +776,10 @@ const GalleryView = () => {
           return !!id && favoritedPhotos.includes(id);
         })()}
         favoriteOverlayLabel={favoriteLightboxLabel || undefined}
+        themeClassName={cn(
+          `theme-${effectiveSettings.color_palette}`,
+          `font-${effectiveSettings.font_family}`
+        )}
       />
 
       {/* Favorite Modal */}
