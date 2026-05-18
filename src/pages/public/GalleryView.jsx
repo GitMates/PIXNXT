@@ -628,6 +628,7 @@ const GalleryView = () => {
 
           const props = {
             title: collection.name,
+            subtitle: photographer?.display_name || '',
             date: formatDate(collection.event_date || collection.created_at),
             photoUrl: activePhotoUrl,
             focalX: collection.focal_x ?? extractedFocalX,

@@ -80,7 +80,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   const styles = galleryChromeStyles[variant];
   const isCompact = variant === 'preview';
   const isMobilePreviewNav = isCompact && isPreviewMobile;
-  const iconSize = styles.actionIcon;
+  const iconSize = isMobilePreviewNav ? 10 : styles.actionIcon;
   const previewStyles = isCompact ? galleryChromeStyles.preview : null;
 
   const showActionLabels = navigationStyle === 'text' && !isMobilePreviewNav;
@@ -122,10 +122,13 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
       {showHighlightsTab ? (
         <button
           type="button"
-          className={cn('group relative flex shrink-0 items-center', isCompact ? 'py-0' : 'py-2')}
+          className={cn(
+            'group relative inline-flex shrink-0 items-center whitespace-nowrap',
+            isCompact ? 'py-0' : 'py-2'
+          )}
           onClick={() => onSetChange?.(null)}
         >
-          <span className={tabButtonClass(!activeSetId)} style={{ color: 'var(--gallery-text)' }}>
+          <span className={cn(tabButtonClass(!activeSetId), 'whitespace-nowrap')} style={{ color: 'var(--gallery-text)' }}>
             Highlights
           </span>
           {!activeSetId && (
@@ -140,10 +143,16 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           key={set.id}
           type="button"
-          className={cn('group relative flex shrink-0 items-center', isCompact ? 'py-0' : 'py-2')}
+          className={cn(
+            'group relative inline-flex shrink-0 items-center whitespace-nowrap',
+            isCompact ? 'py-0' : 'py-2'
+          )}
           onClick={() => onSetChange?.(set.id)}
         >
-          <span className={tabButtonClass(activeSetId === set.id)} style={{ color: 'var(--gallery-text)' }}>
+          <span
+            className={cn(tabButtonClass(activeSetId === set.id), 'whitespace-nowrap')}
+            style={{ color: 'var(--gallery-text)' }}
+          >
             {set.name}
           </span>
           {activeSetId === set.id && (

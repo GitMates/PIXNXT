@@ -9,9 +9,11 @@ export const galleryChromeStyles = {
     navLeft: `${galleryChromeLayout.navLeft} flex-row gap-1.5 min-w-0`,
     navRight: 'gallery-chrome__nav-right flex shrink-0 items-center justify-end gap-1',
     brandBlock: `${galleryChromeLayout.brandBlock} shrink-0 min-w-0 max-w-[38%]`,
-    tabsBlock: `${galleryChromeLayout.tabsBlock} shrink-0 gap-1.5 min-w-0`,
+    tabsBlock:
+      'gallery-chrome__tabs flex flex-nowrap items-center shrink-0 gap-1.5 min-w-0 self-center overflow-x-auto no-scrollbar',
     navRailSpacer: galleryChromeLayout.navRailSpacer,
-    actionsBlock: `${galleryChromeLayout.actionsBlock} gap-0.5 shrink-0`,
+    actionsBlock:
+      'gallery-chrome__actions flex shrink-0 flex-nowrap items-center justify-end self-center gap-0.5',
     brandTitle:
       'gallery-chrome__brand-title gallery-heading text-[9px] uppercase leading-none truncate max-w-full',
     brandSubtitle:
@@ -24,14 +26,15 @@ export const galleryChromeStyles = {
     setDescription:
       'gallery-chrome__set-description mx-auto max-w-2xl whitespace-pre-wrap text-[11px] font-light leading-relaxed tracking-wide md:text-[12px]',
     setDescriptionWrap: '-mx-6 border-b px-4 py-4 text-center md:px-6',
-    navInnerMobile: 'gallery-chrome__nav-inner gallery-chrome__nav-inner--mobile flex-col items-stretch gap-1.5 py-2 px-2',
-    navRowMobile: 'gallery-chrome__nav-row flex w-full min-w-0 items-center justify-between gap-2',
+    navInnerMobile:
+      'gallery-chrome__nav-inner gallery-chrome__nav-inner--mobile flex flex-col items-stretch gap-1 py-1.5 px-2',
+    navRowMobile: 'gallery-chrome__nav-row flex w-full min-w-0 items-center justify-between gap-1.5',
     brandBlockMobile:
-      'gallery-chrome__brand gallery-chrome__brand--mobile min-w-0 flex-1 max-w-[58%] flex flex-col items-start',
+      'gallery-chrome__brand gallery-chrome__brand--mobile min-w-0 flex-1 max-w-[52%] flex flex-col items-start',
     tabsBlockMobile:
-      'gallery-chrome__tabs gallery-chrome__tabs--mobile w-full min-w-0 flex-nowrap items-center gap-3 overflow-x-auto no-scrollbar',
+      'gallery-chrome__tabs gallery-chrome__tabs--mobile flex flex-row flex-nowrap items-center w-full min-w-0 gap-1.5 overflow-x-auto overflow-y-hidden no-scrollbar',
     actionsBlockMobile:
-      'gallery-chrome__actions gallery-chrome__actions--mobile flex shrink-0 flex-row flex-nowrap items-center justify-end gap-1',
+      'gallery-chrome__actions gallery-chrome__actions--mobile flex shrink-0 flex-row flex-nowrap items-center justify-end gap-0.5',
   },
   galleryView: {
     nav: 'gallery-sticky-nav gallery-sticky-nav--gallery-view',

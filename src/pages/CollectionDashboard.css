@@ -2548,14 +2548,36 @@
     justify-content: center;
 }
 
-/* 2. Left */
+/* 2. Left — full-bleed overlay */
+.style-left .preview-content {
+    align-items: stretch;
+}
+
 .style-left .preview-image {
     background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80');
 }
 
 .style-left .preview-title {
+    top: 8px;
+    left: 8px;
+    bottom: auto;
+    font-size: 6px;
+    letter-spacing: 0.2em;
+    opacity: 0.9;
+}
+
+.style-left .preview-content::after {
+    content: 'TITLE';
+    position: absolute;
     bottom: 8px;
     left: 8px;
+    font-size: 7px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    z-index: 2;
+    pointer-events: none;
 }
 
 /* 3. Novel */

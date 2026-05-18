@@ -396,6 +396,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const renderCover = () => {
     const props = {
       title: collectionTitle,
+      subtitle: photographerName,
       date: collectionDate,
       photoUrl: coverPhotoUrl,
       focalX: dashboardState?.focalX,
@@ -454,7 +455,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           sets={(dashboardState?.sets || []).map((s: any) => ({ id: s.id, name: s.name }))}
           activeSetId={dashboardState?.activeSetId ?? null}
           onSetChange={onSetActiveSet}
-          maxVisibleSets={isPreviewMobile ? 1 : 3}
+          maxVisibleSets={isPreviewMobile ? 4 : 3}
           showFavorites={favFeatureOn}
           showDownload={dashboardState?.photoDownload !== false && dashboardState?.galleryDownload !== false}
           showShare={dashboardState?.socialSharing !== false}
