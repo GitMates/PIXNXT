@@ -245,6 +245,7 @@ export type Database = {
           show_filenames: boolean
           show_on_homepage: boolean
           slug: string
+          slideshow_enabled: boolean
           social_sharing_enabled: boolean
           status: Database["public"]["Enums"]["collection_status"]
           store_banner_text: string | null
@@ -299,6 +300,7 @@ export type Database = {
           show_filenames?: boolean
           show_on_homepage?: boolean
           slug: string
+          slideshow_enabled?: boolean
           social_sharing_enabled?: boolean
           status?: Database["public"]["Enums"]["collection_status"]
           store_banner_text?: string | null
@@ -353,6 +355,7 @@ export type Database = {
           show_filenames?: boolean
           show_on_homepage?: boolean
           slug?: string
+          slideshow_enabled?: boolean
           social_sharing_enabled?: boolean
           status?: Database["public"]["Enums"]["collection_status"]
           store_banner_text?: string | null

@@ -37,6 +37,10 @@ import {
     normalizePaletteId,
     resolveCoverLayoutId,
 } from '../lib/normalizeDesignTokens.js';
+import {
+    cacheSlideshowEnabled,
+    readCachedSlideshowEnabled,
+} from '../lib/collectionFeatureFlags';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -576,6 +580,8 @@ const CollectionDashboard = () => {
     const favoriteDetailToolbarMenuRef = useRef(null);
     const favoriteDetailPhotoMenuRef = useRef(null);
     const designHydratedRef = useRef(false);
+    const settingsHydratedRef = useRef(false);
+    const slideshowColumnReadyRef = useRef(false);
     const favoriteActivitySortMenuRef = useRef(null);
 
 
@@ -1012,6 +1018,8 @@ const CollectionDashboard = () => {
 
             try {
                 designHydratedRef.current = false;
+                settingsHydratedRef.current = false;
+                slideshowColumnReadyRef.current = false;
                 setLoading(true);
                 setError(null);
                 const data = await galleryService.getCollectionDashboardData(collectionId);
@@ -1084,10 +1092,21 @@ const CollectionDashboard = () => {
                 if (data.expiry_email_lists) setExpiryEmailLists(data.expiry_email_lists);
                 if (data.social_sharing_enabled !== undefined) setSocialSharing(data.social_sharing_enabled);
                 if (data.gallery_assist !== undefined) setGalleryAssist(data.gallery_assist);
-                if (data.slideshow !== undefined) setSlideshow(data.slideshow);
+                if (Object.prototype.hasOwnProperty.call(data, 'slideshow_enabled')) {
+                    setSlideshow(data.slideshow_enabled !== false);
+                    slideshowColumnReadyRef.current = true;
+                    cacheSlideshowEnabled(collectionId, data.slideshow_enabled !== false);
+                } else if (data.slideshow !== undefined) {
+                    setSlideshow(data.slideshow !== false);
+                    cacheSlideshowEnabled(collectionId, data.slideshow !== false);
+                } else {
+                    const cachedSlideshow = readCachedSlideshowEnabled(collectionId);
+                    if (cachedSlideshow !== null) setSlideshow(cachedSlideshow);
+                }
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
 
                 designHydratedRef.current = true;
+                settingsHydratedRef.current = true;
 
                 const photoData = data.photos || [];
                 setPhotos(photoData);
@@ -1630,7 +1649,6 @@ const CollectionDashboard = () => {
                     gallery_download_enabled: galleryDownload,
                     single_photo_download_enabled: singlePhotoDownload,
                     require_pin_for_single_photo: requirePinForSinglePhoto,
-                    social_sharing_enabled: socialSharing,
                     // Advanced settings
                     download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
                     restrict_to_emails: restrictToEmails || null,
@@ -1646,7 +1664,6 @@ const CollectionDashboard = () => {
                     slug: collectionUrl,
                     settings: {
                         downloads_enabled: photoDownload,
-                        social_sharing_enabled: socialSharing,
                         gallery_download_enabled: galleryDownload,
                         single_photo_download_enabled: singlePhotoDownload,
                         require_pin_for_single_photo: requirePinForSinglePhoto,
@@ -1668,6 +1685,53 @@ const CollectionDashboard = () => {
         highResChoice, webSizeChoice, downloadLimit, restrictToEmails,
         selectedDownloadSets, pinUsageLimit,
         collectionId, collection, loading
+    ]);
+
+    // Auto-save general gallery visitor settings (slideshow, social sharing)
+    useEffect(() => {
+        if (!collection || loading || !settingsHydratedRef.current) return;
+
+        const saveGeneralGallerySettings = async () => {
+            cacheSlideshowEnabled(collectionId, slideshow);
+            const patch = {
+                social_sharing_enabled: socialSharing,
+                gallery_assist: galleryAssist,
+                ...(slideshowColumnReadyRef.current ? { slideshow_enabled: slideshow } : {}),
+            };
+
+            const channel = new BroadcastChannel('pixnxt-gallery-update');
+            channel.postMessage({
+                type: 'SETTINGS_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+                settings: {
+                    slideshow_enabled: slideshow,
+                    social_sharing_enabled: socialSharing,
+                },
+            });
+            channel.close();
+
+            try {
+                const updated = await galleryService.updateCollection(collectionId, patch);
+
+                if (updated) {
+                    setCollection((prev) => (prev ? { ...prev, ...updated } : prev));
+                }
+            } catch (err) {
+                console.error('Error auto-saving general gallery settings:', err);
+            }
+        };
+
+        const timeoutId = setTimeout(saveGeneralGallerySettings, 800);
+        return () => clearTimeout(timeoutId);
+    }, [
+        slideshow,
+        socialSharing,
+        galleryAssist,
+        collectionId,
+        collectionUrl,
+        collection,
+        loading,
     ]);
 
     // Auto-save favorite settings
@@ -1922,7 +1986,9 @@ const CollectionDashboard = () => {
                                 coverStyle: selectedCoverStyle,
                                 font: selectedFont,
                                 color: selectedColorPalette,
-                                grid: gridSettings.style
+                                grid: gridSettings.style,
+                                slideshow: slideshow ? '1' : '0',
+                                socialSharing: socialSharing ? '1' : '0',
                             });
                             openSpaPath(`/gallery/${collectionUrl}?${params.toString()}`);
                         }}
@@ -2493,6 +2559,7 @@ const CollectionDashboard = () => {
                                         singlePhotoDownload: singlePhotoDownload,
                                         favoritePhotos: favoritePhotos,
                                         socialSharing: socialSharing,
+                                        slideshow: slideshow,
                                         downloadPin: downloadPin,
                                         pinValue: pinValue,
                                         requirePinForSinglePhoto: requirePinForSinglePhoto,

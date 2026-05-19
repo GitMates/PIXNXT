@@ -1,6 +1,7 @@
 import React from 'react';
 import { DatePicker } from '../../../ui/DatePicker';
 import { galleryService } from '../../../../services/gallery.service';
+import { cacheSlideshowEnabled } from '../../../../lib/collectionFeatureFlags';
 
 export interface GeneralSettingsProps {
     collectionId: string;
@@ -55,6 +56,44 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     language,
     setLanguage
 }) => {
+    const broadcastGallerySettings = (settings: {
+        slideshow_enabled?: boolean;
+        social_sharing_enabled?: boolean;
+    }) => {
+        const channel = new BroadcastChannel('pixnxt-gallery-update');
+        channel.postMessage({
+            type: 'SETTINGS_UPDATED',
+            collectionId,
+            slug: collectionUrl,
+            settings,
+        });
+        channel.close();
+    };
+
+    const persistGalleryVisitorFlags = async (patch: {
+        slideshow_enabled?: boolean;
+        social_sharing_enabled?: boolean;
+    }) => {
+        if (patch.slideshow_enabled !== undefined) {
+            cacheSlideshowEnabled(collectionId, patch.slideshow_enabled);
+        }
+        // Live-update open gallery tabs before DB round-trip (no reload).
+        broadcastGallerySettings(patch);
+        try {
+            const updated = await galleryService.updateCollection(collectionId, patch);
+            if (updated) {
+                setCollection((prev) => (prev ? { ...prev, ...updated } : prev));
+            }
+        } catch (err) {
+            console.error('Failed to save gallery visitor settings:', err);
+            if (patch.slideshow_enabled !== undefined) {
+                console.error(
+                    'Slideshow setting could not be saved. Apply migration 20260519150000_ensure_slideshow_enabled_column.sql in Supabase.'
+                );
+            }
+        }
+    };
+
     return (
         <div className="cd-general-settings-view">
             <div className="cd-settings-content-header">
@@ -181,7 +220,16 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                         </div>
                         <div className="toggle-control">
                             <label className="cd-toggle">
-                                <input type="checkbox" checked={slideshow} onChange={() => setSlideshow(!slideshow)} />
+                                <input
+                                    type="checkbox"
+                                    checked={slideshow}
+                                    onChange={() => {
+                                        const newValue = !slideshow;
+                                        setSlideshow(newValue);
+                                        setCollection(prev => prev ? { ...prev, slideshow_enabled: newValue } : prev);
+                                        void persistGalleryVisitorFlags({ slideshow_enabled: newValue });
+                                    }}
+                                />
                                 <span className="cd-toggle-slider"></span>
                             </label>
                             <span className="toggle-state-label">{slideshow ? 'On' : 'Off'}</span>
@@ -207,6 +255,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                                         const newValue = !socialSharing;
                                         setSocialSharing(newValue);
                                         setCollection(prev => prev ? { ...prev, social_sharing_enabled: newValue } : prev);
+                                        void persistGalleryVisitorFlags({ social_sharing_enabled: newValue });
                                     }} 
                                 />
                                 <span className="cd-toggle-slider"></span>
