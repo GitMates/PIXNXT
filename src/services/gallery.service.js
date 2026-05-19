@@ -832,7 +832,7 @@ export const galleryService = {
     if (!listId) return null;
     const { data, error } = await supabase
       .from('favorite_lists')
-      .select('id, name, max_selection, submitted_at, session_id, collection_id')
+      .select('id, name, max_selection, description, submitted_at, session_id, collection_id')
       .eq('id', listId)
       .maybeSingle();
 
@@ -1140,7 +1140,7 @@ export const galleryService = {
     if (!sessionId) return [];
     const { data: lists, error } = await supabase
       .from('favorite_lists')
-      .select('id, name, created_at, max_selection, submitted_at')
+      .select('id, name, created_at, max_selection, description, submitted_at')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 

@@ -778,6 +778,17 @@ const GalleryView = () => {
               Your favorites for {activeFavoriteList?.name || 'this list'} have been submitted
             </div>
           ) : null}
+          {sessionId &&
+          !isFavoriteListMode &&
+          !favoritesLocked &&
+          activeFavoriteList?.description?.trim() ? (
+            <div
+              className="mb-6 mx-auto max-w-2xl whitespace-pre-wrap px-4 text-center text-sm leading-relaxed"
+              style={{ color: 'var(--gallery-meta-text)' }}
+            >
+              {activeFavoriteList.description.trim()}
+            </div>
+          ) : null}
           <GalleryStickyNav
             isGalleryView
             navigationStyle={navigationStyle}

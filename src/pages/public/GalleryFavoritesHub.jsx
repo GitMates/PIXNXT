@@ -338,8 +338,22 @@ export default function GalleryFavoritesHub() {
                 </div>
               </Link>
 
+              {list.description?.trim() ? (
+                <p
+                  className="mx-auto mt-5 max-w-md whitespace-pre-wrap text-center text-sm leading-relaxed"
+                  style={{ color: 'var(--gallery-meta-text)' }}
+                >
+                  {list.description.trim()}
+                </p>
+              ) : null}
+
               {!list.submitted_at ? (
-                <div className="mx-auto mt-5 w-full max-w-md text-center">
+                <div
+                  className={cn(
+                    'mx-auto w-full max-w-md text-center',
+                    list.description?.trim() ? 'mt-4' : 'mt-5'
+                  )}
+                >
                   <p className="text-[10px] font-bold uppercase tracking-[0.28em] opacity-50">
                     {list.name}
                   </p>

@@ -25,6 +25,17 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+function linkRow(href: string, label: string, description: string): string {
+  return `<tr>
+    <td style="padding:0 0 10px;">
+      <a href="${escapeHtml(href)}" style="display:block;text-decoration:none;border:1px solid #e8e8e8;border-radius:8px;padding:14px 16px;background:#fafafa;">
+        <span style="display:block;font-size:14px;font-weight:600;color:#111;font-family:Arial,Helvetica,sans-serif;">${escapeHtml(label)}</span>
+        <span style="display:block;margin-top:4px;font-size:12px;line-height:1.5;color:#777;font-family:Arial,Helvetica,sans-serif;">${escapeHtml(description)}</span>
+      </a>
+    </td>
+  </tr>`;
+}
+
 function buildFavoriteSubmitEmailHtml(options: {
   photographerName: string;
   collectionName: string;
@@ -32,7 +43,6 @@ function buildFavoriteSubmitEmailHtml(options: {
   visitorEmail: string;
   photoCount: number;
   clientMessage: string | null;
-  favoritesHubUrl: string;
   selectionsUrl: string;
   dashboardUrl: string;
 }): string {
@@ -43,53 +53,68 @@ function buildFavoriteSubmitEmailHtml(options: {
     visitorEmail,
     photoCount,
     clientMessage,
-    favoritesHubUrl,
     selectionsUrl,
     dashboardUrl,
   } = options;
 
+  const photoLabel = `${photoCount} ${photoCount === 1 ? 'photo' : 'photos'} selected`;
+
   const clientNote = clientMessage?.trim()
-    ? `<div style="margin:24px 0;padding:16px;background:#f8f8f8;border-left:3px solid #111;">
-        <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;">Message from client</p>
-        <p style="margin:0;font-size:15px;line-height:1.7;color:#333;">${escapeHtml(clientMessage.trim())}</p>
-      </div>`
+    ? `<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;">
+        <tr>
+          <td style="padding:16px 18px;background:#f7f7f7;border-radius:8px;border-left:3px solid #111;">
+            <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#888;">Message from client</p>
+            <p style="margin:0;font-size:15px;line-height:1.65;color:#333;">${escapeHtml(clientMessage.trim())}</p>
+          </td>
+        </tr>
+      </table>`
     : '';
 
   return `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background-color:#f5f5f5;font-family:Georgia,'Times New Roman',serif;">
-  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f5f5f5;padding:40px 20px;">
+<body style="margin:0;padding:0;background-color:#f0f0f0;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f0f0;padding:32px 16px;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;box-shadow:0 10px 30px rgba(0,0,0,0.05);">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:520px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
           <tr>
-            <td style="padding:40px 48px;text-align:left;">
-              <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:#999;font-family:Arial,sans-serif;">${escapeHtml(photographerName)}</p>
-              <h1 style="margin:0 0 24px;font-size:22px;font-weight:500;text-transform:uppercase;letter-spacing:2px;color:#111;">Favorite selections confirmed</h1>
-              <p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:#555;">
-                <strong>${escapeHtml(visitorEmail)}</strong> confirmed their favorites for
-                <strong>${escapeHtml(collectionName)}</strong> — list <strong>${escapeHtml(listName)}</strong>
-                (${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}).
-              </p>
-              <p style="margin:0 0 24px;font-size:14px;line-height:1.7;color:#777;">
-                This selection is final and can no longer be changed by the client.
+            <td style="padding:36px 40px 32px;text-align:left;">
+              <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999;">${escapeHtml(photographerName)}</p>
+              <h1 style="margin:0 0 20px;font-size:20px;font-weight:700;letter-spacing:0.5px;color:#111;line-height:1.3;">Favorite selections confirmed</h1>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;background:#fafafa;border:1px solid #eee;border-radius:10px;">
+                <tr>
+                  <td style="padding:18px 20px;">
+                    <p style="margin:0 0 10px;font-size:13px;line-height:1.5;color:#666;">A client finalized their picks:</p>
+                    <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#111;">${escapeHtml(visitorEmail)}</p>
+                    <p style="margin:0 0 4px;font-size:14px;line-height:1.5;color:#444;">
+                      <span style="color:#111;font-weight:600;">${escapeHtml(collectionName)}</span>
+                      <span style="color:#bbb;"> &middot; </span>
+                      <span>${escapeHtml(listName)}</span>
+                    </p>
+                    <p style="margin:8px 0 0;font-size:13px;font-weight:600;color:#555;">${escapeHtml(photoLabel)}</p>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 24px;font-size:13px;line-height:1.6;color:#888;">
+                This selection is final — the client can no longer change these photos.
               </p>
               ${clientNote}
-              <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#111;font-family:Arial,sans-serif;">Links</p>
-              <p style="margin:0 0 8px;font-size:14px;line-height:1.6;">
-                <a href="${escapeHtml(favoritesHubUrl)}" style="color:#111;">Client favorites page</a>
-              </p>
-              <p style="margin:0 0 8px;font-size:14px;line-height:1.6;">
-                <a href="${escapeHtml(selectionsUrl)}" style="color:#111;">View selected photos</a>
-              </p>
-              <p style="margin:0 0 32px;font-size:14px;line-height:1.6;">
-                <a href="${escapeHtml(dashboardUrl)}" style="color:#111;">Open in your dashboard (Favorite Activity)</a>
-              </p>
-              <a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;background-color:#111;color:#ffffff;padding:14px 32px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;text-decoration:none;font-family:Arial,sans-serif;">Review in dashboard</a>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 28px;">
+                ${linkRow(selectionsUrl, 'View selected photos', 'Open the gallery with this list selections.')}
+                ${linkRow(dashboardUrl, 'Open in your dashboard', 'Favorite Activity — review and manage this submission.')}
+              </table>
+              <table role="presentation" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="border-radius:6px;background:#111;">
+                    <a href="${escapeHtml(dashboardUrl)}" style="display:inline-block;padding:14px 28px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#ffffff;text-decoration:none;">Review in dashboard</a>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
         </table>
+        <p style="margin:16px 0 0;font-size:11px;color:#aaa;text-align:center;">Sent by PIXNXT</p>
       </td>
     </tr>
   </table>
@@ -183,7 +208,6 @@ serve(async (req) => {
     }
 
     const origin = (siteOrigin || Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
-    const favoritesHubUrl = `${origin}/gallery/${collection.slug}/f`;
     const selectionsUrl = `${origin}/gallery/${collection.slug}?list=${listId}`;
     const dashboardUrl = `${origin}/collections/manage?id=${collection.id}`;
 
@@ -198,9 +222,8 @@ serve(async (req) => {
       `${photoCount || 0} photo(s) selected. This selection can no longer be changed.`,
       '',
       clientMessage?.trim() ? `Message from client:\n${clientMessage.trim()}\n` : '',
-      `Client favorites page: ${favoritesHubUrl}`,
       `View selected photos: ${selectionsUrl}`,
-      `Dashboard (Favorite Activity): ${dashboardUrl}`,
+      `Open in your dashboard (Favorite Activity): ${dashboardUrl}`,
     ]
       .filter(Boolean)
       .join('\n');
@@ -212,7 +235,6 @@ serve(async (req) => {
       visitorEmail,
       photoCount: photoCount || 0,
       clientMessage: clientMessage || null,
-      favoritesHubUrl,
       selectionsUrl,
       dashboardUrl,
     });
