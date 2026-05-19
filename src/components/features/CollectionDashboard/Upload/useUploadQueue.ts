@@ -6,6 +6,7 @@ export function useUploadQueue(options: {
   photographerId: string | null | undefined;
   activeSetId: string | null;
   photosLength: number;
+  existingFilenames?: string[];
   destinationLabel?: string;
   onPhotoUploaded: (photo: unknown) => void;
 }) {
@@ -18,6 +19,7 @@ export function useUploadQueue(options: {
       photographerId: options.photographerId,
       activeSetId: options.activeSetId,
       photosLength: options.photosLength,
+      existingFilenames: options.existingFilenames ?? [],
       destinationLabel: options.destinationLabel || 'Collection',
       onPhotoUploaded: options.onPhotoUploaded,
     });
@@ -26,6 +28,7 @@ export function useUploadQueue(options: {
     options.photographerId,
     options.activeSetId,
     options.photosLength,
+    options.existingFilenames,
     options.destinationLabel,
     options.onPhotoUploaded,
     ctx.configureTarget,
