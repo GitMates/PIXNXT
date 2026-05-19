@@ -1,79 +1,88 @@
-import React, { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { SmoothMediaImage } from '@/components/ui/SmoothMediaImage';
 import {
   getPhotoDisplayFallbacks,
-  getPhotoFullDisplayUrl,
   getPhotoGridDisplayUrl,
   getPhotoVideoPoster,
   getPhotoVideoSrc,
   isVideoMedia,
 } from '@/lib/photoDisplayUrl';
 
-/** Square manage grid cell — fit entire image without cropping. */
-const containCellStyle = {
+const containWrapStyle = {
   width: '100%',
   height: '100%',
-  objectFit: 'contain',
-  objectPosition: 'center',
   display: 'block',
-  backgroundColor: '#ffffff',
 };
 
-/**
- * Plain img/video for the manage grid — avoids SmoothMediaImage blur (cover) layer.
- */
+/** Square manage grid — shimmer + fade-in via SmoothMediaImage (no blur thumb). */
 function ContainGridMedia({ photo, index, isVideo }) {
-  const candidates = useMemo(() => {
-    const list = getPhotoDisplayFallbacks(photo, true);
-    const primary = getPhotoFullDisplayUrl(photo);
-    if (primary && !list.includes(primary)) {
-      return [primary, ...list];
-    }
-    return list.length > 0 ? list : primary ? [primary] : [];
-  }, [photo]);
+  const gridSrc = useMemo(
+    () => getPhotoGridDisplayUrl(photo, true),
+    [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename]
+  );
 
-  const [srcIndex, setSrcIndex] = useState(0);
-
-  useEffect(() => {
-    setSrcIndex(0);
-  }, [photo.id, candidates.join('\0')]);
-
-  const activeSrc = candidates[srcIndex] || '';
-
-  const onError = useCallback(() => {
-    setSrcIndex((i) => (i < candidates.length - 1 ? i + 1 : i));
-  }, [candidates.length]);
+  const fallbacks = useMemo(() => {
+    return getPhotoDisplayFallbacks(photo, true).filter((url) => url !== gridSrc);
+  }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename, gridSrc]);
 
   if (isVideo) {
-    return (
+    return <ContainGridVideo photo={photo} />;
+  }
+
+  return (
+    <SmoothMediaImage
+      src={gridSrc}
+      fallbacks={fallbacks}
+      alt=""
+      className="cd-photo-img cd-photo-grid-contain-media"
+      objectFit="contain"
+      loading={index < 24 ? 'eager' : 'lazy'}
+      deferUntilVisible={index >= 24}
+      style={containWrapStyle}
+    />
+  );
+}
+
+function ContainGridVideo({ photo }) {
+  const [ready, setReady] = useState(false);
+  const poster = getPhotoVideoPoster(photo);
+
+  return (
+    <span className="smooth-media-wrap" style={containWrapStyle}>
+      {!ready && <span className="smooth-media-shimmer" aria-hidden />}
+      {poster && !ready && (
+        <img
+          src={poster}
+          alt=""
+          aria-hidden
+          className="smooth-media-blur"
+          style={{ objectFit: 'contain' }}
+        />
+      )}
       <video
         src={getPhotoVideoSrc(photo)}
-        poster={getPhotoVideoPoster(photo)}
-        className="cd-photo-img cd-photo-video-thumb cd-photo-grid-contain-media"
-        style={containCellStyle}
+        poster={poster}
+        className={`cd-photo-img cd-photo-video-thumb cd-photo-grid-contain-media smooth-media-img${ready ? ' smooth-media-img--visible' : ''}`}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'contain',
+          backgroundColor: '#fff',
+        }}
         muted
         loop
         playsInline
         preload="metadata"
+        onLoadedData={() => setReady(true)}
         onMouseEnter={(e) => e.currentTarget.play().catch(() => {})}
         onMouseLeave={(e) => {
           e.currentTarget.pause();
           e.currentTarget.currentTime = 0;
         }}
       />
-    );
-  }
-
-  return (
-    <img
-      src={activeSrc}
-      alt={photo.filename || `Photo ${index + 1}`}
-      className="cd-photo-img cd-photo-grid-contain-media"
-      style={containCellStyle}
-      loading={index < 24 ? 'eager' : 'lazy'}
-      decoding="async"
-      onError={onError}
-    />
+    </span>
   );
 }
 

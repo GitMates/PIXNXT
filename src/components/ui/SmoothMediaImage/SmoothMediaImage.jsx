@@ -100,12 +100,13 @@ export function SmoothMediaImage({
   const blurSrc =
     thumbSrc && thumbSrc !== activeSrc && !error && shouldLoad ? thumbSrc : null;
 
-  const showShimmer = shouldLoad && !loaded && !error && !cached;
+  const showShimmer = shouldLoad && !loaded && !cached;
 
   if (!activeSrc) {
     return (
       <span className="smooth-media-wrap" style={style} ref={wrapRef}>
-        <span className="smooth-media-error">No preview</span>
+        <span className="smooth-media-shimmer" aria-hidden />
+        <span className="smooth-media-error">Loading...</span>
       </span>
     );
   }
@@ -148,7 +149,12 @@ export function SmoothMediaImage({
         />
       )}
 
-      {error && <span className="smooth-media-error">Loading...</span>}
+      {error && (
+        <>
+          <span className="smooth-media-shimmer" aria-hidden />
+          <span className="smooth-media-error">Loading...</span>
+        </>
+      )}
     </span>
   );
 }
