@@ -188,34 +188,55 @@ export const DownloadModal = ({
       
       setStatusText(`Downloading ${photosToDownload.length} ${photosToDownload.length === 1 ? (isVideo ? 'video' : 'photo') : 'items'} from ${setName}...`);
 
-      const CHUNK_SIZE = 5;
-      for (let i = 0; i < photosToDownload.length; i += CHUNK_SIZE) {
-        const chunk = photosToDownload.slice(i, i + CHUNK_SIZE);
+      let finalContent;
+      let finalFilename;
 
-        await Promise.all(chunk.map(async (photo, index) => {
-          const globalIndex = i + index;
-          const url = photo.full_url || photo.web_url;
+      if (photosToDownload.length === 1) {
+        const photo = photosToDownload[0];
+        const url = photo.full_url || photo.web_url;
+        
+        try {
+          const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          finalContent = await response.blob();
+          finalFilename = photo.filename || (photo.media_type === 'video' ? 'video.mp4' : 'photo.jpg');
+          setProgress(100);
+          setStatusText('Processing: 100%');
+        } catch (err) {
+          console.error(`Failed to fetch single file:`, err);
+          throw new Error('Failed to download the file.');
+        }
+      } else {
+        const CHUNK_SIZE = 5;
+        for (let i = 0; i < photosToDownload.length; i += CHUNK_SIZE) {
+          const chunk = photosToDownload.slice(i, i + CHUNK_SIZE);
 
-          try {
-            const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const blob = await response.blob();
-            zip.file(photo.filename || `photo-${globalIndex + 1}.jpg`, blob);
-          } catch (err) {
-            console.error(`Failed to fetch ${photo.filename}:`, err);
-          }
+          await Promise.all(chunk.map(async (photo, index) => {
+            const globalIndex = i + index;
+            const url = photo.full_url || photo.web_url;
 
-          const currentProgress = Math.round(((globalIndex + 1) / photosToDownload.length) * 100);
-          setProgress(currentProgress);
-          setStatusText(`Processing: ${currentProgress}%`);
-        }));
+            try {
+              const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
+              if (!response.ok) throw new Error(`HTTP ${response.status}`);
+              const blob = await response.blob();
+              zip.file(photo.filename || `photo-${globalIndex + 1}.jpg`, blob);
+            } catch (err) {
+              console.error(`Failed to fetch ${photo.filename}:`, err);
+            }
+
+            const currentProgress = Math.round(((globalIndex + 1) / photosToDownload.length) * 100);
+            setProgress(currentProgress);
+            setStatusText(`Processing: ${currentProgress}%`);
+          }));
+        }
+
+        setStatusText('Creating zip archive...');
+        finalContent = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+        finalFilename = `${collection.name || 'gallery'}.zip`;
       }
 
-      setStatusText('Creating zip archive...');
-      const content = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-
       setStatusText('Saving to your device...');
-      saveAs(content, `${collection.name || 'gallery'}.zip`);
+      saveAs(finalContent, finalFilename);
       
       // Log download activity
       await galleryService.logActivity(collection.id, 'download', {
@@ -227,7 +248,7 @@ export const DownloadModal = ({
           resolution: 'High Res',
           pinUsed: !!(collection?.download_pin && pin.length > 0),
           pin: pin.length > 0 ? pin : null,
-          size: content.size,
+          size: finalContent.size,
           photoCount: photosToDownload.length,
           setName: selectedSet === 'all' ? 'All Photos' : 
                    selectedSet === 'single' ? (sets.find(s => s.id === initialPhoto?.set_id)?.name || 'Highlights') :

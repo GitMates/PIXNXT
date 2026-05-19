@@ -21,11 +21,14 @@ export const ClientExclusiveLoginModal: React.FC<ClientExclusiveLoginModalProps>
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Client Login Attempt:', { entered: password, stored: storedPassword });
     if (verifyClientPassword(password, storedPassword)) {
+      console.log('Client Login Success!');
       setError('');
       setPassword('');
       onSuccess();
     } else {
+      console.log('Client Login Failed!');
       setError('Incorrect client password. Please try again.');
     }
   };
