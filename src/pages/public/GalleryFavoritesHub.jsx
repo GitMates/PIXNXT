@@ -4,6 +4,8 @@ import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { ArrowLeft, Plus, MoreHorizontal } from 'lucide-react';
 import { galleryService } from '../../services/gallery.service';
 import { cn } from '../../lib/utils';
+import { FavoriteConfirmButton } from '../../components/features/Gallery/FavoriteConfirm/FavoriteConfirmButton';
+import { FavoriteSubmitModal } from '../../components/features/Gallery/FavoriteConfirm/FavoriteSubmitModal';
 
 export default function GalleryFavoritesHub() {
   const { slug } = useParams();
@@ -18,6 +20,10 @@ export default function GalleryFavoritesHub() {
   const [moreOpen, setMoreOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newListName, setNewListName] = useState('');
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [confirmList, setConfirmList] = useState(null);
+  const [submitClientMessage, setSubmitClientMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const moreRef = useRef(null);
 
   const galleryPath = `/gallery/${slug}`;
@@ -80,6 +86,19 @@ export default function GalleryFavoritesHub() {
     };
   }, [slug, navigate, galleryPath, loadLists]);
 
+  useEffect(() => {
+    if (!sessionId) return undefined;
+    const refresh = () => {
+      void loadLists(sessionId);
+    };
+    window.addEventListener('pageshow', refresh);
+    window.addEventListener('focus', refresh);
+    return () => {
+      window.removeEventListener('pageshow', refresh);
+      window.removeEventListener('focus', refresh);
+    };
+  }, [sessionId, loadLists]);
+
   const handleSignOut = () => {
     if (collection?.id) {
       localStorage.removeItem(`pixnxt_fav_email_${collection.id}`);
@@ -111,7 +130,58 @@ export default function GalleryFavoritesHub() {
     }
   };
 
+  const openConfirmModal = (list) => {
+    if (!list || list.submitted_at) return;
+    if ((list.photoCount || 0) < 1) {
+      alert('Select at least one photo in the gallery before confirming your favorites.');
+      return;
+    }
+    setConfirmList(list);
+    setSubmitClientMessage('');
+    setShowSubmitModal(true);
+  };
+
+  const handleSubmitConfirm = async () => {
+    if (!confirmList?.id || !sessionId || !collection) return;
+    try {
+      setIsSubmitting(true);
+      await galleryService.submitFavoriteList(confirmList.id, sessionId);
+      try {
+        await galleryService.notifyPhotographerFavoriteSubmit({
+          listId: confirmList.id,
+          sessionId,
+          siteOrigin: window.location.origin,
+          clientMessage: submitClientMessage,
+        });
+      } catch (emailErr) {
+        console.error('Photographer notification email failed:', emailErr);
+        alert(
+          'Your favorites were saved, but we could not email your photographer. They can still see your selections in Favorite Activity.'
+        );
+      }
+      sessionStorage.removeItem(`pixnxt_fav_pick_list_${collection.id}`);
+      const channel = new BroadcastChannel('pixnxt-gallery-update');
+      channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
+      channel.close();
+      setShowSubmitModal(false);
+      setConfirmList(null);
+      await loadLists(sessionId);
+    } catch (e) {
+      console.error(e);
+      if (e?.code === 'NO_PHOTOS') {
+        alert('Select at least one photo before confirming your favorites.');
+      } else {
+        alert(e?.message || 'Could not submit favorites. Please try again.');
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const listCountLabel = (list) => {
+    if (list.submitted_at) {
+      return 'Submitted';
+    }
     if (list.max_selection != null && Number(list.max_selection) > 0) {
       return `${list.photoCount} of ${list.max_selection} photos`;
     }
@@ -237,7 +307,12 @@ export default function GalleryFavoritesHub() {
           {lists.map((list) => (
             <Motion.div key={list.id} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
               <Link
-                to={`${galleryPath}?list=${list.id}`}
+                to={list.submitted_at ? `${galleryPath}?list=${list.id}` : galleryPath}
+                onClick={() => {
+                  if (!list.submitted_at && collection?.id) {
+                    sessionStorage.setItem(`pixnxt_fav_pick_list_${collection.id}`, list.id);
+                  }
+                }}
                 className="group relative block aspect-[21/9] min-h-[200px] w-full overflow-hidden bg-zinc-800 md:aspect-[2.4/1]"
               >
                 {list.coverUrl ? (
@@ -255,8 +330,42 @@ export default function GalleryFavoritesHub() {
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center text-white">
                   <span className="text-xl font-bold uppercase tracking-[0.2em] md:text-2xl">{list.name}</span>
                   <span className="mt-2 text-sm font-normal opacity-90">{listCountLabel(list)}</span>
+                  {list.submitted_at ? (
+                    <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">
+                      Locked
+                    </span>
+                  ) : null}
                 </div>
               </Link>
+
+              {!list.submitted_at ? (
+                <div className="mx-auto mt-5 w-full max-w-md text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.28em] opacity-50">
+                    {list.name}
+                  </p>
+                  <p className="mb-4 mt-1 text-sm font-medium" style={{ color: 'var(--gallery-meta-text)' }}>
+                    {list.max_selection != null && Number(list.max_selection) > 0
+                      ? `${list.photoCount || 0} of ${list.max_selection} selected`
+                      : `${list.photoCount || 0} selected`}
+                  </p>
+                  <FavoriteConfirmButton
+                    disabled={(list.photoCount || 0) < 1}
+                    isSubmitting={isSubmitting && confirmList?.id === list.id}
+                    onClick={() => openConfirmModal(list)}
+                  />
+                  <Link
+                    to={galleryPath}
+                    onClick={() => {
+                      if (collection?.id) {
+                        sessionStorage.setItem(`pixnxt_fav_pick_list_${collection.id}`, list.id);
+                      }
+                    }}
+                    className="mt-4 inline-block text-[10px] font-bold uppercase tracking-[0.25em] underline opacity-60 transition-opacity hover:opacity-100"
+                  >
+                    {list.photoCount > 0 ? 'Edit selection in gallery' : 'Select photos in gallery'}
+                  </Link>
+                </div>
+              ) : null}
             </Motion.div>
           ))}
         </div>
@@ -326,6 +435,17 @@ export default function GalleryFavoritesHub() {
           </div>
         )}
       </AnimatePresence>
+
+      <FavoriteSubmitModal
+        open={showSubmitModal}
+        listName={confirmList?.name}
+        photoCount={confirmList?.photoCount || 0}
+        isSubmitting={isSubmitting}
+        clientMessage={submitClientMessage}
+        onClientMessageChange={setSubmitClientMessage}
+        onCancel={() => !isSubmitting && setShowSubmitModal(false)}
+        onConfirm={handleSubmitConfirm}
+      />
     </div>
   );
 }

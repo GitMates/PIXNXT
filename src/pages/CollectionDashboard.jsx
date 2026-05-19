@@ -1136,8 +1136,21 @@ const CollectionDashboard = () => {
     // Global click listener to close menus (ref-aware so toolbar toggles work)
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (activeActivityMenu) setActiveActivityMenu(null);
-            if (favoriteDetailPhotoMenuPhotoId) setFavoriteDetailPhotoMenuPhotoId(null);
+            const target = e.target;
+            if (
+                activeActivityMenu
+                && !target.closest?.('.activity-row-menu')
+                && !target.closest?.('.row-action-btn')
+            ) {
+                setActiveActivityMenu(null);
+            }
+            if (
+                favoriteDetailPhotoMenuPhotoId
+                && favoriteDetailPhotoMenuRef.current
+                && !favoriteDetailPhotoMenuRef.current.contains(target)
+            ) {
+                setFavoriteDetailPhotoMenuPhotoId(null);
+            }
             if (showSelectionMore && selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) {
                 setShowSelectionMore(false);
             }
@@ -1785,14 +1798,20 @@ const CollectionDashboard = () => {
             ) {
                 setShowMoveToSetMenu(false);
             }
-            if (favoriteActivityMenuRef.current && !favoriteActivityMenuRef.current.contains(e.target)) setActiveActivityMenu(null);
+            if (
+                activeActivityMenu
+                && !e.target.closest?.('.activity-row-menu')
+                && !e.target.closest?.('.row-action-btn')
+            ) {
+                setActiveActivityMenu(null);
+            }
             if (favoriteDetailToolbarMenuRef.current && !favoriteDetailToolbarMenuRef.current.contains(e.target)) setFavoriteDetailToolbarMenuOpen(false);
             if (favoriteDetailPhotoMenuRef.current && !favoriteDetailPhotoMenuRef.current.contains(e.target)) setFavoriteDetailPhotoMenuPhotoId(null);
             if (favoriteActivitySortMenuRef.current && !favoriteActivitySortMenuRef.current.contains(e.target)) setFavoriteActivitySortMenuOpen(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen]);
 
     const processSelectedUploadFiles = (fileList) => {
         if (processFiles(fileList)) {

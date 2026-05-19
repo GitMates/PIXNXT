@@ -56,7 +56,7 @@ function ContainGridVideo({ photo }) {
           alt=""
           aria-hidden
           className="smooth-media-blur"
-          style={{ objectFit: 'contain' }}
+          style={{ objectFit: 'contain', imageOrientation: 'from-image' }}
         />
       )}
       <video
@@ -69,6 +69,7 @@ function ContainGridVideo({ photo }) {
           width: '100%',
           height: '100%',
           objectFit: 'contain',
+          imageOrientation: 'from-image',
           backgroundColor: '#fff',
         }}
         muted

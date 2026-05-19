@@ -141,7 +141,7 @@ export function SmoothMediaImage({
             error && 'smooth-media-img--error',
             className
           )}
-          style={{ objectFit }}
+          style={{ objectFit, imageOrientation: 'from-image' }}
           decoding="async"
           loading={loading}
           onLoad={handleLoad}

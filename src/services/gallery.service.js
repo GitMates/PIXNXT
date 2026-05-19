@@ -774,7 +774,7 @@ export const galleryService = {
     if (!sessionId) return null;
     const { data: lists, error } = await supabase
       .from('favorite_lists')
-      .select('id, name, max_selection, created_at')
+      .select('id, name, max_selection, created_at, submitted_at')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 
@@ -800,18 +800,21 @@ export const galleryService = {
   },
 
   /**
-   * Favorited photo IDs for the visitor session — same list as toggleFavorite() (not all preset lists).
+   * Favorited photo IDs for a visitor list (defaults to active preset / My Favorites).
    */
-  async getFavorites(sessionId) {
+  async getFavorites(sessionId, listId = null) {
     if (!sessionId) return [];
     try {
-      const listId = await this._getDefaultFavoriteListId(sessionId);
-      if (!listId) return [];
+      let targetListId = listId;
+      if (!targetListId) {
+        targetListId = await this._getDefaultFavoriteListId(sessionId);
+      }
+      if (!targetListId) return [];
 
       const { data: items, error: itemsError } = await supabase
         .from('favorite_items')
         .select('photo_id')
-        .eq('list_id', listId);
+        .eq('list_id', targetListId);
 
       if (itemsError) return [];
 
@@ -820,6 +823,83 @@ export const galleryService = {
       console.error('Error in getFavorites:', e);
       return [];
     }
+  },
+
+  /**
+   * Favorite list metadata for gallery selection UI.
+   */
+  async getFavoriteListById(listId, sessionId = null) {
+    if (!listId) return null;
+    const { data, error } = await supabase
+      .from('favorite_lists')
+      .select('id, name, max_selection, submitted_at, session_id, collection_id')
+      .eq('id', listId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+    if (sessionId && data.session_id !== sessionId) return null;
+    return data;
+  },
+
+  /**
+   * Submit (lock) a visitor favorite list — requires at least one photo.
+   */
+  async submitFavoriteList(listId, sessionId) {
+    if (!listId || !sessionId) {
+      throw new Error('List and session are required');
+    }
+
+    const { data: ok, error } = await supabase.rpc('submit_favorite_list', {
+      p_list_id: listId,
+      p_session_id: sessionId,
+    });
+
+    if (error) {
+      const msg = error.message || '';
+      if (/function .* does not exist|Could not find the function/i.test(msg)) {
+        throw new Error(
+          'Submit is not set up on the server yet. Run supabase/migrations/20260520120000_favorite_list_submit.sql, then try again.'
+        );
+      }
+      throw error;
+    }
+
+    if (Number(ok) !== 1) {
+      const meta = await this.getFavoriteListById(listId, sessionId);
+      if (meta?.submitted_at) {
+        const err = new Error('This list was already submitted.');
+        err.code = 'ALREADY_SUBMITTED';
+        throw err;
+      }
+      const err = new Error('Add at least one photo before confirming your favorites.');
+      err.code = 'NO_PHOTOS';
+      throw err;
+    }
+
+    return true;
+  },
+
+  /**
+   * Email the collection photographer after a client confirms favorites.
+   */
+  async notifyPhotographerFavoriteSubmit({ listId, sessionId, siteOrigin, clientMessage }) {
+    const { data, error } = await supabase.functions.invoke('send-favorite-submit-email', {
+      body: {
+        listId,
+        sessionId,
+        siteOrigin: siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+        clientMessage: clientMessage?.trim() || null,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Could not send notification email');
+    }
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+    return data;
   },
 
   /**
@@ -871,6 +951,18 @@ export const galleryService = {
       }
     }
 
+    const { data: listLock, error: lockErr } = await supabase
+      .from('favorite_lists')
+      .select('submitted_at')
+      .eq('id', targetListId)
+      .maybeSingle();
+
+    if (!lockErr && listLock?.submitted_at) {
+      const err = new Error('This favorite list has been submitted and cannot be changed.');
+      err.code = 'LIST_SUBMITTED';
+      throw err;
+    }
+
     if (isFavorite) {
       const { data: listMeta, error: lmErr } = await supabase
         .from('favorite_lists')
@@ -919,7 +1011,7 @@ export const galleryService = {
       // 1. Fetch lists
       const { data: lists, error: listsError } = await supabase
         .from('favorite_lists')
-        .select('id, name, session_id, collection_id, created_at, max_selection, description')
+        .select('id, name, session_id, collection_id, created_at, max_selection, description, submitted_at')
         .eq('collection_id', collectionId);
 
       if (listsError) {
@@ -989,6 +1081,7 @@ export const galleryService = {
         thumbnail: thumbMap[list.id] || null,
         created_at: list.created_at,
         updated_at: updatedMap[list.id] || list.created_at,
+        submitted_at: list.submitted_at ?? null,
         sessionId: list.session_id
       }));
 
@@ -1047,7 +1140,7 @@ export const galleryService = {
     if (!sessionId) return [];
     const { data: lists, error } = await supabase
       .from('favorite_lists')
-      .select('id, name, created_at, max_selection')
+      .select('id, name, created_at, max_selection, submitted_at')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 

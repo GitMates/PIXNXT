@@ -33,6 +33,7 @@ async function compressImage(file) {
 
   try {
     const bitmap = await createImageBitmap(file, {
+      imageOrientation: 'from-image',
       resizeWidth: maxEdge,
       resizeHeight: maxEdge,
       resizeQuality: 'medium',

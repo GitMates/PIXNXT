@@ -1130,19 +1130,21 @@
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
     overflow: hidden;
-    position: relative;
     background: #ffffff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-wrap {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
+    min-width: 0;
+    min-height: 0;
     background: #ffffff;
 }
 
@@ -1155,6 +1157,7 @@
     max-height: 100% !important;
     object-fit: contain !important;
     object-position: center !important;
+    image-orientation: from-image;
     background-color: #ffffff !important;
 }
 
@@ -3713,14 +3716,14 @@
         gap: 12px !important;
     }
 
-    /* Photo card: square/portrait aspect */
-    .cd-photo-card-inner {
+    /* Photo card: square/portrait aspect (non-manage grids only) */
+    .cd-photo-card-inner:not(.cd-photo-card-inner--contain) {
         aspect-ratio: 4 / 3 !important;
         height: auto !important;
     }
 
-    .cd-photo-card-inner img,
-    .cd-photo-video-thumb {
+    .cd-photo-card-inner:not(.cd-photo-card-inner--contain) img,
+    .cd-photo-card-inner:not(.cd-photo-card-inner--contain) .cd-photo-video-thumb {
         width: 100% !important;
         height: 100% !important;
         object-fit: cover !important;
@@ -3730,10 +3733,25 @@
         aspect-ratio: 1 / 1 !important;
     }
 
+    .cd-photo-grid--manage .cd-photo-card-inner--contain {
+        position: absolute !important;
+        inset: 0 !important;
+        height: 100% !important;
+        aspect-ratio: unset !important;
+    }
+
+    .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-wrap {
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
     .cd-photo-grid--manage .cd-photo-card-inner--contain img,
     .cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-video-thumb,
     .cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-grid-contain-media {
         object-fit: contain !important;
+        image-orientation: from-image;
     }
 
     .cd-photo-grid--manage {
