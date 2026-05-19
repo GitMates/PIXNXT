@@ -179,7 +179,7 @@
 .cea-login-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -218,6 +218,8 @@
   border: 1px solid var(--gallery-border, rgba(0, 0, 0, 0.12));
   font-size: 14px;
   outline: none;
+  background: #ffffff;
+  color: #111111;
 }
 
 .cea-login-card input:focus {

@@ -7,6 +7,7 @@ import {
   SidebarTab,
   SettingsTab,
   DesignTab,
+  ActivityTab,
 } from "@/types/collection.types";
 import { DesignSettings } from "@/types/design.types";
 
@@ -58,7 +59,7 @@ export function useCollectionDashboard(collectionId: string | null) {
   const [favoriteNotes, setFavoriteNotes] = useState(true);
 
   // Activity State
-  const [activeActivityTab, setActiveActivityTab] = useState<any>("download");
+  const [activeActivityTab, setActiveActivityTab] = useState<ActivityTab>("download");
 
   // UI State
   const [activeSidebarTab, setActiveSidebarTab] =
