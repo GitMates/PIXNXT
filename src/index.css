@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=Lora:ital,wght@0,400..700;1,400..700&family=Montserrat:ital,wght@0,300..800;1,300..800&family=Unbounded:wght@300..800&display=swap');
+@import './styles/galleryColorThemes.css';
 
 @tailwind base;
 @tailwind components;
@@ -97,59 +98,71 @@
   scrollbar-width: none;
 }
 
-/* Typography Preset Mapping */
-/* Typography Preset Mapping - Refined for Pixieset Parity */
+/* Typography presets — gallery view + gallery preview */
 .font-sans {
-  font-family: 'Inter', sans-serif;
+  --body-font: 'Inter', sans-serif;
   --heading-font: 'Montserrat', sans-serif;
   --heading-letter-spacing: 0.15em;
   --heading-transform: uppercase;
   --heading-weight: 500;
+  --heading-style: normal;
+  font-family: var(--body-font);
 }
 
 .font-serif {
-  font-family: 'Lora', serif;
+  --body-font: 'Lora', serif;
   --heading-font: 'Playfair Display', serif;
   --heading-letter-spacing: 0.02em;
   --heading-transform: none;
   --heading-weight: 400;
+  --heading-style: normal;
+  font-family: var(--body-font);
 }
 
 .font-modern {
-  font-family: 'Montserrat', sans-serif;
+  --body-font: 'Montserrat', sans-serif;
   --heading-font: 'Montserrat', sans-serif;
   --heading-letter-spacing: 0.05em;
   --heading-transform: uppercase;
   --heading-weight: 600;
+  --heading-style: normal;
+  font-family: var(--body-font);
 }
 
 .font-timeless {
-  font-family: 'Lora', serif;
+  --body-font: 'Lora', serif;
   --heading-font: 'Lora', serif;
   --heading-letter-spacing: 0.05em;
   --heading-weight: 300;
   --heading-style: italic;
   --heading-transform: none;
+  font-family: var(--body-font);
 }
 
 .font-bold {
-  font-family: 'Inter', sans-serif;
+  --body-font: 'Inter', sans-serif;
   --heading-font: 'Unbounded', sans-serif;
   --heading-letter-spacing: -0.02em;
   --heading-weight: 700;
   --heading-transform: uppercase;
+  --heading-style: normal;
+  font-family: var(--body-font);
 }
 
 .font-subtle {
-  font-family: 'Outfit', sans-serif;
+  --body-font: 'Outfit', sans-serif;
   --heading-font: 'Outfit', sans-serif;
   --heading-weight: 200;
   --heading-letter-spacing: 0.25em;
   --heading-transform: uppercase;
+  --heading-style: normal;
+  font-family: var(--body-font);
 }
 
-/* Base Heading Styles for Gallery */
-.gallery-heading {
+/* Base heading / body — used on cover + chrome */
+.gallery-heading,
+.gallery-view-page[class*='font-'] .gallery-heading,
+.cd-preview-gallery-card[class*='font-'] .gallery-heading {
   font-family: var(--heading-font, inherit);
   letter-spacing: var(--heading-letter-spacing, normal);
   text-transform: var(--heading-transform, none);
@@ -157,16 +170,53 @@
   font-style: var(--heading-style, normal);
 }
 
-/* Body copy in gallery chrome / cover — inherits active .font-* preset without changing sizes */
 .gallery-body-text {
   font-family: inherit;
   font-style: normal;
 }
 
+/* Cover text grid — titles/headings use preset heading font */
+.gallery-view-page[class*='font-'] .cover-text-grid__title,
+.cd-preview-gallery-card[class*='font-'] .cover-text-grid__title,
+.cd-design-preview-pane[class*='font-'] .cover-text-grid__title {
+  font-family: var(--heading-font, inherit);
+  letter-spacing: var(--heading-letter-spacing, normal);
+  text-transform: var(--heading-transform, none);
+  font-weight: var(--heading-weight, inherit);
+  font-style: var(--heading-style, normal);
+}
+
+/* Cover subtitles, dates, buttons inherit body preset */
+.gallery-view-page[class*='font-'] .cover-text-grid__subtitle,
+.gallery-view-page[class*='font-'] .cover-text-grid__date,
+.gallery-view-page[class*='font-'] .cover-text-grid__description,
+.gallery-view-page[class*='font-'] .cover-text-grid__button,
+.cd-preview-gallery-card[class*='font-'] .cover-text-grid__subtitle,
+.cd-preview-gallery-card[class*='font-'] .cover-text-grid__date,
+.cd-preview-gallery-card[class*='font-'] .cover-text-grid__description,
+.cd-preview-gallery-card[class*='font-'] .cover-text-grid__button {
+  font-family: inherit;
+}
+
+/* Gallery chrome + main content inherit active preset */
+.gallery-view-page[class*='font-'] .gallery-view-hero,
+.gallery-view-page[class*='font-'] main,
+.gallery-view-page[class*='font-'] .gallery-sticky-nav,
+.gallery-view-page[class*='font-'] .gallery-chrome__set-description,
+.gallery-view-page[class*='font-'] .gallery-chrome__photographer-corner,
+.gallery-view-page[class*='font-'] input,
+.gallery-view-page[class*='font-'] button,
+.cd-preview-gallery-card[class*='font-'] .cd-preview-gallery-body,
+.cd-preview-gallery-card[class*='font-'] .gallery-chrome__set-description,
+.cd-preview-gallery-card[class*='font-'] input,
+.cd-preview-gallery-card[class*='font-'] button {
+  font-family: inherit;
+}
+
 /* VIEW GALLERY — uses active color theme (GalleryPreview + GalleryView) */
 .cover-text-grid__button.view-gallery-btn {
   background-color: var(--gallery-accent);
-  color: var(--gallery-bg);
+  color: var(--gallery-on-accent, #ffffff);
   border: none;
   cursor: pointer;
   transition: filter 0.2s ease, transform 0.2s ease;
@@ -174,86 +224,4 @@
 
 .cover-text-grid__button.view-gallery-btn:hover {
   filter: brightness(1.08);
-}
-
-/* Color Theme Variable Definitions */
-.theme-light {
-  --gallery-bg: #ffffff;
-  --gallery-text: #111111;
-  --gallery-accent: #111111;
-  --gallery-secondary-bg: #f7f9fa;
-  --gallery-meta-text: #888888;
-  --gallery-border: rgba(0, 0, 0, 0.05);
-}
-
-.theme-gold {
-  --gallery-bg: #ffffff;
-  --gallery-text: #5e4f3a;
-  --gallery-accent: #a68c5b;
-  --gallery-secondary-bg: #faf7f2;
-  --gallery-meta-text: #a68c5b;
-  --gallery-border: rgba(94, 79, 58, 0.1);
-}
-
-.theme-rose {
-  --gallery-bg: #ffffff;
-  --gallery-text: #5e4a4a;
-  --gallery-accent: #a67d7d;
-  --gallery-secondary-bg: #faf4f4;
-  --gallery-meta-text: #a67d7d;
-  --gallery-border: rgba(94, 74, 74, 0.1);
-}
-
-.theme-terracotta {
-  --gallery-bg: #ffffff;
-  --gallery-text: #5e463a;
-  --gallery-accent: #a66d5b;
-  --gallery-secondary-bg: #faf5f2;
-  --gallery-meta-text: #a66d5b;
-  --gallery-border: rgba(94, 70, 58, 0.1);
-}
-
-.theme-sand {
-  --gallery-bg: #ffffff;
-  --gallery-text: #5e524a;
-  --gallery-accent: #967b6b;
-  --gallery-secondary-bg: #f7f5f2;
-  --gallery-meta-text: #967b6b;
-  --gallery-border: rgba(94, 82, 74, 0.1);
-}
-
-.theme-olive {
-  --gallery-bg: #ffffff;
-  --gallery-text: #4e5e3a;
-  --gallery-accent: #8c966b;
-  --gallery-secondary-bg: #f5f7f2;
-  --gallery-meta-text: #8c966b;
-  --gallery-border: rgba(78, 94, 58, 0.1);
-}
-
-.theme-agave {
-  --gallery-bg: #ffffff;
-  --gallery-text: #3a5e55;
-  --gallery-accent: #6b968c;
-  --gallery-secondary-bg: #f2f7f6;
-  --gallery-meta-text: #6b968c;
-  --gallery-border: rgba(58, 94, 85, 0.1);
-}
-
-.theme-sea {
-  --gallery-bg: #ffffff;
-  --gallery-text: #3a455e;
-  --gallery-accent: #6b7a96;
-  --gallery-secondary-bg: #f2f4f7;
-  --gallery-meta-text: #6b7a96;
-  --gallery-border: rgba(58, 69, 94, 0.1);
-}
-
-.theme-dark {
-  --gallery-bg: #111111;
-  --gallery-text: #ffffff;
-  --gallery-accent: #988383;
-  --gallery-secondary-bg: #1a1a1a;
-  --gallery-meta-text: #999999;
-  --gallery-border: rgba(255, 255, 255, 0.1);
 }

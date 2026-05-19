@@ -25,3 +25,15 @@ export function normalizeCoverStyleId(raw) {
   }
   return VALID_COVER_UI.includes(raw) ? raw : 'novel';
 }
+
+/** Prefer cover_layout; fall back to legacy cover_style enum. */
+export function resolveCoverLayoutId(collectionOrRaw, fallback = 'novel') {
+  if (collectionOrRaw == null) return fallback;
+  if (typeof collectionOrRaw === 'object') {
+    if (collectionOrRaw.cover_layout) {
+      return normalizeCoverStyleId(collectionOrRaw.cover_layout);
+    }
+    return normalizeCoverStyleId(collectionOrRaw.cover_style);
+  }
+  return normalizeCoverStyleId(collectionOrRaw);
+}

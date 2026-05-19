@@ -80,7 +80,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   const styles = galleryChromeStyles[variant];
   const isCompact = variant === 'preview';
   const isMobilePreviewNav = isCompact && isPreviewMobile;
-  const iconSize = styles.actionIcon;
+  const iconSize = isMobilePreviewNav ? 10 : styles.actionIcon;
   const previewStyles = isCompact ? galleryChromeStyles.preview : null;
 
   const showActionLabels = navigationStyle === 'text' && !isMobilePreviewNav;
@@ -122,10 +122,13 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
       {showHighlightsTab ? (
         <button
           type="button"
-          className={cn('group relative flex shrink-0 items-center', isCompact ? 'py-0' : 'py-2')}
+          className={cn(
+            'group relative inline-flex shrink-0 items-center whitespace-nowrap',
+            isCompact ? 'py-0' : 'py-2'
+          )}
           onClick={() => onSetChange?.(null)}
         >
-          <span className={tabButtonClass(!activeSetId)} style={{ color: 'var(--gallery-text)' }}>
+          <span className={cn(tabButtonClass(!activeSetId), 'whitespace-nowrap')} style={{ color: 'var(--gallery-text)' }}>
             Highlights
           </span>
           {!activeSetId && (
@@ -140,10 +143,16 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           key={set.id}
           type="button"
-          className={cn('group relative flex shrink-0 items-center', isCompact ? 'py-0' : 'py-2')}
+          className={cn(
+            'group relative inline-flex shrink-0 items-center whitespace-nowrap',
+            isCompact ? 'py-0' : 'py-2'
+          )}
           onClick={() => onSetChange?.(set.id)}
         >
-          <span className={tabButtonClass(activeSetId === set.id)} style={{ color: 'var(--gallery-text)' }}>
+          <span
+            className={cn(tabButtonClass(activeSetId === set.id), 'whitespace-nowrap')}
+            style={{ color: 'var(--gallery-text)' }}
+          >
             {set.name}
           </span>
           {activeSetId === set.id && (
@@ -163,8 +172,8 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           type="button"
           className={cn(
-            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
-            isCompact ? 'opacity-60 hover:opacity-100' : 'hover:opacity-50',
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
             !isCompact && 'relative'
           )}
           onClick={onFavoriteClick}
@@ -190,8 +199,10 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           type="button"
           className={cn(
-            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
-            isCompact ? (isDownloadingAll ? 'opacity-100' : 'opacity-60 hover:opacity-100') : 'hover:opacity-50',
+            'flex shrink-0 items-center transition-opacity',
+            isCompact
+              ? `gap-0.5 ${isDownloadingAll ? 'opacity-100' : 'opacity-60 hover:opacity-100'}`
+              : 'gap-1 md:gap-2 hover:opacity-50',
             !isCompact && isDownloadingAll && 'disabled:cursor-not-allowed disabled:opacity-40'
           )}
           onClick={() => !isDownloadingAll && onDownloadClick?.()}
@@ -206,8 +217,8 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           type="button"
           className={cn(
-            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
-            isCompact ? 'opacity-60 hover:opacity-100' : 'hover:opacity-50'
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50'
           )}
           onClick={onShareClick}
           style={{ color: 'var(--gallery-text)' }}
@@ -220,8 +231,8 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         <button
           type="button"
           className={cn(
-            'flex shrink-0 items-center gap-1 md:gap-2 transition-opacity',
-            isCompact ? 'opacity-60 hover:opacity-100' : 'hover:opacity-50'
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50'
           )}
           onClick={onSlideshowClick}
           style={{ color: 'var(--gallery-text)' }}

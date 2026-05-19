@@ -1,0 +1,272 @@
+/* Pixieset-style Novel cover — dashboard preview + public gallery */
+.cover-novel-layout {
+  --novel-text-bg: #ffffff;
+  --novel-media-bg: #f5f5f5;
+  --novel-text: #222222;
+  --novel-muted: rgba(34, 34, 34, 0.72);
+}
+
+.cover-novel-layout__text {
+  background-color: var(--novel-text-bg) !important;
+  color: var(--novel-text) !important;
+}
+
+.cover-novel-layout__media {
+  background-color: var(--novel-media-bg) !important;
+  min-height: 0;
+}
+
+.gallery-view-hero .cover-novel-layout {
+  display: flex;
+  flex-direction: row;
+  min-height: 100%;
+  height: 100%;
+}
+
+.gallery-view-hero .cover-novel-layout__text {
+  flex: 0 0 48%;
+  width: 48%;
+  max-width: 48%;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: clamp(2rem, 5vh, 3.5rem) clamp(1.25rem, 3vw, 2.5rem) !important;
+}
+
+.gallery-view-hero .cover-novel-layout__media {
+  flex: 0 0 52%;
+  width: 52%;
+  max-width: 52%;
+}
+
+.cover-novel-layout__brand {
+  color: var(--novel-muted) !important;
+  font-weight: 500 !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+.cover-novel-layout__title {
+  color: var(--novel-text) !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+  text-shadow: none !important;
+}
+
+.cover-novel-layout__date {
+  color: var(--novel-muted) !important;
+  opacity: 1 !important;
+  text-shadow: none !important;
+}
+
+.cover-novel-layout__image-frame {
+  background: #ffffff;
+  border: none !important;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.07);
+  padding: 4px;
+  aspect-ratio: 3 / 4;
+}
+
+.cover-novel-layout__image-frame img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cover-novel-layout__cta .view-gallery-btn:hover {
+  opacity: 0.88;
+}
+
+/* Public gallery — Pixieset novel split (preview rules below stay separate) */
+.gallery-view-hero .cover-novel-layout__brand {
+  font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
+  letter-spacing: 0.42em !important;
+  margin-bottom: clamp(0.65rem, 1.5vh, 1rem) !important;
+  line-height: 1.3 !important;
+  font-weight: 400 !important;
+}
+
+.gallery-view-hero .cover-novel-layout__title {
+  font-size: clamp(2.25rem, 5.5vw, 4rem) !important;
+  line-height: 0.95 !important;
+  margin-bottom: 0 !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 700 !important;
+}
+
+.gallery-view-hero .cover-novel-layout__date {
+  font-size: clamp(0.7rem, 1.2vw, 0.9rem) !important;
+  letter-spacing: 0.28em !important;
+  margin-top: clamp(0.85rem, 2vh, 1.25rem) !important;
+  margin-bottom: 0 !important;
+}
+
+.gallery-view-hero .cover-novel-layout__cta {
+  margin-top: clamp(1.35rem, 3vh, 2rem);
+}
+
+.gallery-view-hero .cover-novel-layout__cta .view-gallery-btn {
+  font-size: clamp(0.58rem, 0.95vw, 0.7rem) !important;
+  padding: 0.85rem 2.15rem !important;
+  letter-spacing: 0.24em !important;
+  border-radius: 0 !important;
+}
+
+/* Gray panel + white mat around portrait */
+.gallery-view-hero .cover-novel-layout__media {
+  align-items: center;
+  justify-content: center;
+  padding: clamp(0.5rem, 1.2vh, 1rem) clamp(0.5rem, 1.2vw, 1rem) !important;
+  min-height: 0;
+}
+
+/* Gallery view: 3.5× base frame (560px / 900px max) — white mat padding unchanged */
+.gallery-view-hero .cover-novel-layout__image-frame {
+  display: block;
+  position: relative;
+  flex-shrink: 0;
+  width: min(94%, 1960px) !important;
+  max-width: min(94%, 1960px) !important;
+  max-height: min(88vh, 3150px) !important;
+  aspect-ratio: 3 / 4;
+  height: auto;
+  box-sizing: border-box;
+  padding: clamp(14px, 1.75vw, 22px) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.gallery-view-page.style-novel .gallery-view-hero .cover-novel-layout__image-frame {
+  width: min(94%, 1960px) !important;
+  max-width: min(94%, 1960px) !important;
+}
+
+/* Dashboard preview */
+.cd-preview-gallery-card.style-novel .cover-novel-layout__brand {
+  font-size: 5px !important;
+  letter-spacing: 0.38em !important;
+  margin-bottom: 4px !important;
+  line-height: 1.2 !important;
+  font-weight: 400 !important;
+}
+
+.cd-preview-gallery-card.style-novel .cover-novel-layout__title {
+  font-size: 22px !important;
+  line-height: 0.95 !important;
+  margin-bottom: 0 !important;
+  color: var(--gallery-text) !important;
+  opacity: 1 !important;
+}
+
+.cd-preview-gallery-card.style-novel .cover-novel-layout__brand {
+  color: var(--gallery-meta-text) !important;
+  opacity: 1 !important;
+}
+
+.cd-preview-gallery-card.style-novel .cover-novel-layout__date {
+  font-size: 8px !important;
+  letter-spacing: 0.24em !important;
+  margin-top: 6px !important;
+  margin-bottom: 0 !important;
+  color: var(--gallery-meta-text) !important;
+  opacity: 1 !important;
+}
+
+.cd-preview-gallery-card.style-novel .cover-novel-layout__cta {
+  margin-top: 8px;
+}
+
+.cd-preview-gallery-card.style-novel .cover-novel-layout__cta .view-gallery-btn {
+  font-size: 6px !important;
+  padding: 4px 10px !important;
+  letter-spacing: 0.18em !important;
+}
+
+.cd-preview-gallery-card.style-novel .cover-novel-layout__media {
+  padding: 4px !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.cd-preview-gallery-card.style-novel .cover-novel-layout__image-frame {
+  display: block;
+  position: relative;
+  flex-shrink: 0;
+  width: min(86%, 280px);
+  max-width: min(86%, 280px);
+  aspect-ratio: 3 / 4;
+  height: auto;
+  max-height: 100%;
+  padding: 2px;
+  box-sizing: border-box;
+}
+
+/* Mobile — image on top, text below */
+@media (max-width: 768px) {
+  .gallery-view-hero .cover-novel-layout {
+    flex-direction: column-reverse;
+  }
+
+  .gallery-view-hero .cover-novel-layout__text,
+  .gallery-view-hero .cover-novel-layout__media {
+    width: 100% !important;
+    flex: none !important;
+    min-height: 0;
+  }
+
+  .gallery-view-hero .cover-novel-layout__media {
+    flex: 1 1 58% !important;
+    min-height: 52vh;
+    padding: 1rem !important;
+  }
+
+  .gallery-view-hero .cover-novel-layout__text {
+    flex: 0 0 auto !important;
+    padding: 2.5rem 1.5rem 3rem !important;
+  }
+
+  .gallery-view-hero .cover-novel-layout__image-frame {
+    width: min(96%, 1960px) !important;
+    max-width: min(96%, 1960px) !important;
+    max-height: min(72vh, 3150px) !important;
+    padding: clamp(14px, 1.75vw, 22px) !important;
+  }
+
+  .gallery-view-hero .cover-novel-layout__title {
+    font-size: clamp(1.75rem, 8vw, 2.75rem) !important;
+  }
+}
+
+/* Dashboard preview — sticky nav collection title when Novel cover is selected */
+.cd-preview-gallery-card.style-novel .gallery-chrome__brand-title {
+  font-size: 7px !important;
+  line-height: 1.1 !important;
+  letter-spacing: 0.06em !important;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-novel-layout {
+  flex-direction: column-reverse;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-novel-layout__text,
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-novel-layout__media {
+  width: 100% !important;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-novel-layout__media {
+  min-height: 140px;
+  padding: 6px !important;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-novel-layout__image-frame {
+  width: min(88%, 360px);
+  max-width: min(88%, 360px);
+  aspect-ratio: 3 / 4;
+  height: auto;
+  max-height: 100%;
+}
+
+.cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-novel-layout__text {
+  padding: 16px 12px 20px !important;
+}

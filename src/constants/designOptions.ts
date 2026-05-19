@@ -61,7 +61,7 @@ export const COLOR_PALETTES: {
     { id: "olive", name: "Olive", colors: ["#ffffff", "#f5f7f2", "#8c966b"] },
     { id: "agave", name: "Agave", colors: ["#ffffff", "#f2f7f6", "#6b968c"] },
     { id: "sea", name: "Sea", colors: ["#ffffff", "#f2f4f7", "#6b7a96"] },
-    { id: "dark", name: "Dark", colors: ["#111111", "#988383", "#ffffff"] },
+    { id: "dark", name: "Dark", colors: ["#1a1a1a", "#111111", "#988383"] },
   ];
 
 export const GRID_STYLES: { id: "vertical" | "horizontal"; name: string }[] = [

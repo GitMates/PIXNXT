@@ -42,7 +42,7 @@ export const GalleryMediaFilter: React.FC<GalleryMediaFilterProps> = ({
         type="button"
         role="tab"
         aria-selected={value === 'photos'}
-        className={tabButtonClass(value === 'photos')}
+        className={cn(tabButtonClass(value === 'photos'), 'whitespace-nowrap')}
         style={{ color: 'var(--gallery-text)' }}
         onClick={() => onChange('photos')}
       >
@@ -58,7 +58,7 @@ export const GalleryMediaFilter: React.FC<GalleryMediaFilterProps> = ({
         type="button"
         role="tab"
         aria-selected={value === 'videos'}
-        className={tabButtonClass(value === 'videos')}
+        className={cn(tabButtonClass(value === 'videos'), 'whitespace-nowrap')}
         style={{ color: 'var(--gallery-text)' }}
         onClick={() => onChange('videos')}
       >
@@ -79,8 +79,8 @@ export const GalleryMediaFilter: React.FC<GalleryMediaFilterProps> = ({
         role="tablist"
         aria-label="Filter by media type"
         className={cn(
-          'gallery-media-filter-inline flex shrink-0 flex-wrap items-center',
-          isCompact ? 'gap-2 md:gap-3' : 'gap-6 md:gap-10',
+          'gallery-media-filter-inline flex shrink-0 items-center',
+          isCompact ? 'flex-nowrap gap-1.5' : 'flex-wrap gap-6 md:gap-10',
           className
         )}
       >

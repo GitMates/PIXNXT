@@ -396,6 +396,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   const renderCover = () => {
     const props = {
       title: collectionTitle,
+      subtitle: photographerName,
       date: collectionDate,
       photoUrl: coverPhotoUrl,
       focalX: dashboardState?.focalX,
@@ -454,7 +455,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           sets={(dashboardState?.sets || []).map((s: any) => ({ id: s.id, name: s.name }))}
           activeSetId={dashboardState?.activeSetId ?? null}
           onSetChange={onSetActiveSet}
-          maxVisibleSets={isPreviewMobile ? 1 : 3}
+          maxVisibleSets={isPreviewMobile ? 4 : 3}
           showFavorites={favFeatureOn}
           showDownload={dashboardState?.photoDownload !== false && dashboardState?.galleryDownload !== false}
           showShare={dashboardState?.socialSharing !== false}
@@ -596,6 +597,10 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);
         })()}
+        themeClassName={cn(
+          `theme-${colorPalette}`,
+          `font-${fontFamily}`
+        )}
       />
 
       <AnimatePresence>
@@ -612,8 +617,8 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="relative z-[1] w-full max-w-md bg-white p-10 shadow-2xl"
-              style={{ fontFamily: 'var(--font-sans)', color: '#111' }}
+              className={cn('relative z-[1] w-full max-w-md bg-white p-10 shadow-2xl', `font-${fontFamily}`)}
+              style={{ color: '#111' }}
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -628,8 +633,8 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50">
                   <Mail className="text-zinc-400" size={24} strokeWidth={1.5} />
                 </div>
-                <h3 className="mb-2 text-xl font-serif text-zinc-900" style={{ fontFamily: 'var(--font-serif)' }}>Favorites</h3>
-                <p className="text-sm text-zinc-500">Save your favorite photos and revisit them at any time using your email address.</p>
+                <h3 className="gallery-heading mb-2 text-xl font-bold text-zinc-900">Favorites</h3>
+                <p className="gallery-body-text text-sm text-zinc-500">Save your favorite photos and revisit them at any time using your email address.</p>
               </div>
 
               <div className="space-y-4">
@@ -639,12 +644,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isSubmittingEmail}
-                  className="w-full border-b border-zinc-200 py-3 text-sm outline-none focus:border-zinc-950 transition-colors bg-transparent disabled:opacity-50"
+                  className="gallery-body-text w-full border-b border-zinc-200 py-3 text-sm outline-none focus:border-zinc-950 transition-colors bg-transparent disabled:opacity-50"
                   style={{ borderTop: 'none', borderLeft: 'none', borderRight: 'none' }}
                 />
                 <button
                   type="button"
-                  className="w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer mt-4 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="gallery-body-text w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer mt-4 disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => void handleFavoriteEmailSubmit()}
                   disabled={isSubmittingEmail || !email?.trim()}
                 >
@@ -677,6 +682,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         collectionId={collectionId}
         isDark={isPreviewDark}
         initialSenderEmail={email}
+        themeClassName={`font-${fontFamily} theme-${colorPalette}`}
       />
     </div>
   );

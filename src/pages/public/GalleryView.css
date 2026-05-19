@@ -1,19 +1,141 @@
 /* Slightly larger cover hero text — public GalleryView only */
-.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__subtitle {
+.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__subtitle:not(.cover-stamp-layout__brand):not(.cover-journal-layout__brand):not(.cover-novel-layout__brand):not(.cover-vintage-layout__brand) {
   font-size: 11px !important;
   line-height: 1.25 !important;
   margin-bottom: 8px !important;
   letter-spacing: 0.5em !important;
 }
 
-.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__title,
-.gallery-view-hero[data-cover-text-scale='large'] .gallery-heading {
+.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__title:not(.cover-journal-layout__title):not(.cover-novel-layout__title):not(.cover-vintage-layout__title):not(.cover-stamp-layout__title),
+.gallery-view-hero[data-cover-text-scale='large'] .gallery-heading:not(.cover-novel-layout__title):not(.cover-vintage-layout__title):not(.cover-journal-layout__title):not(.cover-stamp-layout__title) {
   font-size: 32px !important;
   line-height: 1.12 !important;
   margin-bottom: 10px !important;
 }
 
-.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__date {
+/* Novel cover — Pixieset split layout overrides generic hero text scale */
+.gallery-view-hero .cover-novel-layout__title.cover-text-grid__title {
+  font-size: clamp(1.25rem, 2.75vw, 2rem) !important;
+  line-height: 1 !important;
+  margin-bottom: 0 !important;
+  text-shadow: none !important;
+  letter-spacing: 0.04em !important;
+}
+
+.gallery-view-page.style-novel .gallery-view-hero .cover-novel-layout__title.cover-text-grid__title {
+  font-size: clamp(1.25rem, 2.75vw, 2rem) !important;
+}
+
+.gallery-view-hero .cover-novel-layout__brand.cover-text-grid__subtitle {
+  font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
+  letter-spacing: 0.42em !important;
+  margin-bottom: 0.75rem !important;
+  text-shadow: none !important;
+  font-weight: 400 !important;
+}
+
+.gallery-view-hero .cover-novel-layout__date.cover-text-grid__date {
+  font-size: clamp(0.68rem, 1.35vw, 0.92rem) !important;
+  letter-spacing: 0.28em !important;
+  margin-top: 1rem !important;
+  margin-bottom: 0 !important;
+  text-shadow: none !important;
+}
+
+/* Vintage cover — wide hero + serif title */
+.gallery-view-hero .cover-vintage-layout__title.cover-text-grid__title {
+  font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
+  line-height: 1.05 !important;
+  margin-bottom: clamp(0.75rem, 1.8vh, 1.25rem) !important;
+  font-family: var(--heading-font, 'Playfair Display', Georgia, 'Times New Roman', serif) !important;
+  font-style: var(--heading-style, normal) !important;
+  text-shadow: none !important;
+}
+
+.gallery-view-hero .cover-vintage-layout__date.cover-text-grid__date {
+  font-size: clamp(0.62rem, 1.1vw, 0.82rem) !important;
+  letter-spacing: 0.32em !important;
+  margin-bottom: 0.65rem !important;
+  text-shadow: none !important;
+}
+
+.gallery-view-hero .cover-vintage-layout__brand.cover-text-grid__subtitle {
+  font-size: clamp(0.5rem, 0.85vw, 0.68rem) !important;
+  letter-spacing: 0.4em !important;
+  text-shadow: none !important;
+  font-weight: 400 !important;
+}
+
+.gallery-view-page.style-vintage .gallery-view-hero .cover-vintage-layout__footer {
+  max-width: 100%;
+}
+
+/* Journal cover — image left, text right */
+.gallery-view-hero .cover-journal-layout__title.cover-text-grid__title {
+  font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
+  line-height: 1 !important;
+  margin-bottom: clamp(0.65rem, 1.5vh, 1rem) !important;
+  text-shadow: none !important;
+  letter-spacing: 0.02em !important;
+  font-weight: 700 !important;
+}
+
+.gallery-view-page.style-journal .gallery-view-hero .cover-journal-layout__title.cover-text-grid__title {
+  font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
+}
+
+.gallery-view-hero .cover-journal-layout__brand.cover-text-grid__subtitle {
+  font-size: clamp(0.5rem, 0.85vw, 0.65rem) !important;
+  letter-spacing: 0.38em !important;
+  margin-bottom: auto !important;
+  text-shadow: none !important;
+  font-weight: 500 !important;
+}
+
+.gallery-view-hero .cover-journal-layout__date.cover-text-grid__date {
+  font-size: clamp(0.62rem, 1.05vw, 0.8rem) !important;
+  letter-spacing: 0.32em !important;
+  margin-bottom: clamp(0.5rem, 1.2vh, 0.75rem) !important;
+  text-shadow: none !important;
+}
+
+/* Stamp cover — centered stack (Pixieset) */
+.gallery-view-hero .cover-stamp-layout__brand.cover-text-grid__subtitle {
+  font-size: clamp(0.5rem, 0.82vw, 0.62rem) !important;
+  letter-spacing: 0.44em !important;
+  text-shadow: none !important;
+  font-weight: 400 !important;
+  margin-bottom: clamp(1.35rem, 3.2vh, 2.25rem) !important;
+}
+
+.gallery-view-hero .cover-stamp-layout__date.cover-text-grid__date {
+  font-size: clamp(0.65rem, 1.1vw, 0.82rem) !important;
+  letter-spacing: 0.3em !important;
+  text-shadow: none !important;
+  margin-bottom: clamp(0.4rem, 1vh, 0.55rem) !important;
+}
+
+.gallery-view-hero .cover-stamp-layout__title.cover-text-grid__title {
+  font-size: clamp(2.25rem, 6vw, 3.5rem) !important;
+  line-height: 0.95 !important;
+  text-shadow: none !important;
+  letter-spacing: 0.01em !important;
+  font-weight: 700 !important;
+  margin-bottom: clamp(1.1rem, 2.6vh, 1.85rem) !important;
+}
+
+.gallery-view-page.style-stamp .gallery-view-hero .cover-stamp-layout__title.cover-text-grid__title {
+  font-size: clamp(2.25rem, 6vw, 3.5rem) !important;
+}
+
+.gallery-view-hero .cover-stamp-layout__cta .view-gallery-btn.cover-text-grid__button {
+  font-size: clamp(0.55rem, 0.9vw, 0.68rem) !important;
+  padding: 0.85rem 2.1rem !important;
+  letter-spacing: 0.24em !important;
+  border-radius: 0 !important;
+}
+
+.gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__date:not(.cover-vintage-layout__date):not(.cover-journal-layout__date):not(.cover-stamp-layout__date) {
   font-size: 12px !important;
   line-height: 1.25 !important;
   margin-bottom: 24px !important;
@@ -31,6 +153,57 @@
   font-size: 11px !important;
   padding: 12px 36px !important;
   letter-spacing: 0.2em !important;
+}
+
+.gallery-view-hero[data-cover-text-scale='large'] .cover-stamp-layout .view-gallery-btn {
+  font-size: clamp(0.55rem, 0.9vw, 0.68rem) !important;
+  padding: 0.85rem 2.1rem !important;
+  letter-spacing: 0.24em !important;
+}
+
+.gallery-view-hero .cover-left-layout__footer .cover-text-grid__title,
+.gallery-view-hero .cover-left-layout__text.cover-text-grid .cover-text-grid__title {
+  text-transform: uppercase;
+  color: #fff !important;
+  opacity: 1 !important;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+}
+
+.gallery-view-hero .cover-left-layout__footer .cover-text-grid__date,
+.gallery-view-hero .cover-left-layout__text.cover-text-grid .cover-text-grid__date {
+  margin-bottom: 0 !important;
+  color: rgba(255, 255, 255, 0.92) !important;
+  opacity: 1 !important;
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
+}
+
+.gallery-view-hero .cover-left-layout__cta {
+  background: transparent !important;
+  color: #fff !important;
+  border: 1px solid rgba(255, 255, 255, 0.85) !important;
+  z-index: 31;
+}
+
+.gallery-view-hero .cover-left-layout__footer {
+  z-index: 30;
+}
+
+.gallery-view-hero .cover-left-layout__scrim,
+.gallery-view-hero .cover-left-layout__scrim-bottom {
+  display: none !important;
+}
+
+.gallery-view-hero img {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
+.gallery-view-hero .cover-over-photo .gallery-heading,
+.gallery-view-hero .cover-over-photo .cover-text-grid__title,
+.gallery-view-hero .cover-over-photo .cover-text-grid__subtitle,
+.gallery-view-hero .cover-over-photo .cover-text-grid__date,
+.gallery-view-hero .cover-over-photo .cover-text-grid__description {
+  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55), 0 2px 20px rgba(0, 0, 0, 0.35);
 }
 
 /* Navigation style — public gallery */
@@ -71,6 +244,17 @@
 @media (min-width: 768px) {
   .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-title {
     font-size: 2.25rem !important;
+  }
+}
+
+.gallery-view-page.style-novel[data-gallery-chrome='large'] .gallery-chrome__brand-title {
+  font-size: 1.125rem !important;
+  letter-spacing: 0.04em !important;
+}
+
+@media (min-width: 768px) {
+  .gallery-view-page.style-novel[data-gallery-chrome='large'] .gallery-chrome__brand-title {
+    font-size: 1.35rem !important;
   }
 }
 

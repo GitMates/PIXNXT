@@ -30,6 +30,13 @@ import { useUploadQueue } from '../components/features/CollectionDashboard/Uploa
 import { getFileMime } from '../lib/fileMime';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
+import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
+import {
+    normalizeCoverStyleId,
+    normalizeFontId,
+    normalizePaletteId,
+    resolveCoverLayoutId,
+} from '../lib/normalizeDesignTokens.js';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -568,6 +575,7 @@ const CollectionDashboard = () => {
     }, [showMoveToSetMenu, sets.length, highlightsName, updateMoveMenuPosition]);
     const favoriteDetailToolbarMenuRef = useRef(null);
     const favoriteDetailPhotoMenuRef = useRef(null);
+    const designHydratedRef = useRef(false);
     const favoriteActivitySortMenuRef = useRef(null);
 
 
@@ -1001,6 +1009,7 @@ const CollectionDashboard = () => {
             }
 
             try {
+                designHydratedRef.current = false;
                 setLoading(true);
                 setError(null);
                 const data = await galleryService.getCollectionDashboardData(collectionId);
@@ -1025,9 +1034,9 @@ const CollectionDashboard = () => {
                 if (data.client_only_highlights !== undefined) setClientOnlyHighlights(data.client_only_highlights);
 
                 // Map individual columns to state
-                if (data.cover_style) setSelectedCoverStyle(data.cover_style);
-                if (data.font_family) setSelectedFont(data.font_family);
-                if (data.color_palette) setSelectedColorPalette(data.color_palette);
+                setSelectedCoverStyle(resolveCoverLayoutId(data));
+                setSelectedFont(normalizeFontId(data.font_family));
+                setSelectedColorPalette(normalizePaletteId(data.color_palette));
 
                 setGridSettings({
                     style: data.grid_style || 'vertical',
@@ -1074,6 +1083,8 @@ const CollectionDashboard = () => {
                 if (data.gallery_assist !== undefined) setGalleryAssist(data.gallery_assist);
                 if (data.slideshow !== undefined) setSlideshow(data.slideshow);
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
+
+                designHydratedRef.current = true;
 
                 const photoData = data.photos || [];
                 setPhotos(photoData);
@@ -1487,12 +1498,13 @@ const CollectionDashboard = () => {
 
     // Auto-save design settings
     useEffect(() => {
-        if (!collection || loading) return;
+        if (!collection || loading || !designHydratedRef.current) return;
 
         const saveSettings = async () => {
             try {
                 await galleryService.updateCollection(collectionId, {
-                    cover_style: selectedCoverStyle === 'none' ? 'text_only' : 'photo', // Map internal UI styles to enums since DB enum lacks full styles
+                    cover_layout: selectedCoverStyle,
+                    cover_style: selectedCoverStyle === 'none' ? 'text_only' : 'photo', // Legacy enum; layout lives in cover_layout
                     font_family: selectedFont,
                     color_palette: selectedColorPalette,
                     grid_style: gridSettings.style,
@@ -1657,8 +1669,13 @@ const CollectionDashboard = () => {
     // Derived values
     const collectionName = collection?.name || 'Loading...';
     const collectionDate = collection?.event_date
-        ? new Date(collection.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        ? formatCollectionHeaderDate(collection.event_date)
         : '...';
+    const coverDisplayDate = collection?.event_date
+        ? formatCoverDate(collection.event_date)
+        : collection?.created_at
+            ? formatCoverDate(collection.created_at)
+            : '';
 
     // Close dropdowns when clicking outside
     useEffect(() => {
@@ -2429,7 +2446,7 @@ const CollectionDashboard = () => {
                                         grid: gridSettings
                                     }}
                                     collectionTitle={collection?.name || 'My Collection'}
-                                    collectionDate="MARCH 12TH, 2026"
+                                    collectionDate={coverDisplayDate}
                                     collectionDescription={
                                         activeSetId
                                             ? sets.find((s) => s.id === activeSetId)?.description || ''

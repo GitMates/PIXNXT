@@ -145,18 +145,19 @@ export default function GalleryFavoritesHub() {
       <div
         className={cn(
           'min-h-screen px-6 py-10',
-          isDark ? 'theme-dark bg-[#0a0a0a] text-white' : 'bg-white text-zinc-900'
+          `theme-${palette}`
         )}
-        style={isDark ? { backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' } : undefined}
+        style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
       >
         <div className="mx-auto max-w-md pt-16 text-center">
           <h1 className="mb-4 text-2xl font-bold uppercase tracking-[0.2em]">Favorites</h1>
-          <p className="mb-10 text-sm opacity-60">
+          <p className="mb-10 text-sm opacity-60" style={{ color: 'var(--gallery-meta-text)' }}>
             Sign in with your email from the gallery to view and manage your favorite lists.
           </p>
           <Link
             to={galleryPath}
-            className="inline-flex items-center justify-center border border-current px-8 py-3 text-[10px] font-bold uppercase tracking-[0.35em] transition-opacity hover:opacity-70"
+            className="inline-flex items-center justify-center border px-8 py-3 text-[10px] font-bold uppercase tracking-[0.35em] transition-opacity hover:opacity-70"
+            style={{ borderColor: 'var(--gallery-accent)', color: 'var(--gallery-text)' }}
           >
             View gallery
           </Link>
@@ -167,17 +168,14 @@ export default function GalleryFavoritesHub() {
 
   return (
     <div
-      className={cn('min-h-screen', isDark ? 'theme-dark' : '')}
+      className={cn('min-h-screen', `theme-${palette}`)}
       style={{
-        backgroundColor: isDark ? 'var(--gallery-bg)' : '#fafafa',
-        color: isDark ? 'var(--gallery-text)' : '#111',
+        backgroundColor: 'var(--gallery-bg)',
+        color: 'var(--gallery-text)',
       }}
     >
       <header
-        className={cn(
-          'flex items-center justify-between border-b px-4 py-4 md:px-10',
-          isDark ? 'border-white/10' : 'border-black/10'
-        )}
+        className="flex items-center justify-between border-b px-4 py-4 md:px-10 border-[var(--gallery-border)]"
       >
         <Link
           to={galleryPath}
@@ -210,10 +208,7 @@ export default function GalleryFavoritesHub() {
             </button>
             {moreOpen && (
               <div
-                className={cn(
-                  'absolute right-0 top-full z-50 mt-2 min-w-[160px] rounded border py-1 shadow-lg',
-                  isDark ? 'border-white/15 bg-zinc-900 text-white' : 'border-black/10 bg-white text-zinc-900'
-                )}
+                className="absolute right-0 top-full z-50 mt-2 min-w-[160px] rounded border py-1 shadow-lg border-[var(--gallery-border)] bg-[var(--gallery-secondary-bg)] text-[var(--gallery-text)]"
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
@@ -234,7 +229,7 @@ export default function GalleryFavoritesHub() {
 
       <main className="mx-auto max-w-2xl px-6 pb-24 pt-16 md:pt-24">
         <h1 className="mb-3 text-center text-3xl font-bold uppercase tracking-[0.15em] md:text-4xl">Favorites</h1>
-        <p className={cn('mb-14 text-center text-sm', isDark ? 'text-white/50' : 'text-zinc-500')}>
+        <p className="mb-14 text-center text-sm" style={{ color: 'var(--gallery-meta-text)' }}>
           Curated by {email}
         </p>
 
@@ -270,7 +265,8 @@ export default function GalleryFavoritesHub() {
           type="button"
           onClick={openCreateModal}
           disabled={creating}
-          className="mx-auto mt-12 flex w-full max-w-md items-center justify-center border border-current py-4 text-[10px] font-bold uppercase tracking-[0.35em] transition-opacity hover:opacity-70 disabled:opacity-40"
+          className="mx-auto mt-12 flex w-full max-w-md items-center justify-center border py-4 text-[10px] font-bold uppercase tracking-[0.35em] transition-opacity hover:opacity-70 disabled:opacity-40"
+          style={{ borderColor: 'var(--gallery-accent)', color: 'var(--gallery-text)' }}
         >
           <Plus size={14} className="mr-2" strokeWidth={2} />
           Create new list
@@ -291,14 +287,11 @@ export default function GalleryFavoritesHub() {
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 16 }}
-              className={cn(
-                'relative z-[1] w-full max-w-md border px-8 py-8 shadow-2xl',
-                isDark ? 'border-white/15 bg-[#1a1a1a] text-white' : 'border-black/10 bg-white text-zinc-900'
-              )}
+              className="relative z-[1] w-full max-w-md border px-8 py-8 shadow-2xl border-[var(--gallery-border)] bg-[var(--gallery-secondary-bg)] text-[var(--gallery-text)]"
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className="mb-2 text-center text-xs font-bold uppercase tracking-[0.2em]">New list</h2>
-              <p className={cn('mb-6 text-center text-sm', isDark ? 'text-white/55' : 'text-zinc-500')}>
+              <p className="mb-6 text-center text-sm opacity-70" style={{ color: 'var(--gallery-meta-text)' }}>
                 Name this favorites list. You can pick photos for it from the gallery.
               </p>
               <input
@@ -307,10 +300,7 @@ export default function GalleryFavoritesHub() {
                 value={newListName}
                 onChange={(e) => setNewListName(e.target.value)}
                 placeholder="List name"
-                className={cn(
-                  'mb-6 w-full border px-3 py-3 text-sm outline-none',
-                  isDark ? 'border-white/20 bg-black/30 text-white placeholder:text-white/35' : 'border-zinc-200 bg-white'
-                )}
+                className="mb-6 w-full border px-3 py-3 text-sm outline-none border-[var(--gallery-border)] bg-[var(--gallery-bg)] text-[var(--gallery-text)] placeholder:opacity-50"
                 onKeyDown={(e) => e.key === 'Enter' && submitNewList()}
               />
               <div className="flex justify-end gap-3">
@@ -326,8 +316,8 @@ export default function GalleryFavoritesHub() {
                   type="button"
                   disabled={creating || !newListName.trim()}
                   onClick={submitNewList}
-                  className="rounded bg-white/15 px-6 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-white transition-opacity hover:bg-white/25 disabled:opacity-40"
-                  style={!isDark ? { backgroundColor: '#111', color: '#fff' } : undefined}
+                  className="rounded px-6 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity disabled:opacity-40"
+                  style={{ backgroundColor: 'var(--gallery-accent)', color: 'var(--gallery-bg)' }}
                 >
                   {creating ? 'Saving…' : 'Create'}
                 </button>

@@ -2548,14 +2548,36 @@
     justify-content: center;
 }
 
-/* 2. Left */
+/* 2. Left — full-bleed overlay */
+.style-left .preview-content {
+    align-items: stretch;
+}
+
 .style-left .preview-image {
     background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80');
 }
 
 .style-left .preview-title {
+    top: 8px;
+    left: 8px;
+    bottom: auto;
+    font-size: 6px;
+    letter-spacing: 0.2em;
+    opacity: 0.9;
+}
+
+.style-left .preview-content::after {
+    content: 'TITLE';
+    position: absolute;
     bottom: 8px;
     left: 8px;
+    font-size: 7px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    z-index: 2;
+    pointer-events: none;
 }
 
 /* 3. Novel */
@@ -2650,22 +2672,37 @@
     justify-content: center;
 }
 
-/* 7. Divider */
+/* 7. Divider — picker thumbnail: one cover photo, split look with center line + title on left */
 .style-divider .preview-content {
-    gap: 1px;
+    align-items: stretch;
 }
 
 .style-divider .preview-image {
-    width: 50%;
+    width: 100%;
+    height: 100%;
+    flex: 1 1 auto;
     background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=80');
 }
 
-.style-divider .preview-image:nth-of-type(2) {
-    background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80');
+.style-divider .preview-content::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 2;
+    transform: translateX(-50%);
+    pointer-events: none;
 }
 
 .style-divider .preview-title {
-    left: 10%;
+    left: 25%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    margin: 0;
 }
 
 /* 8. Journal */
@@ -2691,11 +2728,13 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    background-color: #f2f2f2;
 }
 
 .style-stamp .preview-image {
-    width: 30px;
-    height: 30px;
+    width: 22px;
+    height: 28px;
+    border-radius: 0;
     background-image: url('https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=400&q=80');
     margin-bottom: 5px;
 }
@@ -2704,6 +2743,7 @@
     position: static;
     color: #111;
     text-shadow: none;
+    font-weight: 700;
 }
 
 /* 10. Outline */
@@ -2727,27 +2767,27 @@
     justify-content: center;
 }
 
-/* 11. Classic */
+/* 11. Classic — full-bleed image, no title overlay */
+.style-classic .preview-content {
+    padding: 0;
+}
+
 .style-classic .preview-image {
+    width: 100%;
+    height: 100%;
+    min-height: 28px;
+    border-radius: 0;
     background-image: url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=400&q=80');
+    background-size: cover;
+    background-position: center;
 }
 
 .style-classic .preview-content::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 12px;
-    background: rgba(255, 255, 255, 0.9);
+    display: none;
 }
 
 .style-classic .preview-title {
-    bottom: 2px;
-    left: 4px;
-    color: #444;
-    font-size: 3px;
-    text-shadow: none;
+    display: none;
 }
 
 /* 12. None */
@@ -2852,21 +2892,21 @@
 }
 
 .font-preview-timeless .sample-text {
-    font-family: 'Playfair Display', 'Lora', serif;
-    font-weight: 400;
+    font-family: 'Lora', serif;
+    font-weight: 300;
     font-style: italic;
 }
 
 .font-preview-bold .sample-text {
-    font-family: 'Montserrat', 'Inter', sans-serif;
-    font-weight: 900;
+    font-family: 'Unbounded', 'Inter', sans-serif;
+    font-weight: 700;
     text-transform: uppercase;
 }
 
 .font-preview-subtle .sample-text {
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 300;
-    letter-spacing: 0.3em;
+    font-family: 'Outfit', sans-serif;
+    font-weight: 200;
+    letter-spacing: 0.25em;
     text-transform: uppercase;
 }
 
@@ -3040,13 +3080,13 @@
     background: white;
 }
 
-/* --- Font Preview Mappings --- */
+/* --- Font Preview Mappings (match index.css gallery presets) --- */
 .font-preview-sans {
-    font-family: 'Outfit', sans-serif;
+    font-family: 'Inter', sans-serif;
 }
 
 .font-preview-serif {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Lora', serif;
 }
 
 .font-preview-modern {
@@ -3058,12 +3098,11 @@
 }
 
 .font-preview-bold {
-    font-family: 'Unbounded', sans-serif;
+    font-family: 'Inter', sans-serif;
 }
 
 .font-preview-subtle {
     font-family: 'Outfit', sans-serif;
-    font-weight: 300;
 }
 
 /* --- DESIGN MODAL STYLES --- */
