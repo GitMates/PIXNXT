@@ -11,10 +11,7 @@ import { galleryService } from '../services/gallery.service';
 import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { isImageMime, getFileMime } from '../lib/fileMime';
 import { initialUploadWidgetState } from '../components/features/CollectionDashboard/Upload/uploadTypes';
-import {
-  partitionDuplicateUploadFiles,
-  uploadTabCounts,
-} from '../components/features/CollectionDashboard/Upload/uploadUtils';
+import { uploadTabCounts } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 
 const LARGE_FILE_BYTES = 6 * 1024 * 1024;
 const MAX_CONCURRENT_SMALL = 4;
@@ -195,26 +192,7 @@ export function UploadQueueProvider({ children }) {
       }
       if (files.length === 0) return false;
 
-      const existingNames = (target.existingFilenames || []).map((n) => n.toLowerCase());
-      const queuedNames = stateRef.current.files
-        .filter((f) => f.status !== 'error')
-        .map((f) => f.name.toLowerCase());
-      const { accepted, skipped } = partitionDuplicateUploadFiles(
-        files,
-        existingNames,
-        queuedNames
-      );
-
-      if (skipped.length > 0) {
-        const preview = skipped.slice(0, 5).join(', ');
-        const more = skipped.length > 5 ? ` and ${skipped.length - 5} more` : '';
-        alert(
-          `Skipped ${skipped.length} duplicate file(s) already in this collection: ${preview}${more}`
-        );
-      }
-      if (accepted.length === 0) return false;
-
-      const newUploadFiles = accepted.map((file) => ({
+      const newUploadFiles = files.map((file) => ({
         id: Math.random().toString(36).slice(2, 11),
         file,
         name: file.name,

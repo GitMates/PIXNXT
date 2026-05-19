@@ -38,29 +38,3 @@ export function uploadOverallPercent(files: UploadQueueFile[]): number {
   const completed = files.filter((f) => f.status === 'completed').length;
   return Math.min(100, Math.round((completed / files.length) * 100));
 }
-
-/** Skip files whose name already exists in the collection or the active upload queue. */
-export function partitionDuplicateUploadFiles(
-  files: File[],
-  existingNamesLower: Iterable<string>,
-  queuedNamesLower: Iterable<string>
-): { accepted: File[]; skipped: string[] } {
-  const seen = new Set<string>();
-  for (const name of existingNamesLower) seen.add(name);
-  for (const name of queuedNamesLower) seen.add(name);
-
-  const accepted: File[] = [];
-  const skipped: string[] = [];
-
-  for (const file of files) {
-    const key = file.name.toLowerCase();
-    if (seen.has(key)) {
-      skipped.push(file.name);
-      continue;
-    }
-    seen.add(key);
-    accepted.push(file);
-  }
-
-  return { accepted, skipped };
-}

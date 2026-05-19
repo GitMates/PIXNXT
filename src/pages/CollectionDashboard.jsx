@@ -28,7 +28,6 @@ import { PrivacySettings } from '../components/features/CollectionDashboard/Sett
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
 import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import { getFileMime } from '../lib/fileMime';
-import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
 import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
@@ -912,33 +911,30 @@ const CollectionDashboard = () => {
         const file = e.target.files[0];
         if (!file || !editingPhoto) return;
 
-        const photographerId = collection?.photographer_id ?? user?.id;
-        if (!collectionId || !photographerId) {
-            alert('Collection is still loading. Please try again.');
-            return;
-        }
-
         try {
             setSaving(true);
-            const fileToUpload = await prepareUploadFile(file);
-            const updated = await galleryService.replacePhoto(
-                editingPhoto.id,
-                photographerId,
-                collectionId,
-                fileToUpload
-            );
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+            const filePath = `${photographerId}/${collectionId}/${fileName}`;
+            const { url: publicUrl } = await storageService.upload(filePath, file);
 
-            clearMediaUrlCache();
-            setPhotos((prev) => prev.map((p) => (p.id === editingPhoto.id ? updated : p)));
+            const updated = await galleryService.updatePhoto(editingPhoto.id, {
+                full_url: publicUrl,
+                web_url: publicUrl,
+                thumbnail_url: publicUrl,
+                original_storage_path: filePath,
+                size_bytes: file.size
+            });
+
+            setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? updated : p));
             setShowReplaceModal(false);
             setEditingPhoto(null);
             alert('Photo replaced successfully!');
         } catch (err) {
             console.error('Error replacing photo:', err);
-            alert(err instanceof Error ? err.message : 'Failed to replace photo.');
+            alert('Failed to replace photo.');
         } finally {
             setSaving(false);
-            e.target.value = '';
         }
     };
 
@@ -1210,11 +1206,6 @@ const CollectionDashboard = () => {
         ? `${collection.name || 'Collection'} / ${activeSetName}`
         : activeSetName;
 
-    const existingUploadFilenames = useMemo(
-        () => photos.map((p) => p.filename).filter(Boolean),
-        [photos]
-    );
-
     const {
         state: uploadState,
         processFiles,
@@ -1230,7 +1221,6 @@ const CollectionDashboard = () => {
         photographerId: collection?.photographer_id ?? user?.id,
         activeSetId: highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null),
         photosLength: photos.length,
-        existingFilenames: existingUploadFilenames,
         destinationLabel: uploadDestinationLabel,
         onPhotoUploaded: (photoData) => setPhotos((prev) => [...prev, photoData]),
     });
