@@ -2404,7 +2404,8 @@ const CollectionDashboard = () => {
                                         className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}`}
                                     >
                                         {gridPhotos.map((photo, index) => {
-                                            const menuAlignLeft = index % 4 >= 2;
+                                            const cols = gridSize === 'large' ? 4 : 6;
+                                            const menuAlignLeft = index % cols >= Math.ceil(cols / 2);
                                             const isPending = Boolean(photo._uploadPending);
                                             return (
                                             <div

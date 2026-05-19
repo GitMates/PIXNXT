@@ -11,7 +11,6 @@ import {
 const containWrapStyle = {
   width: '100%',
   height: '100%',
-  display: 'block',
 };
 
 /** Square manage grid — shimmer + fade-in via SmoothMediaImage (no blur thumb). */
@@ -34,6 +33,7 @@ function ContainGridMedia({ photo, index, isVideo }) {
       src={gridSrc}
       fallbacks={fallbacks}
       alt=""
+      wrapClassName="smooth-media-wrap--contain-cell"
       className="cd-photo-img cd-photo-grid-contain-media"
       objectFit="contain"
       loading={index < 24 ? 'eager' : 'lazy'}
@@ -48,7 +48,7 @@ function ContainGridVideo({ photo }) {
   const poster = getPhotoVideoPoster(photo);
 
   return (
-    <span className="smooth-media-wrap" style={containWrapStyle}>
+    <span className="smooth-media-wrap smooth-media-wrap--contain-cell" style={containWrapStyle}>
       {!ready && <span className="smooth-media-shimmer" aria-hidden />}
       {poster && !ready && (
         <img
@@ -64,12 +64,11 @@ function ContainGridVideo({ photo }) {
         poster={poster}
         className={`cd-photo-img cd-photo-video-thumb cd-photo-grid-contain-media smooth-media-img${ready ? ' smooth-media-img--visible' : ''}`}
         style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
+          width: 'auto',
+          height: 'auto',
+          maxWidth: '100%',
+          maxHeight: '100%',
           objectFit: 'contain',
-          imageOrientation: 'from-image',
           backgroundColor: '#fff',
         }}
         muted

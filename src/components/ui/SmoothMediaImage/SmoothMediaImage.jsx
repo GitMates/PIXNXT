@@ -12,6 +12,7 @@ export function SmoothMediaImage({
   fallbacks = [],
   alt = '',
   className,
+  wrapClassName,
   style,
   objectFit = 'contain',
   loading = 'lazy',
@@ -104,7 +105,7 @@ export function SmoothMediaImage({
 
   if (!activeSrc) {
     return (
-      <span className="smooth-media-wrap" style={style} ref={wrapRef}>
+      <span className={cn('smooth-media-wrap', wrapClassName)} style={style} ref={wrapRef}>
         <span className="smooth-media-shimmer" aria-hidden />
         <span className="smooth-media-error">Loading...</span>
       </span>
@@ -112,7 +113,7 @@ export function SmoothMediaImage({
   }
 
   return (
-    <span className="smooth-media-wrap" style={style} ref={wrapRef}>
+    <span className={cn('smooth-media-wrap', wrapClassName)} style={style} ref={wrapRef}>
       {showShimmer && <span className="smooth-media-shimmer" aria-hidden />}
 
       {!shouldLoad && <span className="smooth-media-placeholder" aria-hidden />}

@@ -32,12 +32,7 @@ async function compressImage(file) {
   const { maxEdge, quality } = compressSettings(file.size);
 
   try {
-    const bitmap = await createImageBitmap(file, {
-      imageOrientation: 'from-image',
-      resizeWidth: maxEdge,
-      resizeHeight: maxEdge,
-      resizeQuality: 'medium',
-    });
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
 
     const longEdge = Math.max(bitmap.width, bitmap.height);
     if (longEdge <= maxEdge && file.size < 2.5 * 1024 * 1024) {
@@ -45,16 +40,20 @@ async function compressImage(file) {
       return file;
     }
 
+    const scale = longEdge > maxEdge ? maxEdge / longEdge : 1;
+    const outW = Math.max(1, Math.round(bitmap.width * scale));
+    const outH = Math.max(1, Math.round(bitmap.height * scale));
+
     const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = outW;
+    canvas.height = outH;
     const ctx = canvas.getContext('2d', { alpha: false });
     if (!ctx) {
       bitmap.close();
       return file;
     }
 
-    ctx.drawImage(bitmap, 0, 0);
+    ctx.drawImage(bitmap, 0, 0, outW, outH);
     bitmap.close();
 
     const blob = await new Promise((resolve) => {
