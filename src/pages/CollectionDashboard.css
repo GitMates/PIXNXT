@@ -4730,12 +4730,13 @@
 }
 
 .expiry-email-header {
-    height: 70px;
+    height: 60px;
     padding: 0 24px;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid #e8e8e8;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-shrink: 0;
 }
 
 .expiry-email-header .header-left {
@@ -4780,14 +4781,15 @@
 
 .expiry-email-header .timing-dropdown select {
     appearance: none;
+    -webkit-appearance: none;
     background: none;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 8px 32px 8px 12px;
+    border: none;
+    padding: 6px 24px 6px 4px;
     font-size: 14px;
     color: #333;
     cursor: pointer;
     outline: none;
+    font-weight: 500;
 }
 
 .expiry-email-header .timing-dropdown svg {
@@ -4821,48 +4823,111 @@
 
 .email-editor-pane {
     flex: 1;
-    max-width: 600px;
-    padding: 40px;
+    padding: 24px 40px;
     overflow-y: auto;
-    border-right: 1px solid #eee;
+    border-right: 1px solid #e8e8e8;
+    background: #fff;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #e0e0e0 transparent;
+}
+
+.email-editor-pane::-webkit-scrollbar {
+    width: 2px;
+}
+
+.email-editor-pane::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.email-editor-pane::-webkit-scrollbar-thumb {
+    background: #e0e0e0;
+    border-radius: 1px;
+}
+
+.email-editor-pane::-webkit-scrollbar-thumb:hover {
+    background: #cccccc;
+}
+
+/* To: row — inline label + input */
+.expiry-to-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #efefef;
+    margin-bottom: 16px;
+}
+
+.expiry-to-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.expiry-to-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    color: #555;
+    background: transparent;
+    padding: 0;
+}
+
+.expiry-to-input::placeholder {
+    color: #bbb;
 }
 
 .email-editor-pane .form-group {
-    margin-bottom: 24px;
-}
-
-.email-editor-pane .form-group label {
-    display: block;
-    font-size: 14px;
-    color: #666;
-    margin-bottom: 8px;
-}
-
-.email-editor-pane .form-group input[type="text"],
-.email-editor-pane .form-group textarea {
-    width: 100%;
-    padding: 12px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    font-size: 14px;
-    outline: none;
-    transition: border-color 0.2s;
-}
-
-.email-editor-pane .form-group input:focus,
-.email-editor-pane .form-group textarea:focus {
-    border-color: #111;
+    margin-bottom: 0;
 }
 
 .email-editor-pane .subject-input {
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    border-bottom: 1px solid #efefef;
+    padding: 14px 0;
+    font-size: 15px;
     font-weight: 600;
-    font-size: 16px !important;
+    color: #111;
+    outline: none;
+    background: transparent;
+}
+
+.email-editor-pane .subject-input:focus {
+    border-bottom-color: #009070;
 }
 
 .email-editor-pane .body-editor {
-    min-height: 200px;
-    resize: vertical;
-    line-height: 1.6;
+    width: 100%;
+    box-sizing: border-box;
+    border: none;
+    padding: 14px 0;
+    font-size: 14px;
+    color: #333;
+    line-height: 1.7;
+    outline: none;
+    resize: none;
+    background: transparent;
+    min-height: 160px;
+    border-bottom: 1px solid #efefef;
+}
+
+.email-editor-pane .body-editor:focus {
+    border-bottom-color: #009070;
+}
+
+.expiry-sender-name {
+    padding: 10px 0 14px;
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+    border-bottom: 1px solid #efefef;
+    margin-bottom: 16px;
 }
 
 .activity-lists-grid {
@@ -4909,68 +4974,89 @@
 }
 
 .dynamic-text-section {
-    margin-bottom: 32px;
+    margin-bottom: 20px;
 }
 
 .dynamic-text-section .section-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    color: #111;
-    font-size: 14px;
+    gap: 6px;
+    color: #009070;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
-    padding: 8px 0;
+    padding: 6px 0;
+    user-select: none;
+}
+
+.dynamic-text-section .section-header:hover {
+    color: #007a5f;
 }
 
 .dynamic-text-section .section-content {
-    padding: 12px 0;
+    padding: 10px 0 4px;
     font-size: 13px;
     color: #666;
-}
-
-.dynamic-text-section .section-content p {
-    margin-bottom: 12px;
 }
 
 .dynamic-text-section .section-content ul {
     list-style: none;
     padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .dynamic-text-section .section-content li {
-    margin-bottom: 8px;
+    font-size: 13px;
+    color: #666;
 }
 
 .dynamic-text-section .section-content li strong {
     color: #333;
 }
 
+.include-info-section {
+    margin-top: 16px;
+}
+
 .include-info-section .section-label {
-    font-size: 14px;
+    font-size: 12px;
+    color: #999;
     font-weight: 500;
-    margin-bottom: 16px;
+    margin-bottom: 10px;
 }
 
 .include-info-section .checkbox-row {
     display: flex;
-    gap: 24px;
+    gap: 20px;
+    align-items: center;
 }
 
 .include-info-section .checkbox-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 14px;
+    gap: 7px;
+    font-size: 13px;
     color: #333;
+    cursor: pointer;
+    user-select: none;
+}
+
+.include-info-section .checkbox-item input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #009070;
     cursor: pointer;
 }
 
 .activity-lists-container {
-    background-color: #f9f9f9;
-    padding: 24px;
-    margin-bottom: 24px;
-    border-radius: 4px;
+    background-color: #f8f8f8;
+    border: 1px solid #ebebeb;
+    padding: 16px 20px;
+    margin-bottom: 20px;
+    border-radius: 6px;
 }
 
 .activity-lists-container .grid-label {
@@ -5008,11 +5094,128 @@
 
 .upgrade-notice {
     font-size: 13px;
-    color: #12b8a6;
+    color: #009070;
     font-weight: 500;
+    margin-top: 4px;
+    cursor: pointer;
 }
 
-/* Expiry Reminders */
+.upgrade-notice:hover {
+    text-decoration: underline;
+}
+
+/* ── RIGHT: Email Preview Pane ── */
+.email-preview-pane {
+    flex: 1;
+    background-color: #f2f2f2;
+    overflow-y: auto;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 40px 24px;
+    box-sizing: border-box;
+    scrollbar-width: thin;
+    scrollbar-color: #e0e0e0 transparent;
+}
+
+.email-preview-pane::-webkit-scrollbar {
+    width: 2px;
+}
+
+.email-preview-pane::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.email-preview-pane::-webkit-scrollbar-thumb {
+    background: #e0e0e0;
+    border-radius: 1px;
+}
+
+.email-preview-pane::-webkit-scrollbar-thumb:hover {
+    background: #cccccc;
+}
+
+.email-preview-container {
+    width: 100%;
+    max-width: 580px;
+}
+
+.email-preview-card {
+    background: #fff;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+}
+
+.email-preview-content {
+    padding: 40px 40px 32px;
+}
+
+.email-preview-photographer {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: #888;
+    margin: 0 0 10px;
+    text-align: center;
+}
+
+.email-preview-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #111;
+    margin: 0 0 20px;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+.email-preview-cover {
+    width: calc(100% + 80px);
+    margin: 0 -40px 28px;
+    max-height: 380px;
+    overflow: hidden;
+}
+
+.email-preview-cover img {
+    width: 100%;
+    height: 380px;
+    object-fit: cover;
+    display: block;
+}
+
+.email-preview-body {
+    font-size: 14px;
+    color: #333;
+    line-height: 1.7;
+}
+
+.email-preview-body p {
+    margin: 0 0 10px;
+}
+
+.preview-greeting {
+    font-size: 14px;
+    color: #333;
+    margin-bottom: 12px !important;
+}
+
+.email-preview-view-btn {
+    display: block;
+    width: fit-content;
+    margin: 28px auto 0;
+    background-color: #009070;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 12px 36px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: default;
+    text-align: center;
+}
+
+
 .reminders-list {
     margin-top: 20px;
     display: flex;

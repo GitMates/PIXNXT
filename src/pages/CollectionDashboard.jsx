@@ -1908,7 +1908,7 @@ const CollectionDashboard = () => {
                     </button>
                     <div className="cd-share-wrapper" ref={shareRef}>
                         <div className="cd-share-split-btn">
-                            <button className="cd-share-main" onClick={() => navigate('/shared-collection')}>Share</button>
+                            <button className="cd-share-main" style={{ pointerEvents: 'none', cursor: 'default' }} tabIndex={-1} aria-disabled="true">Share</button>
                             <button className="cd-share-arrow" onClick={() => { setShowMoreDropdown(false); setShowPresetsSubmenu(false); setShowShareDropdown(!showShareDropdown); }}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                             </button>
@@ -3736,10 +3736,11 @@ const CollectionDashboard = () => {
 
                         <div className="expiry-email-content">
                             <div className="email-editor-pane">
-                                <div className="form-group">
-                                    <label>To:</label>
+                                <div className="expiry-to-row">
+                                    <span className="expiry-to-label">To:</span>
                                     <input 
                                         type="text" 
+                                        className="expiry-to-input"
                                         placeholder="Enter email or select an activity list" 
                                         value={expiryEmailTo}
                                         onChange={(e) => setExpiryEmailTo(e.target.value)}
@@ -3822,7 +3823,11 @@ const CollectionDashboard = () => {
                                         className="body-editor"
                                         value={expiryEmailBody}
                                         onChange={(e) => setExpiryEmailBody(e.target.value)}
+                                        style={{ resize: 'none' }}
                                     />
+                                </div>
+                                <div className="expiry-sender-name">
+                                    {user?.full_name || collection?.photographer_name || 'Your Name'}
                                 </div>
 
                                 <div className="dynamic-text-section">
@@ -3907,44 +3912,41 @@ const CollectionDashboard = () => {
                                     )}
                                 </div>
                             </div>
-                                <div className="email-preview-pane">
-                                    <div className="email-preview-container">
-                                        <div className="email-preview-card">
-                                            <div className="email-preview-content">
-                                                <p className="email-preview-photographer">{user?.full_name || collection?.photographer_name || 'PHOTOGRAPHER'}</p>
-                                                <h3 className="email-preview-title">{collection?.name || 'WEDDING'}</h3>
-                                                
-                                                {collection?.cover_url && (
-                                                    <div className="email-preview-cover">
-                                                        <img src={collection.cover_url} alt="Cover" />
+                            <div className="email-preview-pane">
+                                <div className="email-preview-container">
+                                    <div className="email-preview-card">
+                                        <div className="email-preview-content">
+                                            <p className="email-preview-photographer">{user?.full_name || collection?.photographer_name || 'PHOTOGRAPHER'}</p>
+                                            <h3 className="email-preview-title">{collection?.name || 'WEDDING'}</h3>
+                                            {collection?.cover_url && (
+                                                <div className="email-preview-cover">
+                                                    <img src={collection.cover_url} alt="Cover" />
+                                                </div>
+                                            )}
+                                            <div className="email-preview-body">
+                                                <p className="preview-greeting">Hi,</p>
+                                                {expiryEmailBody
+                                                    .replace(/{collection.name}/g, collection?.name || 'WEDDING')
+                                                    .replace(/{expiry.date}/g, autoExpiry ? `${new Date(autoExpiry).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at 11:59 PM` : 'MM/DD/YYYY at 11:59 PM')
+                                                    .replace(/{days.prior}/g, expiryEmailTiming.split(' ')[0])
+                                                    .replace(/{collection.url}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
+                                                    .split('\n').map((line, i) => {
+                                                        const trimmedLine = line.trim().toLowerCase();
+                                                        if (i === 0 && (trimmedLine === 'hi,' || trimmedLine === 'hi')) return null;
+                                                        return <p key={i}>{line || <br />}</p>;
+                                                    })
+                                                }
+                                                {expiryEmailIncludePin && (
+                                                    <div style={{ marginTop: '24px', borderTop: '1px solid #eee', paddingTop: '20px', fontSize: '13px', color: '#888' }}>
+                                                        <p>Download PIN: <strong>{pinValue || '1234'}</strong></p>
                                                     </div>
                                                 )}
-
-                                                <div className="email-preview-body">
-                                                    <p className="preview-greeting">Hi,</p>
-                                                    {expiryEmailBody
-                                                        .replace(/{collection.name}/g, collection?.name || 'WEDDING')
-                                                        .replace(/{expiry.date}/g, autoExpiry ? `${new Date(autoExpiry).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} at 11:59 PM` : 'MM/DD/YYYY at 11:59 PM')
-                                                        .replace(/{days.prior}/g, expiryEmailTiming.split(' ')[0])
-                                                        .replace(/{collection.url}/g, `${window.location.origin}/gallery/${collection?.slug || '...'}`)
-                                                        .split('\n').map((line, i) => {
-                                                            const trimmedLine = line.trim().toLowerCase();
-                                                            if (i === 0 && (trimmedLine === 'hi,' || trimmedLine === 'hi')) return null;
-                                                            return <p key={i}>{line || <br />}</p>;
-                                                        })
-                                                    }
-                                                    {expiryEmailIncludePin && (
-                                                        <div style={{ marginTop: '24px', borderTop: '1px solid #eee', paddingTop: '20px', fontSize: '13px', color: '#888' }}>
-                                                            <p>Download PIN: <strong>{pinValue || '1234'}</strong></p>
-                                                        </div>
-                                                    )}
-                                                </div>
-
-                                                <button className="email-preview-view-btn">View Gallery</button>
                                             </div>
+                                            <button className="email-preview-view-btn">View Gallery</button>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
                         </div>
                     </div>
                 </div>
