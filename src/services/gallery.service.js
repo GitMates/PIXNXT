@@ -27,6 +27,34 @@ const DASHBOARD_PHOTO_FIELDS = `
   created_at
 `.replace(/\s+/g, '');
 
+const PHOTO_STORAGE_PATH_COLUMNS = [
+  'original_storage_path',
+  'thumbnail_storage_path',
+  'web_storage_path',
+  'watermarked_storage_path',
+];
+
+function collectPhotoStoragePaths(photo) {
+  const paths = new Set();
+  for (const col of PHOTO_STORAGE_PATH_COLUMNS) {
+    if (photo?.[col]) paths.add(photo[col]);
+  }
+  const original = photo?.original_storage_path;
+  if (original && !photo?.thumbnail_storage_path) {
+    paths.add(original.replace(/\.[^.]+$/, '_thumb.jpg'));
+  }
+  return [...paths];
+}
+
+async function deleteStoragePaths(paths) {
+  const unique = [...new Set(paths.filter(Boolean))];
+  if (unique.length === 0) return;
+  const chunkSize = 1000;
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    await storageService.delete(unique.slice(i, i + chunkSize));
+  }
+}
+
 export const galleryService = {
   /**
    * Fetch all collections for a specific photographer (Dashboard view)
@@ -394,23 +422,22 @@ export const galleryService = {
   },
 
   /**
-   * Delete a set. First unassigns all photos in that set.
+   * Delete a set and all photos in it (DB + Cloudflare R2).
    */
   async deleteSet(setId) {
-    // Unassign photos from this set
-    const { error: unassignError } = await supabase
+    const { data: photosInSet, error: fetchError } = await supabase
       .from('photos')
-      .update({ set_id: null })
+      .select('id')
       .eq('set_id', setId);
 
-    if (unassignError) throw unassignError;
+    if (fetchError) throw fetchError;
 
-    // Delete the set
-    const { error } = await supabase
-      .from('sets')
-      .delete()
-      .eq('id', setId);
+    const photoIds = (photosInSet || []).map((p) => p.id);
+    if (photoIds.length > 0) {
+      await this.deletePhotos(photoIds);
+    }
 
+    const { error } = await supabase.from('sets').delete().eq('id', setId);
     if (error) throw error;
   },
 
@@ -560,16 +587,55 @@ export const galleryService = {
   },
 
   /**
-   * Delete photos from the database
+   * Delete photos from Cloudflare R2 and the database (plus related rows).
    */
   async deletePhotos(ids) {
     if (!ids || ids.length === 0) return;
 
-    const { error } = await supabase
+    const { data: rows, error: fetchError } = await supabase
       .from('photos')
-      .delete()
+      .select(
+        `id, collection_id, ${PHOTO_STORAGE_PATH_COLUMNS.join(', ')}`
+      )
       .in('id', ids);
 
+    if (fetchError) throw fetchError;
+    if (!rows?.length) return;
+
+    const collectionIds = [...new Set(rows.map((r) => r.collection_id).filter(Boolean))];
+    for (const collectionId of collectionIds) {
+      const { data: collection, error: coverError } = await supabase
+        .from('collections')
+        .select('cover_photo_id')
+        .eq('id', collectionId)
+        .single();
+
+      if (coverError) throw coverError;
+
+      if (collection?.cover_photo_id && ids.includes(collection.cover_photo_id)) {
+        const { error: clearCoverError } = await supabase
+          .from('collections')
+          .update({ cover_photo_id: null })
+          .eq('id', collectionId);
+        if (clearCoverError) throw clearCoverError;
+      }
+    }
+
+    const { error: favError } = await supabase.from('favorite_items').delete().in('photo_id', ids);
+    if (favError) throw favError;
+
+    const { error: activityError } = await supabase.from('activity_log').delete().in('photo_id', ids);
+    if (activityError) throw activityError;
+
+    const storagePaths = rows.flatMap(collectPhotoStoragePaths);
+    try {
+      await deleteStoragePaths(storagePaths);
+    } catch (storageError) {
+      console.error('Error deleting storage files from R2:', storageError);
+      throw storageError;
+    }
+
+    const { error } = await supabase.from('photos').delete().in('id', ids);
     if (error) throw error;
   },
 

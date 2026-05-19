@@ -455,6 +455,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           sets={(dashboardState?.sets || []).map((s: any) => ({ id: s.id, name: s.name }))}
           activeSetId={dashboardState?.activeSetId ?? null}
           onSetChange={onSetActiveSet}
+          showHighlightsTab={dashboardState?.collection?.highlights_enabled !== false}
           maxVisibleSets={isPreviewMobile ? 4 : 3}
           showFavorites={favFeatureOn}
           showDownload={dashboardState?.photoDownload !== false && dashboardState?.galleryDownload !== false}

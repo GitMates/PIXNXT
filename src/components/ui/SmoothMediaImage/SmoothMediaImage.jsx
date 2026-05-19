@@ -148,7 +148,7 @@ export function SmoothMediaImage({
         />
       )}
 
-      {error && <span className="smooth-media-error">Could not load</span>}
+      {error && <span className="smooth-media-error">Loading...</span>}
     </span>
   );
 }

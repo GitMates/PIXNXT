@@ -105,6 +105,7 @@ const CollectionDashboard = () => {
     const [editSetDescription, setEditSetDescription] = useState('');
     const [deleteSetId, setDeleteSetId] = useState(null);
     const [highlightsName, setHighlightsName] = useState('Highlights');
+    const [highlightsEnabled, setHighlightsEnabled] = useState(true);
     const [toastMessage, setToastMessage] = useState(null);
 
     // SORT STATE
@@ -532,7 +533,6 @@ const CollectionDashboard = () => {
     const photoMenuRef = useRef(null);
     const gridSettingsRef = useRef(null);
     const moreRef = useRef(null);
-    const setMenuRef = useRef(null);
     const sortRef = useRef(null);
     const shareRef = useRef(null);
     const selectionMoreRef = useRef(null);
@@ -615,8 +615,10 @@ const CollectionDashboard = () => {
             setSaving(true);
             await galleryService.deletePhotos(ids);
 
-            // Update local state
-            setPhotos(prev => prev.filter(p => !ids.includes(p.id)));
+            setPhotos((prev) => prev.filter((p) => !ids.includes(p.id)));
+            if (collection?.cover_photo_id && ids.includes(collection.cover_photo_id)) {
+                setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
+            }
             setSelectedPhotos([]);
             setShowDeleteConfirm(false);
             setPhotosToDelete([]);
@@ -1032,6 +1034,7 @@ const CollectionDashboard = () => {
                 if (data.client_exclusive_enabled !== undefined) setClientExclusiveAccess(data.client_exclusive_enabled);
                 if (data.allow_clients_mark_private !== undefined) setAllowClientsMarkPrivate(data.allow_clients_mark_private);
                 if (data.client_only_highlights !== undefined) setClientOnlyHighlights(data.client_only_highlights);
+                if (data.highlights_enabled !== undefined) setHighlightsEnabled(data.highlights_enabled !== false);
 
                 // Map individual columns to state
                 setSelectedCoverStyle(resolveCoverLayoutId(data));
@@ -1167,10 +1170,16 @@ const CollectionDashboard = () => {
     } = useUploadQueue({
         collectionId,
         photographerId: collection?.photographer_id ?? user?.id,
-        activeSetId,
+        activeSetId: highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null),
         photosLength: photos.length,
         onPhotoUploaded: (photoData) => setPhotos((prev) => [...prev, photoData]),
     });
+
+    useEffect(() => {
+        if (!highlightsEnabled && activeSetId == null && sets.length > 0) {
+            setActiveSetId(sets[0].id);
+        }
+    }, [highlightsEnabled, activeSetId, sets]);
 
     const uploadDestinationLabel = collection
         ? `${collection.name || 'Collection'} / ${activeSetName}`
@@ -1288,35 +1297,49 @@ const CollectionDashboard = () => {
     const confirmDeleteSet = async () => {
         if (!deleteSetId) return;
 
-        // "You must have at least one set" logic
-        if (sets.length === 0) {
-            setToastMessage("You must have at least one set.");
+        const isHighlights = deleteSetId === 'highlights';
+
+        if (!isHighlights && sets.length === 0) {
+            setToastMessage('You must have at least one set.');
             setTimeout(() => setToastMessage(null), 3000);
+            setDeleteSetId(null);
             return;
         }
-
-        const isHighlights = deleteSetId === 'highlights';
         
         try {
             setSaving(true);
             if (isHighlights) {
-                // Delete all photos that have no set_id
-                const unassignedPhotoIds = photos.filter(p => !p.set_id).map(p => p.id);
+                const unassignedPhotoIds = photos.filter((p) => !p.set_id).map((p) => p.id);
                 if (unassignedPhotoIds.length > 0) {
                     await galleryService.deletePhotos(unassignedPhotoIds);
-                    setPhotos(prev => prev.filter(p => p.set_id !== null));
+                    setPhotos((prev) => prev.filter((p) => p.set_id));
+                    if (collection?.cover_photo_id && unassignedPhotoIds.includes(collection.cover_photo_id)) {
+                        setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
+                    }
                 }
+                await galleryService.updateCollection(collectionId, { highlights_enabled: false });
+                setHighlightsEnabled(false);
+                setCollection((prev) => (prev ? { ...prev, highlights_enabled: false } : prev));
+                setActiveSetId(sets[0]?.id ?? null);
             } else {
+                const removedIds = new Set(
+                    photos.filter((p) => p.set_id === deleteSetId).map((p) => p.id)
+                );
                 await galleryService.deleteSet(deleteSetId);
-                // Unassign photos locally (move back to highlights)
-                setPhotos(prev => prev.map(p => p.set_id === deleteSetId ? { ...p, set_id: null } : p));
-                setSets(prev => prev.filter(s => s.id !== deleteSetId));
+                setPhotos((prev) => prev.filter((p) => !removedIds.has(p.id)));
+                setSets((prev) => prev.filter((s) => s.id !== deleteSetId));
+                if (collection?.cover_photo_id && removedIds.has(collection.cover_photo_id)) {
+                    setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
+                }
+                if (activeSetId === deleteSetId) {
+                    setActiveSetId(highlightsEnabled ? null : sets.find((s) => s.id !== deleteSetId)?.id ?? null);
+                }
             }
-            if (activeSetId === deleteSetId || (isHighlights && !activeSetId)) setActiveSetId(null);
             setDeleteSetId(null);
         } catch (err) {
             console.error('Failed to delete set:', err);
-            alert('Failed to delete set. Please try again.');
+            const detail = err?.message ? `\n\n${err.message}` : '';
+            alert(`Failed to delete set. Please try again.${detail}`);
         } finally {
             setSaving(false);
         }
@@ -1687,7 +1710,7 @@ const CollectionDashboard = () => {
                 setShowMoreDropdown(false);
                 setShowPresetsSubmenu(false);
             }
-            if (setMenuRef.current && !setMenuRef.current.contains(e.target)) setShowSetMenu(null);
+            if (!e.target.closest?.('.cd-set-menu-wrapper')) setShowSetMenu(null);
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortMenu(false);
             if (selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) setShowSelectionMore(false);
             if (selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) setShowSelectAllMenu(false);
@@ -2018,7 +2041,8 @@ const CollectionDashboard = () => {
                                         Add Set
                                     </button>
                                 </div>
-                                {/* Highlights (all photos) */}
+                                {/* Highlights (unassigned photos) — virtual set; hidden after Delete set */}
+                                {highlightsEnabled && (
                                 <div className={`cd-set-item ${!activeSetId ? 'active' : ''}`} onClick={() => setActiveSetId(null)}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
                                     <span className="cd-set-name">{highlightsName} ({photos.filter(p => !p.set_id).length})</span>
@@ -2048,6 +2072,7 @@ const CollectionDashboard = () => {
                                         </div>
                                     </div>
                                 </div>
+                                )}
                                 {/* Dynamic Sets */}
                                 {sets.map(set => (
                                     <div key={set.id} className={`cd-set-item ${activeSetId === set.id ? 'active' : ''}`} onClick={() => setActiveSetId(set.id)}>
@@ -2055,24 +2080,24 @@ const CollectionDashboard = () => {
                                         <span className="cd-set-name">{set.name} ({photos.filter(p => p.set_id === set.id).length})</span>
                                         <div className="cd-set-actions">
                                             <div className="cd-set-more-container">
-                                                <div className="cd-set-menu-wrapper" ref={setMenuRef}>
+                                                <div className="cd-set-menu-wrapper">
                                                     <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
                                                     </button>
                                                     {showSetMenu === set.id && (
-                                                        <div className="cd-set-dropdown">
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
+                                                        <div className="cd-set-dropdown" role="menu">
+                                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                                                                 <span>Change cover</span>
-                                                            </div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal(set); }}>
+                                                            </button>
+                                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal(set); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                                                                 <span>Edit set</span>
-                                                            </div>
-                                                            <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
+                                                            </button>
+                                                            <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                                                 <span>Delete set</span>
-                                                            </div>
+                                                            </button>
                                                         </div>
                                                     )}
                                                 </div>
@@ -2462,7 +2487,7 @@ const CollectionDashboard = () => {
                                         focalY: collection?.focal_y ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[2] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[2]) : 50),
                                         activeSetId: activeSetId,
                                         sets: sets,
-                                        collection: collection,
+                                        collection: { ...collection, highlights_enabled: highlightsEnabled },
                                         photoDownload: photoDownload,
                                         galleryDownload: galleryDownload,
                                         singlePhotoDownload: singlePhotoDownload,
