@@ -32,6 +32,7 @@ import {
   normalizePaletteId,
   normalizeFontId,
   normalizeCoverStyleId,
+  resolveCoverLayoutId,
 } from '../../lib/normalizeDesignTokens';
 import {
   isClientSessionActive,
@@ -314,7 +315,9 @@ const GalleryView = () => {
       nav_style: 'icons'
     };
     return {
-      cover_style: normalizeCoverStyleId(previewCoverStyle || collection.cover_style || 'novel'),
+      cover_style: previewCoverStyle
+        ? normalizeCoverStyleId(previewCoverStyle)
+        : resolveCoverLayoutId(collection),
       font_family: normalizeFontId(previewFont || collection.font_family || 'sans'),
       color_palette: normalizePaletteId(previewColor || collection.color_palette || 'light'),
       grid_style: previewGrid || collection.grid_style || 'vertical',

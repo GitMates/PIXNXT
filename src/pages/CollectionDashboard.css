@@ -2672,22 +2672,49 @@
     justify-content: center;
 }
 
-/* 7. Divider */
+/* 7. Divider — picker thumbnail: one cover photo, split look with center line + title on left */
 .style-divider .preview-content {
-    gap: 1px;
+    align-items: stretch;
 }
 
 .style-divider .preview-image {
-    width: 50%;
+    width: 100%;
+    height: 100%;
+    flex: 1 1 auto;
     background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=80');
 }
 
-.style-divider .preview-image:nth-of-type(2) {
-    background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=400&q=80');
+.style-divider .preview-content::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 50%;
+    background: rgba(0, 0, 0, 0.38);
+    z-index: 1;
+    pointer-events: none;
+}
+
+.style-divider .preview-content::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.9);
+    z-index: 2;
+    transform: translateX(-50%);
+    pointer-events: none;
 }
 
 .style-divider .preview-title {
-    left: 10%;
+    left: 25%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 3;
+    margin: 0;
 }
 
 /* 8. Journal */

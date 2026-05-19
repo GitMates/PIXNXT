@@ -40,7 +40,6 @@ export const CoverSettings: React.FC<CoverSettingsProps> = ({
                 <div className={cn('preview-box', `style-${style.id}`)}>
                   <div className="preview-content">
                     <div className="preview-image" style={imageStyle}></div>
-                    {style.id === 'divider' && <div className="preview-image" style={imageStyle}></div>}
                     <div className="preview-title">TITLE</div>
                   </div>
                 </div>

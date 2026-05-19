@@ -190,11 +190,16 @@
 }
 
 .cd-preview-gallery-card.style-novel .cover-novel-layout__image-frame {
-  width: auto;
-  height: 90%;
-  max-width: 86%;
-  max-height: 90%;
+  display: block;
+  position: relative;
+  flex-shrink: 0;
+  width: min(86%, 280px);
+  max-width: min(86%, 280px);
+  aspect-ratio: 3 / 4;
+  height: auto;
+  max-height: 100%;
   padding: 2px;
+  box-sizing: border-box;
 }
 
 /* Mobile — image on top, text below */
@@ -255,9 +260,11 @@
 }
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-novel-layout__image-frame {
-  height: 92%;
-  max-width: 88%;
-  max-height: 92%;
+  width: min(88%, 360px);
+  max-width: min(88%, 360px);
+  aspect-ratio: 3 / 4;
+  height: auto;
+  max-height: 100%;
 }
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card.style-novel .cover-novel-layout__text {
