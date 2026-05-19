@@ -32,11 +32,9 @@ export function uploadTabCounts(files: UploadQueueFile[]) {
   };
 }
 
-/** Byte-weighted progress (matches Pixieset % while count shows files). */
+/** Overall progress by completed file count (e.g. 100 / 200 → 50%). */
 export function uploadOverallPercent(files: UploadQueueFile[]): number {
   if (files.length === 0) return 0;
-  const totalBytes = files.reduce((acc, f) => acc + uploadTotalBytes(f), 0);
-  if (totalBytes === 0) return 0;
-  const doneBytes = files.reduce((acc, f) => acc + uploadBytesDone(f), 0);
-  return Math.min(100, Math.round((doneBytes / totalBytes) * 100));
+  const completed = files.filter((f) => f.status === 'completed').length;
+  return Math.min(100, Math.round((completed / files.length) * 100));
 }

@@ -2404,6 +2404,7 @@ const CollectionDashboard = () => {
                                                     <CollectionGridPhoto
                                                         photo={photo}
                                                         index={index}
+                                                        containInCell
                                                     />
                                                     {isPending && (
                                                         <div

@@ -1147,8 +1147,15 @@
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-img,
-.cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-video-thumb {
+.cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-video-thumb,
+.cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-grid-contain-media {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
     object-fit: contain !important;
+    object-position: center !important;
+    background-color: #ffffff !important;
 }
 
 .cd-photo-grid--manage .cd-photo-card:hover .cd-photo-img {
@@ -1172,15 +1179,16 @@
 }
 
 /* Media tab (TS MediaGridView): slightly larger cells when "Large" is selected */
-.cd-photo-grid.grid-large .cd-photo-card {
+.cd-photo-grid.grid-large:not(.cd-photo-grid--manage) .cd-photo-card {
     min-height: 260px;
 }
 
-.cd-photo-grid:not(.grid-large) .cd-photo-card {
+.cd-photo-grid:not(.grid-large):not(.cd-photo-grid--manage) .cd-photo-card {
     min-height: 200px;
 }
 
-.cd-photo-grid--manage .cd-photo-card {
+.cd-photo-grid--manage .cd-photo-card,
+.cd-photo-grid--manage.grid-large .cd-photo-card {
     min-height: unset;
 }
 
@@ -3716,6 +3724,20 @@
         width: 100% !important;
         height: 100% !important;
         object-fit: cover !important;
+    }
+
+    .cd-photo-grid--manage .cd-photo-card {
+        aspect-ratio: 1 / 1 !important;
+    }
+
+    .cd-photo-grid--manage .cd-photo-card-inner--contain img,
+    .cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-video-thumb,
+    .cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-grid-contain-media {
+        object-fit: contain !important;
+    }
+
+    .cd-photo-grid--manage {
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)) !important;
     }
 
     /* --- Sort dropdown: fixed so it's never clipped --- */
