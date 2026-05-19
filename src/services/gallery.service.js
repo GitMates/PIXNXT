@@ -64,18 +64,25 @@ export const galleryService = {
       .from('collections')
       .select(`
         *,
-        photos:photos!photos_collection_id_fkey(count)
+        photos:photos!photos_collection_id_fkey(size_bytes)
       `)
       .eq('photographer_id', photographerId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Flatten the count for easier UI usage
-    return data.map(c => ({
-      ...c,
-      photo_count: c.photos?.[0]?.count || 0
-    }));
+    return (data || []).map((c) => {
+      const photoRows = c.photos || [];
+      const storage_bytes = photoRows.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
+      const storedTotal = Number(c.total_size_bytes);
+      const { photos, ...rest } = c;
+      return {
+        ...rest,
+        photo_count: rest.photo_count ?? photoRows.length,
+        storage_bytes:
+          Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : storage_bytes,
+      };
+    });
   },
 
   /**

@@ -16,6 +16,7 @@ import {
 } from '../components/features/ClientGallery/CollectionShareModals';
 import './ClientGallery.css';
 import { sortCollections } from '../utils/sortCollections';
+import { formatStorageBytes } from '../utils/formatStorageBytes';
 
 
 const ClientGallery = () => {
@@ -519,11 +520,16 @@ const ClientGallery = () => {
                                 {renderContextMenu(collection)}
                                 <div className="px-1">
                                     <h3 className="cg-style-43">{collection.name}</h3>
-                                    <div className="cg-style-44">
-                                        <span className="cg-style-45"></span>
-                                        <span>{collection.photo_count || 0} items</span>
-                                        <span className="cg-style-46">·</span>
-                                        <span>{collection.event_date ? new Date(collection.event_date).toLocaleDateString() : 'No date'}</span>
+                                    <div className="cg-style-44 cg-style-44--split">
+                                        <div className="cg-style-44-meta">
+                                            <span className="cg-style-45"></span>
+                                            <span>{collection.photo_count || 0} items</span>
+                                            <span className="cg-style-46">·</span>
+                                            <span>{collection.event_date ? new Date(collection.event_date).toLocaleDateString() : 'No date'}</span>
+                                        </div>
+                                        <span className="cg-style-80" title="Storage used by this collection">
+                                            {formatStorageBytes(collection.storage_bytes)}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -557,7 +563,12 @@ const ClientGallery = () => {
                                     </div>
                                     <div className="cg-style-54">
                                         <span className="cg-style-55">{collection.name}</span>
-                                        <span className="cg-style-56">{collection.photo_count || 0} items{collection.event_date ? ` · ${new Date(collection.event_date).toLocaleDateString()}` : ''}</span>
+                                        <span className="cg-style-56">
+                                            {collection.photo_count || 0} items
+                                            {collection.event_date ? ` · ${new Date(collection.event_date).toLocaleDateString()}` : ''}
+                                            {' · '}
+                                            {formatStorageBytes(collection.storage_bytes)}
+                                        </span>
                                     </div>
                                     <span className={`cg-style-77 ${collection.status === 'published' ? 'bg-[#e6f9f3] text-[#593116] border border-[#b8f0de]' : 'bg-[#f0f2f3] text-[#666]'}`}>{collection.status?.toUpperCase() || 'DRAFT'}</span>
                                 </div>

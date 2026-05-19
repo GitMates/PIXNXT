@@ -184,6 +184,18 @@
     @apply flex items-center gap-1.5 text-xs text-[#888] max-md:text-[13px];
   }
 
+  .cg-style-44--split {
+    @apply justify-between gap-3;
+  }
+
+  .cg-style-44-meta {
+    @apply flex min-w-0 items-center gap-1.5;
+  }
+
+  .cg-style-80 {
+    @apply shrink-0 text-xs font-medium tabular-nums text-[#888] max-md:text-[13px];
+  }
+
   .cg-style-45 {
     @apply w-2 h-2 bg-[#111111] rounded-full shrink-0;
   }
