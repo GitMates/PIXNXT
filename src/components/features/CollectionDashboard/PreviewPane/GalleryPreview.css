@@ -34,7 +34,12 @@
     background: transparent;
 }
 
-/* Full-color cover photos — no dark scrim; text legibility via shadow */
+/* Full-color cover photos — no dimming; text legibility via shadow */
+.cd-preview-gallery-header img {
+    filter: none !important;
+    opacity: 1 !important;
+}
+
 .cover-over-photo .gallery-heading,
 .cover-over-photo .cover-text-grid__title,
 .cover-over-photo .cover-text-grid__subtitle,

@@ -36,9 +36,6 @@ export const CenterCover: React.FC<CoverProps> = ({
       )}
     >
       <CoverPhoto photoUrl={photoUrl} focalX={focalX} focalY={focalY} className="absolute inset-0" />
-      
-      {/* Premium dark overlay scrim for text contrast */}
-      <div className="absolute inset-0 bg-black/35 z-[5]" />
 
       {/* Centered Typography Stack */}
       <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center text-white">
@@ -94,9 +91,6 @@ export const LeftCover: React.FC<CoverProps> = ({
       style={{ color: '#fff' }}
     >
       <CoverPhoto photoUrl={photoUrl} focalX={focalX} focalY={focalY} className="absolute inset-0" />
-      
-      {/* Scrim Overlay */}
-      <div className="absolute inset-0 bg-black/35 z-[5]" />
 
       {/* Brand in Top Left */}
       {brand ? (
@@ -301,9 +295,6 @@ export const FrameCover: React.FC<CoverProps> = ({
       )}
     >
       <CoverPhoto photoUrl={photoUrl} focalX={focalX} focalY={focalY} className="absolute inset-0" />
-      
-      {/* Dark scrim overlay */}
-      <div className="absolute inset-0 bg-black/30 z-[5]" />
 
       {/* Frame border */}
       <div
@@ -361,9 +352,6 @@ export const StripeCover: React.FC<CoverProps> = ({
       className={cn('cover-stripe-layout cover-over-photo relative w-full overflow-hidden', coverLayoutHeight(isPreview, isGalleryView))}
     >
       <CoverPhoto photoUrl={photoUrl} focalX={focalX} focalY={focalY} className="absolute inset-0" />
-      
-      {/* Dark overlay scrim */}
-      <div className="absolute inset-0 bg-black/30 z-[5]" />
 
       {/* Frame border */}
       <div
@@ -429,10 +417,7 @@ export const DividerCover: React.FC<CoverProps> = ({
       )}
     >
       <CoverPhoto photoUrl={photoUrl} focalX={focalX} focalY={focalY} className="absolute inset-0" />
-      
-      {/* Dark overlay on left side only for pristine legibility */}
-      <div className="absolute left-0 top-0 bottom-0 right-1/2 bg-black/40 z-10" />
-      
+
       {/* Vertical split line in middle */}
       <div className="absolute left-1/2 top-0 bottom-0 z-10 w-px -translate-x-1/2 bg-white/20" />
 
@@ -610,9 +595,6 @@ export const OutlineCover: React.FC<CoverProps> = ({
       )}
     >
       <CoverPhoto photoUrl={photoUrl} focalX={focalX} focalY={focalY} className="absolute inset-0" />
-      
-      {/* Dark scrim overlay */}
-      <div className="absolute inset-0 bg-black/35 z-[5]" />
 
       {/* Centered thin white outline frame enclosing all text/CTA elements */}
       <div

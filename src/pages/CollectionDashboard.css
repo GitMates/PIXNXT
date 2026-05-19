@@ -2684,18 +2684,6 @@
     background-image: url('https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=400&q=80');
 }
 
-.style-divider .preview-content::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: 50%;
-    background: rgba(0, 0, 0, 0.38);
-    z-index: 1;
-    pointer-events: none;
-}
-
 .style-divider .preview-content::after {
     content: '';
     position: absolute;

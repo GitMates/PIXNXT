@@ -193,6 +193,11 @@
   display: none !important;
 }
 
+.gallery-view-hero img {
+  filter: none !important;
+  opacity: 1 !important;
+}
+
 .gallery-view-hero .cover-over-photo .gallery-heading,
 .gallery-view-hero .cover-over-photo .cover-text-grid__title,
 .gallery-view-hero .cover-over-photo .cover-text-grid__subtitle,
