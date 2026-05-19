@@ -18,6 +18,8 @@ import CollectionList from './pages/public/CollectionList';
 import GalleryView from './pages/public/GalleryView';
 import GalleryFavoritesHub from './pages/public/GalleryFavoritesHub';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
+import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 
 function App() {
   const location = useLocation();
@@ -32,8 +34,7 @@ function App() {
   }, [location.search, navigate]);
 
   useEffect(() => {
-    // Listen for cross-component theme updates
-    const handleThemeChange = () => setThemeTick(t => t + 1);
+    const handleThemeChange = () => setThemeTick((t) => t + 1);
     window.addEventListener('theme-change', handleThemeChange);
     return () => window.removeEventListener('theme-change', handleThemeChange);
   }, []);
@@ -49,7 +50,8 @@ function App() {
     }
   }, [location.pathname, themeTick]);
 
-  const hideLayout = location.pathname === '/auth' ||
+  const hideLayout =
+    location.pathname === '/auth' ||
     location.pathname === '/dashboard' ||
     location.pathname === '/client-gallery' ||
     location.pathname === '/collections/create' ||
@@ -63,32 +65,43 @@ function App() {
     location.pathname.startsWith('/gallery/');
 
   return (
-    <div className="app">
-      {!hideLayout && <Header />}
+    <UploadQueueProvider>
+      <UploadQueueRouteSync />
+      <div className="app">
+        {!hideLayout && <Header />}
 
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/auth" element={<AuthPage />} />
-        <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-        <Route path="/client-gallery" element={<ClientGallery />} />
-        <Route path="/photos" element={<ProtectedRoute><PhotoLibrary /></ProtectedRoute>} />
-        <Route path="/starred" element={<ProtectedRoute><Navigate to="/starred/collections" replace /></ProtectedRoute>} />
-        <Route path="/starred/:tab" element={<ProtectedRoute><Starred /></ProtectedRoute>} />
-        <Route path="/homepage" element={<Homepage />} />
-        <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/settings/:tab" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-        <Route path="/collections/get-started" element={<ProtectedRoute><GetStarted /></ProtectedRoute>} />
-        <Route path="/collections/create" element={<ProtectedRoute><CreateCollection /></ProtectedRoute>} />
-        <Route path="/collections/manage" element={<ProtectedRoute><ErrorBoundary><CollectionDashboard /></ErrorBoundary></ProtectedRoute>} />
-        
-        {/* Public Gallery Routes */}
-        <Route path="/collections" element={<CollectionList />} />
-        <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
-        <Route path="/gallery/:slug" element={<GalleryView />} />
-      </Routes>
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/client-gallery" element={<ClientGallery />} />
+          <Route path="/photos" element={<ProtectedRoute><PhotoLibrary /></ProtectedRoute>} />
+          <Route path="/starred" element={<ProtectedRoute><Navigate to="/starred/collections" replace /></ProtectedRoute>} />
+          <Route path="/starred/:tab" element={<ProtectedRoute><Starred /></ProtectedRoute>} />
+          <Route path="/homepage" element={<Homepage />} />
+          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/settings/:tab" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/collections/get-started" element={<ProtectedRoute><GetStarted /></ProtectedRoute>} />
+          <Route path="/collections/create" element={<ProtectedRoute><CreateCollection /></ProtectedRoute>} />
+          <Route
+            path="/collections/manage"
+            element={
+              <ProtectedRoute>
+                <ErrorBoundary>
+                  <CollectionDashboard />
+                </ErrorBoundary>
+              </ProtectedRoute>
+            }
+          />
+          <Route path="/collections" element={<CollectionList />} />
+          <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
+          <Route path="/gallery/:slug" element={<GalleryView />} />
+        </Routes>
 
-      {!hideLayout && <Footer />}
-    </div>
+        {!hideLayout && <Footer />}
+        <GlobalUploadShell />
+      </div>
+    </UploadQueueProvider>
   );
 }
 

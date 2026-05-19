@@ -25,9 +25,10 @@ import { DownloadSettings } from '../components/features/CollectionDashboard/Set
 import { FavoriteSettings } from '../components/features/CollectionDashboard/Settings/FavoriteSettings';
 import { GeneralSettings } from '../components/features/CollectionDashboard/Settings/GeneralSettings';
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
-import { UploadManager } from '../components/features/CollectionDashboard/Upload/UploadManager';
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
+import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import { getFileMime } from '../lib/fileMime';
+import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
 import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
@@ -688,6 +689,19 @@ const CollectionDashboard = () => {
     }, [collectionId]);
 
     useEffect(() => {
+        const onUploadView = (event) => {
+            const detail = event.detail || {};
+            if (detail.collectionId && detail.collectionId !== collectionId) return;
+            setActiveSidebarTab('photos');
+            if ('activeSetId' in detail) {
+                setActiveSetId(detail.activeSetId ?? null);
+            }
+        };
+        window.addEventListener(UPLOAD_VIEW_COLLECTION_EVENT, onUploadView);
+        return () => window.removeEventListener(UPLOAD_VIEW_COLLECTION_EVENT, onUploadView);
+    }, [collectionId]);
+
+    useEffect(() => {
         if (activeActivitySubTab === 'share' || activeActivitySubTab === 'private') {
             setActiveActivitySubTab('favorite');
         }
@@ -898,30 +912,33 @@ const CollectionDashboard = () => {
         const file = e.target.files[0];
         if (!file || !editingPhoto) return;
 
+        const photographerId = collection?.photographer_id ?? user?.id;
+        if (!collectionId || !photographerId) {
+            alert('Collection is still loading. Please try again.');
+            return;
+        }
+
         try {
             setSaving(true);
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-            const filePath = `${photographerId}/${collectionId}/${fileName}`;
-            const { url: publicUrl } = await storageService.upload(filePath, file);
+            const fileToUpload = await prepareUploadFile(file);
+            const updated = await galleryService.replacePhoto(
+                editingPhoto.id,
+                photographerId,
+                collectionId,
+                fileToUpload
+            );
 
-            const updated = await galleryService.updatePhoto(editingPhoto.id, {
-                full_url: publicUrl,
-                web_url: publicUrl,
-                thumbnail_url: publicUrl,
-                original_storage_path: filePath,
-                size_bytes: file.size
-            });
-
-            setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? updated : p));
+            clearMediaUrlCache();
+            setPhotos((prev) => prev.map((p) => (p.id === editingPhoto.id ? updated : p)));
             setShowReplaceModal(false);
             setEditingPhoto(null);
             alert('Photo replaced successfully!');
         } catch (err) {
             console.error('Error replacing photo:', err);
-            alert('Failed to replace photo.');
+            alert(err instanceof Error ? err.message : 'Failed to replace photo.');
         } finally {
             setSaving(false);
+            e.target.value = '';
         }
     };
 
@@ -1189,6 +1206,15 @@ const CollectionDashboard = () => {
     const activeSet = activeSetId ? sets.find(s => s.id === activeSetId) : null;
     const activeSetName = activeSet ? activeSet.name : highlightsName;
 
+    const uploadDestinationLabel = collection
+        ? `${collection.name || 'Collection'} / ${activeSetName}`
+        : activeSetName;
+
+    const existingUploadFilenames = useMemo(
+        () => photos.map((p) => p.filename).filter(Boolean),
+        [photos]
+    );
+
     const {
         state: uploadState,
         processFiles,
@@ -1204,6 +1230,8 @@ const CollectionDashboard = () => {
         photographerId: collection?.photographer_id ?? user?.id,
         activeSetId: highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null),
         photosLength: photos.length,
+        existingFilenames: existingUploadFilenames,
+        destinationLabel: uploadDestinationLabel,
         onPhotoUploaded: (photoData) => setPhotos((prev) => [...prev, photoData]),
     });
 
@@ -1212,10 +1240,6 @@ const CollectionDashboard = () => {
             setActiveSetId(sets[0].id);
         }
     }, [highlightsEnabled, activeSetId, sets]);
-
-    const uploadDestinationLabel = collection
-        ? `${collection.name || 'Collection'} / ${activeSetName}`
-        : activeSetName;
 
     const gridPhotos = useMemo(() => {
         const completedNames = new Set(sortedPhotos.map((p) => p.filename));
@@ -3097,21 +3121,6 @@ const CollectionDashboard = () => {
                     </div>
                 </div>
             )}
-
-            <UploadManager
-                state={uploadState}
-                destinationLabel={uploadDestinationLabel}
-                isPaused={uploadState.isPaused}
-                onMinimize={minimizeUploads}
-                onExpand={expandUploads}
-                onClose={cancelUploads}
-                onPause={pauseUploads}
-                onResume={resumeUploads}
-                onCancel={cancelUploads}
-                onTabChange={setUploadTab}
-                onToggleDetails={toggleUploadDetails}
-                onViewCompleted={minimizeUploads}
-            />
 
             {/* Create Favorite List Modal (single overlay — matches preset list flow) */}
             {showCreateFavoriteListModal && (

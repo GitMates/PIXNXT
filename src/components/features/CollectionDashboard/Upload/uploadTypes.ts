@@ -30,11 +30,11 @@ export interface UploadWidgetState {
   files: UploadQueueFile[];
 }
 
-export const initialUploadWidgetState = (): UploadWidgetState => ({
+export const initialUploadWidgetState: UploadWidgetState = {
   isOpen: false,
   isMinimized: false,
   isPaused: false,
   showDetails: false,
   activeTab: 'uploading',
   files: [],
-});
+};
