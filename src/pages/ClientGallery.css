@@ -352,6 +352,13 @@
     @apply absolute top-3 right-3 bg-white rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] z-[500] py-2.5 min-w-[228px] animate-[cgFadeIn_0.12s_ease] border border-[#eee] overflow-visible;
   }
 
+  .cg-ctx-menu--portal {
+    position: fixed;
+    z-index: 10000;
+    min-width: 228px;
+    width: 228px;
+  }
+
   .cg-ctx-menu--share-open {
     @apply z-[501];
   }

@@ -50,6 +50,7 @@ const ClientGallery = () => {
     const [activeSort, setActiveSort] = useState('created-new');
     const [selectedCards, setSelectedCards] = useState([]);
     const [contextMenuId, setContextMenuId] = useState(null);
+    const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
     const [activeFilter, setActiveFilter] = useState(null);
     const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
     const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
@@ -65,6 +66,7 @@ const ClientGallery = () => {
     const [folderDirectLink, setFolderDirectLink] = useState(null);
     const [folderQr, setFolderQr] = useState(null);
     const [folderContextMenuId, setFolderContextMenuId] = useState(null);
+    const [folderMenuAnchor, setFolderMenuAnchor] = useState(null);
     const [showNewCollectionDropdown, setShowNewCollectionDropdown] = useState(false);
     const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
     const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
@@ -197,8 +199,14 @@ const ClientGallery = () => {
 
     const sortedCollections = sortedRootCollections;
 
-    const closeContextMenu = useCallback(() => setContextMenuId(null), []);
-    const closeFolderContextMenu = useCallback(() => setFolderContextMenuId(null), []);
+    const closeContextMenu = useCallback(() => {
+        setContextMenuId(null);
+        setContextMenuAnchor(null);
+    }, []);
+    const closeFolderContextMenu = useCallback(() => {
+        setFolderContextMenuId(null);
+        setFolderMenuAnchor(null);
+    }, []);
 
     const formatFolderDate = (folder) => {
         const raw = folder?.event_date || folder?.created_at;
@@ -214,7 +222,13 @@ const ClientGallery = () => {
     const openFolderContextMenu = (e, folderId) => {
         e.stopPropagation();
         setContextMenuId(null);
-        setFolderContextMenuId(folderContextMenuId === folderId ? null : folderId);
+        setContextMenuAnchor(null);
+        if (folderContextMenuId === folderId) {
+            closeFolderContextMenu();
+            return;
+        }
+        setFolderMenuAnchor(e.currentTarget);
+        setFolderContextMenuId(folderId);
     };
 
     const handleFolderShareByEmail = (folder) => {
@@ -268,6 +282,7 @@ const ClientGallery = () => {
         return (
             <FolderContextMenu
                 menuRef={folderMenuRef}
+                anchorEl={folderMenuAnchor}
                 folder={folder}
                 variant={variant}
                 onPreview={() => {
@@ -397,6 +412,7 @@ const ClientGallery = () => {
         return (
             <CollectionContextMenu
                 menuRef={contextRef}
+                anchorEl={contextMenuAnchor}
                 variant={variant}
                 onPreview={() => handlePreviewCollection(collection)}
                 onQuickEdit={() => handleQuickEdit(collection)}
@@ -531,7 +547,13 @@ const ClientGallery = () => {
     const openContextMenu = (e, collectionId) => {
         e.stopPropagation();
         setFolderContextMenuId(null);
-        setContextMenuId(contextMenuId === collectionId ? null : collectionId);
+        setFolderMenuAnchor(null);
+        if (contextMenuId === collectionId) {
+            closeContextMenu();
+            return;
+        }
+        setContextMenuAnchor(e.currentTarget);
+        setContextMenuId(collectionId);
     };
 
     return (

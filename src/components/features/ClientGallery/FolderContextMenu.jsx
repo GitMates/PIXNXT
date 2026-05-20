@@ -1,5 +1,6 @@
 import React, { useState, useRef, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useContextMenuPortalLayout } from './useContextMenuPortalLayout';
 
 const SUBMENU_WIDTH = 240;
 const SUBMENU_GAP = 8;
@@ -171,6 +172,7 @@ function ShareSubmenu({
 
 export function FolderContextMenu({
   menuRef,
+  anchorEl,
   folder,
   variant = 'grid',
   onPreview,
@@ -184,6 +186,7 @@ export function FolderContextMenu({
   const shareBtnRef = useRef(null);
   const [shareOpen, setShareOpen] = useState(false);
   const closeTimerRef = useRef(null);
+  const menuLayout = useContextMenuPortalLayout(anchorEl, variant);
 
   const cancelClose = useCallback(() => {
     if (closeTimerRef.current) {
@@ -221,10 +224,13 @@ export function FolderContextMenu({
     fn?.();
   };
 
-  return (
+  if (!menuLayout) return null;
+
+  const menuPanel = (
     <div
-      className={`cg-ctx-menu ${variant === 'list' ? 'cg-ctx-menu--list' : ''} ${shareOpen ? 'cg-ctx-menu--share-open' : ''}`}
+      className={`cg-ctx-menu cg-ctx-menu--portal ${variant === 'list' ? 'cg-ctx-menu--list' : ''} ${shareOpen ? 'cg-ctx-menu--share-open' : ''}`}
       ref={menuRef}
+      style={{ top: menuLayout.top, left: menuLayout.left }}
       onClick={(e) => e.stopPropagation()}
       role="menu"
     >
@@ -243,17 +249,6 @@ export function FolderContextMenu({
         </span>
         <IconChevron />
       </button>
-      <ShareSubmenu
-        shareBtnRef={shareBtnRef}
-        shareOpen={shareOpen}
-        cancelClose={cancelClose}
-        scheduleClose={scheduleClose}
-        onShareByEmail={() => onShareByEmail?.(folder)}
-        onGetDirectLink={() => onGetDirectLink?.(folder)}
-        onGetQrCode={() => onGetQrCode?.(folder)}
-        onShareWhatsApp={() => onShareWhatsApp?.(folder)}
-        onClose={closeShare}
-      />
 
       <button type="button" className="cg-ctx-item" onClick={run(() => onPreview?.(folder))}>
         <IconEye />
@@ -268,5 +263,23 @@ export function FolderContextMenu({
         <span>Remove folder</span>
       </button>
     </div>
+  );
+
+  return createPortal(
+    <>
+      {menuPanel}
+      <ShareSubmenu
+        shareBtnRef={shareBtnRef}
+        shareOpen={shareOpen}
+        cancelClose={cancelClose}
+        scheduleClose={scheduleClose}
+        onShareByEmail={() => onShareByEmail?.(folder)}
+        onGetDirectLink={() => onGetDirectLink?.(folder)}
+        onGetQrCode={() => onGetQrCode?.(folder)}
+        onShareWhatsApp={() => onShareWhatsApp?.(folder)}
+        onClose={closeShare}
+      />
+    </>,
+    document.body
   );
 }
