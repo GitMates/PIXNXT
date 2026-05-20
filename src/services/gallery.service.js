@@ -184,6 +184,130 @@ export const galleryService = {
   },
 
   /**
+   * Folders for the client gallery grid (with collection counts).
+   */
+  async listFoldersForGallery(photographerId) {
+    if (!photographerId) return [];
+
+    const { data: folders, error } = await supabase
+      .from('folders')
+      .select('id, name, slug, cover_url, position, created_at, event_date, show_on_homepage')
+      .eq('photographer_id', photographerId)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const collections = await this.getCollections(photographerId);
+    const countBy = {};
+    const firstChildCoverByFolder = {};
+    const sortedForFolderCover = [...collections]
+      .filter((c) => c.folder_id)
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+    for (const c of sortedForFolderCover) {
+      if (!c.folder_id) continue;
+      countBy[c.folder_id] = (countBy[c.folder_id] || 0) + 1;
+      if (firstChildCoverByFolder[c.folder_id]) continue;
+      const thumb = c.cover_url || c.cover;
+      if (thumb) firstChildCoverByFolder[c.folder_id] = thumb;
+    }
+
+    return (folders || []).map((f) => ({
+      ...f,
+      collection_count: countBy[f.id] || 0,
+      cover_url: f.cover_url || firstChildCoverByFolder[f.id] || null,
+    }));
+  },
+
+  async getFolderById(folderId, photographerId) {
+    if (!folderId || !photographerId) return null;
+    const { data, error } = await supabase
+      .from('folders')
+      .select('*')
+      .eq('id', folderId)
+      .eq('photographer_id', photographerId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw error;
+    }
+    return data;
+  },
+
+  /** Collections inside a folder (same shape as getCollections rows). */
+  async getCollectionsForFolder(photographerId, folderId) {
+    if (!photographerId || !folderId) return [];
+
+    const { data, error } = await supabase
+      .from('collections')
+      .select(`
+        *,
+        photos:photos!photos_collection_id_fkey(size_bytes)
+      `)
+      .eq('photographer_id', photographerId)
+      .eq('folder_id', folderId)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((c) => {
+      const photoRows = c.photos || [];
+      const storage_bytes = photoRows.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
+      const storedTotal = Number(c.total_size_bytes);
+      const { photos, ...rest } = c;
+      return {
+        ...rest,
+        photo_count: rest.photo_count ?? photoRows.length,
+        storage_bytes:
+          Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : storage_bytes,
+      };
+    });
+  },
+
+  async updateFolder(folderId, photographerId, updates) {
+    if (!folderId || !photographerId) {
+      throw new Error('Folder and photographer are required.');
+    }
+
+    const patch = {};
+    if (updates.name !== undefined) patch.name = String(updates.name).trim();
+    if (updates.event_date !== undefined) patch.event_date = updates.event_date || null;
+    if (updates.show_on_homepage !== undefined) patch.show_on_homepage = !!updates.show_on_homepage;
+    if (updates.cover_url !== undefined) patch.cover_url = updates.cover_url;
+    if (updates.guest_password_hash !== undefined) patch.guest_password_hash = updates.guest_password_hash;
+
+    if (Object.keys(patch).length === 0) {
+      return this.getFolderById(folderId, photographerId);
+    }
+
+    const { data, error } = await supabase
+      .from('folders')
+      .update(patch)
+      .eq('id', folderId)
+      .eq('photographer_id', photographerId)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async deleteFolder(folderId, photographerId) {
+    if (!folderId || !photographerId) {
+      throw new Error('Folder is required.');
+    }
+    const { error } = await supabase
+      .from('folders')
+      .delete()
+      .eq('id', folderId)
+      .eq('photographer_id', photographerId);
+
+    if (error) throw error;
+  },
+
+  /**
    * Fetch all published collections for a specific photographer (Public view)
    */
   async getPublicCollections(photographerId) {

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { getShareUrlForCollection } from '../../../lib/shareCollection';
+import { getFolderStudioUrl } from '../../../lib/folderStudioUrl';
 import './CollectionShareModals.css';
 
 function ModalShell({ title, onClose, children }) {
@@ -85,6 +86,33 @@ export function CollectionDuplicateModal({ collection, isOpen, onClose, onConfir
                     {busy ? 'Duplicating…' : 'Duplicate'}
                 </button>
             </div>
+        </ModalShell>
+    );
+}
+
+export function FolderDirectLinkModal({ folder, isOpen, onClose }) {
+    if (!isOpen || !folder) return null;
+    const url = getFolderStudioUrl(folder.id);
+
+    return (
+        <ModalShell title="GET DIRECT LINK" onClose={onClose}>
+            <CopyField label="FOLDER URL" value={url} />
+            <p className="cgm-hint">Opens this folder in your studio. Share with your team to manage collections inside it.</p>
+        </ModalShell>
+    );
+}
+
+export function FolderQrModal({ folder, isOpen, onClose }) {
+    if (!isOpen || !folder) return null;
+    const url = getFolderStudioUrl(folder.id);
+    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
+
+    return (
+        <ModalShell title="GET QR CODE" onClose={onClose}>
+            <div className="cgm-qr-wrap">
+                <img src={qrSrc} alt={`QR code for folder ${folder.name}`} width={220} height={220} />
+            </div>
+            <CopyField label="FOLDER URL" value={url} />
         </ModalShell>
     );
 }

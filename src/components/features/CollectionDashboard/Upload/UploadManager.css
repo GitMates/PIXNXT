@@ -361,6 +361,26 @@
   font-weight: 500;
 }
 
+.upload-batch-done-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.upload-batch-done-list-head-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.upload-batch-done-list-head .upload-batch-success-text {
+  flex: 0 1 auto;
+}
+
 .upload-batch-view-btn {
   flex-shrink: 0;
   border: none;

@@ -75,6 +75,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     downloads_enabled: dashboardState?.photoDownload !== false,
     gallery_download_enabled: dashboardState?.galleryDownload !== false,
     single_photo_download_enabled: dashboardState?.singlePhotoDownload !== false,
+    selected_download_sets: dashboardState?.selectedDownloadSets,
   };
 
   const collectionId = dashboardState?.collection?.id as string | undefined;

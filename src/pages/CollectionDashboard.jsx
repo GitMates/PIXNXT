@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
@@ -46,9 +46,12 @@ import { MoveCollectionModal } from '../components/features/Collections/MoveColl
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams] = useSearchParams();
     const collectionId = searchParams.get('id');
     const { user } = useAuth();
+    const photosGridRef = useRef(null);
+    const pendingUploadScrollRef = useRef(false);
 
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [collection, setCollection] = useState(null);
@@ -180,7 +183,7 @@ const CollectionDashboard = () => {
     // Advanced settings states
     const [downloadLimit, setDownloadLimit] = useState('');
     const [restrictToEmails, setRestrictToEmails] = useState('');
-    const [selectedDownloadSets, setSelectedDownloadSets] = useState(['Highlights']);
+    const [selectedDownloadSets, setSelectedDownloadSets] = useState([]);
     const [pinUsageLimit, setPinUsageLimit] = useState('');
 
     // Favorite State
@@ -689,18 +692,30 @@ const CollectionDashboard = () => {
         }
     }, [collectionId]);
 
+    const applyUploadView = useCallback((detail) => {
+        if (detail.collectionId && detail.collectionId !== collectionId) return;
+        setActiveSidebarTab('photos');
+        if ('activeSetId' in detail) {
+            setActiveSetId(detail.activeSetId ?? null);
+        }
+        setSortOption('upload-new-old');
+        pendingUploadScrollRef.current = true;
+    }, [collectionId]);
+
+    useEffect(() => {
+        const uploadView = location.state?.uploadView;
+        if (!uploadView || uploadView.collectionId !== collectionId) return;
+        applyUploadView(uploadView);
+        navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }, [location.state, location.pathname, location.search, collectionId, applyUploadView, navigate]);
+
     useEffect(() => {
         const onUploadView = (event) => {
-            const detail = event.detail || {};
-            if (detail.collectionId && detail.collectionId !== collectionId) return;
-            setActiveSidebarTab('photos');
-            if ('activeSetId' in detail) {
-                setActiveSetId(detail.activeSetId ?? null);
-            }
+            applyUploadView(event.detail || {});
         };
         window.addEventListener(UPLOAD_VIEW_COLLECTION_EVENT, onUploadView);
         return () => window.removeEventListener(UPLOAD_VIEW_COLLECTION_EVENT, onUploadView);
-    }, [collectionId]);
+    }, [applyUploadView]);
 
     useEffect(() => {
         if (activeActivitySubTab === 'share' || activeActivitySubTab === 'private') {
@@ -1093,7 +1108,19 @@ const CollectionDashboard = () => {
                 // Initialize advanced settings
                 if (data.download_limit_gallery) setDownloadLimit(data.download_limit_gallery.toString());
                 if (data.restrict_to_emails) setRestrictToEmails(data.restrict_to_emails);
-                if (data.selected_download_sets) setSelectedDownloadSets(data.selected_download_sets);
+                if (data.selected_download_sets) {
+                    let nextDownloadSets = data.selected_download_sets;
+                    const namedSets = (data.sets || []).filter((s) => s.name?.toLowerCase() !== 'highlights');
+                    const isLegacyHighlightsOnly =
+                        Array.isArray(nextDownloadSets) &&
+                        nextDownloadSets.length === 1 &&
+                        String(nextDownloadSets[0]).toLowerCase() === 'highlights' &&
+                        namedSets.length > 0;
+                    if (isLegacyHighlightsOnly) {
+                        nextDownloadSets = ['Highlights', ...namedSets.map((s) => s.name)];
+                    }
+                    setSelectedDownloadSets(nextDownloadSets);
+                }
                 if (data.pin_usage_limit) setPinUsageLimit(data.pin_usage_limit.toString());
                 
                 // Initialize favorite settings
@@ -1264,6 +1291,14 @@ const CollectionDashboard = () => {
         return [...sortedPhotos, ...pending];
     }, [sortedPhotos, uploadState.files]);
 
+    useEffect(() => {
+        if (!pendingUploadScrollRef.current || activeSidebarTab !== 'photos') return;
+        pendingUploadScrollRef.current = false;
+        requestAnimationFrame(() => {
+            photosGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, [activeSidebarTab, gridPhotos.length]);
+
     const activeSetPhotoCount = activeSetId
         ? photos.filter(p => p.set_id === activeSetId).length
         : photos.filter(p => !p.set_id).length;
@@ -1304,6 +1339,11 @@ const CollectionDashboard = () => {
                 position: sets.length
             });
             setSets(prev => [...prev, newSet]);
+            setSelectedDownloadSets((prev) => {
+                if (prev.length === 0) return prev;
+                if (prev.includes(newSet.name) || prev.includes(newSet.id)) return prev;
+                return [...prev, newSet.name];
+            });
             setNewSetName('');
             setNewSetDescription('');
             setShowAddSetModal(false);
@@ -2360,7 +2400,7 @@ const CollectionDashboard = () => {
                                 <div className="cd-main-header">
                                     <h2 className="cd-main-title">{activeSetName} ({activeSetPhotoCount})</h2>
                                     <div className="cd-main-actions">
-                                        <div className="cd-sort-wrapper" ref={sortRef}>
+                                        <div className={`cd-sort-wrapper${showSortMenu ? ' cd-sort-wrapper--open' : ''}`} ref={sortRef}>
                                             <button type="button" className="cd-icon-btn sort-btn" onClick={() => { setShowGridSettings(false); setShowSortMenu(!showSortMenu); }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="16" y2="12"></line><line x1="8" y1="18" x2="12" y2="18"></line><line x1="3" y1="6" x2="3" y2="18"></line><polyline points="1 15 3 18 5 15"></polyline></svg>
                                             </button>
@@ -2377,7 +2417,7 @@ const CollectionDashboard = () => {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="cd-grid-settings-wrapper" ref={gridSettingsRef}>
+                                        <div className={`cd-grid-settings-wrapper${showGridSettings ? ' cd-grid-settings-wrapper--open' : ''}`} ref={gridSettingsRef}>
                                             <button type="button" className="cd-icon-btn active grid-btn" onClick={() => { setShowSortMenu(false); setShowGridSettings(!showGridSettings); }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                             </button>
@@ -2430,7 +2470,8 @@ const CollectionDashboard = () => {
 
                                 {gridPhotos.length > 0 ? (
                                     <div
-                                        className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}`}
+                                        ref={photosGridRef}
+                                        className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}${showFilename ? ' cd-photo-grid--filenames' : ''}`}
                                     >
                                         {gridPhotos.map((photo, index) => {
                                             const cols = gridSize === 'large' ? 4 : 6;
@@ -2450,28 +2491,35 @@ const CollectionDashboard = () => {
                                                 onClick={() => togglePhotoSelection(photo.id)}
                                             >
                                                 <div className="cd-photo-card-inner cd-photo-card-inner--contain">
-                                                    <CollectionGridPhoto
-                                                        photo={photo}
-                                                        index={index}
-                                                        containInCell
-                                                    />
-                                                    {isPending && (
-                                                        <div
-                                                            className="cd-photo-upload-overlay"
-                                                            style={{ width: `${photo._uploadProgress || 0}%` }}
+                                                    <div className="cd-photo-thumb-shell">
+                                                        <CollectionGridPhoto
+                                                            photo={photo}
+                                                            index={index}
+                                                            containInCell
                                                         />
-                                                    )}
-                                                    {showFilename && <div className="cd-photo-filename" style={{ position: 'absolute', bottom: 8, left: 8, fontSize: 12, color: '#666', background: 'rgba(255,255,255,0.8)', padding: '2px 6px', borderRadius: 4 }}>{photo.filename || `photo-${index + 1}.jpg`}</div>}
-                                                </div>
-
-                                                {!isPending && (
-                                                <>
-                                                <div className="cd-photo-actions">
+                                                        {isPending && (
+                                                            <div
+                                                                className="cd-photo-upload-overlay"
+                                                                style={{ width: `${photo._uploadProgress || 0}%` }}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                    {!isPending && (
+                                                    <>
+                                                    <div className="cd-photo-actions">
                                                     <button className="cd-photo-more-btn" onClick={(e) => { e.stopPropagation(); setPhotoMenu(photoMenu === photo.id ? null : photo.id); }}>
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
                                                     </button>
                                                     {photoMenu === photo.id && (
                                                         <div className={`cd-photo-menu ${menuAlignLeft ? 'cd-photo-menu--align-left' : ''}`} ref={photoMenuRef}>
+                                                            {showFilename && photo.filename && (
+                                                                <>
+                                                                    <div className="cd-photo-menu-filename-hint" title={photo.filename}>
+                                                                        {photo.filename}
+                                                                    </div>
+                                                                    <div className="cd-ctx-divider" />
+                                                                </>
+                                                            )}
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setLightboxOpenIndex(index); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                                                                 <span>Open</span>
@@ -2525,6 +2573,15 @@ const CollectionDashboard = () => {
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#bbb"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                                 </button>
                                                 </>
+                                                )}
+                                                </div>
+                                                {showFilename && (
+                                                    <div
+                                                        className="cd-photo-filename"
+                                                        title={photo.filename || `photo-${index + 1}.jpg`}
+                                                    >
+                                                        {photo.filename || `photo-${index + 1}.jpg`}
+                                                    </div>
                                                 )}
                                             </div>
                                         );
@@ -2615,6 +2672,7 @@ const CollectionDashboard = () => {
                                         requirePinForSinglePhoto: requirePinForSinglePhoto,
                                         emailTracking: emailRegistration,
                                         galleryPhotoSort: collection?.gallery_photo_sort,
+                                        selectedDownloadSets,
                                     }}
                                     onSetActiveSet={setActiveSetId}
                                 />

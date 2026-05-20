@@ -45,7 +45,9 @@ export const PhotoPrivateControls: React.FC<PhotoPrivateControlsProps> = ({
     <>
       <PhotoPrivateBadge visible={showBadge && isPrivate} />
       {hasActions ? (
-        <div className="cea-photo-actions">
+        <div
+          className={cn('cea-photo-actions', isFavorited && 'cea-photo-actions--visible')}
+        >
           {showFavorite && (
             <button
               type="button"

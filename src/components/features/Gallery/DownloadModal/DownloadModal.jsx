@@ -1,10 +1,27 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Download, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
 import { galleryService } from '@/services/gallery.service';
+
+/** Empty/null = all sets allowed. Legacy `['Highlights']` with named sets = all (old default omitted new sets). */
+function resolveDownloadSetAllowlist(selectedDownloadSets, namedSets = []) {
+  if (!selectedDownloadSets?.length) return null;
+  const hasNamedSets = namedSets.some((s) => s.name?.toLowerCase() !== 'highlights');
+  const isLegacyHighlightsOnly =
+    selectedDownloadSets.length === 1 &&
+    String(selectedDownloadSets[0]).toLowerCase() === 'highlights' &&
+    hasNamedSets;
+  if (isLegacyHighlightsOnly) return null;
+  return selectedDownloadSets;
+}
+
+function isDownloadSetAllowed(allowlist, key) {
+  if (!allowlist) return true;
+  return allowlist.some((item) => String(item) === String(key));
+}
 
 export const DownloadModal = ({
   isOpen,
@@ -59,6 +76,27 @@ export const DownloadModal = ({
   }, [isOpen, collection, initialPhoto, initialSetId]);
 
   const prevIsOpen = useRef(false);
+
+  const downloadSetAllowlist = useMemo(
+    () => resolveDownloadSetAllowlist(collection?.selected_download_sets, sets),
+    [collection?.selected_download_sets, sets]
+  );
+
+  const highlightsCount = photos.filter((p) => !p.set_id).length;
+  const highlightsDownloadAllowed = isDownloadSetAllowed(downloadSetAllowlist, 'Highlights');
+
+  const downloadableNamedSets = useMemo(
+    () =>
+      sets
+        .filter((s) => s.name?.toLowerCase() !== 'highlights')
+        .filter(
+          (s) =>
+            isDownloadSetAllowed(downloadSetAllowlist, s.name) ||
+            isDownloadSetAllowed(downloadSetAllowlist, s.id)
+        )
+        .filter((s) => photos.some((p) => String(p.set_id) === String(s.id))),
+    [sets, downloadSetAllowlist, photos]
+  );
 
   const handlePinInput = (index, value) => {
     if (!/^\d*$/.test(value)) return;
@@ -273,7 +311,6 @@ export const DownloadModal = ({
 
   if (!isOpen) return null;
 
-  const highlightsCount = photos.filter(p => !p.set_id).length;
   const needsEmail = !!collection?.email_capture_enabled || !!collection?.restrict_to_emails;
   const hasPin = !!(collection?.download_pin || collection?.pin_value || collection?.pinValue || collection?.download_pin_hash);
   const pinRequiredForSingle = collection?.require_pin_for_single_photo !== false;
@@ -456,8 +493,8 @@ export const DownloadModal = ({
                       All Photos ({photos.length})
                     </button>
 
-                    {/* Highlights */}
-                    {highlightsCount > 0 && (
+                    {/* Highlights (photos with no set_id) */}
+                    {highlightsCount > 0 && highlightsDownloadAllowed && (
                       <button
                         onClick={() => setSelectedSet(null)}
                         className={cn(
@@ -472,14 +509,7 @@ export const DownloadModal = ({
                     )}
 
                     {/* Named Sets */}
-                    {sets
-                      .filter(s => s.name?.toLowerCase() !== 'highlights')
-                      .filter(s => {
-                        // If selected_download_sets is provided, only show those sets
-                        if (!collection?.selected_download_sets || collection.selected_download_sets.length === 0) return true;
-                        return collection.selected_download_sets.includes(s.name) || collection.selected_download_sets.includes(s.id);
-                      })
-                      .map(set => (
+                    {downloadableNamedSets.map(set => (
                         <button
                           key={set.id}
                           onClick={() => setSelectedSet(set.id)}

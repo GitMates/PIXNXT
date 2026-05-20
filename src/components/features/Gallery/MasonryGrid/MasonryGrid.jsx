@@ -127,6 +127,7 @@ export function MasonryGrid({
         const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
         const isPrivate = Boolean(photo.is_private);
         const useClientActionBar = Boolean(isClientViewer && allowMarkPrivate);
+        const privateBadgeBlocksTopLeft = Boolean(showPrivateBadge && isPrivate);
 
         return (
           <Motion.div
@@ -192,6 +193,23 @@ export function MasonryGrid({
                   {photo.filename || `photo-${index + 1}.jpg`}
                 </div>
               )}
+              {/* Favorited: persistent top-left heart (Pixieset-style) so state stays visible off-hover */}
+              {showFavorite && isFav && !useClientActionBar ? (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onFavorite?.(photo);
+                  }}
+                  className={cn(
+                    'absolute z-[14] flex h-9 w-9 items-center justify-center rounded-full bg-black/40 text-rose-400 shadow-sm backdrop-blur-sm transition-colors hover:bg-black/55 hover:text-rose-300',
+                    privateBadgeBlocksTopLeft ? 'left-3 top-12' : 'left-3 top-3'
+                  )}
+                  aria-label="Remove from favorites"
+                >
+                  <Heart size={18} strokeWidth={1.75} fill="currentColor" className="drop-shadow-sm" />
+                </button>
+              ) : null}
               {/* Hover overlay: download + favorite */}
               <div className="absolute inset-0 z-[10] bg-black/0 transition-all duration-500 group-hover:bg-black/10">
                 {showPrivateBadge && isPrivate ? <PhotoPrivateBadge visible /> : null}
@@ -219,7 +237,14 @@ export function MasonryGrid({
                     }}
                   />
                 ) : (
-                <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 transform translate-y-[10px] transition-all duration-300 group-hover:opacity-100 group-hover:translate-y-0">
+                <div
+                  className={cn(
+                    'absolute bottom-4 right-4 flex gap-2 transform transition-all duration-300',
+                    isFav
+                      ? 'translate-y-0 opacity-100'
+                      : 'translate-y-[10px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100'
+                  )}
+                >
                   {showDownload && (
                     <button
                       type="button"

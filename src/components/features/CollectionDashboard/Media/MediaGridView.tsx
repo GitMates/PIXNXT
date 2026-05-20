@@ -33,7 +33,9 @@ export const MediaGridView: React.FC<MediaGridViewProps> = ({
   }
 
   return (
-    <div className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}`}>
+    <div
+      className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}${showFilename ? ' cd-photo-grid--filenames' : ''}`}
+    >
       {photos.map((photo) => (
         <PhotoCard
           key={photo.id}

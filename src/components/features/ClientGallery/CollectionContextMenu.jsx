@@ -1,5 +1,6 @@
 import React, { useState, useRef, useLayoutEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { useContextMenuPortalLayout } from './useContextMenuPortalLayout';
 
 const SUBMENU_WIDTH = 240;
 const SUBMENU_GAP = 8;
@@ -157,6 +158,7 @@ function ShareSubmenu({
 
 export function CollectionContextMenu({
     menuRef,
+    anchorEl,
     variant = 'grid',
     onPreview,
     onQuickEdit,
@@ -171,6 +173,7 @@ export function CollectionContextMenu({
     const [shareOpen, setShareOpen] = useState(false);
     const shareBtnRef = useRef(null);
     const closeTimerRef = useRef(null);
+    const menuLayout = useContextMenuPortalLayout(anchorEl, variant);
 
     const cancelClose = useCallback(() => {
         if (closeTimerRef.current) {
@@ -205,51 +208,57 @@ export function CollectionContextMenu({
         setShareOpen((open) => !open);
     };
 
-    return (
-        <>
-            <div
-                className={`cg-ctx-menu ${variant === 'list' ? 'cg-ctx-menu--list' : ''} ${shareOpen ? 'cg-ctx-menu--share-open' : ''}`}
-                ref={menuRef}
-                onClick={(e) => e.stopPropagation()}
-                role="menu"
-            >
-                <button
-                    type="button"
-                    ref={shareBtnRef}
-                    className={`cg-ctx-item cg-ctx-item--share ${shareOpen ? 'cg-ctx-item--active' : ''}`}
-                    onClick={toggleShare}
-                    onMouseEnter={openShare}
-                    onMouseLeave={scheduleClose}
-                    aria-expanded={shareOpen}
-                >
-                    <span className="cg-ctx-item-main">
-                        <IconShare />
-                        Share
-                    </span>
-                    <IconChevron />
-                </button>
-                <button type="button" className="cg-ctx-item" onClick={run(onPreview)}>
-                    <IconEye />
-                    Preview
-                </button>
-                <button type="button" className="cg-ctx-item" onClick={run(onQuickEdit)}>
-                    <IconEdit />
-                    Quick edit
-                </button>
-                <button type="button" className="cg-ctx-item" onClick={run(onMoveTo)}>
-                    <IconMove />
-                    Move to
-                </button>
-                <button type="button" className="cg-ctx-item" onClick={run(onDuplicate)}>
-                    <IconDuplicate />
-                    Duplicate
-                </button>
-                <button type="button" className="cg-ctx-item cg-ctx-item--danger" onClick={run(onDelete)}>
-                    <IconTrash />
-                    Delete
-                </button>
-            </div>
+    if (!menuLayout) return null;
 
+    const menuPanel = (
+        <div
+            className={`cg-ctx-menu cg-ctx-menu--portal ${variant === 'list' ? 'cg-ctx-menu--list' : ''} ${shareOpen ? 'cg-ctx-menu--share-open' : ''}`}
+            ref={menuRef}
+            style={{ top: menuLayout.top, left: menuLayout.left }}
+            onClick={(e) => e.stopPropagation()}
+            role="menu"
+        >
+            <button
+                type="button"
+                ref={shareBtnRef}
+                className={`cg-ctx-item cg-ctx-item--share ${shareOpen ? 'cg-ctx-item--active' : ''}`}
+                onClick={toggleShare}
+                onMouseEnter={openShare}
+                onMouseLeave={scheduleClose}
+                aria-expanded={shareOpen}
+            >
+                <span className="cg-ctx-item-main">
+                    <IconShare />
+                    Share
+                </span>
+                <IconChevron />
+            </button>
+            <button type="button" className="cg-ctx-item" onClick={run(onPreview)}>
+                <IconEye />
+                Preview
+            </button>
+            <button type="button" className="cg-ctx-item" onClick={run(onQuickEdit)}>
+                <IconEdit />
+                Quick edit
+            </button>
+            <button type="button" className="cg-ctx-item" onClick={run(onMoveTo)}>
+                <IconMove />
+                Move to
+            </button>
+            <button type="button" className="cg-ctx-item" onClick={run(onDuplicate)}>
+                <IconDuplicate />
+                Duplicate
+            </button>
+            <button type="button" className="cg-ctx-item cg-ctx-item--danger" onClick={run(onDelete)}>
+                <IconTrash />
+                Delete
+            </button>
+        </div>
+    );
+
+    return createPortal(
+        <>
+            {menuPanel}
             <ShareSubmenu
                 shareBtnRef={shareBtnRef}
                 shareOpen={shareOpen}
@@ -261,6 +270,7 @@ export function CollectionContextMenu({
                 onGetQrCode={onGetQrCode}
                 onShareWhatsApp={onShareWhatsApp}
             />
-        </>
+        </>,
+        document.body
     );
 }

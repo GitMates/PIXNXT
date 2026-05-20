@@ -94,6 +94,27 @@ export function filterPhotosForViewer(
   return photos.filter((p) => !p.is_private);
 }
 
+/** All photos a viewer may download (gallery-wide, not limited to active tab). */
+export function filterPhotosForDownload(
+  photos: ClientExclusivePhoto[],
+  collection: ClientExclusiveCollection | null | undefined,
+  isClient: boolean,
+  sets: ClientExclusiveSet[] = []
+): ClientExclusivePhoto[] {
+  if (!collection || !isClientExclusiveEnabled(collection) || isClient) {
+    return photos;
+  }
+
+  const privateSetIds = new Set(sets.filter((s) => s.is_private).map((s) => s.id));
+
+  return photos.filter((p) => {
+    if (p.is_private) return false;
+    if (p.set_id && privateSetIds.has(p.set_id)) return false;
+    if (!p.set_id && isHighlightsClientOnly(collection)) return false;
+    return true;
+  });
+}
+
 export function verifyClientPassword(
   entered: string,
   stored: string | null | undefined

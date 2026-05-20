@@ -160,10 +160,6 @@
     @apply absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-[20px] font-bold text-white z-[6] opacity-0 transition-opacity duration-200 cursor-pointer drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)] rounded group-hover:opacity-100 hover:bg-black/20;
   }
 
-  .cg-style-73--ctx-open .cg-style-74 {
-    @apply overflow-visible;
-  }
-
   .cg-style-40 {
     @apply absolute top-9 right-2 bg-[#ffffff] rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] z-[200] py-3 min-w-[200px] animate-[cgFadeIn_0.12s_ease] max-md:fixed max-md:right-3 max-md:left-3 max-md:top-[20%] max-md:w-auto max-md:max-w-[300px] max-md:mx-auto max-md:z-[99999] max-md:shadow-[0_12px_48px_rgba(0,0,0,0.25)] max-md:rounded-xl;
   }
@@ -277,7 +273,15 @@
   }
 
   .cg-style-65 {
-    @apply flex items-center gap-2 text-white text-sm font-semibold;
+    @apply relative flex items-center gap-2 text-white text-sm font-semibold;
+  }
+
+  .cg-selection-menu {
+    @apply absolute bottom-full left-0 mb-2 min-w-[140px] overflow-hidden rounded-md bg-white py-1 shadow-[0_8px_24px_rgba(0,0,0,0.18)];
+  }
+
+  .cg-selection-menu button {
+    @apply block w-full border-none bg-transparent px-4 py-2.5 text-left text-[13px] font-medium text-[#333] cursor-pointer hover:bg-[#f5f5f5];
   }
 
   .cg-style-66 {
@@ -317,7 +321,7 @@
   }
 
   .cg-style-74 {
-    @apply w-full aspect-[4/3] bg-[#f0f2f3] mb-3 relative overflow-hidden rounded-md max-md:h-auto;
+    @apply w-full aspect-[4/3] bg-[#f0f2f3] mb-3 relative overflow-hidden rounded-md;
   }
 
   .cg-style-74--selected {
@@ -325,7 +329,7 @@
   }
 
   .cg-style-74 img {
-    @apply block h-full w-full object-cover;
+    @apply absolute inset-0 block h-full w-full object-cover;
   }
 
   .cg-style-53 img {
@@ -346,6 +350,13 @@
 
   .cg-ctx-menu {
     @apply absolute top-3 right-3 bg-white rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] z-[500] py-2.5 min-w-[228px] animate-[cgFadeIn_0.12s_ease] border border-[#eee] overflow-visible;
+  }
+
+  .cg-ctx-menu--portal {
+    position: fixed;
+    z-index: 10000;
+    min-width: 228px;
+    width: 228px;
   }
 
   .cg-ctx-menu--share-open {
@@ -418,6 +429,78 @@
 
   .cg-style-51--relative {
     @apply relative;
+  }
+
+  .cg-folder-card .cg-style-74 {
+    @apply bg-[#e8eaed];
+  }
+
+  .cg-folder-thumb-wrap {
+    @apply relative h-full w-full overflow-hidden;
+  }
+
+  .cg-folder-thumb-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 3px;
+    width: 100%;
+    height: 100%;
+    padding: 10px;
+    box-sizing: border-box;
+  }
+
+  .cg-folder-thumb-cell {
+    display: block;
+    min-height: 0;
+    min-width: 0;
+    background: #cfd4da;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .cg-folder-thumb-cell--cover {
+    position: relative;
+    background: #cfd4da;
+  }
+
+  .cg-folder-thumb-cell--cover img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .cg-folder-thumb-grid--sm {
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .cg-folder-list-thumb {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+  }
+
+  .cg-folder-list-thumb .cg-folder-thumb-grid {
+    min-height: 48px;
+    padding: 3px;
+  }
+
+  .cg-folder-title-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .cg-folder-inline-icon {
+    flex-shrink: 0;
+    color: #555;
   }
 
 }
