@@ -27,10 +27,17 @@ import { GeneralSettings } from '../components/features/CollectionDashboard/Sett
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
 import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
-import { getFileMime } from '../lib/fileMime';
+import { getFileMime, getUploadMediaType, isUploadableMediaFile } from '../lib/fileMime';
 import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
+import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
+import {
+    getPhotoFullDisplayUrl,
+    getPhotoOriginalFileUrl,
+    hasRawDisplayPreview,
+    isRawMedia,
+} from '../lib/photoDisplayUrl';
 import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
 import {
     normalizeCoverStyleId,
@@ -77,6 +84,7 @@ const CollectionDashboard = () => {
     const [showWatermarkModal, setShowWatermarkModal] = useState(false);
     const [editingPhoto, setEditingPhoto] = useState(null);
     const [lightboxOpenIndex, setLightboxOpenIndex] = useState(-1); // -1 = closed
+    const [lightboxImgFailed, setLightboxImgFailed] = useState(false);
     const [newPhotoName, setNewPhotoName] = useState('');
     const [targetSetId, setTargetSetId] = useState(null);
     const [moveMode, setMoveMode] = useState('move'); // 'move' or 'copy'
@@ -830,16 +838,17 @@ const CollectionDashboard = () => {
     };
 
     const handleCoverPhotoSelect = async (photo) => {
-        if (!photo?.full_url || !collectionId) return;
+        const coverUrl = getPhotoFullDisplayUrl(photo) || getPhotoOriginalFileUrl(photo);
+        if (!coverUrl || !collectionId) return;
         try {
             setIsCoverUploading(true);
             await galleryService.updateCollection(collectionId, {
                 cover_photo_id: photo.id,
-                cover_url: photo.full_url,
+                cover_url: coverUrl,
             });
             setCollection((prev) => ({
                 ...prev,
-                cover_url: photo.full_url,
+                cover_url: coverUrl,
                 cover_photo_id: photo.id,
             }));
         } catch (err) {
@@ -870,7 +879,8 @@ const CollectionDashboard = () => {
                 return;
             }
         }
-        await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
+        const downloadUrl = getPhotoOriginalFileUrl(photo) || photo.full_url;
+        await downloadPhotoFromR2(downloadUrl, photo.filename || 'photo.jpg');
     };
 
     const handleRenamePhoto = async () => {
@@ -1178,6 +1188,65 @@ const CollectionDashboard = () => {
         clearMediaUrlCache();
     }, [collectionId]);
 
+    useEffect(() => {
+        setLightboxImgFailed(false);
+    }, [lightboxOpenIndex]);
+
+    const rawPreviewRepairRef = useRef(new Set());
+
+    /** Backfill / re-bake JPEG previews for RAW (missing preview or wrong orientation). */
+    useEffect(() => {
+        const orientFixKey = 'pixnxt-raw-orient-v1';
+        let orientFixedIds = [];
+        try {
+            orientFixedIds = JSON.parse(sessionStorage.getItem(orientFixKey) || '[]');
+        } catch {
+            orientFixedIds = [];
+        }
+        const orientFixedSet = new Set(orientFixedIds);
+
+        const needsRepair = photos.filter((p) => {
+            if (!isRawMedia(p) || rawPreviewRepairRef.current.has(p.id)) return false;
+            if (!hasRawDisplayPreview(p)) return true;
+            return !orientFixedSet.has(p.id);
+        });
+        if (needsRepair.length === 0) return undefined;
+
+        let cancelled = false;
+        (async () => {
+            const newlyFixed = [...orientFixedIds];
+            for (const photo of needsRepair) {
+                if (cancelled) break;
+                rawPreviewRepairRef.current.add(photo.id);
+                const rebake = hasRawDisplayPreview(photo);
+                try {
+                    const updated = await galleryService.repairRawPhotoPreview(photo, { rebake });
+                    if (!cancelled && updated?.id) {
+                        setPhotos((prev) =>
+                            prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
+                        );
+                        if (rebake && !newlyFixed.includes(photo.id)) {
+                            newlyFixed.push(photo.id);
+                        }
+                    }
+                } catch (err) {
+                    console.warn('RAW preview repair failed:', photo.filename, err);
+                }
+            }
+            if (!cancelled && newlyFixed.length > orientFixedIds.length) {
+                try {
+                    sessionStorage.setItem(orientFixKey, JSON.stringify(newlyFixed));
+                } catch {
+                    /* ignore quota */
+                }
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [photos]);
+
     // Global click listener to close menus (ref-aware so toolbar toggles work)
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -1260,7 +1329,18 @@ const CollectionDashboard = () => {
         photosLength: photos.length,
         existingFilenames: existingUploadFilenames,
         destinationLabel: uploadDestinationLabel,
-        onPhotoUploaded: (photoData) => setPhotos((prev) => [...prev, photoData]),
+        onPhotoUploaded: (photoData) => {
+            setPhotos((prev) => [...prev, photoData]);
+            if (isRawMedia(photoData) && !hasRawDisplayPreview(photoData)) {
+                void galleryService.repairRawPhotoPreview(photoData).then((updated) => {
+                    if (updated?.id) {
+                        setPhotos((prev) =>
+                            prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
+                        );
+                    }
+                }).catch((err) => console.warn('RAW preview backfill failed:', photoData.filename, err));
+            }
+        },
     });
 
     useEffect(() => {
@@ -1274,7 +1354,6 @@ const CollectionDashboard = () => {
         const pending = uploadState.files
             .filter(
                 (f) =>
-                    f.previewUrl &&
                     f.status !== 'completed' &&
                     f.status !== 'error' &&
                     !completedNames.has(f.name)
@@ -1282,9 +1361,9 @@ const CollectionDashboard = () => {
             .map((f) => ({
                 id: `upload-pending-${f.id}`,
                 filename: f.name,
-                full_url: f.previewUrl,
-                thumbnail_url: f.previewUrl,
-                media_type: getFileMime(f.file).startsWith('video/') ? 'video' : 'image',
+                full_url: f.previewUrl || '',
+                thumbnail_url: f.previewUrl || '',
+                media_type: getUploadMediaType(f.file),
                 _uploadPending: true,
                 _uploadProgress: f.progress,
             }));
@@ -1919,9 +1998,7 @@ const CollectionDashboard = () => {
     const handleModalDrop = (e) => {
         e.preventDefault();
         setIsDraggingModal(false);
-        const mediaFiles = Array.from(e.dataTransfer.files).filter(
-            (f) => f.type.startsWith('image/') || f.type.startsWith('video/')
-        );
+        const mediaFiles = Array.from(e.dataTransfer.files).filter(isUploadableMediaFile);
         if (mediaFiles.length === 0) return;
         if (processFiles(mediaFiles)) {
             setShowUploadModal(false);
@@ -3691,7 +3768,7 @@ const CollectionDashboard = () => {
                             </button>
                         )}
 
-                        {/* Image / Video */}
+                        {/* Image / Video / RAW */}
                         {/\.(mp4|webm|ogg|mov)$/i.test(lbPhoto.filename || lbPhoto.full_url || '') ? (
                             <video
                                 src={lbPhoto.full_url}
@@ -3703,14 +3780,43 @@ const CollectionDashboard = () => {
                                 playsInline
                                 onClick={(e) => e.stopPropagation()}
                             />
-                        ) : (
-                            <img
-                                src={lbPhoto.full_url}
-                                alt={lbPhoto.filename}
-                                className="cd-lightbox-image"
-                                onClick={(e) => e.stopPropagation()}
-                            />
-                        )}
+                        ) : (() => {
+                            const lbSrc = getPhotoFullDisplayUrl(lbPhoto);
+                            if (lbSrc && !lightboxImgFailed) {
+                                return (
+                                    <img
+                                        src={lbSrc}
+                                        alt={lbPhoto.filename}
+                                        className="cd-lightbox-image"
+                                        onClick={(e) => e.stopPropagation()}
+                                        onError={() => setLightboxImgFailed(true)}
+                                    />
+                                );
+                            }
+                            if (isRawMedia(lbPhoto)) {
+                                return (
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                        <RawPhotoPlaceholder variant="lightbox" />
+                                    </div>
+                                );
+                            }
+                            if (lbSrc) {
+                                return (
+                                    <img
+                                        src={lbSrc}
+                                        alt={lbPhoto.filename}
+                                        className="cd-lightbox-image"
+                                        onClick={(e) => e.stopPropagation()}
+                                        onError={() => setLightboxImgFailed(true)}
+                                    />
+                                );
+                            }
+                            return (
+                                <div onClick={(e) => e.stopPropagation()}>
+                                    <RawPhotoPlaceholder variant="lightbox" />
+                                </div>
+                            );
+                        })()}
 
                         {/* Caption */}
                         <div className="cd-lightbox-caption">

@@ -2,10 +2,11 @@
  * Read image dimensions without decoding the full file (fast for JPEG).
  */
 import { getFileMime, isImageMime } from './fileMime';
+import { isRawImageFile } from './rawImageFormats';
 
 export async function getImageDimensionsFast(file) {
   const mime = getFileMime(file);
-  if (!isImageMime(mime) || mime === 'image/gif') {
+  if (isRawImageFile(file) || !isImageMime(mime) || mime === 'image/gif') {
     return { width: null, height: null };
   }
 

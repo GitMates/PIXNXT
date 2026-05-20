@@ -5,8 +5,11 @@ import {
   getPhotoGridDisplayUrl,
   getPhotoVideoPoster,
   getPhotoVideoSrc,
+  isRawMedia,
   isVideoMedia,
 } from '@/lib/photoDisplayUrl';
+import { isBrowserDisplayableImageUrl } from '@/lib/rawImagePreview';
+import { RawPhotoPlaceholder } from './RawPhotoPlaceholder';
 
 const containWrapStyle = {
   width: '100%',
@@ -15,10 +18,10 @@ const containWrapStyle = {
 
 /** Square manage grid — shimmer + fade-in via SmoothMediaImage (no blur thumb). */
 function ContainGridMedia({ photo, index, isVideo }) {
-  const gridSrc = useMemo(
-    () => getPhotoGridDisplayUrl(photo, true),
-    [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename]
-  );
+  const gridSrc = useMemo(() => {
+    const url = getPhotoGridDisplayUrl(photo, true);
+    return url && isBrowserDisplayableImageUrl(url) ? url : '';
+  }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename]);
 
   const fallbacks = useMemo(() => {
     return getPhotoDisplayFallbacks(photo, true).filter((url) => url !== gridSrc);
@@ -26,6 +29,10 @@ function ContainGridMedia({ photo, index, isVideo }) {
 
   if (isVideo) {
     return <ContainGridVideo photo={photo} />;
+  }
+
+  if (!gridSrc && (isRawMedia(photo) || photo._uploadPending)) {
+    return <RawPhotoPlaceholder variant="grid" />;
   }
 
   return (
@@ -99,14 +106,18 @@ export const CollectionGridPhoto = memo(function CollectionGridPhoto({
     return <ContainGridMedia photo={photo} index={index} isVideo={isVideoMedia(photo)} />;
   }
 
-  const gridSrc = useMemo(
-    () => getPhotoGridDisplayUrl(photo, false),
-    [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename]
-  );
+  const gridSrc = useMemo(() => {
+    const url = getPhotoGridDisplayUrl(photo, false);
+    return url && isBrowserDisplayableImageUrl(url) ? url : '';
+  }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename]);
 
   const fallbacks = useMemo(() => {
     return getPhotoDisplayFallbacks(photo, false).filter((url) => url !== gridSrc);
   }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename, gridSrc]);
+
+  if (!gridSrc && (isRawMedia(photo) || photo._uploadPending)) {
+    return <RawPhotoPlaceholder variant="grid" />;
+  }
 
   if (isVideoMedia(photo)) {
     return (

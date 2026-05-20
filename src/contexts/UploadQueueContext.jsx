@@ -10,9 +10,13 @@ import { useLocation } from 'react-router-dom';
 import { galleryService } from '../services/gallery.service';
 import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { isImageMime, getFileMime } from '../lib/fileMime';
+import { isRawImageFile } from '../lib/rawImageFormats';
+import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { initialUploadWidgetState } from '../components/features/CollectionDashboard/Upload/uploadTypes';
 import {
   partitionDuplicateUploadFiles,
+  sortFilesBySizeAsc,
+  sortUploadQueueBySizeAsc,
   uploadTabCounts,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 
@@ -135,6 +139,8 @@ export function UploadQueueProvider({ children }) {
   const pumpQueue = useCallback(() => {
     if (pausedRef.current) return;
 
+    pendingQueueRef.current = sortUploadQueueBySizeAsc(pendingQueueRef.current);
+
     const hasLarge = getMaxConcurrent(stateRef.current.files, pendingQueueRef.current);
     const maxConcurrent = hasLarge ? MAX_CONCURRENT_LARGE : MAX_CONCURRENT_SMALL;
 
@@ -158,6 +164,7 @@ export function UploadQueueProvider({ children }) {
         return;
       }
       pendingQueueRef.current.push(uf);
+      pendingQueueRef.current = sortUploadQueueBySizeAsc(pendingQueueRef.current);
       pumpQueue();
     },
     [patchFile, pumpQueue]
@@ -171,13 +178,14 @@ export function UploadQueueProvider({ children }) {
           pendingQueueRef.current.push(f);
         }
       });
+      pendingQueueRef.current = sortUploadQueueBySizeAsc(pendingQueueRef.current);
       return prev;
     });
     queueMicrotask(() => pumpQueue());
   }, [pumpQueue]);
 
   const processFiles = useCallback(
-    (fileList) => {
+    async (fileList) => {
       const target = targetRef.current;
       if (!target?.collectionId || !target?.photographerId) {
         alert('Open a collection before uploading photos.');
@@ -214,14 +222,16 @@ export function UploadQueueProvider({ children }) {
       }
       if (accepted.length === 0) return false;
 
-      const newUploadFiles = accepted.map((file) => ({
+      const sortedAccepted = sortFilesBySizeAsc(accepted);
+
+      const newUploadFiles = sortedAccepted.map((file) => ({
         id: Math.random().toString(36).slice(2, 11),
         file,
         name: file.name,
         size: file.size,
         progress: 0,
         status: pausedRef.current ? 'waiting' : 'processing',
-        previewUrl: isImageMime(getFileMime(file)) ? URL.createObjectURL(file) : undefined,
+        previewUrl: undefined,
       }));
 
       setState((prev) => ({
@@ -232,7 +242,24 @@ export function UploadQueueProvider({ children }) {
         files: [...prev.files, ...newUploadFiles],
       }));
 
+      const attachPreview = async (uf) => {
+        const { file } = uf;
+        let previewUrl;
+        try {
+          if (isRawImageFile(file)) {
+            const previewBlob = await extractRawPreviewBlob(file);
+            if (previewBlob) previewUrl = URL.createObjectURL(previewBlob);
+          } else if (isImageMime(getFileMime(file))) {
+            previewUrl = URL.createObjectURL(file);
+          }
+        } catch (err) {
+          console.warn('Upload preview generation failed:', file.name, err);
+        }
+        if (previewUrl) patchFile(uf.id, { previewUrl });
+      };
+
       newUploadFiles.forEach((uf) => {
+        void attachPreview(uf);
         if (pausedRef.current) {
           pendingQueueRef.current.push(uf);
         } else {
@@ -242,7 +269,7 @@ export function UploadQueueProvider({ children }) {
 
       return true;
     },
-    [enqueueUpload]
+    [enqueueUpload, patchFile]
   );
 
   const pause = useCallback(() => {
