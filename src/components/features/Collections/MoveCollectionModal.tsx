@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { FolderThumbGrid } from '../ClientGallery/FolderThumbGrid';
 import { galleryService } from '../../../services/gallery.service';
 import './MoveCollectionModal.css';
 
@@ -6,6 +7,7 @@ export type MoveFolderOption = {
   id: string;
   name: string;
   cover_url: string | null;
+  preview_urls?: string[];
 };
 
 type MoveTarget = 'home' | string;
@@ -21,15 +23,20 @@ export interface MoveCollectionModalProps {
   onMoved?: (folderId: string | null) => void;
 }
 
-function FolderThumb({ coverUrl }: { coverUrl: string | null }) {
-  if (coverUrl) {
-    return <img src={coverUrl} alt="" className="move-folder-thumb" loading="lazy" />;
+function FolderThumb({ folder }: { folder: MoveFolderOption }) {
+  const hasPreview = (folder.preview_urls?.length ?? 0) > 0 || folder.cover_url;
+  if (!hasPreview) {
+    return (
+      <span className="move-folder-thumb move-folder-thumb--empty" aria-hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#a4d1f5" stroke="#a4d1f5" strokeWidth="1.5">
+          <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+        </svg>
+      </span>
+    );
   }
   return (
-    <span className="move-folder-thumb move-folder-thumb--empty" aria-hidden>
-      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#a4d1f5" stroke="#a4d1f5" strokeWidth="1.5">
-        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-      </svg>
+    <span className="move-folder-thumb move-folder-thumb--mosaic">
+      <FolderThumbGrid folder={folder} size="sm" />
     </span>
   );
 }
@@ -197,7 +204,7 @@ export function MoveCollectionModal({
                 className={`move-folder-row${selected === folder.id ? ' is-selected' : ''}`}
                 onClick={() => setSelected(folder.id)}
               >
-                <FolderThumb coverUrl={folder.cover_url} />
+                <FolderThumb folder={folder} />
                 <span className="move-folder-row-name">{folder.name}</span>
               </button>
             ))}

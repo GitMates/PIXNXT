@@ -15,6 +15,8 @@ import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { initialUploadWidgetState } from '../components/features/CollectionDashboard/Upload/uploadTypes';
 import {
   partitionDuplicateUploadFiles,
+  sortFilesBySizeAsc,
+  sortUploadQueueBySizeAsc,
   uploadTabCounts,
 } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 
@@ -137,6 +139,8 @@ export function UploadQueueProvider({ children }) {
   const pumpQueue = useCallback(() => {
     if (pausedRef.current) return;
 
+    pendingQueueRef.current = sortUploadQueueBySizeAsc(pendingQueueRef.current);
+
     const hasLarge = getMaxConcurrent(stateRef.current.files, pendingQueueRef.current);
     const maxConcurrent = hasLarge ? MAX_CONCURRENT_LARGE : MAX_CONCURRENT_SMALL;
 
@@ -160,6 +164,7 @@ export function UploadQueueProvider({ children }) {
         return;
       }
       pendingQueueRef.current.push(uf);
+      pendingQueueRef.current = sortUploadQueueBySizeAsc(pendingQueueRef.current);
       pumpQueue();
     },
     [patchFile, pumpQueue]
@@ -173,6 +178,7 @@ export function UploadQueueProvider({ children }) {
           pendingQueueRef.current.push(f);
         }
       });
+      pendingQueueRef.current = sortUploadQueueBySizeAsc(pendingQueueRef.current);
       return prev;
     });
     queueMicrotask(() => pumpQueue());
@@ -216,7 +222,9 @@ export function UploadQueueProvider({ children }) {
       }
       if (accepted.length === 0) return false;
 
-      const newUploadFiles = accepted.map((file) => ({
+      const sortedAccepted = sortFilesBySizeAsc(accepted);
+
+      const newUploadFiles = sortedAccepted.map((file) => ({
         id: Math.random().toString(36).slice(2, 11),
         file,
         name: file.name,

@@ -112,17 +112,28 @@ export const galleryService = {
 
     if (collectionError) throw collectionError;
 
-    const coverByFolder = {};
-    for (const row of collections || []) {
-      if (!row.folder_id || coverByFolder[row.folder_id] || !row.cover_url) continue;
-      coverByFolder[row.folder_id] = row.cover_url;
+    const coversByFolder = {};
+    const sorted = [...(collections || [])].sort(
+      (a, b) => new Date(b.created_at) - new Date(a.created_at)
+    );
+    for (const row of sorted) {
+      if (!row.folder_id || !row.cover_url) continue;
+      if (!coversByFolder[row.folder_id]) coversByFolder[row.folder_id] = [];
+      if (coversByFolder[row.folder_id].length < 4) coversByFolder[row.folder_id].push(row.cover_url);
     }
 
-    return (folders || []).map((folder) => ({
-      id: folder.id,
-      name: folder.name,
-      cover_url: folder.cover_url || coverByFolder[folder.id] || null,
-    }));
+    return (folders || []).map((folder) => {
+      const childCovers = coversByFolder[folder.id] || [];
+      const preview_urls = folder.cover_url
+        ? [folder.cover_url, ...childCovers.filter((u) => u !== folder.cover_url)].slice(0, 4)
+        : childCovers.slice(0, 4);
+      return {
+        id: folder.id,
+        name: folder.name,
+        cover_url: folder.cover_url || childCovers[0] || null,
+        preview_urls,
+      };
+    });
   },
 
   /**
@@ -203,24 +214,32 @@ export const galleryService = {
 
     const collections = await this.getCollections(photographerId);
     const countBy = {};
-    const firstChildCoverByFolder = {};
-    const sortedForFolderCover = [...collections]
+    const coversByFolder = {};
+    const inFolder = [...collections]
       .filter((c) => c.folder_id)
-      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
-    for (const c of sortedForFolderCover) {
+    for (const c of inFolder) {
       if (!c.folder_id) continue;
       countBy[c.folder_id] = (countBy[c.folder_id] || 0) + 1;
-      if (firstChildCoverByFolder[c.folder_id]) continue;
       const thumb = c.cover_url || c.cover;
-      if (thumb) firstChildCoverByFolder[c.folder_id] = thumb;
+      if (!thumb) continue;
+      if (!coversByFolder[c.folder_id]) coversByFolder[c.folder_id] = [];
+      if (coversByFolder[c.folder_id].length < 4) coversByFolder[c.folder_id].push(thumb);
     }
 
-    return (folders || []).map((f) => ({
-      ...f,
-      collection_count: countBy[f.id] || 0,
-      cover_url: f.cover_url || firstChildCoverByFolder[f.id] || null,
-    }));
+    return (folders || []).map((f) => {
+      const childCovers = coversByFolder[f.id] || [];
+      const preview_urls = f.cover_url
+        ? [f.cover_url, ...childCovers.filter((u) => u !== f.cover_url)].slice(0, 4)
+        : childCovers.slice(0, 4);
+      return {
+        ...f,
+        collection_count: countBy[f.id] || 0,
+        preview_urls,
+        cover_url: f.cover_url || childCovers[0] || null,
+      };
+    });
   },
 
   async getFolderById(folderId, photographerId) {

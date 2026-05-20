@@ -17,6 +17,11 @@ import {
   FolderQrModal,
 } from '../components/features/ClientGallery/CollectionShareModals';
 import { MoveCollectionModal } from '../components/features/Collections/MoveCollectionModal';
+import {
+  BulkCollectionStatusModal,
+  BulkCollectionTagsModal,
+} from '../components/features/ClientGallery/BulkCollectionModals';
+import { BulkEditCollectionsModal } from '../components/features/ClientGallery/BulkEditCollectionsModal';
 import { sortCollections } from '../utils/sortCollections';
 import { formatStorageBytes } from '../utils/formatStorageBytes';
 import './ClientGallery.css';
@@ -34,7 +39,15 @@ const FolderView = () => {
   const [activeView, setActiveView] = useState('grid');
   const [showSortDropdown, setShowSortDropdown] = useState(false);
   const [showViewDropdown, setShowViewDropdown] = useState(false);
+  const [selectedCards, setSelectedCards] = useState([]);
   const [contextMenuId, setContextMenuId] = useState(null);
+  const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
+  const [showSelectionMenu, setShowSelectionMenu] = useState(false);
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
+  const [bulkEditOpen, setBulkEditOpen] = useState(false);
+  const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+  const [bulkApplying, setBulkApplying] = useState(false);
   const [editCollection, setEditCollection] = useState(null);
   const [directLinkCollection, setDirectLinkCollection] = useState(null);
   const [qrCollection, setQrCollection] = useState(null);
@@ -50,6 +63,12 @@ const FolderView = () => {
   const viewRef = useRef(null);
   const contextRef = useRef(null);
   const shareRef = useRef(null);
+  const selectionMenuRef = useRef(null);
+
+  const selectedCollections = useMemo(
+    () => collections.filter((c) => selectedCards.includes(c.id)),
+    [collections, selectedCards]
+  );
 
   const load = useCallback(async () => {
     if (!user?.id || !folderId) return;
@@ -87,7 +106,86 @@ const FolderView = () => {
 
   const getCoverSrc = (c) => c.cover_url || c.cover || '';
 
-  const closeContextMenu = useCallback(() => setContextMenuId(null), []);
+  const closeContextMenu = useCallback(() => {
+    setContextMenuId(null);
+    setContextMenuAnchor(null);
+  }, []);
+
+  const clearSelection = useCallback(() => setSelectedCards([]), []);
+
+  const applyBulkUpdate = async (payload, { closeStatus, closeTags, closeEdit } = {}) => {
+    if (!selectedCards.length || !Object.keys(payload).length) return;
+    setBulkApplying(true);
+    try {
+      await Promise.all(selectedCards.map((id) => galleryService.updateCollection(id, payload)));
+      setCollections((prev) =>
+        prev.map((c) => (selectedCards.includes(c.id) ? { ...c, ...payload } : c))
+      );
+      if (closeStatus) setBulkStatusOpen(false);
+      if (closeTags) setBulkTagsOpen(false);
+      if (closeEdit) setBulkEditOpen(false);
+    } catch (err) {
+      console.error('Bulk update failed:', err);
+      alert('Failed to update collections. Please try again.');
+    } finally {
+      setBulkApplying(false);
+    }
+  };
+
+  const handleBulkStar = async () => {
+    if (!selectedCollections.length) return;
+    const allStarred = selectedCollections.every((c) => c.is_starred);
+    const next = !allStarred;
+    setBulkApplying(true);
+    try {
+      await Promise.all(selectedCards.map((id) => galleryService.updateCollection(id, { is_starred: next })));
+      setCollections((prev) =>
+        prev.map((c) => (selectedCards.includes(c.id) ? { ...c, is_starred: next } : c))
+      );
+    } catch (err) {
+      console.error('Bulk star failed:', err);
+      alert('Failed to update starred status.');
+    } finally {
+      setBulkApplying(false);
+    }
+  };
+
+  const handleBulkMoveComplete = async (targetFolderId) => {
+    const movedIds = [...selectedCards];
+    setBulkMoveOpen(false);
+    clearSelection();
+    if (targetFolderId !== folderId) {
+      setCollections((prev) => prev.filter((c) => !movedIds.includes(c.id)));
+    } else {
+      void load();
+    }
+  };
+
+  const selectAllCollections = () => {
+    setSelectedCards(sortedCollections.map((c) => c.id));
+    setShowSelectionMenu(false);
+  };
+
+  const toggleSelectCard = (e, collectionId) => {
+    e.stopPropagation();
+    closeContextMenu();
+    setSelectedCards((prev) =>
+      prev.includes(collectionId) ? prev.filter((id) => id !== collectionId) : [...prev, collectionId]
+    );
+  };
+
+  const handleToggleCollectionStar = async (e, collection) => {
+    e.stopPropagation();
+    const next = !collection.is_starred;
+    try {
+      await galleryService.updateCollection(collection.id, { is_starred: next });
+      setCollections((prev) =>
+        prev.map((c) => (c.id === collection.id ? { ...c, is_starred: next } : c))
+      );
+    } catch (err) {
+      console.error('Failed to update star:', err);
+    }
+  };
 
   const handlePreviewCollection = useCallback(
     (collection) => {
@@ -98,6 +196,7 @@ const FolderView = () => {
   );
 
   const handleCardClick = (collection) => {
+    if (selectedCards.length > 0) return;
     navigate(`/collections/manage?id=${collection.id}`);
   };
 
@@ -110,18 +209,28 @@ const FolderView = () => {
       if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortDropdown(false);
       if (viewRef.current && !viewRef.current.contains(e.target)) setShowViewDropdown(false);
       if (shareRef.current && !shareRef.current.contains(e.target)) setShowShareMenu(false);
-      const inSharePortal = e.target.closest?.('.cg-ctx-submenu--portal, .cg-ctx-submenu-bridge, .cgm-overlay');
-      if (contextRef.current && !contextRef.current.contains(e.target) && !inSharePortal) {
-        setContextMenuId(null);
+      const inMenuPortal = e.target.closest?.(
+        '.cg-ctx-submenu--portal, .cg-ctx-submenu-bridge, .cgm-overlay, .cg-ctx-menu--portal'
+      );
+      if (contextRef.current && !contextRef.current.contains(e.target) && !inMenuPortal) {
+        closeContextMenu();
+      }
+      if (selectionMenuRef.current && !selectionMenuRef.current.contains(e.target)) {
+        setShowSelectionMenu(false);
       }
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, []);
+  }, [closeContextMenu]);
 
   const openContextMenu = (e, id) => {
     e.stopPropagation();
-    setContextMenuId(contextMenuId === id ? null : id);
+    if (contextMenuId === id) {
+      closeContextMenu();
+      return;
+    }
+    setContextMenuAnchor(e.currentTarget);
+    setContextMenuId(id);
   };
 
   const renderContextMenu = (collection, variant = 'grid') => {
@@ -129,6 +238,7 @@ const FolderView = () => {
     return (
       <CollectionContextMenu
         menuRef={contextRef}
+        anchorEl={contextMenuAnchor}
         variant={variant}
         onPreview={() => handlePreviewCollection(collection)}
         onQuickEdit={() => {
@@ -392,7 +502,7 @@ const FolderView = () => {
                 className={`cg-style-73 group ${contextMenuId === collection.id ? 'cg-style-73--ctx-open' : ''}`}
                 onClick={() => handleCardClick(collection)}
               >
-                <div className="cg-style-74">
+                <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'cg-style-74--selected' : ''}`}>
                   {getCoverSrc(collection) ? (
                     <img src={getCoverSrc(collection)} alt={collection.name} loading="lazy" />
                   ) : (
@@ -404,9 +514,32 @@ const FolderView = () => {
                       </svg>
                     </div>
                   )}
+                  <div
+                    className={`cg-style-75 ${selectedCards.includes(collection.id) ? 'border-[#593116] bg-[#593116] opacity-100' : 'border-white/85 bg-black/15 opacity-0 group-hover:opacity-100'}`}
+                    onClick={(e) => toggleSelectCard(e, collection.id)}
+                  >
+                    {selectedCards.includes(collection.id) && (
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                    )}
+                  </div>
                   <div className="cg-style-39" onClick={(e) => openContextMenu(e, collection.id)}>
                     ⋮
                   </div>
+                  <svg
+                    className={`cg-style-76 ${collection.is_starred ? 'opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]' : 'opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] group-hover:opacity-100'}`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="22"
+                    height="22"
+                    viewBox="0 0 24 24"
+                    fill={collection.is_starred ? '#f5c518' : 'none'}
+                    stroke={collection.is_starred ? '#f5c518' : 'white'}
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    onClick={(e) => handleToggleCollectionStar(e, collection)}
+                  >
+                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                  </svg>
                 </div>
                 {renderContextMenu(collection)}
                 <div className="px-1">
@@ -483,6 +616,78 @@ const FolderView = () => {
         />
         <FolderDirectLinkModal folder={folder} isOpen={folderLinkOpen} onClose={() => setFolderLinkOpen(false)} />
         <FolderQrModal folder={folder} isOpen={folderQrOpen} onClose={() => setFolderQrOpen(false)} />
+
+        {selectedCards.length > 0 && (
+          <div className="cg-style-64">
+            <div className="cg-style-65" ref={selectionMenuRef}>
+              <button type="button" className="cg-style-66" onClick={clearSelection} aria-label="Clear selection">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+              </button>
+              <span className="whitespace-nowrap">{selectedCards.length} selected</span>
+              <button
+                type="button"
+                className="cg-style-66"
+                onClick={() => setShowSelectionMenu((v) => !v)}
+                aria-label="Selection options"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+              </button>
+              {showSelectionMenu ? (
+                <div className="cg-selection-menu">
+                  <button type="button" onClick={selectAllCollections}>Select all</button>
+                  <button type="button" onClick={clearSelection}>Deselect all</button>
+                </div>
+              ) : null}
+            </div>
+            <div className="cg-style-67">
+              <button type="button" className="cg-style-68" title="Edit starred" onClick={handleBulkStar} disabled={bulkApplying}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={selectedCollections.every((c) => c.is_starred) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+              </button>
+              <button type="button" className="cg-style-68" title="Edit status" onClick={() => setBulkStatusOpen(true)}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+              </button>
+              <button type="button" className="cg-style-68" title="Edit tags" onClick={() => setBulkTagsOpen(true)}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg>
+              </button>
+              <button type="button" className="cg-style-68" title="Move to" onClick={() => setBulkMoveOpen(true)}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /><line x1="19" y1="12" x2="19" y2="5" /></svg>
+              </button>
+              <button type="button" className="cg-style-68" title="Edit settings" onClick={() => setBulkEditOpen(true)}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+              </button>
+            </div>
+          </div>
+        )}
+
+        <MoveCollectionModal
+          isOpen={bulkMoveOpen}
+          onClose={() => setBulkMoveOpen(false)}
+          collectionIds={selectedCards}
+          photographerId={user?.id}
+          currentFolderIds={selectedCollections.map(() => folderId)}
+          onMoved={handleBulkMoveComplete}
+        />
+        <BulkCollectionStatusModal
+          isOpen={bulkStatusOpen}
+          count={selectedCards.length}
+          onClose={() => setBulkStatusOpen(false)}
+          applying={bulkApplying}
+          onApply={(payload) => applyBulkUpdate(payload, { closeStatus: true })}
+        />
+        <BulkCollectionTagsModal
+          isOpen={bulkTagsOpen}
+          count={selectedCards.length}
+          onClose={() => setBulkTagsOpen(false)}
+          applying={bulkApplying}
+          onApply={(payload) => applyBulkUpdate(payload, { closeTags: true })}
+        />
+        <BulkEditCollectionsModal
+          isOpen={bulkEditOpen}
+          count={selectedCards.length}
+          onClose={() => setBulkEditOpen(false)}
+          applying={bulkApplying}
+          onApply={(payload) => applyBulkUpdate(payload, { closeEdit: true })}
+        />
       </main>
     </SidebarLayout>
   );

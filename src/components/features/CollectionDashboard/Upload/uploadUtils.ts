@@ -64,3 +64,12 @@ export function partitionDuplicateUploadFiles(
 
   return { accepted, skipped };
 }
+
+/** Smallest files first — faster previews and less memory pressure before large RAWs. */
+export function sortFilesBySizeAsc(files: File[]): File[] {
+  return [...files].sort((a, b) => a.size - b.size);
+}
+
+export function sortUploadQueueBySizeAsc<T extends { file: File }>(items: T[]): T[] {
+  return [...items].sort((a, b) => a.file.size - b.file.size);
+}

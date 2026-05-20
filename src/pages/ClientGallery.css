@@ -330,10 +330,12 @@
 
   .cg-style-74 img {
     @apply absolute inset-0 block h-full w-full object-cover;
+    image-orientation: from-image;
   }
 
   .cg-style-53 img {
     @apply block h-full w-full object-cover;
+    image-orientation: from-image;
   }
 
   .cg-style-75 {
@@ -471,6 +473,7 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
+    image-orientation: from-image;
   }
 
   .cg-folder-thumb-grid--sm {

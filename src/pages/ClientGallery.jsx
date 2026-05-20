@@ -7,6 +7,7 @@ import { openSpaPath } from '../lib/spaNavigation';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
+import { FolderThumbGrid } from '../components/features/ClientGallery/FolderThumbGrid';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
     CollectionDirectLinkModal,
@@ -474,6 +475,7 @@ const ClientGallery = () => {
                 !inSharePortal
             ) {
                 setContextMenuId(null);
+                setContextMenuAnchor(null);
             }
             if (
                 folderMenuRef.current &&
@@ -747,16 +749,7 @@ const ClientGallery = () => {
                                     onClick={() => handleFolderCardClick(item.folder)}
                                 >
                                     <div className="cg-style-74 cg-folder-thumb-wrap">
-                                        <div className="cg-folder-thumb-grid" aria-hidden>
-                                            <div className="cg-folder-thumb-cell cg-folder-thumb-cell--cover">
-                                                {getCoverSrc(item.folder) ? (
-                                                    <img src={getCoverSrc(item.folder)} alt="" loading="lazy" />
-                                                ) : null}
-                                            </div>
-                                            <span className="cg-folder-thumb-cell" />
-                                            <span className="cg-folder-thumb-cell" />
-                                            <span className="cg-folder-thumb-cell" />
-                                        </div>
+                                        <FolderThumbGrid folder={item.folder} />
                                         <div className="cg-style-39" onClick={(e) => openFolderContextMenu(e, item.folder.id)}>
                                             ⋮
                                         </div>
@@ -846,16 +839,7 @@ const ClientGallery = () => {
                                 >
                                     <div className="cg-style-48">
                                         <div className="cg-style-53 cg-folder-list-thumb">
-                                            <div className="cg-folder-thumb-grid cg-folder-thumb-grid--sm" aria-hidden>
-                                                <div className="cg-folder-thumb-cell cg-folder-thumb-cell--cover">
-                                                    {getCoverSrc(item.folder) ? (
-                                                        <img src={getCoverSrc(item.folder)} alt="" loading="lazy" />
-                                                    ) : null}
-                                                </div>
-                                                <span className="cg-folder-thumb-cell" />
-                                                <span className="cg-folder-thumb-cell" />
-                                                <span className="cg-folder-thumb-cell" />
-                                            </div>
+                                            <FolderThumbGrid folder={item.folder} size="sm" />
                                         </div>
                                         <div className="cg-style-54">
                                             <span className="cg-style-55 cg-folder-title-row">
