@@ -13,9 +13,11 @@ type MoveTarget = 'home' | string;
 export interface MoveCollectionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  collectionId: string | null | undefined;
+  collectionId?: string | null;
+  collectionIds?: string[];
   photographerId: string | null | undefined;
   currentFolderId?: string | null;
+  currentFolderIds?: (string | null)[];
   onMoved?: (folderId: string | null) => void;
 }
 
@@ -36,10 +38,18 @@ export function MoveCollectionModal({
   isOpen,
   onClose,
   collectionId,
+  collectionIds,
   photographerId,
   currentFolderId = null,
+  currentFolderIds,
   onMoved,
 }: MoveCollectionModalProps) {
+  const effectiveIds = useMemo(
+    () => (collectionIds?.length ? collectionIds : collectionId ? [collectionId] : []),
+    [collectionIds, collectionId]
+  );
+  const isBulk = effectiveIds.length > 1;
+
   const [folders, setFolders] = useState<MoveFolderOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -50,9 +60,18 @@ export function MoveCollectionModal({
   const currentTarget: MoveTarget = currentFolderId ? currentFolderId : 'home';
 
   const currentLocationLabel = useMemo(() => {
+    if (isBulk && currentFolderIds?.length) {
+      const unique = [...new Set(currentFolderIds.map((id) => id ?? 'home'))];
+      if (unique.length === 1) {
+        const only = unique[0];
+        if (only === 'home') return 'No folder';
+        return folders.find((f) => f.id === only)?.name ?? 'Folder';
+      }
+      return 'Various locations';
+    }
     if (!currentFolderId) return 'No folder';
     return folders.find((f) => f.id === currentFolderId)?.name ?? 'Folder';
-  }, [currentFolderId, folders]);
+  }, [currentFolderId, currentFolderIds, folders, isBulk]);
 
   const loadFolders = useCallback(async () => {
     if (!photographerId) return;
@@ -70,20 +89,30 @@ export function MoveCollectionModal({
 
   useEffect(() => {
     if (!isOpen) return;
-    setSelected(currentTarget);
+    setSelected(isBulk ? 'home' : currentTarget);
     setShowNewFolder(false);
     setNewFolderName('');
     void loadFolders();
-  }, [isOpen, currentTarget, loadFolders]);
+  }, [isOpen, isBulk, currentTarget, loadFolders]);
 
-  const canMove = selected !== currentTarget && !busy;
+  const needsMove = useMemo(() => {
+    if (isBulk && currentFolderIds?.length) {
+      const folderId = selected === 'home' ? null : selected;
+      return currentFolderIds.some((id) => (id ?? null) !== folderId);
+    }
+    return selected !== currentTarget;
+  }, [isBulk, currentFolderIds, selected, currentTarget]);
+
+  const canMove = needsMove && !busy;
 
   const handleMove = async () => {
-    if (!collectionId || !canMove) return;
+    if (!effectiveIds.length || !canMove) return;
     setBusy(true);
     try {
       const folderId = selected === 'home' ? null : selected;
-      await galleryService.moveCollectionToFolder(collectionId, folderId);
+      await Promise.all(
+        effectiveIds.map((id) => galleryService.moveCollectionToFolder(id, folderId))
+      );
       onMoved?.(folderId);
       onClose();
     } catch (err) {
@@ -124,7 +153,7 @@ export function MoveCollectionModal({
       >
         <div className="cd-modal-header">
           <h3 id="move-collection-title" className="cd-modal-title">
-            MOVE COLLECTION TO
+            {isBulk ? 'MOVE COLLECTIONS TO' : 'MOVE COLLECTION TO'}
           </h3>
           <button type="button" className="cd-modal-close" onClick={onClose} aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

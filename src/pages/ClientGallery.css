@@ -277,7 +277,15 @@
   }
 
   .cg-style-65 {
-    @apply flex items-center gap-2 text-white text-sm font-semibold;
+    @apply relative flex items-center gap-2 text-white text-sm font-semibold;
+  }
+
+  .cg-selection-menu {
+    @apply absolute bottom-full left-0 mb-2 min-w-[140px] overflow-hidden rounded-md bg-white py-1 shadow-[0_8px_24px_rgba(0,0,0,0.18)];
+  }
+
+  .cg-selection-menu button {
+    @apply block w-full border-none bg-transparent px-4 py-2.5 text-left text-[13px] font-medium text-[#333] cursor-pointer hover:bg-[#f5f5f5];
   }
 
   .cg-style-66 {

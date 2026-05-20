@@ -18,6 +18,11 @@ import {
 import { MoveCollectionModal } from '../components/features/Collections/MoveCollectionModal';
 import { FolderContextMenu } from '../components/features/ClientGallery/FolderContextMenu';
 import { EditFolderModal } from '../components/features/ClientGallery/EditFolderModal';
+import {
+    BulkCollectionStatusModal,
+    BulkCollectionTagsModal,
+} from '../components/features/ClientGallery/BulkCollectionModals';
+import { BulkEditCollectionsModal } from '../components/features/ClientGallery/BulkEditCollectionsModal';
 import './ClientGallery.css';
 import { sortCollections } from '../utils/sortCollections';
 import { sortFolders } from '../utils/sortFolders';
@@ -61,6 +66,12 @@ const ClientGallery = () => {
     const [folderQr, setFolderQr] = useState(null);
     const [folderContextMenuId, setFolderContextMenuId] = useState(null);
     const [showNewCollectionDropdown, setShowNewCollectionDropdown] = useState(false);
+    const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+    const [bulkTagsOpen, setBulkTagsOpen] = useState(false);
+    const [bulkEditOpen, setBulkEditOpen] = useState(false);
+    const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
+    const [bulkApplying, setBulkApplying] = useState(false);
+    const [showSelectionMenu, setShowSelectionMenu] = useState(false);
     const fileInputRef = useRef(null);
     const sortRef = useRef(null);
     const viewRef = useRef(null);
@@ -68,6 +79,77 @@ const ClientGallery = () => {
     const folderMenuRef = useRef(null);
     const filterRef = useRef(null);
     const newCollectionRef = useRef(null);
+    const selectionMenuRef = useRef(null);
+
+    const selectedCollections = useMemo(
+        () => collections.filter((c) => selectedCards.includes(c.id)),
+        [collections, selectedCards]
+    );
+
+    const applyBulkUpdate = async (payload, { closeStatus, closeTags, closeEdit } = {}) => {
+        if (!selectedCards.length || !Object.keys(payload).length) return;
+        setBulkApplying(true);
+        try {
+            await Promise.all(
+                selectedCards.map((id) => galleryService.updateCollection(id, payload))
+            );
+            setCollections((prev) =>
+                prev.map((c) => (selectedCards.includes(c.id) ? { ...c, ...payload } : c))
+            );
+            if (closeStatus) setBulkStatusOpen(false);
+            if (closeTags) setBulkTagsOpen(false);
+            if (closeEdit) setBulkEditOpen(false);
+        } catch (err) {
+            console.error('Bulk update failed:', err);
+            alert('Failed to update collections. Please try again.');
+        } finally {
+            setBulkApplying(false);
+        }
+    };
+
+    const handleBulkStar = async () => {
+        if (!selectedCollections.length) return;
+        const allStarred = selectedCollections.every((c) => c.is_starred);
+        const next = !allStarred;
+        setBulkApplying(true);
+        try {
+            await Promise.all(
+                selectedCards.map((id) => galleryService.updateCollection(id, { is_starred: next }))
+            );
+            setCollections((prev) =>
+                prev.map((c) => (selectedCards.includes(c.id) ? { ...c, is_starred: next } : c))
+            );
+        } catch (err) {
+            console.error('Bulk star failed:', err);
+            alert('Failed to update starred status.');
+        } finally {
+            setBulkApplying(false);
+        }
+    };
+
+    const handleBulkMoveComplete = async (folderId) => {
+        if (!user) return;
+        setBulkMoveOpen(false);
+        clearSelection();
+        try {
+            const [cols, fols] = await Promise.all([
+                galleryService.getCollections(user.id),
+                galleryService.listFoldersForGallery(user.id),
+            ]);
+            setCollections(cols);
+            setFolders(fols);
+        } catch (e) {
+            console.error(e);
+            setCollections((prev) =>
+                prev.map((c) => (selectedCards.includes(c.id) ? { ...c, folder_id: folderId } : c))
+            );
+        }
+    };
+
+    const selectAllCollections = () => {
+        setSelectedCards(rootCollections.map((c) => c.id));
+        setShowSelectionMenu(false);
+    };
 
     useEffect(() => {
         const fetchCollections = async () => {
@@ -386,6 +468,7 @@ const ClientGallery = () => {
             }
             if (filterRef.current && !filterRef.current.contains(e.target)) setActiveFilter(null);
             if (newCollectionRef.current && !newCollectionRef.current.contains(e.target)) setShowNewCollectionDropdown(false);
+            if (selectionMenuRef.current && !selectionMenuRef.current.contains(e.target)) setShowSelectionMenu(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -857,27 +940,40 @@ const ClientGallery = () => {
                 {/* Selection Action Bar */}
                 {selectedCards.length > 0 && (
                     <div className="cg-style-64">
-                        <div className="cg-style-65">
-                            <button className="cg-style-66" onClick={clearSelection}>
+                        <div className="cg-style-65" ref={selectionMenuRef}>
+                            <button type="button" className="cg-style-66" onClick={clearSelection} aria-label="Clear selection">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                             <span className="whitespace-nowrap">{selectedCards.length} selected</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            <button
+                                type="button"
+                                className="cg-style-66"
+                                onClick={() => setShowSelectionMenu((v) => !v)}
+                                aria-label="Selection options"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            </button>
+                            {showSelectionMenu ? (
+                                <div className="cg-selection-menu">
+                                    <button type="button" onClick={selectAllCollections}>Select all</button>
+                                    <button type="button" onClick={clearSelection}>Deselect all</button>
+                                </div>
+                            ) : null}
                         </div>
                         <div className="cg-style-67">
-                            <button className="cg-style-68" title="Star">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                            <button type="button" className="cg-style-68" title="Edit starred" onClick={handleBulkStar} disabled={bulkApplying}>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={selectedCollections.every((c) => c.is_starred) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                             </button>
-                            <button className="cg-style-68" title="Preview">
+                            <button type="button" className="cg-style-68" title="Edit status" onClick={() => setBulkStatusOpen(true)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                             </button>
-                            <button className="cg-style-68" title="Tag">
+                            <button type="button" className="cg-style-68" title="Edit tags" onClick={() => setBulkTagsOpen(true)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line></svg>
                             </button>
-                            <button className="cg-style-68" title="Move to">
+                            <button type="button" className="cg-style-68" title="Move to" onClick={() => setBulkMoveOpen(true)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"></path><path d="M12 5l7 7-7 7"></path><line x1="19" y1="12" x2="19" y2="5"></line></svg>
                             </button>
-                            <button className="cg-style-68" title="Edit">
+                            <button type="button" className="cg-style-68" title="Edit settings" onClick={() => setBulkEditOpen(true)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                             </button>
                         </div>
@@ -934,6 +1030,35 @@ const ClientGallery = () => {
                             );
                         }
                     }}
+                />
+                <MoveCollectionModal
+                    isOpen={bulkMoveOpen}
+                    onClose={() => setBulkMoveOpen(false)}
+                    collectionIds={selectedCards}
+                    photographerId={user?.id}
+                    currentFolderIds={selectedCollections.map((c) => c.folder_id ?? null)}
+                    onMoved={handleBulkMoveComplete}
+                />
+                <BulkCollectionStatusModal
+                    isOpen={bulkStatusOpen}
+                    count={selectedCards.length}
+                    onClose={() => setBulkStatusOpen(false)}
+                    applying={bulkApplying}
+                    onApply={(payload) => applyBulkUpdate(payload, { closeStatus: true })}
+                />
+                <BulkCollectionTagsModal
+                    isOpen={bulkTagsOpen}
+                    count={selectedCards.length}
+                    onClose={() => setBulkTagsOpen(false)}
+                    applying={bulkApplying}
+                    onApply={(payload) => applyBulkUpdate(payload, { closeTags: true })}
+                />
+                <BulkEditCollectionsModal
+                    isOpen={bulkEditOpen}
+                    count={selectedCards.length}
+                    onClose={() => setBulkEditOpen(false)}
+                    applying={bulkApplying}
+                    onApply={(payload) => applyBulkUpdate(payload, { closeEdit: true })}
                 />
                 <EditFolderModal
                     folder={editFolder}
