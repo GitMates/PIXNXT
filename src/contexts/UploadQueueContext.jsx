@@ -10,6 +10,8 @@ import { useLocation } from 'react-router-dom';
 import { galleryService } from '../services/gallery.service';
 import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { isImageMime, getFileMime } from '../lib/fileMime';
+import { isRawImageFile } from '../lib/rawImageFormats';
+import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { initialUploadWidgetState } from '../components/features/CollectionDashboard/Upload/uploadTypes';
 import {
   partitionDuplicateUploadFiles,
@@ -177,7 +179,7 @@ export function UploadQueueProvider({ children }) {
   }, [pumpQueue]);
 
   const processFiles = useCallback(
-    (fileList) => {
+    async (fileList) => {
       const target = targetRef.current;
       if (!target?.collectionId || !target?.photographerId) {
         alert('Open a collection before uploading photos.');
@@ -221,7 +223,7 @@ export function UploadQueueProvider({ children }) {
         size: file.size,
         progress: 0,
         status: pausedRef.current ? 'waiting' : 'processing',
-        previewUrl: isImageMime(getFileMime(file)) ? URL.createObjectURL(file) : undefined,
+        previewUrl: undefined,
       }));
 
       setState((prev) => ({
@@ -232,7 +234,24 @@ export function UploadQueueProvider({ children }) {
         files: [...prev.files, ...newUploadFiles],
       }));
 
+      const attachPreview = async (uf) => {
+        const { file } = uf;
+        let previewUrl;
+        try {
+          if (isRawImageFile(file)) {
+            const previewBlob = await extractRawPreviewBlob(file);
+            if (previewBlob) previewUrl = URL.createObjectURL(previewBlob);
+          } else if (isImageMime(getFileMime(file))) {
+            previewUrl = URL.createObjectURL(file);
+          }
+        } catch (err) {
+          console.warn('Upload preview generation failed:', file.name, err);
+        }
+        if (previewUrl) patchFile(uf.id, { previewUrl });
+      };
+
       newUploadFiles.forEach((uf) => {
+        void attachPreview(uf);
         if (pausedRef.current) {
           pendingQueueRef.current.push(uf);
         } else {
@@ -242,7 +261,7 @@ export function UploadQueueProvider({ children }) {
 
       return true;
     },
-    [enqueueUpload]
+    [enqueueUpload, patchFile]
   );
 
   const pause = useCallback(() => {

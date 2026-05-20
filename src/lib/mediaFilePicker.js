@@ -1,12 +1,15 @@
 /**
  * Media upload filters for the native file dialog.
- * Chrome/Edge (File System Access API): dropdown shows Images, Videos, GIF, plus All Files.
- * Fallback <input accept>: combined image/video/gif types.
+ * Chrome/Edge (File System Access API): dropdown shows Images, Videos, GIF, Raw files, plus All Files.
+ * Fallback <input accept>: combined image/video/gif/raw types.
  */
+
+import { RAW_IMAGE_EXTENSIONS, RAW_IMAGE_ACCEPT_STRING } from './rawImageFormats';
 
 export const MEDIA_FILE_ACCEPT =
   'image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,.gif,' +
-  'video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.mov,.webm,.mkv,.m4v,.avi';
+  'video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.mov,.webm,.mkv,.m4v,.avi,' +
+  RAW_IMAGE_ACCEPT_STRING;
 
 export const MEDIA_FILE_PICKER_TYPES = [
   {
@@ -27,10 +30,16 @@ export const MEDIA_FILE_PICKER_TYPES = [
       'image/gif': ['.gif'],
     },
   },
+  {
+    description: 'Raw files',
+    accept: {
+      'application/octet-stream': RAW_IMAGE_EXTENSIONS,
+    },
+  },
 ];
 
 /**
- * Open OS file picker with Image / Video / GIF filter groups when supported.
+ * Open OS file picker with Image / Video / GIF / Raw files filter groups when supported.
  * @param {{ multiple?: boolean }} [options]
  * @returns {Promise<File[]|null>} Selected files, null if cancelled or API unavailable
  */

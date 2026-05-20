@@ -1,6 +1,9 @@
 import { supabase } from '../lib/supabase/client';
 import { getImageDimensionsFast } from '../lib/imageDimensions';
-import { getFileMime, isVideoMime } from '../lib/fileMime';
+import { getFileMime, isVideoMime, getUploadMediaType } from '../lib/fileMime';
+import { isRawImageFile } from '../lib/rawImageFormats';
+import { extractRawPreviewBlob } from '../lib/rawImagePreview';
+import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl } from '../lib/photoDisplayUrl';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { storageService } from './storage.service';
 
@@ -711,8 +714,8 @@ export const galleryService = {
     const filePath = `${photographerId}/${collectionId}/${fileName}`;
 
     const isVideo = isVideoMime(mime);
-    const isGif = mime === 'image/gif' || /\.gif$/i.test(file.name);
-    const mediaType = isVideo ? 'video' : isGif ? 'gif' : 'image';
+    const isRaw = isRawImageFile(file);
+    const mediaType = getUploadMediaType(file);
 
     const uploadBody =
       file.type === mime
@@ -725,11 +728,26 @@ export const galleryService = {
       uploadPromise,
       isVideo
         ? this._captureVideoThumbnail(file)
-        : getImageDimensionsFast(file).then((dimensions) => ({ dimensions, thumbnailBlob: null })),
+        : isRaw
+          ? this._captureRawPreview(file)
+          : getImageDimensionsFast(file).then((dimensions) => ({ dimensions, thumbnailBlob: null })),
     ]);
 
     const dimensions = meta.dimensions ?? { width: null, height: null };
     const thumbnailBlob = meta.thumbnailBlob ?? null;
+
+    let webUrl = publicUrl;
+    let thumbUrl = publicUrl;
+    if (isRaw) {
+      if (thumbnailBlob) {
+        const { url: previewUrl } = await this._uploadRawPreviewJpeg(filePath, thumbnailBlob);
+        webUrl = previewUrl;
+        thumbUrl = previewUrl;
+      } else {
+        webUrl = null;
+        thumbUrl = null;
+      }
+    }
 
     const { data: photoData, error: dbError } = await supabase
       .from('photos')
@@ -739,8 +757,8 @@ export const galleryService = {
         set_id: setId,
         filename: file.name,
         full_url: publicUrl,
-        web_url: publicUrl,
-        thumbnail_url: publicUrl,
+        web_url: webUrl,
+        thumbnail_url: thumbUrl,
         original_storage_path: filePath,
         size_bytes: file.size,
         width: dimensions.width,
@@ -762,6 +780,74 @@ export const galleryService = {
     }
 
     return photoData;
+  },
+
+  async _captureRawPreview(file) {
+    const thumbnailBlob = await extractRawPreviewBlob(file);
+    if (!thumbnailBlob) {
+      console.warn('No embedded JPEG preview found in RAW file:', file?.name);
+      return { dimensions: { width: null, height: null }, thumbnailBlob: null };
+    }
+    const previewFile = new File([thumbnailBlob], 'preview.jpg', { type: 'image/jpeg' });
+    const dimensions = await getImageDimensionsFast(previewFile);
+    return { dimensions, thumbnailBlob };
+  },
+
+  async _uploadRawPreviewJpeg(rawStoragePath, thumbnailBlob) {
+    const previewPath = rawStoragePath.replace(/\.[^.]+$/, '_preview.jpg');
+    const previewFile = new File([thumbnailBlob], 'preview.jpg', {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    });
+    return storageService.upload(previewPath, previewFile);
+  },
+
+  /**
+   * Build JPEG preview URLs for RAW rows uploaded before preview extraction existed.
+   */
+  async repairRawPhotoPreview(photo, { rebake = false } = {}) {
+    if (!photo?.id || !isRawMedia(photo)) {
+      return photo;
+    }
+    if (!rebake && hasRawDisplayPreview(photo)) {
+      return photo;
+    }
+
+    const storagePath = photo.original_storage_path;
+    const rawUrl = resolveMediaUrl(photo.full_url);
+    if (!storagePath || !rawUrl) return photo;
+
+    const res = await fetch(rawUrl);
+    if (!res.ok) {
+      throw new Error(`Could not fetch RAW file (${res.status})`);
+    }
+
+    const blob = await res.blob();
+    const file = new File([blob], photo.filename || 'photo.raw', {
+      type: blob.type || 'application/octet-stream',
+      lastModified: Date.now(),
+    });
+    const meta = await this._captureRawPreview(file);
+    const previewBlob = meta.thumbnailBlob;
+    if (!previewBlob) return photo;
+
+    const { url: previewUrl } = await this._uploadRawPreviewJpeg(storagePath, previewBlob);
+    const dimensions = meta.dimensions ?? { width: null, height: null };
+
+    const { data, error } = await supabase
+      .from('photos')
+      .update({
+        web_url: previewUrl,
+        thumbnail_url: previewUrl,
+        width: dimensions.width,
+        height: dimensions.height,
+      })
+      .eq('id', photo.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   _captureVideoThumbnail(file) {
@@ -827,8 +913,8 @@ export const galleryService = {
     const filePath = `${photographerId}/${collectionId}/${fileName}`;
 
     const isVideo = isVideoMime(mime);
-    const isGif = mime === 'image/gif' || /\.gif$/i.test(file.name);
-    const mediaType = isVideo ? 'video' : isGif ? 'gif' : 'image';
+    const isRaw = isRawImageFile(file);
+    const mediaType = getUploadMediaType(file);
 
     const uploadBody =
       file.type === mime
@@ -839,19 +925,34 @@ export const galleryService = {
       storageService.upload(filePath, uploadBody, onProgress),
       isVideo
         ? this._captureVideoThumbnail(file)
-        : getImageDimensionsFast(file).then((dimensions) => ({ dimensions, thumbnailBlob: null })),
+        : isRaw
+          ? this._captureRawPreview(file)
+          : getImageDimensionsFast(file).then((dimensions) => ({ dimensions, thumbnailBlob: null })),
     ]);
 
     const dimensions = meta.dimensions ?? { width: null, height: null };
     const thumbnailBlob = meta.thumbnailBlob ?? null;
+
+    let webUrl = publicUrl;
+    let thumbUrl = publicUrl;
+    if (isRaw) {
+      if (thumbnailBlob) {
+        const { url: previewUrl } = await this._uploadRawPreviewJpeg(filePath, thumbnailBlob);
+        webUrl = previewUrl;
+        thumbUrl = previewUrl;
+      } else {
+        webUrl = null;
+        thumbUrl = null;
+      }
+    }
 
     const { data: photoData, error: dbError } = await supabase
       .from('photos')
       .update({
         filename: file.name,
         full_url: publicUrl,
-        web_url: publicUrl,
-        thumbnail_url: publicUrl,
+        web_url: webUrl,
+        thumbnail_url: thumbUrl,
         original_storage_path: filePath,
         size_bytes: file.size,
         width: dimensions.width,

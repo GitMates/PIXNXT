@@ -2,6 +2,7 @@
  * Shrink photos before upload (28MB → ~2–4MB). One file at a time to avoid memory issues.
  */
 import { getFileMime, isImageMime } from './fileMime';
+import { isRawImageFile } from './rawImageFormats';
 
 const COMPRESS_MIN_BYTES = 800 * 1024; // 800 KB — compress most gallery photos
 
@@ -25,7 +26,7 @@ function compressSettings(fileSize) {
 
 async function compressImage(file) {
   const mime = getFileMime(file);
-  if (!isImageMime(mime) || mime === 'image/gif' || file.size < COMPRESS_MIN_BYTES) {
+  if (isRawImageFile(file) || !isImageMime(mime) || mime === 'image/gif' || file.size < COMPRESS_MIN_BYTES) {
     return file;
   }
 
