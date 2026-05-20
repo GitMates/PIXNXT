@@ -23,8 +23,10 @@ export function GlobalUploadShell() {
     cancel,
     setActiveTab,
     toggleDetails,
+    openCompletedUploadDetails,
     activeCollectionId,
     uploadTargetSetId,
+    getUploadTarget,
   } = useUploadQueueContext();
 
   const counts = useMemo(() => uploadTabCounts(state.files), [state.files]);
@@ -37,32 +39,38 @@ export function GlobalUploadShell() {
   const showExpanded = !state.isMinimized;
   const showFab = state.isMinimized;
 
-  const isOnTargetManage =
-    location.pathname === '/collections/manage' &&
-    activeCollectionId &&
-    new URLSearchParams(location.search).get('id') === activeCollectionId;
-
-  const focusUploadedCollection = () => {
-    window.dispatchEvent(
-      new CustomEvent(UPLOAD_VIEW_COLLECTION_EVENT, {
-        detail: {
-          collectionId: activeCollectionId,
-          activeSetId: uploadTargetSetId,
-        },
-      })
-    );
-  };
-
   const handleViewCompleted = () => {
-    if (activeCollectionId) {
-      if (!isOnTargetManage) {
-        navigate(`/collections/manage?id=${encodeURIComponent(activeCollectionId)}`);
-        window.setTimeout(focusUploadedCollection, 50);
-      } else {
-        focusUploadedCollection();
-      }
+    const target = getUploadTarget();
+    const targetCollectionId = target?.collectionId ?? activeCollectionId;
+    const targetSetId = target?.activeSetId ?? uploadTargetSetId ?? null;
+
+    if (!targetCollectionId) {
+      if (isAllComplete) dismiss();
+      else minimize();
+      return;
     }
-    minimize();
+
+    const detail = {
+      collectionId: targetCollectionId,
+      activeSetId: targetSetId,
+    };
+
+    const isOnTargetManage =
+      location.pathname === '/collections/manage' &&
+      new URLSearchParams(location.search).get('id') === targetCollectionId;
+
+    if (!isOnTargetManage) {
+      navigate(`/collections/manage?id=${encodeURIComponent(targetCollectionId)}`, {
+        state: { uploadView: detail },
+      });
+    } else {
+      window.dispatchEvent(
+        new CustomEvent(UPLOAD_VIEW_COLLECTION_EVENT, { detail })
+      );
+    }
+
+    // Keep the upload panel open on the Complete tab so “View” shows the finished file list.
+    openCompletedUploadDetails();
   };
 
   const handleFabClick = () => {

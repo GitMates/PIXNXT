@@ -311,6 +311,27 @@ export function UploadQueueProvider({ children }) {
     setState((prev) => ({ ...prev, showDetails: !prev.showDetails }));
   }, []);
 
+  /** Expand panel and show the file list on the Complete tab (used by “View” after uploads finish). */
+  const openCompletedUploadDetails = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      isOpen: true,
+      isMinimized: false,
+      showDetails: true,
+      activeTab: 'complete',
+    }));
+  }, []);
+
+  const getUploadTarget = useCallback(() => {
+    const target = targetRef.current;
+    if (!target?.collectionId) return null;
+    return {
+      collectionId: target.collectionId,
+      activeSetId: target.activeSetId ?? null,
+      destinationLabel: target.destinationLabel || destinationLabel || 'Collection',
+    };
+  }, [destinationLabel]);
+
   const value = useMemo(
     () => ({
       state,
@@ -318,6 +339,7 @@ export function UploadQueueProvider({ children }) {
       activeCollectionId,
       uploadTargetSetId,
       configureTarget,
+      getUploadTarget,
       processFiles,
       pause,
       resume,
@@ -328,6 +350,7 @@ export function UploadQueueProvider({ children }) {
       expand,
       setActiveTab,
       toggleDetails,
+      openCompletedUploadDetails,
     }),
     [
       state,
@@ -335,6 +358,7 @@ export function UploadQueueProvider({ children }) {
       activeCollectionId,
       uploadTargetSetId,
       configureTarget,
+      getUploadTarget,
       processFiles,
       pause,
       resume,
@@ -345,6 +369,7 @@ export function UploadQueueProvider({ children }) {
       expand,
       setActiveTab,
       toggleDetails,
+      openCompletedUploadDetails,
     ]
   );
 

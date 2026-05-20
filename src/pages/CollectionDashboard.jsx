@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { Heart, Play } from 'lucide-react';
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
@@ -46,9 +46,12 @@ import { MoveCollectionModal } from '../components/features/Collections/MoveColl
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
+    const location = useLocation();
     const [searchParams] = useSearchParams();
     const collectionId = searchParams.get('id');
     const { user } = useAuth();
+    const photosGridRef = useRef(null);
+    const pendingUploadScrollRef = useRef(false);
 
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [collection, setCollection] = useState(null);
@@ -689,18 +692,30 @@ const CollectionDashboard = () => {
         }
     }, [collectionId]);
 
+    const applyUploadView = useCallback((detail) => {
+        if (detail.collectionId && detail.collectionId !== collectionId) return;
+        setActiveSidebarTab('photos');
+        if ('activeSetId' in detail) {
+            setActiveSetId(detail.activeSetId ?? null);
+        }
+        setSortOption('upload-new-old');
+        pendingUploadScrollRef.current = true;
+    }, [collectionId]);
+
+    useEffect(() => {
+        const uploadView = location.state?.uploadView;
+        if (!uploadView || uploadView.collectionId !== collectionId) return;
+        applyUploadView(uploadView);
+        navigate(`${location.pathname}${location.search}`, { replace: true, state: null });
+    }, [location.state, location.pathname, location.search, collectionId, applyUploadView, navigate]);
+
     useEffect(() => {
         const onUploadView = (event) => {
-            const detail = event.detail || {};
-            if (detail.collectionId && detail.collectionId !== collectionId) return;
-            setActiveSidebarTab('photos');
-            if ('activeSetId' in detail) {
-                setActiveSetId(detail.activeSetId ?? null);
-            }
+            applyUploadView(event.detail || {});
         };
         window.addEventListener(UPLOAD_VIEW_COLLECTION_EVENT, onUploadView);
         return () => window.removeEventListener(UPLOAD_VIEW_COLLECTION_EVENT, onUploadView);
-    }, [collectionId]);
+    }, [applyUploadView]);
 
     useEffect(() => {
         if (activeActivitySubTab === 'share' || activeActivitySubTab === 'private') {
@@ -1263,6 +1278,14 @@ const CollectionDashboard = () => {
             }));
         return [...sortedPhotos, ...pending];
     }, [sortedPhotos, uploadState.files]);
+
+    useEffect(() => {
+        if (!pendingUploadScrollRef.current || activeSidebarTab !== 'photos') return;
+        pendingUploadScrollRef.current = false;
+        requestAnimationFrame(() => {
+            photosGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, [activeSidebarTab, gridPhotos.length]);
 
     const activeSetPhotoCount = activeSetId
         ? photos.filter(p => p.set_id === activeSetId).length
@@ -2430,6 +2453,7 @@ const CollectionDashboard = () => {
 
                                 {gridPhotos.length > 0 ? (
                                     <div
+                                        ref={photosGridRef}
                                         className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}`}
                                     >
                                         {gridPhotos.map((photo, index) => {

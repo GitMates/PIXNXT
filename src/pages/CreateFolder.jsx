@@ -28,14 +28,14 @@ const CreateFolder = () => {
         setError(null);
 
         try {
-            await galleryService.createFolder(user.id, {
+            const created = await galleryService.createFolder(user.id, {
                 name,
                 eventDate: eventDate || null,
                 showOnHomepage,
                 passwordEnabled,
                 password: passwordEnabled ? password : null,
             });
-            navigate('/client-gallery');
+            navigate(`/folders/${created.id}`);
         } catch (err) {
             console.error('Error creating folder:', err);
             setError(err.message || 'Failed to create folder. Please try again.');

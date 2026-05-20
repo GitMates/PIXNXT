@@ -65,6 +65,75 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   const isAllComplete =
     totalCount > 0 && completedCount === totalCount && inProgressCount === 0;
 
+  const detailsTabsAndList = (
+    <div className="upload-batch-details">
+      <div className="upload-panel-tabs" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={state.activeTab === 'uploading'}
+          className={`upload-panel-tab ${state.activeTab === 'uploading' ? 'active' : ''}`}
+          onClick={() => onTabChange('uploading')}
+        >
+          Uploading
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={state.activeTab === 'complete'}
+          className={`upload-panel-tab ${state.activeTab === 'complete' ? 'active' : ''}`}
+          onClick={() => onTabChange('complete')}
+        >
+          Complete
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={state.activeTab === 'failed'}
+          className={`upload-panel-tab ${state.activeTab === 'failed' ? 'active' : ''}`}
+          onClick={() => onTabChange('failed')}
+        >
+          Failed
+        </button>
+      </div>
+
+      <div className="upload-panel-list">
+        {activeFiles.length === 0 ? (
+          <p className="upload-panel-empty">No files in this tab.</p>
+        ) : (
+          activeFiles.map((file) => (
+            <div key={file.id} className="upload-panel-row upload-panel-row--stacked">
+              <div className="upload-panel-row-main">
+                <span
+                  className={`upload-panel-row-name ${
+                    file.status === 'error'
+                      ? 'is-error'
+                      : file.status === 'completed'
+                        ? 'is-done'
+                        : ''
+                  }`}
+                  title={file.name}
+                >
+                  {file.name}
+                </span>
+                <span className="upload-panel-row-progress">
+                  {file.status === 'error'
+                    ? 'Failed'
+                    : `${formatUploadMb(uploadBytesDone(file))}/${formatUploadMb(uploadTotalBytes(file))}`}
+                </span>
+              </div>
+              {file.status === 'error' && file.errorMessage && (
+                <p className="upload-panel-row-error" title={file.errorMessage}>
+                  {file.errorMessage}
+                </p>
+              )}
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   if (state.isMinimized) {
     return (
       <div className="upload-manager-root upload-widget-mini">
@@ -208,33 +277,52 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
         {isAllComplete ? (
           <section className="upload-batch upload-batch--done">
             <p className="upload-batch-path">{destinationLabel}</p>
-            <div className="upload-batch-success">
-              <span className="upload-batch-success-check" aria-hidden>
-                <Check size={14} strokeWidth={3} />
-              </span>
-              <span className="upload-batch-success-text">
-                {completedCount} {completedCount === 1 ? 'image' : 'images'} uploaded
-              </span>
-              <div className="upload-batch-success-actions">
-                {onViewCompleted && (
-                  <button
-                    type="button"
-                    className="upload-batch-view-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onViewCompleted();
-                    }}
-                  >
-                    View
-                  </button>
-                )}
-                {onDismiss && (
-                  <button type="button" className="upload-batch-close-btn" onClick={onDismiss}>
-                    Close
-                  </button>
-                )}
+            {!state.showDetails ? (
+              <div className="upload-batch-success">
+                <span className="upload-batch-success-check" aria-hidden>
+                  <Check size={14} strokeWidth={3} />
+                </span>
+                <span className="upload-batch-success-text">
+                  {completedCount} {completedCount === 1 ? 'image' : 'images'} uploaded
+                </span>
+                <div className="upload-batch-success-actions">
+                  {onViewCompleted && (
+                    <button
+                      type="button"
+                      className="upload-batch-view-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onViewCompleted();
+                      }}
+                    >
+                      View
+                    </button>
+                  )}
+                  {onDismiss && (
+                    <button type="button" className="upload-batch-close-btn" onClick={onDismiss}>
+                      Close
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="upload-batch-done-list-head">
+                  <div className="upload-batch-done-list-head-left">
+                    <span className="upload-batch-success-check" aria-hidden>
+                      <Check size={14} strokeWidth={3} />
+                    </span>
+                    <span className="upload-batch-success-text">
+                      {completedCount} {completedCount === 1 ? 'image' : 'images'} uploaded
+                    </span>
+                  </div>
+                  <button type="button" className="upload-batch-details-link" onClick={onToggleDetails}>
+                    − Hide file list
+                  </button>
+                </div>
+                {detailsTabsAndList}
+              </>
+            )}
           </section>
         ) : (
           <section className="upload-batch upload-batch--active">
@@ -272,74 +360,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
               </div>
             </div>
 
-            {state.showDetails && (
-              <div className="upload-batch-details">
-                <div className="upload-panel-tabs" role="tablist">
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={state.activeTab === 'uploading'}
-                    className={`upload-panel-tab ${state.activeTab === 'uploading' ? 'active' : ''}`}
-                    onClick={() => onTabChange('uploading')}
-                  >
-                    Uploading
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={state.activeTab === 'complete'}
-                    className={`upload-panel-tab ${state.activeTab === 'complete' ? 'active' : ''}`}
-                    onClick={() => onTabChange('complete')}
-                  >
-                    Complete
-                  </button>
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={state.activeTab === 'failed'}
-                    className={`upload-panel-tab ${state.activeTab === 'failed' ? 'active' : ''}`}
-                    onClick={() => onTabChange('failed')}
-                  >
-                    Failed
-                  </button>
-                </div>
-
-                <div className="upload-panel-list">
-                  {activeFiles.length === 0 ? (
-                    <p className="upload-panel-empty">No files in this tab.</p>
-                  ) : (
-                    activeFiles.map((file) => (
-                      <div key={file.id} className="upload-panel-row upload-panel-row--stacked">
-                        <div className="upload-panel-row-main">
-                          <span
-                            className={`upload-panel-row-name ${
-                              file.status === 'error'
-                                ? 'is-error'
-                                : file.status === 'completed'
-                                  ? 'is-done'
-                                  : ''
-                            }`}
-                            title={file.name}
-                          >
-                            {file.name}
-                          </span>
-                          <span className="upload-panel-row-progress">
-                            {file.status === 'error'
-                              ? 'Failed'
-                              : `${formatUploadMb(uploadBytesDone(file))}/${formatUploadMb(uploadTotalBytes(file))}`}
-                          </span>
-                        </div>
-                        {file.status === 'error' && file.errorMessage && (
-                          <p className="upload-panel-row-error" title={file.errorMessage}>
-                            {file.errorMessage}
-                          </p>
-                        )}
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-            )}
+            {state.showDetails && detailsTabsAndList}
           </section>
         )}
       </div>

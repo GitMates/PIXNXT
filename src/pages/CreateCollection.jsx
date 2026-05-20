@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DatePicker } from '../components/ui/DatePicker';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
@@ -7,6 +7,8 @@ import './CreateCollection.css';
 
 const CreateCollection = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const folderId = searchParams.get('folderId');
     const { user } = useAuth();
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
@@ -46,7 +48,8 @@ const CreateCollection = () => {
                 grid_spacing: 'regular',
                 nav_style: 'icons',
                 privacy: 'public',
-                cover_style: 'photo'
+                cover_style: 'photo',
+                ...(folderId ? { folder_id: folderId } : {}),
             };
 
             const newCollection = await galleryService.createCollection(collectionData);
@@ -62,7 +65,11 @@ const CreateCollection = () => {
     };
 
     const handleClose = () => {
-        navigate('/client-gallery');
+        if (folderId) {
+            navigate(`/folders/${folderId}`);
+        } else {
+            navigate('/client-gallery');
+        }
     };
 
     return (
