@@ -167,11 +167,17 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
                             <label className="custom-checkbox">
                                 <input
                                     type="checkbox"
-                                    checked={selectedDownloadSets.includes('Highlights')}
+                                    checked={selectedDownloadSets.length === 0 || selectedDownloadSets.includes('Highlights')}
                                     onChange={() => {
-                                        setSelectedDownloadSets(prev =>
-                                            prev.includes('Highlights') ? prev.filter(s => s !== 'Highlights') : [...prev, 'Highlights']
-                                        );
+                                        setSelectedDownloadSets((prev) => {
+                                            if (prev.length === 0) {
+                                                const all = ['Highlights', ...sets.map((s) => s.name)];
+                                                return all.filter((name) => name !== 'Highlights');
+                                            }
+                                            return prev.includes('Highlights')
+                                                ? prev.filter((s) => s !== 'Highlights')
+                                                : [...prev, 'Highlights'];
+                                        });
                                     }}
                                 />
                                 <span className="checkmark"></span>
@@ -181,11 +187,17 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
                                 <label key={set.id} className="custom-checkbox">
                                     <input
                                         type="checkbox"
-                                        checked={selectedDownloadSets.includes(set.name)}
+                                        checked={selectedDownloadSets.length === 0 || selectedDownloadSets.includes(set.name)}
                                         onChange={() => {
-                                            setSelectedDownloadSets(prev =>
-                                                prev.includes(set.name) ? prev.filter(s => s !== set.name) : [...prev, set.name]
-                                            );
+                                            setSelectedDownloadSets((prev) => {
+                                                if (prev.length === 0) {
+                                                    const all = ['Highlights', ...sets.map((s) => s.name)];
+                                                    return all.filter((name) => name !== set.name);
+                                                }
+                                                return prev.includes(set.name)
+                                                    ? prev.filter((s) => s !== set.name)
+                                                    : [...prev, set.name];
+                                            });
                                         }}
                                     />
                                     <span className="checkmark"></span>

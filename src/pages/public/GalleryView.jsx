@@ -39,6 +39,7 @@ import {
   setClientSessionActive,
   isClientExclusiveEnabled,
   filterPhotosForViewer,
+  filterPhotosForDownload,
   filterSetsForViewer,
   canViewHighlights,
 } from '../../lib/clientExclusiveAccess';
@@ -562,6 +563,21 @@ const GalleryView = () => {
     return filterSetsForViewer(collection.sets, collection, isClientViewer);
   }, [collection, isClientViewer]);
 
+  const downloadablePhotos = useMemo(() => {
+    if (!collection) return [];
+    return filterPhotosForDownload(
+      collection.photos || [],
+      collection,
+      isClientViewer,
+      collection.sets || []
+    );
+  }, [collection, isClientViewer]);
+
+  const downloadableSets = useMemo(() => {
+    if (!collection?.sets) return [];
+    return filterSetsForViewer(collection.sets, collection, isClientViewer);
+  }, [collection, isClientViewer]);
+
   const filteredPhotosBase = useMemo(() => {
     let base = photosForActiveSet;
     if (!collection) return base;
@@ -1077,8 +1093,8 @@ const GalleryView = () => {
           setSelectedDownloadPhoto(null);
         }}
         collection={collection}
-        photos={collection?.photos || []}
-        sets={collection?.sets || []}
+        photos={downloadablePhotos}
+        sets={downloadableSets}
         initialPhoto={selectedDownloadPhoto}
         initialSetId={activeSetId}
       />

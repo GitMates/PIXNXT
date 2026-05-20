@@ -183,7 +183,7 @@ const CollectionDashboard = () => {
     // Advanced settings states
     const [downloadLimit, setDownloadLimit] = useState('');
     const [restrictToEmails, setRestrictToEmails] = useState('');
-    const [selectedDownloadSets, setSelectedDownloadSets] = useState(['Highlights']);
+    const [selectedDownloadSets, setSelectedDownloadSets] = useState([]);
     const [pinUsageLimit, setPinUsageLimit] = useState('');
 
     // Favorite State
@@ -1108,7 +1108,19 @@ const CollectionDashboard = () => {
                 // Initialize advanced settings
                 if (data.download_limit_gallery) setDownloadLimit(data.download_limit_gallery.toString());
                 if (data.restrict_to_emails) setRestrictToEmails(data.restrict_to_emails);
-                if (data.selected_download_sets) setSelectedDownloadSets(data.selected_download_sets);
+                if (data.selected_download_sets) {
+                    let nextDownloadSets = data.selected_download_sets;
+                    const namedSets = (data.sets || []).filter((s) => s.name?.toLowerCase() !== 'highlights');
+                    const isLegacyHighlightsOnly =
+                        Array.isArray(nextDownloadSets) &&
+                        nextDownloadSets.length === 1 &&
+                        String(nextDownloadSets[0]).toLowerCase() === 'highlights' &&
+                        namedSets.length > 0;
+                    if (isLegacyHighlightsOnly) {
+                        nextDownloadSets = ['Highlights', ...namedSets.map((s) => s.name)];
+                    }
+                    setSelectedDownloadSets(nextDownloadSets);
+                }
                 if (data.pin_usage_limit) setPinUsageLimit(data.pin_usage_limit.toString());
                 
                 // Initialize favorite settings
@@ -1327,6 +1339,11 @@ const CollectionDashboard = () => {
                 position: sets.length
             });
             setSets(prev => [...prev, newSet]);
+            setSelectedDownloadSets((prev) => {
+                if (prev.length === 0) return prev;
+                if (prev.includes(newSet.name) || prev.includes(newSet.id)) return prev;
+                return [...prev, newSet.name];
+            });
             setNewSetName('');
             setNewSetDescription('');
             setShowAddSetModal(false);
@@ -2655,6 +2672,7 @@ const CollectionDashboard = () => {
                                         requirePinForSinglePhoto: requirePinForSinglePhoto,
                                         emailTracking: emailRegistration,
                                         galleryPhotoSort: collection?.gallery_photo_sort,
+                                        selectedDownloadSets,
                                     }}
                                     onSetActiveSet={setActiveSetId}
                                 />
