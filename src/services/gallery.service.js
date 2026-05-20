@@ -27,6 +27,34 @@ const DASHBOARD_PHOTO_FIELDS = `
   created_at
 `.replace(/\s+/g, '');
 
+const PHOTO_STORAGE_PATH_COLUMNS = [
+  'original_storage_path',
+  'thumbnail_storage_path',
+  'web_storage_path',
+  'watermarked_storage_path',
+];
+
+function collectPhotoStoragePaths(photo) {
+  const paths = new Set();
+  for (const col of PHOTO_STORAGE_PATH_COLUMNS) {
+    if (photo?.[col]) paths.add(photo[col]);
+  }
+  const original = photo?.original_storage_path;
+  if (original && !photo?.thumbnail_storage_path) {
+    paths.add(original.replace(/\.[^.]+$/, '_thumb.jpg'));
+  }
+  return [...paths];
+}
+
+async function deleteStoragePaths(paths) {
+  const unique = [...new Set(paths.filter(Boolean))];
+  if (unique.length === 0) return;
+  const chunkSize = 1000;
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    await storageService.delete(unique.slice(i, i + chunkSize));
+  }
+}
+
 export const galleryService = {
   /**
    * Fetch all collections for a specific photographer (Dashboard view)
@@ -36,18 +64,123 @@ export const galleryService = {
       .from('collections')
       .select(`
         *,
-        photos:photos!photos_collection_id_fkey(count)
+        photos:photos!photos_collection_id_fkey(size_bytes)
       `)
       .eq('photographer_id', photographerId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    // Flatten the count for easier UI usage
-    return data.map(c => ({
-      ...c,
-      photo_count: c.photos?.[0]?.count || 0
+    return (data || []).map((c) => {
+      const photoRows = c.photos || [];
+      const storage_bytes = photoRows.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
+      const storedTotal = Number(c.total_size_bytes);
+      const { photos, ...rest } = c;
+      return {
+        ...rest,
+        photo_count: rest.photo_count ?? photoRows.length,
+        storage_bytes:
+          Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : storage_bytes,
+      };
+    });
+  },
+
+  /**
+   * Folders for the move-collection picker, with cover from folder or first collection inside.
+   */
+  async getFoldersForMove(photographerId) {
+    if (!photographerId) return [];
+
+    const { data: folders, error: folderError } = await supabase
+      .from('folders')
+      .select('id, name, cover_url, position, created_at')
+      .eq('photographer_id', photographerId)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (folderError) throw folderError;
+
+    const { data: collections, error: collectionError } = await supabase
+      .from('collections')
+      .select('folder_id, cover_url, created_at')
+      .eq('photographer_id', photographerId)
+      .not('folder_id', 'is', null)
+      .order('created_at', { ascending: true });
+
+    if (collectionError) throw collectionError;
+
+    const coverByFolder = {};
+    for (const row of collections || []) {
+      if (!row.folder_id || coverByFolder[row.folder_id] || !row.cover_url) continue;
+      coverByFolder[row.folder_id] = row.cover_url;
+    }
+
+    return (folders || []).map((folder) => ({
+      id: folder.id,
+      name: folder.name,
+      cover_url: folder.cover_url || coverByFolder[folder.id] || null,
     }));
+  },
+
+  /**
+   * @param {string} photographerId
+   * @param {string | { name: string; eventDate?: string | null; showOnHomepage?: boolean; passwordEnabled?: boolean; password?: string | null }} nameOrOptions
+   */
+  async createFolder(photographerId, nameOrOptions) {
+    const options =
+      typeof nameOrOptions === 'string' ? { name: nameOrOptions } : nameOrOptions ?? {};
+    const name = options.name?.trim();
+
+    if (!photographerId || !name) {
+      throw new Error('Folder name is required.');
+    }
+
+    const baseSlug = generateCollectionSlug(name);
+    const slug = `${baseSlug}-${Date.now().toString(36).slice(2, 8)}`;
+
+    const { data: existing } = await supabase
+      .from('folders')
+      .select('position')
+      .eq('photographer_id', photographerId)
+      .order('position', { ascending: false })
+      .limit(1);
+
+    const position = (existing?.[0]?.position ?? -1) + 1;
+    const passwordEnabled = !!options.passwordEnabled;
+    const password = options.password?.trim();
+
+    const { data, error } = await supabase
+      .from('folders')
+      .insert({
+        photographer_id: photographerId,
+        name,
+        slug,
+        position,
+        show_on_homepage: options.showOnHomepage !== false,
+        event_date: options.eventDate || null,
+        guest_password_hash: passwordEnabled && password ? password : null,
+      })
+      .select('id, name, cover_url, event_date, show_on_homepage')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async moveCollectionToFolder(collectionId, folderId) {
+    if (!collectionId) {
+      throw new Error('Collection is required.');
+    }
+
+    const { data, error } = await supabase
+      .from('collections')
+      .update({ folder_id: folderId ?? null })
+      .eq('id', collectionId)
+      .select('id, folder_id')
+      .single();
+
+    if (error) throw error;
+    return data;
   },
 
   /**
@@ -394,23 +527,22 @@ export const galleryService = {
   },
 
   /**
-   * Delete a set. First unassigns all photos in that set.
+   * Delete a set and all photos in it (DB + Cloudflare R2).
    */
   async deleteSet(setId) {
-    // Unassign photos from this set
-    const { error: unassignError } = await supabase
+    const { data: photosInSet, error: fetchError } = await supabase
       .from('photos')
-      .update({ set_id: null })
+      .select('id')
       .eq('set_id', setId);
 
-    if (unassignError) throw unassignError;
+    if (fetchError) throw fetchError;
 
-    // Delete the set
-    const { error } = await supabase
-      .from('sets')
-      .delete()
-      .eq('id', setId);
+    const photoIds = (photosInSet || []).map((p) => p.id);
+    if (photoIds.length > 0) {
+      await this.deletePhotos(photoIds);
+    }
 
+    const { error } = await supabase.from('sets').delete().eq('id', setId);
     if (error) throw error;
   },
 
@@ -545,6 +677,86 @@ export const galleryService = {
   },
 
   /**
+   * Replace a photo's media in storage and update the existing row (keeps id, set, stars, etc.).
+   */
+  async replacePhoto(photoId, photographerId, collectionId, file, onProgress = null) {
+    if (!collectionId || !photographerId) {
+      throw new Error('Collection or photographer is missing. Refresh the page and try again.');
+    }
+
+    const { data: existing, error: fetchError } = await supabase
+      .from('photos')
+      .select(
+        `id, collection_id, ${PHOTO_STORAGE_PATH_COLUMNS.join(', ')}`
+      )
+      .eq('id', photoId)
+      .single();
+
+    if (fetchError) throw fetchError;
+    if (!existing || existing.collection_id !== collectionId) {
+      throw new Error('Photo not found in this collection.');
+    }
+
+    const mime = getFileMime(file);
+    const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
+    const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+    const filePath = `${photographerId}/${collectionId}/${fileName}`;
+
+    const isVideo = isVideoMime(mime);
+    const isGif = mime === 'image/gif' || /\.gif$/i.test(file.name);
+    const mediaType = isVideo ? 'video' : isGif ? 'gif' : 'image';
+
+    const uploadBody =
+      file.type === mime
+        ? file
+        : new File([file], file.name, { type: mime, lastModified: file.lastModified });
+
+    const [{ url: publicUrl }, meta] = await Promise.all([
+      storageService.upload(filePath, uploadBody, onProgress),
+      isVideo
+        ? this._captureVideoThumbnail(file)
+        : getImageDimensionsFast(file).then((dimensions) => ({ dimensions, thumbnailBlob: null })),
+    ]);
+
+    const dimensions = meta.dimensions ?? { width: null, height: null };
+    const thumbnailBlob = meta.thumbnailBlob ?? null;
+
+    const { data: photoData, error: dbError } = await supabase
+      .from('photos')
+      .update({
+        filename: file.name,
+        full_url: publicUrl,
+        web_url: publicUrl,
+        thumbnail_url: publicUrl,
+        original_storage_path: filePath,
+        size_bytes: file.size,
+        width: dimensions.width,
+        height: dimensions.height,
+        media_type: mediaType,
+        status: 'ready',
+      })
+      .eq('id', photoId)
+      .select()
+      .single();
+
+    if (dbError) throw dbError;
+
+    if (isVideo && thumbnailBlob) {
+      const thumbnailPath = filePath.replace(/\.[^.]+$/, '_thumb.jpg');
+      void storageService.upload(thumbnailPath, thumbnailBlob).then(({ url: thumbUrl }) =>
+        supabase.from('photos').update({ thumbnail_url: thumbUrl }).eq('id', photoId)
+      ).catch((err) => console.warn('Video thumbnail upload deferred failed:', err));
+    }
+
+    const oldPaths = collectPhotoStoragePaths(existing);
+    void deleteStoragePaths(oldPaths).catch((err) =>
+      console.warn('Failed to delete replaced photo storage:', err)
+    );
+
+    return photoData;
+  },
+
+  /**
    * Update photo metadata (filename, set_id, etc.)
    */
   async updatePhoto(id, updateData) {
@@ -560,16 +772,55 @@ export const galleryService = {
   },
 
   /**
-   * Delete photos from the database
+   * Delete photos from Cloudflare R2 and the database (plus related rows).
    */
   async deletePhotos(ids) {
     if (!ids || ids.length === 0) return;
 
-    const { error } = await supabase
+    const { data: rows, error: fetchError } = await supabase
       .from('photos')
-      .delete()
+      .select(
+        `id, collection_id, ${PHOTO_STORAGE_PATH_COLUMNS.join(', ')}`
+      )
       .in('id', ids);
 
+    if (fetchError) throw fetchError;
+    if (!rows?.length) return;
+
+    const collectionIds = [...new Set(rows.map((r) => r.collection_id).filter(Boolean))];
+    for (const collectionId of collectionIds) {
+      const { data: collection, error: coverError } = await supabase
+        .from('collections')
+        .select('cover_photo_id')
+        .eq('id', collectionId)
+        .single();
+
+      if (coverError) throw coverError;
+
+      if (collection?.cover_photo_id && ids.includes(collection.cover_photo_id)) {
+        const { error: clearCoverError } = await supabase
+          .from('collections')
+          .update({ cover_photo_id: null })
+          .eq('id', collectionId);
+        if (clearCoverError) throw clearCoverError;
+      }
+    }
+
+    const { error: favError } = await supabase.from('favorite_items').delete().in('photo_id', ids);
+    if (favError) throw favError;
+
+    const { error: activityError } = await supabase.from('activity_log').delete().in('photo_id', ids);
+    if (activityError) throw activityError;
+
+    const storagePaths = rows.flatMap(collectPhotoStoragePaths);
+    try {
+      await deleteStoragePaths(storagePaths);
+    } catch (storageError) {
+      console.error('Error deleting storage files from R2:', storageError);
+      throw storageError;
+    }
+
+    const { error } = await supabase.from('photos').delete().in('id', ids);
     if (error) throw error;
   },
 
@@ -708,7 +959,7 @@ export const galleryService = {
     if (!sessionId) return null;
     const { data: lists, error } = await supabase
       .from('favorite_lists')
-      .select('id, name, max_selection, created_at')
+      .select('id, name, max_selection, created_at, submitted_at')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 
@@ -734,18 +985,21 @@ export const galleryService = {
   },
 
   /**
-   * Favorited photo IDs for the visitor session — same list as toggleFavorite() (not all preset lists).
+   * Favorited photo IDs for a visitor list (defaults to active preset / My Favorites).
    */
-  async getFavorites(sessionId) {
+  async getFavorites(sessionId, listId = null) {
     if (!sessionId) return [];
     try {
-      const listId = await this._getDefaultFavoriteListId(sessionId);
-      if (!listId) return [];
+      let targetListId = listId;
+      if (!targetListId) {
+        targetListId = await this._getDefaultFavoriteListId(sessionId);
+      }
+      if (!targetListId) return [];
 
       const { data: items, error: itemsError } = await supabase
         .from('favorite_items')
         .select('photo_id')
-        .eq('list_id', listId);
+        .eq('list_id', targetListId);
 
       if (itemsError) return [];
 
@@ -754,6 +1008,83 @@ export const galleryService = {
       console.error('Error in getFavorites:', e);
       return [];
     }
+  },
+
+  /**
+   * Favorite list metadata for gallery selection UI.
+   */
+  async getFavoriteListById(listId, sessionId = null) {
+    if (!listId) return null;
+    const { data, error } = await supabase
+      .from('favorite_lists')
+      .select('id, name, max_selection, description, submitted_at, session_id, collection_id')
+      .eq('id', listId)
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+    if (sessionId && data.session_id !== sessionId) return null;
+    return data;
+  },
+
+  /**
+   * Submit (lock) a visitor favorite list — requires at least one photo.
+   */
+  async submitFavoriteList(listId, sessionId) {
+    if (!listId || !sessionId) {
+      throw new Error('List and session are required');
+    }
+
+    const { data: ok, error } = await supabase.rpc('submit_favorite_list', {
+      p_list_id: listId,
+      p_session_id: sessionId,
+    });
+
+    if (error) {
+      const msg = error.message || '';
+      if (/function .* does not exist|Could not find the function/i.test(msg)) {
+        throw new Error(
+          'Submit is not set up on the server yet. Run supabase/migrations/20260520120000_favorite_list_submit.sql, then try again.'
+        );
+      }
+      throw error;
+    }
+
+    if (Number(ok) !== 1) {
+      const meta = await this.getFavoriteListById(listId, sessionId);
+      if (meta?.submitted_at) {
+        const err = new Error('This list was already submitted.');
+        err.code = 'ALREADY_SUBMITTED';
+        throw err;
+      }
+      const err = new Error('Add at least one photo before confirming your favorites.');
+      err.code = 'NO_PHOTOS';
+      throw err;
+    }
+
+    return true;
+  },
+
+  /**
+   * Email the collection photographer after a client confirms favorites.
+   */
+  async notifyPhotographerFavoriteSubmit({ listId, sessionId, siteOrigin, clientMessage }) {
+    const { data, error } = await supabase.functions.invoke('send-favorite-submit-email', {
+      body: {
+        listId,
+        sessionId,
+        siteOrigin: siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+        clientMessage: clientMessage?.trim() || null,
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message || 'Could not send notification email');
+    }
+    if (data?.error) {
+      throw new Error(data.error);
+    }
+    return data;
   },
 
   /**
@@ -805,6 +1136,18 @@ export const galleryService = {
       }
     }
 
+    const { data: listLock, error: lockErr } = await supabase
+      .from('favorite_lists')
+      .select('submitted_at')
+      .eq('id', targetListId)
+      .maybeSingle();
+
+    if (!lockErr && listLock?.submitted_at) {
+      const err = new Error('This favorite list has been submitted and cannot be changed.');
+      err.code = 'LIST_SUBMITTED';
+      throw err;
+    }
+
     if (isFavorite) {
       const { data: listMeta, error: lmErr } = await supabase
         .from('favorite_lists')
@@ -853,7 +1196,7 @@ export const galleryService = {
       // 1. Fetch lists
       const { data: lists, error: listsError } = await supabase
         .from('favorite_lists')
-        .select('id, name, session_id, collection_id, created_at, max_selection, description')
+        .select('id, name, session_id, collection_id, created_at, max_selection, description, submitted_at')
         .eq('collection_id', collectionId);
 
       if (listsError) {
@@ -923,6 +1266,7 @@ export const galleryService = {
         thumbnail: thumbMap[list.id] || null,
         created_at: list.created_at,
         updated_at: updatedMap[list.id] || list.created_at,
+        submitted_at: list.submitted_at ?? null,
         sessionId: list.session_id
       }));
 
@@ -981,7 +1325,7 @@ export const galleryService = {
     if (!sessionId) return [];
     const { data: lists, error } = await supabase
       .from('favorite_lists')
-      .select('id, name, created_at, max_selection')
+      .select('id, name, created_at, max_selection, description, submitted_at')
       .eq('session_id', sessionId)
       .order('created_at', { ascending: true });
 

@@ -25,9 +25,10 @@ import { DownloadSettings } from '../components/features/CollectionDashboard/Set
 import { FavoriteSettings } from '../components/features/CollectionDashboard/Settings/FavoriteSettings';
 import { GeneralSettings } from '../components/features/CollectionDashboard/Settings/GeneralSettings';
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
-import { UploadManager } from '../components/features/CollectionDashboard/Upload/UploadManager';
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
+import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import { getFileMime } from '../lib/fileMime';
+import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
 import { formatCoverDate, formatCollectionHeaderDate } from '../lib/formatCoverDate.js';
@@ -37,6 +38,11 @@ import {
     normalizePaletteId,
     resolveCoverLayoutId,
 } from '../lib/normalizeDesignTokens.js';
+import {
+    cacheSlideshowEnabled,
+    readCachedSlideshowEnabled,
+} from '../lib/collectionFeatureFlags';
+import { MoveCollectionModal } from '../components/features/Collections/MoveCollectionModal';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -105,6 +111,7 @@ const CollectionDashboard = () => {
     const [editSetDescription, setEditSetDescription] = useState('');
     const [deleteSetId, setDeleteSetId] = useState(null);
     const [highlightsName, setHighlightsName] = useState('Highlights');
+    const [highlightsEnabled, setHighlightsEnabled] = useState(true);
     const [toastMessage, setToastMessage] = useState(null);
 
     // SORT STATE
@@ -532,7 +539,6 @@ const CollectionDashboard = () => {
     const photoMenuRef = useRef(null);
     const gridSettingsRef = useRef(null);
     const moreRef = useRef(null);
-    const setMenuRef = useRef(null);
     const sortRef = useRef(null);
     const shareRef = useRef(null);
     const selectionMoreRef = useRef(null);
@@ -576,6 +582,8 @@ const CollectionDashboard = () => {
     const favoriteDetailToolbarMenuRef = useRef(null);
     const favoriteDetailPhotoMenuRef = useRef(null);
     const designHydratedRef = useRef(false);
+    const settingsHydratedRef = useRef(false);
+    const slideshowColumnReadyRef = useRef(false);
     const favoriteActivitySortMenuRef = useRef(null);
 
 
@@ -615,8 +623,10 @@ const CollectionDashboard = () => {
             setSaving(true);
             await galleryService.deletePhotos(ids);
 
-            // Update local state
-            setPhotos(prev => prev.filter(p => !ids.includes(p.id)));
+            setPhotos((prev) => prev.filter((p) => !ids.includes(p.id)));
+            if (collection?.cover_photo_id && ids.includes(collection.cover_photo_id)) {
+                setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
+            }
             setSelectedPhotos([]);
             setShowDeleteConfirm(false);
             setPhotosToDelete([]);
@@ -677,6 +687,19 @@ const CollectionDashboard = () => {
             fetchDownloadActivity();
             fetchReminders();
         }
+    }, [collectionId]);
+
+    useEffect(() => {
+        const onUploadView = (event) => {
+            const detail = event.detail || {};
+            if (detail.collectionId && detail.collectionId !== collectionId) return;
+            setActiveSidebarTab('photos');
+            if ('activeSetId' in detail) {
+                setActiveSetId(detail.activeSetId ?? null);
+            }
+        };
+        window.addEventListener(UPLOAD_VIEW_COLLECTION_EVENT, onUploadView);
+        return () => window.removeEventListener(UPLOAD_VIEW_COLLECTION_EVENT, onUploadView);
     }, [collectionId]);
 
     useEffect(() => {
@@ -890,30 +913,33 @@ const CollectionDashboard = () => {
         const file = e.target.files[0];
         if (!file || !editingPhoto) return;
 
+        const photographerId = collection?.photographer_id ?? user?.id;
+        if (!collectionId || !photographerId) {
+            alert('Collection is still loading. Please try again.');
+            return;
+        }
+
         try {
             setSaving(true);
-            const fileExt = file.name.split('.').pop();
-            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-            const filePath = `${photographerId}/${collectionId}/${fileName}`;
-            const { url: publicUrl } = await storageService.upload(filePath, file);
+            const fileToUpload = await prepareUploadFile(file);
+            const updated = await galleryService.replacePhoto(
+                editingPhoto.id,
+                photographerId,
+                collectionId,
+                fileToUpload
+            );
 
-            const updated = await galleryService.updatePhoto(editingPhoto.id, {
-                full_url: publicUrl,
-                web_url: publicUrl,
-                thumbnail_url: publicUrl,
-                original_storage_path: filePath,
-                size_bytes: file.size
-            });
-
-            setPhotos(prev => prev.map(p => p.id === editingPhoto.id ? updated : p));
+            clearMediaUrlCache();
+            setPhotos((prev) => prev.map((p) => (p.id === editingPhoto.id ? updated : p)));
             setShowReplaceModal(false);
             setEditingPhoto(null);
             alert('Photo replaced successfully!');
         } catch (err) {
             console.error('Error replacing photo:', err);
-            alert('Failed to replace photo.');
+            alert(err instanceof Error ? err.message : 'Failed to replace photo.');
         } finally {
             setSaving(false);
+            e.target.value = '';
         }
     };
 
@@ -1010,6 +1036,8 @@ const CollectionDashboard = () => {
 
             try {
                 designHydratedRef.current = false;
+                settingsHydratedRef.current = false;
+                slideshowColumnReadyRef.current = false;
                 setLoading(true);
                 setError(null);
                 const data = await galleryService.getCollectionDashboardData(collectionId);
@@ -1032,6 +1060,7 @@ const CollectionDashboard = () => {
                 if (data.client_exclusive_enabled !== undefined) setClientExclusiveAccess(data.client_exclusive_enabled);
                 if (data.allow_clients_mark_private !== undefined) setAllowClientsMarkPrivate(data.allow_clients_mark_private);
                 if (data.client_only_highlights !== undefined) setClientOnlyHighlights(data.client_only_highlights);
+                if (data.highlights_enabled !== undefined) setHighlightsEnabled(data.highlights_enabled !== false);
 
                 // Map individual columns to state
                 setSelectedCoverStyle(resolveCoverLayoutId(data));
@@ -1081,10 +1110,21 @@ const CollectionDashboard = () => {
                 if (data.expiry_email_lists) setExpiryEmailLists(data.expiry_email_lists);
                 if (data.social_sharing_enabled !== undefined) setSocialSharing(data.social_sharing_enabled);
                 if (data.gallery_assist !== undefined) setGalleryAssist(data.gallery_assist);
-                if (data.slideshow !== undefined) setSlideshow(data.slideshow);
+                if (Object.prototype.hasOwnProperty.call(data, 'slideshow_enabled')) {
+                    setSlideshow(data.slideshow_enabled !== false);
+                    slideshowColumnReadyRef.current = true;
+                    cacheSlideshowEnabled(collectionId, data.slideshow_enabled !== false);
+                } else if (data.slideshow !== undefined) {
+                    setSlideshow(data.slideshow !== false);
+                    cacheSlideshowEnabled(collectionId, data.slideshow !== false);
+                } else {
+                    const cachedSlideshow = readCachedSlideshowEnabled(collectionId);
+                    if (cachedSlideshow !== null) setSlideshow(cachedSlideshow);
+                }
                 if (data.auto_expiry) setAutoExpiry(data.auto_expiry);
 
                 designHydratedRef.current = true;
+                settingsHydratedRef.current = true;
 
                 const photoData = data.photos || [];
                 setPhotos(photoData);
@@ -1114,8 +1154,21 @@ const CollectionDashboard = () => {
     // Global click listener to close menus (ref-aware so toolbar toggles work)
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (activeActivityMenu) setActiveActivityMenu(null);
-            if (favoriteDetailPhotoMenuPhotoId) setFavoriteDetailPhotoMenuPhotoId(null);
+            const target = e.target;
+            if (
+                activeActivityMenu
+                && !target.closest?.('.activity-row-menu')
+                && !target.closest?.('.row-action-btn')
+            ) {
+                setActiveActivityMenu(null);
+            }
+            if (
+                favoriteDetailPhotoMenuPhotoId
+                && favoriteDetailPhotoMenuRef.current
+                && !favoriteDetailPhotoMenuRef.current.contains(target)
+            ) {
+                setFavoriteDetailPhotoMenuPhotoId(null);
+            }
             if (showSelectionMore && selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) {
                 setShowSelectionMore(false);
             }
@@ -1154,6 +1207,15 @@ const CollectionDashboard = () => {
     const activeSet = activeSetId ? sets.find(s => s.id === activeSetId) : null;
     const activeSetName = activeSet ? activeSet.name : highlightsName;
 
+    const uploadDestinationLabel = collection
+        ? `${collection.name || 'Collection'} / ${activeSetName}`
+        : activeSetName;
+
+    const existingUploadFilenames = useMemo(
+        () => photos.map((p) => p.filename).filter(Boolean),
+        [photos]
+    );
+
     const {
         state: uploadState,
         processFiles,
@@ -1167,14 +1229,18 @@ const CollectionDashboard = () => {
     } = useUploadQueue({
         collectionId,
         photographerId: collection?.photographer_id ?? user?.id,
-        activeSetId,
+        activeSetId: highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null),
         photosLength: photos.length,
+        existingFilenames: existingUploadFilenames,
+        destinationLabel: uploadDestinationLabel,
         onPhotoUploaded: (photoData) => setPhotos((prev) => [...prev, photoData]),
     });
 
-    const uploadDestinationLabel = collection
-        ? `${collection.name || 'Collection'} / ${activeSetName}`
-        : activeSetName;
+    useEffect(() => {
+        if (!highlightsEnabled && activeSetId == null && sets.length > 0) {
+            setActiveSetId(sets[0].id);
+        }
+    }, [highlightsEnabled, activeSetId, sets]);
 
     const gridPhotos = useMemo(() => {
         const completedNames = new Set(sortedPhotos.map((p) => p.filename));
@@ -1288,35 +1354,49 @@ const CollectionDashboard = () => {
     const confirmDeleteSet = async () => {
         if (!deleteSetId) return;
 
-        // "You must have at least one set" logic
-        if (sets.length === 0) {
-            setToastMessage("You must have at least one set.");
+        const isHighlights = deleteSetId === 'highlights';
+
+        if (!isHighlights && sets.length === 0) {
+            setToastMessage('You must have at least one set.');
             setTimeout(() => setToastMessage(null), 3000);
+            setDeleteSetId(null);
             return;
         }
-
-        const isHighlights = deleteSetId === 'highlights';
         
         try {
             setSaving(true);
             if (isHighlights) {
-                // Delete all photos that have no set_id
-                const unassignedPhotoIds = photos.filter(p => !p.set_id).map(p => p.id);
+                const unassignedPhotoIds = photos.filter((p) => !p.set_id).map((p) => p.id);
                 if (unassignedPhotoIds.length > 0) {
                     await galleryService.deletePhotos(unassignedPhotoIds);
-                    setPhotos(prev => prev.filter(p => p.set_id !== null));
+                    setPhotos((prev) => prev.filter((p) => p.set_id));
+                    if (collection?.cover_photo_id && unassignedPhotoIds.includes(collection.cover_photo_id)) {
+                        setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
+                    }
                 }
+                await galleryService.updateCollection(collectionId, { highlights_enabled: false });
+                setHighlightsEnabled(false);
+                setCollection((prev) => (prev ? { ...prev, highlights_enabled: false } : prev));
+                setActiveSetId(sets[0]?.id ?? null);
             } else {
+                const removedIds = new Set(
+                    photos.filter((p) => p.set_id === deleteSetId).map((p) => p.id)
+                );
                 await galleryService.deleteSet(deleteSetId);
-                // Unassign photos locally (move back to highlights)
-                setPhotos(prev => prev.map(p => p.set_id === deleteSetId ? { ...p, set_id: null } : p));
-                setSets(prev => prev.filter(s => s.id !== deleteSetId));
+                setPhotos((prev) => prev.filter((p) => !removedIds.has(p.id)));
+                setSets((prev) => prev.filter((s) => s.id !== deleteSetId));
+                if (collection?.cover_photo_id && removedIds.has(collection.cover_photo_id)) {
+                    setCollection((prev) => (prev ? { ...prev, cover_photo_id: null, cover_url: null } : prev));
+                }
+                if (activeSetId === deleteSetId) {
+                    setActiveSetId(highlightsEnabled ? null : sets.find((s) => s.id !== deleteSetId)?.id ?? null);
+                }
             }
-            if (activeSetId === deleteSetId || (isHighlights && !activeSetId)) setActiveSetId(null);
             setDeleteSetId(null);
         } catch (err) {
             console.error('Failed to delete set:', err);
-            alert('Failed to delete set. Please try again.');
+            const detail = err?.message ? `\n\n${err.message}` : '';
+            alert(`Failed to delete set. Please try again.${detail}`);
         } finally {
             setSaving(false);
         }
@@ -1607,7 +1687,6 @@ const CollectionDashboard = () => {
                     gallery_download_enabled: galleryDownload,
                     single_photo_download_enabled: singlePhotoDownload,
                     require_pin_for_single_photo: requirePinForSinglePhoto,
-                    social_sharing_enabled: socialSharing,
                     // Advanced settings
                     download_limit_gallery: downloadLimit ? parseInt(downloadLimit) : null,
                     restrict_to_emails: restrictToEmails || null,
@@ -1623,7 +1702,6 @@ const CollectionDashboard = () => {
                     slug: collectionUrl,
                     settings: {
                         downloads_enabled: photoDownload,
-                        social_sharing_enabled: socialSharing,
                         gallery_download_enabled: galleryDownload,
                         single_photo_download_enabled: singlePhotoDownload,
                         require_pin_for_single_photo: requirePinForSinglePhoto,
@@ -1645,6 +1723,53 @@ const CollectionDashboard = () => {
         highResChoice, webSizeChoice, downloadLimit, restrictToEmails,
         selectedDownloadSets, pinUsageLimit,
         collectionId, collection, loading
+    ]);
+
+    // Auto-save general gallery visitor settings (slideshow, social sharing)
+    useEffect(() => {
+        if (!collection || loading || !settingsHydratedRef.current) return;
+
+        const saveGeneralGallerySettings = async () => {
+            cacheSlideshowEnabled(collectionId, slideshow);
+            const patch = {
+                social_sharing_enabled: socialSharing,
+                gallery_assist: galleryAssist,
+                ...(slideshowColumnReadyRef.current ? { slideshow_enabled: slideshow } : {}),
+            };
+
+            const channel = new BroadcastChannel('pixnxt-gallery-update');
+            channel.postMessage({
+                type: 'SETTINGS_UPDATED',
+                collectionId,
+                slug: collectionUrl,
+                settings: {
+                    slideshow_enabled: slideshow,
+                    social_sharing_enabled: socialSharing,
+                },
+            });
+            channel.close();
+
+            try {
+                const updated = await galleryService.updateCollection(collectionId, patch);
+
+                if (updated) {
+                    setCollection((prev) => (prev ? { ...prev, ...updated } : prev));
+                }
+            } catch (err) {
+                console.error('Error auto-saving general gallery settings:', err);
+            }
+        };
+
+        const timeoutId = setTimeout(saveGeneralGallerySettings, 800);
+        return () => clearTimeout(timeoutId);
+    }, [
+        slideshow,
+        socialSharing,
+        galleryAssist,
+        collectionId,
+        collectionUrl,
+        collection,
+        loading,
     ]);
 
     // Auto-save favorite settings
@@ -1687,7 +1812,7 @@ const CollectionDashboard = () => {
                 setShowMoreDropdown(false);
                 setShowPresetsSubmenu(false);
             }
-            if (setMenuRef.current && !setMenuRef.current.contains(e.target)) setShowSetMenu(null);
+            if (!e.target.closest?.('.cd-set-menu-wrapper')) setShowSetMenu(null);
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortMenu(false);
             if (selectionMoreRef.current && !selectionMoreRef.current.contains(e.target)) setShowSelectionMore(false);
             if (selectAllMenuRef.current && !selectAllMenuRef.current.contains(e.target)) setShowSelectAllMenu(false);
@@ -1698,14 +1823,20 @@ const CollectionDashboard = () => {
             ) {
                 setShowMoveToSetMenu(false);
             }
-            if (favoriteActivityMenuRef.current && !favoriteActivityMenuRef.current.contains(e.target)) setActiveActivityMenu(null);
+            if (
+                activeActivityMenu
+                && !e.target.closest?.('.activity-row-menu')
+                && !e.target.closest?.('.row-action-btn')
+            ) {
+                setActiveActivityMenu(null);
+            }
             if (favoriteDetailToolbarMenuRef.current && !favoriteDetailToolbarMenuRef.current.contains(e.target)) setFavoriteDetailToolbarMenuOpen(false);
             if (favoriteDetailPhotoMenuRef.current && !favoriteDetailPhotoMenuRef.current.contains(e.target)) setFavoriteDetailPhotoMenuPhotoId(null);
             if (favoriteActivitySortMenuRef.current && !favoriteActivitySortMenuRef.current.contains(e.target)) setFavoriteActivitySortMenuOpen(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, []);
+    }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen]);
 
     const processSelectedUploadFiles = (fileList) => {
         if (processFiles(fileList)) {
@@ -1899,7 +2030,9 @@ const CollectionDashboard = () => {
                                 coverStyle: selectedCoverStyle,
                                 font: selectedFont,
                                 color: selectedColorPalette,
-                                grid: gridSettings.style
+                                grid: gridSettings.style,
+                                slideshow: slideshow ? '1' : '0',
+                                socialSharing: socialSharing ? '1' : '0',
                             });
                             openSpaPath(`/gallery/${collectionUrl}?${params.toString()}`);
                         }}
@@ -2018,7 +2151,8 @@ const CollectionDashboard = () => {
                                         Add Set
                                     </button>
                                 </div>
-                                {/* Highlights (all photos) */}
+                                {/* Highlights (unassigned photos) — virtual set; hidden after Delete set */}
+                                {highlightsEnabled && (
                                 <div className={`cd-set-item ${!activeSetId ? 'active' : ''}`} onClick={() => setActiveSetId(null)}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cd-drag-handle"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line></svg>
                                     <span className="cd-set-name">{highlightsName} ({photos.filter(p => !p.set_id).length})</span>
@@ -2048,6 +2182,7 @@ const CollectionDashboard = () => {
                                         </div>
                                     </div>
                                 </div>
+                                )}
                                 {/* Dynamic Sets */}
                                 {sets.map(set => (
                                     <div key={set.id} className={`cd-set-item ${activeSetId === set.id ? 'active' : ''}`} onClick={() => setActiveSetId(set.id)}>
@@ -2055,24 +2190,24 @@ const CollectionDashboard = () => {
                                         <span className="cd-set-name">{set.name} ({photos.filter(p => p.set_id === set.id).length})</span>
                                         <div className="cd-set-actions">
                                             <div className="cd-set-more-container">
-                                                <div className="cd-set-menu-wrapper" ref={setMenuRef}>
+                                                <div className="cd-set-menu-wrapper">
                                                     <button className="cd-set-menu-btn" onClick={(e) => { e.stopPropagation(); setShowSetMenu(showSetMenu === set.id ? null : set.id); }}>
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
                                                     </button>
                                                     {showSetMenu === set.id && (
-                                                        <div className="cd-set-dropdown">
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
+                                                        <div className="cd-set-dropdown" role="menu">
+                                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openCoverModal(set.id); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                                                                 <span>Change cover</span>
-                                                            </div>
-                                                            <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal(set); }}>
+                                                            </button>
+                                                            <button type="button" className="cd-ctx-item" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); openEditSetModal(set); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
                                                                 <span>Edit set</span>
-                                                            </div>
-                                                            <div className="cd-ctx-item cd-ctx-delete" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
+                                                            </button>
+                                                            <button type="button" className="cd-ctx-item cd-ctx-delete" role="menuitem" onClick={(e) => { e.stopPropagation(); setShowSetMenu(null); handleDeleteSet(set.id); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                                                                 <span>Delete set</span>
-                                                            </div>
+                                                            </button>
                                                         </div>
                                                     )}
                                                 </div>
@@ -2144,7 +2279,9 @@ const CollectionDashboard = () => {
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                                     <span>Download</span>
-                                    <span className="tab-badge">ON</span>
+                                    <span className={`tab-badge${photoDownload ? '' : ' off'}`}>
+                                        {photoDownload ? 'ON' : 'OFF'}
+                                    </span>
                                 </div>
                                 <div
                                     className={`cd-design-nav-item ${activeSettingsTab === 'favorite' ? 'active' : ''}`}
@@ -2152,7 +2289,9 @@ const CollectionDashboard = () => {
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                                     <span>Favorite</span>
-                                    <span className="tab-badge">ON</span>
+                                    <span className={`tab-badge${favoritePhotos ? '' : ' off'}`}>
+                                        {favoritePhotos ? 'ON' : 'OFF'}
+                                    </span>
                                 </div>
 
                             </div>
@@ -2294,7 +2433,8 @@ const CollectionDashboard = () => {
                                         className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}`}
                                     >
                                         {gridPhotos.map((photo, index) => {
-                                            const menuAlignLeft = index % 4 >= 2;
+                                            const cols = gridSize === 'large' ? 4 : 6;
+                                            const menuAlignLeft = index % cols >= Math.ceil(cols / 2);
                                             const isPending = Boolean(photo._uploadPending);
                                             return (
                                             <div
@@ -2313,6 +2453,7 @@ const CollectionDashboard = () => {
                                                     <CollectionGridPhoto
                                                         photo={photo}
                                                         index={index}
+                                                        containInCell
                                                     />
                                                     {isPending && (
                                                         <div
@@ -2462,12 +2603,13 @@ const CollectionDashboard = () => {
                                         focalY: collection?.focal_y ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[2] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[2]) : 50),
                                         activeSetId: activeSetId,
                                         sets: sets,
-                                        collection: collection,
+                                        collection: { ...collection, highlights_enabled: highlightsEnabled },
                                         photoDownload: photoDownload,
                                         galleryDownload: galleryDownload,
                                         singlePhotoDownload: singlePhotoDownload,
                                         favoritePhotos: favoritePhotos,
                                         socialSharing: socialSharing,
+                                        slideshow: slideshow,
                                         downloadPin: downloadPin,
                                         pinValue: pinValue,
                                         requirePinForSinglePhoto: requirePinForSinglePhoto,
@@ -2985,21 +3127,6 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            <UploadManager
-                state={uploadState}
-                destinationLabel={uploadDestinationLabel}
-                isPaused={uploadState.isPaused}
-                onMinimize={minimizeUploads}
-                onExpand={expandUploads}
-                onClose={cancelUploads}
-                onPause={pauseUploads}
-                onResume={resumeUploads}
-                onCancel={cancelUploads}
-                onTabChange={setUploadTab}
-                onToggleDetails={toggleUploadDetails}
-                onViewCompleted={minimizeUploads}
-            />
-
             {/* Create Favorite List Modal (single overlay — matches preset list flow) */}
             {showCreateFavoriteListModal && (
                 <div
@@ -3250,40 +3377,14 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Move To Modal */}
-            {showMoveToModal && (
-                <div className="cd-modal-overlay" onClick={() => setShowMoveToModal(false)}>
-                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">MOVE COLLECTION TO</h3>
-                            <button className="cd-modal-close" onClick={() => setShowMoveToModal(false)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                        <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                                <span style={{ fontWeight: '500' }}>Home</span>
-                            </div>
-                            <div style={{ border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden', marginBottom: '16px' }}>
-                                <div style={{ padding: '12px 16px', borderBottom: '1px solid #ddd', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', backgroundColor: '#f9f9f9' }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#a4d1f5" stroke="#a4d1f5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                                    <span style={{ fontSize: '14px', color: '#333' }}>2026 Weddings</span>
-                                </div>
-                                <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#a4d1f5" stroke="#a4d1f5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                                    <span style={{ fontSize: '14px', color: '#333' }}>Portraits</span>
-                                </div>
-                            </div>
-                            <div style={{ color: '#2b78c5', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}>+ Move to new folder</div>
-                        </div>
-                        <div className="cd-modal-footer">
-                            <button className="cd-cancel-btn" onClick={() => setShowMoveToModal(false)}>Cancel</button>
-                            <button className="cd-save-btn disabled">Move</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <MoveCollectionModal
+                isOpen={showMoveToModal}
+                onClose={() => setShowMoveToModal(false)}
+                collectionId={collectionId}
+                photographerId={collection?.photographer_id ?? user?.id}
+                currentFolderId={collection?.folder_id}
+                onMoved={(folderId) => setCollection((prev) => (prev ? { ...prev, folder_id: folderId } : prev))}
+            />
 
             {/* Duplicate Modal */}
             {showDuplicateModal && (

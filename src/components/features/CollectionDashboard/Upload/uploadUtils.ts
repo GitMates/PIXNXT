@@ -32,11 +32,35 @@ export function uploadTabCounts(files: UploadQueueFile[]) {
   };
 }
 
-/** Byte-weighted progress (matches Pixieset % while count shows files). */
+/** Overall progress by completed file count (e.g. 100 / 200 → 50%). */
 export function uploadOverallPercent(files: UploadQueueFile[]): number {
   if (files.length === 0) return 0;
-  const totalBytes = files.reduce((acc, f) => acc + uploadTotalBytes(f), 0);
-  if (totalBytes === 0) return 0;
-  const doneBytes = files.reduce((acc, f) => acc + uploadBytesDone(f), 0);
-  return Math.min(100, Math.round((doneBytes / totalBytes) * 100));
+  const completed = files.filter((f) => f.status === 'completed').length;
+  return Math.min(100, Math.round((completed / files.length) * 100));
+}
+
+/** Skip files whose name already exists in the collection or the active upload queue. */
+export function partitionDuplicateUploadFiles(
+  files: File[],
+  existingNamesLower: Iterable<string>,
+  queuedNamesLower: Iterable<string>
+): { accepted: File[]; skipped: string[] } {
+  const seen = new Set<string>();
+  for (const name of existingNamesLower) seen.add(name);
+  for (const name of queuedNamesLower) seen.add(name);
+
+  const accepted: File[] = [];
+  const skipped: string[] = [];
+
+  for (const file of files) {
+    const key = file.name.toLowerCase();
+    if (seen.has(key)) {
+      skipped.push(file.name);
+      continue;
+    }
+    seen.add(key);
+    accepted.push(file);
+  }
+
+  return { accepted, skipped };
 }

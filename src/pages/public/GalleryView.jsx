@@ -48,6 +48,15 @@ import {
   ClientExclusiveClientBar,
 } from '../../components/features/ClientExclusiveAccess';
 import { clientExclusiveAccessService } from '../../services/clientExclusiveAccess.service';
+import {
+  cacheSlideshowEnabled,
+  getSlideshowStorageKey,
+  isCollectionFeatureEnabled,
+  isSlideshowEnabledForCollection,
+  parseSlideshowQueryParam,
+  SLIDESHOW_CHANGED_EVENT,
+  withResolvedSlideshowEnabled,
+} from '../../lib/collectionFeatureFlags';
 
 /** Stable string ids so Supabase UUIDs match `photo.id` from the collection payload. */
 function normalizeFavoritePhotoId(id) {
@@ -87,24 +96,56 @@ const GalleryView = () => {
   const [privateToast, setPrivateToast] = useState(null);
   const [privateToastThumb, setPrivateToastThumb] = useState(null);
 
-  const refreshActiveFavoriteList = useCallback(async (sid) => {
-    if (!sid) {
-      setActiveFavoriteList(null);
-      return;
-    }
-    try {
-      const row = await galleryService.getSessionDefaultFavoriteList(sid);
-      setActiveFavoriteList(row);
-    } catch (e) {
-      console.warn('Active favorite list:', e);
-      setActiveFavoriteList(null);
-    }
-  }, []);
+  const [searchParams] = useSearchParams();
+  const listId = searchParams.get('list');
+
+  const getPickListId = useCallback(() => {
+    if (!collection?.id) return null;
+    return sessionStorage.getItem(`pixnxt_fav_pick_list_${collection.id}`);
+  }, [collection?.id]);
+
+  const refreshSelectionList = useCallback(
+    async (sid, explicitListId = null) => {
+      if (!sid) {
+        setActiveFavoriteList(null);
+        setFavoritedPhotos([]);
+        return;
+      }
+      try {
+        const pickListId = getPickListId();
+        const targetListId =
+          explicitListId ||
+          pickListId ||
+          listId ||
+          (await galleryService.getSessionDefaultFavoriteList(sid))?.id;
+        if (!targetListId) {
+          setActiveFavoriteList(null);
+          setFavoritedPhotos([]);
+          return;
+        }
+        const row = await galleryService.getFavoriteListById(targetListId, sid);
+        setActiveFavoriteList(row);
+        if (row) {
+          const favs = await galleryService.getFavorites(sid, row.id);
+          setFavoritedPhotos((favs || []).map(normalizeFavoritePhotoId).filter(Boolean));
+        } else {
+          setFavoritedPhotos([]);
+        }
+      } catch (e) {
+        console.warn('Active favorite list:', e);
+        setActiveFavoriteList(null);
+        setFavoritedPhotos([]);
+      }
+    },
+    [listId, getPickListId]
+  );
 
   useEffect(() => {
-    refreshActiveFavoriteList(sessionId);
-  }, [sessionId, refreshActiveFavoriteList]);
+    refreshSelectionList(sessionId, null);
+  }, [sessionId, listId, collection?.id, refreshSelectionList]);
 
+  const selectionListId = activeFavoriteList?.id || listId || null;
+  const favoritesLocked = Boolean(activeFavoriteList?.submitted_at);
   const favoriteLightboxLabel = useMemo(() => {
     if (!sessionId) return null;
     const name = activeFavoriteList?.name || 'My Favorites';
@@ -124,14 +165,20 @@ const GalleryView = () => {
       setSessionId(session.id);
       localStorage.setItem(`pixnxt_fav_email_${collection.id}`, email);
 
-      const favs = await galleryService.getFavorites(session.id);
-      const newFavs = (favs || []).map(normalizeFavoritePhotoId).filter(Boolean);
+      const targetList =
+        getPickListId() ||
+        listId ||
+        (await galleryService.getSessionDefaultFavoriteList(session.id))?.id;
+      await refreshSelectionList(session.id, targetList || null);
+      let newFavs = (await galleryService.getFavorites(session.id, targetList))
+        .map(normalizeFavoritePhotoId)
+        .filter(Boolean);
 
       const pending = normalizeFavoritePhotoId(pendingFavoritePhotoId);
-      if (pending) {
+      if (pending && targetList) {
         if (!newFavs.includes(pending)) {
-          await galleryService.toggleFavorite(session.id, pending, true);
-          newFavs.push(pending);
+          await galleryService.toggleFavorite(session.id, pending, true, targetList);
+          newFavs = [...newFavs, pending];
         }
       }
       setPendingFavoritePhotoId(null);
@@ -145,8 +192,11 @@ const GalleryView = () => {
       if (pending && newFavs.includes(pending)) {
         const ph = (collection.photos || []).find((p) => normalizeFavoritePhotoId(p.id) === pending);
         const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
-        const listMeta = await galleryService.getSessionDefaultFavoriteList(session.id);
-        setActiveFavoriteList(listMeta);
+        await refreshSelectionList(session.id, listId || null);
+        const listMeta = await galleryService.getFavoriteListById(
+          listId || (await galleryService.getSessionDefaultFavoriteList(session.id))?.id,
+          session.id
+        );
         const max =
           listMeta?.max_selection != null && Number(listMeta.max_selection) > 0
             ? Number(listMeta.max_selection)
@@ -201,10 +251,20 @@ const GalleryView = () => {
         ? photoOrId
         : (collection.photos || []).find((p) => normalizeFavoritePhotoId(p.id) === pid);
 
+    if (favoritesLocked) {
+      alert('Your favorites have been submitted and can no longer be changed.');
+      return;
+    }
+
     if (sessionId) {
       const isCurrentlyFavorited = favoritedPhotos.includes(pid);
       try {
-        await galleryService.toggleFavorite(sessionId, pid, !isCurrentlyFavorited);
+        await galleryService.toggleFavorite(
+          sessionId,
+          pid,
+          !isCurrentlyFavorited,
+          selectionListId
+        );
         const next = isCurrentlyFavorited
           ? favoritedPhotos.filter((id) => id !== pid)
           : [...favoritedPhotos, pid];
@@ -229,6 +289,11 @@ const GalleryView = () => {
         channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
         channel.close();
       } catch (e) {
+        if (e?.code === 'LIST_SUBMITTED') {
+          alert(e.message || 'This list has been submitted and cannot be changed.');
+          await refreshSelectionList(sessionId, listId || null);
+          return;
+        }
         if (e?.code === 'SELECTION_LIMIT') {
           const thumb = photo?.thumbnail_url || photo?.web_url || photo?.full_url;
           setFavoriteToast({
@@ -299,12 +364,11 @@ const GalleryView = () => {
   };
 
   const galleryRef = useRef(null);
-  const [searchParams] = useSearchParams();
-  const listId = searchParams.get('list');
   const previewCoverStyle = searchParams.get('coverStyle');
   const previewFont = searchParams.get('font');
   const previewColor = searchParams.get('color');
   const previewGrid = searchParams.get('grid');
+  const previewSlideshow = searchParams.get('slideshow');
 
   const getEffectiveSettings = () => {
     if (!collection) return {
@@ -329,6 +393,15 @@ const GalleryView = () => {
   const navigationStyle = normalizeNavigationStyle(effectiveSettings.nav_style);
   const isGalleryDark = effectiveSettings.color_palette === 'dark';
 
+  const showGalleryDownload =
+    isCollectionFeatureEnabled(collection?.downloads_enabled) &&
+    isCollectionFeatureEnabled(collection?.gallery_download_enabled);
+  const showGalleryShare = isCollectionFeatureEnabled(collection?.social_sharing_enabled);
+  const showGallerySlideshow = isSlideshowEnabledForCollection(collection);
+  const showSinglePhotoDownload =
+    isCollectionFeatureEnabled(collection?.downloads_enabled) &&
+    isCollectionFeatureEnabled(collection?.single_photo_download_enabled);
+
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
   const shareTitle = collection?.name || 'Collection';
 
@@ -343,7 +416,19 @@ const GalleryView = () => {
           return;
         }
 
-        setCollection(data);
+        let resolved = withResolvedSlideshowEnabled(data);
+        const urlSlideshow = parseSlideshowQueryParam(previewSlideshow);
+        if (urlSlideshow !== undefined) {
+          resolved = { ...resolved, slideshow_enabled: urlSlideshow };
+          cacheSlideshowEnabled(resolved.id, urlSlideshow);
+        }
+        setCollection(resolved);
+        if (
+          resolved.id &&
+          Object.prototype.hasOwnProperty.call(resolved, 'slideshow_enabled')
+        ) {
+          cacheSlideshowEnabled(resolved.id, resolved.slideshow_enabled !== false);
+        }
         if (isClientExclusiveEnabled(data)) {
           setIsClientViewer(isClientSessionActive(data.id));
         } else {
@@ -361,10 +446,8 @@ const GalleryView = () => {
           try {
             const session = await galleryService.createOrGetSession(data.id, savedEmail);
             setSessionId(session.id);
-            const favs = await galleryService.getFavorites(session.id);
-            setFavoritedPhotos((favs || []).map(normalizeFavoritePhotoId).filter(Boolean));
-            await refreshActiveFavoriteList(session.id);
             setEmail(savedEmail);
+            await refreshSelectionList(session.id, listId || null);
           } catch (e) {
             console.error("Failed to restore session:", e);
           }
@@ -380,15 +463,58 @@ const GalleryView = () => {
     if (slug) fetchGallery();
   }, [slug]);
 
+  const applySlideshowSetting = useCallback((collectionId, enabled, skipCache = false) => {
+    if (!collectionId) return;
+    if (!skipCache) cacheSlideshowEnabled(collectionId, enabled);
+    setCollection((prev) => {
+      if (!prev || prev.id !== collectionId) return prev;
+      if (prev.slideshow_enabled === enabled) return prev;
+      return { ...prev, slideshow_enabled: enabled };
+    });
+  }, []);
+
   useEffect(() => {
     const channel = new BroadcastChannel('pixnxt-gallery-update');
-    channel.onmessage = (event) => {
-      if (event.data.type === 'SETTINGS_UPDATED' && (event.data.collectionId === collection?.id || event.data.slug === slug)) {
-        setCollection(prev => prev ? { ...prev, ...event.data.settings } : prev);
+    const onMessage = (event) => {
+      if (event.data.type !== 'SETTINGS_UPDATED') return;
+      if (event.data.slug !== slug && event.data.collectionId !== collection?.id) return;
+
+      if (event.data.settings?.slideshow_enabled !== undefined) {
+        const id = event.data.collectionId ?? collection?.id;
+        applySlideshowSetting(id, event.data.settings.slideshow_enabled !== false);
+      }
+
+      if (event.data.settings?.social_sharing_enabled !== undefined) {
+        setCollection((prev) =>
+          prev
+            ? { ...prev, social_sharing_enabled: event.data.settings.social_sharing_enabled }
+            : prev
+        );
       }
     };
+    channel.onmessage = onMessage;
     return () => channel.close();
-  }, [collection?.id, slug]);
+  }, [slug, collection?.id, applySlideshowSetting]);
+
+  useEffect(() => {
+    const onSlideshowChanged = (event) => {
+      const { collectionId, enabled } = event.detail ?? {};
+      if (!collectionId) return;
+      if (collection?.id && collectionId !== collection.id) return;
+      applySlideshowSetting(collectionId, enabled, true);
+    };
+    const onStorage = (event) => {
+      if (!collection?.id || event.key !== getSlideshowStorageKey(collection.id)) return;
+      if (event.newValue === '0') applySlideshowSetting(collection.id, false);
+      else if (event.newValue === '1') applySlideshowSetting(collection.id, true);
+    };
+    window.addEventListener(SLIDESHOW_CHANGED_EVENT, onSlideshowChanged);
+    window.addEventListener('storage', onStorage);
+    return () => {
+      window.removeEventListener(SLIDESHOW_CHANGED_EVENT, onSlideshowChanged);
+      window.removeEventListener('storage', onStorage);
+    };
+  }, [collection?.id, applySlideshowSetting]);
 
   useEffect(() => {
     const fetchFavoriteList = async () => {
@@ -416,15 +542,10 @@ const GalleryView = () => {
     galleryRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const openLightbox = useCallback((index) => {
+  const openLightbox = useCallback((index, { autoplay = false } = {}) => {
     setLightboxIndex(index);
-    setIsSlideshowActive(true);
+    setIsSlideshowActive(autoplay);
   }, []);
-
-  const handleStartSlideshow = () => {
-    openLightbox(0);
-  };
-
 
   /** Base list for the active tab — must NOT get a new array reference when only `favoritedPhotos` changes
    *  (otherwise MasonryGrid + framer-motion `whileInView` can re-run and leave tiles stuck at opacity 0). */
@@ -470,6 +591,12 @@ const GalleryView = () => {
     if (!showMediaFilter) return filteredPhotosBase;
     return filterGalleryMediaByType(filteredPhotosBase, mediaFilter);
   }, [filteredPhotosBase, showMediaFilter, mediaFilter]);
+
+  const handleStartSlideshow = useCallback(() => {
+    if (filteredPhotos.length < 1) return;
+    setLightboxIndex(0);
+    setIsSlideshowActive(true);
+  }, [filteredPhotos.length]);
 
   const handleTogglePhotoPrivate = useCallback(
     async (photo) => {
@@ -546,21 +673,6 @@ const GalleryView = () => {
       setIsSlideshowActive(false);
     }
   }, [lightboxIndex, filteredPhotos]);
-
-  // Slideshow: advance using the same list as the lightbox (filtered), not full collection length
-  useEffect(() => {
-    let interval;
-    if (isSlideshowActive && lightboxIndex !== -1) {
-      interval = setInterval(() => {
-        setLightboxIndex((prev) => {
-          const n = filteredPhotos.length;
-          if (n < 1) return -1;
-          return (prev + 1) % n;
-        });
-      }, 4000);
-    }
-    return () => clearInterval(interval);
-  }, [isSlideshowActive, lightboxIndex, filteredPhotos]);
 
   // Keep lightbox index valid when the visible grid shrinks (e.g. unfavorite in "My Favorites" mode)
   useEffect(() => {
@@ -642,7 +754,11 @@ const GalleryView = () => {
 
 
       {/* Main Gallery Content */}
-      <main ref={galleryRef} className="pb-24 pt-0" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
+      <main
+        ref={galleryRef}
+        className="pb-24 pt-0"
+        style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}
+      >
         <Container className="max-w-none px-2 md:px-4 lg:px-4">
           {isClientExclusiveEnabled(collection) && isClientViewer ? (
             <ClientExclusiveClientBar onSignOut={handleClientSignOut} />
@@ -652,6 +768,25 @@ const GalleryView = () => {
               <button type="button" onClick={() => setShowClientLogin(true)}>
                 Client login
               </button>
+            </div>
+          ) : null}
+          {favoritesLocked && sessionId && !isFavoriteListMode ? (
+            <div
+              className="mb-6 border px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.2em]"
+              style={{ borderColor: 'var(--gallery-border)', color: 'var(--gallery-meta-text)' }}
+            >
+              Your favorites for {activeFavoriteList?.name || 'this list'} have been submitted
+            </div>
+          ) : null}
+          {sessionId &&
+          !isFavoriteListMode &&
+          !favoritesLocked &&
+          activeFavoriteList?.description?.trim() ? (
+            <div
+              className="mb-6 mx-auto max-w-2xl whitespace-pre-wrap px-4 text-center text-sm leading-relaxed"
+              style={{ color: 'var(--gallery-meta-text)' }}
+            >
+              {activeFavoriteList.description.trim()}
             </div>
           ) : null}
           <GalleryStickyNav
@@ -664,8 +799,9 @@ const GalleryView = () => {
             activeSetId={activeSetId}
             onSetChange={setActiveSetId}
             showFavorites={collection?.favorites_enabled !== false}
-            showDownload={collection?.downloads_enabled !== false && collection?.gallery_download_enabled !== false}
-            showShare={collection?.social_sharing_enabled !== false}
+            showDownload={showGalleryDownload}
+            showShare={showGalleryShare}
+            showSlideshow={showGallerySlideshow}
             favoritedCount={favoritedPhotos.length}
             isDownloadingAll={isDownloadingAll}
             downloadLabel={isDownloadingAll ? `${downloadProgress.done} / ${downloadProgress.total}` : 'Download'}
@@ -747,9 +883,9 @@ const GalleryView = () => {
             isClientViewer={isClientViewer}
             allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
             showPrivateBadge={isClientViewer}
-            showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
+            showDownload={showSinglePhotoDownload}
             showFavorite={collection?.favorites_enabled !== false}
-            showShare={collection?.social_sharing_enabled !== false}
+            showShare={showGalleryShare}
             favoritedPhotoIds={favoritedPhotos}
             customRowHeight={collection.thumbnail_size === 'large' ? 420 : collection.thumbnail_size === 'regular' ? 300 : collection.thumbnail_size === 'small' ? 200 : 140}
             customColumnCount={collection.thumbnail_size === 'large' ? 2 : collection.thumbnail_size === 'regular' ? 3 : 4}
@@ -802,9 +938,9 @@ const GalleryView = () => {
         }}
         onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
         onShare={() => setShowShareModal(true)}
-        showDownload={collection?.downloads_enabled !== false && collection?.single_photo_download_enabled !== false}
+        showDownload={showSinglePhotoDownload}
         showFavorite={collection?.favorites_enabled !== false}
-        showShare={collection?.social_sharing_enabled !== false}
+        showShare={showGalleryShare}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);
@@ -957,6 +1093,7 @@ const GalleryView = () => {
         initialSenderEmail={email}
         themeClassName={cn(`theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`)}
       />
+
 
       <ClientExclusiveLoginModal
         open={showClientLogin}

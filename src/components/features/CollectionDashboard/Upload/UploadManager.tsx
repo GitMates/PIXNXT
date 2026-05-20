@@ -27,6 +27,7 @@ export type UploadManagerProps = {
   onMinimize: () => void;
   onExpand: () => void;
   onClose: () => void;
+  onDismiss?: () => void;
   onPause: () => void;
   onResume: () => void;
   onCancel: () => void;
@@ -42,6 +43,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   onMinimize,
   onExpand,
   onClose,
+  onDismiss,
   onPause,
   onResume,
   onCancel,
@@ -74,10 +76,18 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
           tabIndex={0}
         >
           <div className="upload-widget-mini-left">
-            <CloudUpload size={18} strokeWidth={1.5} />
+            {isAllComplete ? (
+              <CheckCircle2 size={20} strokeWidth={2} className="upload-widget-mini-icon-done" />
+            ) : inProgressCount > 0 ? (
+              <Loader2 size={20} strokeWidth={2} className="upload-fab-spin" />
+            ) : (
+              <CloudUpload size={18} strokeWidth={1.5} />
+            )}
             <div>
               <p className="upload-widget-mini-title">
-                Uploading {inProgressCount} {inProgressCount === 1 ? 'Item' : 'Items'}
+                {isAllComplete
+                  ? `${completedCount} ${completedCount === 1 ? 'image' : 'images'} uploaded`
+                  : `Uploading ${inProgressCount} ${inProgressCount === 1 ? 'item' : 'items'}`}
               </p>
               {inProgressCount > 0 && (
                 <p className="upload-widget-mini-sub">
@@ -107,9 +117,10 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
               className="upload-widget-mini-btn"
               onClick={(e) => {
                 e.stopPropagation();
-                onClose();
+                if (isAllComplete && onDismiss) onDismiss();
+                else onClose();
               }}
-              aria-label="Close uploads"
+              aria-label={isAllComplete ? 'Close uploads panel' : 'Minimize uploads'}
             >
               <X size={16} />
             </button>
@@ -169,15 +180,28 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
     <div className="upload-manager-root upload-panel">
       <header className="upload-panel-header">
         <h2 className="upload-panel-title">
-          <CloudUpload size={26} strokeWidth={1.25} />
+          {inProgressCount > 0 ? (
+            <Loader2 size={26} strokeWidth={1.75} className="upload-fab-spin" />
+          ) : isAllComplete ? (
+            <CheckCircle2 size={26} strokeWidth={1.75} />
+          ) : (
+            <CloudUpload size={26} strokeWidth={1.25} />
+          )}
           Uploads
         </h2>
-        <button type="button" className="upload-panel-hide" onClick={onMinimize}>
-          Hide
-          <span className="upload-panel-hide-icon" aria-hidden>
-            <Minus size={16} strokeWidth={1.5} />
-          </span>
-        </button>
+        <div className="upload-panel-header-actions">
+          {isAllComplete && onDismiss ? (
+            <button type="button" className="upload-panel-close-done" onClick={onDismiss}>
+              Close
+            </button>
+          ) : null}
+          <button type="button" className="upload-panel-hide" onClick={onMinimize}>
+            Hide
+            <span className="upload-panel-hide-icon" aria-hidden>
+              <Minus size={16} strokeWidth={1.5} />
+            </span>
+          </button>
+        </div>
       </header>
 
       <div className="upload-panel-body">
@@ -191,11 +215,25 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
               <span className="upload-batch-success-text">
                 {completedCount} {completedCount === 1 ? 'image' : 'images'} uploaded
               </span>
-              {onViewCompleted && (
-                <button type="button" className="upload-batch-view-btn" onClick={onViewCompleted}>
-                  View
-                </button>
-              )}
+              <div className="upload-batch-success-actions">
+                {onViewCompleted && (
+                  <button
+                    type="button"
+                    className="upload-batch-view-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onViewCompleted();
+                    }}
+                  >
+                    View
+                  </button>
+                )}
+                {onDismiss && (
+                  <button type="button" className="upload-batch-close-btn" onClick={onDismiss}>
+                    Close
+                  </button>
+                )}
+              </div>
             </div>
           </section>
         ) : (

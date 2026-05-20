@@ -31,6 +31,7 @@ export type ClientExclusiveCollection = {
   allow_clients_mark_private?: boolean;
   client_password_hash?: string | null;
   client_only_highlights?: boolean;
+  highlights_enabled?: boolean;
 };
 
 export type ClientExclusiveSet = {
@@ -64,6 +65,7 @@ export function isHighlightsClientOnly(collection: ClientExclusiveCollection | n
 }
 
 export function canViewHighlights(collection: ClientExclusiveCollection | null | undefined, isClient: boolean): boolean {
+  if (collection?.highlights_enabled === false) return false;
   if (!isHighlightsClientOnly(collection)) return true;
   return isClient;
 }

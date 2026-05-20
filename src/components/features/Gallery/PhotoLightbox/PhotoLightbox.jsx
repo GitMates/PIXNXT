@@ -1,4 +1,7 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
+
+/** Time between slides when slideshow autoplay is active. */
+export const GALLERY_SLIDESHOW_INTERVAL_MS = 4000;
 import { createPortal } from 'react-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Download, Heart, Play, Pause, Share2 } from 'lucide-react';
@@ -62,6 +65,17 @@ export function PhotoLightbox({
     ? isGalleryVideo({ full_url: currentMediaUrl, web_url: currentMediaUrl })
     : false;
 
+  const onNextRef = useRef(onNext);
+  onNextRef.current = onNext;
+
+  useEffect(() => {
+    if (!isOpen || !isSlideshowActive || isCurrentVideo) return;
+    const id = setInterval(() => {
+      onNextRef.current?.();
+    }, GALLERY_SLIDESHOW_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [isOpen, isSlideshowActive, isCurrentVideo]);
+
   const handleBottomHeart = () => {
     onFavorite?.();
   };
@@ -102,7 +116,7 @@ export function PhotoLightbox({
               className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-opacity hover:opacity-50"
             >
               {isSlideshowActive ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
-              {isSlideshowActive ? 'Pause' : 'Resume'}
+              {isSlideshowActive ? 'Pause' : 'Play'}
             </button>
           ) : (
             <span className="w-[72px]" aria-hidden />

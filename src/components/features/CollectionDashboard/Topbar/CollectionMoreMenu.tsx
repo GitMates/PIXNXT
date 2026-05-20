@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { galleryService } from '@/services/gallery.service';
+import { MoveCollectionModal } from '@/components/features/Collections/MoveCollectionModal';
 
 export interface CollectionMoreMenuProps {
   collectionId?: string | null;
   collectionSlug?: string | null;
   collectionName: string;
   photographerId?: string | null;
+  currentFolderId?: string | null;
   eventDate?: string | null;
   pinValue?: string;
   clientPasswordDisplay?: string;
@@ -26,6 +28,7 @@ export function CollectionMoreMenu({
   collectionSlug,
   collectionName,
   photographerId,
+  currentFolderId = null,
   eventDate,
   pinValue = '',
   clientPasswordDisplay = '',
@@ -445,42 +448,13 @@ export function CollectionMoreMenu({
         </div>
       )}
 
-      {moveOpen && (
-        <div className="cd-modal-overlay" onClick={() => setMoveOpen(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
-            <div className="cd-modal-header">
-              <h3 className="cd-modal-title">MOVE COLLECTION TO</h3>
-              <button type="button" className="cd-modal-close" onClick={() => setMoveOpen(false)} aria-label="Close">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="cd-modal-body" style={{ padding: '24px' }}>
-              <p style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>
-                Folder targeting is not wired to the API yet. Use this dialog to confirm the layout; full move support can
-                reuse your studio folder model when available.
-              </p>
-              <div style={{ border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid #ddd', backgroundColor: '#f9f9f9', fontSize: '14px' }}>
-                  Home
-                </div>
-                <div style={{ padding: '12px 16px', fontSize: '14px', color: '#333' }}>2026 Weddings</div>
-                <div style={{ padding: '12px 16px', fontSize: '14px', color: '#333' }}>Portraits</div>
-              </div>
-            </div>
-            <div className="cd-modal-footer">
-              <button type="button" className="cd-cancel-btn" onClick={() => setMoveOpen(false)}>
-                Cancel
-              </button>
-              <button type="button" className="cd-save-btn disabled" disabled>
-                Move
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <MoveCollectionModal
+        isOpen={moveOpen}
+        onClose={() => setMoveOpen(false)}
+        collectionId={collectionId}
+        photographerId={photographerId}
+        currentFolderId={currentFolderId}
+      />
 
       {duplicateOpen && (
         <div className="cd-modal-overlay" onClick={() => setDuplicateOpen(false)}>

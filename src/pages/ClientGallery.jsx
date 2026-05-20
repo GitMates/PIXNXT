@@ -12,10 +12,11 @@ import {
     CollectionDirectLinkModal,
     CollectionQrModal,
     CollectionDuplicateModal,
-    CollectionMoveToModal,
 } from '../components/features/ClientGallery/CollectionShareModals';
+import { MoveCollectionModal } from '../components/features/Collections/MoveCollectionModal';
 import './ClientGallery.css';
 import { sortCollections } from '../utils/sortCollections';
+import { formatStorageBytes } from '../utils/formatStorageBytes';
 
 
 const ClientGallery = () => {
@@ -25,6 +26,11 @@ const ClientGallery = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const navigateNewCollection = () => navigate('/collections/create');
+
+    const navigateNewFolder = () => {
+        setShowNewCollectionDropdown(false);
+        navigate('/folders/create');
+    };
 
     const [showSortDropdown, setShowSortDropdown] = useState(false);
     const [showViewDropdown, setShowViewDropdown] = useState(false);
@@ -39,7 +45,7 @@ const ClientGallery = () => {
     const [directLinkCollection, setDirectLinkCollection] = useState(null);
     const [qrCollection, setQrCollection] = useState(null);
     const [duplicateCollection, setDuplicateCollection] = useState(null);
-    const [moveToOpen, setMoveToOpen] = useState(false);
+    const [moveToCollection, setMoveToCollection] = useState(null);
     const [duplicateBusy, setDuplicateBusy] = useState(false);
     const [editSaving, setEditSaving] = useState(false);
     const [showNewCollectionDropdown, setShowNewCollectionDropdown] = useState(false);
@@ -184,7 +190,7 @@ const ClientGallery = () => {
                 variant={variant}
                 onPreview={() => handlePreviewCollection(collection)}
                 onQuickEdit={() => handleQuickEdit(collection)}
-                onMoveTo={() => { closeContextMenu(); setMoveToOpen(true); }}
+                onMoveTo={() => { closeContextMenu(); setMoveToCollection(collection); }}
                 onDuplicate={() => { closeContextMenu(); setDuplicateCollection(collection); }}
                 onDelete={() => { closeContextMenu(); handleDeleteCollection(collection.id); }}
                 onShareByEmail={() => handleShareByEmail(collection)}
@@ -332,7 +338,7 @@ const ClientGallery = () => {
                             </button>
                             {showNewCollectionDropdown && (
                                 <div className="cg-style-13">
-                                    <div className="cg-style-14" onClick={() => setShowNewCollectionDropdown(false)}>
+                                    <div className="cg-style-14" onClick={navigateNewFolder}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                                         New Folder
                                     </div>
@@ -519,11 +525,16 @@ const ClientGallery = () => {
                                 {renderContextMenu(collection)}
                                 <div className="px-1">
                                     <h3 className="cg-style-43">{collection.name}</h3>
-                                    <div className="cg-style-44">
-                                        <span className="cg-style-45"></span>
-                                        <span>{collection.photo_count || 0} items</span>
-                                        <span className="cg-style-46">·</span>
-                                        <span>{collection.event_date ? new Date(collection.event_date).toLocaleDateString() : 'No date'}</span>
+                                    <div className="cg-style-44 cg-style-44--split">
+                                        <div className="cg-style-44-meta">
+                                            <span className="cg-style-45"></span>
+                                            <span>{collection.photo_count || 0} items</span>
+                                            <span className="cg-style-46">·</span>
+                                            <span>{collection.event_date ? new Date(collection.event_date).toLocaleDateString() : 'No date'}</span>
+                                        </div>
+                                        <span className="cg-style-80" title="Storage used by this collection">
+                                            {formatStorageBytes(collection.storage_bytes)}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -557,7 +568,12 @@ const ClientGallery = () => {
                                     </div>
                                     <div className="cg-style-54">
                                         <span className="cg-style-55">{collection.name}</span>
-                                        <span className="cg-style-56">{collection.photo_count || 0} items{collection.event_date ? ` · ${new Date(collection.event_date).toLocaleDateString()}` : ''}</span>
+                                        <span className="cg-style-56">
+                                            {collection.photo_count || 0} items
+                                            {collection.event_date ? ` · ${new Date(collection.event_date).toLocaleDateString()}` : ''}
+                                            {' · '}
+                                            {formatStorageBytes(collection.storage_bytes)}
+                                        </span>
                                     </div>
                                     <span className={`cg-style-77 ${collection.status === 'published' ? 'bg-[#e6f9f3] text-[#593116] border border-[#b8f0de]' : 'bg-[#f0f2f3] text-[#666]'}`}>{collection.status?.toUpperCase() || 'DRAFT'}</span>
                                 </div>
@@ -652,9 +668,21 @@ const ClientGallery = () => {
                     onConfirm={handleDuplicateConfirm}
                     busy={duplicateBusy}
                 />
-                <CollectionMoveToModal
-                    isOpen={moveToOpen}
-                    onClose={() => setMoveToOpen(false)}
+                <MoveCollectionModal
+                    isOpen={Boolean(moveToCollection)}
+                    onClose={() => setMoveToCollection(null)}
+                    collectionId={moveToCollection?.id}
+                    photographerId={user?.id}
+                    currentFolderId={moveToCollection?.folder_id}
+                    onMoved={(folderId) => {
+                        if (!moveToCollection) return;
+                        setCollections((prev) =>
+                            prev.map((c) =>
+                                c.id === moveToCollection.id ? { ...c, folder_id: folderId } : c
+                            )
+                        );
+                        setMoveToCollection(null);
+                    }}
                 />
             </main>
         </SidebarLayout>

@@ -297,6 +297,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                     <div 
                                                                         ref={favoriteActivityMenuRef}
                                                                         className={`activity-row-menu favorite-menu ${index > 0 && index >= array.length - 3 ? 'up' : ''}`}
+                                                                        onMouseDown={(e) => e.stopPropagation()}
                                                                     >
                                                                         <button type="button" className="activity-menu-item" onClick={(e) => { e.stopPropagation(); handleExportFavoriteList(item.id, item.name); setActiveActivityMenu(null); }}>
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
@@ -342,8 +343,10 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                         <button
                                                                             type="button"
                                                                             className="activity-menu-item delete"
+                                                                            onMouseDown={(e) => e.stopPropagation()}
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
+                                                                                setActiveActivityMenu(null);
                                                                                 handleDeleteFavoriteActivity(item.id);
                                                                             }}
                                                                         >
@@ -439,7 +442,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                                     Create mobile app
                                                                                 </button>
                                                                                 <div style={{ height: '1px', background: '#eee', margin: '4px 0' }} />
-                                                                                <button type="button" className="activity-menu-item delete" role="menuitem" onClick={() => { setFavoriteDetailToolbarMenuOpen(false); handleDeleteFavoriteActivity(detail.id); }}>
+                                                                                <button type="button" className="activity-menu-item delete" role="menuitem" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setFavoriteDetailToolbarMenuOpen(false); setActiveActivityMenu(null); handleDeleteFavoriteActivity(detail.id); }}>
                                                                                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                                                                                     Delete info
                                                                                 </button>
@@ -668,8 +671,14 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                 {activeActivityMenu === item.id && (
                                                                     <div className={`activity-row-menu ${index >= array.length - 2 && array.length > 3 ? 'up' : ''}`}>
                                                                         <button 
+                                                                            type="button"
                                                                             className="activity-menu-item delete"
-                                                                            onClick={() => handleDeleteActivity(item.id)}
+                                                                            onMouseDown={(e) => e.stopPropagation()}
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setActiveActivityMenu(null);
+                                                                                handleDeleteActivity(item.id);
+                                                                            }}
                                                                         >
                                                                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
                                                                             Delete info

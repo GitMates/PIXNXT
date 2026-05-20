@@ -7,6 +7,31 @@
   background: #ebebeb;
 }
 
+/* Square dashboard cells: never stretch — fit natural aspect inside the box */
+.smooth-media-wrap--contain-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.smooth-media-wrap--contain-cell .smooth-media-img,
+.smooth-media-wrap--contain-cell .smooth-media-blur {
+  position: relative;
+  inset: auto;
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.smooth-media-wrap--contain-cell .smooth-media-shimmer,
+.smooth-media-wrap--contain-cell .smooth-media-placeholder,
+.smooth-media-wrap--contain-cell .smooth-media-error {
+  position: absolute;
+  inset: 0;
+}
+
 .smooth-media-placeholder {
   position: absolute;
   inset: 0;

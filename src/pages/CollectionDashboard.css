@@ -1093,62 +1093,105 @@
     width: 100%;
 }
 
-/* Manage tab — Pixieset-style square cells, contain (no crop), teal selection */
+/* Manage tab — Pixieset-style: fixed column count, square cells, contain (letterbox), teal selection */
 .cd-photo-grid--manage {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(175px, 1fr));
-    gap: 24px;
-    row-gap: 24px;
-    column-gap: 24px;
-    padding: 8px 24px 32px;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 12px;
+    padding: 4px 24px 32px;
     align-items: start;
     box-sizing: border-box;
+    width: 100%;
 }
 
 .cd-photo-grid--manage.grid-large {
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 28px;
-    row-gap: 28px;
-    column-gap: 28px;
-    padding: 8px 28px 36px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 14px;
+    padding: 4px 24px 36px;
+}
+
+@media screen and (max-width: 1400px) {
+    .cd-photo-grid--manage:not(.grid-large) {
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+}
+
+@media screen and (max-width: 1180px) {
+    .cd-photo-grid--manage:not(.grid-large) {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .cd-photo-grid--manage.grid-large {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media screen and (max-width: 900px) {
+    .cd-photo-grid--manage:not(.grid-large) {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .cd-photo-grid--manage.grid-large {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .cd-photo-grid--manage .cd-photo-card {
     aspect-ratio: 1 / 1;
+    width: 100%;
+    max-width: 100%;
     background: #ffffff;
-    border: 1px solid #e8e8e8;
+    border: 2px solid transparent;
     border-radius: 0;
     overflow: visible;
     cursor: pointer;
     position: relative;
+    box-sizing: border-box;
+}
+
+.cd-photo-grid--manage .cd-photo-card--menu-open {
+    z-index: 80;
 }
 
 .cd-photo-grid--manage .cd-photo-card.selected {
-    border: 2px solid #12b8a6;
+    border-color: #12b8a6;
     outline: none;
     box-shadow: none;
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
-    overflow: hidden;
-    position: relative;
-    background: #ffffff;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: hidden;
+    background: #ffffff;
+    border-radius: 0;
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-wrap {
+    position: relative;
     width: 100%;
     height: 100%;
+    min-width: 0;
+    min-height: 0;
     background: #ffffff;
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-img,
-.cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-video-thumb {
+.cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-video-thumb,
+.cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-grid-contain-media {
+    width: auto !important;
+    height: auto !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
     object-fit: contain !important;
+    object-position: center !important;
+    image-orientation: from-image;
+    background-color: #ffffff !important;
 }
 
 .cd-photo-grid--manage .cd-photo-card:hover .cd-photo-img {
@@ -1172,15 +1215,16 @@
 }
 
 /* Media tab (TS MediaGridView): slightly larger cells when "Large" is selected */
-.cd-photo-grid.grid-large .cd-photo-card {
+.cd-photo-grid.grid-large:not(.cd-photo-grid--manage) .cd-photo-card {
     min-height: 260px;
 }
 
-.cd-photo-grid:not(.grid-large) .cd-photo-card {
+.cd-photo-grid:not(.grid-large):not(.cd-photo-grid--manage) .cd-photo-card {
     min-height: 200px;
 }
 
-.cd-photo-grid--manage .cd-photo-card {
+.cd-photo-grid--manage .cd-photo-card,
+.cd-photo-grid--manage.grid-large .cd-photo-card {
     min-height: unset;
 }
 
@@ -1226,7 +1270,7 @@
     position: relative;
 }
 
-.cd-photo-card-inner .smooth-media-wrap {
+.cd-photo-card-inner:not(.cd-photo-card-inner--contain) .smooth-media-wrap {
     min-height: 100%;
 }
 
@@ -1680,7 +1724,7 @@
     border-radius: 8px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
     min-width: 180px;
-    z-index: 100;
+    z-index: 200;
     padding: 8px 0;
     animation: cdFadeIn 0.12s ease;
 }
@@ -3698,24 +3742,68 @@
         height: auto !important;
     }
 
-    /* --- Photo grid: single column --- */
-    .cd-photo-grid {
+    /* --- Photo grid: single column (non-manage); manage keeps multi-column squares --- */
+    .cd-photo-grid:not(.cd-photo-grid--manage) {
         display: grid !important;
         grid-template-columns: 1fr !important;
         gap: 12px !important;
     }
 
-    /* Photo card: square/portrait aspect */
-    .cd-photo-card-inner {
+    /* Photo card: square/portrait aspect (non-manage grids only) */
+    .cd-photo-card-inner:not(.cd-photo-card-inner--contain) {
         aspect-ratio: 4 / 3 !important;
         height: auto !important;
     }
 
-    .cd-photo-card-inner img,
-    .cd-photo-video-thumb {
+    .cd-photo-card-inner:not(.cd-photo-card-inner--contain) img,
+    .cd-photo-card-inner:not(.cd-photo-card-inner--contain) .cd-photo-video-thumb {
         width: 100% !important;
         height: 100% !important;
         object-fit: cover !important;
+    }
+
+    .cd-photo-grid--manage .cd-photo-card {
+        aspect-ratio: 1 / 1 !important;
+    }
+
+    .cd-photo-grid--manage .cd-photo-card-inner--contain {
+        position: absolute !important;
+        inset: 0 !important;
+        height: 100% !important;
+        aspect-ratio: unset !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-wrap {
+        position: relative !important;
+        inset: auto !important;
+        width: 100% !important;
+        height: 100% !important;
+    }
+
+    .cd-photo-grid--manage .cd-photo-card-inner--contain img,
+    .cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-video-thumb,
+    .cd-photo-grid--manage .cd-photo-card-inner--contain .cd-photo-grid-contain-media {
+        width: auto !important;
+        height: auto !important;
+        max-width: 100% !important;
+        max-height: 100% !important;
+        object-fit: contain !important;
+        image-orientation: from-image;
+    }
+
+    .cd-photo-grid--manage:not(.grid-large) {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 10px !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
+    }
+
+    .cd-photo-grid--manage.grid-large {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 10px !important;
     }
 
     /* --- Sort dropdown: fixed so it's never clipped --- */
@@ -4243,12 +4331,17 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    width: 100%;
     padding: 10px 16px;
     font-size: 13px;
     color: #333;
     cursor: pointer;
     transition: background 0.15s;
     white-space: nowrap;
+    border: none;
+    background: transparent;
+    text-align: left;
+    font-family: inherit;
 }
 
 .cd-set-dropdown .cd-ctx-item:hover {

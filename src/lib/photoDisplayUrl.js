@@ -13,12 +13,15 @@ export function resolveMediaUrl(url) {
 /**
  * Pick the best URL for dashboard / gallery grid thumbnails (smallest available).
  * GIFs use web/full URL so animation is preserved.
+ * @param {boolean} [preferOriginalAspect] — dashboard square grid: prefer web/full so aspect isn't lost to square thumbs
  */
-export function getPhotoGridDisplayUrl(photo) {
+export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
   if (!photo) return '';
   let url = '';
   if (isGifMedia(photo)) {
     url = photo.web_url || photo.full_url || photo.thumbnail_url || '';
+  } else if (preferOriginalAspect) {
+    url = photo.full_url || photo.web_url || photo.thumbnail_url || '';
   } else {
     url = photo.thumbnail_url || photo.web_url || photo.full_url || '';
   }
@@ -48,13 +51,16 @@ export function getPhotoVideoPoster(photo) {
 
 /**
  * Ordered fallbacks when a CDN URL fails.
+ * @param {boolean} [preferOriginalAspect] — prefer full/web before thumbnail
  */
-export function getPhotoDisplayFallbacks(photo) {
+export function getPhotoDisplayFallbacks(photo, preferOriginalAspect = false) {
   if (!photo) return [];
   const seen = new Set();
   const urls = isGifMedia(photo)
     ? [photo.web_url, photo.full_url, photo.thumbnail_url]
-    : [photo.thumbnail_url, photo.web_url, photo.full_url];
+    : preferOriginalAspect
+      ? [photo.full_url, photo.web_url, photo.thumbnail_url]
+      : [photo.thumbnail_url, photo.web_url, photo.full_url];
   return urls
     .map((url) => resolveMediaUrl(url))
     .filter((url) => {

@@ -12,6 +12,7 @@ export function SmoothMediaImage({
   fallbacks = [],
   alt = '',
   className,
+  wrapClassName,
   style,
   objectFit = 'contain',
   loading = 'lazy',
@@ -100,18 +101,19 @@ export function SmoothMediaImage({
   const blurSrc =
     thumbSrc && thumbSrc !== activeSrc && !error && shouldLoad ? thumbSrc : null;
 
-  const showShimmer = shouldLoad && !loaded && !error && !cached;
+  const showShimmer = shouldLoad && !loaded && !cached;
 
   if (!activeSrc) {
     return (
-      <span className="smooth-media-wrap" style={style} ref={wrapRef}>
-        <span className="smooth-media-error">No preview</span>
+      <span className={cn('smooth-media-wrap', wrapClassName)} style={style} ref={wrapRef}>
+        <span className="smooth-media-shimmer" aria-hidden />
+        <span className="smooth-media-error">Loading...</span>
       </span>
     );
   }
 
   return (
-    <span className="smooth-media-wrap" style={style} ref={wrapRef}>
+    <span className={cn('smooth-media-wrap', wrapClassName)} style={style} ref={wrapRef}>
       {showShimmer && <span className="smooth-media-shimmer" aria-hidden />}
 
       {!shouldLoad && <span className="smooth-media-placeholder" aria-hidden />}
@@ -140,7 +142,7 @@ export function SmoothMediaImage({
             error && 'smooth-media-img--error',
             className
           )}
-          style={{ objectFit }}
+          style={{ objectFit, imageOrientation: 'from-image' }}
           decoding="async"
           loading={loading}
           onLoad={handleLoad}
@@ -148,7 +150,12 @@ export function SmoothMediaImage({
         />
       )}
 
-      {error && <span className="smooth-media-error">Could not load</span>}
+      {error && (
+        <>
+          <span className="smooth-media-shimmer" aria-hidden />
+          <span className="smooth-media-error">Loading...</span>
+        </>
+      )}
     </span>
   );
 }

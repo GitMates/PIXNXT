@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useMemo, useState } from 'react';
 import { SmoothMediaImage } from '@/components/ui/SmoothMediaImage';
 import {
   getPhotoDisplayFallbacks,
@@ -8,20 +8,104 @@ import {
   isVideoMedia,
 } from '@/lib/photoDisplayUrl';
 
+const containWrapStyle = {
+  width: '100%',
+  height: '100%',
+};
+
+/** Square manage grid — shimmer + fade-in via SmoothMediaImage (no blur thumb). */
+function ContainGridMedia({ photo, index, isVideo }) {
+  const gridSrc = useMemo(
+    () => getPhotoGridDisplayUrl(photo, true),
+    [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename]
+  );
+
+  const fallbacks = useMemo(() => {
+    return getPhotoDisplayFallbacks(photo, true).filter((url) => url !== gridSrc);
+  }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename, gridSrc]);
+
+  if (isVideo) {
+    return <ContainGridVideo photo={photo} />;
+  }
+
+  return (
+    <SmoothMediaImage
+      src={gridSrc}
+      fallbacks={fallbacks}
+      alt=""
+      wrapClassName="smooth-media-wrap--contain-cell"
+      className="cd-photo-img cd-photo-grid-contain-media"
+      objectFit="contain"
+      loading={index < 24 ? 'eager' : 'lazy'}
+      deferUntilVisible={index >= 24}
+      style={containWrapStyle}
+    />
+  );
+}
+
+function ContainGridVideo({ photo }) {
+  const [ready, setReady] = useState(false);
+  const poster = getPhotoVideoPoster(photo);
+
+  return (
+    <span className="smooth-media-wrap smooth-media-wrap--contain-cell" style={containWrapStyle}>
+      {!ready && <span className="smooth-media-shimmer" aria-hidden />}
+      {poster && !ready && (
+        <img
+          src={poster}
+          alt=""
+          aria-hidden
+          className="smooth-media-blur"
+          style={{ objectFit: 'contain', imageOrientation: 'from-image' }}
+        />
+      )}
+      <video
+        src={getPhotoVideoSrc(photo)}
+        poster={poster}
+        className={`cd-photo-img cd-photo-video-thumb cd-photo-grid-contain-media smooth-media-img${ready ? ' smooth-media-img--visible' : ''}`}
+        style={{
+          width: 'auto',
+          height: 'auto',
+          maxWidth: '100%',
+          maxHeight: '100%',
+          objectFit: 'contain',
+          backgroundColor: '#fff',
+        }}
+        muted
+        loop
+        playsInline
+        preload="metadata"
+        onLoadedData={() => setReady(true)}
+        onMouseEnter={(e) => e.currentTarget.play().catch(() => {})}
+        onMouseLeave={(e) => {
+          e.currentTarget.pause();
+          e.currentTarget.currentTime = 0;
+        }}
+      />
+    </span>
+  );
+}
+
 /**
  * Memoized grid cell media — avoids re-render churn when parent scrolls or updates.
  */
 export const CollectionGridPhoto = memo(function CollectionGridPhoto({
   photo,
   index,
+  /** Square dashboard grid: fit entire image/GIF in the cell without cropping. */
+  containInCell = false,
 }) {
+  if (containInCell) {
+    return <ContainGridMedia photo={photo} index={index} isVideo={isVideoMedia(photo)} />;
+  }
+
   const gridSrc = useMemo(
-    () => getPhotoGridDisplayUrl(photo),
+    () => getPhotoGridDisplayUrl(photo, false),
     [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename]
   );
 
   const fallbacks = useMemo(() => {
-    return getPhotoDisplayFallbacks(photo).filter((url) => url !== gridSrc);
+    return getPhotoDisplayFallbacks(photo, false).filter((url) => url !== gridSrc);
   }, [photo.id, photo.thumbnail_url, photo.web_url, photo.full_url, photo.media_type, photo.filename, gridSrc]);
 
   if (isVideoMedia(photo)) {

@@ -34,8 +34,8 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({
       className={`cd-photo-card ${isSelected ? 'selected' : ''} ${gridSize === 'large' ? 'large' : ''}`}
       onClick={onSelect}
     >
-      <div className="cd-photo-card-inner">
-        <CollectionGridPhoto photo={photo} index={0} />
+      <div className="cd-photo-card-inner cd-photo-card-inner--contain">
+        <CollectionGridPhoto photo={photo} index={0} containInCell />
       </div>
       
       {showFilename && (

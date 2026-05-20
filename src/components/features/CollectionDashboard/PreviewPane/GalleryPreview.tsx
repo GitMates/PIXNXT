@@ -17,6 +17,10 @@ import {
   GallerySetDescription,
 } from '../../Gallery/GalleryChrome';
 import {
+  isCollectionFeatureEnabled,
+  isSlideshowEnabledForCollection,
+} from '../../../../lib/collectionFeatureFlags';
+import {
   countGalleryMedia,
   filterGalleryMediaByType,
   shouldShowGalleryMediaFilter,
@@ -231,20 +235,6 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   );
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
-    if (isSlideshowActive && lightboxIndex !== -1) {
-      interval = setInterval(() => {
-        setLightboxIndex((prev) => {
-          const n = filteredPhotos.length;
-          if (n < 1) return -1;
-          return (prev + 1) % n;
-        });
-      }, 4000);
-    }
-    return () => clearInterval(interval);
-  }, [isSlideshowActive, lightboxIndex, filteredPhotos]);
-
-  useEffect(() => {
     const n = filteredPhotos.length;
     setLightboxIndex((idx) => {
       if (idx < 0) return idx;
@@ -455,10 +445,20 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           sets={(dashboardState?.sets || []).map((s: any) => ({ id: s.id, name: s.name }))}
           activeSetId={dashboardState?.activeSetId ?? null}
           onSetChange={onSetActiveSet}
+          showHighlightsTab={dashboardState?.collection?.highlights_enabled !== false}
           maxVisibleSets={isPreviewMobile ? 4 : 3}
           showFavorites={favFeatureOn}
-          showDownload={dashboardState?.photoDownload !== false && dashboardState?.galleryDownload !== false}
-          showShare={dashboardState?.socialSharing !== false}
+          showDownload={
+            isCollectionFeatureEnabled(dashboardState?.photoDownload) &&
+            isCollectionFeatureEnabled(dashboardState?.galleryDownload)
+          }
+          showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
+          showSlideshow={isSlideshowEnabledForCollection({
+            id: dashboardState?.collection?.id,
+            slideshow_enabled:
+              dashboardState?.collection?.slideshow_enabled ?? dashboardState?.slideshow,
+            slideshow: dashboardState?.collection?.slideshow,
+          })}
           favoritedCount={favoritedPhotos.length}
           isDownloadingAll={isDownloadingAll}
           onFavoriteClick={handleFavoriteHeaderClick}
@@ -540,15 +540,18 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
               onImageClick={(index) => {
                 setLightboxIndex(index);
-                setIsSlideshowActive(true);
+                setIsSlideshowActive(false);
               }}
               onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
               onDownload={handleDownloadClick}
               onShare={() => setShowShareModal(true)}
               showPrivateBadge={Boolean(dashboardState?.collection?.client_exclusive_enabled)}
-              showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
+              showDownload={
+                isCollectionFeatureEnabled(dashboardState?.photoDownload) &&
+                isCollectionFeatureEnabled(dashboardState?.singlePhotoDownload)
+              }
               showFavorite={favFeatureOn}
-              showShare={dashboardState?.socialSharing !== false}
+              showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
               favoritedPhotoIds={favoritedPhotos}
               customRowHeight={grid.size === 'large' ? 420 : grid.size === 'regular' ? 300 : grid.size === 'small' ? 200 : 140}
               customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
@@ -591,7 +594,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         onShare={() => { }}
         showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
         showFavorite={favFeatureOn}
-        showShare={dashboardState?.socialSharing !== false}
+        showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
         favoriteCount={favFeatureOn ? favoritedPhotos.length : undefined}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
