@@ -4,6 +4,11 @@ import { X, Download, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
+import {
+  downloadPhotosToZip,
+  downloadSinglePhotoFile,
+  DEFAULT_DOWNLOAD_CONCURRENCY,
+} from '@/lib/downloadPhoto';
 import { galleryService } from '@/services/gallery.service';
 
 /** Empty/null = all sets allowed. Legacy `['Highlights']` with named sets = all (old default omitted new sets). */
@@ -21,6 +26,18 @@ function resolveDownloadSetAllowlist(selectedDownloadSets, namedSets = []) {
 function isDownloadSetAllowed(allowlist, key) {
   if (!allowlist) return true;
   return allowlist.some((item) => String(item) === String(key));
+}
+
+function preparingStatusText(done, total, phase = 'download') {
+  if (total <= 1) {
+    if (phase === 'save') return 'Saving your photo…';
+    if (phase === 'zip') return 'Almost done…';
+    return 'Downloading your photo…';
+  }
+  if (phase === 'zip') return `Packaging ${total} photos into one file…`;
+  if (phase === 'save') return 'Saving to your device…';
+  if (done >= total) return 'Finishing up…';
+  return `Downloading ${done} of ${total} photos…`;
 }
 
 export const DownloadModal = ({
@@ -41,8 +58,17 @@ export const DownloadModal = ({
   const [statusText, setStatusText] = useState('Initializing...');
   const [error, setError] = useState('');
   const pinRefs = [useRef(), useRef(), useRef(), useRef()];
+  const downloadRunIdRef = useRef(0);
+  const completedCountRef = useRef(0);
+  const [downloadCompleteMeta, setDownloadCompleteMeta] = useState({ isZip: false, total: 0 });
 
   const pin = pinDigits.join('');
+
+  /** Never decrease % — parallel fetches used to race on a shared counter and flash lower values. */
+  const setProgressMonotonic = (nextPct) => {
+    const clamped = Math.min(100, Math.max(0, Math.round(nextPct)));
+    setProgress((prev) => Math.max(prev, clamped));
+  };
 
   // Initial step determination
   useEffect(() => {
@@ -193,10 +219,15 @@ export const DownloadModal = ({
   };
 
   const startDownload = async () => {
+    const runId = ++downloadRunIdRef.current;
+    completedCountRef.current = 0;
     setIsProcessing(true);
     setStep('preparing');
     setProgress(0);
+    setDownloadCompleteMeta({ isZip: false, total: 0 });
     setStatusText('Gathering photos...');
+
+    const isStale = () => runId !== downloadRunIdRef.current;
 
     try {
       const zip = new JSZip();
@@ -207,10 +238,9 @@ export const DownloadModal = ({
       } else if (selectedSet === 'all') {
         photosToDownload = photos;
       } else if (selectedSet === null) {
-        // Highlights - photos with no set_id
-        photosToDownload = photos.filter(p => !p.set_id);
+        photosToDownload = photos.filter((p) => !p.set_id);
       } else {
-        photosToDownload = photos.filter(p => p.set_id === selectedSet);
+        photosToDownload = photos.filter((p) => String(p.set_id) === String(selectedSet));
       }
 
       if (photosToDownload.length === 0) {
@@ -226,86 +256,118 @@ export const DownloadModal = ({
       
       setStatusText(`Downloading ${photosToDownload.length} ${photosToDownload.length === 1 ? (isVideo ? 'video' : 'photo') : 'items'} from ${setName}...`);
 
-      let finalContent;
-      let finalFilename;
+      let downloadSize = null;
 
-      if (photosToDownload.length === 1) {
+      const total = photosToDownload.length;
+      const reportDownloadProgress = (phase = 'download') => {
+        if (isStale()) return;
+        const done = completedCountRef.current;
+        const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+        setProgressMonotonic(pct);
+        setStatusText(preparingStatusText(done, total, phase));
+      };
+
+      if (total === 1) {
         const photo = photosToDownload[0];
-        const url = photo.full_url || photo.web_url;
-        
-        try {
-          const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          finalContent = await response.blob();
-          finalFilename = photo.filename || (photo.media_type === 'video' ? 'video.mp4' : 'photo.jpg');
-          setProgress(100);
-          setStatusText('Processing: 100%');
-        } catch (err) {
-          console.error(`Failed to fetch single file:`, err);
-          throw new Error('Failed to download the file.');
-        }
+        setProgressMonotonic(50);
+        setStatusText(preparingStatusText(0, 1));
+        await downloadSinglePhotoFile(photo);
+        if (isStale()) return;
+        setProgressMonotonic(100);
+        setStatusText(preparingStatusText(1, 1, 'save'));
+        setDownloadCompleteMeta({ isZip: false, total: 1 });
       } else {
-        const CHUNK_SIZE = 5;
-        for (let i = 0; i < photosToDownload.length; i += CHUNK_SIZE) {
-          const chunk = photosToDownload.slice(i, i + CHUNK_SIZE);
+        const fileCount = await downloadPhotosToZip(zip, photosToDownload, {
+          concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
+          isStale,
+          onProgress: (done) => {
+            completedCountRef.current = done;
+            reportDownloadProgress();
+          },
+        });
 
-          await Promise.all(chunk.map(async (photo, index) => {
-            const globalIndex = i + index;
-            const url = photo.full_url || photo.web_url;
+        if (isStale()) return;
 
-            try {
-              const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
-              if (!response.ok) throw new Error(`HTTP ${response.status}`);
-              const blob = await response.blob();
-              zip.file(photo.filename || `photo-${globalIndex + 1}.jpg`, blob);
-            } catch (err) {
-              console.error(`Failed to fetch ${photo.filename}:`, err);
-            }
-
-            const currentProgress = Math.round(((globalIndex + 1) / photosToDownload.length) * 100);
-            setProgress(currentProgress);
-            setStatusText(`Processing: ${currentProgress}%`);
-          }));
+        if (fileCount === 0) {
+          throw new Error(
+            'Could not download any photos. They may still be processing — try again in a moment.'
+          );
         }
 
-        setStatusText('Creating zip archive...');
-        finalContent = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-        finalFilename = `${collection.name || 'gallery'}.zip`;
+        setProgressMonotonic(100);
+        setStatusText(preparingStatusText(total, total, 'zip'));
+        setProgressMonotonic(90);
+        const zipBlob = await zip.generateAsync(
+          { type: 'blob', compression: 'STORE' },
+          (metadata) => {
+            if (isStale()) return;
+            const zipPct = Math.min(99, 90 + Math.round((metadata.percent / 100) * 9));
+            setProgressMonotonic(zipPct);
+            setStatusText(preparingStatusText(total, total, 'zip'));
+          }
+        );
+        const zipFilename = `${(collection.name || 'gallery').replace(/[/\\:*?"<>|]/g, '_')}.zip`;
+        downloadSize = zipBlob.size;
+
+        if (isStale()) return;
+
+        setProgressMonotonic(99);
+        setStatusText(preparingStatusText(total, total, 'save'));
+        saveAs(zipBlob, zipFilename);
+        setProgressMonotonic(100);
+        setDownloadCompleteMeta({ isZip: true, total });
       }
 
-      setStatusText('Saving to your device...');
-      saveAs(finalContent, finalFilename);
-      
-      // Log download activity
-      await galleryService.logActivity(collection.id, 'download', {
-        email: email.trim(),
-        photographerId: collection.user_id,
-        photoId: initialPhoto?.id,
-        metadata: {
-          type: initialPhoto ? (initialPhoto.media_type === 'video' ? 'video' : 'photo') : 'gallery',
-          resolution: 'High Res',
-          pinUsed: !!(collection?.download_pin && pin.length > 0),
-          pin: pin.length > 0 ? pin : null,
-          size: finalContent.size,
-          photoCount: photosToDownload.length,
-          setName: selectedSet === 'all' ? 'All Photos' : 
-                   selectedSet === 'single' ? (sets.find(s => s.id === initialPhoto?.set_id)?.name || 'Highlights') :
-                   (selectedSet === null ? 'Highlights' : (sets.find(s => s.id === selectedSet)?.name || 'Unknown Set'))
-        }
-      });
+      if (isStale()) return;
 
-      // Broadcast update to dashboard
-      const channel = new BroadcastChannel('pixnxt-gallery-update');
-      channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
-      channel.close();
+      const loggedPhoto = total === 1 ? photosToDownload[0] : initialPhoto;
+      try {
+        await galleryService.logActivity(collection.id, 'download', {
+          email: email.trim(),
+          photographerId: collection.user_id,
+          photoId: loggedPhoto?.id,
+          metadata: {
+            type:
+              total === 1
+                ? loggedPhoto?.media_type === 'video'
+                  ? 'video'
+                  : 'photo'
+                : 'gallery',
+            resolution: 'High Res',
+            pinUsed: !!(collection?.download_pin && pin.length > 0),
+            pin: pin.length > 0 ? pin : null,
+            size: downloadSize,
+            photoCount: photosToDownload.length,
+            setName:
+              selectedSet === 'all'
+                ? 'All Photos'
+                : selectedSet === 'single'
+                  ? sets.find((s) => s.id === initialPhoto?.set_id)?.name || 'Highlights'
+                  : selectedSet === null
+                    ? 'Highlights'
+                    : sets.find((s) => String(s.id) === String(selectedSet))?.name || 'Unknown Set',
+          },
+        });
+      } catch (logErr) {
+        console.warn('Download activity log failed:', logErr);
+      }
 
-      setStep('complete');
+      try {
+        const channel = new BroadcastChannel('pixnxt-gallery-update');
+        channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
+        channel.close();
+      } catch {
+        /* BroadcastChannel optional */
+      }
+
+      if (!isStale()) setStep('complete');
     } catch (err) {
+      if (isStale()) return;
       console.error('Download failed:', err);
       setError(err.message || 'Download failed. Please try again.');
       setStep('selection');
     } finally {
-      setIsProcessing(false);
+      if (!isStale()) setIsProcessing(false);
     }
   };
 
@@ -346,7 +408,7 @@ export const DownloadModal = ({
               className="h-full bg-zinc-900"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
             />
           </div>
         )}
@@ -568,7 +630,7 @@ export const DownloadModal = ({
                       strokeLinecap="round"
                       strokeDasharray={383}
                       animate={{ strokeDashoffset: 383 - (383 * progress) / 100 }}
-                      transition={{ duration: 0.4 }}
+                      transition={{ duration: 0.15, ease: 'easeOut' }}
                     />
                   </svg>
                   <span className="text-3xl font-bold text-zinc-900">{progress}%</span>
@@ -577,7 +639,7 @@ export const DownloadModal = ({
                 <h2 className="text-[13px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-2">
                   Preparing Photos
                 </h2>
-                <p className="text-[13px] text-zinc-500">{statusText}</p>
+                <p className="max-w-[280px] text-[13px] leading-relaxed text-zinc-500">{statusText}</p>
 
                 <div className="mt-6 flex items-center gap-2 text-[11px] text-zinc-400">
                   <Loader2 size={12} className="animate-spin" />
@@ -600,24 +662,40 @@ export const DownloadModal = ({
                 </div>
 
                 <h2 className="text-[13px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-3">
-                  Download Ready!
+                  {downloadCompleteMeta.isZip ? 'Download Finished' : 'Photo saved'}
                 </h2>
-                <p className="text-[13px] text-zinc-500 mb-8 leading-relaxed">
-                  Your photos have been bundled and the download has started. Enjoy your memories!
+                <p className="mx-auto mb-6 max-w-[300px] text-[14px] leading-relaxed text-zinc-600">
+                  {downloadCompleteMeta.isZip ? (
+                    <>
+                      Your gallery download should appear in your device&apos;s{' '}
+                      <span className="font-medium text-zinc-800">Downloads</span> folder shortly
+                      {downloadCompleteMeta.total > 0 ? (
+                        <> ({downloadCompleteMeta.total} photos in one ZIP file)</>
+                      ) : null}
+                      . Keep this tab open until it finishes.
+                    </>
+                  ) : (
+                    <>Your photo was saved to your device. Open your Downloads folder if you don&apos;t see it.</>
+                  )}
                 </p>
 
-                <p className="text-[11px] text-zinc-400 mb-3">
-                  Didn't start?{' '}
-                  <button onClick={startDownload} className="underline hover:text-zinc-700 transition-colors">
-                    Download again
+                <p className="mb-6 text-[12px] text-zinc-400">
+                  {downloadCompleteMeta.isZip ? 'Nothing in Downloads?' : "Didn't get the file?"}{' '}
+                  <button
+                    type="button"
+                    onClick={startDownload}
+                    className="font-medium text-zinc-600 underline underline-offset-2 hover:text-zinc-900 transition-colors"
+                  >
+                    Try again
                   </button>
                 </p>
 
                 <button
+                  type="button"
                   onClick={onClose}
                   className="w-full bg-zinc-900 text-white py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-zinc-700 transition-colors"
                 >
-                  Close
+                  Done
                 </button>
               </motion.div>
             )}
