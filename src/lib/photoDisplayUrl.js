@@ -90,9 +90,16 @@ export function getPhotoOriginalFileUrl(photo) {
 
 /**
  * Best URL for client download — JPEG preview for RAW when available (avoids 20MB+ hangs).
+ * @param {{ preferWebSize?: boolean, downloadResolutions?: string[] }} [options]
  */
-export function getPhotoDownloadUrl(photo) {
+export function getPhotoDownloadUrl(photo, options = {}) {
   if (!photo) return '';
+  const { preferWebSize = false, downloadResolutions } = options;
+  const fullOnly =
+    Array.isArray(downloadResolutions) &&
+    downloadResolutions.length > 0 &&
+    !downloadResolutions.some((r) => String(r).toLowerCase() === 'web');
+
   if (isVideoMedia(photo)) {
     return resolveMediaUrl(photo.web_url || photo.full_url || '');
   }
@@ -100,6 +107,13 @@ export function getPhotoDownloadUrl(photo) {
     const preview = getRawPreviewUrl(photo);
     if (preview) return preview;
     return resolveMediaUrl(photo.full_url || '');
+  }
+  if (isGifMedia(photo)) {
+    return pickDisplayableUrl(photo.web_url, photo.full_url, photo.thumbnail_url);
+  }
+  if (preferWebSize && !fullOnly) {
+    const webFirst = pickDisplayableUrl(photo.web_url, photo.full_url, photo.thumbnail_url);
+    if (webFirst) return webFirst;
   }
   return resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
 }

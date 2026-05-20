@@ -4,7 +4,11 @@ import { X, Download, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
-import { fetchBlobWithTimeout } from '@/lib/downloadPhoto';
+import {
+  fetchBlobWithTimeout,
+  downloadPhotosToZip,
+  DEFAULT_DOWNLOAD_CONCURRENCY,
+} from '@/lib/downloadPhoto';
 import { getPhotoDownloadFilename, getPhotoDownloadUrl } from '@/lib/photoDisplayUrl';
 import { galleryService } from '@/services/gallery.service';
 
@@ -257,9 +261,11 @@ export const DownloadModal = ({
         setStatusText(formatImageDownloadProgress(done, total, pct));
       };
 
+      const downloadResolutions = collection?.download_resolutions;
+
       if (total === 1) {
         const photo = photosToDownload[0];
-        const url = getPhotoDownloadUrl(photo);
+        const url = getPhotoDownloadUrl(photo, { downloadResolutions, preferWebSize: false });
         if (!url) throw new Error('No download URL for this file.');
 
         try {
@@ -274,35 +280,19 @@ export const DownloadModal = ({
           throw new Error(msg);
         }
       } else {
-        const usedNames = new Set();
-        const CHUNK_SIZE = 8;
-
-        for (let i = 0; i < photosToDownload.length; i += CHUNK_SIZE) {
-          if (isStale()) return;
-          const chunk = photosToDownload.slice(i, i + CHUNK_SIZE);
-          await Promise.all(
-            chunk.map(async (photo, chunkIndex) => {
-              const index = i + chunkIndex;
-              const url = getPhotoDownloadUrl(photo);
-              try {
-                if (!url) return;
-                const blob = await fetchBlobWithTimeout(url);
-                if (isStale()) return;
-                const name = getPhotoDownloadFilename(photo, index, usedNames);
-                zip.file(name, blob);
-              } catch (err) {
-                console.warn(`Failed to fetch ${photo.filename}:`, err);
-              } finally {
-                completedCountRef.current += 1;
-                reportDownloadProgress();
-              }
-            })
-          );
-        }
+        const fileCount = await downloadPhotosToZip(zip, photosToDownload, {
+          concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
+          preferWebSize: total > 1,
+          downloadResolutions,
+          isStale,
+          onProgress: (done) => {
+            completedCountRef.current = done;
+            reportDownloadProgress();
+          },
+        });
 
         if (isStale()) return;
 
-        const fileCount = Object.keys(zip.files).filter((k) => !k.endsWith('/')).length;
         if (fileCount === 0) {
           throw new Error(
             'Could not download any photos. They may still be processing — try again in a moment.'
@@ -312,7 +302,7 @@ export const DownloadModal = ({
         setStatusText(formatImageDownloadProgress(total, total, 100));
         setProgressMonotonic(100);
         finalContent = await zip.generateAsync(
-          { type: 'blob', compression: 'STORE' },
+          { type: 'blob', compression: 'STORE', streamFiles: true },
           (metadata) => {
             if (isStale()) return;
             const zipPct = Math.min(99, 90 + Math.round((metadata.percent / 100) * 9));
