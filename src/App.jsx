@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import ClientGallery from './pages/ClientGallery';
 import CreateCollection from './pages/CreateCollection';
+import CreateFolder from './pages/CreateFolder';
 import CollectionDashboard from './pages/CollectionDashboard';
 import PhotoLibrary from './pages/PhotoLibrary';
 import GetStarted from './pages/GetStarted';
@@ -55,6 +56,7 @@ function App() {
     location.pathname === '/dashboard' ||
     location.pathname === '/client-gallery' ||
     location.pathname === '/collections/create' ||
+    location.pathname === '/folders/create' ||
     location.pathname === '/collections/manage' ||
     location.pathname === '/photos' ||
     location.pathname === '/collections/get-started' ||
@@ -83,6 +85,7 @@ function App() {
           <Route path="/settings/:tab" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/collections/get-started" element={<ProtectedRoute><GetStarted /></ProtectedRoute>} />
           <Route path="/collections/create" element={<ProtectedRoute><CreateCollection /></ProtectedRoute>} />
+          <Route path="/folders/create" element={<ProtectedRoute><CreateFolder /></ProtectedRoute>} />
           <Route
             path="/collections/manage"
             element={

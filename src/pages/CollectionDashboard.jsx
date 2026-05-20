@@ -42,6 +42,7 @@ import {
     cacheSlideshowEnabled,
     readCachedSlideshowEnabled,
 } from '../lib/collectionFeatureFlags';
+import { MoveCollectionModal } from '../components/features/Collections/MoveCollectionModal';
 
 const CollectionDashboard = () => {
     const navigate = useNavigate();
@@ -2278,7 +2279,9 @@ const CollectionDashboard = () => {
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
                                     <span>Download</span>
-                                    <span className="tab-badge">ON</span>
+                                    <span className={`tab-badge${photoDownload ? '' : ' off'}`}>
+                                        {photoDownload ? 'ON' : 'OFF'}
+                                    </span>
                                 </div>
                                 <div
                                     className={`cd-design-nav-item ${activeSettingsTab === 'favorite' ? 'active' : ''}`}
@@ -2286,7 +2289,9 @@ const CollectionDashboard = () => {
                                 >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
                                     <span>Favorite</span>
-                                    <span className="tab-badge">ON</span>
+                                    <span className={`tab-badge${favoritePhotos ? '' : ' off'}`}>
+                                        {favoritePhotos ? 'ON' : 'OFF'}
+                                    </span>
                                 </div>
 
                             </div>
@@ -3372,40 +3377,14 @@ const CollectionDashboard = () => {
                 </div>
             )}
 
-            {/* Move To Modal */}
-            {showMoveToModal && (
-                <div className="cd-modal-overlay" onClick={() => setShowMoveToModal(false)}>
-                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">MOVE COLLECTION TO</h3>
-                            <button className="cd-modal-close" onClick={() => setShowMoveToModal(false)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                        <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                                <span style={{ fontWeight: '500' }}>Home</span>
-                            </div>
-                            <div style={{ border: '1px solid #ddd', borderRadius: '4px', overflow: 'hidden', marginBottom: '16px' }}>
-                                <div style={{ padding: '12px 16px', borderBottom: '1px solid #ddd', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', backgroundColor: '#f9f9f9' }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#a4d1f5" stroke="#a4d1f5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                                    <span style={{ fontSize: '14px', color: '#333' }}>2026 Weddings</span>
-                                </div>
-                                <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="#a4d1f5" stroke="#a4d1f5" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                                    <span style={{ fontSize: '14px', color: '#333' }}>Portraits</span>
-                                </div>
-                            </div>
-                            <div style={{ color: '#2b78c5', fontSize: '14px', fontWeight: '500', cursor: 'pointer' }}>+ Move to new folder</div>
-                        </div>
-                        <div className="cd-modal-footer">
-                            <button className="cd-cancel-btn" onClick={() => setShowMoveToModal(false)}>Cancel</button>
-                            <button className="cd-save-btn disabled">Move</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <MoveCollectionModal
+                isOpen={showMoveToModal}
+                onClose={() => setShowMoveToModal(false)}
+                collectionId={collectionId}
+                photographerId={collection?.photographer_id ?? user?.id}
+                currentFolderId={collection?.folder_id}
+                onMoved={(folderId) => setCollection((prev) => (prev ? { ...prev, folder_id: folderId } : prev))}
+            />
 
             {/* Duplicate Modal */}
             {showDuplicateModal && (

@@ -86,6 +86,104 @@ export const galleryService = {
   },
 
   /**
+   * Folders for the move-collection picker, with cover from folder or first collection inside.
+   */
+  async getFoldersForMove(photographerId) {
+    if (!photographerId) return [];
+
+    const { data: folders, error: folderError } = await supabase
+      .from('folders')
+      .select('id, name, cover_url, position, created_at')
+      .eq('photographer_id', photographerId)
+      .order('position', { ascending: true })
+      .order('created_at', { ascending: true });
+
+    if (folderError) throw folderError;
+
+    const { data: collections, error: collectionError } = await supabase
+      .from('collections')
+      .select('folder_id, cover_url, created_at')
+      .eq('photographer_id', photographerId)
+      .not('folder_id', 'is', null)
+      .order('created_at', { ascending: true });
+
+    if (collectionError) throw collectionError;
+
+    const coverByFolder = {};
+    for (const row of collections || []) {
+      if (!row.folder_id || coverByFolder[row.folder_id] || !row.cover_url) continue;
+      coverByFolder[row.folder_id] = row.cover_url;
+    }
+
+    return (folders || []).map((folder) => ({
+      id: folder.id,
+      name: folder.name,
+      cover_url: folder.cover_url || coverByFolder[folder.id] || null,
+    }));
+  },
+
+  /**
+   * @param {string} photographerId
+   * @param {string | { name: string; eventDate?: string | null; showOnHomepage?: boolean; passwordEnabled?: boolean; password?: string | null }} nameOrOptions
+   */
+  async createFolder(photographerId, nameOrOptions) {
+    const options =
+      typeof nameOrOptions === 'string' ? { name: nameOrOptions } : nameOrOptions ?? {};
+    const name = options.name?.trim();
+
+    if (!photographerId || !name) {
+      throw new Error('Folder name is required.');
+    }
+
+    const baseSlug = generateCollectionSlug(name);
+    const slug = `${baseSlug}-${Date.now().toString(36).slice(2, 8)}`;
+
+    const { data: existing } = await supabase
+      .from('folders')
+      .select('position')
+      .eq('photographer_id', photographerId)
+      .order('position', { ascending: false })
+      .limit(1);
+
+    const position = (existing?.[0]?.position ?? -1) + 1;
+    const passwordEnabled = !!options.passwordEnabled;
+    const password = options.password?.trim();
+
+    const { data, error } = await supabase
+      .from('folders')
+      .insert({
+        photographer_id: photographerId,
+        name,
+        slug,
+        position,
+        show_on_homepage: options.showOnHomepage !== false,
+        event_date: options.eventDate || null,
+        guest_password_hash: passwordEnabled && password ? password : null,
+      })
+      .select('id, name, cover_url, event_date, show_on_homepage')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async moveCollectionToFolder(collectionId, folderId) {
+    if (!collectionId) {
+      throw new Error('Collection is required.');
+    }
+
+    const { data, error } = await supabase
+      .from('collections')
+      .update({ folder_id: folderId ?? null })
+      .eq('id', collectionId)
+      .select('id, folder_id')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
    * Fetch all published collections for a specific photographer (Public view)
    */
   async getPublicCollections(photographerId) {

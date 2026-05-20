@@ -89,16 +89,4 @@ export function CollectionDuplicateModal({ collection, isOpen, onClose, onConfir
     );
 }
 
-export function CollectionMoveToModal({ isOpen, onClose }) {
-    if (!isOpen) return null;
-
-    return (
-        <ModalShell title="MOVE TO" onClose={onClose}>
-            <p className="cgm-text">You don&apos;t have any folders yet.</p>
-            <p className="cgm-text cgm-text--muted">Create a folder from the New Collection menu to organize collections.</p>
-            <div className="cgm-footer-actions">
-                <button type="button" className="cgm-btn-primary" onClick={onClose}>OK</button>
-            </div>
-        </ModalShell>
-    );
-}
+export { MoveCollectionModal as CollectionMoveToModal } from '../Collections/MoveCollectionModal';
