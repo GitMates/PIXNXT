@@ -13,6 +13,7 @@ import { X, Mail, Share2, Download, Heart, Play } from 'lucide-react';
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadPhotoFromR2 } from '../../lib/downloadPhoto';
+import { getPhotoDownloadFilename, getPhotoDownloadUrl } from '../../lib/photoDisplayUrl';
 import { formatCoverDate } from '../../lib/formatCoverDate.js';
 import {
   GalleryStickyNav,
@@ -333,7 +334,9 @@ const GalleryView = () => {
 
       if (!needsEmail && !needsPin && !hasDownloadLimit) {
         // Single photo: download immediately from Cloudflare R2 if no auth required
-        await downloadPhotoFromR2(photo.full_url, photo.filename || 'photo.jpg');
+        const url = getPhotoDownloadUrl(photo);
+        if (!url) return;
+        await downloadPhotoFromR2(url, getPhotoDownloadFilename(photo, 0));
 
         // Log activity for direct download
         const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`) || 'Visitor';

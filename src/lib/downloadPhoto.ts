@@ -1,4 +1,29 @@
 import JSZip from 'jszip';
+import { getPhotoDownloadFilename, getPhotoDownloadUrl } from './photoDisplayUrl';
+
+const DEFAULT_FETCH_TIMEOUT_MS = 120_000;
+
+/**
+ * Fetch with timeout so one slow/hung R2 object cannot block the whole zip.
+ */
+export async function fetchBlobWithTimeout(
+  url: string,
+  timeoutMs = DEFAULT_FETCH_TIMEOUT_MS
+): Promise<Blob> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      mode: 'cors',
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return await response.blob();
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /**
  * Downloads a single photo from a Cloudflare R2 URL and saves it to the user's computer.
@@ -9,10 +34,7 @@ export async function downloadPhotoFromR2(url: string, filename: string): Promis
   if (!url) return;
 
   try {
-    const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    const blob = await response.blob();
+    const blob = await fetchBlobWithTimeout(url);
     const blobUrl = URL.createObjectURL(blob);
 
     const link = document.createElement('a');
@@ -37,8 +59,11 @@ export async function downloadPhotoFromR2(url: string, filename: string): Promis
 }
 
 export interface BulkDownloadPhoto {
-  full_url: string;
+  full_url?: string;
+  web_url?: string;
+  thumbnail_url?: string;
   filename?: string;
+  media_type?: string;
 }
 
 export type ProgressCallback = (downloaded: number, total: number) => void;
@@ -61,41 +86,46 @@ export async function downloadAllPhotosAsZip(
   const zip = new JSZip();
   const folder = zip.folder(zipName)!;
 
-  let downloaded = 0;
+  let completed = 0;
+  let lastReported = 0;
 
-  // Fetch all photos concurrently (batched to avoid overwhelming the browser)
-  const BATCH_SIZE = 5;
+  const reportProgress = () => {
+    completed += 1;
+    if (completed > lastReported) {
+      lastReported = completed;
+      onProgress?.(completed, photos.length);
+    }
+  };
+
+  const BATCH_SIZE = 8;
   for (let i = 0; i < photos.length; i += BATCH_SIZE) {
     const batch = photos.slice(i, i + BATCH_SIZE);
 
     await Promise.all(
       batch.map(async (photo, batchIndex) => {
         const globalIndex = i + batchIndex + 1;
-        const url = photo.full_url;
-        if (!url) return;
-
-        // Derive a safe filename
-        const rawName = photo.filename || url.split('/').pop() || `photo_${globalIndex}.jpg`;
-        // Ensure unique names if duplicates exist
-        const safeFilename = rawName.replace(/[/\\:*?"<>|]/g, '_');
-
-        try {
-          const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const blob = await response.blob();
-          folder.file(safeFilename, blob);
-        } catch (err) {
-          console.warn(`Failed to fetch ${rawName}:`, err);
+        const url = getPhotoDownloadUrl(photo);
+        if (!url) {
+          reportProgress();
+          return;
         }
 
-        downloaded++;
-        onProgress?.(downloaded, photos.length);
+        const used = new Set();
+        const safeFilename = getPhotoDownloadFilename(photo, globalIndex, used);
+
+        try {
+          const blob = await fetchBlobWithTimeout(url);
+          folder.file(safeFilename, blob);
+        } catch (err) {
+          console.warn(`Failed to fetch ${safeFilename}:`, err);
+        } finally {
+          reportProgress();
+        }
       })
     );
   }
 
-  // Generate and trigger ZIP download
-  const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 3 } });
+  const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
   const blobUrl = URL.createObjectURL(zipBlob);
   const link = document.createElement('a');
   link.href = blobUrl;

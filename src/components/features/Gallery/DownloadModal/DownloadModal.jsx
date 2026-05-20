@@ -4,6 +4,8 @@ import { X, Download, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
+import { fetchBlobWithTimeout } from '@/lib/downloadPhoto';
+import { getPhotoDownloadFilename, getPhotoDownloadUrl } from '@/lib/photoDisplayUrl';
 import { galleryService } from '@/services/gallery.service';
 
 /** Empty/null = all sets allowed. Legacy `['Highlights']` with named sets = all (old default omitted new sets). */
@@ -21,6 +23,12 @@ function resolveDownloadSetAllowlist(selectedDownloadSets, namedSets = []) {
 function isDownloadSetAllowed(allowlist, key) {
   if (!allowlist) return true;
   return allowlist.some((item) => String(item) === String(key));
+}
+
+/** e.g. "32 images download of 54 has 59%" */
+function formatImageDownloadProgress(done, total, percent) {
+  const noun = total === 1 ? 'image' : 'images';
+  return `${done} ${noun} download of ${total} has ${percent}%`;
 }
 
 export const DownloadModal = ({
@@ -41,8 +49,16 @@ export const DownloadModal = ({
   const [statusText, setStatusText] = useState('Initializing...');
   const [error, setError] = useState('');
   const pinRefs = [useRef(), useRef(), useRef(), useRef()];
+  const downloadRunIdRef = useRef(0);
+  const completedCountRef = useRef(0);
 
   const pin = pinDigits.join('');
+
+  /** Never decrease % — parallel fetches used to race on a shared counter and flash lower values. */
+  const setProgressMonotonic = (nextPct) => {
+    const clamped = Math.min(100, Math.max(0, Math.round(nextPct)));
+    setProgress((prev) => Math.max(prev, clamped));
+  };
 
   // Initial step determination
   useEffect(() => {
@@ -193,10 +209,14 @@ export const DownloadModal = ({
   };
 
   const startDownload = async () => {
+    const runId = ++downloadRunIdRef.current;
+    completedCountRef.current = 0;
     setIsProcessing(true);
     setStep('preparing');
     setProgress(0);
     setStatusText('Gathering photos...');
+
+    const isStale = () => runId !== downloadRunIdRef.current;
 
     try {
       const zip = new JSZip();
@@ -207,10 +227,9 @@ export const DownloadModal = ({
       } else if (selectedSet === 'all') {
         photosToDownload = photos;
       } else if (selectedSet === null) {
-        // Highlights - photos with no set_id
-        photosToDownload = photos.filter(p => !p.set_id);
+        photosToDownload = photos.filter((p) => !p.set_id);
       } else {
-        photosToDownload = photos.filter(p => p.set_id === selectedSet);
+        photosToDownload = photos.filter((p) => String(p.set_id) === String(selectedSet));
       }
 
       if (photosToDownload.length === 0) {
@@ -229,83 +248,139 @@ export const DownloadModal = ({
       let finalContent;
       let finalFilename;
 
-      if (photosToDownload.length === 1) {
+      const total = photosToDownload.length;
+      const reportDownloadProgress = () => {
+        if (isStale()) return;
+        const done = completedCountRef.current;
+        const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
+        setProgressMonotonic(pct);
+        setStatusText(formatImageDownloadProgress(done, total, pct));
+      };
+
+      if (total === 1) {
         const photo = photosToDownload[0];
-        const url = photo.full_url || photo.web_url;
-        
+        const url = getPhotoDownloadUrl(photo);
+        if (!url) throw new Error('No download URL for this file.');
+
         try {
-          const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          finalContent = await response.blob();
-          finalFilename = photo.filename || (photo.media_type === 'video' ? 'video.mp4' : 'photo.jpg');
-          setProgress(100);
-          setStatusText('Processing: 100%');
+          finalContent = await fetchBlobWithTimeout(url);
+          if (isStale()) return;
+          finalFilename = getPhotoDownloadFilename(photo, 0);
+          setProgressMonotonic(100);
+          setStatusText(formatImageDownloadProgress(1, 1, 100));
         } catch (err) {
-          console.error(`Failed to fetch single file:`, err);
-          throw new Error('Failed to download the file.');
+          console.error('Failed to fetch single file:', err);
+          const msg = err?.name === 'AbortError' ? 'Download timed out. Try again.' : 'Failed to download the file.';
+          throw new Error(msg);
         }
       } else {
-        const CHUNK_SIZE = 5;
+        const usedNames = new Set();
+        const CHUNK_SIZE = 8;
+
         for (let i = 0; i < photosToDownload.length; i += CHUNK_SIZE) {
+          if (isStale()) return;
           const chunk = photosToDownload.slice(i, i + CHUNK_SIZE);
-
-          await Promise.all(chunk.map(async (photo, index) => {
-            const globalIndex = i + index;
-            const url = photo.full_url || photo.web_url;
-
-            try {
-              const response = await fetch(url, { mode: 'cors', cache: 'no-store' });
-              if (!response.ok) throw new Error(`HTTP ${response.status}`);
-              const blob = await response.blob();
-              zip.file(photo.filename || `photo-${globalIndex + 1}.jpg`, blob);
-            } catch (err) {
-              console.error(`Failed to fetch ${photo.filename}:`, err);
-            }
-
-            const currentProgress = Math.round(((globalIndex + 1) / photosToDownload.length) * 100);
-            setProgress(currentProgress);
-            setStatusText(`Processing: ${currentProgress}%`);
-          }));
+          await Promise.all(
+            chunk.map(async (photo, chunkIndex) => {
+              const index = i + chunkIndex;
+              const url = getPhotoDownloadUrl(photo);
+              try {
+                if (!url) return;
+                const blob = await fetchBlobWithTimeout(url);
+                if (isStale()) return;
+                const name = getPhotoDownloadFilename(photo, index, usedNames);
+                zip.file(name, blob);
+              } catch (err) {
+                console.warn(`Failed to fetch ${photo.filename}:`, err);
+              } finally {
+                completedCountRef.current += 1;
+                reportDownloadProgress();
+              }
+            })
+          );
         }
 
-        setStatusText('Creating zip archive...');
-        finalContent = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
-        finalFilename = `${collection.name || 'gallery'}.zip`;
+        if (isStale()) return;
+
+        const fileCount = Object.keys(zip.files).filter((k) => !k.endsWith('/')).length;
+        if (fileCount === 0) {
+          throw new Error(
+            'Could not download any photos. They may still be processing — try again in a moment.'
+          );
+        }
+
+        setStatusText(formatImageDownloadProgress(total, total, 100));
+        setProgressMonotonic(100);
+        finalContent = await zip.generateAsync(
+          { type: 'blob', compression: 'STORE' },
+          (metadata) => {
+            if (isStale()) return;
+            const zipPct = Math.min(99, 90 + Math.round((metadata.percent / 100) * 9));
+            setProgressMonotonic(zipPct);
+            setStatusText(
+              total === 1
+                ? `Packaging 1 image · ${zipPct}%`
+                : `Packaging ${total} images · ${zipPct}%`
+            );
+          }
+        );
+        finalFilename = `${(collection.name || 'gallery').replace(/[/\\:*?"<>|]/g, '_')}.zip`;
       }
 
-      setStatusText('Saving to your device...');
+      if (isStale()) return;
+
+      setProgressMonotonic(99);
+      setStatusText(
+        total === 1
+          ? 'Saving your image · 99%'
+          : `Saving ${total} images · 99%`
+      );
+
       saveAs(finalContent, finalFilename);
-      
-      // Log download activity
-      await galleryService.logActivity(collection.id, 'download', {
-        email: email.trim(),
-        photographerId: collection.user_id,
-        photoId: initialPhoto?.id,
-        metadata: {
-          type: initialPhoto ? (initialPhoto.media_type === 'video' ? 'video' : 'photo') : 'gallery',
-          resolution: 'High Res',
-          pinUsed: !!(collection?.download_pin && pin.length > 0),
-          pin: pin.length > 0 ? pin : null,
-          size: finalContent.size,
-          photoCount: photosToDownload.length,
-          setName: selectedSet === 'all' ? 'All Photos' : 
-                   selectedSet === 'single' ? (sets.find(s => s.id === initialPhoto?.set_id)?.name || 'Highlights') :
-                   (selectedSet === null ? 'Highlights' : (sets.find(s => s.id === selectedSet)?.name || 'Unknown Set'))
-        }
-      });
+      setProgressMonotonic(100);
 
-      // Broadcast update to dashboard
-      const channel = new BroadcastChannel('pixnxt-gallery-update');
-      channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
-      channel.close();
+      try {
+        await galleryService.logActivity(collection.id, 'download', {
+          email: email.trim(),
+          photographerId: collection.user_id,
+          photoId: initialPhoto?.id,
+          metadata: {
+            type: initialPhoto ? (initialPhoto.media_type === 'video' ? 'video' : 'photo') : 'gallery',
+            resolution: 'High Res',
+            pinUsed: !!(collection?.download_pin && pin.length > 0),
+            pin: pin.length > 0 ? pin : null,
+            size: finalContent.size,
+            photoCount: photosToDownload.length,
+            setName:
+              selectedSet === 'all'
+                ? 'All Photos'
+                : selectedSet === 'single'
+                  ? sets.find((s) => s.id === initialPhoto?.set_id)?.name || 'Highlights'
+                  : selectedSet === null
+                    ? 'Highlights'
+                    : sets.find((s) => String(s.id) === String(selectedSet))?.name || 'Unknown Set',
+          },
+        });
+      } catch (logErr) {
+        console.warn('Download activity log failed:', logErr);
+      }
 
-      setStep('complete');
+      try {
+        const channel = new BroadcastChannel('pixnxt-gallery-update');
+        channel.postMessage({ type: 'ACTIVITY_UPDATED', collectionId: collection.id });
+        channel.close();
+      } catch {
+        /* BroadcastChannel optional */
+      }
+
+      if (!isStale()) setStep('complete');
     } catch (err) {
+      if (isStale()) return;
       console.error('Download failed:', err);
       setError(err.message || 'Download failed. Please try again.');
       setStep('selection');
     } finally {
-      setIsProcessing(false);
+      if (!isStale()) setIsProcessing(false);
     }
   };
 
@@ -346,7 +421,7 @@ export const DownloadModal = ({
               className="h-full bg-zinc-900"
               initial={{ width: 0 }}
               animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.15, ease: 'easeOut' }}
             />
           </div>
         )}
@@ -568,7 +643,7 @@ export const DownloadModal = ({
                       strokeLinecap="round"
                       strokeDasharray={383}
                       animate={{ strokeDashoffset: 383 - (383 * progress) / 100 }}
-                      transition={{ duration: 0.4 }}
+                      transition={{ duration: 0.15, ease: 'easeOut' }}
                     />
                   </svg>
                   <span className="text-3xl font-bold text-zinc-900">{progress}%</span>
@@ -577,7 +652,7 @@ export const DownloadModal = ({
                 <h2 className="text-[13px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-2">
                   Preparing Photos
                 </h2>
-                <p className="text-[13px] text-zinc-500">{statusText}</p>
+                <p className="max-w-[280px] text-[13px] leading-relaxed text-zinc-500">{statusText}</p>
 
                 <div className="mt-6 flex items-center gap-2 text-[11px] text-zinc-400">
                   <Loader2 size={12} className="animate-spin" />

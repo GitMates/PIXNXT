@@ -82,10 +82,48 @@ export function getPhotoFullDisplayUrl(photo) {
   return pickDisplayableUrl(photo.full_url, photo.web_url, photo.thumbnail_url);
 }
 
-/** Original file URL (RAW on R2) — used for download. */
+/** Original file URL (RAW on R2) — used when full-resolution original is required. */
 export function getPhotoOriginalFileUrl(photo) {
   if (!photo) return '';
   return resolveMediaUrl(photo.full_url || '');
+}
+
+/**
+ * Best URL for client download — JPEG preview for RAW when available (avoids 20MB+ hangs).
+ */
+export function getPhotoDownloadUrl(photo) {
+  if (!photo) return '';
+  if (isVideoMedia(photo)) {
+    return resolveMediaUrl(photo.web_url || photo.full_url || '');
+  }
+  if (isRawMedia(photo)) {
+    const preview = getRawPreviewUrl(photo);
+    if (preview) return preview;
+    return resolveMediaUrl(photo.full_url || '');
+  }
+  return resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
+}
+
+/** Safe filename for zip / save (unique suffix when needed). */
+export function getPhotoDownloadFilename(photo, index = 0, usedNames = null) {
+  let base = (photo?.filename || `photo-${index + 1}`).replace(/[/\\:*?"<>|]/g, '_');
+  if (isRawMedia(photo) && getRawPreviewUrl(photo) && !/\.(jpe?g|png|webp)$/i.test(base)) {
+    base = base.replace(/\.[^.]+$/i, '') + '.jpg';
+  }
+  if (!usedNames) return base;
+  let name = base;
+  let n = 1;
+  while (usedNames.has(name.toLowerCase())) {
+    const dot = base.lastIndexOf('.');
+    if (dot > 0) {
+      name = `${base.slice(0, dot)}_${n}${base.slice(dot)}`;
+    } else {
+      name = `${base}_${n}`;
+    }
+    n += 1;
+  }
+  usedNames.add(name.toLowerCase());
+  return name;
 }
 
 /**
