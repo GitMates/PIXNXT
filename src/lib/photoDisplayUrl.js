@@ -90,16 +90,9 @@ export function getPhotoOriginalFileUrl(photo) {
 
 /**
  * Best URL for client download — JPEG preview for RAW when available (avoids 20MB+ hangs).
- * @param {{ preferWebSize?: boolean, downloadResolutions?: string[] }} [options]
  */
-export function getPhotoDownloadUrl(photo, options = {}) {
+export function getPhotoDownloadUrl(photo) {
   if (!photo) return '';
-  const { preferWebSize = false, downloadResolutions } = options;
-  const fullOnly =
-    Array.isArray(downloadResolutions) &&
-    downloadResolutions.length > 0 &&
-    !downloadResolutions.some((r) => String(r).toLowerCase() === 'web');
-
   if (isVideoMedia(photo)) {
     return resolveMediaUrl(photo.web_url || photo.full_url || '');
   }
@@ -108,20 +101,58 @@ export function getPhotoDownloadUrl(photo, options = {}) {
     if (preview) return preview;
     return resolveMediaUrl(photo.full_url || '');
   }
-  if (isGifMedia(photo)) {
-    return pickDisplayableUrl(photo.web_url, photo.full_url, photo.thumbnail_url);
-  }
-  if (preferWebSize && !fullOnly) {
-    const webFirst = pickDisplayableUrl(photo.web_url, photo.full_url, photo.thumbnail_url);
-    if (webFirst) return webFirst;
-  }
   return resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
+}
+
+/** Ordered fallbacks when the primary URL fails (R2 paths often have no file extension in the URL). */
+export function getPhotoDownloadUrlCandidates(photo) {
+  if (!photo) return [];
+  const seen = new Set();
+  const out = [];
+  const push = (raw) => {
+    const url = resolveMediaUrl(raw);
+    if (!url || seen.has(url)) return;
+    seen.add(url);
+    out.push(url);
+  };
+
+  if (isVideoMedia(photo)) {
+    push(photo.web_url);
+    push(photo.full_url);
+    return out;
+  }
+  if (isRawMedia(photo)) {
+    const preview = getRawPreviewUrl(photo);
+    if (preview) push(preview);
+    push(photo.full_url);
+    push(photo.web_url);
+    return out;
+  }
+  if (isGifMedia(photo)) {
+    push(photo.web_url);
+    push(photo.full_url);
+    return out;
+  }
+  push(photo.full_url);
+  push(photo.web_url);
+  push(photo.thumbnail_url);
+  return out;
 }
 
 /** Safe filename for zip / save (unique suffix when needed). */
 export function getPhotoDownloadFilename(photo, index = 0, usedNames = null) {
   let base = (photo?.filename || `photo-${index + 1}`).replace(/[/\\:*?"<>|]/g, '_');
-  if (isRawMedia(photo) && getRawPreviewUrl(photo) && !/\.(jpe?g|png|webp)$/i.test(base)) {
+  if (isVideoMedia(photo)) {
+    if (!/\.(mp4|webm|mov|ogg)$/i.test(base)) {
+      base = base.replace(/\.[^.]+$/i, '') + '.mp4';
+    }
+  } else if (isGifMedia(photo)) {
+    if (!/\.gif$/i.test(base)) {
+      base = base.replace(/\.[^.]+$/i, '') + '.gif';
+    }
+  } else if (isRawMedia(photo) && getRawPreviewUrl(photo) && !/\.(jpe?g|png|webp)$/i.test(base)) {
+    base = base.replace(/\.[^.]+$/i, '') + '.jpg';
+  } else if (!/\.(jpe?g|png|gif|webp|heic|heif)$/i.test(base)) {
     base = base.replace(/\.[^.]+$/i, '') + '.jpg';
   }
   if (!usedNames) return base;

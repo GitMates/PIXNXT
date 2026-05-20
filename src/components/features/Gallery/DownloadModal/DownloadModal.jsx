@@ -5,11 +5,10 @@ import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
 import {
-  fetchBlobWithTimeout,
   downloadPhotosToZip,
+  downloadSinglePhotoFile,
   DEFAULT_DOWNLOAD_CONCURRENCY,
 } from '@/lib/downloadPhoto';
-import { getPhotoDownloadFilename, getPhotoDownloadUrl } from '@/lib/photoDisplayUrl';
 import { galleryService } from '@/services/gallery.service';
 
 /** Empty/null = all sets allowed. Legacy `['Highlights']` with named sets = all (old default omitted new sets). */
@@ -29,10 +28,16 @@ function isDownloadSetAllowed(allowlist, key) {
   return allowlist.some((item) => String(item) === String(key));
 }
 
-/** e.g. "32 images download of 54 has 59%" */
-function formatImageDownloadProgress(done, total, percent) {
-  const noun = total === 1 ? 'image' : 'images';
-  return `${done} ${noun} download of ${total} has ${percent}%`;
+function preparingStatusText(done, total, phase = 'download') {
+  if (total <= 1) {
+    if (phase === 'save') return 'Saving your photo…';
+    if (phase === 'zip') return 'Almost done…';
+    return 'Downloading your photo…';
+  }
+  if (phase === 'zip') return `Packaging ${total} photos into one file…`;
+  if (phase === 'save') return 'Saving to your device…';
+  if (done >= total) return 'Finishing up…';
+  return `Downloading ${done} of ${total} photos…`;
 }
 
 export const DownloadModal = ({
@@ -55,6 +60,7 @@ export const DownloadModal = ({
   const pinRefs = [useRef(), useRef(), useRef(), useRef()];
   const downloadRunIdRef = useRef(0);
   const completedCountRef = useRef(0);
+  const [downloadCompleteMeta, setDownloadCompleteMeta] = useState({ isZip: false, total: 0 });
 
   const pin = pinDigits.join('');
 
@@ -218,6 +224,7 @@ export const DownloadModal = ({
     setIsProcessing(true);
     setStep('preparing');
     setProgress(0);
+    setDownloadCompleteMeta({ isZip: false, total: 0 });
     setStatusText('Gathering photos...');
 
     const isStale = () => runId !== downloadRunIdRef.current;
@@ -249,41 +256,29 @@ export const DownloadModal = ({
       
       setStatusText(`Downloading ${photosToDownload.length} ${photosToDownload.length === 1 ? (isVideo ? 'video' : 'photo') : 'items'} from ${setName}...`);
 
-      let finalContent;
-      let finalFilename;
+      let downloadSize = null;
 
       const total = photosToDownload.length;
-      const reportDownloadProgress = () => {
+      const reportDownloadProgress = (phase = 'download') => {
         if (isStale()) return;
         const done = completedCountRef.current;
         const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0;
         setProgressMonotonic(pct);
-        setStatusText(formatImageDownloadProgress(done, total, pct));
+        setStatusText(preparingStatusText(done, total, phase));
       };
-
-      const downloadResolutions = collection?.download_resolutions;
 
       if (total === 1) {
         const photo = photosToDownload[0];
-        const url = getPhotoDownloadUrl(photo, { downloadResolutions, preferWebSize: false });
-        if (!url) throw new Error('No download URL for this file.');
-
-        try {
-          finalContent = await fetchBlobWithTimeout(url);
-          if (isStale()) return;
-          finalFilename = getPhotoDownloadFilename(photo, 0);
-          setProgressMonotonic(100);
-          setStatusText(formatImageDownloadProgress(1, 1, 100));
-        } catch (err) {
-          console.error('Failed to fetch single file:', err);
-          const msg = err?.name === 'AbortError' ? 'Download timed out. Try again.' : 'Failed to download the file.';
-          throw new Error(msg);
-        }
+        setProgressMonotonic(50);
+        setStatusText(preparingStatusText(0, 1));
+        await downloadSinglePhotoFile(photo);
+        if (isStale()) return;
+        setProgressMonotonic(100);
+        setStatusText(preparingStatusText(1, 1, 'save'));
+        setDownloadCompleteMeta({ isZip: false, total: 1 });
       } else {
         const fileCount = await downloadPhotosToZip(zip, photosToDownload, {
           concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
-          preferWebSize: total > 1,
-          downloadResolutions,
           isStale,
           onProgress: (done) => {
             completedCountRef.current = done;
@@ -299,47 +294,49 @@ export const DownloadModal = ({
           );
         }
 
-        setStatusText(formatImageDownloadProgress(total, total, 100));
         setProgressMonotonic(100);
-        finalContent = await zip.generateAsync(
-          { type: 'blob', compression: 'STORE', streamFiles: true },
+        setStatusText(preparingStatusText(total, total, 'zip'));
+        setProgressMonotonic(90);
+        const zipBlob = await zip.generateAsync(
+          { type: 'blob', compression: 'STORE' },
           (metadata) => {
             if (isStale()) return;
             const zipPct = Math.min(99, 90 + Math.round((metadata.percent / 100) * 9));
             setProgressMonotonic(zipPct);
-            setStatusText(
-              total === 1
-                ? `Packaging 1 image · ${zipPct}%`
-                : `Packaging ${total} images · ${zipPct}%`
-            );
+            setStatusText(preparingStatusText(total, total, 'zip'));
           }
         );
-        finalFilename = `${(collection.name || 'gallery').replace(/[/\\:*?"<>|]/g, '_')}.zip`;
+        const zipFilename = `${(collection.name || 'gallery').replace(/[/\\:*?"<>|]/g, '_')}.zip`;
+        downloadSize = zipBlob.size;
+
+        if (isStale()) return;
+
+        setProgressMonotonic(99);
+        setStatusText(preparingStatusText(total, total, 'save'));
+        saveAs(zipBlob, zipFilename);
+        setProgressMonotonic(100);
+        setDownloadCompleteMeta({ isZip: true, total });
       }
 
       if (isStale()) return;
 
-      setProgressMonotonic(99);
-      setStatusText(
-        total === 1
-          ? 'Saving your image · 99%'
-          : `Saving ${total} images · 99%`
-      );
-
-      saveAs(finalContent, finalFilename);
-      setProgressMonotonic(100);
-
+      const loggedPhoto = total === 1 ? photosToDownload[0] : initialPhoto;
       try {
         await galleryService.logActivity(collection.id, 'download', {
           email: email.trim(),
           photographerId: collection.user_id,
-          photoId: initialPhoto?.id,
+          photoId: loggedPhoto?.id,
           metadata: {
-            type: initialPhoto ? (initialPhoto.media_type === 'video' ? 'video' : 'photo') : 'gallery',
+            type:
+              total === 1
+                ? loggedPhoto?.media_type === 'video'
+                  ? 'video'
+                  : 'photo'
+                : 'gallery',
             resolution: 'High Res',
             pinUsed: !!(collection?.download_pin && pin.length > 0),
             pin: pin.length > 0 ? pin : null,
-            size: finalContent.size,
+            size: downloadSize,
             photoCount: photosToDownload.length,
             setName:
               selectedSet === 'all'
@@ -665,24 +662,40 @@ export const DownloadModal = ({
                 </div>
 
                 <h2 className="text-[13px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-3">
-                  Download Ready!
+                  {downloadCompleteMeta.isZip ? 'Download Finished' : 'Photo saved'}
                 </h2>
-                <p className="text-[13px] text-zinc-500 mb-8 leading-relaxed">
-                  Your photos have been bundled and the download has started. Enjoy your memories!
+                <p className="mx-auto mb-6 max-w-[300px] text-[14px] leading-relaxed text-zinc-600">
+                  {downloadCompleteMeta.isZip ? (
+                    <>
+                      Your gallery download should appear in your device&apos;s{' '}
+                      <span className="font-medium text-zinc-800">Downloads</span> folder shortly
+                      {downloadCompleteMeta.total > 0 ? (
+                        <> ({downloadCompleteMeta.total} photos in one ZIP file)</>
+                      ) : null}
+                      . Keep this tab open until it finishes.
+                    </>
+                  ) : (
+                    <>Your photo was saved to your device. Open your Downloads folder if you don&apos;t see it.</>
+                  )}
                 </p>
 
-                <p className="text-[11px] text-zinc-400 mb-3">
-                  Didn't start?{' '}
-                  <button onClick={startDownload} className="underline hover:text-zinc-700 transition-colors">
-                    Download again
+                <p className="mb-6 text-[12px] text-zinc-400">
+                  {downloadCompleteMeta.isZip ? 'Nothing in Downloads?' : "Didn't get the file?"}{' '}
+                  <button
+                    type="button"
+                    onClick={startDownload}
+                    className="font-medium text-zinc-600 underline underline-offset-2 hover:text-zinc-900 transition-colors"
+                  >
+                    Try again
                   </button>
                 </p>
 
                 <button
+                  type="button"
                   onClick={onClose}
                   className="w-full bg-zinc-900 text-white py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-zinc-700 transition-colors"
                 >
-                  Close
+                  Done
                 </button>
               </motion.div>
             )}

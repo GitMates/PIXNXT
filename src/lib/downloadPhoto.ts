@@ -1,10 +1,12 @@
 import JSZip from 'jszip';
-import { getPhotoDownloadFilename, getPhotoDownloadUrl } from './photoDisplayUrl';
+import {
+  getPhotoDownloadFilename,
+  getPhotoDownloadUrl,
+  getPhotoDownloadUrlCandidates,
+} from './photoDisplayUrl';
 
-const DEFAULT_FETCH_TIMEOUT_MS = 90_000;
-/** Keep this many fetches in flight (sliding window — faster than fixed batches). */
-export const DEFAULT_DOWNLOAD_CONCURRENCY = 16;
-const PROGRESS_THROTTLE_MS = 80;
+const DEFAULT_FETCH_TIMEOUT_MS = 120_000;
+export const DEFAULT_DOWNLOAD_CONCURRENCY = 6;
 
 /**
  * Fetch with timeout so one slow/hung R2 object cannot block the whole zip.
@@ -18,9 +20,8 @@ export async function fetchBlobWithTimeout(
   try {
     const response = await fetch(url, {
       mode: 'cors',
-      cache: 'default',
+      cache: 'no-store',
       signal: controller.signal,
-      priority: 'high',
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.blob();
@@ -39,81 +40,95 @@ export interface BulkDownloadPhoto {
 
 export type ProgressCallback = (downloaded: number, total: number) => void;
 
+/** Try each CDN URL until one succeeds. */
+export async function fetchPhotoBlob(photo: BulkDownloadPhoto): Promise<Blob | null> {
+  const candidates = getPhotoDownloadUrlCandidates(photo);
+  if (candidates.length === 0) {
+    const primary = getPhotoDownloadUrl(photo);
+    if (!primary) return null;
+    try {
+      return await fetchBlobWithTimeout(primary);
+    } catch {
+      return null;
+    }
+  }
+  for (const url of candidates) {
+    try {
+      return await fetchBlobWithTimeout(url);
+    } catch (err) {
+      console.warn('Download fetch failed, trying next URL:', url, err);
+    }
+  }
+  return null;
+}
+
 export interface DownloadPhotosToZipOptions {
   concurrency?: number;
-  /** Prefer web-sized files when allowed (much faster for large galleries). */
-  preferWebSize?: boolean;
-  downloadResolutions?: string[];
   onProgress?: ProgressCallback;
   isStale?: () => boolean;
 }
 
 /**
- * Download photos into a JSZip instance with a sliding concurrency pool (faster than batch-and-wait).
+ * Download photos into a JSZip instance (batched parallel — stable in browsers).
  */
 export async function downloadPhotosToZip(
   zip: JSZip,
   photos: BulkDownloadPhoto[],
   options: DownloadPhotosToZipOptions = {}
 ): Promise<number> {
-  const {
-    concurrency = DEFAULT_DOWNLOAD_CONCURRENCY,
-    preferWebSize = true,
-    downloadResolutions,
-    onProgress,
-    isStale,
-  } = options;
+  const { concurrency = DEFAULT_DOWNLOAD_CONCURRENCY, onProgress, isStale } = options;
 
   if (!photos.length) return 0;
 
   const usedNames = new Set<string>();
   let completed = 0;
-  let nextIndex = 0;
-  let lastProgressAt = 0;
+  const total = photos.length;
 
-  const reportProgress = () => {
-    const now = Date.now();
-    if (now - lastProgressAt < PROGRESS_THROTTLE_MS && completed < photos.length) return;
-    lastProgressAt = now;
-    onProgress?.(completed, photos.length);
-  };
+  const report = () => onProgress?.(completed, total);
 
-  const urlOptions = { preferWebSize, downloadResolutions };
-
-  const processOne = async (photo: BulkDownloadPhoto, index: number) => {
-    if (isStale?.()) return;
-    const url = getPhotoDownloadUrl(photo, urlOptions);
-    try {
-      if (url) {
-        const blob = await fetchBlobWithTimeout(url);
-        if (!isStale?.()) {
-          const name = getPhotoDownloadFilename(photo, index, usedNames);
-          zip.file(name, blob);
+  for (let i = 0; i < photos.length; i += concurrency) {
+    if (isStale?.()) break;
+    const chunk = photos.slice(i, i + concurrency);
+    await Promise.all(
+      chunk.map(async (photo, chunkIndex) => {
+        const index = i + chunkIndex;
+        try {
+          const blob = await fetchPhotoBlob(photo);
+          if (blob && !isStale?.()) {
+            const name = getPhotoDownloadFilename(photo, index, usedNames);
+            zip.file(name, blob);
+          }
+        } catch (err) {
+          console.warn(`Failed to download ${photo.filename || index}:`, err);
+        } finally {
+          completed += 1;
+          report();
         }
-      }
-    } catch (err) {
-      console.warn(`Failed to fetch ${photo.filename || index}:`, err);
-    } finally {
-      completed += 1;
-      reportProgress();
-    }
-  };
-
-  const workerCount = Math.min(Math.max(1, concurrency), photos.length);
-  const workers = Array.from({ length: workerCount }, async () => {
-    while (true) {
-      if (isStale?.()) return;
-      const i = nextIndex;
-      nextIndex += 1;
-      if (i >= photos.length) return;
-      await processOne(photos[i], i);
-    }
-  });
-
-  await Promise.all(workers);
-  reportProgress();
+      })
+    );
+  }
 
   return Object.keys(zip.files).filter((k) => !k.endsWith('/')).length;
+}
+
+/**
+ * Download one photo/video as a real file (image or video extension), not a zip.
+ */
+export async function downloadSinglePhotoFile(photo: BulkDownloadPhoto): Promise<void> {
+  const blob = await fetchPhotoBlob(photo);
+  if (!blob) {
+    throw new Error('Failed to download this file. Please try again.');
+  }
+
+  const filename = getPhotoDownloadFilename(photo, 0);
+  const blobUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = blobUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 2000);
 }
 
 /**
@@ -160,16 +175,12 @@ export async function downloadAllPhotosAsZip(
   const zip = new JSZip();
   const folder = zip.folder(zipName)!;
 
-  await downloadPhotosToZip(folder, photos, {
-    preferWebSize: true,
-    onProgress,
-  });
+  const count = await downloadPhotosToZip(folder, photos, { onProgress });
+  if (count === 0) {
+    throw new Error('Could not download any photos. They may still be processing — try again in a moment.');
+  }
 
-  const zipBlob = await zip.generateAsync({
-    type: 'blob',
-    compression: 'STORE',
-    streamFiles: true,
-  });
+  const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
   const blobUrl = URL.createObjectURL(zipBlob);
   const link = document.createElement('a');
   link.href = blobUrl;
