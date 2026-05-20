@@ -160,10 +160,6 @@
     @apply absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-[20px] font-bold text-white z-[6] opacity-0 transition-opacity duration-200 cursor-pointer drop-shadow-[0_1px_3px_rgba(0,0,0,0.4)] rounded group-hover:opacity-100 hover:bg-black/20;
   }
 
-  .cg-style-73--ctx-open .cg-style-74 {
-    @apply overflow-visible;
-  }
-
   .cg-style-40 {
     @apply absolute top-9 right-2 bg-[#ffffff] rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.15)] z-[200] py-3 min-w-[200px] animate-[cgFadeIn_0.12s_ease] max-md:fixed max-md:right-3 max-md:left-3 max-md:top-[20%] max-md:w-auto max-md:max-w-[300px] max-md:mx-auto max-md:z-[99999] max-md:shadow-[0_12px_48px_rgba(0,0,0,0.25)] max-md:rounded-xl;
   }
@@ -325,7 +321,7 @@
   }
 
   .cg-style-74 {
-    @apply w-full aspect-[4/3] bg-[#f0f2f3] mb-3 relative overflow-hidden rounded-md max-md:h-auto;
+    @apply w-full aspect-[4/3] bg-[#f0f2f3] mb-3 relative overflow-hidden rounded-md;
   }
 
   .cg-style-74--selected {
@@ -333,7 +329,7 @@
   }
 
   .cg-style-74 img {
-    @apply block h-full w-full object-cover;
+    @apply absolute inset-0 block h-full w-full object-cover;
   }
 
   .cg-style-53 img {
@@ -433,7 +429,7 @@
   }
 
   .cg-folder-thumb-wrap {
-    @apply relative overflow-hidden;
+    @apply relative h-full w-full overflow-hidden;
   }
 
   .cg-folder-thumb-grid {
@@ -443,7 +439,6 @@
     gap: 3px;
     width: 100%;
     height: 100%;
-    min-height: 160px;
     padding: 10px;
     box-sizing: border-box;
   }
@@ -463,6 +458,8 @@
   }
 
   .cg-folder-thumb-cell--cover img {
+    position: absolute;
+    inset: 0;
     display: block;
     width: 100%;
     height: 100%;
