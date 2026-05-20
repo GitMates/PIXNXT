@@ -200,14 +200,23 @@ export const galleryService = {
 
     const collections = await this.getCollections(photographerId);
     const countBy = {};
-    for (const c of collections) {
+    const firstChildCoverByFolder = {};
+    const sortedForFolderCover = [...collections]
+      .filter((c) => c.folder_id)
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+    for (const c of sortedForFolderCover) {
       if (!c.folder_id) continue;
       countBy[c.folder_id] = (countBy[c.folder_id] || 0) + 1;
+      if (firstChildCoverByFolder[c.folder_id]) continue;
+      const thumb = c.cover_url || c.cover;
+      if (thumb) firstChildCoverByFolder[c.folder_id] = thumb;
     }
 
     return (folders || []).map((f) => ({
       ...f,
       collection_count: countBy[f.id] || 0,
+      cover_url: f.cover_url || firstChildCoverByFolder[f.id] || null,
     }));
   },
 

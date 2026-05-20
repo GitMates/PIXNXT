@@ -643,10 +643,14 @@ const ClientGallery = () => {
                                 >
                                     <div className="cg-style-74 cg-folder-thumb-wrap">
                                         <div className="cg-folder-thumb-grid" aria-hidden>
-                                            <span />
-                                            <span />
-                                            <span />
-                                            <span />
+                                            <div className="cg-folder-thumb-cell cg-folder-thumb-cell--cover">
+                                                {getCoverSrc(item.folder) ? (
+                                                    <img src={getCoverSrc(item.folder)} alt="" loading="lazy" />
+                                                ) : null}
+                                            </div>
+                                            <span className="cg-folder-thumb-cell" />
+                                            <span className="cg-folder-thumb-cell" />
+                                            <span className="cg-folder-thumb-cell" />
                                         </div>
                                         <div className="cg-style-39" onClick={(e) => openFolderContextMenu(e, item.folder.id)}>
                                             ⋮
@@ -662,7 +666,11 @@ const ClientGallery = () => {
                                         </h3>
                                         <div className="cg-style-44">
                                             <div className="cg-style-44-meta">
-                                                <span>{item.folder.collection_count || 0} collections</span>
+                                                <span>
+                                                    {(item.folder.collection_count || 0) === 1
+                                                        ? '1 collection'
+                                                        : `${item.folder.collection_count || 0} collections`}
+                                                </span>
                                                 {formatFolderDate(item.folder) && (
                                                     <>
                                                         <span className="cg-style-46">·</span>
@@ -734,10 +742,14 @@ const ClientGallery = () => {
                                     <div className="cg-style-48">
                                         <div className="cg-style-53 cg-folder-list-thumb">
                                             <div className="cg-folder-thumb-grid cg-folder-thumb-grid--sm" aria-hidden>
-                                                <span />
-                                                <span />
-                                                <span />
-                                                <span />
+                                                <div className="cg-folder-thumb-cell cg-folder-thumb-cell--cover">
+                                                    {getCoverSrc(item.folder) ? (
+                                                        <img src={getCoverSrc(item.folder)} alt="" loading="lazy" />
+                                                    ) : null}
+                                                </div>
+                                                <span className="cg-folder-thumb-cell" />
+                                                <span className="cg-folder-thumb-cell" />
+                                                <span className="cg-folder-thumb-cell" />
                                             </div>
                                         </div>
                                         <div className="cg-style-54">
@@ -748,7 +760,9 @@ const ClientGallery = () => {
                                                 {item.folder.name}
                                             </span>
                                             <span className="cg-style-56">
-                                                {item.folder.collection_count || 0} collections
+                                                {(item.folder.collection_count || 0) === 1
+                                                    ? '1 collection'
+                                                    : `${item.folder.collection_count || 0} collections`}
                                                 {formatFolderDate(item.folder) ? ` · ${formatFolderDate(item.folder)}` : ''}
                                             </span>
                                         </div>

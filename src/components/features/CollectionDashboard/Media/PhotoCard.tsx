@@ -39,7 +39,9 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({
       </div>
       
       {showFilename && (
-        <div className="cd-photo-filename">{photo.filename}</div>
+        <div className="cd-photo-filename" title={photo.filename || undefined}>
+          {photo.filename}
+        </div>
       )}
 
       <button 

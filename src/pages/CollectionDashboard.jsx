@@ -2383,7 +2383,7 @@ const CollectionDashboard = () => {
                                 <div className="cd-main-header">
                                     <h2 className="cd-main-title">{activeSetName} ({activeSetPhotoCount})</h2>
                                     <div className="cd-main-actions">
-                                        <div className="cd-sort-wrapper" ref={sortRef}>
+                                        <div className={`cd-sort-wrapper${showSortMenu ? ' cd-sort-wrapper--open' : ''}`} ref={sortRef}>
                                             <button type="button" className="cd-icon-btn sort-btn" onClick={() => { setShowGridSettings(false); setShowSortMenu(!showSortMenu); }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="16" y2="12"></line><line x1="8" y1="18" x2="12" y2="18"></line><line x1="3" y1="6" x2="3" y2="18"></line><polyline points="1 15 3 18 5 15"></polyline></svg>
                                             </button>
@@ -2400,7 +2400,7 @@ const CollectionDashboard = () => {
                                                 </div>
                                             )}
                                         </div>
-                                        <div className="cd-grid-settings-wrapper" ref={gridSettingsRef}>
+                                        <div className={`cd-grid-settings-wrapper${showGridSettings ? ' cd-grid-settings-wrapper--open' : ''}`} ref={gridSettingsRef}>
                                             <button type="button" className="cd-icon-btn active grid-btn" onClick={() => { setShowSortMenu(false); setShowGridSettings(!showGridSettings); }}>
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                             </button>
@@ -2454,7 +2454,7 @@ const CollectionDashboard = () => {
                                 {gridPhotos.length > 0 ? (
                                     <div
                                         ref={photosGridRef}
-                                        className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}`}
+                                        className={`cd-photo-grid cd-photo-grid--manage ${gridSize === 'large' ? 'grid-large' : ''}${showFilename ? ' cd-photo-grid--filenames' : ''}`}
                                     >
                                         {gridPhotos.map((photo, index) => {
                                             const cols = gridSize === 'large' ? 4 : 6;
@@ -2474,28 +2474,35 @@ const CollectionDashboard = () => {
                                                 onClick={() => togglePhotoSelection(photo.id)}
                                             >
                                                 <div className="cd-photo-card-inner cd-photo-card-inner--contain">
-                                                    <CollectionGridPhoto
-                                                        photo={photo}
-                                                        index={index}
-                                                        containInCell
-                                                    />
-                                                    {isPending && (
-                                                        <div
-                                                            className="cd-photo-upload-overlay"
-                                                            style={{ width: `${photo._uploadProgress || 0}%` }}
+                                                    <div className="cd-photo-thumb-shell">
+                                                        <CollectionGridPhoto
+                                                            photo={photo}
+                                                            index={index}
+                                                            containInCell
                                                         />
-                                                    )}
-                                                    {showFilename && <div className="cd-photo-filename" style={{ position: 'absolute', bottom: 8, left: 8, fontSize: 12, color: '#666', background: 'rgba(255,255,255,0.8)', padding: '2px 6px', borderRadius: 4 }}>{photo.filename || `photo-${index + 1}.jpg`}</div>}
-                                                </div>
-
-                                                {!isPending && (
-                                                <>
-                                                <div className="cd-photo-actions">
+                                                        {isPending && (
+                                                            <div
+                                                                className="cd-photo-upload-overlay"
+                                                                style={{ width: `${photo._uploadProgress || 0}%` }}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                    {!isPending && (
+                                                    <>
+                                                    <div className="cd-photo-actions">
                                                     <button className="cd-photo-more-btn" onClick={(e) => { e.stopPropagation(); setPhotoMenu(photoMenu === photo.id ? null : photo.id); }}>
                                                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="12" cy="5" r="1"></circle><circle cx="12" cy="19" r="1"></circle></svg>
                                                     </button>
                                                     {photoMenu === photo.id && (
                                                         <div className={`cd-photo-menu ${menuAlignLeft ? 'cd-photo-menu--align-left' : ''}`} ref={photoMenuRef}>
+                                                            {showFilename && photo.filename && (
+                                                                <>
+                                                                    <div className="cd-photo-menu-filename-hint" title={photo.filename}>
+                                                                        {photo.filename}
+                                                                    </div>
+                                                                    <div className="cd-ctx-divider" />
+                                                                </>
+                                                            )}
                                                             <div className="cd-ctx-item" onClick={(e) => { e.stopPropagation(); setPhotoMenu(null); setLightboxOpenIndex(index); }}>
                                                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line></svg>
                                                                 <span>Open</span>
@@ -2549,6 +2556,15 @@ const CollectionDashboard = () => {
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={photo.is_starred ? "#FFC107" : "none"} stroke={photo.is_starred ? "#FFC107" : "#bbb"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                                                 </button>
                                                 </>
+                                                )}
+                                                </div>
+                                                {showFilename && (
+                                                    <div
+                                                        className="cd-photo-filename"
+                                                        title={photo.filename || `photo-${index + 1}.jpg`}
+                                                    >
+                                                        {photo.filename || `photo-${index + 1}.jpg`}
+                                                    </div>
                                                 )}
                                             </div>
                                         );

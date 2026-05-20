@@ -440,9 +440,25 @@
     box-sizing: border-box;
   }
 
-  .cg-folder-thumb-grid span {
+  .cg-folder-thumb-cell {
+    display: block;
+    min-height: 0;
+    min-width: 0;
     background: #cfd4da;
     border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .cg-folder-thumb-cell--cover {
+    position: relative;
+    background: #cfd4da;
+  }
+
+  .cg-folder-thumb-cell--cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
 
   .cg-folder-thumb-grid--sm {
