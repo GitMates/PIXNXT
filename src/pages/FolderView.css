@@ -73,7 +73,7 @@
   gap: 6px;
   padding: 10px 16px;
   border: 1px solid #ddd;
-  border-radius: 4px;
+  border-radius: 0;
   background: #fff;
   font-size: 14px;
   font-weight: 600;
@@ -123,7 +123,7 @@
 }
 
 .fv-new-collection-solo {
-  border-radius: 3px;
+  border-radius: 0;
 }
 
 .fv-toolbar {
@@ -176,7 +176,7 @@
   background: #1a9b84;
   color: #fff;
   border: none;
-  border-radius: 4px;
+  border-radius: 0;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -193,5 +193,6 @@
 .fv-list {
   padding-bottom: 32px;
 }
+
 
 
