@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import DatePicker from '../../ui/DatePicker/DatePicker';
+import {
+    categoryTagsFromCollection,
+    normalizeCategoryTagsFromString,
+} from '../../../lib/categoryTags';
 import './EditCollectionModal.css';
 
 const STATUS_OPTIONS = [
@@ -32,7 +36,7 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
             name: name.trim(),
             event_date: eventDate || null,
             status,
-            description: categoryTags.trim() || null,
+            category_tags: normalizeCategoryTagsFromString(categoryTags),
             show_on_homepage: showOnHomepage,
         });
     };

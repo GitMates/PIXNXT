@@ -1,4 +1,61 @@
-import type { UploadPanelTab, UploadQueueFile } from './uploadTypes';
+import { getUploadMediaType } from '../../../../lib/fileMime';
+import type { UploadMediaKind, UploadPanelTab, UploadQueueFile } from './uploadTypes';
+
+export function getUploadMediaKindFromFile(file: File): UploadMediaKind {
+  const kind = getUploadMediaType(file);
+  if (kind === 'video' || kind === 'gif' || kind === 'raw') return kind;
+  return 'image';
+}
+
+/** In-progress label on a single file row (e.g. "Video upload"). */
+export function uploadActiveLabel(kind: UploadMediaKind = 'image'): string {
+  switch (kind) {
+    case 'video':
+      return 'Video upload';
+    case 'gif':
+      return 'GIF upload';
+    case 'raw':
+      return 'RAW upload';
+    default:
+      return 'Image upload';
+  }
+}
+
+/** Batch summary when uploads finish (e.g. "3 videos uploaded"). */
+export function uploadCompleteSummary(files: UploadQueueFile[]): string {
+  const done = files.filter((f) => f.status === 'completed');
+  const n = done.length;
+  if (n === 0) return '';
+
+  const kinds = done.map((f) => f.mediaKind ?? 'image');
+  const allVideo = kinds.every((k) => k === 'video');
+  if (allVideo) {
+    return `${n} ${n === 1 ? 'video' : 'videos'} uploaded`;
+  }
+
+  const allNonVideo = kinds.every((k) => k !== 'video');
+  if (allNonVideo) {
+    return `${n} ${n === 1 ? 'image' : 'images'} uploaded`;
+  }
+
+  return `${n} ${n === 1 ? 'item' : 'items'} uploaded`;
+}
+
+/** Minimized widget title while uploads are running. */
+export function uploadInProgressTitle(files: UploadQueueFile[], inProgressCount: number): string {
+  if (inProgressCount <= 0) return '';
+  const active = files.filter(
+    (f) => f.status === 'waiting' || f.status === 'uploading' || f.status === 'processing'
+  );
+  if (active.length === 1) {
+    return uploadActiveLabel(active[0].mediaKind ?? 'image');
+  }
+  const allVideo = active.every((f) => (f.mediaKind ?? 'image') === 'video');
+  if (allVideo) {
+    return `Uploading ${inProgressCount} ${inProgressCount === 1 ? 'video' : 'videos'}`;
+  }
+  return `Uploading ${inProgressCount} ${inProgressCount === 1 ? 'item' : 'items'}`;
+}
 
 export function formatUploadMb(bytes: number): string {
   const mb = bytes / (1024 * 1024);

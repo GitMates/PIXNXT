@@ -10,7 +10,8 @@ import React, {
 import { useLocation } from 'react-router-dom';
 import { galleryService } from '../services/gallery.service';
 import { prepareUploadFile } from '../lib/prepareUploadFile';
-import { isImageMime, getFileMime } from '../lib/fileMime';
+import { isImageMime, isVideoMime, getFileMime } from '../lib/fileMime';
+import { getUploadMediaKindFromFile } from '../components/features/CollectionDashboard/Upload/uploadUtils';
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { initialUploadWidgetState } from '../components/features/CollectionDashboard/Upload/uploadTypes';
@@ -260,6 +261,7 @@ export function UploadQueueProvider({ children }) {
         progress: 0,
         status: pausedRef.current ? 'waiting' : 'processing',
         previewUrl: undefined,
+        mediaKind: getUploadMediaKindFromFile(file),
         collectionId,
         photographerId,
         setId,
@@ -284,6 +286,8 @@ export function UploadQueueProvider({ children }) {
           if (isRawImageFile(file)) {
             const previewBlob = await extractRawPreviewBlob(file);
             if (previewBlob) previewUrl = URL.createObjectURL(previewBlob);
+          } else if (isVideoMime(getFileMime(file))) {
+            previewUrl = URL.createObjectURL(file);
           } else if (isImageMime(getFileMime(file))) {
             previewUrl = URL.createObjectURL(file);
           }

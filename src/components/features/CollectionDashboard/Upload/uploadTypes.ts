@@ -7,6 +7,8 @@ export type UploadFileStatus =
 
 export type UploadPanelTab = 'uploading' | 'complete' | 'failed';
 
+export type UploadMediaKind = 'image' | 'video' | 'gif' | 'raw';
+
 export interface UploadQueueFile {
   id: string;
   file: File;
@@ -18,6 +20,8 @@ export interface UploadQueueFile {
   progress: number;
   status: UploadFileStatus;
   previewUrl?: string;
+  /** image | video | gif | raw — drives upload UI copy (e.g. "Video upload"). */
+  mediaKind?: UploadMediaKind;
   errorMessage?: string;
   /** Frozen at enqueue — uploads always use this collection/set. */
   collectionId?: string;

@@ -102,6 +102,43 @@ export const galleryService = {
     return (data || []).map(mapCollectionDashboardRow);
   },
 
+  /** Starred collections for the dashboard Starred page. */
+  async getStarredCollections(photographerId) {
+    if (!photographerId) return [];
+    const { data, error } = await supabase
+      .from('collections')
+      .select(`
+        *,
+        photos:photos!photos_collection_id_fkey(size_bytes, filename)
+      `)
+      .eq('photographer_id', photographerId)
+      .eq('is_starred', true)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(mapCollectionDashboardRow);
+  },
+
+  /** Starred photos across all collections for the dashboard Starred → Photos tab. */
+  async getStarredPhotos(photographerId) {
+    if (!photographerId) return [];
+    const { data, error } = await supabase
+      .from('photos')
+      .select(`
+        ${DASHBOARD_PHOTO_FIELDS},
+        collection:collections!photos_collection_id_fkey(id, name, slug)
+      `)
+      .eq('photographer_id', photographerId)
+      .eq('is_starred', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map((row) => {
+      const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
+      return { ...row, collection: collection || null };
+    });
+  },
+
   /**
    * Folders for the move-collection picker, with cover from folder or first collection inside.
    */
@@ -367,7 +404,7 @@ export const galleryService = {
   },
 
   /**
-   * Duplicate a collection: copies metadata, sets, and non-video photos (same storage URLs).
+   * Duplicate a collection: copies metadata, sets, and all media (photos + videos, same storage URLs).
    */
   async duplicateCollection(sourceCollectionId, photographerId) {
     if (!sourceCollectionId || !photographerId) {
@@ -378,11 +415,13 @@ export const galleryService = {
 
     const newCollection = await this.createCollection({
       photographer_id: photographerId,
+      folder_id: source.folder_id ?? null,
       name: `${source.name} (Copy)`,
       slug: `${generateCollectionSlug(source.name)}-copy-${Date.now().toString(36)}`,
       event_date: source.event_date ?? null,
       status: 'draft',
       description: source.description ?? null,
+      category_tags: source.category_tags ?? [],
       font_family: source.font_family ?? 'sans_1',
       color_palette: source.color_palette ?? 'light_1',
       grid_style: source.grid_style ?? 'vertical',
@@ -426,9 +465,9 @@ export const galleryService = {
       setIdMap.set(set.id, created.id);
     }
 
-    const sourcePhotos = [...(source.photos || [])]
-      .filter((p) => p.media_type !== 'video')
-      .sort((a, b) => (a.position || 0) - (b.position || 0));
+    const sourcePhotos = [...(source.photos || [])].sort(
+      (a, b) => (a.position || 0) - (b.position || 0)
+    );
 
     if (sourcePhotos.length > 0) {
       const rows = sourcePhotos.map((p, index) => ({

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getShareUrlForCollection } from '../../../lib/shareCollection';
+import { getShareUrlForCollection, getQrCodeImageUrl, getShareUrlWarning } from '../../../lib/shareCollection';
 import { getFolderStudioUrl } from '../../../lib/folderStudioUrl';
 import './CollectionShareModals.css';
 
@@ -49,10 +49,12 @@ function CopyField({ label, value }) {
 export function CollectionDirectLinkModal({ collection, isOpen, onClose }) {
     if (!isOpen || !collection) return null;
     const url = getShareUrlForCollection(collection);
+    const warning = getShareUrlWarning(url);
 
     return (
         <ModalShell title="GET DIRECT LINK" onClose={onClose}>
             <CopyField label="COLLECTION URL" value={url} />
+            {warning ? <p className="cgm-warning">{warning}</p> : null}
             <p className="cgm-hint">Share this link with clients to view the gallery.</p>
         </ModalShell>
     );
@@ -61,7 +63,8 @@ export function CollectionDirectLinkModal({ collection, isOpen, onClose }) {
 export function CollectionQrModal({ collection, isOpen, onClose }) {
     if (!isOpen || !collection) return null;
     const url = getShareUrlForCollection(collection);
-    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
+    const warning = getShareUrlWarning(url);
+    const qrSrc = getQrCodeImageUrl(url, 220);
 
     return (
         <ModalShell title="GET QR CODE" onClose={onClose}>
@@ -69,6 +72,8 @@ export function CollectionQrModal({ collection, isOpen, onClose }) {
                 <img src={qrSrc} alt={`QR code for ${collection.name}`} width={220} height={220} />
             </div>
             <CopyField label="COLLECTION URL" value={url} />
+            {warning ? <p className="cgm-warning">{warning}</p> : null}
+            <p className="cgm-hint">Clients scan the code to open the public gallery. Use your production domain, not a preview deploy URL.</p>
         </ModalShell>
     );
 }
@@ -78,11 +83,16 @@ export function CollectionDuplicateModal({ collection, isOpen, onClose, onConfir
 
     return (
         <ModalShell title="DUPLICATE COLLECTION" onClose={onClose}>
-            <p className="cgm-text">Create a new collection named &ldquo;{collection.name} (Copy)&rdquo;?</p>
-            <p className="cgm-text cgm-text--muted">Photos are not copied. You can add media after opening the new collection.</p>
+            <p className="cgm-text">Are you sure you want to duplicate this collection?</p>
+            <ul className="cgm-duplicate-notes">
+                <li>Duplicating a collection may take a few minutes depending on the size.</li>
+                <li>Photos and videos in the new collection may be temporarily unavailable while the process is running.</li>
+            </ul>
             <div className="cgm-footer-actions">
-                <button type="button" className="cgm-btn-ghost" onClick={onClose}>Cancel</button>
-                <button type="button" className="cgm-btn-primary" onClick={onConfirm} disabled={busy}>
+                <button type="button" className="cgm-btn-ghost" onClick={onClose} disabled={busy}>
+                    Cancel
+                </button>
+                <button type="button" className="cgm-btn-duplicate" onClick={onConfirm} disabled={busy}>
                     {busy ? 'Duplicating…' : 'Duplicate'}
                 </button>
             </div>

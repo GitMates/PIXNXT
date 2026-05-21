@@ -2,6 +2,7 @@ import React from 'react';
 import { DatePicker } from '../../../ui/DatePicker';
 import { galleryService } from '../../../../services/gallery.service';
 import { cacheSlideshowEnabled } from '../../../../lib/collectionFeatureFlags';
+import { CategoryTagsField } from './CategoryTagsField';
 
 export interface GeneralSettingsProps {
     collectionId: string;
@@ -28,6 +29,9 @@ export interface GeneralSettingsProps {
     setSocialSharing: (val: boolean) => void;
     language: string;
     setLanguage: (val: string) => void;
+    categoryTags: string[];
+    onCategoryTagsChange: (tags: string[]) => void;
+    categoryTagsSaving?: boolean;
 }
 
 export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
@@ -54,7 +58,10 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     socialSharing,
     setSocialSharing,
     language,
-    setLanguage
+    setLanguage,
+    categoryTags,
+    onCategoryTagsChange,
+    categoryTagsSaving = false,
 }) => {
     const broadcastGallerySettings = (settings: {
         slideshow_enabled?: boolean;
@@ -116,10 +123,16 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                 <div className="settings-section">
                     <label className="settings-label">Category Tags</label>
-                    <div className="settings-input-wrapper">
-                        <input type="text" className="settings-input" placeholder="Select or enter tags" />
-                    </div>
-                    <p className="settings-desc">Add tags to categorize different collections e.g. wedding, outdoor, summer. <span className="settings-link">Learn more</span></p>
+                    <CategoryTagsField
+                      tags={categoryTags}
+                      onChange={onCategoryTagsChange}
+                      disabled={categoryTagsSaving}
+                    />
+                    <p className="settings-desc">
+                      Add tags to categorize different collections e.g. wedding, outdoor, summer.
+                      Press <strong>Enter</strong> to add each tag (tags are not added automatically).{' '}
+                      <span className="settings-link">Learn more</span>
+                    </p>
                 </div>
 
                 <div className="settings-section">
