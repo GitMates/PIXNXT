@@ -1,4 +1,4 @@
-.set-main {
+﻿.set-main {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -492,8 +492,8 @@
 }
 
 /* ============================================================
-   SETTINGS — MOBILE RESPONSIVE
-   Only affects screens ≤ 768px. Desktop untouched.
+   SETTINGS â€” MOBILE RESPONSIVE
+   Only affects screens â‰¤ 768px. Desktop untouched.
    ============================================================ */
 @media screen and (max-width: 768px) {
     /* Main container: allow full-page scroll */

@@ -1,4 +1,4 @@
-/* Centers media; hover overlays live on .photo-lightbox-media-wrap (image bounds only). */
+﻿/* Centers media; hover overlays live on .photo-lightbox-media-wrap (image bounds only). */
 .photo-lightbox-media-stage {
   display: flex;
   align-items: center;
@@ -40,7 +40,7 @@
   background-color: #000;
 }
 
-/* Bottom gradient + actions — hidden until mouse hover over the photo */
+/* Bottom gradient + actions â€” hidden until mouse hover over the photo */
 .photo-lightbox-hover-gradient,
 .photo-lightbox-hover-actions {
   position: absolute;
@@ -150,3 +150,4 @@
   color: #888;
   letter-spacing: 0.02em;
 }
+

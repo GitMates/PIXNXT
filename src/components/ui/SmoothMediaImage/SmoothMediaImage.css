@@ -1,4 +1,4 @@
-.smooth-media-wrap {
+﻿.smooth-media-wrap {
   position: relative;
   display: block;
   width: 100%;
@@ -7,7 +7,7 @@
   background: #ebebeb;
 }
 
-/* Square dashboard cells: never stretch — fit natural aspect inside the box */
+/* Square dashboard cells: never stretch â€” fit natural aspect inside the box */
 .smooth-media-wrap--contain-cell {
   display: flex;
   align-items: center;
@@ -130,3 +130,4 @@
 .cd-photo-card--pending .cd-photo-card-inner {
   opacity: 0.92;
 }
+

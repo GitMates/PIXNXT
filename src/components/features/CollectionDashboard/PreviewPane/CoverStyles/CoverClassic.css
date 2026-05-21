@@ -1,6 +1,6 @@
-/* Classic cover — full-width image banner, no text (Pixieset) */
+﻿/* Classic cover â€” full-width image banner, no text (Pixieset) */
 
-/* Dashboard gallery preview only — gallery view unchanged */
+/* Dashboard gallery preview only â€” gallery view unchanged */
 .cd-preview-gallery-card.style-classic .cd-preview-gallery-header {
   display: block;
   overflow: hidden;
@@ -30,3 +30,4 @@
   min-height: 180px !important;
   max-height: 260px !important;
 }
+

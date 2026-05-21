@@ -1,4 +1,4 @@
-/* PreviewPane – dashboard shell only (workspace, canvas, toolbar) */
+﻿/* PreviewPane â€“ dashboard shell only (workspace, canvas, toolbar) */
 
 .cd-design-preview-pane {
   flex: 1;
@@ -39,7 +39,7 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  /* Mild, slow frame resize when switching desktop ↔ mobile preview */
+  /* Mild, slow frame resize when switching desktop â†” mobile preview */
   transition:
     width 0.85s cubic-bezier(0.22, 1, 0.36, 1),
     max-width 0.85s cubic-bezier(0.22, 1, 0.36, 1),
@@ -139,7 +139,7 @@
   min-height: auto;
 }
 
-/* Photos tab – embedded preview uses pane shell without toolbar */
+/* Photos tab â€“ embedded preview uses pane shell without toolbar */
 .cd-photos-preview-top .cd-design-preview-pane {
   height: auto;
   background: transparent;
@@ -207,3 +207,4 @@
   padding: 12px 0;
   justify-content: center;
 }
+

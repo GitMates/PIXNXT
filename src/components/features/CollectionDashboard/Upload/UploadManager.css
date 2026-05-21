@@ -1,4 +1,4 @@
-/* Pixieset-style uploads: expanded light panel + dark minimized widget */
+﻿/* Pixieset-style uploads: expanded light panel + dark minimized widget */
 
 .upload-manager-root {
   position: fixed;
@@ -6,7 +6,7 @@
   font-family: inherit;
 }
 
-/* ── Expanded panel (light) ── */
+/* â”€â”€ Expanded panel (light) â”€â”€ */
 .upload-panel {
   bottom: 24px;
   right: 24px;
@@ -86,7 +86,7 @@
   border-radius: 3px;
 }
 
-/* ── Upload batch card ── */
+/* â”€â”€ Upload batch card â”€â”€ */
 .upload-batch {
   padding: 18px 22px 20px;
   border-bottom: 1px solid #eee;
@@ -397,7 +397,7 @@
   background: #dce9e8;
 }
 
-/* ── Minimized dark widget ── */
+/* â”€â”€ Minimized dark widget â”€â”€ */
 .upload-widget-mini {
   bottom: 24px;
   right: 24px;
@@ -647,3 +647,4 @@
   color: #34d399;
   flex-shrink: 0;
 }
+

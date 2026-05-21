@@ -1,4 +1,4 @@
-/* --- Unified Settings View (Full BG, No Card) --- */
+﻿/* --- Unified Settings View (Full BG, No Card) --- */
 .cd-main-content {
     background-color: #ffffff !important;
     /* Force white background for the whole area */
@@ -467,4 +467,5 @@ input:checked+.cd-toggle-slider:before {
     flex-direction: column;
     gap: 32px;
 }
+
 

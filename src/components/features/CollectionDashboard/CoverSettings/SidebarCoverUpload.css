@@ -1,4 +1,4 @@
-.cd-cover-file-input {
+﻿.cd-cover-file-input {
   position: absolute;
   width: 0;
   height: 0;
@@ -208,3 +208,4 @@
 .cd-cover-hover-overlay:disabled {
   cursor: wait;
 }
+
