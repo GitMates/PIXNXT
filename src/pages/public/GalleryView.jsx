@@ -14,11 +14,16 @@ import { DownloadModal } from '../../components/features/Gallery/DownloadModal/D
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
 import { formatCoverDate } from '../../lib/formatCoverDate.js';
+import { getCollectionFocal } from '../../lib/focalPoint';
 import {
   GalleryStickyNav,
   GallerySetHeading,
   GallerySetDescription,
 } from '../../components/features/Gallery/GalleryChrome';
+import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackToTop/GalleryBackToTop';
+import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
+import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
+import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
 import {
   countGalleryMedia,
   filterGalleryMediaByType,
@@ -365,6 +370,15 @@ const GalleryView = () => {
   };
 
   const galleryRef = useRef(null);
+
+  const scrollToGallery = useCallback(() => {
+    smoothScrollToElement(galleryRef.current);
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    smoothScrollToTop();
+  }, []);
+
   const previewCoverStyle = searchParams.get('coverStyle');
   const previewFont = searchParams.get('font');
   const previewColor = searchParams.get('color');
@@ -537,11 +551,7 @@ const GalleryView = () => {
     };
 
     fetchFavoriteList();
-  }, [listId]);
-
-  const scrollToGallery = () => {
-    galleryRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  }, [listId, scrollToGallery]);
 
   const openLightbox = useCallback((index, { autoplay = false } = {}) => {
     setLightboxIndex(index);
@@ -607,6 +617,42 @@ const GalleryView = () => {
     if (!showMediaFilter) return filteredPhotosBase;
     return filterGalleryMediaByType(filteredPhotosBase, mediaFilter);
   }, [filteredPhotosBase, showMediaFilter, mediaFilter]);
+
+  const showEmptyPlaceholderGrid =
+    !isFavoriteListMode &&
+    photosForActiveSet.length === 0 &&
+    filteredPhotos.length === 0;
+
+  const galleryGridSettings = useMemo(
+    () => ({
+      style: effectiveSettings.grid_style || 'vertical',
+      size: collection?.thumbnail_size || 'regular',
+      spacing: collection?.grid_spacing || 'regular',
+      aspectRatio: collection?.aspect_ratio || 'original',
+    }),
+    [
+      effectiveSettings.grid_style,
+      collection?.thumbnail_size,
+      collection?.grid_spacing,
+      collection?.aspect_ratio,
+    ]
+  );
+
+  const galleryCustomRowHeight =
+    collection?.thumbnail_size === 'large'
+      ? 420
+      : collection?.thumbnail_size === 'regular'
+        ? 300
+        : collection?.thumbnail_size === 'small'
+          ? 200
+          : 140;
+
+  const galleryCustomColumnCount =
+    collection?.thumbnail_size === 'large'
+      ? 2
+      : collection?.thumbnail_size === 'regular'
+        ? 3
+        : 4;
 
   const handleStartSlideshow = useCallback(() => {
     if (filteredPhotos.length < 1) return;
@@ -680,7 +726,10 @@ const GalleryView = () => {
     return typeof raw === 'string' ? raw.trim() : '';
   }, [collection, activeSetId]);
 
-  const photoUrls = useMemo(() => filteredPhotos.map(p => p.full_url || p.web_url || p.thumbnail_url), [filteredPhotos]);
+  const photoUrls = useMemo(
+    () => filteredPhotos.map((p) => getPhotoFullDisplayUrl(p)),
+    [filteredPhotos]
+  );
 
   useEffect(() => {
     if (lightboxIndex < 0) return;
@@ -727,23 +776,15 @@ const GalleryView = () => {
       <div className="gallery-view-hero w-full h-[100dvh] [&>div]:!h-full" data-cover-text-scale="large">
         {(() => {
           const activePhotoUrl = collection.cover_url || (collection.photos?.[0]?.web_url);
-          let extractedFocalX = 50;
-          let extractedFocalY = 50;
-          if (activePhotoUrl && activePhotoUrl.includes('#focal=')) {
-            const match = activePhotoUrl.match(/#focal=([\d.]+),([\d.]+)/);
-            if (match) {
-              extractedFocalX = parseFloat(match[1]);
-              extractedFocalY = parseFloat(match[2]);
-            }
-          }
+          const { x: focalX, y: focalY } = getCollectionFocal(collection);
 
           const props = {
             title: collection.name,
             subtitle: photographer?.display_name || '',
             date: formatCoverDate(collection.event_date || collection.created_at),
             photoUrl: activePhotoUrl,
-            focalX: collection.focal_x ?? extractedFocalX,
-            focalY: collection.focal_y ?? extractedFocalY,
+            focalX,
+            focalY,
             onViewGallery: scrollToGallery,
             isGalleryView: true,
           };
@@ -788,7 +829,7 @@ const GalleryView = () => {
           ) : null}
           {favoritesLocked && sessionId && !isFavoriteListMode ? (
             <div
-              className="mb-6 border px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.2em]"
+              className="gallery-body-text mb-6 border px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.2em]"
               style={{ borderColor: 'var(--gallery-border)', color: 'var(--gallery-meta-text)' }}
             >
               Your favorites for {activeFavoriteList?.name || 'this list'} have been submitted
@@ -871,7 +912,10 @@ const GalleryView = () => {
               return <GallerySetHeading variant="galleryView" label={String(raw).toLowerCase()} />;
             })()}
 
-          {filteredPhotos.length === 0 && showMediaFilter && !isFavoriteListMode ? (
+          {filteredPhotos.length === 0 &&
+          showMediaFilter &&
+          !isFavoriteListMode &&
+          photosForActiveSet.length > 0 ? (
             <p
               className="gallery-body-text py-16 text-center text-[11px] font-bold uppercase tracking-[0.35em] opacity-40"
               style={{ color: 'var(--gallery-text)' }}
@@ -880,34 +924,37 @@ const GalleryView = () => {
             </p>
           ) : null}
 
-          {/* Flexible Gallery Grid */}
-          <MasonryGrid
-            key={`${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}`}
-            photos={filteredPhotos}
-            isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
-            gridSettings={{
-              style: effectiveSettings.grid_style || 'vertical',
-              size: collection.thumbnail_size || 'regular',
-              spacing: collection.grid_spacing || 'regular',
-              aspectRatio: collection.aspect_ratio || 'original'
-            }}
-            onImageClick={openLightbox}
-            onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
-            onDownload={handleDownloadClick}
-            onShare={() => setShowShareModal(true)}
-            onTogglePrivate={handleTogglePhotoPrivate}
-            isClientViewer={isClientViewer}
-            allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
-            showPrivateBadge={isClientViewer}
-            showDownload={showSinglePhotoDownload}
-            showFavorite={collection?.favorites_enabled !== false}
-            showShare={showGalleryShare}
-            favoritedPhotoIds={favoritedPhotos}
-            customRowHeight={collection.thumbnail_size === 'large' ? 420 : collection.thumbnail_size === 'regular' ? 300 : collection.thumbnail_size === 'small' ? 200 : 140}
-            customColumnCount={collection.thumbnail_size === 'large' ? 2 : collection.thumbnail_size === 'regular' ? 3 : 4}
-            showFilename={collection?.show_filenames === true}
-            className="mt-2"
-          />
+          {showEmptyPlaceholderGrid ? (
+            <GalleryEmptyGrid className="mt-2" />
+          ) : (
+            <MasonryGrid
+              key={`${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}`}
+              photos={filteredPhotos}
+              videosOnly={mediaFilter === 'videos'}
+              isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
+              gridSettings={galleryGridSettings}
+              onImageClick={openLightbox}
+              onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
+              onDownload={handleDownloadClick}
+              onShare={() => setShowShareModal(true)}
+              onTogglePrivate={handleTogglePhotoPrivate}
+              isClientViewer={isClientViewer}
+              allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
+              showPrivateBadge={isClientViewer}
+              showDownload={showSinglePhotoDownload}
+              showFavorite={collection?.favorites_enabled !== false}
+              showShare={showGalleryShare}
+              favoritedPhotoIds={favoritedPhotos}
+              customRowHeight={galleryCustomRowHeight}
+              customColumnCount={galleryCustomColumnCount}
+              showFilename={collection?.show_filenames === true}
+              className="mt-2"
+            />
+          )}
+
+          {filteredPhotos.length > 0 ? (
+            <GalleryBackToTop onClick={scrollToTop} />
+          ) : null}
         </Container>
       </main>
 
@@ -931,6 +978,7 @@ const GalleryView = () => {
           setIsSlideshowActive(false);
         }}
         images={photoUrls}
+        photos={filteredPhotos}
         currentIndex={lightboxIndex}
         onNext={() =>
           setLightboxIndex((prev) => {

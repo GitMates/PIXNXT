@@ -1,11 +1,12 @@
 import React, { useMemo } from 'react';
 import {
   CloudUpload,
+  ChevronDown,
   ChevronUp,
-  Minus,
   X,
   CheckCircle2,
   Image as ImageIcon,
+  Film,
   Loader2,
   Check,
 } from 'lucide-react';
@@ -13,7 +14,10 @@ import type { UploadWidgetState } from './uploadTypes';
 import {
   filterFilesByTab,
   formatUploadMb,
+  uploadActiveLabel,
   uploadBytesDone,
+  uploadCompleteSummary,
+  uploadInProgressTitle,
   uploadOverallPercent,
   uploadTabCounts,
   uploadTotalBytes,
@@ -64,6 +68,11 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
   const overallPercent = useMemo(() => uploadOverallPercent(state.files), [state.files]);
   const isAllComplete =
     totalCount > 0 && completedCount === totalCount && inProgressCount === 0;
+  const completeSummary = useMemo(() => uploadCompleteSummary(state.files), [state.files]);
+  const inProgressTitle = useMemo(
+    () => uploadInProgressTitle(state.files, inProgressCount),
+    [state.files, inProgressCount]
+  );
 
   const detailsTabsAndList = (
     <div className="upload-batch-details">
@@ -154,9 +163,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
             )}
             <div>
               <p className="upload-widget-mini-title">
-                {isAllComplete
-                  ? `${completedCount} ${completedCount === 1 ? 'image' : 'images'} uploaded`
-                  : `Uploading ${inProgressCount} ${inProgressCount === 1 ? 'item' : 'items'}`}
+                {isAllComplete ? completeSummary : inProgressTitle}
               </p>
               {inProgressCount > 0 && (
                 <p className="upload-widget-mini-sub">
@@ -200,7 +207,13 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
             <div key={file.id} className="upload-widget-mini-item">
               <div className="upload-widget-mini-icon">
                 {file.previewUrl ? (
-                  <img src={file.previewUrl} alt="" />
+                  file.mediaKind === 'video' ? (
+                    <video src={file.previewUrl} muted playsInline preload="metadata" />
+                  ) : (
+                    <img src={file.previewUrl} alt="" />
+                  )
+                ) : file.mediaKind === 'video' ? (
+                  <Film size={16} color="rgba(255,255,255,0.4)" strokeWidth={1.5} />
                 ) : (
                   <ImageIcon size={16} color="rgba(255,255,255,0.4)" strokeWidth={1.5} />
                 )}
@@ -222,7 +235,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
                           ? file.progress < 5
                             ? 'Optimizing…'
                             : 'Finishing…'
-                          : `Uploading · ${formatUploadMb(file.size)}`}
+                          : `${uploadActiveLabel(file.mediaKind)} · ${formatUploadMb(file.size)}`}
                 </p>
               </div>
               <div
@@ -259,17 +272,22 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
           Uploads
         </h2>
         <div className="upload-panel-header-actions">
+          <button
+            type="button"
+            className="upload-panel-hide"
+            onClick={onMinimize}
+            aria-label="Minimize uploads panel"
+          >
+            <span className="upload-panel-hide-icon" aria-hidden>
+              <ChevronDown size={14} strokeWidth={2} />
+            </span>
+            Minimize
+          </button>
           {isAllComplete && onDismiss ? (
             <button type="button" className="upload-panel-close-done" onClick={onDismiss}>
               Close
             </button>
           ) : null}
-          <button type="button" className="upload-panel-hide" onClick={onMinimize}>
-            Hide
-            <span className="upload-panel-hide-icon" aria-hidden>
-              <Minus size={16} strokeWidth={1.5} />
-            </span>
-          </button>
         </div>
       </header>
 
@@ -282,9 +300,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
                 <span className="upload-batch-success-check" aria-hidden>
                   <Check size={14} strokeWidth={3} />
                 </span>
-                <span className="upload-batch-success-text">
-                  {completedCount} {completedCount === 1 ? 'image' : 'images'} uploaded
-                </span>
+                <span className="upload-batch-success-text">{completeSummary}</span>
                 <div className="upload-batch-success-actions">
                   {onViewCompleted && (
                     <button
@@ -312,9 +328,7 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
                     <span className="upload-batch-success-check" aria-hidden>
                       <Check size={14} strokeWidth={3} />
                     </span>
-                    <span className="upload-batch-success-text">
-                      {completedCount} {completedCount === 1 ? 'image' : 'images'} uploaded
-                    </span>
+                    <span className="upload-batch-success-text">{completeSummary}</span>
                   </div>
                   <button type="button" className="upload-batch-details-link" onClick={onToggleDetails}>
                     − Hide file list

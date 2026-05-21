@@ -1,0 +1,19 @@
+.gallery-empty-space {
+  width: 100%;
+  min-height: min(72vh, 820px);
+  background-color: var(--gallery-secondary-bg, #fafafa);
+}
+
+.gallery-empty-space--preview {
+  min-height: 480px;
+}
+
+.gallery-empty-space--preview-mobile {
+  min-height: 360px;
+}
+
+@media (max-width: 768px) {
+  .gallery-empty-space:not(.gallery-empty-space--preview) {
+    min-height: min(58vh, 560px);
+  }
+}

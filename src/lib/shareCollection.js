@@ -1,10 +1,15 @@
 import { buildGmailComposeUrl } from './gmailComposeUrl';
 import { generateCollectionSlug } from './collectionSlug';
+import { getPublicGalleryUrl, getPublicSiteOrigin, getShareUrlWarning } from './publicSiteUrl';
+
+export { getShareUrlWarning };
 
 export function getCollectionShareUrl(slug) {
-    if (!slug) return `${window.location.origin}/gallery`;
-    return `${window.location.origin}/gallery/${slug}`;
+    return getPublicGalleryUrl(slug);
 }
+
+/** @deprecated Use getPublicSiteOrigin — re-export for callers that need the origin only. */
+export { getPublicSiteOrigin };
 
 /** Resolve a shareable gallery URL from a collection row (slug or generated from name). */
 export function getShareUrlForCollection(collection) {

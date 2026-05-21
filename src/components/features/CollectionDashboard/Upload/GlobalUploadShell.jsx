@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { CloudUpload, Loader2, CheckCircle2 } from 'lucide-react';
 import { useUploadQueueContext } from '../../../../contexts/UploadQueueContext';
 import { UploadManager } from './UploadManager';
-import { uploadTabCounts } from './uploadUtils';
+import { uploadCompleteSummary, uploadInProgressTitle, uploadTabCounts } from './uploadUtils';
 import './UploadManager.css';
 
 export const UPLOAD_VIEW_COLLECTION_EVENT = 'pixnxt-upload-view-collection';
@@ -33,6 +33,11 @@ export function GlobalUploadShell() {
   const inProgress = counts.uploading;
   const isAllComplete =
     state.files.length > 0 && counts.complete === state.files.length && inProgress === 0;
+  const completeSummary = useMemo(() => uploadCompleteSummary(state.files), [state.files]);
+  const inProgressTitle = useMemo(
+    () => uploadInProgressTitle(state.files, inProgress),
+    [state.files, inProgress]
+  );
 
   if (!state.isOpen) return null;
 
@@ -104,8 +109,8 @@ export function GlobalUploadShell() {
           onClick={handleFabClick}
           aria-label={
             isAllComplete
-              ? `${counts.complete} uploads complete. Open upload panel`
-              : `Uploading ${inProgress} items. Open upload panel`
+              ? `${completeSummary || `${counts.complete} uploads complete`}. Open upload panel`
+              : `${inProgressTitle || `Uploading ${inProgress} items`}. Open upload panel`
           }
         >
           <span className="upload-fab-icon" aria-hidden>

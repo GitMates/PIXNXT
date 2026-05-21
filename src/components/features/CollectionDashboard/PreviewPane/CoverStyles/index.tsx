@@ -150,7 +150,7 @@ export const NovelCover: React.FC<CoverProps> = ({
         {brand ? (
           <p
             className={cn(
-              'cover-novel-layout__brand cover-text-grid__subtitle uppercase font-normal',
+              'cover-novel-layout__brand cover-text-grid__subtitle font-normal',
               s.subtitle
             )}
           >
@@ -159,14 +159,14 @@ export const NovelCover: React.FC<CoverProps> = ({
         ) : null}
         <h1
           className={cn(
-            'cover-novel-layout__title cover-text-grid__title gallery-heading uppercase leading-none font-bold',
+            'cover-novel-layout__title cover-text-grid__title gallery-heading leading-none',
             s.title
           )}
         >
           {title}
         </h1>
         {date ? (
-          <p className={cn('cover-novel-layout__date cover-text-grid__date gallery-body-text uppercase', s.date)}>
+          <p className={cn('cover-novel-layout__date cover-text-grid__date gallery-body-text', s.date)}>
             {date}
           </p>
         ) : null}

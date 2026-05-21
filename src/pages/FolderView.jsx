@@ -6,7 +6,6 @@ import { galleryService } from '../services/gallery.service';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getShareUrlForCollection } from '../lib/shareCollection';
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
-import { generateCollectionSlug } from '../lib/collectionSlug';
 import { CollectionContextMenu } from '../components/features/ClientGallery/CollectionContextMenu';
 import { EditCollectionModal } from '../components/features/ClientGallery/EditCollectionModal';
 import {
@@ -308,30 +307,19 @@ const FolderView = () => {
   };
 
   const handleDuplicateConfirm = async () => {
-    if (!duplicateCollection || !user) return;
+    if (!duplicateCollection || !user?.id) return;
+    const photographerId = duplicateCollection.photographer_id ?? user.id;
     setDuplicateBusy(true);
     try {
-      const newRow = await galleryService.createCollection({
-        photographer_id: user.id,
-        folder_id: folderId,
-        name: `${duplicateCollection.name} (Copy)`,
-        slug: `${generateCollectionSlug(duplicateCollection.name)}-copy-${Date.now().toString(36)}`,
-        event_date: duplicateCollection.event_date || null,
-        status: 'draft',
-        font_family: 'sans_1',
-        color_palette: 'light_1',
-        grid_style: 'vertical',
-        thumbnail_size: 'regular',
-        grid_spacing: 'regular',
-        nav_style: 'icons',
-        privacy: 'public',
-        cover_style: 'photo',
-      });
+      const newRow = await galleryService.duplicateCollection(
+        duplicateCollection.id,
+        photographerId
+      );
       setDuplicateCollection(null);
       navigate(`/collections/manage?id=${newRow.id}`);
     } catch (err) {
       console.error(err);
-      alert('Failed to duplicate collection.');
+      alert(err?.message || 'Failed to duplicate collection. Please try again.');
     } finally {
       setDuplicateBusy(false);
     }

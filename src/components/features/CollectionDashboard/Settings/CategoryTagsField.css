@@ -1,0 +1,66 @@
+.category-tags-field {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #111;
+  border-radius: 4px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.category-tags-field.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.category-tags-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px 4px 10px;
+  border-radius: 4px;
+  background: #f0f2f3;
+  font-size: 13px;
+  font-weight: 500;
+  color: #333;
+}
+
+.category-tags-chip-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #666;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.category-tags-chip-remove:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #111;
+}
+
+.category-tags-input {
+  flex: 1;
+  min-width: 120px;
+  border: none;
+  outline: none;
+  font-size: 14px;
+  font-family: inherit;
+  color: #111;
+  background: transparent;
+}
+
+.category-tags-input::placeholder {
+  color: #999;
+}

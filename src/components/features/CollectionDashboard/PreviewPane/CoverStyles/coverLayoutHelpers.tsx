@@ -1,5 +1,6 @@
 import React from 'react';
 import { cn } from '../../../../../lib/utils';
+import { stripMediaUrlHash } from '../../../../../lib/focalPoint';
 import { coverTextStyles, getCoverTextMode } from './coverTextStyles';
 
 export function coverLayoutHeight(isPreview?: boolean, isGalleryView?: boolean) {
@@ -23,10 +24,11 @@ type CoverPhotoProps = {
 };
 
 export function CoverPhoto({ photoUrl, focalX, focalY, className, alt = '' }: CoverPhotoProps) {
-  if (!photoUrl) return null;
+  const src = stripMediaUrlHash(photoUrl);
+  if (!src) return null;
   return (
     <img
-      src={photoUrl}
+      src={src}
       alt={alt}
       className={cn('h-full w-full object-cover', className)}
       style={{ objectPosition: `${focalX ?? 50}% ${focalY ?? 50}%` }}

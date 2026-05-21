@@ -6,6 +6,13 @@ import { extractRawPreviewBlob } from '../lib/rawImagePreview';
 import { hasRawDisplayPreview, isRawMedia, resolveMediaUrl } from '../lib/photoDisplayUrl';
 import { generateCollectionSlug } from '../lib/collectionSlug';
 import { storageService } from './storage.service';
+import {
+  appendFocalToCoverUrl,
+  isMissingDbColumnError,
+  isNumericOverflowError,
+  normalizeFocalForDb,
+  normalizeFocalPercent,
+} from '../lib/focalPoint.js';
 
 /** Columns needed for dashboard grid (avoids heavy nested * payload). */
 const DASHBOARD_PHOTO_FIELDS = `
@@ -58,6 +65,24 @@ async function deleteStoragePaths(paths) {
   }
 }
 
+/** Dashboard list row: storage totals + filenames for client-gallery search. */
+function mapCollectionDashboardRow(c) {
+  const photoRows = c.photos || [];
+  const storage_bytes = photoRows.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
+  const storedTotal = Number(c.total_size_bytes);
+  const photo_filenames = photoRows
+    .map((p) => p.filename)
+    .filter((name) => typeof name === 'string' && name.length > 0);
+  const { photos, ...rest } = c;
+  return {
+    ...rest,
+    photo_count: rest.photo_count ?? photoRows.length,
+    photo_filenames,
+    storage_bytes:
+      Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : storage_bytes,
+  };
+}
+
 export const galleryService = {
   /**
    * Fetch all collections for a specific photographer (Dashboard view)
@@ -67,24 +92,50 @@ export const galleryService = {
       .from('collections')
       .select(`
         *,
-        photos:photos!photos_collection_id_fkey(size_bytes)
+        photos:photos!photos_collection_id_fkey(size_bytes, filename)
       `)
       .eq('photographer_id', photographerId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    return (data || []).map((c) => {
-      const photoRows = c.photos || [];
-      const storage_bytes = photoRows.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
-      const storedTotal = Number(c.total_size_bytes);
-      const { photos, ...rest } = c;
-      return {
-        ...rest,
-        photo_count: rest.photo_count ?? photoRows.length,
-        storage_bytes:
-          Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : storage_bytes,
-      };
+    return (data || []).map(mapCollectionDashboardRow);
+  },
+
+  /** Starred collections for the dashboard Starred page. */
+  async getStarredCollections(photographerId) {
+    if (!photographerId) return [];
+    const { data, error } = await supabase
+      .from('collections')
+      .select(`
+        *,
+        photos:photos!photos_collection_id_fkey(size_bytes, filename)
+      `)
+      .eq('photographer_id', photographerId)
+      .eq('is_starred', true)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(mapCollectionDashboardRow);
+  },
+
+  /** Starred photos across all collections for the dashboard Starred → Photos tab. */
+  async getStarredPhotos(photographerId) {
+    if (!photographerId) return [];
+    const { data, error } = await supabase
+      .from('photos')
+      .select(`
+        ${DASHBOARD_PHOTO_FIELDS},
+        collection:collections!photos_collection_id_fkey(id, name, slug)
+      `)
+      .eq('photographer_id', photographerId)
+      .eq('is_starred', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map((row) => {
+      const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
+      return { ...row, collection: collection || null };
     });
   },
 
@@ -266,7 +317,7 @@ export const galleryService = {
       .from('collections')
       .select(`
         *,
-        photos:photos!photos_collection_id_fkey(size_bytes)
+        photos:photos!photos_collection_id_fkey(size_bytes, filename)
       `)
       .eq('photographer_id', photographerId)
       .eq('folder_id', folderId)
@@ -274,18 +325,7 @@ export const galleryService = {
 
     if (error) throw error;
 
-    return (data || []).map((c) => {
-      const photoRows = c.photos || [];
-      const storage_bytes = photoRows.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
-      const storedTotal = Number(c.total_size_bytes);
-      const { photos, ...rest } = c;
-      return {
-        ...rest,
-        photo_count: rest.photo_count ?? photoRows.length,
-        storage_bytes:
-          Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : storage_bytes,
-      };
-    });
+    return (data || []).map(mapCollectionDashboardRow);
   },
 
   async updateFolder(folderId, photographerId, updates) {
@@ -364,7 +404,7 @@ export const galleryService = {
   },
 
   /**
-   * Duplicate a collection: copies metadata, sets, and non-video photos (same storage URLs).
+   * Duplicate a collection: copies metadata, sets, and all media (photos + videos, same storage URLs).
    */
   async duplicateCollection(sourceCollectionId, photographerId) {
     if (!sourceCollectionId || !photographerId) {
@@ -375,11 +415,13 @@ export const galleryService = {
 
     const newCollection = await this.createCollection({
       photographer_id: photographerId,
+      folder_id: source.folder_id ?? null,
       name: `${source.name} (Copy)`,
       slug: `${generateCollectionSlug(source.name)}-copy-${Date.now().toString(36)}`,
       event_date: source.event_date ?? null,
       status: 'draft',
       description: source.description ?? null,
+      category_tags: source.category_tags ?? [],
       font_family: source.font_family ?? 'sans_1',
       color_palette: source.color_palette ?? 'light_1',
       grid_style: source.grid_style ?? 'vertical',
@@ -423,9 +465,9 @@ export const galleryService = {
       setIdMap.set(set.id, created.id);
     }
 
-    const sourcePhotos = [...(source.photos || [])]
-      .filter((p) => p.media_type !== 'video')
-      .sort((a, b) => (a.position || 0) - (b.position || 0));
+    const sourcePhotos = [...(source.photos || [])].sort(
+      (a, b) => (a.position || 0) - (b.position || 0)
+    );
 
     if (sourcePhotos.length > 0) {
       const rows = sourcePhotos.map((p, index) => ({
@@ -467,6 +509,39 @@ export const galleryService = {
     }
 
     return newCollection;
+  },
+
+  /**
+   * Save cover focal point. Uses cover_focal_x/y when present; falls back to #focal= on cover_url.
+   */
+  async saveCollectionFocalPoint(collectionId, coverUrl, focalX, focalY) {
+    const fx = normalizeFocalForDb(focalX);
+    const fy = normalizeFocalForDb(focalY);
+    const newCoverUrl = appendFocalToCoverUrl(coverUrl, fx, fy);
+
+    const fullPatch = {
+      cover_url: newCoverUrl,
+      cover_focal_x: fx,
+      cover_focal_y: fy,
+    };
+
+    try {
+      return await this.updateCollection(collectionId, fullPatch);
+    } catch (err) {
+      if (isMissingDbColumnError(err, 'cover_focal')) {
+        console.warn(
+          'cover_focal_x/y columns missing — saving focal in cover_url only. Run migration 20260521140000_collections_cover_focal.sql'
+        );
+        return await this.updateCollection(collectionId, { cover_url: newCoverUrl });
+      }
+      if (isNumericOverflowError(err)) {
+        console.warn(
+          'cover_focal_x/y numeric overflow — saving focal in cover_url only. Run migration 20260521140100_collections_cover_focal_fix_type.sql'
+        );
+        return await this.updateCollection(collectionId, { cover_url: newCoverUrl });
+      }
+      throw err;
+    }
   },
 
   /**

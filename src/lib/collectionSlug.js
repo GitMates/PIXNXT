@@ -6,7 +6,9 @@ export function generateCollectionSlug(text) {
         .replace(/ +/g, '-');
 }
 
+import { getPublicGalleryUrl } from './publicSiteUrl';
+
+/** @deprecated Prefer getPublicGalleryUrl from publicSiteUrl / shareCollection. */
 export function getGalleryPublicUrl(slug) {
-    if (!slug) return `${window.location.origin}/gallery`;
-    return `${window.location.origin}/gallery/${slug}`;
+    return getPublicGalleryUrl(slug);
 }

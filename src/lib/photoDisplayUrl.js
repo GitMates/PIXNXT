@@ -76,6 +76,9 @@ export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
 /** Lightbox / large view — for RAW use JPEG preview, not the original file. */
 export function getPhotoFullDisplayUrl(photo) {
   if (!photo) return '';
+  if (isVideoMedia(photo)) {
+    return getPhotoVideoSrc(photo);
+  }
   if (isRawMedia(photo)) {
     return getRawPreviewUrl(photo);
   }
@@ -191,6 +194,9 @@ export function getPhotoVideoPoster(photo) {
 export function getPhotoDisplayFallbacks(photo, preferOriginalAspect = false) {
   if (!photo) return [];
   const seen = new Set();
+  if (isVideoMedia(photo)) {
+    return getPhotoDownloadUrlCandidates(photo);
+  }
   if (isRawMedia(photo)) {
     const preview = getRawPreviewUrl(photo);
     return preview ? [preview] : [];

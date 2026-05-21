@@ -108,13 +108,16 @@
   gap: 6px;
   opacity: 0;
   transform: translateY(8px);
+  pointer-events: none;
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 
-.group:hover .cea-photo-actions,
-.cea-photo-actions.cea-photo-actions--visible {
-  opacity: 1;
-  transform: translateY(0);
+@media (hover: hover) and (pointer: fine) {
+  .group:hover .cea-photo-actions {
+    opacity: 1;
+    transform: translateY(0);
+    pointer-events: auto;
+  }
 }
 
 .cea-photo-action-btn {
