@@ -664,6 +664,7 @@ export const galleryService = {
           web_url,
           thumbnail_url,
           full_url,
+          original_storage_path,
           width,
           height,
           position,
