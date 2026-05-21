@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
+import { storageService } from '../services/storage.service';
 
 export default function AccountSettings() {
     const { tab } = useParams();
@@ -201,6 +202,9 @@ export default function AccountSettings() {
 function ProfileTab({ user }) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [uploadingIcon, setUploadingIcon] = useState(false);
+    const fileInputRef = useRef(null);
+
     const [formData, setFormData] = useState({
         profile_icon_url: '',
         business_name: '',
@@ -283,12 +287,145 @@ function ProfileTab({ user }) {
         setSaving(false);
     };
 
+    const handleIconClick = () => {
+        fileInputRef.current?.click();
+    };
+
+    const handleIconChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file || !user?.id) return;
+
+        setUploadingIcon(true);
+        try {
+            const ext = file.name.split('.').pop() || 'png';
+            const path = `photographers/${user.id}/profile_icon_${Date.now()}.${ext}`;
+            const uploadResult = await storageService.upload(path, file);
+            const imageUrl = uploadResult.url;
+            
+            setFormData(prev => ({ ...prev, profile_icon_url: imageUrl }));
+            await handleAutoSave('profile_icon_url', imageUrl);
+        } catch (err) {
+            console.error("Error uploading profile icon:", err);
+            alert("Failed to upload profile icon. Please try again.");
+        } finally {
+            setUploadingIcon(false);
+        }
+    };
+
+    const handleRemoveIcon = async (e) => {
+        e.stopPropagation();
+        if (!user?.id) return;
+        
+        setUploadingIcon(true);
+        try {
+            setFormData(prev => ({ ...prev, profile_icon_url: '' }));
+            await handleAutoSave('profile_icon_url', '');
+        } catch (err) {
+            console.error("Error removing profile icon:", err);
+        } finally {
+            setUploadingIcon(false);
+        }
+    };
+
     if (loading) {
         return <div className="py-8 text-[#888]">Loading profile...</div>;
     }
 
     return (
         <div className="flex flex-col gap-12 pb-20 relative">
+            <style>{`
+                .profile-upload-box {
+                    width: 120px;
+                    height: 120px;
+                    background-color: #f5f5f5;
+                    margin-bottom: 12px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: #999;
+                    cursor: pointer;
+                    position: relative;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                    border-radius: 4px;
+                    overflow: hidden;
+                }
+                .profile-upload-box:hover {
+                    background-color: #eaeaea;
+                }
+                .profile-upload-inner {
+                    width: 36px;
+                    height: 36px;
+                    border: 1.5px solid #d1d5db;
+                    border-radius: 8px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    background-color: #ffffff;
+                    color: #4b5563;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+                    transition: all 0.2s ease;
+                }
+                .profile-upload-box:hover .profile-upload-inner {
+                    border-color: #9ca3af;
+                    transform: scale(1.08);
+                    box-shadow: 0 4px 6px rgba(0,0,0,0.08);
+                }
+                .profile-upload-overlay {
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background-color: rgba(0, 0, 0, 0.4);
+                    color: #ffffff;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    opacity: 0;
+                    transition: opacity 0.2s ease;
+                    font-size: 12px;
+                    font-weight: 500;
+                }
+                .profile-upload-box:hover .profile-upload-overlay {
+                    opacity: 1;
+                }
+                .profile-upload-remove-btn {
+                    position: absolute;
+                    top: 6px;
+                    right: 6px;
+                    background-color: rgba(255, 255, 255, 0.9);
+                    border: none;
+                    border-radius: 50%;
+                    width: 20px;
+                    height: 20px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+                    color: #ef4444;
+                    transition: all 0.15s ease;
+                    z-index: 10;
+                }
+                .profile-upload-remove-btn:hover {
+                    background-color: #ffffff;
+                    color: #dc2626;
+                    transform: scale(1.1);
+                }
+                .profile-upload-spinner {
+                    width: 24px;
+                    height: 24px;
+                    border: 2px solid rgba(0,0,0,0.1);
+                    border-top: 2px solid #1a9b84;
+                    border-radius: 50%;
+                    animation: profile-spin 0.8s linear infinite;
+                }
+                @keyframes profile-spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            `}</style>
             {saving && (
                 <div className="fixed bottom-6 right-6 bg-[#1a9b84] text-white px-4 py-2 rounded-md shadow-lg text-[13px] font-medium transition-opacity animate-[cgFadeIn_0.2s_ease]">
                     Saving...
@@ -303,12 +440,37 @@ function ProfileTab({ user }) {
                 <div className="flex flex-col gap-8 w-full">
                     <div>
                         <label className="block text-[15px] font-bold text-[#111] mb-2">Profile Icon</label>
-                        <div className="w-[100px] h-[100px] bg-[#f5f5f5] mb-3 flex items-center justify-center text-[#999] cursor-pointer hover:bg-[#eeeeee] transition-colors relative group">
-                            {formData.profile_icon_url ? (
-                                <img src={formData.profile_icon_url} alt="Profile Icon" className="w-full h-full object-cover" />
+                        <div 
+                            className="profile-upload-box" 
+                            onClick={handleIconClick}
+                        >
+                            <input 
+                                type="file" 
+                                ref={fileInputRef} 
+                                onChange={handleIconChange} 
+                                style={{ display: 'none' }} 
+                                accept="image/*" 
+                            />
+                            {uploadingIcon ? (
+                                <div className="profile-upload-spinner"></div>
+                            ) : formData.profile_icon_url ? (
+                                <>
+                                    <img src={formData.profile_icon_url} alt="Profile Icon" className="w-full h-full object-cover" />
+                                    <div className="profile-upload-overlay">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="mb-1"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2 2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                                        Change
+                                    </div>
+                                    <button 
+                                        className="profile-upload-remove-btn" 
+                                        onClick={handleRemoveIcon}
+                                        title="Remove Icon"
+                                    >
+                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                                    </button>
+                                </>
                             ) : (
-                                <div className="w-[28px] h-[28px] border border-[#ccc] flex items-center justify-center bg-white text-[#888]">
-                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                <div className="profile-upload-inner">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                                 </div>
                             )}
                         </div>
