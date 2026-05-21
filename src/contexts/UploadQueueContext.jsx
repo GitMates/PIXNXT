@@ -2,6 +2,7 @@ import React, {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -49,21 +50,28 @@ export function UploadQueueProvider({ children }) {
   const sessionRef = useRef(0);
   const stateRef = useRef(state);
   const targetRef = useRef(null);
+  /** Last batch enqueue target (for widget label / View navigation while uploads run). */
+  const lastBatchTargetRef = useRef(null);
 
   stateRef.current = state;
 
   const configureTarget = useCallback((config) => {
     targetRef.current = config;
-    if (config?.destinationLabel) {
-      setDestinationLabel(config.destinationLabel);
+    const inFlight = stateRef.current.files.some(
+      (f) => f.status === 'uploading' || f.status === 'processing' || f.status === 'waiting'
+    );
+    if (!inFlight) {
+      if (config?.destinationLabel) {
+        setDestinationLabel(config.destinationLabel);
+      }
+      if ('activeSetId' in (config || {})) {
+        setUploadTargetSetId(config.activeSetId ?? null);
+      }
     }
     if (config?.collectionId) {
       setActiveCollectionId(config.collectionId);
     }
-    if ('activeSetId' in (config || {})) {
-      setUploadTargetSetId(config.activeSetId ?? null);
-    }
-    if (config?.photosLength != null) {
+    if (config?.photosLength != null && !inFlight) {
       photoIndexRef.current = config.photosLength;
     }
   }, []);
@@ -77,12 +85,16 @@ export function UploadQueueProvider({ children }) {
 
   const runUpload = useCallback(
     async (uf) => {
-      const target = targetRef.current;
-      if (!target?.collectionId || !target?.photographerId || !uf.file) {
+      const collectionId = uf.collectionId;
+      const photographerId = uf.photographerId;
+      const setId = uf.setId ?? null;
+      const sortIndex = uf.sortIndex ?? 0;
+
+      if (!collectionId || !photographerId || !uf.file) {
         patchFile(uf.id, {
           status: 'error',
           progress: 0,
-          errorMessage: !target?.photographerId
+          errorMessage: !photographerId
             ? 'Photographer account not loaded. Refresh and try again.'
             : 'Open a collection before uploading.',
         });
@@ -90,8 +102,6 @@ export function UploadQueueProvider({ children }) {
       }
 
       const session = sessionRef.current;
-      const sortIndex = photoIndexRef.current;
-      photoIndexRef.current += 1;
 
       const safePatch = (patch) => {
         if (session !== sessionRef.current) return;
@@ -112,11 +122,11 @@ export function UploadQueueProvider({ children }) {
         });
 
         const photoData = await galleryService.uploadPhoto(
-          target.collectionId,
-          target.photographerId,
+          collectionId,
+          photographerId,
           fileToUpload,
           sortIndex,
-          target.activeSetId ?? null,
+          setId,
           (percent) => {
             const mapped = 12 + Math.round(percent * 0.88);
             safePatch({ status: percent >= 100 ? 'processing' : 'uploading', progress: mapped });
@@ -125,7 +135,7 @@ export function UploadQueueProvider({ children }) {
 
         if (session !== sessionRef.current) return;
         safePatch({ progress: 100, status: 'completed' });
-        target.onPhotoUploaded?.(photoData);
+        targetRef.current?.onPhotoUploaded?.(photoData);
       } catch (err) {
         console.error('Upload failed:', err);
         const message =
@@ -185,8 +195,10 @@ export function UploadQueueProvider({ children }) {
   }, [pumpQueue]);
 
   const processFiles = useCallback(
-    async (fileList) => {
-      const target = targetRef.current;
+    async (fileList, uploadTargetOverride) => {
+      const target = uploadTargetOverride
+        ? { ...targetRef.current, ...uploadTargetOverride }
+        : targetRef.current;
       if (!target?.collectionId || !target?.photographerId) {
         alert('Open a collection before uploading photos.');
         return false;
@@ -224,7 +236,23 @@ export function UploadQueueProvider({ children }) {
 
       const sortedAccepted = sortFilesBySizeAsc(accepted);
 
-      const newUploadFiles = sortedAccepted.map((file) => ({
+      const collectionId = target.collectionId;
+      const photographerId = target.photographerId;
+      const setId = target.activeSetId ?? null;
+      const batchDestination =
+        target.destinationLabel || destinationLabel || 'Collection';
+      const baseSortIndex = photoIndexRef.current;
+
+      lastBatchTargetRef.current = {
+        collectionId,
+        activeSetId: setId,
+        destinationLabel: batchDestination,
+      };
+      setDestinationLabel(batchDestination);
+      setUploadTargetSetId(setId);
+      setActiveCollectionId(collectionId);
+
+      const newUploadFiles = sortedAccepted.map((file, index) => ({
         id: Math.random().toString(36).slice(2, 11),
         file,
         name: file.name,
@@ -232,7 +260,14 @@ export function UploadQueueProvider({ children }) {
         progress: 0,
         status: pausedRef.current ? 'waiting' : 'processing',
         previewUrl: undefined,
+        collectionId,
+        photographerId,
+        setId,
+        sortIndex: baseSortIndex + index,
+        destinationLabel: batchDestination,
       }));
+
+      photoIndexRef.current = baseSortIndex + sortedAccepted.length;
 
       setState((prev) => ({
         ...prev,
@@ -269,7 +304,7 @@ export function UploadQueueProvider({ children }) {
 
       return true;
     },
-    [enqueueUpload, patchFile]
+    [enqueueUpload, patchFile, destinationLabel]
   );
 
   const pause = useCallback(() => {
@@ -296,6 +331,7 @@ export function UploadQueueProvider({ children }) {
     pendingQueueRef.current = [];
     activeCountRef.current = 0;
     pausedRef.current = false;
+    lastBatchTargetRef.current = null;
     setState((prev) => {
       revokePreviews(prev.files);
       return { ...initialUploadWidgetState };
@@ -338,6 +374,18 @@ export function UploadQueueProvider({ children }) {
     setState((prev) => ({ ...prev, showDetails: !prev.showDetails }));
   }, []);
 
+  /** Close panel shortly after every file uploads successfully (no failures in flight). */
+  useEffect(() => {
+    if (!state.isOpen) return;
+    const total = state.files.length;
+    if (total === 0) return;
+    const { complete, uploading, failed } = uploadTabCounts(state.files);
+    if (uploading > 0 || failed > 0 || complete !== total) return;
+
+    const timer = window.setTimeout(() => dismiss(), 1200);
+    return () => window.clearTimeout(timer);
+  }, [state.isOpen, state.files, dismiss]);
+
   /** Expand panel and show the file list on the Complete tab (used by “View” after uploads finish). */
   const openCompletedUploadDetails = useCallback(() => {
     setState((prev) => ({
@@ -350,6 +398,14 @@ export function UploadQueueProvider({ children }) {
   }, []);
 
   const getUploadTarget = useCallback(() => {
+    const batch = lastBatchTargetRef.current;
+    if (batch?.collectionId) {
+      return {
+        collectionId: batch.collectionId,
+        activeSetId: batch.activeSetId ?? null,
+        destinationLabel: batch.destinationLabel || destinationLabel || 'Collection',
+      };
+    }
     const target = targetRef.current;
     if (!target?.collectionId) return null;
     return {

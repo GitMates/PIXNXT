@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { DownloadSettingsProps } from './Settings.types';
 
 export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
@@ -20,6 +20,7 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
   setDownloadPin,
   pinValue,
   setPinValue,
+  onPinEnter,
   downloadLimit,
   setDownloadLimit,
   restrictToEmails,
@@ -34,6 +35,13 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
   setActiveSidebarTab,
   setActiveActivitySubTab
 }) => {
+  const pinInputRef = useRef<HTMLInputElement>(null);
+
+  const commitPin = (pin: string) => {
+    onPinEnter?.(pin);
+    pinInputRef.current?.blur();
+  };
+
   return (
     <div className="cd-general-settings-view">
         <div className="cd-settings-content-header split">
@@ -120,8 +128,33 @@ export const DownloadSettings: React.FC<DownloadSettingsProps> = ({
                         </div>
                         {downloadPin && (
                             <div className="settings-input-wrapper with-action mt-12">
-                                <input type="text" className="settings-input" value={pinValue} onChange={(e) => setPinValue(e.target.value)} maxLength={4} />
-                                <button className="input-action-btn no-icon" onClick={() => setPinValue(Math.floor(1000 + Math.random() * 9000).toString())}>
+                                <input
+                                    ref={pinInputRef}
+                                    type="text"
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    className="settings-input"
+                                    value={pinValue}
+                                    onChange={(e) => setPinValue(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            commitPin(pinValue);
+                                        }
+                                    }}
+                                    maxLength={4}
+                                    placeholder="4-digit PIN"
+                                    aria-label="Download PIN"
+                                />
+                                <button
+                                    type="button"
+                                    className="input-action-btn no-icon"
+                                    onClick={() => {
+                                        const next = Math.floor(1000 + Math.random() * 9000).toString();
+                                        setPinValue(next);
+                                        commitPin(next);
+                                    }}
+                                >
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 4v6h-6"></path><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg>
                                     Reset PIN
                                 </button>

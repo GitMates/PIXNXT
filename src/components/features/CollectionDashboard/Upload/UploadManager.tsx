@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import {
   CloudUpload,
+  ChevronDown,
   ChevronUp,
-  Minus,
   X,
   CheckCircle2,
   Image as ImageIcon,
@@ -259,17 +259,22 @@ export const UploadManager: React.FC<UploadManagerProps> = ({
           Uploads
         </h2>
         <div className="upload-panel-header-actions">
+          <button
+            type="button"
+            className="upload-panel-hide"
+            onClick={onMinimize}
+            aria-label="Minimize uploads panel"
+          >
+            <span className="upload-panel-hide-icon" aria-hidden>
+              <ChevronDown size={14} strokeWidth={2} />
+            </span>
+            Minimize
+          </button>
           {isAllComplete && onDismiss ? (
             <button type="button" className="upload-panel-close-done" onClick={onDismiss}>
               Close
             </button>
           ) : null}
-          <button type="button" className="upload-panel-hide" onClick={onMinimize}>
-            Hide
-            <span className="upload-panel-hide-icon" aria-hidden>
-              <Minus size={16} strokeWidth={1.5} />
-            </span>
-          </button>
         </div>
       </header>
 

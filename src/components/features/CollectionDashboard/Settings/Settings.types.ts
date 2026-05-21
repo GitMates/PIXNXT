@@ -59,6 +59,7 @@ export interface DownloadSettingsProps {
   setDownloadPin: (val: boolean) => void;
   pinValue: string;
   setPinValue: (val: string) => void;
+  onPinEnter?: (pin: string) => void;
   downloadLimit: string;
   setDownloadLimit: (val: string) => void;
   restrictToEmails: string;

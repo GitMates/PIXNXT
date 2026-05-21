@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Share2, Play } from 'lucide-react';
+import { Heart, Share2, Play, Download, Loader2 } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
 import { NavigationStyleSetting } from '../../../../lib/navStyle';
@@ -209,15 +209,12 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           disabled={!isCompact && isDownloadingAll}
           style={{ color: 'var(--gallery-text)' }}
         >
-          <span
-            className={cn(
-              styles.action,
-              'gallery-chrome__action-label',
-              showActionLabels ? (isCompact ? 'inline' : 'hidden md:inline') : 'inline'
-            )}
-          >
-            {downloadLabel}
-          </span>
+          {isDownloadingAll ? (
+            <Loader2 size={iconSize} className="animate-spin shrink-0" aria-hidden />
+          ) : (
+            <Download size={iconSize} className="shrink-0" aria-hidden />
+          )}
+          <span className={actionLabelClass(styles.action)}>{downloadLabel}</span>
         </button>
       )}
       {showShare && (

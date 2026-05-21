@@ -13,7 +13,7 @@ import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
 import { CollectionQrModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
-import { MEDIA_FILE_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
+import { MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
@@ -27,9 +27,17 @@ import { GeneralSettings } from '../components/features/CollectionDashboard/Sett
 import { PrivacySettings } from '../components/features/CollectionDashboard/Settings/PrivacySettings';
 import { useUploadQueue } from '../components/features/CollectionDashboard/Upload/useUploadQueue';
 import { UPLOAD_VIEW_COLLECTION_EVENT } from '../components/features/CollectionDashboard/Upload/GlobalUploadShell';
-import { getFileMime, getUploadMediaType, isUploadableMediaFile } from '../lib/fileMime';
+import { getFileMime, isImageMime, getUploadMediaType, isUploadableMediaFile } from '../lib/fileMime';
+import { isRawImageFile } from '../lib/rawImageFormats';
 import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
+import {
+    appendFocalToCoverUrl,
+    focalPercentToElementStyle,
+    focalPointFromPointer,
+    getCollectionFocal,
+    stripMediaUrlHash,
+} from '../lib/focalPoint';
 import { CollectionGridPhoto } from '../components/features/CollectionDashboard/Media/CollectionGridPhoto';
 import { RawPhotoPlaceholder } from '../components/features/CollectionDashboard/Media/RawPhotoPlaceholder';
 import {
@@ -125,6 +133,8 @@ const CollectionDashboard = () => {
     const [highlightsName, setHighlightsName] = useState('Highlights');
     const [highlightsEnabled, setHighlightsEnabled] = useState(true);
     const [toastMessage, setToastMessage] = useState(null);
+    const [toastVariant, setToastVariant] = useState('default');
+    const toastTimerRef = useRef(null);
 
     // SORT STATE
     const [sortOption, setSortOption] = useState('custom');
@@ -146,6 +156,8 @@ const CollectionDashboard = () => {
     const [focalX, setFocalX] = useState(50);
     const [focalY, setFocalY] = useState(50);
     const [isDraggingFocal, setIsDraggingFocal] = useState(false);
+    const [focalCrosshairStyle, setFocalCrosshairStyle] = useState({ left: '50%', top: '50%' });
+    const focalImageRef = useRef(null);
     const [showCoverModal, setShowCoverModal] = useState(false);
     /** 'all' | 'highlights' | set uuid */
     const [coverModalScope, setCoverModalScope] = useState('all');
@@ -782,38 +794,57 @@ const CollectionDashboard = () => {
         }
     }, [favoriteActivity, selectedFavoriteListId]);
 
+    const collectionFocal = useMemo(
+        () => getCollectionFocal(collection),
+        [collection?.cover_focal_x, collection?.cover_focal_y, collection?.cover_url]
+    );
+
+    const syncFocalCrosshair = useCallback((x, y) => {
+        const img = focalImageRef.current;
+        if (!img) {
+            setFocalCrosshairStyle({ left: `${x}%`, top: `${y}%` });
+            return;
+        }
+        setFocalCrosshairStyle(focalPercentToElementStyle(x, y, img));
+    }, []);
+
     useEffect(() => {
         if (showFocalModal) {
-            let initialX = 50;
-            let initialY = 50;
-            if (collection?.focal_x !== undefined) {
-                initialX = collection.focal_x;
-                initialY = collection.focal_y;
-            } else if (collection?.cover_url && collection.cover_url.includes('#focal=')) {
-                const match = collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/);
-                if (match) {
-                    initialX = parseFloat(match[1]);
-                    initialY = parseFloat(match[2]);
-                }
-            }
-            setFocalX(initialX);
-            setFocalY(initialY);
+            setFocalX(collectionFocal.x);
+            setFocalY(collectionFocal.y);
+            syncFocalCrosshair(collectionFocal.x, collectionFocal.y);
         }
-    }, [showFocalModal, collection]);
+    }, [showFocalModal, collectionFocal.x, collectionFocal.y, syncFocalCrosshair]);
 
-    const handleFocalDrag = (e) => {
-        if (!isDraggingFocal && e.type !== 'mousedown') return;
-
-        const rect = e.currentTarget.getBoundingClientRect();
-        let x = ((e.clientX - rect.left) / rect.width) * 100;
-        let y = ((e.clientY - rect.top) / rect.height) * 100;
-
-        x = Math.max(0, Math.min(100, x));
-        y = Math.max(0, Math.min(100, y));
-
+    const updateFocalFromPointer = useCallback((clientX, clientY) => {
+        const img = focalImageRef.current;
+        if (!img) return;
+        const { x, y } = focalPointFromPointer(clientX, clientY, img);
         setFocalX(x);
         setFocalY(y);
-    };
+        setFocalCrosshairStyle(focalPercentToElementStyle(x, y, img));
+    }, []);
+
+    const handleFocalPointerDown = useCallback(
+        (e) => {
+            e.preventDefault();
+            setIsDraggingFocal(true);
+            updateFocalFromPointer(e.clientX, e.clientY);
+        },
+        [updateFocalFromPointer]
+    );
+
+    const handleFocalPointerMove = useCallback(
+        (e) => {
+            if (!isDraggingFocal) return;
+            updateFocalFromPointer(e.clientX, e.clientY);
+        },
+        [isDraggingFocal, updateFocalFromPointer]
+    );
+
+    const handleFocalPointerUp = useCallback(() => {
+        setIsDraggingFocal(false);
+    }, []);
 
     const handleFocalSave = async () => {
         try {
@@ -824,15 +855,24 @@ const CollectionDashboard = () => {
                 return;
             }
 
-            const coverUrlBase = currentCoverUrl.split('#')[0];
-            const newCoverUrl = `${coverUrlBase}#focal=${focalX},${focalY}`;
-
-            await galleryService.updateCollection(collectionId, { cover_url: newCoverUrl });
-            setCollection(prev => ({ ...prev, cover_url: newCoverUrl, focal_x: focalX, focal_y: focalY }));
+            const updated = await galleryService.saveCollectionFocalPoint(
+                collectionId,
+                currentCoverUrl,
+                focalX,
+                focalY
+            );
+            setCollection((prev) => ({
+                ...prev,
+                ...updated,
+                cover_url: updated?.cover_url ?? appendFocalToCoverUrl(currentCoverUrl, focalX, focalY),
+                cover_focal_x: updated?.cover_focal_x ?? focalX,
+                cover_focal_y: updated?.cover_focal_y ?? focalY,
+            }));
             setShowFocalModal(false);
         } catch (err) {
             console.error('Failed to save focal point:', err);
-            alert('Failed to save focal point.');
+            const detail = err?.message ? `\n\n${err.message}` : '';
+            alert(`Failed to save focal point.${detail}`);
         } finally {
             setSaving(false);
         }
@@ -869,6 +909,64 @@ const CollectionDashboard = () => {
         if (!photo) return;
         if (!isGalleryImagePhoto(photo)) return;
         void handleCoverPhotoSelect(photo);
+    };
+
+    const handleCoverFileSelect = async (file) => {
+        if (!file || !collectionId || !collection?.photographer_id) return;
+        const mime = getFileMime(file);
+        if (!isImageMime(mime) && !isRawImageFile(file)) {
+            alert('Please choose an image file for the cover.');
+            return;
+        }
+
+        const uploadSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
+
+        try {
+            setIsCoverUploading(true);
+            const prepared = await prepareUploadFile(file);
+            const photoData = await galleryService.uploadPhoto(
+                collectionId,
+                collection.photographer_id,
+                prepared,
+                photos.length,
+                uploadSetId
+            );
+            setPhotos((prev) => [...prev, photoData]);
+            if (isRawMedia(photoData) && !hasRawDisplayPreview(photoData)) {
+                void galleryService
+                    .repairRawPhotoPreview(photoData)
+                    .then((updated) => {
+                        if (updated?.id) {
+                            setPhotos((prev) =>
+                                prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
+                            );
+                        }
+                    })
+                    .catch((err) =>
+                        console.warn('RAW preview backfill failed:', photoData.filename, err)
+                    );
+            }
+
+            const coverUrl = getPhotoFullDisplayUrl(photoData) || getPhotoOriginalFileUrl(photoData);
+            if (!coverUrl) {
+                alert('Cover image is still processing. Try again in a moment.');
+                return;
+            }
+            await galleryService.updateCollection(collectionId, {
+                cover_photo_id: photoData.id,
+                cover_url: coverUrl,
+            });
+            setCollection((prev) => ({
+                ...prev,
+                cover_url: coverUrl,
+                cover_photo_id: photoData.id,
+            }));
+        } catch (err) {
+            console.error('Cover file upload failed:', err);
+            alert(err?.message || 'Failed to upload cover photo.');
+        } finally {
+            setIsCoverUploading(false);
+        }
     };
 
     const handleDownloadPhoto = async (photo) => {
@@ -1308,6 +1406,26 @@ const CollectionDashboard = () => {
         ? `${collection.name || 'Collection'} / ${activeSetName}`
         : activeSetName;
 
+    const getUploadTargetSnapshot = useCallback(
+        () => ({
+            collectionId,
+            photographerId: collection?.photographer_id ?? user?.id,
+            activeSetId: highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null),
+            destinationLabel: uploadDestinationLabel,
+        }),
+        [
+            collectionId,
+            collection?.photographer_id,
+            user?.id,
+            highlightsEnabled,
+            activeSetId,
+            sets,
+            uploadDestinationLabel,
+        ]
+    );
+
+    const uploadSnapshotRef = useRef(null);
+
     const existingUploadFilenames = useMemo(
         () => photos.map((p) => p.filename).filter(Boolean),
         [photos]
@@ -1331,6 +1449,7 @@ const CollectionDashboard = () => {
         existingFilenames: existingUploadFilenames,
         destinationLabel: uploadDestinationLabel,
         onPhotoUploaded: (photoData) => {
+            if (!photoData?.id || photoData.collection_id !== collectionId) return;
             setPhotos((prev) => [...prev, photoData]);
             if (isRawMedia(photoData) && !hasRawDisplayPreview(photoData)) {
                 void galleryService.repairRawPhotoPreview(photoData).then((updated) => {
@@ -1351,13 +1470,16 @@ const CollectionDashboard = () => {
     }, [highlightsEnabled, activeSetId, sets]);
 
     const gridPhotos = useMemo(() => {
+        const viewSetId = highlightsEnabled ? activeSetId : (activeSetId ?? sets[0]?.id ?? null);
         const completedNames = new Set(sortedPhotos.map((p) => p.filename));
         const pending = uploadState.files
             .filter(
                 (f) =>
                     f.status !== 'completed' &&
                     f.status !== 'error' &&
-                    !completedNames.has(f.name)
+                    !completedNames.has(f.name) &&
+                    (!f.collectionId || f.collectionId === collectionId) &&
+                    (f.setId ?? null) === (viewSetId ?? null)
             )
             .map((f) => ({
                 id: `upload-pending-${f.id}`,
@@ -1369,7 +1491,7 @@ const CollectionDashboard = () => {
                 _uploadProgress: f.progress,
             }));
         return [...sortedPhotos, ...pending];
-    }, [sortedPhotos, uploadState.files]);
+    }, [sortedPhotos, uploadState.files, collectionId, highlightsEnabled, activeSetId, sets]);
 
     useEffect(() => {
         if (!pendingUploadScrollRef.current || activeSidebarTab !== 'photos') return;
@@ -1783,6 +1905,30 @@ const CollectionDashboard = () => {
         loading,
     ]);
 
+    const showToast = useCallback((message, variant = 'default') => {
+        setToastMessage(message);
+        setToastVariant(variant);
+        if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
+        toastTimerRef.current = window.setTimeout(() => {
+            setToastMessage(null);
+            setToastVariant('default');
+            toastTimerRef.current = null;
+        }, 3000);
+    }, []);
+
+    const handleDownloadPinEnter = useCallback(
+        (pin) => {
+            const digits = String(pin || '').replace(/\D/g, '');
+            if (digits.length !== 4) {
+                showToast('Enter a 4-digit PIN', 'error');
+                return;
+            }
+            setPinValue(digits);
+            showToast('PIN set successfully', 'success');
+        },
+        [showToast]
+    );
+
     const handleSetClientOnlyChange = async (setId, isClientOnly) => {
         setSets((prev) => prev.map((s) => (s.id === setId ? { ...s, is_private: isClientOnly } : s)));
         try {
@@ -1958,8 +2104,10 @@ const CollectionDashboard = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [activeActivityMenu, favoriteDetailPhotoMenuPhotoId, favoriteActivitySortMenuOpen]);
 
-    const processSelectedUploadFiles = (fileList) => {
-        if (processFiles(fileList)) {
+    const processSelectedUploadFiles = (fileList, snapshot) => {
+        const target = snapshot ?? uploadSnapshotRef.current ?? getUploadTargetSnapshot();
+        uploadSnapshotRef.current = null;
+        if (processFiles(fileList, target)) {
             setShowUploadModal(false);
         }
     };
@@ -1970,6 +2118,7 @@ const CollectionDashboard = () => {
     };
 
     const openMediaFileDialog = (inputRef) => {
+        uploadSnapshotRef.current = getUploadTargetSnapshot();
         void pickMediaFilesOrFallback({
             multiple: true,
             fallback: () => inputRef.current?.click(),
@@ -2001,7 +2150,7 @@ const CollectionDashboard = () => {
         setIsDraggingDropzone(false);
         const mediaFiles = Array.from(e.dataTransfer.files).filter(isUploadableMediaFile);
         if (mediaFiles.length === 0) return;
-        processFiles(mediaFiles);
+        processFiles(mediaFiles, getUploadTargetSnapshot());
     };
 
     const handleModalBrowse = (e) => {
@@ -2023,7 +2172,7 @@ const CollectionDashboard = () => {
         setIsDraggingModal(false);
         const mediaFiles = Array.from(e.dataTransfer.files).filter(isUploadableMediaFile);
         if (mediaFiles.length === 0) return;
-        if (processFiles(mediaFiles)) {
+        if (processFiles(mediaFiles, getUploadTargetSnapshot())) {
             setShowUploadModal(false);
         }
     };
@@ -2249,6 +2398,7 @@ const CollectionDashboard = () => {
                             activeSetName={activeSetName}
                             onPhotoDrop={handleCoverPhotoDropById}
                             onSelectFromCollection={() => openCoverModal('all')}
+                            onCoverFileSelect={(file) => void handleCoverFileSelect(file)}
                         />
 
                         <div className="cd-icon-bar">
@@ -2699,7 +2849,7 @@ const CollectionDashboard = () => {
                                             type="file"
                                             ref={fileInputRef}
                                             style={{ display: 'none' }}
-                                            accept={MEDIA_FILE_ACCEPT}
+                                            accept={MEDIA_FILE_INPUT_ACCEPT}
                                             multiple
                                             onChange={handleFileSelect}
                                         />
@@ -2778,8 +2928,8 @@ const CollectionDashboard = () => {
                                     onPreviewModeChange={setPreviewMode}
                                     photographerName={user?.display_name || 'PHOTOGRAPHER'}
                                     dashboardState={{
-                                        focalX: collection?.focal_x ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[1] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[1]) : 50),
-                                        focalY: collection?.focal_y ?? (collection?.cover_url?.match(/#focal=([\d.]+),([\d.]+)/)?.[2] ? parseFloat(collection.cover_url.match(/#focal=([\d.]+),([\d.]+)/)[2]) : 50),
+                                        focalX: collectionFocal.x,
+                                        focalY: collectionFocal.y,
                                         activeSetId: activeSetId,
                                         sets: sets,
                                         collection: { ...collection, highlights_enabled: highlightsEnabled },
@@ -2873,6 +3023,7 @@ const CollectionDashboard = () => {
                                 setDownloadPin={setDownloadPin}
                                 pinValue={pinValue}
                                 setPinValue={setPinValue}
+                                onPinEnter={handleDownloadPinEnter}
                                 downloadLimit={downloadLimit}
                                 setDownloadLimit={setDownloadLimit}
                                 restrictToEmails={restrictToEmails}
@@ -3121,7 +3272,7 @@ const CollectionDashboard = () => {
                                                 type="file"
                                                 ref={modalFileInputRef}
                                                 style={{ display: 'none' }}
-                                                accept={MEDIA_FILE_ACCEPT}
+                                                accept={MEDIA_FILE_INPUT_ACCEPT}
                                                 multiple
                                                 onChange={handleFileSelect}
                                             />
@@ -3181,18 +3332,33 @@ const CollectionDashboard = () => {
                                     {collection?.cover_url || photos.length > 0 ? (
                                         <div
                                             className="focal-image-wrapper"
-                                            onMouseDown={(e) => {
-                                                setIsDraggingFocal(true);
-                                                handleFocalDrag(e);
+                                            onMouseDown={handleFocalPointerDown}
+                                            onMouseMove={handleFocalPointerMove}
+                                            onMouseUp={handleFocalPointerUp}
+                                            onMouseLeave={handleFocalPointerUp}
+                                            onTouchStart={(e) => {
+                                                const t = e.touches[0];
+                                                if (t) handleFocalPointerDown({ preventDefault: () => e.preventDefault(), clientX: t.clientX, clientY: t.clientY });
                                             }}
-                                            onMouseMove={handleFocalDrag}
-                                            onMouseUp={() => setIsDraggingFocal(false)}
-                                            onMouseLeave={() => setIsDraggingFocal(false)}
+                                            onTouchMove={(e) => {
+                                                const t = e.touches[0];
+                                                if (t && isDraggingFocal) {
+                                                    e.preventDefault();
+                                                    updateFocalFromPointer(t.clientX, t.clientY);
+                                                }
+                                            }}
+                                            onTouchEnd={handleFocalPointerUp}
                                         >
-                                            <img src={collection?.cover_url || photos[0]?.full_url} alt="Focal" draggable="false" />
+                                            <img
+                                                ref={focalImageRef}
+                                                src={stripMediaUrlHash(collection?.cover_url || photos[0]?.full_url)}
+                                                alt="Focal"
+                                                draggable={false}
+                                                onLoad={() => syncFocalCrosshair(focalX, focalY)}
+                                            />
                                             <div
                                                 className="focal-crosshair"
-                                                style={{ left: `${focalX}%`, top: `${focalY}%` }}
+                                                style={focalCrosshairStyle}
                                             >
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" style={{ filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))' }}>
                                                     <circle cx="16" cy="16" r="12" fill="rgba(255, 255, 255, 0.85)" />
@@ -4268,7 +4434,7 @@ const CollectionDashboard = () => {
                     position: 'fixed',
                     bottom: '24px',
                     right: '24px',
-                    backgroundColor: '#E74C3C',
+                    backgroundColor: toastVariant === 'success' ? '#26a69a' : toastVariant === 'error' ? '#E74C3C' : '#E74C3C',
                     color: 'white',
                     padding: '16px 24px',
                     borderRadius: '4px',

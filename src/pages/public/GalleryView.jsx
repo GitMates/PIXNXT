@@ -14,6 +14,7 @@ import { DownloadModal } from '../../components/features/Gallery/DownloadModal/D
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
 import { formatCoverDate } from '../../lib/formatCoverDate.js';
+import { getCollectionFocal } from '../../lib/focalPoint';
 import {
   GalleryStickyNav,
   GallerySetHeading,
@@ -727,23 +728,15 @@ const GalleryView = () => {
       <div className="gallery-view-hero w-full h-[100dvh] [&>div]:!h-full" data-cover-text-scale="large">
         {(() => {
           const activePhotoUrl = collection.cover_url || (collection.photos?.[0]?.web_url);
-          let extractedFocalX = 50;
-          let extractedFocalY = 50;
-          if (activePhotoUrl && activePhotoUrl.includes('#focal=')) {
-            const match = activePhotoUrl.match(/#focal=([\d.]+),([\d.]+)/);
-            if (match) {
-              extractedFocalX = parseFloat(match[1]);
-              extractedFocalY = parseFloat(match[2]);
-            }
-          }
+          const { x: focalX, y: focalY } = getCollectionFocal(collection);
 
           const props = {
             title: collection.name,
             subtitle: photographer?.display_name || '',
             date: formatCoverDate(collection.event_date || collection.created_at),
             photoUrl: activePhotoUrl,
-            focalX: collection.focal_x ?? extractedFocalX,
-            focalY: collection.focal_y ?? extractedFocalY,
+            focalX,
+            focalY,
             onViewGallery: scrollToGallery,
             isGalleryView: true,
           };
