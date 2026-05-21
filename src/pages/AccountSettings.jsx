@@ -28,7 +28,7 @@ export default function AccountSettings() {
     return (
         <div className="w-full min-h-screen bg-white text-[#111] font-['Roboto',sans-serif]">
             {/* Top Navigation */}
-            <div className="w-full h-[80px] border-b border-[#eeeeee] bg-[#f5f5f5] flex items-center justify-between px-10">
+            <div className="w-full h-[80px] border-b border-[#cccccc] bg-[#f5f5f5] flex items-center justify-between px-10">
                 <div className="flex items-center">
                     <div 
                         className="text-[17px] font-medium cursor-pointer text-[#111]" 
@@ -145,7 +145,7 @@ export default function AccountSettings() {
             </div>
 
             {/* Sub Navigation */}
-            <div className="w-full border-b border-[#eeeeee] bg-[#fafafa]">
+            <div className="w-full border-b border-[#cccccc] bg-[#fafafa]">
                 <div className="flex gap-8 px-10 pt-1">
                     <button 
                         className={`py-3 text-[14px] transition-colors relative ${activeTab === 'profile' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
@@ -696,21 +696,72 @@ function ProfileTab({ user }) {
 
             {/* Social */}
             <div className="mt-2">
-                <h2 className="text-[12px] font-bold text-[#999] tracking-[0.1em] uppercase mb-4">SOCIAL</h2>
+                <h2 className="text-[12px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">SOCIAL</h2>
                 
                 <div className="flex flex-col gap-6 w-full">
                     {[
-                        { label: 'f Facebook', name: 'social_facebook' },
-                        { label: '𝕏 X (formerly Twitter)', name: 'social_x_twitter' },
-                        { label: '📷 Instagram', name: 'social_instagram' },
-                        { label: '🎵 TikTok', name: 'social_tiktok' },
-                        { label: 'P Pinterest', name: 'social_pinterest' },
-                        { label: '▶ YouTube', name: 'social_youtube' },
-                        { label: 'v Vimeo', name: 'social_vimeo' },
-                        { label: 'in LinkedIn', name: 'social_linkedin' }
+                        { 
+                            label: 'Facebook', 
+                            name: 'social_facebook',
+                            icon: (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/></svg>
+                            )
+                        },
+                        { 
+                            label: 'X (formerly Twitter)', 
+                            name: 'social_x_twitter',
+                            icon: (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                            )
+                        },
+                        { 
+                            label: 'Instagram', 
+                            name: 'social_instagram',
+                            icon: (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-[#111]"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                            )
+                        },
+                        { 
+                            label: 'TikTok', 
+                            name: 'social_tiktok',
+                            icon: (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .8.11v-3.5a6.8 6.8 0 0 0-1.23-.1 6.35 6.35 0 0 0-6.1 6.3 6.27 6.27 0 0 0 6.1 6.25 6.27 6.27 0 0 0 6.1-6.25V7.95a10.6 10.6 0 0 0 4.45 1.01V5.51a8.38 8.38 0 0 1-4.21-1.18z"/></svg>
+                            )
+                        },
+                        { 
+                            label: 'Pinterest', 
+                            name: 'social_pinterest',
+                            icon: (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.08 3.16 9.43 7.63 11.17-.1-.95-.19-2.4.04-3.44.22-.94 1.4-6 1.4-6s-.36-.72-.36-1.78c0-1.67.97-2.91 2.17-2.91 1.02 0 1.52.77 1.52 1.69 0 1.03-.66 2.57-1 4-.28 1.19.6 2.17 1.78 2.17 2.13 0 3.77-2.25 3.77-5.5 0-2.87-2.06-4.88-5.01-4.88-3.41 0-5.42 2.56-5.42 5.21 0 1.03.4 2.14.89 2.74.1.12.11.23.08.35l-.33 1.35c-.05.22-.17.27-.4.16-1.5-.7-2.44-2.89-2.44-4.65 0-3.79 2.75-7.26 7.93-7.26 4.16 0 7.4 2.97 7.4 6.93 0 4.14-2.61 7.46-6.23 7.46-1.22 0-2.36-.63-2.75-1.38l-.75 2.85c-.27 1.04-1 2.35-1.49 3.15C9.57 23.81 10.76 24 12 24c6.63 0 12-5.37 12-12S18.63 0 12 0z"/></svg>
+                            )
+                        },
+                        { 
+                            label: 'YouTube', 
+                            name: 'social_youtube',
+                            icon: (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M23.498 6.163a3.003 3.003 0 0 0-2.11-2.11C19.518 3.545 12 3.545 12 3.545s-7.518 0-9.388.508a3.003 3.003 0 0 0-2.11 2.11C0 8.033 0 12 0 12s0 3.967.502 5.837a3.003 3.003 0 0 0 2.11 2.11c1.87.508 9.388.508 9.388.508s7.518 0 9.388-.508a3.003 3.003 0 0 0 2.11-2.11C24 15.967 24 12 24 12s0-3.967-.502-5.837zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+                            )
+                        },
+                        { 
+                            label: 'Vimeo', 
+                            name: 'social_vimeo',
+                            icon: (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M22.396 7.158c-.092 2.037-1.514 4.824-4.264 8.363-2.85 3.69-5.26 5.534-7.234 5.534-1.22 0-2.257-1.123-3.112-3.37L5.03 8.96c-.642-2.385-1.33-3.578-2.064-3.578-.152 0-.68.322-1.586.966l-.95-.1.21-.99c.974-.853 1.93-1.7 2.87-2.54 1.285-1.077 2.215-1.65 2.793-1.723 1.343-.16 2.17.765 2.476 2.784.336 2.222.565 3.6.69 4.13.396 2.382.793 3.573 1.19 3.573.304 0 .762-.486 1.374-1.46.61-.97 1.258-2.072 1.942-3.298.672-1.218.992-2.116.96-2.697-.062-.83-.544-1.246-1.444-1.246-.427 0-.915.09-1.462.274 1.198-3.924 3.473-5.787 6.827-5.59 2.478.143 3.64 1.545 3.486 4.2z"/></svg>
+                            )
+                        },
+                        { 
+                            label: 'LinkedIn', 
+                            name: 'social_linkedin',
+                            icon: (
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" className="text-[#111]"><path d="M4.98 3.5c0 1.381-1.11 2.5-2.48 2.5s-2.48-1.119-2.48-2.5c0-1.38 1.11-2.5 2.48-2.5s2.48 1.12 2.48 2.5zm.02 4.5h-5v16h5v-16zm7.982 0h-4.968v16h4.969v-8.399c0-4.67 6.029-5.052 6.029 0v8.399h4.988v-10.131c0-7.88-8.922-7.593-11.018-3.714v-2.155z"/></svg>
+                            )
+                        }
                     ].map(social => (
                         <div key={social.name}>
-                            <label className="block text-[15px] font-bold text-[#111] mb-2">{social.label}</label>
+                            <label className="flex items-center gap-2 text-[15px] font-bold text-[#111] mb-2">
+                                <span className="flex items-center w-[18px] h-[18px] justify-center">{social.icon}</span>
+                                <span>{social.label}</span>
+                            </label>
                             <input 
                                 type="text" 
                                 name={social.name}
