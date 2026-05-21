@@ -28,6 +28,11 @@ import './ClientGallery.css';
 import { sortCollections } from '../utils/sortCollections';
 import { sortFolders } from '../utils/sortFolders';
 import { formatStorageBytes } from '../utils/formatStorageBytes';
+import {
+    normalizeGallerySearchQuery,
+    filterRootCollectionsForSearch,
+    filterFoldersForSearch,
+} from '../utils/filterClientGallerySearch';
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
 
 
@@ -75,6 +80,7 @@ const ClientGallery = () => {
     const [bulkMoveOpen, setBulkMoveOpen] = useState(false);
     const [bulkApplying, setBulkApplying] = useState(false);
     const [showSelectionMenu, setShowSelectionMenu] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const fileInputRef = useRef(null);
     const sortRef = useRef(null);
     const viewRef = useRef(null);
@@ -150,7 +156,7 @@ const ClientGallery = () => {
     };
 
     const selectAllCollections = () => {
-        setSelectedCards(rootCollections.map((c) => c.id));
+        setSelectedCards(sortedRootCollections.map((c) => c.id));
         setShowSelectionMenu(false);
     };
 
@@ -183,12 +189,32 @@ const ClientGallery = () => {
         [collections]
     );
 
-    const sortedRootCollections = useMemo(
-        () => sortCollections(rootCollections, activeSort),
-        [rootCollections, activeSort]
+    const normalizedSearch = useMemo(
+        () => normalizeGallerySearchQuery(searchQuery),
+        [searchQuery]
     );
 
-    const sortedFolderRows = useMemo(() => sortFolders(folders, activeSort), [folders, activeSort]);
+    const filteredRootCollections = useMemo(
+        () => filterRootCollectionsForSearch(rootCollections, normalizedSearch),
+        [rootCollections, normalizedSearch]
+    );
+
+    const filteredFolders = useMemo(
+        () => filterFoldersForSearch(folders, normalizedSearch, collections),
+        [folders, normalizedSearch, collections]
+    );
+
+    const sortedRootCollections = useMemo(
+        () => sortCollections(filteredRootCollections, activeSort),
+        [filteredRootCollections, activeSort]
+    );
+
+    const sortedFolderRows = useMemo(
+        () => sortFolders(filteredFolders, activeSort),
+        [filteredFolders, activeSort]
+    );
+
+    const hasDashboardItems = rootCollections.length > 0 || folders.length > 0;
 
     const dashboardGridItems = useMemo(
         () => [
@@ -567,7 +593,14 @@ const ClientGallery = () => {
                         <h1 className="cg-style-5">Collections</h1>
                         <div className="cg-style-6">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                            <input type="text" placeholder="Search" className="cg-style-7" />
+                            <input
+                                type="search"
+                                placeholder="Search collections or photos"
+                                className="cg-style-7"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                aria-label="Search collections, folders, and photo filenames"
+                            />
                         </div>
                     </div>
                     <div className="cg-style-8">
@@ -739,6 +772,20 @@ const ClientGallery = () => {
 
                 {loading ? (
                     <div className="px-10 py-20 text-center text-[#666] text-sm">Loading…</div>
+                ) : normalizedSearch && dashboardGridItems.length === 0 ? (
+                    <div className="cg-style-60">
+                        <h3 className="cg-style-61">No results</h3>
+                        <p className="cg-style-62">
+                            Nothing matches &ldquo;{searchQuery.trim()}&rdquo;. Try another name or clear search.
+                        </p>
+                        <button
+                            type="button"
+                            className="cg-style-63 bg-transparent border border-[#ddd] text-[#333] hover:bg-[#f5f5f5]"
+                            onClick={() => setSearchQuery('')}
+                        >
+                            Clear search
+                        </button>
+                    </div>
                 ) : dashboardGridItems.length > 0 && activeView === 'grid' ? (
                     <div className="cg-style-37">
                         {dashboardGridItems.map((item) =>
@@ -930,7 +977,7 @@ const ClientGallery = () => {
                             )
                         )}
                     </div>
-                ) : (
+                ) : !hasDashboardItems ? (
                     <div className="cg-style-60">
                         <div className="mb-6">
                             <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#d0d5d9" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path></svg>
@@ -941,7 +988,7 @@ const ClientGallery = () => {
                             Create Collection
                         </button>
                     </div>
-                )}
+                ) : null}
 
                 {/* Selection Action Bar */}
                 {selectedCards.length > 0 && (

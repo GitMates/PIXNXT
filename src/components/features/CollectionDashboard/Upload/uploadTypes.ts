@@ -19,6 +19,12 @@ export interface UploadQueueFile {
   status: UploadFileStatus;
   previewUrl?: string;
   errorMessage?: string;
+  /** Frozen at enqueue — uploads always use this collection/set. */
+  collectionId?: string;
+  photographerId?: string;
+  setId?: string | null;
+  sortIndex?: number;
+  destinationLabel?: string;
 }
 
 export interface UploadWidgetState {

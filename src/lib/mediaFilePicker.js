@@ -1,27 +1,52 @@
-/**
- * Media upload filters for the native file dialog.
- * Chrome/Edge (File System Access API): dropdown shows Images, Videos, GIF, Raw files, plus All Files.
- * Fallback <input accept>: combined image/video/gif/raw types.
- */
+// Media upload filters for the native file dialog.
+// "All Files" is first in the list so Windows/Chrome default to it (not Images).
+// Each filter uses a single MIME key so Windows shows the description, not "Custom Files".
 
 import { RAW_IMAGE_EXTENSIONS, RAW_IMAGE_ACCEPT_STRING } from './rawImageFormats';
 
-export const MEDIA_FILE_ACCEPT =
+/** Fallback file input: omit accept so the OS dialog defaults to All Files. */
+export const MEDIA_FILE_INPUT_ACCEPT = undefined;
+
+const IMAGE_EXTENSIONS = [
+  '.jpg',
+  '.jpeg',
+  '.png',
+  '.webp',
+  '.heic',
+  '.heif',
+  '.bmp',
+  '.tif',
+  '.tiff',
+];
+
+const VIDEO_EXTENSIONS = ['.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v', '.wmv'];
+
+const ALL_MEDIA_EXTENSIONS = [
+  ...new Set([...IMAGE_EXTENSIONS, ...VIDEO_EXTENSIONS, '.gif', ...RAW_IMAGE_EXTENSIONS]),
+];
+
+/** Cover slot — images and RAW only (no video). */
+export const COVER_IMAGE_ACCEPT =
   'image/jpeg,image/png,image/webp,image/heic,image/heif,image/gif,.gif,' +
-  'video/mp4,video/webm,video/quicktime,video/x-msvideo,.mp4,.mov,.webm,.mkv,.m4v,.avi,' +
   RAW_IMAGE_ACCEPT_STRING;
 
 export const MEDIA_FILE_PICKER_TYPES = [
   {
+    description: 'All Files',
+    accept: {
+      'image/*': ALL_MEDIA_EXTENSIONS,
+    },
+  },
+  {
     description: 'Images',
     accept: {
-      'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.heic', '.heif', '.bmp', '.tif', '.tiff'],
+      'image/*': IMAGE_EXTENSIONS,
     },
   },
   {
     description: 'Videos',
     accept: {
-      'video/*': ['.mp4', '.mov', '.webm', '.mkv', '.avi', '.m4v', '.wmv'],
+      'video/*': VIDEO_EXTENSIONS,
     },
   },
   {
@@ -39,7 +64,7 @@ export const MEDIA_FILE_PICKER_TYPES = [
 ];
 
 /**
- * Open OS file picker with Image / Video / GIF / Raw files filter groups when supported.
+ * Open OS file picker: All Files (default), then Images / Videos / GIF / Raw files.
  * @param {{ multiple?: boolean }} [options]
  * @returns {Promise<File[]|null>} Selected files, null if cancelled or API unavailable
  */
@@ -51,6 +76,7 @@ export async function pickMediaFiles({ multiple = true } = {}) {
   try {
     const handles = await window.showOpenFilePicker({
       multiple,
+      excludeAcceptAllOption: true,
       types: MEDIA_FILE_PICKER_TYPES,
     });
     return Promise.all(handles.map((handle) => handle.getFile()));

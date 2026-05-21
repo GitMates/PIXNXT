@@ -34,9 +34,19 @@ export function useUploadQueue(options: {
     ctx.configureTarget,
   ]);
 
+  const processFiles = (
+    fileList: FileList | File[] | null | undefined,
+    uploadTargetOverride?: {
+      collectionId?: string;
+      photographerId?: string;
+      activeSetId?: string | null;
+      destinationLabel?: string;
+    }
+  ) => ctx.processFiles(fileList, uploadTargetOverride);
+
   return {
     state: ctx.state,
-    processFiles: ctx.processFiles,
+    processFiles,
     pause: ctx.pause,
     resume: ctx.resume,
     cancel: ctx.cancel,

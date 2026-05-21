@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { X, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
@@ -522,15 +522,8 @@ export const DownloadModal = ({
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                {/* Download icon */}
-                <div className="flex justify-center mb-6">
-                  <div className="w-10 h-10 flex items-center justify-center border border-zinc-200 rounded-full">
-                    <Download size={18} strokeWidth={1.5} className="text-zinc-400" />
-                  </div>
-                </div>
-
                 <h2 className="text-center text-[13px] font-bold uppercase tracking-[0.3em] text-zinc-900 mb-2">
-                  Choose Photos
+                  Choose Photo Set
                 </h2>
                 <p className="text-center text-[12px] text-zinc-500 mb-10">
                   Select which photos you would like to download.
