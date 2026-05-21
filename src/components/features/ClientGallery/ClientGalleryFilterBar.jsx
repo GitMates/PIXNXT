@@ -70,7 +70,7 @@ function FilterChip({ active, label, onOpen, onClear }) {
     <div className="relative inline-flex">
       <button
         type="button"
-        className={`cg-style-70${active ? ' cg-filter-chip--active' : ' bg-[#fdfaf4] border border-[#eedec3] hover:bg-[#eedec3]'}`}
+        className={`cg-style-70${active ? ' cg-filter-chip--active' : ' bg-[#ffffff] border border-[#e2e8f0] hover:bg-[#f3f4f6]'}`}
         onClick={onOpen}
       >
         <span>{label}</span>

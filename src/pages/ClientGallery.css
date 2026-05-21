@@ -42,11 +42,11 @@
   }
 
   .cg-style-11 {
-    @apply flex items-center gap-2 bg-[#111111] text-white border-none rounded-l-[3px] px-5 h-[38px] text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#000000] max-md:px-4 max-md:text-[13px] max-md:h-[36px];
+    @apply flex items-center gap-2 bg-[#1a9b84] text-white border-none rounded-l-[3px] px-5 h-[38px] text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#147d6a] max-md:px-4 max-md:text-[13px] max-md:h-[36px];
   }
 
   .cg-style-12 {
-    @apply flex items-center justify-center bg-[#4a2812] text-white border-none border-l border-white/25 rounded-r-[3px] w-[36px] h-[38px] cursor-pointer transition-colors duration-200 hover:bg-[#3a1e0e] max-md:h-[36px];
+    @apply flex items-center justify-center bg-[#147d6a] text-white border-none border-l border-white/25 rounded-r-[3px] w-[36px] h-[38px] cursor-pointer transition-colors duration-200 hover:bg-[#106354] max-md:h-[36px];
   }
 
   .cg-style-13 {
@@ -309,7 +309,7 @@
   }
 
   .cg-style-63 {
-    @apply bg-[#111111] text-white border-none rounded-[3px] px-7 py-3 text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#000000];
+    @apply bg-[#1a9b84] text-white border-none rounded-[3px] px-7 py-3 text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#147d6a];
   }
 
   .cg-style-64 {
@@ -353,7 +353,7 @@
   }
 
   .cg-style-71.cg-sort-active {
-    @apply text-[#593116] font-semibold bg-[#fdfaf4];
+    @apply text-[#1a9b84] font-semibold bg-[#e8f7f2];
   }
 
   .cg-style-72 {
@@ -369,7 +369,7 @@
   }
 
   .cg-style-74--selected {
-    @apply border-[3px] border-[#593116] rounded-md;
+    @apply border-[3px] border-[#1a9b84] rounded-md;
   }
 
   .cg-style-74 img {

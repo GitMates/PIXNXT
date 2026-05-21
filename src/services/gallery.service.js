@@ -1173,6 +1173,22 @@ export const galleryService = {
   },
 
   /**
+   * Update a photographer's profile (bio, contact info, homepage settings, etc.)
+   */
+  async updatePhotographerProfile(photographerId, updates) {
+    if (!photographerId) throw new Error('Photographer ID is required.');
+    const { data, error } = await supabase
+      .from('photographers')
+      .update(updates)
+      .eq('id', photographerId)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
    * Create or get a client session for favorites/downloads
    * @param {string} collectionId
    * @param {string} email
