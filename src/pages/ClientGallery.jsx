@@ -613,12 +613,12 @@ const ClientGallery = () => {
                             {showViewDropdown && (
                                 <div className="cg-style-35">
                                     <div className="cg-style-34">View Style</div>
-                                    <div className={`cg-style-71 ${activeView === 'grid' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveView('grid'); setShowViewDropdown(false); }}>
+                                    <div className={`cg-style-71 ${activeView === 'grid' ? 'text-[#1a9b84]' : 'text-[#333]'}`} onClick={() => { setActiveView('grid'); setShowViewDropdown(false); }}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                         Grid View
                                         {activeView === 'grid' && <span className="cg-style-36">✓</span>}
                                     </div>
-                                    <div className={`cg-style-71 ${activeView === 'list' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveView('list'); setShowViewDropdown(false); }}>
+                                    <div className={`cg-style-71 ${activeView === 'list' ? 'text-[#1a9b84]' : 'text-[#333]'}`} onClick={() => { setActiveView('list'); setShowViewDropdown(false); }}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
                                         List View
                                         {activeView === 'list' && <span className="cg-style-36">✓</span>}
@@ -713,7 +713,7 @@ const ClientGallery = () => {
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                                             </div>
                                         )}
-                                        <div className={`cg-style-75 ${selectedCards.includes(item.collection.id) ? 'border-[#593116] bg-[#593116] opacity-100' : 'border-white/85 bg-black/15 opacity-0 group-hover:opacity-100'}`} onClick={(e) => toggleSelectCard(e, item.collection.id)}>
+                                        <div className={`cg-style-75 ${selectedCards.includes(item.collection.id) ? 'border-[#1a9b84] bg-[#1a9b84] opacity-100' : 'border-white/85 bg-black/15 opacity-0 group-hover:opacity-100'}`} onClick={(e) => toggleSelectCard(e, item.collection.id)}>
                                             {selectedCards.includes(item.collection.id) && (
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                             )}
@@ -824,7 +824,7 @@ const ClientGallery = () => {
                                                 {formatStorageBytes(item.collection.storage_bytes)}
                                             </span>
                                         </div>
-                                        <span className={`cg-style-77 ${item.collection.status === 'published' ? 'bg-[#e6f9f3] text-[#593116] border border-[#b8f0de]' : 'bg-[#f0f2f3] text-[#666]'}`}>{item.collection.status?.toUpperCase() || 'DRAFT'}</span>
+                                        <span className={`cg-style-77 ${item.collection.status === 'published' ? 'bg-[#e6f9f3] text-[#1a9b84] border border-[#b8f0de]' : 'bg-[#f0f2f3] text-[#666]'}`}>{item.collection.status?.toUpperCase() || 'DRAFT'}</span>
                                     </div>
                                     <div className="cg-style-49">
                                         <span className="cg-style-46">-</span>

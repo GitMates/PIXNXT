@@ -114,12 +114,12 @@
 }
 
 .fv-btn-primary.cg-style-11 {
-  background: #1a9b87;
-  border-color: #1a9b87;
+  background: #1a9b84;
+  border-color: #1a9b84;
 }
 
 .fv-btn-primary.cg-style-11:hover {
-  background: #158a78;
+  background: #147d6a;
 }
 
 .fv-new-collection-solo {
@@ -173,7 +173,7 @@
 .fv-empty-cta {
   display: inline-block;
   padding: 12px 28px;
-  background: #1a9b87;
+  background: #1a9b84;
   color: #fff;
   border: none;
   border-radius: 4px;
@@ -183,7 +183,7 @@
 }
 
 .fv-empty-cta:hover {
-  background: #158a78;
+  background: #147d6a;
 }
 
 .fv-grid {

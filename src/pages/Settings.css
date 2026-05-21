@@ -124,8 +124,14 @@
 }
 
 .text-teal {
-    color: #111111;
+    color: #1a9b84;
     cursor: pointer;
+    font-weight: 500;
+}
+
+.text-teal:hover {
+    color: #147d6a;
+    text-decoration: underline;
 }
 
 .set-rocket-pill {
@@ -220,7 +226,7 @@
 }
 
 .set-toggle.on {
-    background-color: #c29775;
+    background-color: #1a9b84;
 }
 
 .set-toggle-handle {
@@ -256,7 +262,12 @@
 }
 
 .teal-link {
-    color: #111111;
+    color: #1a9b84;
+}
+
+.teal-link:hover {
+    color: #147d6a;
+    text-decoration: underline;
 }
 
 .mt-2 {

@@ -92,7 +92,7 @@ const GetStarted = () => {
                                 <div className="gs-progress-fill" style={{ animationDelay: `${index * 0.5}s` }}></div>
                             </div>
                             <div className="gs-check-icon" style={{ animationDelay: `${2 + (index * 0.5)}s` }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#593116" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
                             </div>
                         </div>
                     </div>
