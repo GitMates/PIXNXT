@@ -195,11 +195,7 @@ export function requestGoogleDriveAccessToken(options?: { forceConsent?: boolean
               if (response.error) {
                 finish(() =>
                   reject(
-                    new Error(
-                      response.error_description ||
-                        response.error ||
-                        'Google sign-in was cancelled.'
-                    )
+                    new Error(googleSignInHelpMessage(response.error, response.error_description))
                   )
                 );
                 return;
@@ -287,7 +283,24 @@ export async function uploadBlobToGoogleDrive(
 export interface GoogleDriveGalleryUploadOptions extends DownloadPhotosToZipOptions {
   collectionName?: string;
   onAuthStart?: () => void;
+  /** Fired after the user completes Google sign-in and a token is available */
+  onAuthComplete?: () => void;
   onUploadPhase?: (message: string) => void;
+}
+
+function googleSignInHelpMessage(error?: string, description?: string): string {
+  const code = String(error || '').toLowerCase();
+  const desc = String(description || '');
+  if (code === 'access_denied' || /cancel/i.test(desc)) {
+    return (
+      'Google sign-in was cancelled. If you see “Google hasn’t verified this app”, choose Continue ' +
+      '(you must be added as a Test user in Google Cloud Console → OAuth consent screen).'
+    );
+  }
+  if (code === 'popup_closed_by_user') {
+    return 'Sign-in popup was closed. Allow popups for this site and try again.';
+  }
+  return description || error || 'Google sign-in failed.';
 }
 
 interface DriveFolderUploadResult {
@@ -515,6 +528,17 @@ export async function saveGalleryToGoogleDrive(
   options: GoogleDriveGalleryUploadOptions = {}
 ): Promise<GoogleDriveGalleryUploadResult> {
   options.onAuthStart?.();
-  const accessToken = await requestGoogleDriveAccessToken({ forceConsent: true });
+  let accessToken: string;
+  try {
+    accessToken = await requestGoogleDriveAccessToken({ forceConsent: false });
+  } catch (firstErr) {
+    const msg = firstErr instanceof Error ? firstErr.message : String(firstErr);
+    const needsConsent =
+      /consent|interaction_required|login_required|account/i.test(msg) ||
+      /not granted|no token/i.test(msg);
+    if (!needsConsent) throw firstErr;
+    accessToken = await requestGoogleDriveAccessToken({ forceConsent: true });
+  }
+  options.onAuthComplete?.();
   return uploadGalleryToGoogleDrive(accessToken, photos, options);
 }

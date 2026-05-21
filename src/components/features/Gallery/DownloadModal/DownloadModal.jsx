@@ -73,6 +73,8 @@ export const DownloadModal = ({
     destination: 'local',
     driveFileUrl: null,
   });
+  /** True while Google OAuth popup is open — hide % progress until sign-in finishes */
+  const [googleSignInPending, setGoogleSignInPending] = useState(false);
 
   const googleDriveAvailable = isGoogleDriveConfigured();
 
@@ -235,6 +237,7 @@ export const DownloadModal = ({
     setIsProcessing(true);
     setStep('preparing');
     setProgress(0);
+    setGoogleSignInPending(false);
     setDownloadCompleteMeta({ isZip: false, total: 0, destination: downloadDestination, driveFileUrl: null });
     setStatusText('Gathering photos...');
 
@@ -283,8 +286,11 @@ export const DownloadModal = ({
           throw new Error(getGoogleDriveSetupMessage());
         }
 
-        setStatusText('Sign in with Google to save to your Drive…');
-        setProgressMonotonic(5);
+        setGoogleSignInPending(true);
+        setProgress(0);
+        setStatusText(
+          'Sign in with Google in the popup window. If you see “app not verified”, click Continue (your email must be a Test user in Google Cloud).'
+        );
 
         const driveResult = await saveGalleryToGoogleDrive(photosToDownload, {
           collectionName: collection.name || 'gallery',
@@ -292,8 +298,19 @@ export const DownloadModal = ({
           isStale,
           onAuthStart: () => {
             if (!isStale()) {
-              setStatusText('Choose your Google account…');
-              setProgressMonotonic(8);
+              setGoogleSignInPending(true);
+              setProgress(0);
+              setStatusText(
+                'Waiting for Google sign-in… Complete the popup, then choose your account.'
+              );
+            }
+          },
+          onAuthComplete: () => {
+            if (!isStale()) {
+              setGoogleSignInPending(false);
+              setProgress(0);
+              completedCountRef.current = 0;
+              setStatusText(`Preparing ${total} photos for Google Drive…`);
             }
           },
           onUploadPhase: (message) => {
@@ -304,6 +321,8 @@ export const DownloadModal = ({
             reportDownloadProgress('upload');
           },
         });
+
+        setGoogleSignInPending(false);
 
         if (isStale()) return;
 
@@ -434,6 +453,7 @@ export const DownloadModal = ({
     } catch (err) {
       if (isStale()) return;
       console.error('Download failed:', err);
+      setGoogleSignInPending(false);
       setError(err.message || 'Download failed. Please try again.');
       setStep('selection');
     } finally {
@@ -756,26 +776,36 @@ export const DownloadModal = ({
                 className="flex flex-col items-center justify-center py-8 text-center"
               >
                 <div className="relative mb-8 flex h-32 w-32 items-center justify-center">
-                  <div className="absolute inset-0 rounded-full border-[4px] border-zinc-100" />
-                  <svg className="absolute inset-0 h-full w-full -rotate-90">
-                    <motion.circle
-                      cx="64" cy="64" r="61"
-                      fill="none"
-                      stroke="#18181b"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      strokeDasharray={383}
-                      animate={{ strokeDashoffset: 383 - (383 * progress) / 100 }}
-                      transition={{ duration: 0.15, ease: 'easeOut' }}
-                    />
-                  </svg>
-                  <span className="text-3xl font-bold text-zinc-900">{progress}%</span>
+                  {googleSignInPending ? (
+                    <>
+                      <div className="absolute inset-0 rounded-full border-[4px] border-zinc-100" />
+                      <div className="absolute inset-2 rounded-full border-[4px] border-zinc-900 border-t-transparent animate-spin" />
+                      <Cloud size={28} className="text-zinc-900" strokeWidth={1.5} />
+                    </>
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 rounded-full border-[4px] border-zinc-100" />
+                      <svg className="absolute inset-0 h-full w-full -rotate-90">
+                        <motion.circle
+                          cx="64" cy="64" r="61"
+                          fill="none"
+                          stroke="#18181b"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          strokeDasharray={383}
+                          animate={{ strokeDashoffset: 383 - (383 * progress) / 100 }}
+                          transition={{ duration: 0.15, ease: 'easeOut' }}
+                        />
+                      </svg>
+                      <span className="text-3xl font-bold text-zinc-900">{progress}%</span>
+                    </>
+                  )}
                 </div>
 
                 <h2 className="text-[13px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-2">
-                  Preparing Photos
+                  {googleSignInPending ? 'Sign in with Google' : 'Preparing Photos'}
                 </h2>
-                <p className="max-w-[280px] text-[13px] leading-relaxed text-zinc-500">{statusText}</p>
+                <p className="max-w-[300px] text-[13px] leading-relaxed text-zinc-500">{statusText}</p>
 
                 <div className="mt-6 flex items-center gap-2 text-[11px] text-zinc-400">
                   <Loader2 size={12} className="animate-spin" />
