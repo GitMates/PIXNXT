@@ -1,403 +1,805 @@
+/* ================================================================
+   HOMEPAGE — matches the app's SidebarLayout design system
+   Colors: #fdfaf4 bg, #593116 primary, #eedec3 border
+   Font: inherits Playfair Display / system from the app
+   ================================================================ */
+
+/* ── MAIN CONTAINER ──────────────────────────────────────────── */
+
 .hp-main {
     flex: 1;
     display: flex;
     flex-direction: column;
-    padding: 40px 48px;
+    padding: 32px 40px 60px;
     height: 100vh;
     overflow-y: auto;
     background-color: #fdfaf4;
+    font-family: 'Playfair Display', Georgia, serif;
+    color: #333;
 }
+
+/* ── HEADER ─────────────────────────────────────────────────── */
 
 .hp-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 40px;
+    margin-bottom: 32px;
+    gap: 12px;
+    flex-wrap: wrap;
 }
 
 .hp-title {
-    font-size: 28px;
-    font-weight: 500;
-    color: #111;
+    font-size: 24px;
+    font-weight: 600;
+    color: #1a1a1a;
     margin: 0;
+    font-family: inherit;
+    letter-spacing: -0.2px;
 }
 
+.hp-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* Save success toast */
+.hp-save-toast {
+    font-size: 12.5px;
+    color: #22863a;
+    font-weight: 500;
+    background: #eaf6ec;
+    border: 1px solid #c3e6cb;
+    padding: 5px 12px;
+    border-radius: 20px;
+    animation: hp-fade-in 0.25s ease;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+@keyframes hp-fade-in {
+    from { opacity: 0; transform: translateY(-3px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* "Save Changes" — outlined, matching the ClientGallery filter buttons */
+.hp-save-btn {
+    height: 36px;
+    padding: 0 16px;
+    background: #fdfaf4;
+    color: #444;
+    border: 1px solid #eedec3;
+    border-radius: 4px;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.18s, border-color 0.18s;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    white-space: nowrap;
+}
+
+.hp-save-btn:hover:not(:disabled) {
+    background: #eedec3;
+    border-color: #c29775;
+    color: #333;
+}
+
+.hp-save-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* "View Site" — solid dark filled, same as "New Collection" CTA */
 .hp-view-btn {
+    height: 36px;
+    padding: 0 18px;
     background-color: #593116;
     color: #fff;
     border: none;
-    padding: 10px 20px;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 13.5px;
     font-weight: 500;
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: background 0.18s;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    white-space: nowrap;
 }
 
-.hp-view-btn:hover {
+.hp-view-btn:hover:not(:disabled) {
     background-color: #42220c;
 }
 
+.hp-view-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── ERROR BANNER ────────────────────────────────────────────── */
+
+.hp-error-banner {
+    background: #fff5f5;
+    border: 1px solid #f5c6c6;
+    color: #c0392b;
+    padding: 10px 14px;
+    border-radius: 4px;
+    font-size: 13px;
+    margin-bottom: 20px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── LOADING STATE ───────────────────────────────────────────── */
+
+.hp-loading {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 48px 0;
+    color: #888;
+    font-size: 13.5px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.hp-loading-spinner {
+    width: 18px;
+    height: 18px;
+    border: 2px solid #e8ddd0;
+    border-top-color: #593116;
+    border-radius: 50%;
+    animation: hp-spin 0.7s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes hp-spin { to { transform: rotate(360deg); } }
+
+/* ── TWO-COLUMN LAYOUT ───────────────────────────────────────── */
+
 .hp-content {
     display: flex;
-    gap: 60px;
+    gap: 48px;
     align-items: flex-start;
 }
 
 .hp-left-col {
     flex: 1;
-    max-width: 600px;
+    min-width: 0;
+    max-width: 560px;
     display: flex;
     flex-direction: column;
-    gap: 36px;
+    gap: 28px;
 }
+
+/* ── FORM GROUPS ─────────────────────────────────────────────── */
 
 .hp-form-group {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
 }
 
 .hp-label {
-    font-size: 15px;
-    font-weight: 600;
-    color: #111;
-}
-
-.hp-checkbox-list {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-top: 4px;
-    margin-bottom: 8px;
-}
-
-.hp-checkbox-item {
-    display: flex;
-    align-items: center;
-    gap: 12px;
     font-size: 14px;
-    color: #333;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.hp-checkbox-item input {
-    display: none;
-}
-
-.chk-box {
-    width: 18px;
-    height: 18px;
-    border: 2px solid #c29775;
-    border-radius: 4px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.2s;
-    background: #fdfaf4;
-}
-
-.chk-box svg {
-    width: 12px;
-    height: 12px;
-    color: white;
-    opacity: 0;
-    stroke-width: 4px;
-    transition: opacity 0.2s;
-}
-
-.hp-checkbox-item input:checked+.chk-box {
-    background-color: #593116;
-    border-color: #593116;
-}
-
-.hp-checkbox-item input:checked+.chk-box svg {
-    opacity: 1;
+    font-weight: 600;
+    color: #1a1a1a;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    letter-spacing: normal;
 }
 
 .hp-help-text {
-    font-size: 13px;
-    color: #767676;
-    line-height: 1.5;
+    font-size: 12.5px;
+    color: #888;
+    line-height: 1.55;
     margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .hp-help-text a {
     color: #593116;
-    text-decoration: none;
+    text-decoration: underline;
 }
+
+.hp-help-text a:hover { opacity: 0.8; }
+
+/* ── INFO BANNER ─────────────────────────────────────────────── */
+
+.hp-info-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    background: rgba(89, 49, 22, 0.04);
+    border: 1px solid #eedec3;
+    border-radius: 4px;
+    padding: 9px 12px;
+    font-size: 12.5px;
+    color: #593116;
+    line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.hp-info-banner svg { flex-shrink: 0; margin-top: 1px; }
+.hp-info-banner a { color: #593116; font-weight: 600; text-decoration: underline; }
+
+/* ── TOGGLE — matches sidebar/app toggle style ───────────────── */
 
 .hp-toggle-row {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
 }
 
 .hp-toggle {
-    width: 44px;
+    width: 42px;
     height: 24px;
     border-radius: 12px;
     border: none;
     cursor: pointer;
     position: relative;
     transition: background-color 0.2s ease;
+    padding: 0;
+    flex-shrink: 0;
 }
 
-.hp-toggle.on {
-    background-color: #593116;
-}
-
-.hp-toggle.off {
-    background-color: #d8d8d8;
-}
+.hp-toggle.on  { background-color: #593116; }
+.hp-toggle.off { background-color: #d1cac2; }
 
 .hp-toggle-handle {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     background-color: #fff;
     border-radius: 50%;
     position: absolute;
-    top: 2px;
-    left: 2px;
+    top: 3px;
+    left: 3px;
     transition: transform 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 }
 
-.hp-toggle.on .hp-toggle-handle {
-    transform: translateX(20px);
-}
+.hp-toggle.on .hp-toggle-handle { transform: translateX(18px); }
 
 .hp-toggle-label {
-    font-size: 14px;
-    color: #333;
+    font-size: 13.5px;
+    color: #555;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
+
+/* ── INPUT WRAP ──────────────────────────────────────────────── */
 
 .hp-input-wrap {
     display: flex;
     align-items: stretch;
-    background-color: #fdfaf4;
+    background: #fff;
     border: 1px solid #eedec3;
     border-radius: 4px;
     overflow: hidden;
-    height: 46px;
+    height: 42px;
+    transition: border-color 0.18s;
 }
+
+.hp-input-wrap:focus-within { border-color: #c29775; }
+
+.hp-input-wrap--has-value { border-color: #c29775; }
 
 .hp-input,
 .hp-input-read {
     flex: 1;
     background: transparent;
     border: none;
-    padding: 0 16px;
-    font-size: 14px;
+    padding: 0 13px;
+    font-size: 13.5px;
     color: #333;
     outline: none;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .hp-input-read {
     display: flex;
     align-items: center;
+    color: #555;
+    font-size: 13px;
+    user-select: all;
 }
 
-.hp-input::placeholder {
-    color: #999;
-}
+.hp-input::placeholder { color: #bbb; }
 
+/* URL Copy button */
 .hp-input-action-btn {
     display: flex;
     align-items: center;
+    gap: 5px;
+    padding: 0 13px;
+    background: #fdfaf4;
+    border: none;
+    border-left: 1px solid #eedec3;
+    color: #593116;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    transition: background 0.15s;
+}
+
+.hp-input-action-btn:hover { background: #eedec3; }
+
+/* ── PASSWORD — GENERATE BUTTON (teal) ───────────────────────── */
+
+.hp-pw-generate-btn {
+    display: flex;
+    align-items: center;
     gap: 6px;
-    padding: 0 16px;
+    padding: 0 14px;
+    height: 100%;
     background: transparent;
     border: none;
+    border-left: 1px solid #eedec3;
     color: #593116;
     font-size: 13px;
-    font-weight: 500;
+    font-weight: 600;
     cursor: pointer;
+    white-space: nowrap;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
 }
+
+.hp-pw-generate-btn:hover { color: #42220c; background: rgba(89,49,22,0.06); }
+
+/* ── PASSWORD — ICON BUTTONS (eye + copy) ────────────────────── */
+
+.hp-pw-actions {
+    display: flex;
+    align-items: center;
+    border-left: 1px solid #eedec3;
+    height: 100%;
+    padding: 0 2px;
+}
+
+.hp-pw-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 100%;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #593116;
+    border-radius: 3px;
+    transition: color 0.15s, background 0.15s;
+    flex-shrink: 0;
+}
+
+.hp-pw-icon-btn:hover { color: #42220c; background: rgba(89,49,22,0.07); }
+.hp-pw-icon-btn--done { color: #22863a; }
+
+/* ── PASSWORD HELP TEXT ──────────────────────────────────────── */
+
+.hp-help-text--active {
+    color: #593116 !important;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.hp-pw-clear-btn {
+    background: none;
+    border: none;
+    color: #593116;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    text-decoration: underline;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    transition: color 0.15s;
+    flex-shrink: 0;
+}
+
+.hp-pw-clear-btn:hover { color: #c0392b; }
+
+/* ── TEXTAREA ────────────────────────────────────────────────── */
 
 .hp-textarea-wrap {
     position: relative;
     border: 1px solid #eedec3;
     border-radius: 4px;
-    background-color: #fdfaf4;
-    padding: 12px 16px 32px 16px;
+    background: #fff;
+    padding: 10px 12px 30px 12px;
+    transition: border-color 0.18s;
 }
+
+.hp-textarea-wrap:focus-within { border-color: #c29775; }
 
 .hp-textarea {
     width: 100%;
-    height: 120px;
+    height: 100px;
     background: transparent;
     border: none;
     outline: none;
     resize: none;
-    font-size: 14px;
+    font-size: 13.5px;
     color: #333;
-    font-family: inherit;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    line-height: 1.55;
 }
+
+.hp-textarea::placeholder { color: #bbb; }
 
 .hp-char-count {
     position: absolute;
-    bottom: 12px;
-    left: 16px;
-    font-size: 12px;
-    color: #999;
+    bottom: 8px;
+    right: 12px;
+    font-size: 11.5px;
+    color: #bbb;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/* ── CHECKBOXES ──────────────────────────────────────────────── */
+
+.hp-checkbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 2px;
+}
+
+.hp-checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+}
+
+.hp-checkbox-item input[type="checkbox"] { display: none; }
+
+.chk-box {
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #c29775;
+    border-radius: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.18s;
+    background: #fff;
+}
+
+.chk-box svg {
+    width: 10px;
+    height: 10px;
+    color: white;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.hp-checkbox-item input:checked + .chk-box {
+    background-color: #593116;
+    border-color: #593116;
+}
+
+.hp-checkbox-item input:checked + .chk-box svg { opacity: 1; }
+
+.hp-checkbox-label-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.hp-checkbox-main {
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.hp-checkbox-sub {
+    font-size: 11.5px;
+    color: #aaa;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── SELECT (collection sort order) ─────────────────────────── */
+
+.set-select-wrap { position: relative; }
+
+.set-select {
+    width: 100%;
+    height: 42px;
+    padding: 0 36px 0 13px;
+    background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23999999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center;
+    border: 1px solid #eedec3;
+    border-radius: 4px;
+    font-size: 13.5px;
+    color: #333;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.18s;
+}
+
+.set-select::-ms-expand {
+    display: none;
+}
+
+.set-select:focus { border-color: #c29775; }
+
+/* ── RIGHT COLUMN — LIVE PREVIEW ─────────────────────────────── */
+
 .hp-right-col {
-    flex: 1;
-    max-width: 500px;
+    width: 390px;
+    flex-shrink: 0;
     position: sticky;
-    top: 40px;
+    top: 32px;
     align-self: flex-start;
 }
 
 .hp-mockup-bg {
-    background-color: rgba(89, 49, 22, 0.04);
-    padding: 60px 40px;
+    background: #f3f3f3;
+    width: 390px;
+    height: 530px;
     border-radius: 6px;
     display: flex;
+    align-items: center;
     justify-content: center;
-    align-items: flex-start;
+    box-sizing: border-box;
 }
 
+/* The preview card */
 .hp-mockup-card {
-    background-color: #fff;
-    width: 100%;
-    padding: 24px 32px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border-radius: 2px;
-}
-
-.hp-mockup-social {
+    background: #fff;
+    width: 340px;
+    height: 430px;
+    border-radius: 4px;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.06);
+    overflow: hidden;
+    padding: 20px;
+    box-sizing: border-box;
     display: flex;
-    gap: 8px;
-    margin-bottom: 40px;
+    flex-direction: column;
+    flex-shrink: 0;
 }
 
-.hp-mockup-header {
+/* Social icons row — top left, small dark icons */
+.hp-mockup-social-row {
     display: flex;
-    justify-content: flex-start;
-    margin-bottom: 30px;
+    align-items: center;
+    gap: 7px;
+    padding: 0;
+    margin-bottom: 10px;
+    color: #555;
 }
 
-.social-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background-color: #d8d8d8;
+.hp-mockup-social-row svg {
+    width: 9px;
+    height: 9px;
+    flex-shrink: 0;
+    color: #555;
 }
 
+/* Photographer name */
 .hp-mockup-title {
-    font-size: 20px;
-    font-weight: 800;
+    font-size: 13px;
+    font-weight: 700;
     text-align: center;
-    margin: 0 0 24px 0;
-    color: #333;
+    margin: 8px 0 6px;
+    color: #2c2c2c;
+    letter-spacing: 0.08em;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    text-transform: uppercase;
 }
 
+/* Bio */
+.hp-mockup-bio {
+    text-align: center;
+    font-size: 8px;
+    color: #666;
+    margin: 0 0 8px;
+    line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Contact info */
 .hp-mockup-contact {
     display: flex;
     flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 40px;
+    align-items: flex-start;
+    gap: 5px;
+    margin: 0 auto 16px;
+    width: fit-content;
 }
 
 .hp-mockup-line {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     font-size: 8px;
-    font-weight: 500;
-    color: #555;
+    color: #4f4f4f;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    max-width: 100%;
 }
 
 .hp-mockup-line svg {
-    width: 8px;
-    height: 8px;
-    color: #999;
+    width: 9px;
+    height: 9px;
+    color: #555;
+    flex-shrink: 0;
 }
 
+.hp-mockup-line span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
+}
+
+.hp-mockup-no-contact {
+    font-size: 8px;
+    color: #bbb;
+    font-style: italic;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Collections grid — 3 columns */
 .hp-mockup-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 16px 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px 10px;
+    padding: 0;
+    margin-bottom: 20px;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .hp-mockup-item {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 4px;
+    box-sizing: border-box;
+    width: 100%;
 }
 
 .hp-mockup-img {
     width: 100%;
-    aspect-ratio: 4/3;
-    background-color: #d8d8d8;
+    aspect-ratio: 1.48;
+    background: #e2e2e2;
+    border-radius: 1px;
+    overflow: hidden;
+    position: relative;
+    box-sizing: border-box;
 }
 
+.hp-mockup-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.hp-mockup-img--loading { animation: hp-pulse 1.4s ease infinite; }
+
+.hp-mockup-img--empty {
+    background: #e2e2e2;
+}
+
+@keyframes hp-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.45; }
+}
+
+.hp-mockup-img-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #e2e2e2;
+}
+
+.hp-mockup-img-placeholder svg { width: 14px; height: 14px; }
+
+.hp-mockup-name {
+    font-size: 7px;
+    font-weight: 600;
+    color: #444;
+    text-align: left;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.hp-mockup-date {
+    font-size: 6.5px;
+    color: #aaa;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Skeleton placeholder bars — matching Image 1/3 layout */
 .hp-mockup-text-1 {
-    width: 40%;
-    height: 3px;
-    background-color: #d8d8d8;
+    width: 55%;
+    height: 4.5px;
+    background: #e2e2e2;
+    border-radius: 2px;
 }
 
 .hp-mockup-text-2 {
-    width: 60%;
-    height: 4px;
-    background-color: #d8d8d8;
+    width: 38%;
+    height: 3.5px;
+    background: #eeeeee;
+    border-radius: 2px;
 }
 
-/* ============================================================
-   HOMEPAGE — MOBILE RESPONSIVE
-   ============================================================ */
-@media screen and (max-width: 768px) {
-    .hp-main {
-        height: auto !important;
-        min-height: 100vh !important;
-        padding: 24px 16px !important;
-        overflow-y: visible !important;
-    }
-    .hp-header {
-        margin-bottom: 24px !important;
-        flex-direction: row !important; /* Row to align next to each other */
-        align-items: center !important;
-        justify-content: flex-start !important; /* Left aligned, not centered */
-        gap: 12px !important;
-        width: 100% !important;
-    }
-    .hp-title {
-        font-size: 24px !important;
-    }
-    .hp-view-btn {
-        padding: 8px 16px !important;
-        font-size: 13px !important;
-    }
-    .hp-content {
-        flex-direction: column !important;
-        gap: 32px !important;
-    }
-    .hp-left-col {
-        max-width: 100% !important;
-        margin-top: -10px !important;
-        margin-left: -4px !important;
-    }
+/* Footer of card */
+.hp-mockup-footer {
+    text-align: center;
+    font-size: 7.5px;
+    color: #aaa;
+    padding: 8px 12px 0px;
+    border-top: 1px solid #f3f3f3;
+    margin-top: 2px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* ── UTILS ───────────────────────────────────────────────────── */
+
+.mt-2 { margin-top: 6px; }
+.mt-4 { margin-top: 14px; }
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+
+@media screen and (max-width: 1024px) {
     .hp-right-col {
-        max-width: 100% !important;
-        position: static !important;
-        order: 2 !important;
-        width: 100% !important;
+        width: 300px;
     }
-    .hp-mockup-bg {
-        padding: 40px 20px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
+}
+
+@media screen and (max-width: 860px) {
+    .hp-content {
+        flex-direction: column;
+        gap: 28px;
     }
-    .hp-mockup-card {
-        padding: 16px !important;
-        width: 100% !important; /* Ensure it fits */
-        box-sizing: border-box !important;
+
+    .hp-left-col {
+        max-width: 100%;
+    }
+
+    .hp-right-col {
+        width: 100%;
+        position: static;
+    }
+}
+
+@media screen and (max-width: 640px) {
+    .hp-main {
+        padding: 20px 16px 40px;
+        height: auto;
+        min-height: 100vh;
+        overflow-y: visible;
+    }
+
+    .hp-header {
+        margin-bottom: 20px;
+        gap: 8px;
+    }
+
+    .hp-title { font-size: 20px; }
+
+    .hp-save-btn,
+    .hp-view-btn {
+        height: 34px;
+        padding: 0 13px;
+        font-size: 13px;
     }
 }
