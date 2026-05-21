@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth';
 
 const SidebarLayout = ({ children }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -9,16 +10,109 @@ const SidebarLayout = ({ children }) => {
     const location = useLocation();
     const path = location.pathname;
     const appDropdownRef = useRef(null);
+    const profileDropdownRef = useRef(null);
+    const { user, logout } = useAuth();
+    const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+
+    const userInitial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
 
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (appDropdownRef.current && !appDropdownRef.current.contains(e.target)) {
                 setShowAppDropdown(false);
             }
+            if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
+                setShowProfileDropdown(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
+
+    const renderProfileDropdown = (positionClasses) => (
+        <div className={`absolute ${positionClasses} w-[280px] bg-[#ffffff] rounded-md shadow-[0_4px_20px_rgba(0,0,0,0.15)] z-[500] py-1 animate-[cgFadeIn_0.15s_ease]`}>
+            {/* Profile Header */}
+            <div className="px-5 py-4 border-b border-[#eeeeee] flex items-center gap-3">
+                <div className="w-[48px] h-[48px] rounded-full flex items-center justify-center text-[20px] font-medium bg-[#e8f7f2] text-[#1a9b84]">
+                    {userInitial}
+                </div>
+                <div className="flex flex-col">
+                    <div className="text-[15px] font-medium text-[#222] truncate w-[180px]">{user?.email ? user.email.split('@')[0].toUpperCase() : 'POOJA'}</div>
+                    <div className="text-[13px] text-[#888] truncate w-[180px]">{user?.email || 'poojaelango03@gmail.com'}</div>
+                </div>
+            </div>
+            
+            {/* Invite Friends */}
+            <div className="px-5 py-3.5 text-[15px] text-[#333] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5 font-medium border-b border-[#eeeeee]">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>
+                Invite Friends & Get $20
+            </div>
+
+            {/* Profile */}
+            <div 
+                className="px-5 py-3 text-[14px] text-[#444] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5 mt-1"
+                onClick={() => {
+                    navigate('/account/profile');
+                    setShowProfileDropdown(false);
+                }}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                Profile
+            </div>
+
+            {/* Billing */}
+            <div 
+                className="px-5 py-3 text-[14px] text-[#444] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5"
+                onClick={() => {
+                    navigate('/account/billing');
+                    setShowProfileDropdown(false);
+                }}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
+                Billing
+            </div>
+
+            {/* Advanced Settings */}
+            <div 
+                className="px-5 py-3 text-[14px] text-[#444] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5 pb-4 border-b border-[#eeeeee]"
+                onClick={() => {
+                    navigate('/account/advanced');
+                    setShowProfileDropdown(false);
+                }}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+                Advanced Settings
+            </div>
+
+            {/* Account */}
+            <div 
+                className="px-5 py-3 mt-1 text-[14px] text-[#444] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5"
+                onClick={() => {
+                    navigate('/account/details');
+                    setShowProfileDropdown(false);
+                }}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                Account
+            </div>
+
+            {/* Log Out */}
+            <div 
+                className="px-5 py-3 text-[14px] text-[#444] cursor-pointer hover:bg-[#f9f9f9] flex items-center gap-3.5 mb-1"
+                onClick={async () => {
+                    try {
+                        await logout();
+                        navigate('/login');
+                    } catch (err) {
+                        console.error('Logout failed', err);
+                    }
+                }}
+            >
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                Log Out
+            </div>
+        </div>
+    );
 
     return (
         <div className="flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-[#ffffff] md:overflow-hidden" style={{ fontFamily: "'Roboto', system-ui, sans-serif" }}>
@@ -101,10 +195,16 @@ const SidebarLayout = ({ children }) => {
                         )}
                     </div>
                     {(!isCollapsed || isMobileMenuOpen) && (
-                        <div className="flex items-center gap-3.5">
+                        <div className="flex items-center gap-3.5 relative" ref={!isCollapsed || isMobileMenuOpen ? profileDropdownRef : null}>
                             <div className="text-[#222] cursor-pointer flex items-center hover:text-[#111]"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
                             <div className="text-[#222] cursor-pointer flex items-center hover:text-[#111]"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></div>
-                            <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer max-md:hidden bg-[#1a9b84] text-[#fff]">D</div>
+                            <div 
+                                className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer max-md:hidden bg-[#1a9b84] text-[#fff]"
+                                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                            >
+                                {userInitial}
+                            </div>
+                            {showProfileDropdown && renderProfileDropdown('top-[calc(100%+8px)] right-0')}
                         </div>
                     )}
                 </div>
@@ -131,10 +231,16 @@ const SidebarLayout = ({ children }) => {
 
                 <div className="flex flex-col items-stretch p-6 gap-2">
                     {isCollapsed && !isMobileMenuOpen ? (
-                        <div className="flex flex-col items-center gap-5 w-full pb-1">
+                        <div className="flex flex-col items-center gap-5 w-full pb-1 relative" ref={isCollapsed && !isMobileMenuOpen ? profileDropdownRef : null}>
                             <div className="text-[#222] cursor-pointer flex items-center hover:text-[#111]"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg></div>
                             <div className="text-[#222] cursor-pointer flex items-center hover:text-[#111]"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></div>
-                            <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer max-md:hidden bg-[#1a9b84] text-[#fff]">D</div>
+                            <div 
+                                className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer max-md:hidden bg-[#1a9b84] text-[#fff]"
+                                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                            >
+                                {userInitial}
+                            </div>
+                            {showProfileDropdown && renderProfileDropdown('bottom-0 left-[calc(100%+8px)]')}
 
                             <div className="w-11 h-11 rounded-none bg-[#f7f9fa] flex items-center justify-center cursor-pointer mt-1 text-[#555] transition-colors duration-200 hover:bg-[#edf0f2]" onClick={() => setIsCollapsed(false)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>

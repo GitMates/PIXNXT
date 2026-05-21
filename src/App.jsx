@@ -14,6 +14,7 @@ import GetStarted from './pages/GetStarted';
 import Starred from './pages/Starred';
 import Homepage from './pages/Homepage';
 import Settings from './pages/Settings';
+import AccountSettings from './pages/AccountSettings';
 import AuthPage from './pages/AuthPage';
 import { ProtectedRoute } from './components/features/Auth';
 import CollectionList from './pages/public/CollectionList';
@@ -65,6 +66,7 @@ function App() {
     location.pathname.startsWith('/starred') ||
     location.pathname === '/homepage' ||
     location.pathname.startsWith('/settings') ||
+    location.pathname.startsWith('/account') ||
     location.pathname === '/collections' ||
     location.pathname.startsWith('/gallery/');
 
@@ -85,6 +87,8 @@ function App() {
           <Route path="/homepage" element={<Homepage />} />
           <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
           <Route path="/settings/:tab" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+          <Route path="/account" element={<ProtectedRoute><Navigate to="/account/profile" replace /></ProtectedRoute>} />
+          <Route path="/account/:tab" element={<ProtectedRoute><AccountSettings /></ProtectedRoute>} />
           <Route path="/collections/get-started" element={<ProtectedRoute><GetStarted /></ProtectedRoute>} />
           <Route path="/collections/create" element={<ProtectedRoute><CreateCollection /></ProtectedRoute>} />
           <Route path="/folders/create" element={<ProtectedRoute><CreateFolder /></ProtectedRoute>} />
