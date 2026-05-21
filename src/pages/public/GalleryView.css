@@ -499,15 +499,4 @@
   color: #171717;
 }
 
-/* Lightbox: native controls only for video slides */
-.photo-lightbox-video {
-  display: block;
-  max-height: calc(100dvh - 8rem);
-  width: 100%;
-  max-width: 100%;
-  background-color: #000;
-}
-
-.photo-lightbox-video::-webkit-media-controls-panel {
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.85));
-}
+/* Lightbox video sizing — see PhotoLightbox.css */

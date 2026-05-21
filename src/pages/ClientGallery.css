@@ -70,7 +70,51 @@
   }
 
   .cg-style-18 {
-    @apply px-6 py-3 text-[15px] font-medium text-[#333] cursor-pointer transition-colors duration-150 hover:bg-[#ffffff];
+    @apply px-6 py-3 text-[15px] font-medium text-[#333] cursor-pointer transition-colors duration-150 hover:bg-[#f5f5f5];
+  }
+
+  .cg-filter-option {
+    @apply flex items-center justify-between gap-3;
+  }
+
+  .cg-filter-option--selected {
+    @apply bg-[#f0f2f3];
+  }
+
+  .cg-filter-chip--active {
+    @apply bg-[#e8f7f2] border border-[#b8e8d8] shadow-[0_2px_8px_rgba(0,0,0,0.04)];
+  }
+
+  .cg-filter-chip-clear {
+    @apply ml-0.5 inline-flex h-4 w-4 items-center justify-center rounded-full text-[15px] leading-none text-[#333] opacity-70 transition-opacity hover:opacity-100;
+  }
+
+  .cg-filter-clear-all {
+    @apply border-none bg-transparent p-0 text-[13px] font-medium text-[#1a9b84] cursor-pointer whitespace-nowrap hover:underline;
+  }
+
+  .cg-filter-clear-all--inline {
+    @apply text-[14px];
+  }
+
+  .cg-quick-date-btn {
+    @apply block w-full border-none bg-transparent text-left cursor-pointer;
+  }
+
+  .cg-calendar-day {
+    @apply border-none bg-transparent;
+  }
+
+  .cg-calendar-day--in-range {
+    @apply bg-[#e8f7f2] text-[#333];
+  }
+
+  .cg-calendar-day--endpoint {
+    @apply bg-[#1a9b84] text-white font-semibold;
+  }
+
+  .cg-calendar-day--today:not(.cg-calendar-day--endpoint) {
+    @apply text-[#593116] font-bold;
   }
 
   .cg-style-19 {

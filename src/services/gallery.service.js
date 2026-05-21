@@ -102,6 +102,43 @@ export const galleryService = {
     return (data || []).map(mapCollectionDashboardRow);
   },
 
+  /** Starred collections for the dashboard Starred page. */
+  async getStarredCollections(photographerId) {
+    if (!photographerId) return [];
+    const { data, error } = await supabase
+      .from('collections')
+      .select(`
+        *,
+        photos:photos!photos_collection_id_fkey(size_bytes, filename)
+      `)
+      .eq('photographer_id', photographerId)
+      .eq('is_starred', true)
+      .order('updated_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map(mapCollectionDashboardRow);
+  },
+
+  /** Starred photos across all collections for the dashboard Starred → Photos tab. */
+  async getStarredPhotos(photographerId) {
+    if (!photographerId) return [];
+    const { data, error } = await supabase
+      .from('photos')
+      .select(`
+        ${DASHBOARD_PHOTO_FIELDS},
+        collection:collections!photos_collection_id_fkey(id, name, slug)
+      `)
+      .eq('photographer_id', photographerId)
+      .eq('is_starred', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data || []).map((row) => {
+      const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
+      return { ...row, collection: collection || null };
+    });
+  },
+
   /**
    * Folders for the move-collection picker, with cover from folder or first collection inside.
    */

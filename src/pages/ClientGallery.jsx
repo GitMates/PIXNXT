@@ -32,6 +32,13 @@ import {
     filterRootCollectionsForSearch,
     filterFoldersForSearch,
 } from '../utils/filterClientGallerySearch';
+import {
+    EMPTY_CLIENT_GALLERY_FILTERS,
+    filterCollectionsByClientGalleryFilters,
+    folderMatchesClientGalleryFilters,
+    hasActiveClientGalleryFilters,
+} from '../utils/clientGalleryFilters';
+import { ClientGalleryFilterBar } from '../components/features/ClientGallery/ClientGalleryFilterBar';
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
 
 
@@ -56,9 +63,7 @@ const ClientGallery = () => {
     const [selectedCards, setSelectedCards] = useState([]);
     const [contextMenuId, setContextMenuId] = useState(null);
     const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
-    const [activeFilter, setActiveFilter] = useState(null);
-    const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth());
-    const [calendarYear, setCalendarYear] = useState(new Date().getFullYear());
+    const [galleryFilters, setGalleryFilters] = useState(EMPTY_CLIENT_GALLERY_FILTERS);
     const [editCollection, setEditCollection] = useState(null);
     const [directLinkCollection, setDirectLinkCollection] = useState(null);
     const [qrCollection, setQrCollection] = useState(null);
@@ -85,7 +90,6 @@ const ClientGallery = () => {
     const viewRef = useRef(null);
     const contextRef = useRef(null);
     const folderMenuRef = useRef(null);
-    const filterRef = useRef(null);
     const newCollectionRef = useRef(null);
     const selectionMenuRef = useRef(null);
 
@@ -193,15 +197,17 @@ const ClientGallery = () => {
         [searchQuery]
     );
 
-    const filteredRootCollections = useMemo(
-        () => filterRootCollectionsForSearch(rootCollections, normalizedSearch),
-        [rootCollections, normalizedSearch]
-    );
+    const filteredRootCollections = useMemo(() => {
+        const byFilters = filterCollectionsByClientGalleryFilters(rootCollections, galleryFilters);
+        return filterRootCollectionsForSearch(byFilters, normalizedSearch);
+    }, [rootCollections, galleryFilters, normalizedSearch]);
 
-    const filteredFolders = useMemo(
-        () => filterFoldersForSearch(folders, normalizedSearch, collections),
-        [folders, normalizedSearch, collections]
-    );
+    const filteredFolders = useMemo(() => {
+        const byFilters = folders.filter((f) =>
+            folderMatchesClientGalleryFilters(f, galleryFilters, collections)
+        );
+        return filterFoldersForSearch(byFilters, normalizedSearch, collections);
+    }, [folders, galleryFilters, collections, normalizedSearch]);
 
     const sortedRootCollections = useMemo(
         () => sortCollections(filteredRootCollections, activeSort),
@@ -499,49 +505,12 @@ const ClientGallery = () => {
             ) {
                 setFolderContextMenuId(null);
             }
-            if (filterRef.current && !filterRef.current.contains(e.target)) setActiveFilter(null);
             if (newCollectionRef.current && !newCollectionRef.current.contains(e.target)) setShowNewCollectionDropdown(false);
             if (selectionMenuRef.current && !selectionMenuRef.current.contains(e.target)) setShowSelectionMenu(false);
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
-    // Toggle a filter dropdown
-    const toggleFilter = (filterName) => {
-        setActiveFilter(activeFilter === filterName ? null : filterName);
-    };
-
-    // Calendar helpers
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-    const getDaysInMonth = (month, year) => new Date(year, month + 1, 0).getDate();
-    const getFirstDayOfMonth = (month, year) => new Date(year, month, 1).getDay();
-    const today = new Date();
-
-    const renderCalendarGrid = () => {
-        const daysInMonth = getDaysInMonth(calendarMonth, calendarYear);
-        const firstDay = getFirstDayOfMonth(calendarMonth, calendarYear);
-        const daysInPrevMonth = getDaysInMonth(calendarMonth - 1 < 0 ? 11 : calendarMonth - 1, calendarMonth - 1 < 0 ? calendarYear - 1 : calendarYear);
-        const cells = [];
-        // Previous month trailing days
-        for (let i = firstDay - 1; i >= 0; i--) {
-            cells.push(<span key={`prev-${i}`} className="cg-style-1">{daysInPrevMonth - i}</span>);
-        }
-        // Current month days
-        for (let d = 1; d <= daysInMonth; d++) {
-            const isToday = d === today.getDate() && calendarMonth === today.getMonth() && calendarYear === today.getFullYear();
-            cells.push(<span key={`cur-${d}`} className={`cg-style-69 ${isToday ? 'text-[#593116] font-bold' : 'text-[#333]'}`}>{d}</span>);
-        }
-        // Next month leading days
-        const remaining = 7 - (cells.length % 7);
-        if (remaining < 7) {
-            for (let i = 1; i <= remaining; i++) {
-                cells.push(<span key={`next-${i}`} className="cg-style-1">{i}</span>);
-            }
-        }
-        return cells;
-    };
 
     // Toggle selection of a card
     const toggleSelectCard = (e, collectionId) => {
@@ -614,111 +583,12 @@ const ClientGallery = () => {
                 </div>
 
                 {/* Filter Bar */}
-                <div className="cg-style-15" ref={filterRef}>
-                    <div className="cg-style-16">
-                        {/* Status Filter */}
-                        <div className="relative inline-flex">
-                            <button className={`cg-style-70 ${activeFilter === 'status' ? 'bg-[#fdfaf4] border border-[#c29775] shadow-[0_2px_8px_rgba(0,0,0,0.06)]' : 'bg-[#fdfaf4] border border-[#eedec3] hover:bg-[#eedec3]'}`} onClick={() => toggleFilter('status')}>
-                                Status
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: activeFilter === 'status' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </button>
-                            {activeFilter === 'status' && (
-                                <div className="cg-style-17">
-                                    <div className="cg-style-18" onClick={() => setActiveFilter(null)}>Published</div>
-                                    <div className="cg-style-18" onClick={() => setActiveFilter(null)}>Hidden</div>
-                                    <div className="cg-style-18" onClick={() => setActiveFilter(null)}>Draft</div>
-                                </div>
-                            )}
-                        </div>
-                        {/* Category Tag Filter */}
-                        <div className="relative inline-flex">
-                            <button className={`cg-style-70 ${activeFilter === 'category' ? 'bg-[#fdfaf4] border border-[#c29775] shadow-[0_2px_8px_rgba(0,0,0,0.06)]' : 'bg-[#fdfaf4] border border-[#eedec3] hover:bg-[#eedec3]'}`} onClick={() => toggleFilter('category')}>
-                                Category Tag
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: activeFilter === 'category' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </button>
-                            {activeFilter === 'category' && (
-                                <div className="cg-style-17">
-                                    <div className="cg-style-19">You don't have category tags yet. <a className="cg-style-20" href="#">Learn more</a></div>
-                                </div>
-                            )}
-                        </div>
-                        {/* Event Date Filter */}
-                        <div className="relative inline-flex">
-                            <button className={`cg-style-70 ${activeFilter === 'eventdate' ? 'bg-[#fdfaf4] border border-[#c29775] shadow-[0_2px_8px_rgba(0,0,0,0.06)]' : 'bg-[#fdfaf4] border border-[#eedec3] hover:bg-[#eedec3]'}`} onClick={() => toggleFilter('eventdate')}>
-                                Event Date
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: activeFilter === 'eventdate' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </button>
-                            {activeFilter === 'eventdate' && (
-                                <div className="cg-style-21">
-                                    <div className="cg-style-22">
-                                        <div className="cg-style-23">
-                                            <span className="cg-style-24">{monthNames[calendarMonth]}</span>
-                                            <span className="cg-style-25">{calendarYear}</span>
-                                            <button className="cg-style-26" onClick={() => { if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(calendarYear - 1); } else setCalendarMonth(calendarMonth - 1); }}>←</button>
-                                            <button className="cg-style-26" onClick={() => { if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(calendarYear + 1); } else setCalendarMonth(calendarMonth + 1); }}>→</button>
-                                        </div>
-                                        <div className="cg-style-27">{dayNames.map((d, i) => <span key={i}>{d}</span>)}</div>
-                                        <div className="cg-style-28">{renderCalendarGrid()}</div>
-                                    </div>
-                                    <div className="cg-style-29">
-                                        <div className="cg-style-30">QUICK SEARCH</div>
-                                        <div className="cg-style-31">Last week</div>
-                                        <div className="cg-style-31">Last 2 weeks</div>
-                                        <div className="cg-style-31">Last month</div>
-                                        <div className="cg-style-31">Last 6 months</div>
-                                        <div className="cg-style-31">Last year</div>
-                                        <div className="cg-style-31">Next week</div>
-                                        <div className="cg-style-31">Next 2 weeks</div>
-                                        <div className="cg-style-31">Next month</div>
-                                        <div className="cg-style-31">Next 6 months</div>
-                                        <div className="cg-style-31">Next year</div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        {/* Expiry Date Filter */}
-                        <div className="relative inline-flex">
-                            <button className={`cg-style-70 ${activeFilter === 'expirydate' ? 'bg-[#fdfaf4] border border-[#c29775] shadow-[0_2px_8px_rgba(0,0,0,0.06)]' : 'bg-[#fdfaf4] border border-[#eedec3] hover:bg-[#eedec3]'}`} onClick={() => toggleFilter('expirydate')}>
-                                Expiry Date
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: activeFilter === 'expirydate' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </button>
-                            {activeFilter === 'expirydate' && (
-                                <div className="cg-style-21">
-                                    <div className="cg-style-22">
-                                        <div className="cg-style-23">
-                                            <span className="cg-style-24">{monthNames[calendarMonth]}</span>
-                                            <span className="cg-style-25">{calendarYear}</span>
-                                            <button className="cg-style-26" onClick={() => { if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(calendarYear - 1); } else setCalendarMonth(calendarMonth - 1); }}>←</button>
-                                            <button className="cg-style-26" onClick={() => { if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(calendarYear + 1); } else setCalendarMonth(calendarMonth + 1); }}>→</button>
-                                        </div>
-                                        <div className="cg-style-27">{dayNames.map((d, i) => <span key={i}>{d}</span>)}</div>
-                                        <div className="cg-style-28">{renderCalendarGrid()}</div>
-                                    </div>
-                                    <div className="cg-style-29">
-                                        <div className="cg-style-30">QUICK SEARCH</div>
-                                        <div className="cg-style-31">Next week</div>
-                                        <div className="cg-style-31">Next 2 weeks</div>
-                                        <div className="cg-style-31">Next month</div>
-                                        <div className="cg-style-31">Next 6 months</div>
-                                        <div className="cg-style-31">Next year</div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                        {/* Starred Filter */}
-                        <div className="relative inline-flex">
-                            <button className={`cg-style-70 ${activeFilter === 'starred' ? 'bg-[#fdfaf4] border border-[#c29775] shadow-[0_2px_8px_rgba(0,0,0,0.06)]' : 'bg-[#fdfaf4] border border-[#eedec3] hover:bg-[#eedec3]'}`} onClick={() => toggleFilter('starred')}>
-                                Starred
-                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: activeFilter === 'starred' ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </button>
-                            {activeFilter === 'starred' && (
-                                <div className="cg-style-17">
-                                    <div className="cg-style-18" onClick={() => setActiveFilter(null)}>Yes</div>
-                                    <div className="cg-style-18" onClick={() => setActiveFilter(null)}>No</div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
+                <div className="cg-style-15">
+                    <ClientGalleryFilterBar
+                        filters={galleryFilters}
+                        onFiltersChange={setGalleryFilters}
+                        collections={collections}
+                    />
                     <div className="cg-style-32">
                         <div className="relative inline-flex" ref={sortRef}>
                             <button className="cg-view-icon-btn" onClick={() => { setShowSortDropdown(!showSortDropdown); setShowViewDropdown(false); }}>
@@ -773,6 +643,20 @@ const ClientGallery = () => {
                             onClick={() => setSearchQuery('')}
                         >
                             Clear search
+                        </button>
+                    </div>
+                ) : hasActiveClientGalleryFilters(galleryFilters) && dashboardGridItems.length === 0 ? (
+                    <div className="cg-style-60">
+                        <h3 className="cg-style-61">No matching collections</h3>
+                        <p className="cg-style-62">
+                            No folders or collections match the current filters.
+                        </p>
+                        <button
+                            type="button"
+                            className="cg-style-63 bg-transparent border border-[#ddd] text-[#333] hover:bg-[#f5f5f5]"
+                            onClick={() => setGalleryFilters(EMPTY_CLIENT_GALLERY_FILTERS)}
+                        >
+                            Clear filters
                         </button>
                     </div>
                 ) : dashboardGridItems.length > 0 && activeView === 'grid' ? (

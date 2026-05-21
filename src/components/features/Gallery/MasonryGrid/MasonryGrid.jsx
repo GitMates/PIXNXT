@@ -4,6 +4,7 @@ import { Download, Heart, Share2, Play } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
+import { getPhotoVideoPoster, getPhotoVideoSrc } from '../../../../lib/photoDisplayUrl';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 import './MasonryGrid.css';
 
@@ -65,11 +66,9 @@ export function MasonryGrid({
   const centerVideosLayout =
     videosOnly && photos.length > 0 && photos.every((p) => isGalleryVideo(p));
 
-  const videoTileMaxWidth =
-    size === 'large' ? 720
-      : size === 'regular' ? 560
-        : size === 'small' ? 440
-          : 380;
+  /** Videos tab — one size for every tile (not grid size / per-file dimensions). */
+  const VIDEO_TILE_MAX_WIDTH_PX = 1080;
+  const VIDEO_TILE_ASPECT = 16 / 9;
 
   // Avoid opacity:0 on the multicol container — it can break column layout / paint in some browsers.
   const container = {
@@ -128,17 +127,25 @@ export function MasonryGrid({
       )}
       style={
         centerVideosLayout
-          ? { gap: `${gap}px` }
+          ? {
+              gap: `${gap}px`,
+              '--video-tile-max-width': `${VIDEO_TILE_MAX_WIDTH_PX}px`,
+              '--video-tile-aspect': String(VIDEO_TILE_ASPECT),
+            }
           : isHorizontal
             ? { gap: `${gap}px` }
             : verticalColumnStyle
       }
     >
       {photos.map((photo, index) => {
-        const src = photo.full_url || photo.web_url || photo.thumbnail_url;
+        const src = isGalleryVideo(photo)
+          ? getPhotoVideoSrc(photo)
+          : photo.full_url || photo.web_url || photo.thumbnail_url;
         const aspectRatio = (photo.width && photo.height)
           ? (photo.width / photo.height)
           : (dynamicAspectRatios[photo.id] || 1.5);
+        const useFixedVideoTile = centerVideosLayout && isGalleryVideo(photo);
+        const tileAspectRatio = useFixedVideoTile ? VIDEO_TILE_ASPECT : aspectRatio;
 
         const isFav = favoritedPhotoIds?.some((fid) => String(fid) === String(photo.id));
         const isPrivate = Boolean(photo.is_private);
@@ -155,13 +162,13 @@ export function MasonryGrid({
               !isHorizontal && !centerVideosLayout && 'mb-[var(--grid-gap)] w-full max-w-full break-inside-avoid'
             )}
             style={isHorizontal ? {
-              flex: centerVideosLayout ? `0 1 ${baseRowHeight * aspectRatio}px` : `${aspectRatio} 1 ${baseRowHeight * aspectRatio}px`,
-              aspectRatio: `${aspectRatio}`,
-              maxWidth: centerVideosLayout ? `${videoTileMaxWidth}px` : '100%',
+              flex: useFixedVideoTile
+                ? `0 1 ${VIDEO_TILE_MAX_WIDTH_PX}px`
+                : `${tileAspectRatio} 1 ${baseRowHeight * tileAspectRatio}px`,
+              aspectRatio: useFixedVideoTile ? String(VIDEO_TILE_ASPECT) : String(tileAspectRatio),
+              maxWidth: useFixedVideoTile ? undefined : '100%',
               margin: 0
             } : centerVideosLayout ? {
-              maxWidth: `${videoTileMaxWidth}px`,
-              width: '100%',
               marginBottom: `${gap}px`,
             } : {
               '--grid-gap': `${gap}px`,
@@ -170,17 +177,27 @@ export function MasonryGrid({
             }}
             onClick={() => onImageClick(index)}
           >
-            <div className="relative h-full w-full min-w-0" style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}>
+            <div
+              className={cn(
+                'relative h-full w-full min-w-0',
+                useFixedVideoTile && 'masonry-grid-video-frame'
+              )}
+              style={{ backgroundColor: 'var(--gallery-secondary-bg)' }}
+            >
               {isGalleryVideo(photo) ? (
                 <>
                 <video
                   src={src}
-                  poster={photo.thumbnail_url || undefined}
-                  className="gallery-masonry-media"
-                  style={{
-                    objectFit: 'cover',
-                    aspectRatio: String(aspectRatio),
-                  }}
+                  poster={getPhotoVideoPoster(photo)}
+                  className={cn(
+                    'gallery-masonry-media',
+                    useFixedVideoTile && 'gallery-masonry-media--video-fixed'
+                  )}
+                  style={
+                    useFixedVideoTile
+                      ? { objectFit: 'cover', width: '100%', height: '100%' }
+                      : { objectFit: 'cover', aspectRatio: String(tileAspectRatio) }
+                  }
                   muted
                   loop
                   playsInline
@@ -259,14 +276,7 @@ export function MasonryGrid({
                     }}
                   />
                 ) : (
-                <div
-                  className={cn(
-                    'gallery-masonry-actions absolute bottom-4 right-4 flex gap-2 transform',
-                    isFav
-                      ? 'translate-y-0 opacity-100'
-                      : 'translate-y-[10px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100'
-                  )}
-                >
+                <div className="gallery-masonry-actions absolute bottom-4 right-4 z-[12] flex gap-2">
                   {showDownload && (
                     <button
                       type="button"
