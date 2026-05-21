@@ -71,6 +71,7 @@ const CollectionDashboard = () => {
     const [status, setStatus] = useState('DRAFT'); // DRAFT or PUBLISHED
     const [showShareDropdown, setShowShareDropdown] = useState(false);
     const [isDraggingModal, setIsDraggingModal] = useState(false);
+    const [isDraggingDropzone, setIsDraggingDropzone] = useState(false);
     const [activePhotoMenu, setActivePhotoMenu] = useState(null);
     const [showGridSettings, setShowGridSettings] = useState(false);
     const [gridSize, setGridSize] = useState('small');
@@ -1981,6 +1982,28 @@ const CollectionDashboard = () => {
         openMediaFileDialog(fileInputRef);
     };
 
+    const handleDropzoneBrowse = (e) => {
+        e?.stopPropagation?.();
+        openMediaFileDialog(fileInputRef);
+    };
+
+    const handleDropzoneDragOver = (e) => {
+        e.preventDefault();
+        setIsDraggingDropzone(true);
+    };
+
+    const handleDropzoneDragLeave = () => {
+        setIsDraggingDropzone(false);
+    };
+
+    const handleDropzoneDrop = (e) => {
+        e.preventDefault();
+        setIsDraggingDropzone(false);
+        const mediaFiles = Array.from(e.dataTransfer.files).filter(isUploadableMediaFile);
+        if (mediaFiles.length === 0) return;
+        processFiles(mediaFiles);
+    };
+
     const handleModalBrowse = (e) => {
         e?.stopPropagation?.();
         openMediaFileDialog(modalFileInputRef);
@@ -2665,7 +2688,13 @@ const CollectionDashboard = () => {
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="cd-dropzone" onClick={handleDropzoneClick}>
+                                    <div
+                                        className={`cd-dropzone ${isDraggingDropzone ? 'dragging' : ''}`}
+                                        onClick={handleDropzoneClick}
+                                        onDragOver={handleDropzoneDragOver}
+                                        onDragLeave={handleDropzoneDragLeave}
+                                        onDrop={handleDropzoneDrop}
+                                    >
                                         <input
                                             type="file"
                                             ref={fileInputRef}
@@ -2684,8 +2713,24 @@ const CollectionDashboard = () => {
                                                     <line x1="12" y1="15" x2="18" y2="15"></line>
                                                 </svg>
                                             </div>
-                                            <h3 className="cd-drop-title">Upload photos to {activeSetName}</h3>
-                                            <p className="cd-drop-subtitle">or <span className="cd-browse-link">Browse files</span></p>
+                                            <p className="cd-drop-title">Drag photos and videos here to upload</p>
+                                            <p className="cd-drop-subtitle">
+                                                or{' '}
+                                                <span
+                                                    className="cd-browse-link"
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={handleDropzoneBrowse}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            handleDropzoneBrowse(e);
+                                                        }
+                                                    }}
+                                                >
+                                                    Browse files
+                                                </span>
+                                            </p>
                                         </div>
                                     </div>
                                 )}
@@ -4216,10 +4261,6 @@ const CollectionDashboard = () => {
                     </div>
                 </div>
             )}
-
-            <button type="button" className="cd-help-fab" aria-label="Help and support" title="Help">
-                <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
-            </button>
 
             {/* Toast Notification */}
             {toastMessage && (
