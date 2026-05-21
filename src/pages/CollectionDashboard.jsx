@@ -11,9 +11,9 @@ import { SidebarCoverUpload } from '../components/features/CollectionDashboard/C
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
-import { CollectionQrModal } from '../components/features/ClientGallery/CollectionShareModals';
+import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
 import { sortDashboardPhotos } from '../utils/sortDashboardPhotos';
-import { MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
+import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback } from '../lib/mediaFilePicker';
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
@@ -162,6 +162,7 @@ const CollectionDashboard = () => {
     /** 'all' | 'highlights' | set uuid */
     const [coverModalScope, setCoverModalScope] = useState('all');
     const [isCoverUploading, setIsCoverUploading] = useState(false);
+    const coverModalFileInputRef = useRef(null);
     const [activeSettingsTab, setActiveSettingsTab] = useState('general'); // general, privacy, download, favorite
 
     // General Settings State
@@ -3580,11 +3581,33 @@ const CollectionDashboard = () => {
                 </div>
             )}
             {/* Change Cover Modal */}
+            <input
+                ref={coverModalFileInputRef}
+                type="file"
+                style={{ display: 'none' }}
+                accept={COVER_IMAGE_ACCEPT}
+                tabIndex={-1}
+                aria-hidden
+                onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (file) {
+                        void handleCoverFileSelect(file);
+                        closeCoverModal();
+                    }
+                }}
+            />
             <ChangeCoverModal
                 isOpen={showCoverModal}
                 onClose={closeCoverModal}
                 photos={coverModalPhotos}
                 scopeLabel={coverModalScopeLabel}
+                isUploading={isCoverUploading}
+                onBrowseFiles={() => coverModalFileInputRef.current?.click()}
+                onDropCoverFile={(file) => {
+                    void handleCoverFileSelect(file);
+                    closeCoverModal();
+                }}
                 onSelectPhoto={(photo) => {
                     void handleCoverPhotoSelect(photo);
                 }}
@@ -3732,46 +3755,30 @@ const CollectionDashboard = () => {
                 onMoved={(folderId) => setCollection((prev) => (prev ? { ...prev, folder_id: folderId } : prev))}
             />
 
-            {/* Duplicate Modal */}
-            {showDuplicateModal && (
-                <div className="cd-modal-overlay" onClick={() => setShowDuplicateModal(false)}>
-                    <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
-                        <div className="cd-modal-header">
-                            <h3 className="cd-modal-title">DUPLICATE COLLECTION</h3>
-                            <button className="cd-modal-close" onClick={() => setShowDuplicateModal(false)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                            </button>
-                        </div>
-                        <div className="cd-modal-body" style={{ padding: '24px' }}>
-                            <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Are you sure you want to duplicate this collection?</p>
-                            <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>• Duplicating a collection may take a few minutes depending on the size.</p>
-                            <p style={{ fontSize: '13px', color: '#666', marginBottom: '12px' }}>• Videos will not be duplicated.</p>
-                            <p style={{ fontSize: '13px', color: '#666' }}>• Photos in the new collection will be temporarily unavailable while the process is running.</p>
-                        </div>
-                        <div className="cd-modal-footer">
-                            <button className="cd-cancel-btn" onClick={() => setShowDuplicateModal(false)}>Cancel</button>
-                            <button className="cd-save-btn" disabled={saving} onClick={async () => {
-                                const photographerId = collection?.photographer_id ?? user?.id;
-                                if (!collectionId || !photographerId) {
-                                    alert('Missing collection or account. Refresh and try again.');
-                                    return;
-                                }
-                                try {
-                                    setSaving(true);
-                                    const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
-                                    setShowDuplicateModal(false);
-                                    navigate(`/collections/manage?id=${newRow.id}`);
-                                } catch (err) {
-                                    console.error('Failed to duplicate:', err);
-                                    alert(err?.message || 'Failed to duplicate collection. Please try again.');
-                                } finally {
-                                    setSaving(false);
-                                }
-                            }}>{saving ? 'Duplicating…' : 'Duplicate'}</button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <CollectionDuplicateModal
+                collection={showDuplicateModal && collection ? collection : null}
+                isOpen={showDuplicateModal}
+                onClose={() => setShowDuplicateModal(false)}
+                busy={saving}
+                onConfirm={async () => {
+                    const photographerId = collection?.photographer_id ?? user?.id;
+                    if (!collectionId || !photographerId) {
+                        alert('Missing collection or account. Refresh and try again.');
+                        return;
+                    }
+                    try {
+                        setSaving(true);
+                        const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
+                        setShowDuplicateModal(false);
+                        navigate(`/collections/manage?id=${newRow.id}`);
+                    } catch (err) {
+                        console.error('Failed to duplicate:', err);
+                        alert(err?.message || 'Failed to duplicate collection. Please try again.');
+                    } finally {
+                        setSaving(false);
+                    }
+                }}
+            />
 
             {/* Delete Set Modal */}
             {deleteSetId && (

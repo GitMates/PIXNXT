@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { galleryService } from '@/services/gallery.service';
 import { MoveCollectionModal } from '@/components/features/Collections/MoveCollectionModal';
+import { CollectionDuplicateModal } from '@/components/features/ClientGallery/CollectionShareModals';
 
 export interface CollectionMoreMenuProps {
   collectionId?: string | null;
@@ -456,55 +457,29 @@ export function CollectionMoreMenu({
         currentFolderId={currentFolderId}
       />
 
-      {duplicateOpen && (
-        <div className="cd-modal-overlay" onClick={() => setDuplicateOpen(false)}>
-          <div className="cd-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px' }}>
-            <div className="cd-modal-header">
-              <h3 className="cd-modal-title">DUPLICATE COLLECTION</h3>
-              <button type="button" className="cd-modal-close" onClick={() => setDuplicateOpen(false)} aria-label="Close">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </button>
-            </div>
-            <div className="cd-modal-body" style={{ padding: '24px' }}>
-              <p style={{ fontSize: '14px', color: '#555', marginBottom: '16px' }}>Create a new empty collection with the same name pattern? Photos are not copied in this build.</p>
-              <p style={{ fontSize: '13px', color: '#666' }}>A full duplicate would copy photos in storage and can be added later.</p>
-            </div>
-            <div className="cd-modal-footer">
-              <button type="button" className="cd-cancel-btn" onClick={() => setDuplicateOpen(false)}>
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="cd-save-btn"
-                disabled={!photographerId || busy}
-                onClick={async () => {
-                  if (!photographerId) return;
-                  try {
-                    setBusy(true);
-                    if (!collectionId) {
-                      alert('Collection not loaded. Refresh and try again.');
-                      return;
-                    }
-                    const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
-                    setDuplicateOpen(false);
-                    navigate(`/collections/manage?id=${newRow.id}`);
-                  } catch (err) {
-                    console.error(err);
-                    alert('Failed to duplicate collection.');
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-              >
-                {busy ? 'Working…' : 'Duplicate'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CollectionDuplicateModal
+        collection={duplicateOpen && collectionId ? { id: collectionId, name: collectionName } : null}
+        isOpen={duplicateOpen}
+        onClose={() => setDuplicateOpen(false)}
+        busy={busy}
+        onConfirm={async () => {
+          if (!photographerId || !collectionId) {
+            alert('Collection not loaded. Refresh and try again.');
+            return;
+          }
+          try {
+            setBusy(true);
+            const newRow = await galleryService.duplicateCollection(collectionId, photographerId);
+            setDuplicateOpen(false);
+            navigate(`/collections/manage?id=${newRow.id}`);
+          } catch (err) {
+            console.error(err);
+            alert(err?.message || 'Failed to duplicate collection. Please try again.');
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
 
       {deleteOpen && (
         <div className="cd-modal-overlay" onClick={() => setDeleteOpen(false)}>

@@ -5,6 +5,7 @@ import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
+import './MasonryGrid.css';
 
 export function MasonryGrid({
   photos,
@@ -24,6 +25,7 @@ export function MasonryGrid({
   showFilename = false,
   isPreviewMobile = false,
   forceShow = false,
+  videosOnly = false,
   className,
   isClientViewer = false,
   allowMarkPrivate = false,
@@ -60,20 +62,29 @@ export function MasonryGrid({
   // Otherwise we use consistent defaults for the public view.
   const baseRowHeight = customRowHeight || (size === 'large' ? 420 : size === 'regular' ? 300 : size === 'small' ? 200 : 140);
 
+  const centerVideosLayout =
+    videosOnly && photos.length > 0 && photos.every((p) => isGalleryVideo(p));
+
+  const videoTileMaxWidth =
+    size === 'large' ? 720
+      : size === 'regular' ? 560
+        : size === 'small' ? 440
+          : 380;
+
   // Avoid opacity:0 on the multicol container — it can break column layout / paint in some browsers.
   const container = {
     hidden: {},
     show: {
       transition: {
-        staggerChildren: 0.02,
-        delayChildren: 0.05
+        staggerChildren: 0.03,
+        delayChildren: 0.08
       }
     }
   };
 
   const item = {
-    hidden: { opacity: 0, y: 12 },
-    show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: [0.19, 1, 0.22, 1] } }
+    hidden: { opacity: 0, y: 8 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] } }
   };
 
   /** Remount animation when the visible photo set changes (e.g. Highlights ↔ WED tab). */
@@ -111,12 +122,17 @@ export function MasonryGrid({
       className={cn(
         'w-full max-w-full min-w-0 masonry-grid-container',
         isHorizontal ? 'flex flex-wrap masonry-grid-horizontal items-start' : 'block masonry-grid-vertical',
+        centerVideosLayout && 'masonry-grid-videos-only',
         isPreviewMobile && 'preview-mobile',
         className
       )}
-      style={isHorizontal ? {
-        gap: `${gap}px`,
-      } : verticalColumnStyle}
+      style={
+        centerVideosLayout
+          ? { gap: `${gap}px` }
+          : isHorizontal
+            ? { gap: `${gap}px` }
+            : verticalColumnStyle
+      }
     >
       {photos.map((photo, index) => {
         const src = photo.full_url || photo.web_url || photo.thumbnail_url;
@@ -135,13 +151,18 @@ export function MasonryGrid({
             variants={item}
             className={cn(
               'relative overflow-hidden group cursor-pointer min-w-0',
-              !isHorizontal && 'mb-[var(--grid-gap)] w-full max-w-full break-inside-avoid'
+              centerVideosLayout && 'masonry-grid-video-item',
+              !isHorizontal && !centerVideosLayout && 'mb-[var(--grid-gap)] w-full max-w-full break-inside-avoid'
             )}
             style={isHorizontal ? {
-              flex: `${aspectRatio} 1 ${baseRowHeight * aspectRatio}px`,
+              flex: centerVideosLayout ? `0 1 ${baseRowHeight * aspectRatio}px` : `${aspectRatio} 1 ${baseRowHeight * aspectRatio}px`,
               aspectRatio: `${aspectRatio}`,
-              maxWidth: '100%',
+              maxWidth: centerVideosLayout ? `${videoTileMaxWidth}px` : '100%',
               margin: 0
+            } : centerVideosLayout ? {
+              maxWidth: `${videoTileMaxWidth}px`,
+              width: '100%',
+              marginBottom: `${gap}px`,
             } : {
               '--grid-gap': `${gap}px`,
               marginBottom: `${gap}px`,
@@ -155,7 +176,7 @@ export function MasonryGrid({
                 <video
                   src={src}
                   poster={photo.thumbnail_url || undefined}
-                  className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
+                  className="gallery-masonry-media"
                   style={{
                     objectFit: 'cover',
                     aspectRatio: String(aspectRatio),
@@ -173,7 +194,8 @@ export function MasonryGrid({
                   src={src}
                   thumbSrc={photo.thumbnail_url}
                   alt={photo.filename || `Gallery image ${index + 1}`}
-                  className="block w-full max-w-full transition-transform duration-1000 group-hover:scale-105"
+                  wrapClassName="gallery-masonry-media"
+                  className="block w-full max-w-full"
                   objectFit="cover"
                   style={{
                     aspectRatio: String(aspectRatio),
@@ -211,7 +233,7 @@ export function MasonryGrid({
                 </button>
               ) : null}
               {/* Hover overlay: download + favorite */}
-              <div className="absolute inset-0 z-[10] bg-black/0 transition-all duration-500 group-hover:bg-black/10">
+              <div className="gallery-masonry-tile-overlay absolute inset-0 z-[10] bg-black/0">
                 {showPrivateBadge && isPrivate ? <PhotoPrivateBadge visible /> : null}
                 {useClientActionBar ? (
                   <PhotoPrivateControls
@@ -239,7 +261,7 @@ export function MasonryGrid({
                 ) : (
                 <div
                   className={cn(
-                    'absolute bottom-4 right-4 flex gap-2 transform transition-all duration-300',
+                    'gallery-masonry-actions absolute bottom-4 right-4 flex gap-2 transform',
                     isFav
                       ? 'translate-y-0 opacity-100'
                       : 'translate-y-[10px] opacity-0 group-hover:translate-y-0 group-hover:opacity-100'
@@ -296,7 +318,7 @@ export function MasonryGrid({
                   className="gallery-video-play pointer-events-none absolute inset-0 z-[25] flex items-center justify-center"
                   aria-hidden
                 >
-                  <span className="flex h-12 w-12 items-center justify-center rounded-full bg-white text-neutral-900 shadow-[0_4px_20px_rgba(0,0,0,0.35)] ring-2 ring-white/80 transition-transform duration-300 group-hover:scale-105 md:h-16 md:w-16">
+                  <span className="gallery-masonry-play-btn flex h-12 w-12 items-center justify-center rounded-full bg-white text-neutral-900 shadow-[0_4px_20px_rgba(0,0,0,0.35)] ring-2 ring-white/80 md:h-16 md:w-16">
                     <Play size={22} fill="currentColor" className="ml-1 text-neutral-900" strokeWidth={1.5} />
                   </span>
                 </span>

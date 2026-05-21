@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { GalleryPreviewProps } from './PreviewPane.types';
 import * as Covers from './CoverStyles';
 import { cn } from '../../../../lib/utils';
@@ -27,6 +27,10 @@ import {
   type GalleryMediaFilterValue,
 } from '../../../../lib/galleryMediaType';
 import { normalizeNavigationStyle } from '../../../../lib/navStyle';
+import { GalleryBackToTop } from '../../Gallery/GalleryBackToTop/GalleryBackToTop';
+import { GalleryEmptyGrid } from '../../Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
+import { smoothScrollToElement, smoothScrollToTop } from '../../../../lib/smoothGalleryScroll';
+import { getPhotoFullDisplayUrl } from '../../../../lib/photoDisplayUrl';
 import './GalleryPreview.css';
 
 function normalizeFavoritePhotoId(id: string | number | null | undefined): string | null {
@@ -98,8 +102,20 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   // and set the outer container's height to innerHeight*scale so the canvas doesn't collapse.
   // Scale preview grid to match public gallery layout dynamically based on current viewport.
   const [galleryRefWidth, setGalleryRefWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 1280);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const galleryBodyRef = useRef<HTMLDivElement>(null);
   const gridWrapperRef = useRef<HTMLDivElement>(null);
   const innerGridRef = useRef<HTMLDivElement>(null);
+
+  const scrollToGallery = useCallback(() => {
+    smoothScrollToElement(galleryBodyRef.current, {
+      scrollContainer: scrollContainerRef.current,
+    });
+  }, []);
+
+  const scrollToTop = useCallback(() => {
+    smoothScrollToTop(scrollContainerRef.current);
+  }, []);
   const [gridScale, setGridScale] = useState(0.45);
   const [innerGridH, setInnerGridH] = useState(0);
 
@@ -147,6 +163,17 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       innerObs?.disconnect();
     };
   }, []);
+
+  /** Re-measure grid scale when preview frame size changes (desktop ↔ mobile). */
+  useEffect(() => {
+    const outer = gridWrapperRef.current;
+    if (!outer?.offsetWidth) return;
+    const raf = requestAnimationFrame(() => {
+      const w = outer.offsetWidth;
+      if (w > 0) setGridScale(w / galleryRefWidth);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [isPreviewMobile, galleryRefWidth]);
 
   useEffect(() => {
     if (!favFeatureOn) setShowOnlyFavorites(false);
@@ -211,6 +238,17 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
     return list;
   }, [photosSortedForGrid, showOnlyFavorites, favoritedPhotos, showMediaFilter, mediaFilter]);
 
+  const showEmptyPlaceholderGrid =
+    !showOnlyFavorites &&
+    photosForActiveSet.length === 0 &&
+    filteredPhotos.length === 0;
+
+  const previewCustomRowHeight =
+    grid.size === 'large' ? 420 : grid.size === 'regular' ? 300 : grid.size === 'small' ? 200 : 140;
+
+  const previewCustomColumnCount =
+    grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4;
+
   const setDescriptionText = useMemo(() => {
     const raw = dashboardState?.activeSetId
       ? dashboardState.sets?.find((s: any) => s.id === dashboardState.activeSetId)?.description
@@ -231,7 +269,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
   }, [dashboardState?.activeSetId, dashboardState?.sets]);
 
   const photoUrls = useMemo(
-    () => filteredPhotos.map((p: any) => p.full_url || p.web_url || p.thumbnail_url),
+    () => filteredPhotos.map((p: any) => getPhotoFullDisplayUrl(p)),
     [filteredPhotos]
   );
 
@@ -393,6 +431,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       focalX: dashboardState?.focalX,
       focalY: dashboardState?.focalY,
       isPreview: true, // dashboard pane layout only
+      onViewGallery: coverStyle !== 'none' ? scrollToGallery : undefined,
     };
 
     switch (coverStyle) {
@@ -414,6 +453,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
 
   return (
     <div
+      ref={scrollContainerRef}
       className={cn(
         'cd-preview-gallery-card',
         `style-${coverStyle}`,
@@ -427,6 +467,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
       </div>
 
       <div
+        ref={galleryBodyRef}
         className={cn(
           'cd-preview-gallery-body',
           `grid-style-${grid.style}`,
@@ -505,6 +546,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
             - explicit outer height = innerGridH * gridScale keeps the canvas the right size */}
         <div
           ref={gridWrapperRef}
+          className="cd-preview-grid-scaler"
           style={{
             backgroundColor: 'var(--gallery-bg)',
             width: '100%',
@@ -516,6 +558,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         >
           <div
             ref={innerGridRef}
+            className="cd-preview-grid-inner"
             style={{
               position: 'absolute',
               top: 0,
@@ -526,7 +569,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               padding: getPadding(galleryRefWidth),
             }}
           >
-            {filteredPhotos.length === 0 && showMediaFilter ? (
+            {filteredPhotos.length === 0 && showMediaFilter && photosForActiveSet.length > 0 ? (
               <p
                 className="gallery-body-text py-10 text-center text-[10px] font-bold uppercase tracking-[0.2em] opacity-40 md:text-[11px]"
                 style={{ color: 'var(--gallery-text)' }}
@@ -534,33 +577,42 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 No {mediaFilter} in this set
               </p>
             ) : null}
-            <MasonryGrid
-              key={`${grid.style}-${grid.size}-${grid.spacing}-${mediaFilter}`}
-              photos={filteredPhotos}
-              gridSettings={grid}
-              isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
-              onImageClick={(index) => {
-                setLightboxIndex(index);
-                setIsSlideshowActive(false);
-              }}
-              onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
-              onDownload={handleDownloadClick}
-              onShare={() => setShowShareModal(true)}
-              showPrivateBadge={Boolean(dashboardState?.collection?.client_exclusive_enabled)}
-              showDownload={
-                isCollectionFeatureEnabled(dashboardState?.photoDownload) &&
-                isCollectionFeatureEnabled(dashboardState?.singlePhotoDownload)
-              }
-              showFavorite={favFeatureOn}
-              showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
-              favoritedPhotoIds={favoritedPhotos}
-              customRowHeight={grid.size === 'large' ? 420 : grid.size === 'regular' ? 300 : grid.size === 'small' ? 200 : 140}
-              customColumnCount={grid.size === 'large' ? 2 : grid.size === 'regular' ? 3 : 4}
-              showFilename={dashboardState?.showFilenameInGrid === true}
-              forceShow={true}
-            />
+            {showEmptyPlaceholderGrid ? (
+              <GalleryEmptyGrid isPreview isPreviewMobile={isPreviewMobile} />
+            ) : (
+              <MasonryGrid
+                key={`${grid.style}-${grid.size}-${grid.spacing}-${mediaFilter}`}
+                photos={filteredPhotos}
+                videosOnly={mediaFilter === 'videos'}
+                gridSettings={grid}
+                isHorizontal={grid.style?.toLowerCase() === 'horizontal'}
+                onImageClick={(index) => {
+                  setLightboxIndex(index);
+                  setIsSlideshowActive(false);
+                }}
+                onFavorite={(photo: any) => handleFavoritePhotoToggle(photo.id)}
+                onDownload={handleDownloadClick}
+                onShare={() => setShowShareModal(true)}
+                showPrivateBadge={Boolean(dashboardState?.collection?.client_exclusive_enabled)}
+                showDownload={
+                  isCollectionFeatureEnabled(dashboardState?.photoDownload) &&
+                  isCollectionFeatureEnabled(dashboardState?.singlePhotoDownload)
+                }
+                showFavorite={favFeatureOn}
+                showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
+                favoritedPhotoIds={favoritedPhotos}
+                customRowHeight={previewCustomRowHeight}
+                customColumnCount={previewCustomColumnCount}
+                showFilename={dashboardState?.showFilenameInGrid === true}
+                forceShow={true}
+              />
+            )}
           </div>
         </div>
+
+        {filteredPhotos.length > 0 ? (
+          <GalleryBackToTop onClick={scrollToTop} isPreview />
+        ) : null}
       </div>
 
       <PhotoLightbox
@@ -570,6 +622,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           setIsSlideshowActive(false);
         }}
         images={photoUrls}
+        photos={filteredPhotos}
         currentIndex={lightboxIndex}
         onNext={() =>
           setLightboxIndex((prev) => {

@@ -78,11 +78,16 @@ export function CollectionDuplicateModal({ collection, isOpen, onClose, onConfir
 
     return (
         <ModalShell title="DUPLICATE COLLECTION" onClose={onClose}>
-            <p className="cgm-text">Create a new collection named &ldquo;{collection.name} (Copy)&rdquo;?</p>
-            <p className="cgm-text cgm-text--muted">Photos are not copied. You can add media after opening the new collection.</p>
+            <p className="cgm-text">Are you sure you want to duplicate this collection?</p>
+            <ul className="cgm-duplicate-notes">
+                <li>Duplicating a collection may take a few minutes depending on the size.</li>
+                <li>Photos and videos in the new collection may be temporarily unavailable while the process is running.</li>
+            </ul>
             <div className="cgm-footer-actions">
-                <button type="button" className="cgm-btn-ghost" onClick={onClose}>Cancel</button>
-                <button type="button" className="cgm-btn-primary" onClick={onConfirm} disabled={busy}>
+                <button type="button" className="cgm-btn-ghost" onClick={onClose} disabled={busy}>
+                    Cancel
+                </button>
+                <button type="button" className="cgm-btn-duplicate" onClick={onConfirm} disabled={busy}>
                     {busy ? 'Duplicating…' : 'Duplicate'}
                 </button>
             </div>

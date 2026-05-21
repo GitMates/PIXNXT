@@ -367,7 +367,7 @@ export const galleryService = {
   },
 
   /**
-   * Duplicate a collection: copies metadata, sets, and non-video photos (same storage URLs).
+   * Duplicate a collection: copies metadata, sets, and all media (photos + videos, same storage URLs).
    */
   async duplicateCollection(sourceCollectionId, photographerId) {
     if (!sourceCollectionId || !photographerId) {
@@ -378,6 +378,7 @@ export const galleryService = {
 
     const newCollection = await this.createCollection({
       photographer_id: photographerId,
+      folder_id: source.folder_id ?? null,
       name: `${source.name} (Copy)`,
       slug: `${generateCollectionSlug(source.name)}-copy-${Date.now().toString(36)}`,
       event_date: source.event_date ?? null,
@@ -426,9 +427,9 @@ export const galleryService = {
       setIdMap.set(set.id, created.id);
     }
 
-    const sourcePhotos = [...(source.photos || [])]
-      .filter((p) => p.media_type !== 'video')
-      .sort((a, b) => (a.position || 0) - (b.position || 0));
+    const sourcePhotos = [...(source.photos || [])].sort(
+      (a, b) => (a.position || 0) - (b.position || 0)
+    );
 
     if (sourcePhotos.length > 0) {
       const rows = sourcePhotos.map((p, index) => ({

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useMemo, useState } from 'react';
 
 /** Time between slides when slideshow autoplay is active. */
 export const GALLERY_SLIDESHOW_INTERVAL_MS = 4000;
@@ -7,11 +7,21 @@ import { motion as Motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronRight, ChevronLeft, Download, Heart, Play, Pause, Share2 } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
+import {
+  getPhotoDisplayFallbacks,
+  getPhotoFullDisplayUrl,
+  isRawMedia,
+  isVideoMedia,
+} from '../../../../lib/photoDisplayUrl';
+import { RawPhotoPlaceholder } from '../../CollectionDashboard/Media/RawPhotoPlaceholder';
+import './PhotoLightbox.css';
 
 export function PhotoLightbox({
   isOpen,
   onClose,
   images,
+  /** Optional photo rows — used for RAW preview URLs and fallbacks (preferred over raw `images` URLs). */
+  photos,
   currentIndex,
   onNext,
   onPrev,
@@ -46,8 +56,11 @@ export function PhotoLightbox({
       if (e.key === 'ArrowLeft') onPrev();
       if (e.key === 'Escape') onClose();
       if (e.key === ' ') {
-        const url = images[currentIndex];
-        const onVideo = url && isGalleryVideo({ full_url: url, web_url: url });
+        const photo = photos?.[currentIndex];
+        const onVideo = photo
+          ? isVideoMedia(photo) || isGalleryVideo(photo)
+          : images[currentIndex] &&
+            isGalleryVideo({ full_url: images[currentIndex], web_url: images[currentIndex] });
         if (onVideo) return;
         e.preventDefault();
         onToggleSlideshow?.();
@@ -55,15 +68,42 @@ export function PhotoLightbox({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, currentIndex, images, onNext, onPrev, onClose, onToggleSlideshow]);
+  }, [isOpen, currentIndex, images, photos, onNext, onPrev, onClose, onToggleSlideshow]);
 
   const canShare = showShare && typeof onShare === 'function';
   const showBottomLabel = showFavorite && (favoriteOverlayLabel || typeof favoriteCount === 'number');
 
-  const currentMediaUrl = images[currentIndex];
-  const isCurrentVideo = currentMediaUrl
-    ? isGalleryVideo({ full_url: currentMediaUrl, web_url: currentMediaUrl })
-    : false;
+  const currentPhoto = photos?.[currentIndex] ?? null;
+
+  const displayCandidates = useMemo(() => {
+    if (currentPhoto) {
+      const primary = getPhotoFullDisplayUrl(currentPhoto);
+      const fallbacks = getPhotoDisplayFallbacks(currentPhoto, true);
+      const seen = new Set();
+      return [primary, ...fallbacks].filter((url) => {
+        if (!url || seen.has(url)) return false;
+        seen.add(url);
+        return true;
+      });
+    }
+    const url = images[currentIndex];
+    return url ? [url] : [];
+  }, [currentPhoto, images, currentIndex]);
+
+  const [candidateIndex, setCandidateIndex] = useState(0);
+
+  useEffect(() => {
+    setCandidateIndex(0);
+  }, [currentIndex, displayCandidates.join('|')]);
+
+  const currentMediaUrl = displayCandidates[candidateIndex] || '';
+  const isCurrentVideo = currentPhoto
+    ? isVideoMedia(currentPhoto) || isGalleryVideo(currentPhoto)
+    : currentMediaUrl
+      ? isGalleryVideo({ full_url: currentMediaUrl, web_url: currentMediaUrl })
+      : false;
+  const showRawPlaceholder =
+    Boolean(currentPhoto) && isRawMedia(currentPhoto) && !currentMediaUrl && !isCurrentVideo;
 
   const onNextRef = useRef(onNext);
   onNextRef.current = onNext;
@@ -90,7 +130,7 @@ export function PhotoLightbox({
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.25 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
         className={cn(
           'photo-lightbox-root fixed inset-0 z-[9999] flex flex-col',
           themeClassName
@@ -138,13 +178,15 @@ export function PhotoLightbox({
 
           <Motion.div
             key={currentIndex}
-            initial={{ opacity: 0, scale: 0.98 }}
+            initial={{ opacity: 0, scale: 0.992 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.55, ease: [0.19, 1, 0.22, 1] }}
+            transition={{ duration: 0.85, ease: [0.22, 1, 0.36, 1] }}
             className="relative flex h-full max-h-full w-full max-w-6xl items-center justify-center"
           >
             <div className="group/media relative inline-flex max-h-[calc(100dvh-8rem)] max-w-full items-center justify-center">
-              {currentMediaUrl ? (
+              {showRawPlaceholder ? (
+                <RawPhotoPlaceholder variant="lightbox" label="Preview loading…" />
+              ) : currentMediaUrl ? (
                 isCurrentVideo ? (
                   <video
                     key={currentMediaUrl}
@@ -157,9 +199,15 @@ export function PhotoLightbox({
                   />
                 ) : (
                   <img
+                    key={`${currentIndex}-${currentMediaUrl}`}
                     src={currentMediaUrl}
-                    alt="Fullscreen photo"
+                    alt={currentPhoto?.filename || 'Fullscreen photo'}
                     className="block max-h-[calc(100dvh-8rem)] max-w-full object-contain shadow-2xl"
+                    onError={() => {
+                      setCandidateIndex((i) =>
+                        i + 1 < displayCandidates.length ? i + 1 : i
+                      );
+                    }}
                   />
                 )
               ) : (
@@ -169,7 +217,7 @@ export function PhotoLightbox({
                 </div>
               )}
 
-              {currentMediaUrl && !isCurrentVideo && (
+              {currentMediaUrl && !isCurrentVideo && !showRawPlaceholder && (
                 <>
               <div
                 className="pointer-events-none absolute inset-0 z-[20] opacity-0 transition-opacity duration-200 group-hover/media:opacity-100"

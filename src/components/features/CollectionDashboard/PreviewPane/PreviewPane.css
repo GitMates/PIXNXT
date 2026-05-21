@@ -39,7 +39,14 @@
   min-height: 100%;
   display: flex;
   flex-direction: column;
-  transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+  /* Mild, slow frame resize when switching desktop ↔ mobile preview */
+  transition:
+    width 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    max-width 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    min-height 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    height 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    border-radius 0.85s cubic-bezier(0.22, 1, 0.36, 1),
+    border-width 0.85s cubic-bezier(0.22, 1, 0.36, 1);
   position: relative;
   overflow-x: hidden;
   overflow-y: auto;
