@@ -1,4 +1,4 @@
-/* Pixieset-style Vintage cover — full-bleed image + stacked text panel */
+﻿/* Pixieset-style Vintage cover â€” full-bleed image + stacked text panel */
 .cover-vintage-layout {
   --vintage-bg: #ffffff;
   --vintage-text: #1a1a1a;
@@ -93,7 +93,7 @@
   opacity: 0.88;
 }
 
-/* Public gallery — full viewport (card-style: ~78% image, white footer) */
+/* Public gallery â€” full viewport (card-style: ~78% image, white footer) */
 .gallery-view-hero .cover-vintage-layout {
   min-height: 100%;
   height: 100%;
@@ -209,3 +209,4 @@
     font-size: clamp(1.35rem, 8vw, 2rem) !important;
   }
 }
+

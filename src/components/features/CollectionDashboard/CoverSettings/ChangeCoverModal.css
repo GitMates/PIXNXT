@@ -1,4 +1,4 @@
-.cover-modal-overlay {
+﻿.cover-modal-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.4);
@@ -102,7 +102,7 @@
   padding: 0 28px 32px;
 }
 
-/* Upload step — first reference */
+/* Upload step â€” first reference */
 .cd-cover-modal-dropzone {
   width: 100%;
   min-height: 340px;
@@ -200,7 +200,7 @@
   cursor: wait;
 }
 
-/* Collection grid — second reference */
+/* Collection grid â€” second reference */
 .cover-modal-content:not(.cover-modal-content--upload) {
   max-height: min(70vh, 640px);
   overflow: hidden;
@@ -298,3 +298,4 @@
   text-align: center;
   padding: 24px;
 }
+

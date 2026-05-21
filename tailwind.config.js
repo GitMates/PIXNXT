@@ -16,7 +16,7 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Open Sans', 'system-ui', '-apple-system', 'sans-serif'],
         serif: ['Lora', 'serif'],
         display: ['Outfit', 'sans-serif'],
         heading: ['Playfair Display', 'serif'],

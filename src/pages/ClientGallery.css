@@ -1,4 +1,4 @@
-@tailwind components;
+﻿@tailwind components;
 
 @layer components {
   .cg-style-1 {
@@ -6,7 +6,7 @@
   }
 
   .cg-style-2 {
-    @apply flex-1 relative bg-[#ffffff] flex flex-col h-screen overflow-y-auto p-0 font-['Playfair_Display',serif];
+    @apply flex-1 relative bg-[#ffffff] flex flex-col h-screen overflow-y-auto p-0 font-['Inter',system-ui,-apple-system,sans-serif];
   }
 
   .cg-style-3 {
@@ -551,3 +551,4 @@
   }
 
 }
+

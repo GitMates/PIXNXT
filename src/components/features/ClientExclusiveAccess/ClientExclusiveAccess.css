@@ -1,4 +1,4 @@
-/* —— Dashboard: Privacy settings (Client Exclusive Access block) —— */
+﻿/* â€”â€” Dashboard: Privacy settings (Client Exclusive Access block) â€”â€” */
 .cea-settings-block {
   display: flex;
   flex-direction: column;
@@ -73,7 +73,7 @@
   color: #333;
 }
 
-/* —— Gallery: private badge on thumbnail —— */
+/* â€”â€” Gallery: private badge on thumbnail â€”â€” */
 .cea-photo-badge {
   position: absolute;
   top: 10px;
@@ -96,7 +96,7 @@
   height: 14px;
 }
 
-/* —— Gallery: hover action bar (client) —— */
+/* â€”â€” Gallery: hover action bar (client) â€”â€” */
 .cea-photo-actions {
   position: absolute;
   bottom: 12px;
@@ -145,7 +145,7 @@
   color: #111;
 }
 
-/* —— Toast: "This photo is now private" —— */
+/* â€”â€” Toast: "This photo is now private" â€”â€” */
 .cea-toast {
   position: fixed;
   bottom: 28px;
@@ -178,7 +178,7 @@
   line-height: 1.35;
 }
 
-/* —— Client login modal —— */
+/* â€”â€” Client login modal â€”â€” */
 .cea-login-overlay {
   position: fixed;
   inset: 0;
@@ -279,3 +279,4 @@
   color: var(--gallery-accent, #111);
   text-decoration: underline;
 }
+

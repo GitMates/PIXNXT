@@ -1,5 +1,5 @@
-.cf-form-title {
-    font-family: 'Playfair Display', Georgia, serif;
+﻿.cf-form-title {
+    font-family: 'Open Sans', system-ui, sans-serif;
 }
 
 .cf-error {
@@ -95,7 +95,7 @@
 }
 
 .cf-toggle input:checked + .cf-toggle-slider {
-    background-color: #1a9b87;
+    background-color: #1a9b84;
 }
 
 .cf-toggle input:checked + .cf-toggle-slider::before {
@@ -116,3 +116,4 @@
 .cf-submit-btn {
     min-width: 160px;
 }
+

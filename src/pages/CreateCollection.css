@@ -1,4 +1,4 @@
-.cc-page {
+﻿.cc-page {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -67,7 +67,7 @@
     font-weight: 700;
     color: #111;
     margin-bottom: 48px;
-    font-family: 'Playfair Display', serif;
+    font-family: 'Open Sans', system-ui, sans-serif;
 }
 
 .cc-form-group {

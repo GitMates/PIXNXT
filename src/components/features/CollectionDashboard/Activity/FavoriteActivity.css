@@ -1,4 +1,4 @@
-/* Favorite Activity Table Specific Overrides */
+﻿/* Favorite Activity Table Specific Overrides */
 .activity-list-container:has(.activity-col-count) .activity-table-header,
 .activity-list-container:has(.activity-col-count) .activity-row {
     grid-template-columns: minmax(200px, 1fr) 150px 100px 120px;
@@ -534,4 +534,5 @@
         max-height: none;
     }
 }
+
 

@@ -1,4 +1,4 @@
-.gs-main {
+﻿.gs-main {
     flex: 1;
     overflow-y: auto;
     background-color: #fff;
@@ -200,8 +200,8 @@
 }
 
 /* ============================================================
-   GET STARTED — MOBILE RESPONSIVE
-   Only affects screens ≤ 768px. Desktop untouched.
+   GET STARTED â€” MOBILE RESPONSIVE
+   Only affects screens â‰¤ 768px. Desktop untouched.
    ============================================================ */
 @media screen and (max-width: 768px) {
     .gs-main {

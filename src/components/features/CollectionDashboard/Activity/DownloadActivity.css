@@ -1,4 +1,4 @@
-/* Download Activity Table Specific Overrides */
+﻿/* Download Activity Table Specific Overrides */
 .activity-table-header.download,
 .activity-row.download {
     grid-template-columns: 2.2fr 1.5fr 80px 100px 1.8fr 40px;
