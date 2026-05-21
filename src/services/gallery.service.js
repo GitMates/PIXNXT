@@ -58,6 +58,24 @@ async function deleteStoragePaths(paths) {
   }
 }
 
+/** Dashboard list row: storage totals + filenames for client-gallery search. */
+function mapCollectionDashboardRow(c) {
+  const photoRows = c.photos || [];
+  const storage_bytes = photoRows.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
+  const storedTotal = Number(c.total_size_bytes);
+  const photo_filenames = photoRows
+    .map((p) => p.filename)
+    .filter((name) => typeof name === 'string' && name.length > 0);
+  const { photos, ...rest } = c;
+  return {
+    ...rest,
+    photo_count: rest.photo_count ?? photoRows.length,
+    photo_filenames,
+    storage_bytes:
+      Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : storage_bytes,
+  };
+}
+
 export const galleryService = {
   /**
    * Fetch all collections for a specific photographer (Dashboard view)
@@ -67,25 +85,14 @@ export const galleryService = {
       .from('collections')
       .select(`
         *,
-        photos:photos!photos_collection_id_fkey(size_bytes)
+        photos:photos!photos_collection_id_fkey(size_bytes, filename)
       `)
       .eq('photographer_id', photographerId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
 
-    return (data || []).map((c) => {
-      const photoRows = c.photos || [];
-      const storage_bytes = photoRows.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
-      const storedTotal = Number(c.total_size_bytes);
-      const { photos, ...rest } = c;
-      return {
-        ...rest,
-        photo_count: rest.photo_count ?? photoRows.length,
-        storage_bytes:
-          Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : storage_bytes,
-      };
-    });
+    return (data || []).map(mapCollectionDashboardRow);
   },
 
   /**
@@ -266,7 +273,7 @@ export const galleryService = {
       .from('collections')
       .select(`
         *,
-        photos:photos!photos_collection_id_fkey(size_bytes)
+        photos:photos!photos_collection_id_fkey(size_bytes, filename)
       `)
       .eq('photographer_id', photographerId)
       .eq('folder_id', folderId)
@@ -274,18 +281,7 @@ export const galleryService = {
 
     if (error) throw error;
 
-    return (data || []).map((c) => {
-      const photoRows = c.photos || [];
-      const storage_bytes = photoRows.reduce((sum, p) => sum + (Number(p.size_bytes) || 0), 0);
-      const storedTotal = Number(c.total_size_bytes);
-      const { photos, ...rest } = c;
-      return {
-        ...rest,
-        photo_count: rest.photo_count ?? photoRows.length,
-        storage_bytes:
-          Number.isFinite(storedTotal) && storedTotal > 0 ? storedTotal : storage_bytes,
-      };
-    });
+    return (data || []).map(mapCollectionDashboardRow);
   },
 
   async updateFolder(folderId, photographerId, updates) {

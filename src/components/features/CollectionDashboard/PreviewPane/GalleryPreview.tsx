@@ -483,12 +483,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
             className="flex flex-wrap items-center justify-center gap-2 border-b border-black/5 px-4 py-2 text-center"
             style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
           >
-            <span className="text-[8px] font-bold uppercase tracking-widest opacity-70">
+            <span className="gallery-body-text text-[8px] font-bold uppercase tracking-widest opacity-70">
               My favorites ({filteredPhotos.length})
             </span>
             <button
               type="button"
-              className="text-[8px] font-bold uppercase tracking-widest underline opacity-90 hover:opacity-60"
+              className="gallery-body-text text-[8px] font-bold uppercase tracking-widest underline opacity-90 hover:opacity-60"
               style={{ color: 'var(--gallery-text)' }}
               onClick={() => setShowOnlyFavorites(false)}
             >

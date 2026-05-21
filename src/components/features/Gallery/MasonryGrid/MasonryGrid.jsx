@@ -183,7 +183,7 @@ export function MasonryGrid({
               )}
               {showFilename && (
                 <div
-                  className="pointer-events-none absolute bottom-2 left-2 right-2 z-[12] truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium backdrop-blur-sm"
+                  className="gallery-body-text pointer-events-none absolute bottom-2 left-2 right-2 z-[12] truncate rounded px-1.5 py-0.5 text-left text-[11px] font-medium backdrop-blur-sm"
                   style={{
                     color: 'var(--gallery-meta-text, #666)',
                     backgroundColor: 'rgba(255,255,255,0.82)',

@@ -788,7 +788,7 @@ const GalleryView = () => {
           ) : null}
           {favoritesLocked && sessionId && !isFavoriteListMode ? (
             <div
-              className="mb-6 border px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.2em]"
+              className="gallery-body-text mb-6 border px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.2em]"
               style={{ borderColor: 'var(--gallery-border)', color: 'var(--gallery-meta-text)' }}
             >
               Your favorites for {activeFavoriteList?.name || 'this list'} have been submitted
