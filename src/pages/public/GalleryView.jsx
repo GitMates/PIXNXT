@@ -31,6 +31,7 @@ import {
   isGalleryVideo,
 } from '../../lib/galleryMediaType';
 import './GalleryView.css';
+import { useIsMobileViewport } from '../../hooks/useIsMobileViewport';
 import { normalizeGalleryPhotoSort, sortPhotosForGallery } from '../../lib/galleryPhotoSort';
 import { normalizeNavigationStyle } from '../../lib/navStyle';
 import {
@@ -73,6 +74,7 @@ function normalizeFavoritePhotoId(id) {
 const GalleryView = () => {
   const { slug } = useParams();
   const navigate = useNavigate();
+  const isMobileViewport = useIsMobileViewport();
   const [collection, setCollection] = useState(null);
   const [photographer, setPhotographer] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -771,9 +773,13 @@ const GalleryView = () => {
       className={cn('gallery-view-page min-h-screen transition-colors duration-500', `theme-${effectiveSettings.color_palette}`, `font-${effectiveSettings.font_family}`, `nav-style-${navigationStyle}`, `style-${effectiveSettings.cover_style}`)}
       style={{ backgroundColor: 'var(--gallery-secondary-bg)', color: 'var(--gallery-text)' }}
       data-gallery-chrome="large"
+      data-gallery-viewport={isMobileViewport ? 'mobile' : 'desktop'}
     >
       {/* Hero Section */}
-      <div className="gallery-view-hero w-full h-[100dvh] [&>div]:!h-full" data-cover-text-scale="large">
+      <div
+        className="gallery-view-hero w-full h-[100dvh] [&>div]:!h-full"
+        data-cover-text-scale={isMobileViewport ? 'compact' : 'large'}
+      >
         {(() => {
           const activePhotoUrl = collection.cover_url || (collection.photos?.[0]?.web_url);
           const { x: focalX, y: focalY } = getCollectionFocal(collection);
@@ -848,6 +854,7 @@ const GalleryView = () => {
           ) : null}
           <GalleryStickyNav
             isGalleryView
+            isGalleryViewMobile={isMobileViewport}
             navigationStyle={navigationStyle}
             collectionTitle={collection.name}
             photographerName={photographer?.display_name}
@@ -928,8 +935,9 @@ const GalleryView = () => {
             <GalleryEmptyGrid className="mt-2" />
           ) : (
             <MasonryGrid
-              key={`${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}`}
+              key={`${activeSetId ?? 'highlights'}-${mediaFilter}-${effectiveSettings.grid_style}-${collection.thumbnail_size}-${collection.grid_spacing}-${collection.gallery_photo_sort}-${collection.show_filenames ? 'fn1' : 'fn0'}-${isClientViewer ? 'client' : 'guest'}-${isMobileViewport ? 'm' : 'd'}`}
               photos={filteredPhotos}
+              isMobileViewport={isMobileViewport}
               videosOnly={mediaFilter === 'videos'}
               isHorizontal={effectiveSettings.grid_style?.toLowerCase() === 'horizontal'}
               gridSettings={galleryGridSettings}

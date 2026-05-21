@@ -93,7 +93,7 @@ const SidebarLayout = ({ children }) => {
                                     </div>
                                 </div>
                                 <div className="h-px bg-[#f0f0f0] my-2"></div>
-                                <div className="flex items-center gap-[14px] px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]" onClick={() => { navigate('/'); setShowAppDropdown(false); }}>
+                                <div className="flex items-center gap-[14px] px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]" onClick={() => { navigate('/dashboard'); setShowAppDropdown(false); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                     <span className="text-sm font-medium text-[#333]">View Dashboard</span>
                                 </div>

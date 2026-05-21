@@ -23,3 +23,9 @@ export const r2Client = new S3Client({
 
 export const R2_BUCKET_NAME = import.meta.env.VITE_R2_BUCKET_NAME;
 export const R2_PUBLIC_URL = import.meta.env.VITE_R2_PUBLIC_URL;
+
+if (import.meta.env.PROD && !R2_PUBLIC_URL) {
+  console.error(
+    '[PIXNXT] VITE_R2_PUBLIC_URL is not set. Photos will not load until you add it in Vercel → Settings → Environment Variables and redeploy.'
+  );
+}
