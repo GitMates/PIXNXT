@@ -1109,6 +1109,7 @@
 
 /* Manage tab — Pixieset-style: fixed column count, square cells, contain (letterbox), teal selection */
 .cd-photo-grid--manage {
+    --cd-manage-cell-bg: #fbf8f8;
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 12px;
@@ -1154,7 +1155,7 @@
     aspect-ratio: 1 / 1;
     width: 100%;
     max-width: 100%;
-    background: #ffffff;
+    background: var(--cd-manage-cell-bg);
     border: 2px solid transparent;
     border-radius: 0;
     overflow: visible;
@@ -1180,7 +1181,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #ffffff;
+    background: var(--cd-manage-cell-bg);
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain > .cd-photo-star {
@@ -1235,7 +1236,7 @@
     align-items: center;
     justify-content: center;
     overflow: visible;
-    background: #ffffff;
+    background: var(--cd-manage-cell-bg);
     border-radius: 0;
 }
 
@@ -1245,7 +1246,7 @@
     height: 100%;
     min-width: 0;
     min-height: 0;
-    background: #ffffff;
+    background: var(--cd-manage-cell-bg);
 }
 
 .cd-photo-grid--manage .cd-photo-card-inner--contain .smooth-media-img,
@@ -1258,7 +1259,7 @@
     object-fit: contain !important;
     object-position: center !important;
     image-orientation: from-image;
-    background-color: #ffffff !important;
+    background-color: var(--cd-manage-cell-bg) !important;
 }
 
 .cd-photo-grid--manage .cd-photo-card:hover .cd-photo-img {
@@ -1266,17 +1267,17 @@
 }
 
 .cd-photo-grid--manage .smooth-media-placeholder {
-    background: #f5f5f5;
+    background: var(--cd-manage-cell-bg);
 }
 
 .cd-photo-grid--manage .smooth-media-shimmer {
     background: linear-gradient(
         110deg,
-        #f0f0f0 0%,
-        #f0f0f0 35%,
+        #f3f4f6 0%,
+        #f3f4f6 35%,
         #fafafa 50%,
-        #f0f0f0 65%,
-        #f0f0f0 100%
+        #f3f4f6 65%,
+        #f3f4f6 100%
     );
     background-size: 220% 100%;
 }
