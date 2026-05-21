@@ -1,15 +1,15 @@
-/* ── LOCAL FONT: Open Sans (from /src/assets/font/) ─────────────── */
+/* ── LOCAL FONT: Roboto (from /src/assets/font/) ─────────────── */
 @font-face {
-  font-family: 'Open Sans';
-  src: url('./assets/font/OpenSans-VariableFont_wdth,wght.ttf') format('truetype');
+  font-family: 'Roboto';
+  src: url('./assets/font/Roboto-VariableFont_wdth,wght.ttf') format('truetype');
   font-weight: 100 900;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Open Sans';
-  src: url('./assets/font/OpenSans-Italic-VariableFont_wdth,wght.ttf') format('truetype');
+  font-family: 'Roboto';
+  src: url('./assets/font/Roboto-Italic-VariableFont_wdth,wght.ttf') format('truetype');
   font-weight: 100 900;
   font-style: italic;
   font-display: swap;
@@ -24,6 +24,10 @@
 @tailwind utilities;
 
 @layer base {
+  body {
+    font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+  }
+  
   :root {
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;

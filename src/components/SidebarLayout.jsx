@@ -21,7 +21,7 @@ const SidebarLayout = ({ children }) => {
     }, []);
 
     return (
-        <div className="flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-[#ffffff] font-sans md:overflow-hidden">
+        <div className="flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-[#ffffff] md:overflow-hidden" style={{ fontFamily: "'Roboto', system-ui, sans-serif" }}>
             {/* Mobile Hamburger Button */}
             <button 
                 className="fixed top-4 right-4 z-[1100] w-10 h-10 border-none rounded-lg bg-[#1a9b84] text-white cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.18)] flex items-center justify-center md:hidden" 
@@ -110,20 +110,20 @@ const SidebarLayout = ({ children }) => {
                 </div>
 
                 <div className="flex-1 pt-2.5 flex flex-col gap-3">
-                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-normal hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path === '/client-gallery' || path.startsWith('/collections') ? 'font-bold text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/client-gallery')}>
+                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-medium hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path === '/client-gallery' || path.startsWith('/collections') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/client-gallery')}>
                         <svg className={`shrink-0 ${path === '/client-gallery' || path.startsWith('/collections') ? 'text-[#111]' : 'text-[#555]'}`} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path><circle cx="12" cy="13" r="2"></circle><path d="m14 13-1.5 1.5-1-1L10 15h6Z"></path></svg>
                         {(!isCollapsed || isMobileMenuOpen) && <span>Collections</span>}
                     </div>
-                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-normal hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path.startsWith('/starred') ? 'font-bold text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/starred/collections')}>
+                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-medium hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path.startsWith('/starred') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/starred/collections')}>
                         <svg className={`shrink-0 ${path.startsWith('/starred') ? 'text-[#111]' : 'text-[#555]'}`} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                         {(!isCollapsed || isMobileMenuOpen) && <span>Starred</span>}
                     </div>
 
-                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-normal hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path === '/homepage' ? 'font-bold text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/homepage')}>
+                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-medium hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path === '/homepage' ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/homepage')}>
                         <svg className={`shrink-0 ${path === '/homepage' ? 'text-[#111]' : 'text-[#555]'}`} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                         {(!isCollapsed || isMobileMenuOpen) && <span>Homepage</span>}
                     </div>
-                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-normal hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path.startsWith('/settings') ? 'font-bold text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/settings')}>
+                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-medium hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path.startsWith('/settings') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/settings')}>
                         <svg className={`shrink-0 ${path.startsWith('/settings') ? 'text-[#111]' : 'text-[#555]'}`} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
                         {(!isCollapsed || isMobileMenuOpen) && <span>Settings</span>}
                     </div>

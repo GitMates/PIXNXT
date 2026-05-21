@@ -1,4 +1,4 @@
-﻿/* ================================================================
+/* ================================================================
    HOMEPAGE â€” matches the app's SidebarLayout design system
    Colors: #ffffff bg, #1a9b84 primary, #e2e8f0 border
    Font: Inter (clean modern sans-serif)
@@ -549,7 +549,7 @@
 .hp-mockup-card {
     background: #fff;
     width: 340px;
-    height: 430px;
+    height: auto;
     border-radius: 4px;
     box-shadow: 0 4px 18px rgba(0,0,0,0.06);
     overflow: hidden;
