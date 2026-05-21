@@ -130,7 +130,7 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                     />
                     <p className="settings-desc">
                       Add tags to categorize different collections e.g. wedding, outdoor, summer.
-                      Type a tag and press <strong>Enter</strong> to add it (not added automatically).{' '}
+                      Press <strong>Enter</strong> to add each tag (tags are not added automatically).{' '}
                       <span className="settings-link">Learn more</span>
                     </p>
                 </div>

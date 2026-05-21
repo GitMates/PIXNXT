@@ -31,7 +31,7 @@ export function normalizeCategoryTagsFromString(text) {
   return out;
 }
 
-/** Read tags saved on the collection row only (no auto-import from other fields). */
+/** Read tags saved on the collection — only from `category_tags`, never inferred from description/name. */
 export function categoryTagsFromCollection(collection) {
   return normalizeCategoryTags(collection?.category_tags);
 }

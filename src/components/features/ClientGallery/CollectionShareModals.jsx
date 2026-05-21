@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getShareUrlForCollection } from '../../../lib/shareCollection';
+import { getShareUrlForCollection, getQrCodeImageUrl, getShareUrlWarning } from '../../../lib/shareCollection';
 import { getFolderStudioUrl } from '../../../lib/folderStudioUrl';
 import './CollectionShareModals.css';
 
@@ -49,10 +49,12 @@ function CopyField({ label, value }) {
 export function CollectionDirectLinkModal({ collection, isOpen, onClose }) {
     if (!isOpen || !collection) return null;
     const url = getShareUrlForCollection(collection);
+    const warning = getShareUrlWarning(url);
 
     return (
         <ModalShell title="GET DIRECT LINK" onClose={onClose}>
             <CopyField label="COLLECTION URL" value={url} />
+            {warning ? <p className="cgm-warning">{warning}</p> : null}
             <p className="cgm-hint">Share this link with clients to view the gallery.</p>
         </ModalShell>
     );
@@ -61,7 +63,8 @@ export function CollectionDirectLinkModal({ collection, isOpen, onClose }) {
 export function CollectionQrModal({ collection, isOpen, onClose }) {
     if (!isOpen || !collection) return null;
     const url = getShareUrlForCollection(collection);
-    const qrSrc = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(url)}`;
+    const warning = getShareUrlWarning(url);
+    const qrSrc = getQrCodeImageUrl(url, 220);
 
     return (
         <ModalShell title="GET QR CODE" onClose={onClose}>
@@ -69,6 +72,8 @@ export function CollectionQrModal({ collection, isOpen, onClose }) {
                 <img src={qrSrc} alt={`QR code for ${collection.name}`} width={220} height={220} />
             </div>
             <CopyField label="COLLECTION URL" value={url} />
+            {warning ? <p className="cgm-warning">{warning}</p> : null}
+            <p className="cgm-hint">Clients scan the code to open the public gallery. Use your production domain, not a preview deploy URL.</p>
         </ModalShell>
     );
 }

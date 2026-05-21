@@ -25,9 +25,9 @@ export function CategoryTagsField({ tags, onChange, disabled }: CategoryTagsFiel
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === 'Enter' || e.key === ',') {
       e.preventDefault();
-      const value = input.trim();
+      const value = input.trim().replace(/,$/, '');
       if (addTag(value)) setInput('');
     } else if (e.key === 'Backspace' && !input && tags.length > 0) {
       removeTag(tags[tags.length - 1]);
