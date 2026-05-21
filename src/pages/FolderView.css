@@ -46,7 +46,7 @@
   margin: 0;
   font-size: 22px;
   font-weight: 700;
-  font-family: 'Open Sans', system-ui, sans-serif;
+  font-family: 'Roboto', system-ui, sans-serif;
   color: #111;
 }
 
@@ -158,7 +158,7 @@
 .fv-empty-title {
   font-size: 26px;
   font-weight: 700;
-  font-family: 'Open Sans', system-ui, sans-serif;
+  font-family: 'Roboto', system-ui, sans-serif;
   margin: 0 0 12px;
   color: #111;
 }
@@ -193,4 +193,5 @@
 .fv-list {
   padding-bottom: 32px;
 }
+
 

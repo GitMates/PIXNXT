@@ -2507,7 +2507,7 @@
     padding: 2px 6px;
     border-radius: 4px;
     border: 1px solid #eee;
-    font-family: 'Open Sans', system-ui, sans-serif;
+    font-family: 'Roboto', system-ui, sans-serif;
     text-transform: none;
     margin-left: 12px;
 }
@@ -5532,4 +5532,5 @@
     height: 14px;
     background-color: #cbd5e0;
 }
+
 

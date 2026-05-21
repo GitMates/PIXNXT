@@ -67,7 +67,7 @@
     font-weight: 700;
     color: #111;
     margin-bottom: 48px;
-    font-family: 'Open Sans', system-ui, sans-serif;
+    font-family: 'Roboto', system-ui, sans-serif;
 }
 
 .cc-form-group {
@@ -177,3 +177,4 @@
     border-color: #1a9b84;
     box-shadow: none;
 }
+
