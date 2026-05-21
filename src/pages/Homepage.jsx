@@ -105,6 +105,78 @@ const Homepage = () => {
         return sorted.slice(0, 6);
     }, [collections, collectionSort]);
 
+    // Refs to store the absolute latest state values to avoid stale closures in debounced saves
+    const stateRef = React.useRef({});
+    stateRef.current = {
+        statusOn,
+        bio,
+        password,
+        collectionSort,
+        showBio,
+        showSocial,
+        showWebsite,
+        showEmail,
+        showPhone,
+        showAddress
+    };
+
+    const saveTimeoutRef = React.useRef(null);
+
+    const performSave = async (overrides = {}) => {
+        if (!user?.id) return;
+        setSaving(true);
+        setError(null);
+        try {
+            const current = stateRef.current;
+            const updates = {
+                homepage_enabled: overrides.hasOwnProperty('homepage_enabled') ? overrides.homepage_enabled : current.statusOn,
+                bio: overrides.hasOwnProperty('bio') ? overrides.bio : current.bio,
+                homepage_password: overrides.hasOwnProperty('homepage_password') ? overrides.homepage_password : current.password,
+                homepage_sort: overrides.hasOwnProperty('homepage_sort') ? overrides.homepage_sort : current.collectionSort,
+                show_bio: overrides.hasOwnProperty('show_bio') ? overrides.show_bio : current.showBio,
+                show_social: overrides.hasOwnProperty('show_social') ? overrides.show_social : current.showSocial,
+                show_website: overrides.hasOwnProperty('show_website') ? overrides.show_website : current.showWebsite,
+                show_email: overrides.hasOwnProperty('show_email') ? overrides.show_email : current.showEmail,
+                show_phone: overrides.hasOwnProperty('show_phone') ? overrides.show_phone : current.showPhone,
+                show_address: overrides.hasOwnProperty('show_address') ? overrides.show_address : current.showAddress,
+            };
+
+            // Normalize values
+            if (typeof updates.bio === 'string') updates.bio = updates.bio.trim() || null;
+            if (typeof updates.homepage_password === 'string') updates.homepage_password = updates.homepage_password.trim() || null;
+
+            const updated = await galleryService.updatePhotographerProfile(user.id, updates);
+            setProfile((prev) => ({ ...prev, ...updated }));
+            setSaveSuccess(true);
+            setTimeout(() => setSaveSuccess(false), 2000);
+        } catch (err) {
+            console.error('Failed to auto-save:', err);
+            setError('Failed to auto-save changes.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const autoSave = (overrides = {}, immediate = false) => {
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+        if (immediate) {
+            performSave(overrides);
+        } else {
+            saveTimeoutRef.current = setTimeout(() => {
+                performSave(overrides);
+            }, 800);
+        }
+    };
+
+    // Clean up timeout on unmount
+    useEffect(() => {
+        return () => {
+            if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+        };
+    }, []);
+
     // ── Generate password ────────────────────────────────────────────────────
     const generatePassword = () => {
         const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
@@ -112,6 +184,7 @@ const Homepage = () => {
         for (let i = 0; i < 10; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
         setPassword(pwd);
         setShowPassword(true); // show generated password as plain text
+        autoSave({ homepage_password: pwd }, true);
     };
 
     // ── Copy password ─────────────────────────────────────────────────────────
@@ -127,6 +200,7 @@ const Homepage = () => {
     const handleClearPassword = () => {
         setPassword('');
         setShowPassword(false);
+        autoSave({ homepage_password: '' }, true);
     };
 
     // ── Copy URL ─────────────────────────────────────────────────────────────
@@ -137,36 +211,6 @@ const Homepage = () => {
             setTimeout(() => setCopyDone(false), 2000);
         });
     }, [profile]);
-
-    // ── Save ─────────────────────────────────────────────────────────────────
-    const handleSave = async () => {
-        if (!user?.id) return;
-        setSaving(true);
-        setError(null);
-        try {
-            const updates = {
-                homepage_enabled: statusOn,
-                bio: bio.trim() || null,
-                homepage_password: password.trim() || null,
-                homepage_sort: collectionSort,
-                show_bio: showBio,
-                show_social: showSocial,
-                show_website: showWebsite,
-                show_email: showEmail,
-                show_phone: showPhone,
-                show_address: showAddress,
-            };
-            const updated = await galleryService.updatePhotographerProfile(user.id, updates);
-            setProfile((prev) => ({ ...prev, ...updated }));
-            setSaveSuccess(true);
-            setTimeout(() => setSaveSuccess(false), 3000);
-        } catch (err) {
-            console.error('Failed to save:', err);
-            setError('Failed to save changes. Please try again.');
-        } finally {
-            setSaving(false);
-        }
-    };
 
     // ── View site ─────────────────────────────────────────────────────────────
     const handleViewSite = () => {
@@ -189,12 +233,16 @@ const Homepage = () => {
                 <header className="hp-header">
                     <h1 className="hp-title">Homepage</h1>
                     <div className="hp-header-actions">
-                        {saveSuccess && (
-                            <span className="hp-save-toast">✓ Saved successfully</span>
-                        )}
-                        <button className="hp-save-btn" onClick={handleSave} disabled={saving || profileLoading}>
-                            {saving ? 'Saving…' : 'Save Changes'}
-                        </button>
+                        <span className="hp-autosave-status">
+                            {saving ? (
+                                <span className="hp-status-saving">
+                                    <div className="hp-spinner"></div>
+                                    Saving...
+                                </span>
+                            ) : saveSuccess ? (
+                                <span className="hp-status-saved">✓ Saved</span>
+                            ) : null}
+                        </span>
                         <button className="hp-view-btn" onClick={handleViewSite} disabled={profileLoading}>
                             View Site
                         </button>
@@ -227,7 +275,11 @@ const Homepage = () => {
                                 <div className="hp-toggle-row">
                                     <button
                                         className={`hp-toggle ${statusOn ? 'on' : 'off'}`}
-                                        onClick={() => setStatusOn(!statusOn)}
+                                        onClick={() => {
+                                            const nextVal = !statusOn;
+                                            setStatusOn(nextVal);
+                                            autoSave({ homepage_enabled: nextVal }, true);
+                                        }}
                                     >
                                         <div className="hp-toggle-handle"></div>
                                     </button>
@@ -263,7 +315,11 @@ const Homepage = () => {
                                         className="hp-input"
                                         placeholder="Add a password"
                                         value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setPassword(val);
+                                            autoSave({ homepage_password: val }, false);
+                                        }}
                                     />
 
                                     {password ? (
@@ -338,7 +394,11 @@ const Homepage = () => {
                                         maxLength="500"
                                         placeholder="Tell your clients about yourself and your photography style…"
                                         value={bio}
-                                        onChange={(e) => setBio(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setBio(val);
+                                            autoSave({ bio: val }, false);
+                                        }}
                                     ></textarea>
                                     <div className="hp-char-count">{bio.length} / 500</div>
                                 </div>
@@ -353,12 +413,12 @@ const Homepage = () => {
                                 </div>
 
                                 <div className="hp-checkbox-list">
-                                    <CheckboxItem checked={showBio} onChange={setShowBio} label="Biography" sublabel={bio ? `"${bio.slice(0, 40)}${bio.length > 40 ? '…' : ''}"` : 'No bio added yet'} />
-                                    <CheckboxItem checked={showSocial} onChange={setShowSocial} label="Social Links" sublabel={profile?.social_links?.length ? 'Configured' : 'Not configured'} />
-                                    <CheckboxItem checked={showWebsite} onChange={setShowWebsite} label="Website" sublabel={displayWebsite || 'Not set'} />
-                                    <CheckboxItem checked={showEmail} onChange={setShowEmail} label="Contact Email" sublabel={displayEmail || 'Not set'} />
-                                    <CheckboxItem checked={showPhone} onChange={setShowPhone} label="Phone Number" sublabel={displayPhone || 'Not set'} />
-                                    <CheckboxItem checked={showAddress} onChange={setShowAddress} label="Business Address" sublabel={displayAddress || 'Not set'} />
+                                    <CheckboxItem checked={showBio} onChange={(v) => { setShowBio(v); autoSave({ show_bio: v }, true); }} label="Biography" sublabel={bio ? `"${bio.slice(0, 40)}${bio.length > 40 ? '…' : ''}"` : 'No bio added yet'} />
+                                    <CheckboxItem checked={showSocial} onChange={(v) => { setShowSocial(v); autoSave({ show_social: v }, true); }} label="Social Links" sublabel={profile?.social_links?.length ? 'Configured' : 'Not configured'} />
+                                    <CheckboxItem checked={showWebsite} onChange={(v) => { setShowWebsite(v); autoSave({ show_website: v }, true); }} label="Website" sublabel={displayWebsite || 'Not set'} />
+                                    <CheckboxItem checked={showEmail} onChange={(v) => { setShowEmail(v); autoSave({ show_email: v }, true); }} label="Contact Email" sublabel={displayEmail || 'Not set'} />
+                                    <CheckboxItem checked={showPhone} onChange={(v) => { setShowPhone(v); autoSave({ show_phone: v }, true); }} label="Phone Number" sublabel={displayPhone || 'Not set'} />
+                                    <CheckboxItem checked={showAddress} onChange={(v) => { setShowAddress(v); autoSave({ show_address: v }, true); }} label="Business Address" sublabel={displayAddress || 'Not set'} />
                                 </div>
 
                                 <p className="hp-help-text mt-2">
@@ -373,7 +433,11 @@ const Homepage = () => {
                                     <select
                                         className="set-select"
                                         value={collectionSort}
-                                        onChange={(e) => setCollectionSort(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setCollectionSort(val);
+                                            autoSave({ homepage_sort: val }, true);
+                                        }}
                                     >
                                         <option value="created-new">Date created: New to Old</option>
                                         <option value="created-old">Date created: Old to New</option>
