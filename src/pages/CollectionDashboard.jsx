@@ -9,6 +9,11 @@ import { PreviewPane } from '../components/features/CollectionDashboard/PreviewP
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import { SidebarCoverUpload } from '../components/features/CollectionDashboard/CoverSettings/SidebarCoverUpload';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
+import {
+  resolvePhotosForDownloadActivity,
+  countPhotosForDownloadActivity,
+  formatDownloadDestination,
+} from '../lib/downloadActivityResolve';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
@@ -352,23 +357,8 @@ const CollectionDashboard = () => {
 
     const downloadDetailPhotos = useMemo(() => {
         if (!selectedDownloadId) return [];
-        const item = downloadActivity.find(a => a.id === selectedDownloadId);
-        if (!item) return [];
-
-        if (item.type === 'single' || item.type === 'photo' || item.type === 'video') {
-            const photo = photos.find(p => p.filename === item.filename || p.id === item.id);
-            return photo ? [photo] : [];
-        }
-
-        if (item.type === 'gallery') {
-            const set = sets.find(s => s.name === item.setName);
-            if (set) {
-                return photos.filter(p => p.set_id === set.id);
-            } else if (item.setName === 'Highlights') {
-                return photos.filter(p => !p.set_id);
-            }
-        }
-        return [];
+        const item = downloadActivity.find((a) => a.id === selectedDownloadId);
+        return resolvePhotosForDownloadActivity(item, photos, sets);
     }, [selectedDownloadId, downloadActivity, photos, sets]);
 
     const handleExportFavoriteList = async (listId, listName) => {
@@ -516,12 +506,14 @@ const CollectionDashboard = () => {
         if (!filteredData.length) return;
 
         // Header row
-        const headers = ['Email', 'Photo Set', 'PIN', 'Date Downloaded'];
+        const headers = ['Email', 'Photo Set', 'Photos', 'Saved to', 'PIN', 'Date Downloaded'];
         
         // Data rows
         const rows = filteredData.map(item => [
             item.email,
             item.setName || 'Highlights',
+            countPhotosForDownloadActivity(item, photos, sets),
+            formatDownloadDestination(item.destination),
             item.pin || (item.pinUsed ? 'Yes' : '---'),
             new Date(item.date).toLocaleString('en-US', { 
                 month: 'short', 

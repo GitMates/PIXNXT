@@ -1,5 +1,10 @@
 import React from 'react';
 import { Play } from 'lucide-react';
+import {
+  formatDownloadDestination,
+  countPhotosForDownloadActivity,
+  pickDownloadActivityThumbPhoto,
+} from '@/lib/downloadActivityResolve';
 import { openSpaPath } from '../../../../lib/spaNavigation';
 
 export interface ActivityViewProps {
@@ -588,6 +593,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                     <div className="activity-col-email">Email</div>
                                                     <div className="activity-col-set">Photo Set</div>
                                                     <div className="activity-col-photos">Photos</div>
+                                                    <div className="activity-col-destination">Saved to</div>
                                                     <div className="activity-col-pin">PIN</div>
                                                     <div className="activity-col-date-downloaded">Date Downloaded</div>
                                                     <div className="activity-col-actions"></div>
@@ -610,15 +616,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                             <div className="activity-col-set activity-col-list">
                                                                 <div className="list-thumb">
                                                                     {(() => {
-                                                                        let ph = null;
-                                                                        if (item.type === 'photo' || item.type === 'video' || item.type === 'single') {
-                                                                            ph = photos.find(p => p.filename === item.filename || p.id === item.id);
-                                                                        } else if (item.type === 'gallery') {
-                                                                            const set = sets.find(s => s.name === item.setName);
-                                                                            if (set) ph = photos.find(p => p.set_id === set.id);
-                                                                            else if (item.setName === 'Highlights') ph = photos.find(p => !p.set_id);
-                                                                        }
-                                                                        
+                                                                        const ph = pickDownloadActivityThumbPhoto(item, photos, sets);
                                                                         const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
                                                                         const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '');
 
@@ -649,7 +647,12 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                 </span>
                                                             </div>
                                                             <div className="activity-col-photos">
-                                                                {item.photoCount || 1}
+                                                                {countPhotosForDownloadActivity(item, photos, sets)}
+                                                            </div>
+                                                            <div className="activity-col-destination">
+                                                                <span className={`download-destination-badge download-destination-badge--${item.destination === 'google_drive' ? 'drive' : 'local'}`}>
+                                                                    {formatDownloadDestination(item.destination)}
+                                                                </span>
                                                             </div>
                                                             <div className="activity-col-pin">
                                                                 {item.pin !== '---' ? item.pin : (item.pinUsed ? 'Yes' : '---')}
@@ -725,6 +728,10 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                                 ? detail.setName 
                                                                                 : (sets.find(s => s.id === detail.photoSetId)?.name || 'Highlights')}
                                                                         </span>
+                                                                    </div>
+                                                                    <div className="download-detail-meta-row">
+                                                                        <span className="download-detail-meta-label">Saved to</span>
+                                                                        <span className="download-detail-meta-value">{formatDownloadDestination(detail.destination)}</span>
                                                                     </div>
                                                                     <div className="download-detail-meta-row"><span className="download-detail-meta-label">PIN</span><span className="download-detail-meta-value">{detail.pin}</span></div>
                                                                     <div className="download-detail-meta-row"><span className="download-detail-meta-label">Date</span><span className="download-detail-meta-value">{new Date(detail.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}</span></div>
