@@ -56,44 +56,9 @@ const SidebarLayout = ({ children }) => {
                                         <span className="text-xs text-[#888] leading-[1.4]">Better way to share, deliver, proof and sell</span>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#fdfaf4]" onClick={() => setShowAppDropdown(false)}>
-                                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #3498db, #2980b9)' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-                                    </div>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[15px] font-semibold text-[#111]">Website</span>
-                                        <span className="text-xs text-[#888] leading-[1.4]">Build your own beautiful portfolio website</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#fdfaf4]" onClick={() => setShowAppDropdown(false)}>
-                                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #e74c3c, #c0392b)' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>
-                                    </div>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[15px] font-semibold text-[#111]">Store</span>
-                                        <span className="text-xs text-[#888] leading-[1.4]">Your online store for prints and downloads</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#fdfaf4]" onClick={() => setShowAppDropdown(false)}>
-                                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #2ecc71, #27ae60)' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                                    </div>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[15px] font-semibold text-[#111]">Studio Manager</span>
-                                        <span className="text-xs text-[#888] leading-[1.4]">Photography business management</span>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#fdfaf4]" onClick={() => setShowAppDropdown(false)}>
-                                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #f1c40f, #f39c12)' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
-                                    </div>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[15px] font-semibold text-[#111]">Mobile Gallery App</span>
-                                        <span className="text-xs text-[#888] leading-[1.4]">Simple, personalized mobile photo albums</span>
-                                    </div>
-                                </div>
+                                {/* Website, Store, Studio Manager, Mobile Gallery App — not yet available */}
                                 <div className="h-px bg-[#f0f0f0] my-2"></div>
-                                <div className="flex items-center gap-[14px] px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#fdfaf4]" onClick={() => { navigate('/'); setShowAppDropdown(false); }}>
+                                <div className="flex items-center gap-[14px] px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#fdfaf4]" onClick={() => { navigate('/dashboard'); setShowAppDropdown(false); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                                     <span className="text-sm font-medium text-[#333]">View Dashboard</span>
                                 </div>

@@ -150,30 +150,7 @@ const products = [
     icon: <GalleryIcon />,
     links: ['Manage Collections', 'Create Collection', 'Search Photo Library', 'View Homepage', 'Settings'],
   },
-  {
-    name: 'Website',
-    color: 'blue',
-    icon: <GlobeIcon />,
-    links: ['Edit Website', 'Settings'],
-  },
-  {
-    name: 'Store',
-    color: 'red',
-    icon: <ShoppingBagIcon />,
-    links: ['View Orders', 'Settings'],
-  },
-  {
-    name: 'Studio Manager',
-    color: 'green',
-    icon: <BriefcaseIcon />,
-    links: ['Manage Contacts', 'New Project', 'New Document', 'New Session', 'New Message', 'View Payments'],
-  },
-  {
-    name: 'Mobile Gallery App',
-    color: 'yellow',
-    icon: <SmartphoneIcon />,
-    links: ['Manage Apps', 'Create New App', 'Settings'],
-  },
+  // Website, Store, Studio Manager, Mobile Gallery App — not yet available
 ];
 
 /* ===== Dashboard Component ===== */
