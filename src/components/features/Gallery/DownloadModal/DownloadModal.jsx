@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
+import { X, CheckCircle2, Loader2, AlertCircle, HardDrive, Cloud } from 'lucide-react';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,11 @@ import {
   DEFAULT_DOWNLOAD_CONCURRENCY,
 } from '@/lib/downloadPhoto';
 import { galleryService } from '@/services/gallery.service';
+import {
+  isGoogleDriveConfigured,
+  requestGoogleDriveAccessToken,
+  uploadGalleryToGoogleDrive,
+} from '@/lib/googleDriveUpload';
 
 /** Empty/null = all sets allowed. Legacy `['Highlights']` with named sets = all (old default omitted new sets). */
 function resolveDownloadSetAllowlist(selectedDownloadSets, namedSets = []) {
@@ -53,6 +58,7 @@ export const DownloadModal = ({
   const [email, setEmail] = useState('');
   const [pinDigits, setPinDigits] = useState(['', '', '', '']);
   const [selectedSet, setSelectedSet] = useState(initialPhoto ? 'single' : (initialSetId || 'all'));
+  const [downloadDestination, setDownloadDestination] = useState('local'); // local | google_drive
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [statusText, setStatusText] = useState('Initializing...');
@@ -60,7 +66,14 @@ export const DownloadModal = ({
   const pinRefs = [useRef(), useRef(), useRef(), useRef()];
   const downloadRunIdRef = useRef(0);
   const completedCountRef = useRef(0);
-  const [downloadCompleteMeta, setDownloadCompleteMeta] = useState({ isZip: false, total: 0 });
+  const [downloadCompleteMeta, setDownloadCompleteMeta] = useState({
+    isZip: false,
+    total: 0,
+    destination: 'local',
+    driveFileUrl: null,
+  });
+
+  const googleDriveAvailable = isGoogleDriveConfigured();
 
   const pin = pinDigits.join('');
 
@@ -89,6 +102,7 @@ export const DownloadModal = ({
         setPinDigits(['', '', '', '']);
         setEmail('');
         setSelectedSet(initialPhoto ? 'single' : (initialSetId || 'all'));
+        setDownloadDestination('local');
 
         // Show auth step if any form of gate is required
         if (needsEmail || needsPin || hasDownloadLimit || hasPinUsageLimit) {
@@ -211,11 +225,7 @@ export const DownloadModal = ({
 
   const proceedToNextStep = () => {
     setError('');
-    if (initialPhoto) {
-      startDownload();
-    } else {
-      setStep('selection');
-    }
+    setStep('selection');
   };
 
   const startDownload = async () => {
@@ -224,7 +234,7 @@ export const DownloadModal = ({
     setIsProcessing(true);
     setStep('preparing');
     setProgress(0);
-    setDownloadCompleteMeta({ isZip: false, total: 0 });
+    setDownloadCompleteMeta({ isZip: false, total: 0, destination: downloadDestination, driveFileUrl: null });
     setStatusText('Gathering photos...');
 
     const isStale = () => runId !== downloadRunIdRef.current;
@@ -267,7 +277,50 @@ export const DownloadModal = ({
         setStatusText(preparingStatusText(done, total, phase));
       };
 
-      if (total === 1) {
+      if (downloadDestination === 'google_drive') {
+        if (!googleDriveAvailable) {
+          throw new Error(
+            'Google Drive is not configured for this site. Choose Local or contact the photographer.'
+          );
+        }
+
+        setStatusText('Connecting to Google Drive…');
+        setProgressMonotonic(5);
+        const accessToken = await requestGoogleDriveAccessToken();
+        if (isStale()) return;
+
+        setStatusText(
+          total === 1 ? 'Uploading to Google Drive…' : `Uploading ${total} photos to Google Drive…`
+        );
+        setProgressMonotonic(15);
+
+        const driveResult = await uploadGalleryToGoogleDrive(accessToken, photosToDownload, {
+          collectionName: collection.name || 'gallery',
+          concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
+          isStale,
+          onProgress: (done) => {
+            completedCountRef.current = done;
+            reportDownloadProgress();
+          },
+          onZipProgress: (percent) => {
+            if (isStale()) return;
+            const zipPct = Math.min(99, 85 + Math.round((percent / 100) * 14));
+            setProgressMonotonic(zipPct);
+            setStatusText(preparingStatusText(total, total, 'zip'));
+          },
+        });
+
+        if (isStale()) return;
+
+        setProgressMonotonic(100);
+        setStatusText('Saved to Google Drive');
+        setDownloadCompleteMeta({
+          isZip: driveResult.isZip,
+          total: driveResult.photoCount,
+          destination: 'google_drive',
+          driveFileUrl: driveResult.webViewLink,
+        });
+      } else if (total === 1) {
         const photo = photosToDownload[0];
         setProgressMonotonic(50);
         setStatusText(preparingStatusText(0, 1));
@@ -275,7 +328,7 @@ export const DownloadModal = ({
         if (isStale()) return;
         setProgressMonotonic(100);
         setStatusText(preparingStatusText(1, 1, 'save'));
-        setDownloadCompleteMeta({ isZip: false, total: 1 });
+        setDownloadCompleteMeta({ isZip: false, total: 1, destination: 'local', driveFileUrl: null });
       } else {
         const fileCount = await downloadPhotosToZip(zip, photosToDownload, {
           concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
@@ -315,7 +368,7 @@ export const DownloadModal = ({
         setStatusText(preparingStatusText(total, total, 'save'));
         saveAs(zipBlob, zipFilename);
         setProgressMonotonic(100);
-        setDownloadCompleteMeta({ isZip: true, total });
+        setDownloadCompleteMeta({ isZip: true, total, destination: 'local', driveFileUrl: null });
       }
 
       if (isStale()) return;
@@ -334,6 +387,7 @@ export const DownloadModal = ({
                   : 'photo'
                 : 'gallery',
             resolution: 'High Res',
+            destination: downloadDestination,
             pinUsed: !!(collection?.download_pin && pin.length > 0),
             pin: pin.length > 0 ? pin : null,
             size: downloadSize,
@@ -525,12 +579,85 @@ export const DownloadModal = ({
                 <h2 className="text-center text-[13px] font-bold uppercase tracking-[0.3em] text-zinc-900 mb-2">
                   Choose Photo Set
                 </h2>
-                <p className="text-center text-[12px] text-zinc-500 mb-10">
+                <p className="text-center text-[12px] text-zinc-500 mb-8">
                   Select which photos you would like to download.
                 </p>
 
+                {/* Download destination */}
+                <div className="mb-8">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-4">
+                    Save to
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDownloadDestination('local');
+                        setError('');
+                      }}
+                      className={cn(
+                        'flex flex-col items-center gap-2 rounded-lg border px-3 py-4 text-center transition-all',
+                        downloadDestination === 'local'
+                          ? 'border-zinc-900 bg-zinc-900 text-white'
+                          : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300'
+                      )}
+                    >
+                      <HardDrive size={20} strokeWidth={1.5} />
+                      <span className="text-[11px] font-bold uppercase tracking-[0.12em]">Local</span>
+                      <span
+                        className={cn(
+                          'text-[10px] leading-snug',
+                          downloadDestination === 'local' ? 'text-zinc-300' : 'text-zinc-500'
+                        )}
+                      >
+                        Save to this device
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!googleDriveAvailable) return;
+                        setDownloadDestination('google_drive');
+                        setError('');
+                      }}
+                      disabled={!googleDriveAvailable}
+                      title={
+                        googleDriveAvailable
+                          ? 'Upload to your Google Drive'
+                          : 'Google Drive is not configured (VITE_GOOGLE_CLIENT_ID)'
+                      }
+                      className={cn(
+                        'flex flex-col items-center gap-2 rounded-lg border px-3 py-4 text-center transition-all',
+                        downloadDestination === 'google_drive'
+                          ? 'border-zinc-900 bg-zinc-900 text-white'
+                          : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300',
+                        !googleDriveAvailable && 'cursor-not-allowed opacity-45'
+                      )}
+                    >
+                      <Cloud size={20} strokeWidth={1.5} />
+                      <span className="text-[11px] font-bold uppercase tracking-[0.12em]">
+                        Google Drive
+                      </span>
+                      <span
+                        className={cn(
+                          'text-[10px] leading-snug',
+                          downloadDestination === 'google_drive' ? 'text-zinc-300' : 'text-zinc-500'
+                        )}
+                      >
+                        {googleDriveAvailable ? 'Upload to your Drive' : 'Not available'}
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Photo Set Selection */}
                 <div className="mb-10">
+                  {initialPhoto ? (
+                    <p className="text-center text-[12px] text-zinc-500 mb-6">
+                      Downloading this {initialPhoto.media_type === 'video' ? 'video' : 'photo'}.
+                    </p>
+                  ) : (
+                    <>
                   <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-4">
                     Photo Sets
                   </p>
@@ -579,6 +706,8 @@ export const DownloadModal = ({
                         </button>
                       ))}
                   </div>
+                    </>
+                  )}
                 </div>
 
                 {error && (
@@ -655,10 +784,29 @@ export const DownloadModal = ({
                 </div>
 
                 <h2 className="text-[13px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-3">
-                  {downloadCompleteMeta.isZip ? 'Download Finished' : 'Photo saved'}
+                  {downloadCompleteMeta.destination === 'google_drive'
+                    ? 'Saved to Google Drive'
+                    : downloadCompleteMeta.isZip
+                      ? 'Download Finished'
+                      : 'Photo saved'}
                 </h2>
                 <p className="mx-auto mb-6 max-w-[300px] text-[14px] leading-relaxed text-zinc-600">
-                  {downloadCompleteMeta.isZip ? (
+                  {downloadCompleteMeta.destination === 'google_drive' ? (
+                    <>
+                      {downloadCompleteMeta.isZip ? (
+                        <>
+                          Your gallery was uploaded as a ZIP
+                          {downloadCompleteMeta.total > 0 ? (
+                            <> ({downloadCompleteMeta.total} photos)</>
+                          ) : null}
+                          .
+                        </>
+                      ) : (
+                        <>Your photo was uploaded to Google Drive.</>
+                      )}{' '}
+                      Open Drive to view or share the file.
+                    </>
+                  ) : downloadCompleteMeta.isZip ? (
                     <>
                       Your gallery download should appear in your device&apos;s{' '}
                       <span className="font-medium text-zinc-800">Downloads</span> folder shortly
@@ -672,8 +820,24 @@ export const DownloadModal = ({
                   )}
                 </p>
 
+                {downloadCompleteMeta.destination === 'google_drive' &&
+                downloadCompleteMeta.driveFileUrl ? (
+                  <a
+                    href={downloadCompleteMeta.driveFileUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mb-6 inline-block text-[12px] font-bold uppercase tracking-[0.15em] text-zinc-800 underline underline-offset-2 hover:text-zinc-950"
+                  >
+                    Open in Google Drive
+                  </a>
+                ) : null}
+
                 <p className="mb-6 text-[12px] text-zinc-400">
-                  {downloadCompleteMeta.isZip ? 'Nothing in Downloads?' : "Didn't get the file?"}{' '}
+                  {downloadCompleteMeta.destination === 'google_drive'
+                    ? "Didn't see the file?"
+                    : downloadCompleteMeta.isZip
+                      ? 'Nothing in Downloads?'
+                      : "Didn't get the file?"}{' '}
                   <button
                     type="button"
                     onClick={startDownload}
