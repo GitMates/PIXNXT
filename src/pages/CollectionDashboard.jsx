@@ -31,6 +31,8 @@ import { getFileMime, isImageMime, getUploadMediaType, isUploadableMediaFile } f
 import { isRawImageFile } from '../lib/rawImageFormats';
 import { prepareUploadFile } from '../lib/prepareUploadFile';
 import { clearMediaUrlCache } from '../lib/imageLoadCache';
+import { categoryTagsFromCollection, categoryTagsToDb } from '../lib/categoryTags';
+import { isMissingDbColumnError } from '../lib/focalPoint';
 import {
     appendFocalToCoverUrl,
     focalPercentToElementStyle,
@@ -168,6 +170,7 @@ const CollectionDashboard = () => {
     // General Settings State
     const [collectionUrl, setCollectionUrl] = useState('');
     const [categoryTags, setCategoryTags] = useState([]);
+    const [categoryTagsSaving, setCategoryTagsSaving] = useState(false);
     const [defaultWatermark, setDefaultWatermark] = useState('No watermark');
     const [autoExpiry, setAutoExpiry] = useState('');
     const [emailRegistration, setEmailRegistration] = useState(false);
@@ -1177,6 +1180,7 @@ const CollectionDashboard = () => {
                 // Initialize state from collection data
                 if (data.status) setStatus(data.status.toUpperCase());
                 if (data.slug) setCollectionUrl(data.slug);
+                setCategoryTags(categoryTagsFromCollection(data));
                 if (data.guest_password_hash) setCollectionPassword(data.guest_password_hash);
                 else if (data.client_password_hash && !data.guest_password_hash) {
                     setCollectionPassword(data.client_password_hash);
@@ -1916,6 +1920,50 @@ const CollectionDashboard = () => {
             toastTimerRef.current = null;
         }, 3000);
     }, []);
+
+    const handleCategoryTagsChange = useCallback(
+        async (nextTags) => {
+            const normalized = categoryTagsToDb(nextTags);
+            const prevTags = [...categoryTags];
+            const added = normalized.filter(
+                (t) => !prevTags.some((p) => p.toLowerCase() === t.toLowerCase())
+            );
+            setCategoryTags(normalized);
+            if (!collectionId || !collection) return;
+            setCategoryTagsSaving(true);
+            try {
+                const updated = await galleryService.updateCollection(collectionId, {
+                    category_tags: normalized,
+                });
+                setCollection((prev) =>
+                    prev ? { ...prev, ...updated, category_tags: normalized } : prev
+                );
+                if (added.length === 1) {
+                    showToast(`Category tag “${added[0]}” saved`, 'success');
+                } else if (added.length > 1) {
+                    showToast(`${added.length} category tags saved`, 'success');
+                } else if (normalized.length === 0 && prevTags.length > 0) {
+                    showToast('Category tags cleared', 'success');
+                } else if (normalized.length !== prevTags.length) {
+                    showToast('Category tags updated', 'success');
+                }
+            } catch (err) {
+                console.error('Failed to save category tags:', err);
+                setCategoryTags(prevTags);
+                if (isMissingDbColumnError(err, 'category_tags')) {
+                    showToast(
+                        'Category tags require a database update. Apply migration 20260521150000_collections_category_tags.sql in Supabase.',
+                        'error'
+                    );
+                } else {
+                    showToast('Failed to save category tags. Please try again.', 'error');
+                }
+            } finally {
+                setCategoryTagsSaving(false);
+            }
+        },
+        [collection, collectionId, categoryTags, showToast]
+    );
 
     const handleDownloadPinEnter = useCallback(
         (pin) => {
@@ -2977,6 +3025,9 @@ const CollectionDashboard = () => {
                                 setSocialSharing={setSocialSharing}
                                 language={language}
                                 setLanguage={setLanguage}
+                                categoryTags={categoryTags}
+                                onCategoryTagsChange={handleCategoryTagsChange}
+                                categoryTagsSaving={categoryTagsSaving}
                             />
                         )}
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'privacy' && (

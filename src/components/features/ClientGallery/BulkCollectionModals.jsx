@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { normalizeCategoryTagsFromString } from '../../../lib/categoryTags';
 import './EditCollectionModal.css';
 
 const STATUS_OPTIONS = [
@@ -91,7 +92,11 @@ export function BulkCollectionTagsModal({ isOpen, count, onClose, onApply, apply
             count={count}
             isOpen={isOpen}
             onClose={onClose}
-            onApply={() => onApply({ description: tags.trim() || null })}
+            onApply={() =>
+                onApply({
+                    category_tags: normalizeCategoryTagsFromString(tags),
+                })
+            }
             applying={applying}
             applyDisabled={false}
         >

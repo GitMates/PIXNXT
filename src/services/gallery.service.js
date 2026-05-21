@@ -421,6 +421,7 @@ export const galleryService = {
       event_date: source.event_date ?? null,
       status: 'draft',
       description: source.description ?? null,
+      category_tags: source.category_tags ?? [],
       font_family: source.font_family ?? 'sans_1',
       color_palette: source.color_palette ?? 'light_1',
       grid_style: source.grid_style ?? 'vertical',
