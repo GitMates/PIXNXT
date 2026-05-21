@@ -448,10 +448,10 @@ const FolderView = () => {
             </button>
             {showViewDropdown && (
               <div className="cg-style-35">
-                <div className={`cg-style-71 ${activeView === 'grid' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveView('grid'); setShowViewDropdown(false); }}>
+                <div className={`cg-style-71 ${activeView === 'grid' ? 'text-[#1a9b84]' : 'text-[#333]'}`} onClick={() => { setActiveView('grid'); setShowViewDropdown(false); }}>
                   Grid View
                 </div>
-                <div className={`cg-style-71 ${activeView === 'list' ? 'text-[#593116]' : 'text-[#333]'}`} onClick={() => { setActiveView('list'); setShowViewDropdown(false); }}>
+                <div className={`cg-style-71 ${activeView === 'list' ? 'text-[#1a9b84]' : 'text-[#333]'}`} onClick={() => { setActiveView('list'); setShowViewDropdown(false); }}>
                   List View
                 </div>
               </div>
@@ -503,7 +503,7 @@ const FolderView = () => {
                     </div>
                   )}
                   <div
-                    className={`cg-style-75 ${selectedCards.includes(collection.id) ? 'border-[#593116] bg-[#593116] opacity-100' : 'border-white/85 bg-black/15 opacity-0 group-hover:opacity-100'}`}
+                    className={`cg-style-75 ${selectedCards.includes(collection.id) ? 'border-[#1a9b84] bg-[#1a9b84] opacity-100' : 'border-white/85 bg-black/15 opacity-0 group-hover:opacity-100'}`}
                     onClick={(e) => toggleSelectCard(e, collection.id)}
                   >
                     {selectedCards.includes(collection.id) && (
