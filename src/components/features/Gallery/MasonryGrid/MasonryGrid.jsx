@@ -25,6 +25,7 @@ export function MasonryGrid({
   favoritedPhotoIds = [],
   showFilename = false,
   isPreviewMobile = false,
+  isMobileViewport = false,
   forceShow = false,
   videosOnly = false,
   className,
@@ -122,7 +123,7 @@ export function MasonryGrid({
         'w-full max-w-full min-w-0 masonry-grid-container',
         isHorizontal ? 'flex flex-wrap masonry-grid-horizontal items-start' : 'block masonry-grid-vertical',
         centerVideosLayout && 'masonry-grid-videos-only',
-        isPreviewMobile && 'preview-mobile',
+        (isPreviewMobile || isMobileViewport) && 'preview-mobile',
         className
       )}
       style={

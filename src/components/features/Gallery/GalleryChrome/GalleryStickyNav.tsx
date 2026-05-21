@@ -34,6 +34,8 @@ export interface GalleryStickyNavProps {
   onSlideshowClick?: () => void;
   isDark?: boolean;
   isPreviewMobile?: boolean;
+  /** Public gallery on a real phone — same two-row nav as preview mobile. */
+  isGalleryViewMobile?: boolean;
   /** icon = icons only; text = icons + labels */
   navigationStyle?: NavigationStyleSetting;
   showHighlightsTab?: boolean;
@@ -68,6 +70,7 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   onSlideshowClick,
   isDark,
   isPreviewMobile = false,
+  isGalleryViewMobile = false,
   navigationStyle = 'icon',
   showHighlightsTab = true,
   mediaFilter,
@@ -80,10 +83,16 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   const styles = galleryChromeStyles[variant];
   const isCompact = variant === 'preview';
   const isMobilePreviewNav = isCompact && isPreviewMobile;
-  const iconSize = isMobilePreviewNav ? 10 : styles.actionIcon;
-  const previewStyles = isCompact ? galleryChromeStyles.preview : null;
+  const isMobileGalleryNav = isGalleryView && isGalleryViewMobile;
+  const useMobileNavLayout = isMobilePreviewNav || isMobileGalleryNav;
+  const mobileLayoutStyles = isMobileGalleryNav
+    ? galleryChromeStyles.galleryView
+    : isCompact
+      ? galleryChromeStyles.preview
+      : null;
+  const iconSize = isMobilePreviewNav ? 10 : isMobileGalleryNav ? 12 : styles.actionIcon;
 
-  const showActionLabels = navigationStyle === 'text' && !isMobilePreviewNav;
+  const showActionLabels = navigationStyle === 'text' && !useMobileNavLayout;
 
   const actionLabelClass = (labelClass: string) =>
     cn(
@@ -273,17 +282,17 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
     >
       <div
         className={cn(
-          isMobilePreviewNav && previewStyles ? previewStyles.navInnerMobile : styles.navInner,
-          !isCompact && 'w-full'
+          useMobileNavLayout && mobileLayoutStyles ? mobileLayoutStyles.navInnerMobile : styles.navInner,
+          !isCompact && !isMobileGalleryNav && 'w-full'
         )}
       >
-        {isMobilePreviewNav && previewStyles ? (
+        {useMobileNavLayout && mobileLayoutStyles ? (
           <>
-            <div className={previewStyles.navRowMobile}>
-              <div className={previewStyles.brandBlockMobile}>{renderBrand()}</div>
-              <div className={previewStyles.actionsBlockMobile}>{renderActions()}</div>
+            <div className={mobileLayoutStyles.navRowMobile}>
+              <div className={mobileLayoutStyles.brandBlockMobile}>{renderBrand()}</div>
+              <div className={mobileLayoutStyles.actionsBlockMobile}>{renderActions()}</div>
             </div>
-            <div className={previewStyles.tabsBlockMobile}>
+            <div className={mobileLayoutStyles.tabsBlockMobile}>
               {renderTabs()}
               {renderMediaFilter()}
             </div>

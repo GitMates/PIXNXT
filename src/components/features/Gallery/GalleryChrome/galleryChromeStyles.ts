@@ -58,6 +58,15 @@ export const galleryChromeStyles = {
     setDescription:
       'gallery-chrome__set-description gallery-body-text mx-auto max-w-3xl whitespace-pre-wrap text-base font-light leading-relaxed tracking-wide md:text-lg',
     setDescriptionWrap: '-mx-2 mb-6 border-b px-4 py-5 text-center md:-mx-4 md:px-6 md:py-6',
+    navInnerMobile:
+      'gallery-chrome__nav-inner gallery-chrome__nav-inner--mobile flex flex-col items-stretch gap-2 py-3 px-2',
+    navRowMobile: 'gallery-chrome__nav-row flex w-full min-w-0 items-center justify-between gap-2',
+    brandBlockMobile:
+      'gallery-chrome__brand gallery-chrome__brand--mobile min-w-0 flex-1 max-w-[55%] flex flex-col items-start',
+    tabsBlockMobile:
+      'gallery-chrome__tabs gallery-chrome__tabs--mobile flex flex-row flex-nowrap items-center w-full min-w-0 gap-4 overflow-x-auto overflow-y-hidden no-scrollbar',
+    actionsBlockMobile:
+      'gallery-chrome__actions gallery-chrome__actions--mobile flex shrink-0 flex-row flex-nowrap items-center justify-end gap-2',
   },
 } as const;
 

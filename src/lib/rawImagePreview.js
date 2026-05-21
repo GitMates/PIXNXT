@@ -57,6 +57,10 @@ export function isBrowserDisplayableImageUrl(url) {
   if (!url) return false;
   if (url.startsWith('blob:')) return true;
   if (RAW_EXT_IN_URL_RE.test(url)) return false;
+  if (/\.(mp4|webm|mov|ogg|m4v)(\?|#|$)/i.test(url)) return false;
+  if (/\.(jpe?g|png|gif|webp|avif)(\?|#|$)/i.test(url)) return true;
+  // R2 public URLs often omit extensions in the path; still serve image/* from storage.
+  if (/^https?:\/\//i.test(url)) return true;
   return /\.(jpe?g|png|gif|webp)(\?|#|$)/i.test(url);
 }
 
