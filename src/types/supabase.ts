@@ -984,6 +984,7 @@ export type Database = {
       photographers: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           created_at: string
           custom_domain: string | null
           default_language: string
@@ -991,11 +992,19 @@ export type Database = {
           email: string
           ga_tracking_id: string | null
           homepage_enabled: boolean
+          homepage_password: string | null
           homepage_slug: string | null
+          homepage_sort: string | null
           id: string
           logo_storage_path: string | null
           logo_url: string | null
           plan: Database["public"]["Enums"]["plan_tier"]
+          show_address: boolean | null
+          show_bio: boolean | null
+          show_email: boolean | null
+          show_phone: boolean | null
+          show_social: boolean | null
+          show_website: boolean | null
           storage_used_bytes: number
           updated_at: string
           watermark_opacity: number
@@ -1005,6 +1014,7 @@ export type Database = {
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           custom_domain?: string | null
           default_language?: string
@@ -1012,11 +1022,19 @@ export type Database = {
           email: string
           ga_tracking_id?: string | null
           homepage_enabled?: boolean
+          homepage_password?: string | null
           homepage_slug?: string | null
+          homepage_sort?: string | null
           id: string
           logo_storage_path?: string | null
           logo_url?: string | null
           plan?: Database["public"]["Enums"]["plan_tier"]
+          show_address?: boolean | null
+          show_bio?: boolean | null
+          show_email?: boolean | null
+          show_phone?: boolean | null
+          show_social?: boolean | null
+          show_website?: boolean | null
           storage_used_bytes?: number
           updated_at?: string
           watermark_opacity?: number
@@ -1026,6 +1044,7 @@ export type Database = {
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           custom_domain?: string | null
           default_language?: string
@@ -1033,11 +1052,19 @@ export type Database = {
           email?: string
           ga_tracking_id?: string | null
           homepage_enabled?: boolean
+          homepage_password?: string | null
           homepage_slug?: string | null
+          homepage_sort?: string | null
           id?: string
           logo_storage_path?: string | null
           logo_url?: string | null
           plan?: Database["public"]["Enums"]["plan_tier"]
+          show_address?: boolean | null
+          show_bio?: boolean | null
+          show_email?: boolean | null
+          show_phone?: boolean | null
+          show_social?: boolean | null
+          show_website?: boolean | null
           storage_used_bytes?: number
           updated_at?: string
           watermark_opacity?: number
