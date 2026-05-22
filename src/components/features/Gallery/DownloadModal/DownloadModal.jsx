@@ -13,6 +13,7 @@ import { galleryService } from '@/services/gallery.service';
 import {
   isGoogleDriveConfigured,
   getGoogleDriveSetupMessage,
+  isGoogleDriveSignInRestrictedError,
   saveGalleryToGoogleDrive,
 } from '@/lib/googleDriveUpload';
 
@@ -67,6 +68,7 @@ export const DownloadModal = ({
   const pinRefs = [useRef(), useRef(), useRef(), useRef()];
   const downloadRunIdRef = useRef(0);
   const completedCountRef = useRef(0);
+  const googleLocalFallbackRef = useRef(false);
   const [downloadCompleteMeta, setDownloadCompleteMeta] = useState({
     isZip: false,
     total: 0,
@@ -99,6 +101,7 @@ export const DownloadModal = ({
 
       // Reset fields and set initial step only on initial open
       if (prevIsOpen.current === false) {
+        googleLocalFallbackRef.current = false;
         setError('');
         setProgress(0);
         setIsProcessing(false);
@@ -231,14 +234,22 @@ export const DownloadModal = ({
     setStep('selection');
   };
 
-  const startDownload = async () => {
-    const runId = ++downloadRunIdRef.current;
-    completedCountRef.current = 0;
-    setIsProcessing(true);
-    setStep('preparing');
-    setProgress(0);
-    setGoogleSignInPending(false);
-    setDownloadCompleteMeta({ isZip: false, total: 0, destination: downloadDestination, driveFileUrl: null });
+  const startDownload = async (options = {}) => {
+    const runId = options.preserveRunId ?? ++downloadRunIdRef.current;
+    const effectiveDestination = options.forceLocal ? 'local' : downloadDestination;
+    if (!options.preserveRunId) {
+      completedCountRef.current = 0;
+      setIsProcessing(true);
+      setStep('preparing');
+      setProgress(0);
+      setGoogleSignInPending(false);
+    }
+    setDownloadCompleteMeta({
+      isZip: false,
+      total: 0,
+      destination: effectiveDestination,
+      driveFileUrl: null,
+    });
     setStatusText('Gathering photos...');
 
     const isStale = () => runId !== downloadRunIdRef.current;
@@ -281,7 +292,7 @@ export const DownloadModal = ({
         setStatusText(preparingStatusText(done, total, phase));
       };
 
-      if (downloadDestination === 'google_drive') {
+      if (effectiveDestination === 'google_drive') {
         if (!googleDriveAvailable) {
           throw new Error(getGoogleDriveSetupMessage());
         }
@@ -289,7 +300,7 @@ export const DownloadModal = ({
         setGoogleSignInPending(true);
         setProgress(0);
         setStatusText(
-          'Sign in with Google in the popup window. If you see “app not verified”, click Continue (your email must be a Test user in Google Cloud).'
+          'Sign in with Google in the popup window. Anyone can download using “Local” without signing in.'
         );
 
         const driveResult = await saveGalleryToGoogleDrive(photosToDownload, {
@@ -422,7 +433,7 @@ export const DownloadModal = ({
                   : 'photo'
                 : 'gallery',
             resolution: 'High Res',
-            destination: downloadDestination,
+            destination: effectiveDestination,
             pinUsed: !!(collection?.download_pin && pin.length > 0),
             pin: pin.length > 0 ? pin : null,
             size: downloadSize,
@@ -454,6 +465,20 @@ export const DownloadModal = ({
       if (isStale()) return;
       console.error('Download failed:', err);
       setGoogleSignInPending(false);
+
+      if (
+        effectiveDestination === 'google_drive' &&
+        isGoogleDriveSignInRestrictedError(err) &&
+        !googleLocalFallbackRef.current
+      ) {
+        googleLocalFallbackRef.current = true;
+        setDownloadDestination('local');
+        setError('');
+        setStatusText('Google Drive is not available for this account. Saving to your device instead…');
+        await startDownload({ forceLocal: true, preserveRunId: runId });
+        return;
+      }
+
       setError(err.message || 'Download failed. Please try again.');
       setStep('selection');
     } finally {

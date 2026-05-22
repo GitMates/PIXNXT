@@ -650,12 +650,13 @@ export const galleryService = {
   },
 
   /**
-   * Fetch a single collection by slug
+   * Fetch a single published collection by slug (public gallery / QR).
    */
   async getCollectionBySlug(slug) {
-    const { data, error } = await supabase
-      .from('collections')
-      .select(`
+    const normalized = decodeURIComponent(String(slug || '').trim());
+    if (!normalized) return null;
+
+    const select = `
         *,
         photos!photos_collection_id_fkey (
           id,
@@ -681,11 +682,24 @@ export const galleryService = {
           photo_count,
           is_private
         )
-      `)
-      .eq('slug', slug)
-      .single();
+      `;
+
+    const baseQuery = () =>
+      supabase
+        .from('collections')
+        .select(select)
+        .eq('status', 'published');
+
+    let { data, error } = await baseQuery().eq('slug', normalized).maybeSingle();
+
+    if (!data && !error) {
+      const fallback = await baseQuery().ilike('slug', normalized).maybeSingle();
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) throw error;
+    if (!data) return null;
 
     if (data.photos) {
       data.photos.sort((a, b) => a.position - b.position);
