@@ -19,6 +19,18 @@ const CollectionList = ({ slug }) => {
   
   const navigate = useNavigate();
 
+  // Reset body theme and scroll when navigating back from gallery
+  useEffect(() => {
+    document.body.classList.remove('dark-theme');
+    document.body.style.backgroundColor = '#ffffff';
+    document.documentElement.style.backgroundColor = '#ffffff';
+    window.scrollTo(0, 0);
+    return () => {
+      document.body.style.backgroundColor = '';
+      document.documentElement.style.backgroundColor = '';
+    };
+  }, []);
+
   useEffect(() => {
     const fetchData = async () => {
       try {
