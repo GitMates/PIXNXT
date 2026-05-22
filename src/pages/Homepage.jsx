@@ -7,11 +7,8 @@ import './Homepage.css';
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const buildHomepageUrl = (profile, user) => {
-    let slug = profile?.homepage_slug || profile?.username;
-    if (!slug) {
-        slug = user?.email ? user.email.split('@')[0] : 'poojz';
-    }
-    return `https://${slug.toLowerCase()}.pixnxt.com`;
+    const slug = profile?.homepage_slug || (user?.email ? user.email.split('@')[0] : 'poojz');
+    return `http://${slug.toLowerCase()}.localhost:5173/`;
 };
 
 const formatEventDate = (dateStr) => {
@@ -217,11 +214,8 @@ const Homepage = () => {
 
     // ── View site ─────────────────────────────────────────────────────────────
     const handleViewSite = () => {
-        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        let slug = profile?.homepage_slug || profile?.username || (user?.email ? user.email.split('@')[0] : 'poojz');
-        const targetUrl = isLocal 
-            ? `http://${slug.toLowerCase()}.localhost:5173` 
-            : `https://${slug.toLowerCase()}.pixnxt.com`;
+        const slug = profile?.homepage_slug || (user?.email ? user.email.split('@')[0] : 'poojz');
+        const targetUrl = `http://${slug.toLowerCase()}.localhost:5173/`;
         window.open(targetUrl, '_blank');
     };
 
