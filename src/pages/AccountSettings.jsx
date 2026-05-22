@@ -1087,6 +1087,8 @@ function AccountTab({ user }) {
                                     setFormData(prev => ({ ...prev, homepage_slug: modalUsername }));
                                     setShowUsernameModal(false);
                                     await handleAutoSave('homepage_slug', modalUsername);
+                                    // Notify Homepage (and any other page) that the username changed
+                                    window.dispatchEvent(new CustomEvent('pixnxt:username-changed', { detail: { slug: modalUsername } }));
                                 }}
                             >
                                 Save

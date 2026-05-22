@@ -90,6 +90,18 @@ const Homepage = () => {
             .finally(() => setCollectionsLoading(false));
     }, [user?.id]);
 
+    // ── Sync username from AccountSettings in real-time ──────────────────────
+    useEffect(() => {
+        const handleUsernameChanged = (e) => {
+            const newSlug = e.detail?.slug;
+            if (newSlug) {
+                setProfile((prev) => ({ ...(prev || {}), homepage_slug: newSlug }));
+            }
+        };
+        window.addEventListener('pixnxt:username-changed', handleUsernameChanged);
+        return () => window.removeEventListener('pixnxt:username-changed', handleUsernameChanged);
+    }, []);
+
     // ── Sorted preview collections ───────────────────────────────────────────
     const previewCollections = React.useMemo(() => {
         const published = collections.filter((c) => c.status === 'published' && c.show_on_homepage !== false);
