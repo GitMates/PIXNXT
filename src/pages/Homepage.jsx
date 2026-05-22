@@ -217,7 +217,12 @@ const Homepage = () => {
 
     // ── View site ─────────────────────────────────────────────────────────────
     const handleViewSite = () => {
-        window.open(buildHomepageUrl(profile, user), '_blank');
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        let slug = profile?.homepage_slug || profile?.username || (user?.email ? user.email.split('@')[0] : 'poojz');
+        const targetUrl = isLocal 
+            ? `http://${slug.toLowerCase()}.localhost:5173` 
+            : `https://${slug.toLowerCase()}.pixnxt.com`;
+        window.open(targetUrl, '_blank');
     };
 
     // ── Derived display values ────────────────────────────────────────────────

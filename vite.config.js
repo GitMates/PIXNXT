@@ -21,34 +21,35 @@ export default defineConfig(({ mode }) => {
         plugins: [tailwindcss(), autoprefixer()],
       },
     },
-    server: r2Public
-      ? {
-          proxy: {
-            '/api/r2-media': {
-              target: r2Public,
-              changeOrigin: true,
-              rewrite: (p) => {
-                const sub = p.replace(/^\/api\/r2-media\/?/, '')
-                if (!sub) return '/'
-                const qIdx = sub.indexOf('?')
-                const pathPart = qIdx >= 0 ? sub.slice(0, qIdx) : sub
-                const query = qIdx >= 0 ? sub.slice(qIdx) : ''
-                const encoded = pathPart
-                  .split('/')
-                  .filter(Boolean)
-                  .map((seg) => {
-                    try {
-                      return encodeURIComponent(decodeURIComponent(seg))
-                    } catch {
-                      return encodeURIComponent(seg)
-                    }
-                  })
-                  .join('/')
-                return `/${encoded}${query}`
-              },
+    server: {
+      allowedHosts: 'all',
+      ...(r2Public ? {
+        proxy: {
+          '/api/r2-media': {
+            target: r2Public,
+            changeOrigin: true,
+            rewrite: (p) => {
+              const sub = p.replace(/^\/api\/r2-media\/?/, '')
+              if (!sub) return '/'
+              const qIdx = sub.indexOf('?')
+              const pathPart = qIdx >= 0 ? sub.slice(0, qIdx) : sub
+              const query = qIdx >= 0 ? sub.slice(qIdx) : ''
+              const encoded = pathPart
+                .split('/')
+                .filter(Boolean)
+                .map((seg) => {
+                  try {
+                    return encodeURIComponent(decodeURIComponent(seg))
+                  } catch {
+                    return encodeURIComponent(seg)
+                  }
+                })
+                .join('/')
+              return `/${encoded}${query}`
             },
           },
-        }
-      : undefined,
+        },
+      } : {}),
+    },
   }
 })
