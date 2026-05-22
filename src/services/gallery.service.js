@@ -98,8 +98,24 @@ export const galleryService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+    return data ? data.map(mapCollectionDashboardRow) : [];
+  },
 
-    return (data || []).map(mapCollectionDashboardRow);
+  /**
+   * Fetch published collections for a public homepage
+   */
+  async getPublicCollections(photographerId) {
+    if (!photographerId) return [];
+    const { data, error } = await supabase
+      .from('collections')
+      .select('*')
+      .eq('photographer_id', photographerId)
+      .eq('status', 'published')
+      .neq('show_on_homepage', false)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
   },
 
   /** Starred collections for the dashboard Starred page. */
@@ -1183,7 +1199,28 @@ export const galleryService = {
       .eq('id', photographerId)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') return null; // No rows found
+      throw error;
+    }
+    return data;
+  },
+
+  /**
+   * Fetch a photographer's profile/branding by their homepage slug
+   */
+  async getPhotographerProfileBySlug(slug) {
+    if (!slug) return null;
+    const { data, error } = await supabase
+      .from('photographers')
+      .select('*')
+      .eq('homepage_slug', slug)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null; // No rows found
+      throw error;
+    }
     return data;
   },
 
@@ -1192,12 +1229,26 @@ export const galleryService = {
    */
   async updatePhotographerProfile(photographerId, updates) {
     if (!photographerId) throw new Error('Photographer ID is required.');
-    const { data, error } = await supabase
+    
+    // First verify if the row exists because upsert can sometimes cause issues with RLS if not configured properly
+    const { data: existing, error: existingError } = await supabase
       .from('photographers')
-      .update(updates)
+      .select('id')
       .eq('id', photographerId)
-      .select('*')
       .single();
+
+    if (existingError && existingError.code !== 'PGRST116') {
+      throw existingError;
+    }
+
+    let query;
+    if (existing) {
+      query = supabase.from('photographers').update(updates).eq('id', photographerId);
+    } else {
+      query = supabase.from('photographers').insert([{ id: photographerId, ...updates }]);
+    }
+
+    const { data, error } = await query.select('*').single();
 
     if (error) throw error;
     return data;

@@ -501,7 +501,7 @@
     min-height: 0;
     min-width: 0;
     background: #cfd4da;
-    border-radius: 2px;
+    border-radius: 0;
     overflow: hidden;
   }
 
@@ -551,4 +551,6 @@
   }
 
 }
+
+
 

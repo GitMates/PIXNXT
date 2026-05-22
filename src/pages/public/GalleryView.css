@@ -1,4 +1,4 @@
-/* Slightly larger cover hero text — public GalleryView only */
+﻿/* Slightly larger cover hero text â€” public GalleryView only */
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__subtitle:not(.cover-stamp-layout__brand):not(.cover-journal-layout__brand):not(.cover-novel-layout__brand):not(.cover-vintage-layout__brand) {
   font-size: 11px !important;
   line-height: 1.25 !important;
@@ -13,7 +13,7 @@
   margin-bottom: 10px !important;
 }
 
-/* Novel cover — Pixieset split layout overrides generic hero text scale */
+/* Novel cover â€” Pixieset split layout overrides generic hero text scale */
 .gallery-view-hero .cover-novel-layout__title.cover-text-grid__title {
   font-size: clamp(1.25rem, 2.75vw, 2rem) !important;
   line-height: 1 !important;
@@ -42,7 +42,7 @@
   text-shadow: none !important;
 }
 
-/* Vintage cover — wide hero + serif title */
+/* Vintage cover â€” wide hero + serif title */
 .gallery-view-hero .cover-vintage-layout__title.cover-text-grid__title {
   font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
   line-height: 1.05 !important;
@@ -70,7 +70,7 @@
   max-width: 100%;
 }
 
-/* Journal cover — image left, text right */
+/* Journal cover â€” image left, text right */
 .gallery-view-hero .cover-journal-layout__title.cover-text-grid__title {
   font-size: clamp(1.5rem, 4vw, 2.5rem) !important;
   line-height: 1 !important;
@@ -99,7 +99,7 @@
   text-shadow: none !important;
 }
 
-/* Stamp cover — centered stack (Pixieset) */
+/* Stamp cover â€” centered stack (Pixieset) */
 .gallery-view-hero .cover-stamp-layout__brand.cover-text-grid__subtitle {
   font-size: clamp(0.5rem, 0.82vw, 0.62rem) !important;
   letter-spacing: 0.44em !important;
@@ -206,7 +206,7 @@
   text-shadow: 0 1px 10px rgba(0, 0, 0, 0.55), 0 2px 20px rgba(0, 0, 0, 0.35);
 }
 
-/* Navigation style — public gallery */
+/* Navigation style â€” public gallery */
 .gallery-view-page.nav-style-icon .gallery-chrome__action-label {
   position: absolute;
   width: 1px;
@@ -235,7 +235,7 @@
   background-color: color-mix(in srgb, var(--gallery-bg), transparent 12%) !important;
 }
 
-/* Gallery chrome (nav + set heading) — public gallery only */
+/* Gallery chrome (nav + set heading) â€” public gallery only */
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-title {
   font-size: 2rem !important;
   line-height: 1.1 !important;
@@ -339,7 +339,7 @@
   }
 }
 
-/* Mobile nav — public GalleryView only (does not affect dashboard GalleryPreview) */
+/* Mobile nav â€” public GalleryView only (does not affect dashboard GalleryPreview) */
 @media (max-width: 767px) {
   .gallery-view-page[data-gallery-chrome='large'] .gallery-sticky-nav--gallery-view .gallery-chrome__nav-inner {
     display: grid;
@@ -488,7 +488,7 @@
   height: 0;
 }
 
-/* Video tile play control — must sit above hover/action overlays */
+/* Video tile play control â€” must sit above hover/action overlays */
 .gallery-video-play {
   opacity: 1;
   visibility: visible;
@@ -499,9 +499,9 @@
   color: #171717;
 }
 
-/* Lightbox video sizing — see PhotoLightbox.css */
+/* Lightbox video sizing â€” see PhotoLightbox.css */
 
-/* Real phones — align public gallery with collection preview mobile */
+/* Real phones â€” align public gallery with collection preview mobile */
 .gallery-view-page[data-gallery-viewport='mobile'] .masonry-grid-vertical.preview-mobile {
   column-count: 2 !important;
 }
@@ -533,3 +533,4 @@
   white-space: nowrap;
   border: 0;
 }
+

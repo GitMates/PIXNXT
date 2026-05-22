@@ -1,109 +1,230 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { galleryService } from '../../services/gallery.service';
-import { cn } from '../../lib/utils';
 import { useNavigate } from 'react-router-dom';
 
-const CollectionList = () => {
+const CollectionList = ({ slug }) => {
+  const [profile, setProfile] = useState(null);
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  
+  // Password protection state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [passwordInput, setPasswordInput] = useState('');
+  const [passwordError, setPasswordError] = useState(false);
+  
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchCollections = async () => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        // We'll use a hardcoded photographer ID for now or fetch it from context
-        const data = await galleryService.getPublicCollections('default-id');
-        setCollections(data);
+        if (!slug) throw new Error("No photographer slug provided");
+
+        const photographerData = await galleryService.getPhotographerProfileBySlug(slug);
+        
+        if (!photographerData) {
+          throw new Error("Photographer not found");
+        }
+        
+        setProfile(photographerData);
+        
+        // Only fetch collections if homepage is enabled
+        if (photographerData.homepage_enabled !== false) {
+            const collectionsData = await galleryService.getPublicCollections(photographerData.id);
+            
+            // Sort according to homepage_sort setting if needed, but getPublicCollections already sorts by created_at desc
+            setCollections(collectionsData || []);
+        }
       } catch (err) {
         console.error(err);
-        // Fallback to localStorage
-        const saved = localStorage.getItem('pixnxt_collections');
-        if (saved) {
-          setCollections(JSON.parse(saved));
-        }
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCollections();
-  }, []);
+    fetchData();
+  }, [slug]);
+
+  const handlePasswordSubmit = (e) => {
+    e.preventDefault();
+    if (passwordInput === profile.homepage_password) {
+      setIsAuthenticated(true);
+      setPasswordError(false);
+    } else {
+      setPasswordError(true);
+    }
+  };
 
   if (loading) return (
     <div className="flex h-screen items-center justify-center bg-white">
-      <div className="text-sm font-bold tracking-[0.4em] uppercase text-gray-200">PIXNXT</div>
+      <div className="h-6 w-6 animate-spin rounded-full border-2 border-gray-900 border-t-transparent"></div>
     </div>
   );
 
+  if (error || !profile) return (
+    <div className="flex h-screen flex-col items-center justify-center bg-white">
+      <h1 className="mb-4 text-2xl font-bold tracking-tight text-gray-900">Portfolio Not Found</h1>
+      <p className="text-sm text-gray-500">The page you're looking for doesn't exist or is currently unavailable.</p>
+    </div>
+  );
+
+  if (profile.homepage_enabled === false) return (
+    <div className="flex h-screen flex-col items-center justify-center bg-white">
+      <h1 className="mb-4 text-2xl font-bold tracking-tight text-gray-900">Coming Soon</h1>
+      <p className="text-sm text-gray-500">This photographer's portfolio is currently being updated.</p>
+    </div>
+  );
+
+  // Check Password
+  if (profile.homepage_password && !isAuthenticated) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[#fafafa]">
+        <div className="w-full max-w-md bg-white p-10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-lg text-center">
+          <div className="mb-6 mx-auto w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center">
+             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Password Required</h2>
+          <p className="text-sm text-gray-500 mb-8">Please enter the password to view this portfolio.</p>
+          <form onSubmit={handlePasswordSubmit}>
+            <input 
+              type="password" 
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              placeholder="Enter password"
+              className={`w-full bg-gray-50 border ${passwordError ? 'border-red-300 focus:border-red-500' : 'border-gray-200 focus:border-gray-900'} px-4 py-3 rounded outline-none transition-colors mb-4`}
+              autoFocus
+            />
+            {passwordError && <p className="text-xs text-red-500 mb-4 text-left">Incorrect password. Please try again.</p>}
+            <button type="submit" className="w-full bg-gray-900 text-white font-medium py-3 rounded hover:bg-black transition-colors">
+              Enter Portfolio
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // Derived Info
+  const photographerName = profile.business_name || profile.first_name ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : slug;
+  
   return (
-    <div className="min-h-screen bg-white text-gray-900 selection:bg-black selection:text-white">
-      {/* Landing Header */}
-      <header className="container mx-auto px-6 py-20 text-center">
-        <h1 className="mb-4 text-4xl font-bold tracking-tighter uppercase">CLIENT GALLERIES</h1>
-        <p className="text-sm tracking-widest text-gray-400 uppercase font-medium">PIXNXT STUDIO</p>
+    <div className="min-h-screen bg-white text-[#333] font-['Helvetica_Neue',Helvetica,Arial,sans-serif]">
+      {/* Top Navigation (Minimalist with just search icon) */}
+      <nav className="w-full h-20 flex justify-end items-center px-10">
+        <button className="text-gray-400 hover:text-gray-900 transition-colors">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        </button>
+      </nav>
+
+      {/* Photographer Header */}
+      <header className="container mx-auto px-6 pt-12 pb-24 text-center max-w-4xl">
+        <h1 className="mb-10 text-[26px] font-bold tracking-[0.1em] text-[#222] uppercase">
+           {photographerName}
+        </h1>
+        
+        {/* Contact Info (Minimalist vertical list) */}
+        <div className="flex flex-col items-center gap-y-3 text-[14px] text-[#555]">
+           {profile.show_phone !== false && profile.phone && (
+              <div className="flex items-center gap-3">
+                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                 <a href={`tel:${profile.phone}`} className="hover:text-black transition-colors tracking-wide">{profile.phone}</a>
+              </div>
+           )}
+           {profile.show_email !== false && profile.contact_email && (
+              <div className="flex items-center gap-3">
+                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                 <a href={`mailto:${profile.contact_email}`} className="hover:text-black transition-colors tracking-wide">{profile.contact_email}</a>
+              </div>
+           )}
+           {profile.show_website !== false && profile.website && (
+              <div className="flex items-center gap-3">
+                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                 <a href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} target="_blank" rel="noreferrer" className="hover:text-black transition-colors tracking-wide">
+                    {profile.website.replace(/^https?:\/\//, '')}
+                 </a>
+              </div>
+           )}
+           {profile.show_address !== false && profile.address_line_1 && (
+              <div className="flex items-center gap-3">
+                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                 <span className="tracking-wide">{[profile.address_line_1, profile.city, profile.state_province].filter(Boolean).join(', ')}</span>
+              </div>
+           )}
+        </div>
+
+        {/* Bio (if toggled) */}
+        {profile.show_bio !== false && profile.bio && (
+           <p className="mt-8 text-[#555] leading-relaxed max-w-2xl mx-auto text-[15px] tracking-wide">
+              {profile.bio}
+           </p>
+        )}
+
+        {/* Social Links (if toggled) */}
+        {profile.show_social !== false && (
+           <div className="flex justify-center items-center gap-6 mt-8 text-gray-400">
+               {profile.social_facebook && (
+                  <a href={profile.social_facebook} target="_blank" rel="noreferrer" className="hover:text-gray-900 transition-colors">
+                     <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                  </a>
+               )}
+               {profile.social_instagram && (
+                  <a href={profile.social_instagram} target="_blank" rel="noreferrer" className="hover:text-gray-900 transition-colors">
+                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                  </a>
+               )}
+               {profile.social_x_twitter && (
+                  <a href={profile.social_x_twitter} target="_blank" rel="noreferrer" className="hover:text-gray-900 transition-colors">
+                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4l11.733 16h4.267l-11.733 -16z" /><path d="M4 20l6.768 -6.768m2.46 -2.46l6.772 -6.772" /></svg>
+                  </a>
+               )}
+           </div>
+        )}
       </header>
 
-      {/* Collections Grid */}
-      <main className="container mx-auto px-6 pb-40">
-        <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3">
+      {/* Collections Grid (Minimalist Pixieset Style) */}
+      <main className="container mx-auto px-10 pb-32 max-w-7xl">
+        <div className="grid grid-cols-1 gap-x-10 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
           {collections.map((collection, idx) => (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ delay: idx * 0.1 }}
+              transition={{ delay: (idx % 3) * 0.1, duration: 0.6 }}
               key={collection.id || idx}
-              className="group cursor-pointer"
+              className="group cursor-pointer flex flex-col items-center"
               onClick={() => navigate(`/gallery/${collection.slug || collection.name.toLowerCase().replace(/ /g, '-')}`)}
             >
-              <div className="relative aspect-[3/4] overflow-hidden bg-gray-100 rounded-sm">
+              <div className="w-full aspect-[4/3] sm:aspect-[3/2] md:aspect-[4/3] overflow-hidden bg-gray-50 mb-6">
                 <img 
                   src={collection.cover_url || collection.cover || "https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&auto=format&fit=crop&q=60"} 
                   alt={collection.name} 
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  className="h-full w-full object-cover transition-transform duration-[2s] group-hover:scale-[1.03]"
                 />
-                <div className="absolute inset-0 bg-black/0 transition-all duration-500 group-hover:bg-black/20" />
-                
-                {/* View Gallery Button Overlay */}
-                <div className="absolute inset-x-0 bottom-0 py-12 text-center translate-y-full transition-transform duration-500 group-hover:translate-y-0">
-                   <span className="inline-block border border-white px-8 py-3 text-[10px] font-bold tracking-widest text-white uppercase hover:bg-white hover:text-black transition-all">
-                     View Gallery
-                   </span>
-                </div>
               </div>
 
-              <div className="mt-8 text-center">
-                <h3 className="mb-2 text-sm font-bold tracking-tight uppercase group-hover:tracking-widest transition-all">
+              <div className="text-center">
+                <h3 className="mb-2 text-[14px] font-bold tracking-[0.08em] text-[#222] uppercase group-hover:text-gray-500 transition-colors">
                   {collection.name}
                 </h3>
-                <div className="flex items-center justify-center gap-4 text-[10px] font-medium tracking-widest text-gray-400 uppercase">
-                  <span>{collection.event_date}</span>
-                  <span className="h-1 w-1 rounded-full bg-gray-200" />
-                  <span>{collection.photo_count || 0} items</span>
-                </div>
+                {collection.event_date && (
+                  <div className="text-[11px] font-medium tracking-[0.1em] text-[#999] uppercase">
+                    {new Date(collection.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).replace(',', 'th,')}
+                  </div>
+                )}
               </div>
             </motion.div>
           ))}
         </div>
 
         {collections.length === 0 && (
-          <div className="py-40 text-center">
-             <p className="text-sm tracking-widest text-gray-400 uppercase">No collections available yet.</p>
+          <div className="py-20 text-center">
+             <p className="text-[12px] tracking-widest text-[#999] uppercase">No public collections available yet.</p>
           </div>
         )}
       </main>
-
-      {/* Footer */}
-      <footer className="border-t border-gray-100 py-12 px-6">
-        <div className="container mx-auto flex flex-col items-center justify-center gap-6">
-          <div className="text-center">
-            <h3 className="text-xl font-bold tracking-tighter uppercase mb-2">PIXNXT</h3>
-            <p className="text-[10px] tracking-[0.2em] font-medium text-gray-400 uppercase">© 2026 PIXNXT STUDIO</p>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };
