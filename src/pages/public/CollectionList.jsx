@@ -14,6 +14,9 @@ const CollectionList = ({ slug }) => {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -108,14 +111,40 @@ const CollectionList = ({ slug }) => {
   }
 
   // Derived Info
-  const photographerName = profile.business_name || profile.first_name ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : slug;
-  
+  const photographerName = profile.business_name || (profile.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : slug);
+
+  const filteredCollections = collections
+    .filter(c => c.status === 'published' && c.show_on_homepage !== false)
+    .filter(collection =>
+      collection.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
   return (
     <div className="min-h-screen bg-white text-[#333] font-['Helvetica_Neue',Helvetica,Arial,sans-serif]">
-      {/* Top Navigation (Minimalist with just search icon) */}
-      <nav className="w-full h-20 flex justify-end items-center px-10">
-        <button className="text-gray-400 hover:text-gray-900 transition-colors">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      {/* Top Navigation (Minimalist with working search) */}
+      <nav className="w-full h-20 flex justify-end items-center px-10 relative">
+        <div className={`flex items-center overflow-hidden transition-all duration-300 ${isSearchOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'}`}>
+           <input 
+             type="text" 
+             autoFocus={isSearchOpen}
+             value={searchQuery}
+             onChange={(e) => setSearchQuery(e.target.value)}
+             placeholder="Search collections..." 
+             className="w-full border-b border-gray-300 py-2 outline-none text-sm bg-transparent placeholder-gray-400 focus:border-gray-900 transition-colors mr-4"
+           />
+        </div>
+        <button 
+           onClick={() => {
+              setIsSearchOpen(!isSearchOpen);
+              if (isSearchOpen) setSearchQuery('');
+           }} 
+           className={`${isSearchOpen ? 'text-gray-900' : 'text-gray-400'} hover:text-gray-900 transition-colors z-10 bg-white`}
+        >
+          {isSearchOpen ? (
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          ) : (
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          )}
         </button>
       </nav>
 
@@ -187,7 +216,7 @@ const CollectionList = ({ slug }) => {
       {/* Collections Grid (Minimalist Pixieset Style) */}
       <main className="container mx-auto px-10 pb-32 max-w-7xl">
         <div className="grid grid-cols-1 gap-x-10 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
-          {collections.map((collection, idx) => (
+          {filteredCollections.map((collection, idx) => (
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -219,9 +248,11 @@ const CollectionList = ({ slug }) => {
           ))}
         </div>
 
-        {collections.length === 0 && (
+        {filteredCollections.length === 0 && (
           <div className="py-20 text-center">
-             <p className="text-[12px] tracking-widest text-[#999] uppercase">No public collections available yet.</p>
+             <p className="text-[12px] tracking-widest text-[#999] uppercase">
+                {collections.length === 0 ? "No public collections available yet." : "No collections match your search."}
+             </p>
           </div>
         )}
       </main>

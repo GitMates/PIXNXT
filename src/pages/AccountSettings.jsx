@@ -877,7 +877,7 @@ function AccountTab({ user }) {
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                             </svg>
                         </div>
-                        <p className="text-[13px] text-[#888] mt-2">Your Homepage will be at https://{formData.homepage_slug?.toLowerCase()}.pixnxt.com</p>
+                        <p className="text-[13px] text-[#888] mt-2">Your Homepage will be at http://{formData.homepage_slug?.toLowerCase()}.localhost:5173/</p>
                     </div>
 
                     {/* Account Email */}
@@ -1087,6 +1087,8 @@ function AccountTab({ user }) {
                                     setFormData(prev => ({ ...prev, homepage_slug: modalUsername }));
                                     setShowUsernameModal(false);
                                     await handleAutoSave('homepage_slug', modalUsername);
+                                    // Notify Homepage (and any other page) that the username changed
+                                    window.dispatchEvent(new CustomEvent('pixnxt:username-changed', { detail: { slug: modalUsername } }));
                                 }}
                             >
                                 Save

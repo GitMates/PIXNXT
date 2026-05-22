@@ -395,7 +395,9 @@ export const galleryService = {
         *,
         photos:photos!photos_collection_id_fkey(count)
       `)
+      .eq('photographer_id', photographerId)
       .eq('status', 'published')
+      .neq('show_on_homepage', false)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -1214,7 +1216,7 @@ export const galleryService = {
     const { data, error } = await supabase
       .from('photographers')
       .select('*')
-      .eq('homepage_slug', slug)
+      .ilike('homepage_slug', slug)
       .single();
 
     if (error) {

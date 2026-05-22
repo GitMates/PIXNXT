@@ -7,11 +7,8 @@ import './Homepage.css';
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const buildHomepageUrl = (profile, user) => {
-    let slug = profile?.homepage_slug || profile?.username;
-    if (!slug) {
-        slug = user?.email ? user.email.split('@')[0] : 'poojz';
-    }
-    return `https://${slug.toLowerCase()}.pixnxt.com`;
+    const slug = profile?.homepage_slug || (user?.email ? user.email.split('@')[0] : 'poojz');
+    return `http://${slug.toLowerCase()}.localhost:5173/`;
 };
 
 const formatEventDate = (dateStr) => {
@@ -92,6 +89,18 @@ const Homepage = () => {
             .catch((err) => console.error('Failed to load collections:', err))
             .finally(() => setCollectionsLoading(false));
     }, [user?.id]);
+
+    // ── Sync username from AccountSettings in real-time ──────────────────────
+    useEffect(() => {
+        const handleUsernameChanged = (e) => {
+            const newSlug = e.detail?.slug;
+            if (newSlug) {
+                setProfile((prev) => ({ ...(prev || {}), homepage_slug: newSlug }));
+            }
+        };
+        window.addEventListener('pixnxt:username-changed', handleUsernameChanged);
+        return () => window.removeEventListener('pixnxt:username-changed', handleUsernameChanged);
+    }, []);
 
     // ── Sorted preview collections ───────────────────────────────────────────
     const previewCollections = React.useMemo(() => {
@@ -217,7 +226,9 @@ const Homepage = () => {
 
     // ── View site ─────────────────────────────────────────────────────────────
     const handleViewSite = () => {
-        window.open(buildHomepageUrl(profile, user), '_blank');
+        const slug = profile?.homepage_slug || (user?.email ? user.email.split('@')[0] : 'poojz');
+        const targetUrl = `http://${slug.toLowerCase()}.localhost:5173/`;
+        window.open(targetUrl, '_blank');
     };
 
     // ── Derived display values ────────────────────────────────────────────────
