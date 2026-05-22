@@ -65,6 +65,8 @@ export function CollectionQrModal({ collection, isOpen, onClose }) {
     const url = getShareUrlForCollection(collection);
     const warning = getShareUrlWarning(url);
     const qrSrc = getQrCodeImageUrl(url, 220);
+    const isDraft = String(collection.status || '').toLowerCase() === 'draft';
+    const missingSlug = !collection.slug && !collection.name;
 
     return (
         <ModalShell title="GET QR CODE" onClose={onClose}>
@@ -72,8 +74,21 @@ export function CollectionQrModal({ collection, isOpen, onClose }) {
                 <img src={qrSrc} alt={`QR code for ${collection.name}`} width={220} height={220} />
             </div>
             <CopyField label="COLLECTION URL" value={url} />
+            {isDraft ? (
+                <p className="cgm-warning">
+                    This collection is still a <strong>draft</strong>. Change status to <strong>Published</strong> in the top bar before clients scan this QR code.
+                </p>
+            ) : null}
+            {missingSlug ? (
+                <p className="cgm-warning">
+                    Set a collection URL slug under Settings before sharing this QR code.
+                </p>
+            ) : null}
             {warning ? <p className="cgm-warning">{warning}</p> : null}
-            <p className="cgm-hint">Clients scan the code to open the public gallery. Use your production domain, not a preview deploy URL.</p>
+            <p className="cgm-hint">
+                Clients scan the code to open the public gallery. The collection must be published, and your live site URL must be set in{' '}
+                <code>VITE_PUBLIC_SITE_URL</code> on Vercel (then redeploy).
+            </p>
         </ModalShell>
     );
 }

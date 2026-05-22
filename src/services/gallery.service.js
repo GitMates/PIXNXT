@@ -666,12 +666,13 @@ export const galleryService = {
   },
 
   /**
-   * Fetch a single collection by slug
+   * Fetch a single published collection by slug (public gallery / QR).
    */
   async getCollectionBySlug(slug) {
-    const { data, error } = await supabase
-      .from('collections')
-      .select(`
+    const normalized = decodeURIComponent(String(slug || '').trim());
+    if (!normalized) return null;
+
+    const select = `
         *,
         photos!photos_collection_id_fkey (
           id,
@@ -680,6 +681,7 @@ export const galleryService = {
           web_url,
           thumbnail_url,
           full_url,
+          original_storage_path,
           width,
           height,
           position,
@@ -696,11 +698,24 @@ export const galleryService = {
           photo_count,
           is_private
         )
-      `)
-      .eq('slug', slug)
-      .single();
+      `;
+
+    const baseQuery = () =>
+      supabase
+        .from('collections')
+        .select(select)
+        .eq('status', 'published');
+
+    let { data, error } = await baseQuery().eq('slug', normalized).maybeSingle();
+
+    if (!data && !error) {
+      const fallback = await baseQuery().ilike('slug', normalized).maybeSingle();
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) throw error;
+    if (!data) return null;
 
     if (data.photos) {
       data.photos.sort((a, b) => a.position - b.position);
@@ -1850,11 +1865,14 @@ export const galleryService = {
         type: item.metadata?.type || (item.photo_id ? 'single' : 'gallery'),
         resolution: item.resolution || item.metadata?.resolution || 'Original',
         filename: item.photo?.filename || null,
+        photoId: item.photo?.id || null,
         photoSetId: item.photo?.set_id || null,
+        photoCount: item.metadata?.photoCount ?? null,
+        destination: item.metadata?.destination || 'local',
         size: item.metadata?.size || null,
         pinUsed: item.metadata?.pinUsed || false,
         setName: item.metadata?.setName || null, // Let UI resolve if null
-        pin: item.metadata?.pin || '---'
+        pin: item.metadata?.pin || '---',
       }));
     } catch (error) {
       console.error('Error in getDownloadActivity:', error);

@@ -86,17 +86,72 @@
 }
 
 .favorite-activity-sort-menu {
+    position: absolute;
+    top: calc(100% + 8px);
     right: 0;
     left: auto;
     z-index: 120;
+    min-width: 220px;
+    background: #fff;
+    border: 1px solid #ebebeb;
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.1);
+    padding: 6px 0;
+    overflow: hidden;
 }
 
-.favorite-activity-sort-menu .cd-sort-option {
+.favorite-activity-sort-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     width: 100%;
+    padding: 10px 14px;
     border: none;
     background: none;
     font: inherit;
-    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    color: #333;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.favorite-activity-sort-option:hover {
+    background: #f8fafb;
+}
+
+.favorite-activity-sort-option-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    color: #888;
+}
+
+.favorite-activity-sort-option-label {
+    flex: 1;
+    min-width: 0;
+}
+
+.favorite-activity-sort-option-check {
+    flex-shrink: 0;
+    color: #26a69a;
+}
+
+.favorite-activity-sort-option--selected {
+    background: rgba(38, 166, 154, 0.08);
+    color: #1f8f7a;
+    font-weight: 600;
+}
+
+.favorite-activity-sort-option--selected .favorite-activity-sort-option-icon {
+    color: #26a69a;
+}
+
+.favorite-activity-sort-option--selected:hover {
+    background: rgba(38, 166, 154, 0.12);
 }
 
 .favorite-activity-header-chevron--open {
@@ -161,32 +216,69 @@
     background: #fff;
 }
 
-.favorite-activity-layout--split .favorite-activity-table-wrap {
-    flex: 1;
-    min-width: 0;
-    max-width: none;
-    border: none;
-    border-radius: 0;
-    margin-top: 0;
-    border-right: 1px solid #ebebeb;
-}
-
 .favorite-activity-layout .favorite-activity-table-wrap.activity-list-container {
     border: none;
     border-radius: 0;
     margin-top: 0;
+    width: 100%;
 }
 
-.favorite-activity-table-wrap--compact .activity-table-header.favorite,
-.favorite-activity-table-wrap--compact .activity-row.favorite {
-    grid-template-columns: minmax(160px, 1fr) minmax(160px, 1fr);
+/* Favorite list details popup (centered modal) */
+.favorite-detail-modal-overlay {
+    z-index: 10050;
 }
 
-.favorite-activity-table-wrap--compact .activity-col-photos,
-.favorite-activity-table-wrap--compact .activity-col-created,
-.favorite-activity-table-wrap--compact .activity-col-updated,
-.favorite-activity-table-wrap--compact .activity-col-actions {
-    display: none;
+/* Create / Edit favorite list — above activity detail popups */
+.favorite-list-form-modal-overlay {
+    z-index: 10060;
+}
+
+.favorite-detail-modal.cd-modal {
+    width: min(600px, calc(100vw - 32px));
+    max-height: min(88vh, 760px);
+    overflow: hidden;
+}
+
+.favorite-detail-modal-header.cd-modal-header {
+    padding: 20px 24px 16px;
+    flex-shrink: 0;
+}
+
+.favorite-detail-modal-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.favorite-detail-modal .favorite-list-detail-toolbar {
+    padding: 12px 24px;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
+}
+
+.favorite-detail-modal .favorite-list-detail-meta {
+    padding: 20px 24px;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
+}
+
+.favorite-detail-modal .favorite-list-detail-photos-head {
+    padding: 14px 24px;
+    flex-shrink: 0;
+}
+
+.favorite-detail-modal .favorite-list-detail-photos {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+}
+
+.favorite-detail-modal .favorite-detail-toolbar-menu,
+.favorite-detail-modal .favorite-detail-photo-row-menu {
+    z-index: 10060;
 }
 
 .favorite-activity-table-wrap {
@@ -199,29 +291,12 @@
     box-shadow: inset 3px 0 0 #26a69a;
 }
 
-.favorite-list-detail-panel,
-.download-detail-panel {
-    flex: 0 0 440px;
-    min-width: 440px;
-    max-width: 440px;
-    border: none;
-    border-left: 1px solid #f2f2f2;
-    background: #fff;
-    min-height: 200px;
-    max-height: none;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-}
-
 .favorite-list-detail-toolbar,
 .download-detail-toolbar {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
     gap: 8px 24px;
-    padding: 16px 20px 16px;
-    border-bottom: none;
 }
 
 .favorite-detail-toolbar-link,
@@ -310,7 +385,8 @@
     line-height: 0;
 }
 
-.favorite-list-detail-close:hover {
+.favorite-list-detail-close:hover,
+.download-detail-close:hover {
     color: #111;
 }
 

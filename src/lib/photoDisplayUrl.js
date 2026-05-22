@@ -107,38 +107,79 @@ export function getPhotoDownloadUrl(photo) {
   return resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
 }
 
+/** R2 keys derived from the original upload path (RAW preview, video thumb, etc.). */
+export function deriveStoragePathVariants(storagePath) {
+  if (!storagePath || typeof storagePath !== 'string') return [];
+  const trimmed = storagePath.trim().replace(/^\//, '');
+  if (!trimmed) return [];
+  const variants = [trimmed];
+  const base = trimmed.replace(/\.[^.]+$/, '');
+  if (base !== trimmed) {
+    variants.push(`${base}_preview.jpg`);
+    variants.push(`${base}_thumb.jpg`);
+    variants.push(trimmed.replace(/\.[^.]+$/, '_thumb.jpg'));
+  }
+  return [...new Set(variants)];
+}
+
 /** Ordered fallbacks when the primary URL fails (R2 paths often have no file extension in the URL). */
 export function getPhotoDownloadUrlCandidates(photo) {
   if (!photo) return [];
   const seen = new Set();
   const out = [];
   const push = (raw) => {
+    if (!raw) return;
     const url = resolveMediaUrl(raw);
     if (!url || seen.has(url)) return;
     seen.add(url);
     out.push(url);
+    try {
+      const decoded = decodeURIComponent(url);
+      if (decoded !== url && !seen.has(decoded)) {
+        seen.add(decoded);
+        out.push(decoded);
+      }
+    } catch {
+      /* ignore */
+    }
   };
 
   if (isVideoMedia(photo)) {
     push(photo.web_url);
     push(photo.full_url);
+    push(photo.thumbnail_url);
     return out;
   }
   if (isRawMedia(photo)) {
     const preview = getRawPreviewUrl(photo);
     if (preview) push(preview);
-    push(photo.full_url);
     push(photo.web_url);
+    push(photo.thumbnail_url);
+    push(photo.web_storage_path);
+    push(photo.thumbnail_storage_path);
+    for (const variant of deriveStoragePathVariants(photo.original_storage_path)) {
+      push(variant);
+    }
+    /* full_url is often the multi‑MB RAW — try last */
+    push(photo.full_url);
     return out;
   }
   if (isGifMedia(photo)) {
     push(photo.web_url);
     push(photo.full_url);
+    push(photo.thumbnail_url);
     return out;
   }
-  push(photo.full_url);
+  /* Prefer web/thumbnail before full — full may be RAW or a path that fails CORS. */
   push(photo.web_url);
   push(photo.thumbnail_url);
+  push(photo.web_storage_path);
+  push(photo.thumbnail_storage_path);
+  for (const variant of deriveStoragePathVariants(photo.original_storage_path)) {
+    push(variant);
+  }
+  push(photo.full_url);
+  push(photo.original_storage_path);
   return out;
 }
 

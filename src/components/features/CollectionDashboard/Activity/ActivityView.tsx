@@ -1,6 +1,24 @@
-import React from 'react';
-import { Play } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import {
+  Calendar,
+  CalendarClock,
+  Check,
+  ChevronDown,
+  FileSpreadsheet,
+  FileText,
+  Mail,
+  Play,
+  Trash2,
+} from 'lucide-react';
+import {
+  formatDownloadDestination,
+  countPhotosForDownloadActivity,
+  pickDownloadActivityThumbPhoto,
+} from '@/lib/downloadActivityResolve';
 import { openSpaPath } from '../../../../lib/spaNavigation';
+import { DownloadActivityDetailModal } from './DownloadActivityDetailModal';
+import { FavoriteActivityDetailModal } from './FavoriteActivityDetailModal';
 
 export interface ActivityViewProps {
   activeActivityMenu: any;
@@ -38,6 +56,10 @@ export interface ActivityViewProps {
   photos: any;
   setDownloadDetailToolbarMenuOpen: any;
   handleExportActivity: any;
+  filteredDownloadActivityForTab: any;
+  handleDeleteAllDownloadActivity: () => void;
+  handleExportDownloadActivityExcel: (explicitItems?: any[]) => void;
+  handleExportDownloadActivityPdf: (explicitItems?: any[]) => void;
   downloadDetailPhotos: any;
   loadingActivity: any;
   favoriteActivitySortMenuRef: any;
@@ -97,6 +119,10 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
   photos,
   setDownloadDetailToolbarMenuOpen,
   handleExportActivity,
+  filteredDownloadActivityForTab,
+  handleDeleteAllDownloadActivity,
+  handleExportDownloadActivityExcel,
+  handleExportDownloadActivityPdf,
   downloadDetailPhotos,
   loadingActivity,
   favoriteActivitySortMenuRef,
@@ -117,6 +143,23 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
   setSelectedFavoriteListId,
   sortedFavoriteActivity
 }) => {
+  const [downloadActivityMenuOpen, setDownloadActivityMenuOpen] = useState(false);
+  const downloadActivityActionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!downloadActivityMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        downloadActivityActionsRef.current
+        && !downloadActivityActionsRef.current.contains(e.target as Node)
+      ) {
+        setDownloadActivityMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [downloadActivityMenuOpen]);
+
   return (
     <>
                             <div className={`cd-general-settings-view${activeActivitySubTab === 'favorite' && favoriteActivity.length > 0 ? ' cd-favorite-activity-wide' : ''}`}>
@@ -128,9 +171,89 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                         {activeActivitySubTab === 'store' && 'Store Orders'}
                                         {activeActivitySubTab === 'email' && 'Email Registration'}
                                     </h2>
+                                    {activeActivitySubTab === 'download' && (
+                                        <div
+                                            className="download-activity-header-actions"
+                                            ref={downloadActivityActionsRef}
+                                        >
+                                            <button
+                                                type="button"
+                                                className={`download-activity-actions-trigger${downloadActivityMenuOpen ? ' download-activity-actions-trigger--open' : ''}`}
+                                                aria-expanded={downloadActivityMenuOpen}
+                                                aria-haspopup="menu"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setActiveActivityMenu(null);
+                                                    setFavoriteActivitySortMenuOpen(false);
+                                                    setDownloadActivityMenuOpen((o) => !o);
+                                                }}
+                                            >
+                                                <span>Actions</span>
+                                                <ChevronDown
+                                                    size={16}
+                                                    strokeWidth={2.25}
+                                                    className="download-activity-actions-chevron"
+                                                    aria-hidden
+                                                />
+                                            </button>
+                                            {downloadActivityMenuOpen ? (
+                                                <div
+                                                    className="download-activity-actions-menu"
+                                                    role="menu"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        role="menuitem"
+                                                        className="download-activity-menu-item download-activity-menu-item--danger"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setDownloadActivityMenuOpen(false);
+                                                            handleDeleteAllDownloadActivity();
+                                                        }}
+                                                    >
+                                                        <span className="download-activity-menu-icon" aria-hidden>
+                                                            <Trash2 size={16} strokeWidth={2} />
+                                                        </span>
+                                                        <span>Delete all</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        role="menuitem"
+                                                        className="download-activity-menu-item"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setDownloadActivityMenuOpen(false);
+                                                            handleExportDownloadActivityExcel();
+                                                        }}
+                                                    >
+                                                        <span className="download-activity-menu-icon" aria-hidden>
+                                                            <FileSpreadsheet size={16} strokeWidth={2} />
+                                                        </span>
+                                                        <span>Export in Excel</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        role="menuitem"
+                                                        className="download-activity-menu-item"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setDownloadActivityMenuOpen(false);
+                                                            handleExportDownloadActivityPdf();
+                                                        }}
+                                                    >
+                                                        <span className="download-activity-menu-icon" aria-hidden>
+                                                            <FileText size={16} strokeWidth={2} />
+                                                        </span>
+                                                        <span>Export in PDF</span>
+                                                    </button>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    )}
                                     {activeActivitySubTab === 'favorite' && (
                                         <div className="favorite-activity-actions">
-                                            <div className="favorite-activity-sort-wrap">
+                                            <div className="favorite-activity-sort-wrap" ref={favoriteActivitySortMenuRef}>
                                                 <button
                                                     type="button"
                                                     className="favorite-activity-header-link favorite-activity-header-link--muted"
@@ -141,6 +264,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                         setActiveActivityMenu(null);
                                                         setFavoriteDetailToolbarMenuOpen(false);
                                                         setFavoriteDetailPhotoMenuPhotoId(null);
+                                                        setDownloadActivityMenuOpen(false);
                                                         setFavoriteActivitySortMenuOpen((o) => !o);
                                                     }}
                                                 >
@@ -149,42 +273,64 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={`favorite-activity-header-chevron${favoriteActivitySortMenuOpen ? ' favorite-activity-header-chevron--open' : ''}`} aria-hidden><polyline points="6 9 12 15 18 9" /></svg>
                                                 </button>
                                                 {favoriteActivitySortMenuOpen && (
-                                                    <div ref={favoriteActivitySortMenuRef} className="favorite-activity-sort-menu cd-sort-dropdown" role="menu" onClick={(e) => e.stopPropagation()}>
+                                                    <div
+                                                        className="favorite-activity-sort-menu"
+                                                        role="menu"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                    >
                                                         <button
                                                             type="button"
                                                             role="menuitem"
-                                                            className={`cd-sort-option w-full text-left ${favoriteActivitySortMode === 'email' ? 'selected' : ''}`}
+                                                            className={`favorite-activity-sort-option${favoriteActivitySortMode === 'email' ? ' favorite-activity-sort-option--selected' : ''}`}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setFavoriteActivitySortMode('email');
                                                                 setFavoriteActivitySortMenuOpen(false);
                                                             }}
                                                         >
-                                                            Sort by email
+                                                            <span className="favorite-activity-sort-option-icon" aria-hidden>
+                                                                <Mail size={16} strokeWidth={2} />
+                                                            </span>
+                                                            <span className="favorite-activity-sort-option-label">Sort by email</span>
+                                                            {favoriteActivitySortMode === 'email' ? (
+                                                                <Check size={16} strokeWidth={2.5} className="favorite-activity-sort-option-check" aria-hidden />
+                                                            ) : null}
                                                         </button>
                                                         <button
                                                             type="button"
                                                             role="menuitem"
-                                                            className={`cd-sort-option w-full text-left ${favoriteActivitySortMode === 'created' ? 'selected' : ''}`}
+                                                            className={`favorite-activity-sort-option${favoriteActivitySortMode === 'created' ? ' favorite-activity-sort-option--selected' : ''}`}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setFavoriteActivitySortMode('created');
                                                                 setFavoriteActivitySortMenuOpen(false);
                                                             }}
                                                         >
-                                                            Sort by created date
+                                                            <span className="favorite-activity-sort-option-icon" aria-hidden>
+                                                                <Calendar size={16} strokeWidth={2} />
+                                                            </span>
+                                                            <span className="favorite-activity-sort-option-label">Sort by created date</span>
+                                                            {favoriteActivitySortMode === 'created' ? (
+                                                                <Check size={16} strokeWidth={2.5} className="favorite-activity-sort-option-check" aria-hidden />
+                                                            ) : null}
                                                         </button>
                                                         <button
                                                             type="button"
                                                             role="menuitem"
-                                                            className={`cd-sort-option w-full text-left ${favoriteActivitySortMode === 'updated' ? 'selected' : ''}`}
+                                                            className={`favorite-activity-sort-option${favoriteActivitySortMode === 'updated' ? ' favorite-activity-sort-option--selected' : ''}`}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setFavoriteActivitySortMode('updated');
                                                                 setFavoriteActivitySortMenuOpen(false);
                                                             }}
                                                         >
-                                                            Sort by updated date
+                                                            <span className="favorite-activity-sort-option-icon" aria-hidden>
+                                                                <CalendarClock size={16} strokeWidth={2} />
+                                                            </span>
+                                                            <span className="favorite-activity-sort-option-label">Sort by updated date</span>
+                                                            {favoriteActivitySortMode === 'updated' ? (
+                                                                <Check size={16} strokeWidth={2.5} className="favorite-activity-sort-option-check" aria-hidden />
+                                                            ) : null}
                                                         </button>
                                                     </div>
                                                 )}
@@ -217,8 +363,8 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
 
                                 <div className="cd-empty-state-section">
                                     {activeActivitySubTab === 'favorite' && favoriteActivity.length > 0 ? (
-                                        <div className={`favorite-activity-layout${selectedFavoriteListId ? ' favorite-activity-layout--split' : ''}`}>
-                                            <div className={`activity-list-container favorite-activity-table-wrap${selectedFavoriteListId ? ' favorite-activity-table-wrap--compact' : ''}`}>
+                                        <div className="favorite-activity-layout">
+                                            <div className="activity-list-container favorite-activity-table-wrap">
                                                 <div className="activity-table-header favorite">
                                                     <div className="activity-col-email">Email</div>
                                                     <div className="activity-col-list">Favorite List</div>
@@ -360,214 +506,42 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                     ))}
                                                 </div>
                                             </div>
-                                            {selectedFavoriteListId && (() => {
-                                                const detail = favoriteActivity.find((a) => a.id === selectedFavoriteListId);
-                                                const sortedRows = [...favoriteDetailRows].sort((a, b) => {
-                                                    const fa = a.photo?.filename || '';
-                                                    const fb = b.photo?.filename || '';
-                                                    return favoriteDetailSort === 'name-za' ? fb.localeCompare(fa) : fa.localeCompare(fb);
-                                                });
-                                                return (
-                                                    <aside className="favorite-list-detail-panel">
-                                                        <div className="favorite-list-detail-header">
-                                                            <h3 className="favorite-list-detail-title">Favorite List Details</h3>
-                                                            <button
-                                                                type="button"
-                                                                className="favorite-list-detail-close"
-                                                                onClick={() => {
-                                                                    setSelectedFavoriteListId(null);
-                                                                    setFavoriteDetailRows([]);
-                                                                    setFavoriteDetailToolbarMenuOpen(false);
-                                                                    setFavoriteDetailPhotoMenuPhotoId(null);
-                                                                }}
-                                                                aria-label="Close details"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                                                            </button>
-                                                        </div>
-                                                        {detail && (
-                                                            <>
-                                                                <div className="favorite-list-detail-toolbar">
-                                                                    <button type="button" className="favorite-detail-toolbar-link" onClick={() => openEditFavoriteListModal(detail)}>
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-                                                                        Edit List
-                                                                    </button>
-                                                                    <button type="button" className="favorite-detail-toolbar-link" onClick={() => handleDownloadAllFavoriteList(detail.id)}>
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                                                                        Download All
-                                                                    </button>
-                                                                    <button type="button" className="favorite-detail-toolbar-link" onClick={() => { handleExportFavoriteList(detail.id, detail.name); setFavoriteDetailToolbarMenuOpen(false); }}>
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                                                                        Export
-                                                                    </button>
-                                                                    <div className="favorite-detail-toolbar-more-wrap">
-                                                                        <button
-                                                                            type="button"
-                                                                            className="favorite-detail-toolbar-icon-btn"
-                                                                            aria-label="More actions"
-                                                                            aria-expanded={favoriteDetailToolbarMenuOpen}
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setActiveActivityMenu(null);
-                                                                                setFavoriteDetailPhotoMenuPhotoId(null);
-                                                                                setFavoriteDetailToolbarMenuOpen((o) => !o);
-                                                                            }}
-                                                                        >
-                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
-                                                                        </button>
-                                                                        {favoriteDetailToolbarMenuOpen && (
-                                                                            <div ref={favoriteDetailToolbarMenuRef} className="favorite-detail-toolbar-menu" role="menu">
-                                                                                <button type="button" className="activity-menu-item" role="menuitem" onClick={() => { handleLightroomCopyList(detail.id); setFavoriteDetailToolbarMenuOpen(false); }}>
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="9" y1="3" x2="9" y2="21" /></svg>
-                                                                                    Lightroom Copy List
-                                                                                </button>
-                                                                                <button type="button" className="activity-menu-item" role="menuitem" onClick={() => { openSpaPath(`/gallery/${collection?.slug}?list=${detail.id}`); setFavoriteDetailToolbarMenuOpen(false); }}>
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-                                                                                    View in Gallery
-                                                                                </button>
-                                                                                <button type="button" className="activity-menu-item" role="menuitem" onClick={() => handleDownloadAllFavoriteList(detail.id)}>
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                                                                                    Send as download
-                                                                                </button>
-                                                                                <button type="button" className="activity-menu-item" role="menuitem" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
-                                                                                    Copy to new set
-                                                                                </button>
-                                                                                <button type="button" className="activity-menu-item" role="menuitem" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" /></svg>
-                                                                                    Copy to new collection
-                                                                                </button>
-                                                                                <button type="button" className="activity-menu-item" role="menuitem" disabled style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
-                                                                                    Create mobile app
-                                                                                </button>
-                                                                                <div style={{ height: '1px', background: '#eee', margin: '4px 0' }} />
-                                                                                <button type="button" className="activity-menu-item delete" role="menuitem" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setFavoriteDetailToolbarMenuOpen(false); setActiveActivityMenu(null); handleDeleteFavoriteActivity(detail.id); }}>
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                                                                                    Delete info
-                                                                                </button>
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
-                                                                </div>
-                                                                <div className="favorite-list-detail-meta">
-                                                                    <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Name</span><span>{detail.name}</span></div>
-                                                                    <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Email</span><span>{detail.email}</span></div>
-                                                                    <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">No. of photos</span><span>{detail.max_selection != null && Number(detail.max_selection) > 0 ? `${detail.photoCount} of ${detail.max_selection}` : detail.photoCount}</span></div>
-                                                                    <div className="favorite-detail-meta-row"><span className="favorite-detail-meta-label">Last modified</span><span>{new Date(detail.updated_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}</span></div>
-                                                                    {detail.description?.trim() ? (
-                                                                        <div className="favorite-detail-meta-row favorite-detail-meta-row--multiline">
-                                                                            <span className="favorite-detail-meta-label">Description</span>
-                                                                            <span className="favorite-detail-meta-value-wrap">{detail.description.trim()}</span>
-                                                                        </div>
-                                                                    ) : null}
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                        <div className="favorite-list-detail-photos-head">
-                                                            <button type="button" className="favorite-detail-sort-btn" onClick={() => setFavoriteDetailSort((s) => (s === 'name-az' ? 'name-za' : 'name-az'))}>
-                                                                <span className="favorite-detail-sort-arrows" aria-hidden>
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>
-                                                                </span>
-                                                                Name: {favoriteDetailSort === 'name-az' ? 'A-Z' : 'Z-A'}
-                                                            </button>
-                                                        </div>
-                                                        <div className="favorite-list-detail-photos">
-                                                            {favoriteDetailLoading ? (
-                                                                <p className="favorite-detail-loading">Loading…</p>
-                                                            ) : sortedRows.length === 0 ? (
-                                                                <p className="favorite-detail-empty">No photos in this list yet.</p>
-                                                            ) : (
-                                                                sortedRows.map((row, index) => {
-                                                                    const ph = row.photo;
-                                                                    const setLabel = !ph?.set_id ? highlightsName : (sets.find((ss) => ss.id === ph.set_id)?.name || 'Highlights');
-                                                                    const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
-                                                                    const menuOpen = favoriteDetailPhotoMenuPhotoId === ph?.id;
-                                                                    return (
-                                                                        <div
-                                                                            key={`${ph?.id}-${row.itemCreatedAt}`}
-                                                                            className={`favorite-detail-photo-row${menuOpen ? ' favorite-detail-photo-row--menu-open' : ''}`}
-                                                                        >
-                                                                            <div className="favorite-detail-thumb">
-                                                                                {thumb ? (
-                                                                                    /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '') ? (
-                                                                                        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                                                                                            <video src={thumb} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
-                                                                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
-                                                                                                <Play size={16} fill="white" stroke="white" />
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    ) : (
-                                                                                        <img src={thumb} alt="" />
-                                                                                    )
-                                                                                ) : null}
-                                                                            </div>
-                                                                            <div className="favorite-detail-photo-main">
-                                                                                <div className="favorite-detail-filename">{ph?.filename || 'Photo'}</div>
-                                                                                <div className="favorite-detail-sub">
-                                                                                    {new Date(row.itemCreatedAt).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}
-                                                                                    <span className="favorite-detail-sub-sep"> - </span>
-                                                                                    <span className="favorite-detail-set-tag">{setLabel}</span>
-                                                                                </div>
-                                                                            </div>
-                                                                            <div className="favorite-detail-row-actions">
-                                                                                <button
-                                                                                    type="button"
-                                                                                    className="favorite-detail-row-more"
-                                                                                    aria-label="More options"
-                                                                                    aria-expanded={menuOpen}
-                                                                                    aria-haspopup="menu"
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        setFavoriteDetailToolbarMenuOpen(false);
-                                                                                        setActiveActivityMenu(null);
-                                                                                        setFavoriteDetailPhotoMenuPhotoId((id) => (id === ph?.id ? null : ph?.id));
-                                                                                    }}
-                                                                                >
-                                                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1" /><circle cx="12" cy="5" r="1" /><circle cx="12" cy="19" r="1" /></svg>
-                                                                                </button>
-                                                                                {menuOpen && (
-                                                                                    <div
-                                                                                        ref={favoriteDetailPhotoMenuRef}
-                                                                                        className={`favorite-detail-photo-row-menu${index > 0 && index >= sortedRows.length - 2 ? ' favorite-detail-photo-row-menu--up' : ''}`}
-                                                                                        role="menu"
-                                                                                        onClick={(e) => e.stopPropagation()}
-                                                                                    >
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            className="activity-menu-item"
-                                                                                            role="menuitem"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                handleFavoriteDetailRowDownload(ph);
-                                                                                            }}
-                                                                                        >
-                                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                                                                                            Download
-                                                                                        </button>
-                                                                                        <button
-                                                                                            type="button"
-                                                                                            className="activity-menu-item delete"
-                                                                                            role="menuitem"
-                                                                                            onClick={(e) => {
-                                                                                                e.stopPropagation();
-                                                                                                handleRemovePhotoFromFavoriteList(selectedFavoriteListId, ph?.id);
-                                                                                            }}
-                                                                                        >
-                                                                                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /></svg>
-                                                                                            Remove Favorite
-                                                                                        </button>
-                                                                                    </div>
-                                                                                )}
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })
-                                                            )}
-                                                        </div>
-                                                    </aside>
-                                                );
-                                            })()}
+                                            {selectedFavoriteListId
+                                                ? createPortal(
+                                                    <FavoriteActivityDetailModal
+                                                      selectedFavoriteListId={selectedFavoriteListId}
+                                                      favoriteActivity={favoriteActivity}
+                                                      favoriteDetailRows={favoriteDetailRows}
+                                                      favoriteDetailSort={favoriteDetailSort}
+                                                      setFavoriteDetailSort={setFavoriteDetailSort}
+                                                      favoriteDetailLoading={favoriteDetailLoading}
+                                                      favoriteDetailToolbarMenuOpen={favoriteDetailToolbarMenuOpen}
+                                                      setFavoriteDetailToolbarMenuOpen={setFavoriteDetailToolbarMenuOpen}
+                                                      favoriteDetailPhotoMenuPhotoId={favoriteDetailPhotoMenuPhotoId}
+                                                      setFavoriteDetailPhotoMenuPhotoId={setFavoriteDetailPhotoMenuPhotoId}
+                                                      favoriteDetailToolbarMenuRef={favoriteDetailToolbarMenuRef}
+                                                      favoriteDetailPhotoMenuRef={favoriteDetailPhotoMenuRef}
+                                                      collectionSlug={collection?.slug}
+                                                      highlightsName={highlightsName}
+                                                      sets={sets}
+                                                      onClose={() => {
+                                                        setSelectedFavoriteListId(null);
+                                                        setFavoriteDetailRows([]);
+                                                        setFavoriteDetailToolbarMenuOpen(false);
+                                                        setFavoriteDetailPhotoMenuPhotoId(null);
+                                                      }}
+                                                      setActiveActivityMenu={setActiveActivityMenu}
+                                                      onEditList={openEditFavoriteListModal}
+                                                      handleDownloadAllFavoriteList={handleDownloadAllFavoriteList}
+                                                      handleExportFavoriteList={handleExportFavoriteList}
+                                                      handleLightroomCopyList={handleLightroomCopyList}
+                                                      handleFavoriteDetailRowDownload={handleFavoriteDetailRowDownload}
+                                                      handleRemovePhotoFromFavoriteList={handleRemovePhotoFromFavoriteList}
+                                                      handleDeleteFavoriteActivity={handleDeleteFavoriteActivity}
+                                                    />,
+                                                    document.body
+                                                  )
+                                                : null}
                                         </div>
                                     ) : activeActivitySubTab === 'store' ? (
                                         <div className="cd-empty-state-content" style={{ padding: '48px 24px', textAlign: 'center' }}>
@@ -581,24 +555,28 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                             <h3 className="cd-empty-state-title">No store orders yet</h3>
                                             <p className="cd-empty-state-text">When clients place orders from your store, they will appear here.</p>
                                         </div>
-                                    ) : activeActivitySubTab === 'download' && downloadActivity.filter(a => a.type === activeDownloadActivityTab).length > 0 ? (
-                                        <div className={`download-activity-layout${selectedDownloadId ? ' download-activity-layout--split' : ''}`}>
-                                            <div className={`activity-list-container download-activity-table-wrap${selectedDownloadId ? ' download-activity-table-wrap--compact' : ''}`}>
+                                    ) : activeActivitySubTab === 'download' && filteredDownloadActivityForTab.length > 0 ? (
+                                        <div className="download-activity-layout">
+                                            <div className="activity-list-container download-activity-table-wrap">
                                                 <div className="activity-table-header download">
                                                     <div className="activity-col-email">Email</div>
-                                                    <div className="activity-col-set">Photo Set</div>
+                                                    <div className="activity-col-set activity-col-set-header">
+                                                        <span className="download-activity-set-header-spacer" aria-hidden />
+                                                        <span>Photo Set</span>
+                                                    </div>
                                                     <div className="activity-col-photos">Photos</div>
+                                                    <div className="activity-col-destination">Saved to</div>
                                                     <div className="activity-col-pin">PIN</div>
                                                     <div className="activity-col-date-downloaded">Date Downloaded</div>
                                                     <div className="activity-col-actions"></div>
                                                 </div>
                                                 <div className="activity-table-body">
-                                                    {downloadActivity.filter(a => a.type === activeDownloadActivityTab).map((item, index, array) => (
+                                                    {filteredDownloadActivityForTab.map((item, index, array) => (
                                                         <div 
                                                             key={item.id} 
                                                             className={`activity-row download${selectedDownloadId === item.id ? ' download-row-selected' : ''}`}
                                                             onClick={() => {
-                                                                setSelectedDownloadId(selectedDownloadId === item.id ? null : item.id);
+                                                                setSelectedDownloadId(item.id);
                                                                 setActiveActivityMenu(null);
                                                                 setDownloadDetailToolbarMenuOpen(false);
                                                             }}
@@ -610,15 +588,7 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                             <div className="activity-col-set activity-col-list">
                                                                 <div className="list-thumb">
                                                                     {(() => {
-                                                                        let ph = null;
-                                                                        if (item.type === 'photo' || item.type === 'video' || item.type === 'single') {
-                                                                            ph = photos.find(p => p.filename === item.filename || p.id === item.id);
-                                                                        } else if (item.type === 'gallery') {
-                                                                            const set = sets.find(s => s.name === item.setName);
-                                                                            if (set) ph = photos.find(p => p.set_id === set.id);
-                                                                            else if (item.setName === 'Highlights') ph = photos.find(p => !p.set_id);
-                                                                        }
-                                                                        
+                                                                        const ph = pickDownloadActivityThumbPhoto(item, photos, sets);
                                                                         const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
                                                                         const isVideo = /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '');
 
@@ -649,7 +619,12 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                                 </span>
                                                             </div>
                                                             <div className="activity-col-photos">
-                                                                {item.photoCount || 1}
+                                                                {countPhotosForDownloadActivity(item, photos, sets)}
+                                                            </div>
+                                                            <div className="activity-col-destination">
+                                                                <span className={`download-destination-badge download-destination-badge--${item.destination === 'google_drive' ? 'drive' : 'local'}`}>
+                                                                    {formatDownloadDestination(item.destination)}
+                                                                </span>
                                                             </div>
                                                             <div className="activity-col-pin">
                                                                 {item.pin !== '---' ? item.pin : (item.pinUsed ? 'Yes' : '---')}
@@ -690,87 +665,28 @@ export const ActivityView: React.FC<ActivityViewProps> = ({
                                                     ))}
                                                 </div>
                                             </div>
-                                            {selectedDownloadId && (() => {
-                                                const detail = downloadActivity.find((a) => a.id === selectedDownloadId);
-                                                return (
-                                                    <aside className="download-detail-panel">
-                                                        <div className="download-detail-header">
-                                                            <h3 className="download-detail-title">Download Details</h3>
-                                                            <button
-                                                                type="button"
-                                                                className="download-detail-close"
-                                                                onClick={() => {
-                                                                    setSelectedDownloadId(null);
-                                                                    setDownloadDetailToolbarMenuOpen(false);
-                                                                }}
-                                                                aria-label="Close details"
-                                                            >
-                                                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-                                                            </button>
-                                                        </div>
-                                                        {detail && (
-                                                            <>
-                                                                <div className="download-detail-toolbar">
-                                                                    <button type="button" className="download-detail-toolbar-link" onClick={() => handleExportActivity()}>
-                                                                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-                                                                        Export
-                                                                    </button>
-                                                                </div>
-                                                                <div className="download-detail-meta">
-                                                                    <div className="download-detail-meta-row"><span className="download-detail-meta-label">Email</span><span className="download-detail-meta-value">{detail.email}</span></div>
-                                                                    <div className="download-detail-meta-row">
-                                                                        <span className="download-detail-meta-label">Photo Set</span>
-                                                                        <span className="download-detail-meta-value">
-                                                                            {detail.setName && detail.setName !== 'Unknown Set' 
-                                                                                ? detail.setName 
-                                                                                : (sets.find(s => s.id === detail.photoSetId)?.name || 'Highlights')}
-                                                                        </span>
-                                                                    </div>
-                                                                    <div className="download-detail-meta-row"><span className="download-detail-meta-label">PIN</span><span className="download-detail-meta-value">{detail.pin}</span></div>
-                                                                    <div className="download-detail-meta-row"><span className="download-detail-meta-label">Date</span><span className="download-detail-meta-value">{new Date(detail.date).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(',', ' -')}</span></div>
-                                                                </div>
-                                                            </>
-                                                        )}
-                                                        <div className="download-detail-photos-head">
-                                                            <span className="download-detail-photos-title">Photos ({downloadDetailPhotos.length})</span>
-                                                        </div>
-                                                        <div className="download-detail-photos">
-                                                            {downloadDetailPhotos.length === 0 ? (
-                                                                <p className="download-detail-empty">No photos found for this download.</p>
-                                                            ) : (
-                                                                downloadDetailPhotos.map((ph) => {
-                                                                    const setLabel = !ph?.set_id ? highlightsName : (sets.find((ss) => ss.id === ph.set_id)?.name || 'Highlights');
-                                                                    const thumb = ph?.thumbnail_url || ph?.web_url || ph?.full_url;
-                                                                    return (
-                                                                        <div key={ph?.id} className="download-detail-photo-row">
-                                                                            <div className="download-detail-thumb">
-                                                                                {thumb ? (
-                                                                                    /\.(mp4|webm|ogg|mov)$/i.test(ph?.filename || ph?.full_url || '') ? (
-                                                                                        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                                                                                            <video src={thumb} style={{ width: '100%', height: '100%', objectFit: 'cover' }} muted />
-                                                                                            <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.2)' }}>
-                                                                                                <Play size={16} fill="white" stroke="white" />
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    ) : (
-                                                                                        <img src={thumb} alt="" />
-                                                                                    )
-                                                                                ) : null}
-                                                                            </div>
-                                                                            <div className="download-detail-photo-main">
-                                                                                <div className="download-detail-filename">{ph?.filename || 'Photo'}</div>
-                                                                                <div className="download-detail-sub">
-                                                                                    <span className="download-detail-set-tag">{setLabel}</span>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    );
-                                                                })
-                                                            )}
-                                                        </div>
-                                                    </aside>
-                                                );
-                                            })()}
+                                            {selectedDownloadId
+                                                ? createPortal(
+                                                    <DownloadActivityDetailModal
+                                                      selectedDownloadId={selectedDownloadId}
+                                                      downloadActivity={downloadActivity}
+                                                      downloadDetailPhotos={downloadDetailPhotos}
+                                                      sets={sets}
+                                                      highlightsName={highlightsName}
+                                                      onClose={() => {
+                                                        setSelectedDownloadId(null);
+                                                        setDownloadDetailToolbarMenuOpen(false);
+                                                      }}
+                                                      onExport={() => {
+                                                        const detail = downloadActivity.find(
+                                                          (a) => a.id === selectedDownloadId
+                                                        );
+                                                        if (detail) handleExportDownloadActivityExcel([detail]);
+                                                      }}
+                                                    />,
+                                                    document.body
+                                                  )
+                                                : null}
                                         </div>
                                     ) : (
                                         <div className="cd-empty-state-content">
