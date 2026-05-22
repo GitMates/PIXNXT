@@ -24,8 +24,8 @@ export function getPublicSiteOrigin() {
 export function getPublicGalleryUrl(slug) {
     const origin = getPublicSiteOrigin();
     if (!slug) return `${origin}${GALLERY_PATH}`;
-    const safeSlug = encodeURIComponent(String(slug).trim());
-    return `${origin}${GALLERY_PATH}/${safeSlug}`;
+    const safeSlug = String(slug).trim().replace(/^\/+|\/+$/g, '');
+    return `${origin}${GALLERY_PATH}/${encodeURIComponent(safeSlug)}`;
 }
 
 function hostFromUrl(url) {

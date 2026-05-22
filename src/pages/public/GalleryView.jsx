@@ -429,7 +429,9 @@ const GalleryView = () => {
         const data = await galleryService.getCollectionBySlug(slug);
 
         if (!data) {
-          setError('Collection not found');
+          setError(
+            'This gallery is not available. Publish the collection, confirm the URL slug in Settings, and scan again.'
+          );
           return;
         }
 

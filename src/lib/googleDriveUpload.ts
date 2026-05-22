@@ -288,14 +288,25 @@ export interface GoogleDriveGalleryUploadOptions extends DownloadPhotosToZipOpti
   onUploadPhase?: (message: string) => void;
 }
 
+/** True when Google OAuth is in Testing mode or verification blocks this account. */
+export function isGoogleDriveSignInRestrictedError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err || '');
+  return /access_denied|access blocked|verification process|test user|developer-approved testers|403/i.test(
+    msg
+  );
+}
+
 function googleSignInHelpMessage(error?: string, description?: string): string {
   const code = String(error || '').toLowerCase();
   const desc = String(description || '');
-  if (code === 'access_denied' || /cancel/i.test(desc)) {
+  if (code === 'access_denied' || /verification process|developer-approved testers/i.test(desc)) {
     return (
-      'Google sign-in was cancelled. If you see “Google hasn’t verified this app”, choose Continue ' +
-      '(you must be added as a Test user in Google Cloud Console → OAuth consent screen).'
+      'Google Drive sign-in is limited to test accounts while the PIXNXT OAuth app is in Testing mode. ' +
+      'Use “Save to this device” (Local) to download without Google, or ask the site owner to publish the OAuth app in Google Cloud Console.'
     );
+  }
+  if (code === 'access_denied' || /cancel/i.test(desc)) {
+    return 'Google sign-in was cancelled. Choose Local to save on this device, or try Google Drive again.';
   }
   if (code === 'popup_closed_by_user') {
     return 'Sign-in popup was closed. Allow popups for this site and try again.';

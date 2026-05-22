@@ -3731,7 +3731,11 @@ const CollectionDashboard = () => {
             )}
 
             <CollectionQrModal
-                collection={collectionUrl ? { slug: collectionUrl, name: collection?.name } : null}
+                collection={
+                    collection
+                        ? { ...collection, slug: collectionUrl || collection.slug, name: collection?.name }
+                        : null
+                }
                 isOpen={showQrCodeModal}
                 onClose={() => setShowQrCodeModal(false)}
             />
