@@ -786,8 +786,10 @@ function AccountTab({ user }) {
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [modalUsername, setModalUsername] = useState('');
 
+    const fallbackSlug = user?.email ? user.email.split('@')[0] : 'poojz';
+
     const [formData, setFormData] = useState({
-        homepage_slug: 'poojz',
+        homepage_slug: fallbackSlug,
         email: user?.email || 'poojaelango03@gmail.com',
         two_factor_enabled: false,
         google_connected: true
@@ -801,7 +803,7 @@ function AccountTab({ user }) {
                 if (data) {
                     setFormData(prev => ({
                         ...prev,
-                        homepage_slug: data.homepage_slug || data.username || 'poojz',
+                        homepage_slug: data.homepage_slug || data.username || fallbackSlug,
                         email: data.contact_email || user?.email || 'poojaelango03@gmail.com',
                         two_factor_enabled: data.two_factor_enabled || false,
                         google_connected: data.google_connected !== undefined ? data.google_connected : true
@@ -875,7 +877,7 @@ function AccountTab({ user }) {
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                             </svg>
                         </div>
-                        <p className="text-[13px] text-[#888] mt-2">Your Homepage will be at https://{formData.homepage_slug?.toLowerCase()}.pixieset.com</p>
+                        <p className="text-[13px] text-[#888] mt-2">Your Homepage will be at https://{formData.homepage_slug?.toLowerCase()}.pixnxt.com</p>
                     </div>
 
                     {/* Account Email */}

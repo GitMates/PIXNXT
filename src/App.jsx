@@ -25,6 +25,11 @@ import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueu
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 
 function App() {
+  const host = window.location.hostname;
+  const isSubdomain = host.includes('.pixnxt.com') && host.split('.')[0] !== 'www';
+  const devSubdomain = host.endsWith('.localhost') && host !== 'localhost' ? host.split('.')[0] : null;
+  const activeSlug = isSubdomain ? host.split('.')[0] : devSubdomain;
+
   const location = useLocation();
   const navigate = useNavigate();
   const [themeTick, setThemeTick] = useState(0);
@@ -69,6 +74,24 @@ function App() {
     location.pathname.startsWith('/account') ||
     location.pathname === '/collections' ||
     location.pathname.startsWith('/gallery/');
+
+  if (activeSlug) {
+    return (
+      <UploadQueueProvider>
+        <UploadQueueRouteSync />
+        <div className="app">
+          <Routes>
+            <Route path="/" element={<CollectionList slug={activeSlug} />} />
+            <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
+            <Route path="/gallery/:slug" element={<GalleryView />} />
+            {/* Fallback to main app redirect if they try to access dashboard on subdomain */}
+            <Route path="*" element={<Navigate to={`http${host.includes('localhost') ? '' : 's'}://${host.replace(activeSlug + '.', '')}/dashboard`} replace />} />
+          </Routes>
+          <GlobalUploadShell />
+        </div>
+      </UploadQueueProvider>
+    );
+  }
 
   return (
     <UploadQueueProvider>

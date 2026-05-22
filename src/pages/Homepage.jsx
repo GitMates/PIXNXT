@@ -6,9 +6,12 @@ import './Homepage.css';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
-const buildHomepageUrl = (profile) => {
-    const slug = profile?.username || profile?.slug || profile?.id?.slice(0, 8) || '';
-    return `https://${slug}.pixnxt.com`;
+const buildHomepageUrl = (profile, user) => {
+    let slug = profile?.homepage_slug || profile?.username;
+    if (!slug) {
+        slug = user?.email ? user.email.split('@')[0] : 'poojz';
+    }
+    return `https://${slug.toLowerCase()}.pixnxt.com`;
 };
 
 const formatEventDate = (dateStr) => {
@@ -205,16 +208,16 @@ const Homepage = () => {
 
     // ── Copy URL ─────────────────────────────────────────────────────────────
     const handleCopyUrl = useCallback(() => {
-        const url = buildHomepageUrl(profile);
+        const url = buildHomepageUrl(profile, user);
         navigator.clipboard.writeText(url).then(() => {
             setCopyDone(true);
             setTimeout(() => setCopyDone(false), 2000);
         });
-    }, [profile]);
+    }, [profile, user]);
 
     // ── View site ─────────────────────────────────────────────────────────────
     const handleViewSite = () => {
-        window.open(buildHomepageUrl(profile), '_blank');
+        window.open(buildHomepageUrl(profile, user), '_blank');
     };
 
     // ── Derived display values ────────────────────────────────────────────────
@@ -224,7 +227,7 @@ const Homepage = () => {
     const displayAddress = profile?.address || '';
     const displayWebsite = profile?.website || '';
 
-    const homepageUrl = buildHomepageUrl(profile);
+    const homepageUrl = buildHomepageUrl(profile, user);
 
     // ─── Render ───────────────────────────────────────────────────────────────
     return (

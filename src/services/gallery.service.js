@@ -98,8 +98,24 @@ export const galleryService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+    return data ? data.map(mapCollectionDashboardRow) : [];
+  },
 
-    return (data || []).map(mapCollectionDashboardRow);
+  /**
+   * Fetch published collections for a public homepage
+   */
+  async getPublicCollections(photographerId) {
+    if (!photographerId) return [];
+    const { data, error } = await supabase
+      .from('collections')
+      .select('*')
+      .eq('photographer_id', photographerId)
+      .eq('status', 'published')
+      .neq('show_on_homepage', false)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data;
   },
 
   /** Starred collections for the dashboard Starred page. */
@@ -1166,6 +1182,24 @@ export const galleryService = {
       .from('photographers')
       .select('*')
       .eq('id', photographerId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') return null; // No rows found
+      throw error;
+    }
+    return data;
+  },
+
+  /**
+   * Fetch a photographer's profile/branding by their homepage slug
+   */
+  async getPhotographerProfileBySlug(slug) {
+    if (!slug) return null;
+    const { data, error } = await supabase
+      .from('photographers')
+      .select('*')
+      .eq('homepage_slug', slug)
       .single();
 
     if (error) {
