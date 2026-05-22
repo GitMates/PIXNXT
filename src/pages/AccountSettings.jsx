@@ -189,7 +189,7 @@ export default function AccountSettings() {
             <div className="w-full bg-white py-12 flex justify-center">
                 <div className="w-full max-w-[800px] px-6 lg:px-0">
                     {activeTab === 'profile' && <ProfileTab user={user} />}
-                    {activeTab === 'account' && <div className="text-[#888]">Account Settings Coming Soon</div>}
+                    {activeTab === 'account' && <AccountTab user={user} />}
                     {activeTab === 'billing' && <div className="text-[#888]">Billing Settings Coming Soon</div>}
                     {activeTab === 'advanced' && <div className="text-[#888]">Advanced Settings Coming Soon</div>}
                     {activeTab === 'refer' && <div className="text-[#888]">Refer a Friend Coming Soon</div>}
@@ -775,6 +775,391 @@ function ProfileTab({ user }) {
                     ))}
                 </div>
             </div>
+        </div>
+    );
+}
+
+function AccountTab({ user }) {
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [showUsernameModal, setShowUsernameModal] = useState(false);
+    const [showEmailModal, setShowEmailModal] = useState(false);
+    const [modalUsername, setModalUsername] = useState('');
+
+    const [formData, setFormData] = useState({
+        homepage_slug: 'poojz',
+        email: user?.email || 'poojaelango03@gmail.com',
+        two_factor_enabled: false,
+        google_connected: true
+    });
+
+    useEffect(() => {
+        if (!user?.id) return;
+        
+        galleryService.getPhotographerProfile(user.id)
+            .then(data => {
+                if (data) {
+                    setFormData(prev => ({
+                        ...prev,
+                        homepage_slug: data.homepage_slug || data.username || 'poojz',
+                        email: data.contact_email || user?.email || 'poojaelango03@gmail.com',
+                        two_factor_enabled: data.two_factor_enabled || false,
+                        google_connected: data.google_connected !== undefined ? data.google_connected : true
+                    }));
+                }
+            })
+            .catch(err => console.error("Error fetching account details:", err))
+            .finally(() => setLoading(false));
+    }, [user]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleAutoSave = async (fieldName, value) => {
+        if (!user?.id) return;
+        setSaving(true);
+        try {
+            // Check if field is a valid db column, we mock the ones that aren't
+            if (['two_factor_enabled', 'google_connected'].includes(fieldName)) {
+                // Mock saving for UI demo
+                await new Promise(r => setTimeout(r, 500));
+            } else {
+                await galleryService.updatePhotographerProfile(user.id, { [fieldName]: value });
+            }
+        } catch (err) {
+            console.error("Failed to auto-save account field:", fieldName, err);
+        }
+        setSaving(false);
+    };
+
+    const toggle2FA = async () => {
+        const newValue = !formData.two_factor_enabled;
+        setFormData(prev => ({ ...prev, two_factor_enabled: newValue }));
+        await handleAutoSave('two_factor_enabled', newValue);
+    };
+
+    if (loading) {
+        return <div className="py-8 text-[#888]">Loading account...</div>;
+    }
+
+    return (
+        <div className="flex flex-col gap-12 pb-20 relative">
+            {saving && (
+                <div className="fixed bottom-6 right-6 bg-[#1a9b84] text-white px-4 py-2 rounded-md shadow-lg text-[13px] font-medium transition-opacity animate-[cgFadeIn_0.2s_ease] z-50">
+                    Saving...
+                </div>
+            )}
+            <div>
+                <h1 className="text-[28px] font-normal text-[#111] mb-8 pb-4 border-b border-[#f1f1f1]">Account</h1>
+                
+                {/* Account Info */}
+                <h2 className="text-[11px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">ACCOUNT INFO</h2>
+                
+                <div className="flex flex-col gap-8 w-full">
+                    {/* Username */}
+                    <div>
+                        <label className="block text-[15px] font-bold text-[#111] mb-2">Username</label>
+                        <div className="w-full bg-[#f9f9f9] border border-[#f1f1f1] px-4 py-3 flex justify-between items-center group transition-colors hover:border-[#ddd]">
+                            <span className="text-[15px] text-[#111]">{formData.homepage_slug}</span>
+                            <svg 
+                                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+                                className="cursor-pointer opacity-80 hover:opacity-100 flex-shrink-0 ml-2"
+                                onClick={() => {
+                                    setModalUsername(formData.homepage_slug);
+                                    setShowUsernameModal(true);
+                                }}
+                            >
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </div>
+                        <p className="text-[13px] text-[#888] mt-2">Your Homepage will be at https://{formData.homepage_slug?.toLowerCase()}.pixieset.com</p>
+                    </div>
+
+                    {/* Account Email */}
+                    <div>
+                        <label className="block text-[15px] font-bold text-[#111] mb-2">Account Email</label>
+                        
+                        <div className="bg-[#fff9e6] border border-[#ffecb3] p-4 flex gap-3 mb-4 rounded-[2px]">
+                            <div className="mt-0.5">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="#333" className="text-white">
+                                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                                </svg>
+                            </div>
+                            <div className="text-[13px] text-[#333] font-medium leading-relaxed">
+                                Your email address has not been verified. To keep your account safe and secure, we've sent an email to verify your email address and activate your account. <span className="text-[#1a9b84] cursor-pointer hover:underline">Resend confirmation email.</span>
+                            </div>
+                        </div>
+
+                        <div className="w-full bg-[#f9f9f9] border border-[#f1f1f1] px-4 py-3 flex justify-between items-center group transition-colors hover:border-[#ddd]">
+                            <span className="text-[15px] text-[#111]">{formData.email}</span>
+                            <svg 
+                                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+                                className="cursor-pointer opacity-80 hover:opacity-100 flex-shrink-0 ml-2"
+                                onClick={() => setShowEmailModal(true)}
+                            >
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </div>
+                        <p className="text-[13px] text-[#888] mt-2">You will receive important notifications at this email, and your client will see this email where applicable.</p>
+                    </div>
+
+                    {/* Account Password */}
+                    <div>
+                        <label className="block text-[15px] font-bold text-[#111] mb-2">Account Password</label>
+                        <div className="w-full border border-[#f1f1f1] p-2 flex justify-between items-center bg-white">
+                            <span className="text-[15px] text-[#999] px-2">No Password set</span>
+                            <button className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[14px] font-medium px-4 py-2 transition-colors rounded-[2px]">
+                                Set a Password
+                            </button>
+                        </div>
+                        <p className="text-[13px] text-[#888] mt-2">Your password is not set, once you create it you'll be able to log in using it as well.</p>
+                    </div>
+
+                    {/* Social Login */}
+                    <div>
+                        <label className="block text-[15px] font-bold text-[#111] mb-2">Social Login</label>
+                        <div className="border border-[#f1f1f1] bg-white flex flex-col">
+                            {/* Google */}
+                            <div className="flex justify-between items-center p-3 border-b border-[#f1f1f1]">
+                                <div className="flex items-center gap-4 px-2">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                                    </svg>
+                                    <span className="text-[15px] font-bold text-[#111]">Google</span>
+                                    <span className="text-[14px] text-[#999]">{formData.google_connected ? 'Connected' : 'Not connected'}</span>
+                                </div>
+                                <button 
+                                    className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[14px] font-medium px-4 py-2 transition-colors rounded-[2px] min-w-[120px]"
+                                    onClick={async () => {
+                                        const newValue = !formData.google_connected;
+                                        setFormData(prev => ({ ...prev, google_connected: newValue }));
+                                        await handleAutoSave('google_connected', newValue);
+                                    }}
+                                >
+                                    {formData.google_connected ? 'Disconnect' : 'Connect'}
+                                </button>
+                            </div>
+                            
+                            {/* Apple */}
+                            <div className="flex justify-between items-center p-3">
+                                <div className="flex items-center gap-4 px-2">
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="#000000" xmlns="http://www.w3.org/2000/svg">
+                                        <path d="M17.05 13.92c-.023-1.944 1.583-2.894 1.656-2.94-1.258-1.841-3.21-2.091-3.922-2.115-1.66-.17-3.242 1.002-4.088 1.002-.858 0-2.164-1.01-3.56-1.01-1.83 0-3.524 1.066-4.464 2.716-1.905 3.303-.487 8.2 1.365 10.876.908 1.31 1.977 2.775 3.407 2.723 1.385-.05 1.907-.893 3.525-.893 1.606 0 2.096.893 3.537.868 1.488-.025 2.417-1.318 3.313-2.636 1.037-1.517 1.464-2.983 1.484-3.058-.032-.014-2.222-.853-2.253-5.533zM15.467 4.966c.773-.935 1.293-2.235 1.15-3.533-1.11.045-2.455.74-3.25 1.67-.714.832-1.336 2.155-1.173 3.432 1.238.096 2.5-.66 3.273-1.569z"/>
+                                    </svg>
+                                    <span className="text-[15px] font-bold text-[#111]">Apple</span>
+                                    <span className="text-[14px] text-[#999]">Not connected</span>
+                                </div>
+                                <button className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[14px] font-medium px-4 py-2 transition-colors rounded-[2px] min-w-[120px]">
+                                    Connect
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Account Security */}
+                <div className="mt-14">
+                    <h2 className="text-[11px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">ACCOUNT SECURITY</h2>
+                    
+                    <div className="flex flex-col gap-10 w-full">
+                        {/* Two-Factor Authentication */}
+                        <div>
+                            <h3 className="text-[15px] font-bold text-[#111] mb-4">Two-Factor Authentication</h3>
+                            <div className="flex items-center gap-3 mb-4">
+                                <button 
+                                    className={`w-[48px] h-[24px] rounded-full relative transition-colors ${formData.two_factor_enabled ? 'bg-[#1a9b84]' : 'bg-[#e0e0e0]'}`}
+                                    onClick={toggle2FA}
+                                >
+                                    <div className={`absolute top-1 left-1 w-[16px] h-[16px] rounded-full bg-white transition-transform ${formData.two_factor_enabled ? 'translate-x-[24px]' : 'translate-x-0'}`}></div>
+                                </button>
+                                <span className={`text-[14px] ${formData.two_factor_enabled ? 'text-[#1a9b84]' : 'text-[#999]'}`}>
+                                    {formData.two_factor_enabled ? 'Enabled' : 'Disabled'}
+                                </span>
+                            </div>
+                            <p className="text-[13px] text-[#888] leading-relaxed">
+                                Two-factor authentication adds an extra layer of protection by requiring a verification code when you log in to your account with an email address and password. <span className="text-[#1a9b84] cursor-pointer hover:underline">Learn more</span>
+                            </p>
+                        </div>
+
+                        {/* Your Devices / Browsers */}
+                        <div>
+                            <h3 className="text-[15px] font-bold text-[#111] mb-6">Your Devices / Browsers</h3>
+                            <div className="w-full">
+                                <div className="flex items-center border-b border-[#f1f1f1] pb-3 text-[13px] font-bold text-[#111]">
+                                    <div className="w-[40%]">Device</div>
+                                    <div className="w-[30%]">Last Active</div>
+                                    <div className="w-[30%]">IP Address</div>
+                                </div>
+                                
+                                <div className="flex items-center border-b border-[#f1f1f1] py-4 text-[14px]">
+                                    <div className="w-[40%] text-[#333]">Windows 10, Chrome 148</div>
+                                    <div className="w-[30%] text-[#1a9b84]">Current session</div>
+                                    <div className="w-[30%] text-[#666]">2409:408d:3c0a:e5c:a02c:1ea4:258f:68e</div>
+                                </div>
+                                
+                                <div className="flex items-center border-b border-[#f1f1f1] py-4 text-[14px] group">
+                                    <div className="w-[40%] text-[#333]">Windows 10, Chrome 148</div>
+                                    <div className="w-[30%] text-[#666]">19 hours ago</div>
+                                    <div className="w-[30%] text-[#666] flex justify-between items-center">
+                                        2409:408d:3c0a:e5c:1cc1:6a47:40b5:dee2
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cursor-pointer hover:stroke-[#ff4d4f] opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center border-b border-[#f1f1f1] py-4 text-[14px] group">
+                                    <div className="w-[40%] text-[#333]">Windows 10, Chrome 148</div>
+                                    <div className="w-[30%] text-[#666]">19 hours ago</div>
+                                    <div className="w-[30%] text-[#666] flex justify-between items-center">
+                                        2409:408d:3c0a:e5c:1cc1:6a47:40b5:dee2
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="cursor-pointer hover:stroke-[#ff4d4f] opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Manage Account */}
+                <div className="mt-14">
+                    <h2 className="text-[11px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">MANAGE ACCOUNT</h2>
+                    <p className="text-[14px] text-[#888] leading-relaxed">
+                        Please understand that by deleting your account, all photos, collections, mobile apps and other account data will be permanently deleted. Yes, <span className="text-[#1a9b84] cursor-pointer hover:underline">delete</span> my account.
+                    </p>
+                </div>
+            </div>
+
+            {/* Edit Username Modal */}
+            {showUsernameModal && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
+                    <div className="bg-white w-[500px] shadow-lg flex flex-col font-['Roboto',sans-serif]">
+                        <div className="px-8 py-6 border-b border-[#f1f1f1]">
+                            <h2 className="text-[13px] font-bold text-[#333] tracking-[0.1em] uppercase">EDIT USERNAME</h2>
+                        </div>
+                        
+                        <div className="p-8">
+                            <div className="flex gap-3 mb-6">
+                                <div className="mt-0.5">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="#ff4d4f" className="text-white">
+                                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                                    </svg>
+                                </div>
+                                <div className="text-[14px] text-[#333] leading-relaxed">
+                                    Your username is directly tied to your Pixieset URL (e.g. https://yourusername.pixieset.com). If you change your username, your URLs for existing galleries, portfolio website, and booking site will be immediately changed as well.
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <label className="block text-[15px] font-bold text-[#111] mb-2">New Username</label>
+                                <input 
+                                    type="text" 
+                                    value={modalUsername}
+                                    onChange={(e) => setModalUsername(e.target.value)}
+                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                />
+                            </div>
+                        </div>
+                        
+                        <div className="px-8 py-5 flex justify-end items-center gap-4 border-t border-[#f1f1f1] bg-[#fafafa]">
+                            <button 
+                                className="text-[14px] text-[#666] font-medium hover:text-[#111] transition-colors"
+                                onClick={() => setShowUsernameModal(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button 
+                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[14px] font-medium px-6 py-2 transition-colors rounded-[2px]"
+                                onClick={async () => {
+                                    setFormData(prev => ({ ...prev, homepage_slug: modalUsername }));
+                                    setShowUsernameModal(false);
+                                    await handleAutoSave('homepage_slug', modalUsername);
+                                }}
+                            >
+                                Save
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Email Modal */}
+            {showEmailModal && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
+                    <div className="bg-white w-[500px] shadow-lg flex flex-col font-['Roboto',sans-serif]">
+                        <div className="px-8 py-6 border-b border-[#f1f1f1]">
+                            <h2 className="text-[13px] font-bold text-[#333] tracking-[0.1em] uppercase">EDIT ACCOUNT EMAIL</h2>
+                        </div>
+                        
+                        <div className="p-8">
+                            {formData.google_connected ? (
+                                <div className="flex gap-3">
+                                    <div className="mt-0.5">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="#ff4d4f" className="text-white">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                                        </svg>
+                                    </div>
+                                    <div className="text-[14px] text-[#333] leading-relaxed">
+                                        Your Pixieset account is connected to your Google account. To update your email, you must first disconnect your Google account.
+                                    </div>
+                                </div>
+                            ) : (
+                                <div>
+                                    <label className="block text-[15px] font-bold text-[#111] mb-2">New Account Email</label>
+                                    <input 
+                                        type="email" 
+                                        value={formData.email}
+                                        onChange={handleChange}
+                                        name="email"
+                                        className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                    />
+                                    <p className="text-[13px] text-[#888] mt-2">Updating your email will require re-verification.</p>
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div className="px-8 py-5 flex justify-end items-center gap-4 border-t border-[#f1f1f1] bg-[#fafafa]">
+                            {formData.google_connected ? (
+                                <button 
+                                    className="text-[14px] text-[#666] font-medium hover:text-[#111] transition-colors"
+                                    onClick={() => setShowEmailModal(false)}
+                                >
+                                    Close
+                                </button>
+                            ) : (
+                                <>
+                                    <button 
+                                        className="text-[14px] text-[#666] font-medium hover:text-[#111] transition-colors"
+                                        onClick={() => setShowEmailModal(false)}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button 
+                                        className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[14px] font-medium px-6 py-2 transition-colors rounded-[2px]"
+                                        onClick={async () => {
+                                            setShowEmailModal(false);
+                                            await handleAutoSave('contact_email', formData.email);
+                                        }}
+                                    >
+                                        Save
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

@@ -1168,7 +1168,10 @@ export const galleryService = {
       .eq('id', photographerId)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      if (error.code === 'PGRST116') return null; // No rows found
+      throw error;
+    }
     return data;
   },
 
@@ -1177,12 +1180,26 @@ export const galleryService = {
    */
   async updatePhotographerProfile(photographerId, updates) {
     if (!photographerId) throw new Error('Photographer ID is required.');
-    const { data, error } = await supabase
+    
+    // First verify if the row exists because upsert can sometimes cause issues with RLS if not configured properly
+    const { data: existing, error: existingError } = await supabase
       .from('photographers')
-      .update(updates)
+      .select('id')
       .eq('id', photographerId)
-      .select('*')
       .single();
+
+    if (existingError && existingError.code !== 'PGRST116') {
+      throw existingError;
+    }
+
+    let query;
+    if (existing) {
+      query = supabase.from('photographers').update(updates).eq('id', photographerId);
+    } else {
+      query = supabase.from('photographers').insert([{ id: photographerId, ...updates }]);
+    }
+
+    const { data, error } = await query.select('*').single();
 
     if (error) throw error;
     return data;
