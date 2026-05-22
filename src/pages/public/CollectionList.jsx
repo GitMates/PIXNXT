@@ -113,9 +113,11 @@ const CollectionList = ({ slug }) => {
   // Derived Info
   const photographerName = profile.business_name || (profile.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : slug);
 
-  const filteredCollections = collections.filter(collection => 
-    collection.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredCollections = collections
+    .filter(c => c.status === 'published' && c.show_on_homepage !== false)
+    .filter(collection =>
+      collection.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
 
   return (
     <div className="min-h-screen bg-white text-[#333] font-['Helvetica_Neue',Helvetica,Arial,sans-serif]">
