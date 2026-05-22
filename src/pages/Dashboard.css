@@ -295,7 +295,7 @@
 /* ===== Products Grid ===== */
 .dash-products-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 20px;
   margin-bottom: 60px;
 }
@@ -345,6 +345,10 @@
 
 .dash-product-icon.yellow {
   background: linear-gradient(135deg, #f1c40f, #f39c12);
+}
+
+.dash-product-icon.purple {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
 }
 
 .dash-product-name {

@@ -5,6 +5,7 @@ import Footer from './components/Footer';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import ClientGallery from './pages/ClientGallery';
+import SmartAlbums from './pages/smart-albums';
 import CreateCollection from './pages/CreateCollection';
 import CreateFolder from './pages/CreateFolder';
 import FolderView from './pages/FolderView';
@@ -62,6 +63,7 @@ function App() {
     location.pathname === '/auth' ||
     location.pathname === '/dashboard' ||
     location.pathname === '/client-gallery' ||
+    location.pathname.startsWith('/smart-albums') ||
     location.pathname.startsWith('/folders/') ||
     location.pathname === '/collections/create' ||
     location.pathname === '/folders/create' ||
@@ -104,6 +106,7 @@ function App() {
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/client-gallery" element={<ClientGallery />} />
+          <Route path="/smart-albums/*" element={<ProtectedRoute><SmartAlbums /></ProtectedRoute>} />
           <Route path="/photos" element={<ProtectedRoute><PhotoLibrary /></ProtectedRoute>} />
           <Route path="/starred" element={<ProtectedRoute><Navigate to="/starred/collections" replace /></ProtectedRoute>} />
           <Route path="/starred/:tab" element={<ProtectedRoute><Starred /></ProtectedRoute>} />

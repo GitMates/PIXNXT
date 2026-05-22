@@ -128,6 +128,15 @@ const SmartphoneIcon = () => (
   </svg>
 );
 
+const AlbumIcon = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    <line x1="8" y1="6" x2="16" y2="6" />
+    <line x1="8" y1="10" x2="14" y2="10" />
+  </svg>
+);
+
 const FolderIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -148,7 +157,19 @@ const products = [
     name: 'Client Gallery',
     color: 'teal',
     icon: <GalleryIcon />,
+    route: '/client-gallery',
     links: ['Manage Collections', 'Create Collection', 'Search Photo Library', 'View Homepage', 'Settings'],
+  },
+  {
+    name: 'Smart Albums',
+    color: 'purple',
+    icon: <AlbumIcon />,
+    route: '/smart-albums',
+    links: [
+      { label: 'Manage Albums', path: '/smart-albums' },
+      { label: 'Create Album', path: '/smart-albums/create' },
+      { label: 'Settings', path: '/smart-albums/settings' },
+    ],
   },
   {
     name: 'Website',
@@ -314,9 +335,9 @@ const Dashboard = () => {
           <div className="dash-products-grid">
             {products.map((product) => (
               <div
-                className={`dash-product-card ${product.name === 'Client Gallery' ? 'clickable' : ''}`}
+                className={`dash-product-card ${product.route ? 'clickable' : ''}`}
                 key={product.name}
-                onClick={() => product.name === 'Client Gallery' && navigate('/client-gallery')}
+                onClick={() => product.route && navigate(product.route)}
               >
                 <div className={`dash-product-icon ${product.color}`}>
                   {product.icon}
@@ -324,19 +345,23 @@ const Dashboard = () => {
                 <p className="dash-product-name">{product.name}</p>
                 <div className="dash-product-divider" />
                 <ul className="dash-product-links">
-                  {product.links.map((link) => (
-                    <li key={link}>
-                      <a
-                        href="#"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          if (product.name === 'Client Gallery') navigate('/client-gallery');
-                        }}
-                      >
-                        {link}
-                      </a>
-                    </li>
-                  ))}
+                  {product.links.map((link) => {
+                    const label = typeof link === 'string' ? link : link.label;
+                    const path = typeof link === 'string' ? product.route : link.path;
+                    return (
+                      <li key={label}>
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (path) navigate(path);
+                          }}
+                        >
+                          {label}
+                        </a>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             ))}

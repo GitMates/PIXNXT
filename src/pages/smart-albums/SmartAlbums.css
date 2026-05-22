@@ -1,0 +1,141 @@
+.sa-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  background: #fff;
+}
+
+.sa-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px 40px 20px;
+  border-bottom: 1px solid #eee;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.sa-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: #222;
+  margin: 0;
+}
+
+.sa-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sa-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #f5f5f5;
+  border-radius: 4px;
+  padding: 8px 14px;
+  min-width: 220px;
+}
+
+.sa-search input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: #333;
+  width: 180px;
+}
+
+.sa-btn-primary {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 2px;
+  transition: opacity 0.2s;
+}
+
+.sa-btn-primary:hover {
+  opacity: 0.92;
+}
+
+.sa-content {
+  flex: 1;
+  padding: 40px;
+}
+
+.sa-albums-content {
+  padding: 0 40px 40px;
+}
+
+.sa-albums-grid {
+  padding-top: 8px;
+}
+
+.sa-title-inline {
+  margin: 0;
+}
+
+.sa-loading-text {
+  color: #666;
+  font-size: 14px;
+  padding: 24px 0;
+}
+
+.sa-album-thumb-placeholder {
+  background: linear-gradient(135deg, #f3ebf8, #e8ddf2);
+}
+
+.sa-empty {
+  max-width: 480px;
+  margin: 60px auto 0;
+  text-align: center;
+}
+
+.sa-empty-icon {
+  width: 80px;
+  height: 80px;
+  margin: 0 auto 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+
+.sa-empty h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #222;
+  margin: 0 0 12px;
+}
+
+.sa-empty p {
+  font-size: 15px;
+  color: #666;
+  line-height: 1.5;
+  margin: 0 0 28px;
+}
+
+.sa-settings-content {
+  padding: 32px 40px;
+}
+
+.sa-settings-content h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #222;
+  margin: 0 0 8px;
+}
+
+.sa-settings-content p {
+  color: #666;
+  font-size: 14px;
+  margin: 0;
+}

@@ -1,0 +1,14 @@
+@import '../CreateCollection.css';
+
+.sa-create-page .cc-submit-btn {
+  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+}
+
+.sa-create-page .cc-submit-btn:hover {
+  background: linear-gradient(135deg, #8e44ad, #7d3c98);
+}
+
+.sa-create-page .cc-input:focus,
+.sa-create-page .cc-form-group .dp-wrapper:focus-within {
+  border-color: #9b59b6;
+}
