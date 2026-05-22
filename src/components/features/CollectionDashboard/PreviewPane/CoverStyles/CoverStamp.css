@@ -1,4 +1,4 @@
-/* Pixieset-style Stamp cover — centered stack on light gray */
+﻿/* Pixieset-style Stamp cover â€” centered stack on light gray */
 .cover-stamp-layout {
   --stamp-bg: #f2f2f2;
   --stamp-text: #1a1a1a;
@@ -65,7 +65,7 @@
   opacity: 0.88;
 }
 
-/* Public gallery — full viewport */
+/* Public gallery â€” full viewport */
 .gallery-view-hero .cover-stamp-layout {
   min-height: 100%;
   height: 100%;
@@ -97,7 +97,7 @@
   letter-spacing: 0.24em !important;
 }
 
-/* Dashboard preview — larger stamp elements (gallery view unchanged) */
+/* Dashboard preview â€” larger stamp elements (gallery view unchanged) */
 .cd-preview-gallery-card.style-stamp .cd-preview-gallery-header {
   min-height: 520px;
 }
@@ -149,3 +149,4 @@
     font-size: clamp(1.85rem, 9vw, 2.75rem) !important;
   }
 }
+

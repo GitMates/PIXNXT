@@ -1,4 +1,4 @@
-/* Mild, slow zoom on grid tile hover (public gallery + design preview) */
+﻿/* Mild, slow zoom on grid tile hover (public gallery + design preview) */
 .gallery-masonry-media {
   display: block;
   width: 100%;
@@ -49,7 +49,7 @@
   transform: scale(1.04);
 }
 
-/* Videos tab / videos-only view — center tiles horizontally (photos keep masonry) */
+/* Videos tab / videos-only view â€” center tiles horizontally (photos keep masonry) */
 .masonry-grid-videos-only.masonry-grid-vertical {
   display: flex;
   flex-direction: column;
@@ -92,3 +92,4 @@
   aspect-ratio: unset;
   object-fit: cover;
 }
+

@@ -1,4 +1,4 @@
-.category-tags-field {
+﻿.category-tags-field {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -64,3 +64,4 @@
 .category-tags-input::placeholder {
   color: #999;
 }
+

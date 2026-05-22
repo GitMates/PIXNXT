@@ -1,4 +1,4 @@
-/* GalleryPreview – in-dashboard live gallery (cover, nav, grid, cover style overrides) */
+﻿/* GalleryPreview â€“ in-dashboard live gallery (cover, nav, grid, cover style overrides) */
 .cd-preview-gallery-card {
     display: flex;
     flex-direction: column;
@@ -34,7 +34,7 @@
     background: transparent;
 }
 
-/* Full-color cover photos — no dimming; text legibility via shadow */
+/* Full-color cover photos â€” no dimming; text legibility via shadow */
 .cd-preview-gallery-header img {
     filter: none !important;
     opacity: 1 !important;
@@ -54,7 +54,7 @@
     display: none !important;
 }
 
-/* Cover layout previews — image + text placement */
+/* Cover layout previews â€” image + text placement */
 .cd-preview-gallery-card .cover-center-layout__title,
 .cd-preview-gallery-card .cover-novel-layout__text h1,
 .cd-preview-gallery-card .cover-vintage-layout__panel h1,
@@ -82,7 +82,7 @@
     overflow: hidden;
 }
 
-/* 2. LEFT — full-bleed hero, brand top-left, title/date bottom-left, CTA bottom-right */
+/* 2. LEFT â€” full-bleed hero, brand top-left, title/date bottom-left, CTA bottom-right */
 .style-left .cd-preview-gallery-header {
     display: block;
     position: relative;
@@ -307,7 +307,7 @@
     justify-content: center;
 }
 
-/* 9. STAMP — Pixieset centered stack (see CoverStamp.css) */
+/* 9. STAMP â€” Pixieset centered stack (see CoverStamp.css) */
 .style-stamp .header-stamp-layout {
     width: 100%;
     display: flex;
@@ -344,7 +344,7 @@
     max-width: 500px;
 }
 
-/* 11. CLASSIC — full-width banner, no overlay text (see CoverClassic.css) */
+/* 11. CLASSIC â€” full-width banner, no overlay text (see CoverClassic.css) */
 .style-classic .header-classic-layout {
     width: 100%;
     position: relative;
@@ -545,7 +545,7 @@
     cursor: pointer;
 }
 
-/* Scaled masonry preview — smooth grid zoom when preview frame or pane resizes */
+/* Scaled masonry preview â€” smooth grid zoom when preview frame or pane resizes */
 .cd-preview-grid-scaler {
   transition: height 0.85s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -873,7 +873,7 @@
     /* Creamy background */
 }
 
-/* FRAME — full-bleed hero + thin inset border (no outer padding) */
+/* FRAME â€” full-bleed hero + thin inset border (no outer padding) */
 .style-frame .cd-preview-gallery-header {
     padding: 0;
     background-color: transparent;
@@ -904,7 +904,7 @@
     height: 300px;
 }
 
-/* Theme variables — page tint + chrome (see galleryColorThemes.css) */
+/* Theme variables â€” page tint + chrome (see galleryColorThemes.css) */
 .cd-preview-gallery-card {
     color: var(--gallery-text) !important;
 }
@@ -946,7 +946,7 @@
     border-radius: 0;
 }
 
-/* Compact cover hero text — dashboard GalleryPreview only (not public /gallery) */
+/* Compact cover hero text â€” dashboard GalleryPreview only (not public /gallery) */
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__subtitle {
     font-size: 7px !important;
     line-height: 1.2 !important;
@@ -954,7 +954,7 @@
     letter-spacing: 0.35em !important;
 }
 
-/* White text only on photo-overlay covers — not novel/journal/stamp/vintage panels */
+/* White text only on photo-overlay covers â€” not novel/journal/stamp/vintage panels */
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__title:not(.cover-novel-layout__title):not(.cover-journal-layout__title):not(.cover-vintage-layout__title):not(.cover-stamp-layout__title),
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cover-left-layout__footer .cover-text-grid__title {
     font-size: 14px !important;
@@ -1152,7 +1152,7 @@
     letter-spacing: 0.18em !important;
 }
 
-/* Gallery chrome (nav + set heading) — dashboard preview only */
+/* Gallery chrome (nav + set heading) â€” dashboard preview only */
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-sticky-nav--preview {
     min-height: 0;
 }
@@ -1241,7 +1241,7 @@
     opacity: 0.65;
 }
 
-/* Mobile preview frame — compact two-row nav (brand + actions, then scrollable tabs) */
+/* Mobile preview frame â€” compact two-row nav (brand + actions, then scrollable tabs) */
 .cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-sticky-nav--preview,
 .cd-preview-gallery-body--mobile-frame .gallery-sticky-nav--preview {
     border-bottom-width: 1px;
@@ -1352,7 +1352,7 @@
     min-width: 0 !important;
 }
 
-/* Navigation style — preview body */
+/* Navigation style â€” preview body */
 .cd-preview-gallery-body.nav-style-icon .gallery-chrome__action-label {
     position: absolute;
     width: 1px;
@@ -1390,3 +1390,4 @@
     background-color: #fff;
     color: #171717;
 }
+
