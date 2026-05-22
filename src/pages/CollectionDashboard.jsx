@@ -9,6 +9,17 @@ import { PreviewPane } from '../components/features/CollectionDashboard/PreviewP
 import { ChangeCoverModal } from '../components/features/CollectionDashboard/CoverSettings/ChangeCoverModal';
 import { SidebarCoverUpload } from '../components/features/CollectionDashboard/CoverSettings/SidebarCoverUpload';
 import { downloadPhotoFromR2 } from '../lib/downloadPhoto';
+import {
+  resolvePhotosForDownloadActivity,
+  countPhotosForDownloadActivity,
+  formatDownloadDestination,
+} from '../lib/downloadActivityResolve';
+import {
+  exportDownloadActivityCsv,
+  exportDownloadActivityExcel,
+  exportDownloadActivityPdf,
+} from '../lib/downloadActivityExport';
+import { exportFavoriteListExcel } from '../lib/favoriteListExport';
 import { openSpaPath } from '../lib/spaNavigation';
 import { openShareByEmail, openWhatsAppShare, getCollectionShareUrl, getQrCodeImageUrl } from '../lib/shareCollection';
 import { CollectionQrModal, CollectionDuplicateModal } from '../components/features/ClientGallery/CollectionShareModals';
@@ -352,51 +363,88 @@ const CollectionDashboard = () => {
 
     const downloadDetailPhotos = useMemo(() => {
         if (!selectedDownloadId) return [];
-        const item = downloadActivity.find(a => a.id === selectedDownloadId);
-        if (!item) return [];
-
-        if (item.type === 'single' || item.type === 'photo' || item.type === 'video') {
-            const photo = photos.find(p => p.filename === item.filename || p.id === item.id);
-            return photo ? [photo] : [];
-        }
-
-        if (item.type === 'gallery') {
-            const set = sets.find(s => s.name === item.setName);
-            if (set) {
-                return photos.filter(p => p.set_id === set.id);
-            } else if (item.setName === 'Highlights') {
-                return photos.filter(p => !p.set_id);
-            }
-        }
-        return [];
+        const item = downloadActivity.find((a) => a.id === selectedDownloadId);
+        return resolvePhotosForDownloadActivity(item, photos, sets);
     }, [selectedDownloadId, downloadActivity, photos, sets]);
+
+    const filteredDownloadActivityForTab = useMemo(
+        () => downloadActivity.filter((a) => a.type === activeDownloadActivityTab),
+        [downloadActivity, activeDownloadActivityTab]
+    );
+
+    const downloadExportFilenameBase = `collection-${collectionId}-download-activity-${activeDownloadActivityTab}`;
+
+    const resolveDownloadActivityExportItems = useCallback(
+        (explicitItems) => {
+            if (explicitItems?.length) return explicitItems;
+            return filteredDownloadActivityForTab;
+        },
+        [filteredDownloadActivityForTab]
+    );
+
+    const handleExportDownloadActivityExcel = useCallback(
+        (explicitItems) => {
+            const items = resolveDownloadActivityExportItems(explicitItems);
+            if (!items.length) {
+                alert('No download records to export.');
+                return;
+            }
+            exportDownloadActivityExcel(items, photos, sets, downloadExportFilenameBase);
+        },
+        [resolveDownloadActivityExportItems, photos, sets, downloadExportFilenameBase]
+    );
+
+    const handleExportDownloadActivityPdf = useCallback(
+        (explicitItems) => {
+            const items = resolveDownloadActivityExportItems(explicitItems);
+            if (!items.length) {
+                alert('No download records to export.');
+                return;
+            }
+            exportDownloadActivityPdf(items, photos, sets, downloadExportFilenameBase);
+        },
+        [resolveDownloadActivityExportItems, photos, sets, downloadExportFilenameBase]
+    );
+
+    const handleDeleteAllDownloadActivity = useCallback(async () => {
+        const items = filteredDownloadActivityForTab;
+        if (!items.length) {
+            alert('No download records to delete.');
+            return;
+        }
+        if (!window.confirm(`Delete all ${items.length} download record(s) on this tab? This cannot be undone.`)) return;
+
+        try {
+            await Promise.all(items.map((a) => galleryService.deleteActivity(a.id)));
+            const deletedIds = new Set(items.map((a) => a.id));
+            setDownloadActivity((prev) => prev.filter((a) => !deletedIds.has(a.id)));
+            if (selectedDownloadId && deletedIds.has(selectedDownloadId)) {
+                setSelectedDownloadId(null);
+            }
+            setActiveActivityMenu(null);
+        } catch (err) {
+            console.error('Failed to delete download activity:', err);
+            alert(err?.message || 'Failed to delete some records.');
+        }
+    }, [filteredDownloadActivityForTab, selectedDownloadId]);
 
     const handleExportFavoriteList = async (listId, listName) => {
         try {
-            const photos = await galleryService.getFavoriteListPhotos(listId);
-            if (!photos.length) {
-                alert("This list has no photos.");
+            let itemRows =
+                selectedFavoriteListId === listId && favoriteDetailRows.length > 0
+                    ? favoriteDetailRows
+                    : await galleryService.getFavoriteListItemRows(listId);
+
+            if (!itemRows.length) {
+                alert('This list has no photos.');
                 return;
             }
 
-            const headers = ['Filename', 'Original Name', 'URL'];
-            const rows = photos.map(p => [
-                p.filename,
-                p.original_filename || p.filename,
-                p.full_url
-            ]);
-
-            const csvContent = [
-                headers.join(','),
-                ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-            ].join('\n');
-
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `favorites-${listName.replace(/\s+/g, '-').toLowerCase()}.csv`);
-            link.click();
+            const filenameBase = `favorites-${(listName || 'list').replace(/\s+/g, '-').toLowerCase()}`;
+            const ok = exportFavoriteListExcel(itemRows, sets, highlightsName, filenameBase);
+            if (!ok) {
+                alert('This list has no photos.');
+            }
         } catch (err) {
             console.error('Export failed:', err);
             alert('Failed to export favorite list.');
@@ -499,56 +547,24 @@ const CollectionDashboard = () => {
 
     const openEditFavoriteListModal = (item) => {
         if (!item) return;
+        /* Close Favorite List Details popup so Edit is not hidden behind it (detail overlay z-index 10050). */
+        setSelectedFavoriteListId(null);
+        setFavoriteDetailRows([]);
+        setFavoriteDetailPhotoMenuPhotoId(null);
+        setFavoriteDetailToolbarMenuOpen(false);
         setFavoriteListEmail(item.email);
         setFavoriteListName(item.name);
         setFavoriteListMax(item.max_selection != null && item.max_selection !== '' ? String(item.max_selection) : '');
         setFavoriteListDesc(item.description || '');
         setEditingFavoriteList(item.id);
         setShowCreateFavoriteListModal(true);
-        setFavoriteDetailToolbarMenuOpen(false);
         setActiveActivityMenu(null);
     };
 
-    const handleExportActivity = () => {
-        if (!downloadActivity.length) return;
-        
-        const filteredData = downloadActivity.filter(a => a.type === activeDownloadActivityTab);
-        if (!filteredData.length) return;
-
-        // Header row
-        const headers = ['Email', 'Photo Set', 'PIN', 'Date Downloaded'];
-        
-        // Data rows
-        const rows = filteredData.map(item => [
-            item.email,
-            item.setName || 'Highlights',
-            item.pin || (item.pinUsed ? 'Yes' : '---'),
-            new Date(item.date).toLocaleString('en-US', { 
-                month: 'short', 
-                day: 'numeric', 
-                year: 'numeric', 
-                hour: 'numeric', 
-                minute: '2-digit', 
-                hour12: true 
-            }).replace(',', '')
-        ]);
-
-        // Construct CSV string
-        const csvContent = [
-            headers.join(','),
-            ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-        ].join('\n');
-
-        // Create download link
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.setAttribute('href', url);
-        link.setAttribute('download', `collection-download-activity-${collectionId}-${activeDownloadActivityTab}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+    const handleExportActivity = (explicitItems) => {
+        const items = resolveDownloadActivityExportItems(explicitItems);
+        if (!items.length) return;
+        exportDownloadActivityCsv(items, photos, sets, downloadExportFilenameBase);
     };
 
     const handleDeleteActivity = async (id) => {
@@ -1383,7 +1399,13 @@ const CollectionDashboard = () => {
             ) {
                 setShowMoveToSetMenu(false);
             }
-            if (favoriteActivitySortMenuOpen) setFavoriteActivitySortMenuOpen(false);
+            if (
+                favoriteActivitySortMenuOpen
+                && favoriteActivitySortMenuRef.current
+                && !favoriteActivitySortMenuRef.current.contains(target)
+            ) {
+                setFavoriteActivitySortMenuOpen(false);
+            }
         };
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -3141,6 +3163,10 @@ const CollectionDashboard = () => {
                             photos={photos}
                             setDownloadDetailToolbarMenuOpen={setDownloadDetailToolbarMenuOpen}
                             handleExportActivity={handleExportActivity}
+                            filteredDownloadActivityForTab={filteredDownloadActivityForTab}
+                            handleDeleteAllDownloadActivity={handleDeleteAllDownloadActivity}
+                            handleExportDownloadActivityExcel={handleExportDownloadActivityExcel}
+                            handleExportDownloadActivityPdf={handleExportDownloadActivityPdf}
                             downloadDetailPhotos={downloadDetailPhotos}
                             loadingActivity={loadingActivity}
                             favoriteActivitySortMenuRef={favoriteActivitySortMenuRef}
@@ -3528,7 +3554,7 @@ const CollectionDashboard = () => {
             {/* Create Favorite List Modal (single overlay — matches preset list flow) */}
             {showCreateFavoriteListModal && (
                 <div
-                    className="fixed inset-0 z-[1100] flex items-center justify-center bg-black/50 p-4"
+                    className="favorite-list-form-modal-overlay fixed inset-0 flex items-center justify-center bg-black/50 p-4"
                     onClick={() => setShowCreateFavoriteListModal(false)}
                     role="presentation"
                 >

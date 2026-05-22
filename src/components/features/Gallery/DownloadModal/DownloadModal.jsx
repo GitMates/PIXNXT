@@ -12,8 +12,8 @@ import {
 import { galleryService } from '@/services/gallery.service';
 import {
   isGoogleDriveConfigured,
-  requestGoogleDriveAccessToken,
-  uploadGalleryToGoogleDrive,
+  getGoogleDriveSetupMessage,
+  saveGalleryToGoogleDrive,
 } from '@/lib/googleDriveUpload';
 
 /** Empty/null = all sets allowed. Legacy `['Highlights']` with named sets = all (old default omitted new sets). */
@@ -40,6 +40,7 @@ function preparingStatusText(done, total, phase = 'download') {
     return 'Downloading your photo…';
   }
   if (phase === 'zip') return `Packaging ${total} photos into one file…`;
+  if (phase === 'upload') return `Uploading ${done} of ${total} photos to Google Drive…`;
   if (phase === 'save') return 'Saving to your device…';
   if (done >= total) return 'Finishing up…';
   return `Downloading ${done} of ${total} photos…`;
@@ -72,6 +73,8 @@ export const DownloadModal = ({
     destination: 'local',
     driveFileUrl: null,
   });
+  /** True while Google OAuth popup is open — hide % progress until sign-in finishes */
+  const [googleSignInPending, setGoogleSignInPending] = useState(false);
 
   const googleDriveAvailable = isGoogleDriveConfigured();
 
@@ -234,6 +237,7 @@ export const DownloadModal = ({
     setIsProcessing(true);
     setStep('preparing');
     setProgress(0);
+    setGoogleSignInPending(false);
     setDownloadCompleteMeta({ isZip: false, total: 0, destination: downloadDestination, driveFileUrl: null });
     setStatusText('Gathering photos...');
 
@@ -279,47 +283,66 @@ export const DownloadModal = ({
 
       if (downloadDestination === 'google_drive') {
         if (!googleDriveAvailable) {
-          throw new Error(
-            'Google Drive is not configured for this site. Choose Local or contact the photographer.'
-          );
+          throw new Error(getGoogleDriveSetupMessage());
         }
 
-        setStatusText('Connecting to Google Drive…');
-        setProgressMonotonic(5);
-        const accessToken = await requestGoogleDriveAccessToken();
-        if (isStale()) return;
-
+        setGoogleSignInPending(true);
+        setProgress(0);
         setStatusText(
-          total === 1 ? 'Uploading to Google Drive…' : `Uploading ${total} photos to Google Drive…`
+          'Sign in with Google in the popup window. If you see “app not verified”, click Continue (your email must be a Test user in Google Cloud).'
         );
-        setProgressMonotonic(15);
 
-        const driveResult = await uploadGalleryToGoogleDrive(accessToken, photosToDownload, {
+        const driveResult = await saveGalleryToGoogleDrive(photosToDownload, {
           collectionName: collection.name || 'gallery',
           concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
           isStale,
+          onAuthStart: () => {
+            if (!isStale()) {
+              setGoogleSignInPending(true);
+              setProgress(0);
+              setStatusText(
+                'Waiting for Google sign-in… Complete the popup, then choose your account.'
+              );
+            }
+          },
+          onAuthComplete: () => {
+            if (!isStale()) {
+              setGoogleSignInPending(false);
+              setProgress(0);
+              completedCountRef.current = 0;
+              setStatusText(`Preparing ${total} photos for Google Drive…`);
+            }
+          },
+          onUploadPhase: (message) => {
+            if (!isStale()) setStatusText(message);
+          },
           onProgress: (done) => {
             completedCountRef.current = done;
-            reportDownloadProgress();
-          },
-          onZipProgress: (percent) => {
-            if (isStale()) return;
-            const zipPct = Math.min(99, 85 + Math.round((percent / 100) * 14));
-            setProgressMonotonic(zipPct);
-            setStatusText(preparingStatusText(total, total, 'zip'));
+            reportDownloadProgress('upload');
           },
         });
+
+        setGoogleSignInPending(false);
 
         if (isStale()) return;
 
         setProgressMonotonic(100);
         setStatusText('Saved to Google Drive');
+        const openUrl = driveResult.folderUrl || driveResult.webViewLink;
+        if (driveResult.photoCount < photosToDownload.length) {
+          throw new Error(
+            `Only ${driveResult.photoCount} of ${photosToDownload.length} photos were uploaded. Some files could not be fetched from storage. Try again in a few minutes.`
+          );
+        }
+
         setDownloadCompleteMeta({
           isZip: driveResult.isZip,
           total: driveResult.photoCount,
           destination: 'google_drive',
-          driveFileUrl: driveResult.webViewLink,
+          driveFileUrl: openUrl,
         });
+
+        window.open(openUrl, '_blank', 'noopener,noreferrer');
       } else if (total === 1) {
         const photo = photosToDownload[0];
         setProgressMonotonic(50);
@@ -330,7 +353,7 @@ export const DownloadModal = ({
         setStatusText(preparingStatusText(1, 1, 'save'));
         setDownloadCompleteMeta({ isZip: false, total: 1, destination: 'local', driveFileUrl: null });
       } else {
-        const fileCount = await downloadPhotosToZip(zip, photosToDownload, {
+        const zipResult = await downloadPhotosToZip(zip, photosToDownload, {
           concurrency: DEFAULT_DOWNLOAD_CONCURRENCY,
           isStale,
           onProgress: (done) => {
@@ -341,14 +364,21 @@ export const DownloadModal = ({
 
         if (isStale()) return;
 
-        if (fileCount === 0) {
+        if (zipResult.fileCount === 0) {
           throw new Error(
             'Could not download any photos. They may still be processing — try again in a moment.'
           );
         }
 
+        if (zipResult.failed > 0) {
+          throw new Error(
+            `Only ${zipResult.fileCount} of ${zipResult.requested} photos could be downloaded. Some files may still be processing. Wait a few minutes and try again.`
+          );
+        }
+
+        const savedCount = zipResult.fileCount;
         setProgressMonotonic(100);
-        setStatusText(preparingStatusText(total, total, 'zip'));
+        setStatusText(preparingStatusText(savedCount, savedCount, 'zip'));
         setProgressMonotonic(90);
         const zipBlob = await zip.generateAsync(
           { type: 'blob', compression: 'STORE' },
@@ -356,7 +386,7 @@ export const DownloadModal = ({
             if (isStale()) return;
             const zipPct = Math.min(99, 90 + Math.round((metadata.percent / 100) * 9));
             setProgressMonotonic(zipPct);
-            setStatusText(preparingStatusText(total, total, 'zip'));
+            setStatusText(preparingStatusText(savedCount, savedCount, 'zip'));
           }
         );
         const zipFilename = `${(collection.name || 'gallery').replace(/[/\\:*?"<>|]/g, '_')}.zip`;
@@ -365,10 +395,15 @@ export const DownloadModal = ({
         if (isStale()) return;
 
         setProgressMonotonic(99);
-        setStatusText(preparingStatusText(total, total, 'save'));
+        setStatusText(preparingStatusText(savedCount, savedCount, 'save'));
         saveAs(zipBlob, zipFilename);
         setProgressMonotonic(100);
-        setDownloadCompleteMeta({ isZip: true, total, destination: 'local', driveFileUrl: null });
+        setDownloadCompleteMeta({
+          isZip: true,
+          total: savedCount,
+          destination: 'local',
+          driveFileUrl: null,
+        });
       }
 
       if (isStale()) return;
@@ -418,6 +453,7 @@ export const DownloadModal = ({
     } catch (err) {
       if (isStale()) return;
       console.error('Download failed:', err);
+      setGoogleSignInPending(false);
       setError(err.message || 'Download failed. Please try again.');
       setStep('selection');
     } finally {
@@ -616,22 +652,15 @@ export const DownloadModal = ({
                     <button
                       type="button"
                       onClick={() => {
-                        if (!googleDriveAvailable) return;
                         setDownloadDestination('google_drive');
                         setError('');
                       }}
-                      disabled={!googleDriveAvailable}
-                      title={
-                        googleDriveAvailable
-                          ? 'Upload to your Google Drive'
-                          : 'Google Drive is not configured (VITE_GOOGLE_CLIENT_ID)'
-                      }
+                      title="Sign in with Google and save to your Drive"
                       className={cn(
                         'flex flex-col items-center gap-2 rounded-lg border px-3 py-4 text-center transition-all',
                         downloadDestination === 'google_drive'
                           ? 'border-zinc-900 bg-zinc-900 text-white'
-                          : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300',
-                        !googleDriveAvailable && 'cursor-not-allowed opacity-45'
+                          : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:border-zinc-300'
                       )}
                     >
                       <Cloud size={20} strokeWidth={1.5} />
@@ -644,10 +673,15 @@ export const DownloadModal = ({
                           downloadDestination === 'google_drive' ? 'text-zinc-300' : 'text-zinc-500'
                         )}
                       >
-                        {googleDriveAvailable ? 'Upload to your Drive' : 'Not available'}
+                        Each photo saved separately
                       </span>
                     </button>
                   </div>
+                  {!googleDriveAvailable && downloadDestination === 'google_drive' ? (
+                    <p className="mt-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
+                      {getGoogleDriveSetupMessage()}
+                    </p>
+                  ) : null}
                 </div>
 
                 {/* Photo Set Selection */}
@@ -742,26 +776,36 @@ export const DownloadModal = ({
                 className="flex flex-col items-center justify-center py-8 text-center"
               >
                 <div className="relative mb-8 flex h-32 w-32 items-center justify-center">
-                  <div className="absolute inset-0 rounded-full border-[4px] border-zinc-100" />
-                  <svg className="absolute inset-0 h-full w-full -rotate-90">
-                    <motion.circle
-                      cx="64" cy="64" r="61"
-                      fill="none"
-                      stroke="#18181b"
-                      strokeWidth="4"
-                      strokeLinecap="round"
-                      strokeDasharray={383}
-                      animate={{ strokeDashoffset: 383 - (383 * progress) / 100 }}
-                      transition={{ duration: 0.15, ease: 'easeOut' }}
-                    />
-                  </svg>
-                  <span className="text-3xl font-bold text-zinc-900">{progress}%</span>
+                  {googleSignInPending ? (
+                    <>
+                      <div className="absolute inset-0 rounded-full border-[4px] border-zinc-100" />
+                      <div className="absolute inset-2 rounded-full border-[4px] border-zinc-900 border-t-transparent animate-spin" />
+                      <Cloud size={28} className="text-zinc-900" strokeWidth={1.5} />
+                    </>
+                  ) : (
+                    <>
+                      <div className="absolute inset-0 rounded-full border-[4px] border-zinc-100" />
+                      <svg className="absolute inset-0 h-full w-full -rotate-90">
+                        <motion.circle
+                          cx="64" cy="64" r="61"
+                          fill="none"
+                          stroke="#18181b"
+                          strokeWidth="4"
+                          strokeLinecap="round"
+                          strokeDasharray={383}
+                          animate={{ strokeDashoffset: 383 - (383 * progress) / 100 }}
+                          transition={{ duration: 0.15, ease: 'easeOut' }}
+                        />
+                      </svg>
+                      <span className="text-3xl font-bold text-zinc-900">{progress}%</span>
+                    </>
+                  )}
                 </div>
 
                 <h2 className="text-[13px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-2">
-                  Preparing Photos
+                  {googleSignInPending ? 'Sign in with Google' : 'Preparing Photos'}
                 </h2>
-                <p className="max-w-[280px] text-[13px] leading-relaxed text-zinc-500">{statusText}</p>
+                <p className="max-w-[300px] text-[13px] leading-relaxed text-zinc-500">{statusText}</p>
 
                 <div className="mt-6 flex items-center gap-2 text-[11px] text-zinc-400">
                   <Loader2 size={12} className="animate-spin" />
@@ -793,18 +837,18 @@ export const DownloadModal = ({
                 <p className="mx-auto mb-6 max-w-[300px] text-[14px] leading-relaxed text-zinc-600">
                   {downloadCompleteMeta.destination === 'google_drive' ? (
                     <>
-                      {downloadCompleteMeta.isZip ? (
+                      {downloadCompleteMeta.total > 1 ? (
                         <>
-                          Your gallery was uploaded as a ZIP
+                          Your gallery was uploaded to a new folder in Google Drive
                           {downloadCompleteMeta.total > 0 ? (
-                            <> ({downloadCompleteMeta.total} photos)</>
+                            <> ({downloadCompleteMeta.total} separate files)</>
                           ) : null}
                           .
                         </>
                       ) : (
-                        <>Your photo was uploaded to Google Drive.</>
+                        <>Your photo was saved in a new Google Drive folder.</>
                       )}{' '}
-                      Open Drive to view or share the file.
+                      A new tab should open to your Drive. If not, use the link below.
                     </>
                   ) : downloadCompleteMeta.isZip ? (
                     <>
