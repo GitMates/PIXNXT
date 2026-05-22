@@ -1,0 +1,273 @@
+/* Peek pages behind the open spread */
+.ab-peek-page {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.95;
+  transform-style: preserve-3d;
+}
+
+.ab-peek-page--left {
+  left: 0;
+  transform-origin: right center;
+  transform: translateX(-14px) translateZ(-35px) rotateY(2deg);
+}
+
+.ab-peek-page--right {
+  right: 0;
+  transform-origin: left center;
+  transform: translateX(14px) translateZ(-35px) rotateY(-2deg);
+}
+
+.ab-peek-page .ab-sheet--left,
+.ab-peek-page .ab-sheet--right {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.ab-book--flipping .ab-gutter {
+  opacity: 0;
+}
+
+/* Under-spread during flip */
+.ab-spread--under {
+  z-index: 2;
+}
+
+.ab-under-right-wrapper,
+.ab-under-left-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  align-self: stretch;
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+
+.ab-spread--under .ab-sheet--left,
+.ab-spread--under .ab-sheet--right,
+.ab-sheet-static .ab-sheet--left,
+.ab-sheet-static .ab-sheet--right,
+.ab-under-right-wrapper .ab-sheet,
+.ab-under-left-wrapper .ab-sheet {
+  transform: none;
+  box-shadow: none;
+}
+
+.ab-sheet-static {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 50%;
+  z-index: 4;
+  transform-style: preserve-3d;
+}
+
+.ab-sheet-static--left {
+  left: 0;
+}
+
+.ab-sheet-static--right {
+  right: 0;
+}
+
+/* Double-sided leaf — 180° Y rotation */
+.ab-rigid-leaf {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 8;
+  transform-style: preserve-3d;
+  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+}
+
+.ab-rigid-leaf--next {
+  right: 0;
+  left: auto;
+  transform-origin: left center;
+}
+
+.ab-rigid-leaf--prev {
+  left: 0;
+  transform-origin: right center;
+}
+
+.ab-rigid-leaf--anim.ab-rigid-leaf--next {
+  animation: ab-rigid-next 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ab-rigid-leaf--anim.ab-rigid-leaf--prev {
+  animation: ab-rigid-prev 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ab-rigid-leaf-side {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+.ab-rigid-leaf-side--front {
+  z-index: 2;
+  transform: rotateY(0deg);
+}
+
+.ab-rigid-leaf-side--back {
+  z-index: 1;
+  transform: rotateY(180deg);
+}
+
+.ab-rigid-leaf-side .ab-sheet--left,
+.ab-rigid-leaf-side .ab-sheet--right {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+/* Leaf highlight / shadow overlays */
+.ab-leaf-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.ab-rigid-leaf--next .ab-leaf-overlay--front {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.1) 60%, rgba(255, 255, 255, 0.2) 80%, rgba(0, 0, 0, 0.2) 100%);
+  animation: ab-overlay-front 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ab-rigid-leaf--next .ab-leaf-overlay--back {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.1) 60%, rgba(255, 255, 255, 0.2) 80%, rgba(0, 0, 0, 0.2) 100%);
+  animation: ab-overlay-back 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ab-rigid-leaf--prev .ab-leaf-overlay--front {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.1) 60%, rgba(255, 255, 255, 0.2) 80%, rgba(0, 0, 0, 0.2) 100%);
+  animation: ab-overlay-front 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ab-rigid-leaf--prev .ab-leaf-overlay--back {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.1) 60%, rgba(255, 255, 255, 0.2) 80%, rgba(0, 0, 0, 0.2) 100%);
+  animation: ab-overlay-back 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ab-static-shadow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 15;
+}
+
+.ab-static-shadow--static-left {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0) 100%);
+  animation: ab-shadow-fade-in 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ab-static-shadow--under-right {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 100%);
+  animation: ab-shadow-fade-out 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ab-static-shadow--static-right {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0) 100%);
+  animation: ab-shadow-fade-in 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+.ab-static-shadow--under-left {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 100%);
+  animation: ab-shadow-fade-out 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes ab-shadow-fade-in {
+  0% {
+    opacity: 0;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes ab-shadow-fade-out {
+  0% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ab-overlay-front {
+  0% {
+    opacity: 0;
+  }
+
+  35% {
+    opacity: 0.6;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes ab-overlay-back {
+  0% {
+    opacity: 1;
+  }
+
+  65% {
+    opacity: 0.6;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ab-rigid-next {
+  0% {
+    transform: rotateY(-5deg);
+    z-index: 10;
+  }
+
+  50% {
+    z-index: 12;
+  }
+
+  100% {
+    transform: rotateY(-175deg);
+    z-index: 10;
+  }
+}
+
+@keyframes ab-rigid-prev {
+  0% {
+    transform: rotateY(5deg);
+    z-index: 10;
+  }
+
+  50% {
+    z-index: 12;
+  }
+
+  100% {
+    transform: rotateY(175deg);
+    z-index: 10;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ab-rigid-leaf--anim {
+    animation-duration: 0.01ms;
+  }
+}

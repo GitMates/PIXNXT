@@ -1,103 +1,30 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getSampleImageForPage } from './sampleAlbumImages';
+import React, { useEffect, useState } from 'react';
+import { AlbumPageFlipAnimation } from './AlbumPageFlipAnimation';
+import { AlbumSpreadPage } from './AlbumSpreadPage';
+import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+import { useAlbumPageFlip } from './useAlbumPageFlip';
 import './AlbumBook.css';
 
-const FLIP_MS = 720;
-
-/** Pages are 0-based: spread 0 → 0|1, spread 1 → 2|3 … */
-export function getSpreadPages(spreadIndex) {
-    const left = spreadIndex * 2;
-    return { left, right: left + 1 };
-}
-
-export function getTotalSpreads(totalPages) {
-    return Math.max(1, Math.ceil(totalPages / 2));
-}
-
-export function pageToSpreadIndex(pageIndex) {
-    return Math.max(0, Math.floor(pageIndex / 2));
-}
-
-function getPageImageSrc(album, pageNum) {
-    if (pageNum === 1 && album.cover_image_url) {
-        return album.cover_image_url;
-    }
-    return getSampleImageForPage(pageNum);
-}
-
-function PageSheet({ album, pageNum, totalPages }) {
-    if (pageNum < 0 || pageNum >= totalPages) {
-        return <div className="ab-page-empty" />;
-    }
-
-    if (pageNum === 0) {
-        return <div className="ab-page-empty" />;
-    }
-
-    const src = getPageImageSrc(album, pageNum);
-    if (src) {
-        return <img src={src} alt="" className="ab-page-photo" draggable={false} />;
-    }
-
-    return <div className="ab-page-placeholder">Add photos to this spread</div>;
-}
-
-function SpreadPage({ album, pageNum, totalPages, isLeft }) {
-    return (
-        <div className={`ab-sheet ${isLeft ? 'ab-sheet--left' : 'ab-sheet--right'}`}>
-            <span className="ab-badge">{pageNum}</span>
-            <PageSheet album={album} pageNum={pageNum} totalPages={totalPages} />
-        </div>
-    );
-}
+export { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
 
 const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
     const [currentSpread, setCurrentSpread] = useState(pageToSpreadIndex(initialPage));
-    const [flip, setFlip] = useState(null);
-    const timerRef = useRef(null);
 
     const totalSpreads = getTotalSpreads(totalPages);
+
+    const { flip, isAnimating, startFlip } = useAlbumPageFlip({
+        currentSpread,
+        totalSpreads,
+        setCurrentSpread,
+        onPageChange,
+    });
 
     useEffect(() => {
         setCurrentSpread(pageToSpreadIndex(initialPage));
     }, [initialPage]);
 
-    useEffect(() => () => {
-        if (timerRef.current) clearTimeout(timerRef.current);
-    }, []);
-
-    const isAnimating = Boolean(flip);
-
-    const finishFlip = useCallback(
-        (toSpread) => {
-            setCurrentSpread(toSpread);
-            onPageChange?.(toSpread * 2);
-            setFlip(null);
-        },
-        [onPageChange]
-    );
-
-    const startFlip = (direction) => {
-        if (isAnimating) return;
-
-        const toSpread = direction === 'next' ? currentSpread + 1 : currentSpread - 1;
-        if (toSpread < 0 || toSpread >= totalSpreads) return;
-
-        const fromSpread = currentSpread;
-        const fromPages = getSpreadPages(fromSpread);
-        const toPages = getSpreadPages(toSpread);
-
-        setFlip({ direction, fromSpread, toSpread, fromPages, toPages });
-
-        timerRef.current = setTimeout(() => finishFlip(toSpread), FLIP_MS);
-    };
-
     const { left: leftNum, right: rightNum } = getSpreadPages(currentSpread);
     const counterLabel = `${currentSpread + 1}/${totalSpreads}`;
-
-    const underPages = flip ? getSpreadPages(flip.toSpread) : null;
-    const fromPages = flip?.fromPages ?? null;
-
     const activeSpread = flip ? flip.toSpread : currentSpread;
 
     return (
@@ -116,87 +43,19 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
 
             <div className="ab-book-stage">
                 <div className={`ab-book ${flip ? 'ab-book--flipping' : ''}`}>
-                    {/* Left Peek Page (Previous Spread Left Page) */}
-                    {activeSpread > 0 && (
-                        <div className="ab-peek-page ab-peek-page--left">
-                            <SpreadPage album={album} pageNum={(activeSpread - 1) * 2} totalPages={totalPages} isLeft={true} />
-                        </div>
-                    )}
-
-                    {/* Right Peek Page (Next Spread Right Page) */}
-                    {activeSpread < totalSpreads - 1 && (
-                        <div className="ab-peek-page ab-peek-page--right">
-                            <SpreadPage album={album} pageNum={(activeSpread + 1) * 2 + 1} totalPages={totalPages} isLeft={false} />
-                        </div>
-                    )}
+                    <AlbumPageFlipAnimation
+                        flip={flip}
+                        album={album}
+                        totalPages={totalPages}
+                        activeSpread={activeSpread}
+                        totalSpreads={totalSpreads}
+                    />
 
                     {!flip && (
                         <div className="ab-spread">
-                            <SpreadPage album={album} pageNum={leftNum} totalPages={totalPages} isLeft={true} />
-                            <SpreadPage album={album} pageNum={rightNum} totalPages={totalPages} isLeft={false} />
+                            <AlbumSpreadPage album={album} pageNum={leftNum} totalPages={totalPages} isLeft />
+                            <AlbumSpreadPage album={album} pageNum={rightNum} totalPages={totalPages} isLeft={false} />
                         </div>
-                    )}
-
-                    {flip?.direction === 'next' && fromPages && underPages && (
-                        <>
-                            {/* Under spread: Destination pages */}
-                            <div className="ab-spread ab-spread--under">
-                                <SpreadPage album={album} pageNum={underPages.left} totalPages={totalPages} isLeft={true} />
-                                <div className="ab-under-right-wrapper">
-                                    <SpreadPage album={album} pageNum={underPages.right} totalPages={totalPages} isLeft={false} />
-                                    <div className="ab-static-shadow ab-static-shadow--under-right" />
-                                </div>
-                            </div>
-
-                            {/* Static Left page (Current page being covered) */}
-                            <div className="ab-sheet-static ab-sheet-static--left">
-                                <SpreadPage album={album} pageNum={fromPages.left} totalPages={totalPages} isLeft={true} />
-                                <div className="ab-static-shadow ab-static-shadow--static-left" />
-                            </div>
-
-                            {/* Flipping Leaf */}
-                            <div className="ab-rigid-leaf ab-rigid-leaf--next ab-rigid-leaf--anim">
-                                <div className="ab-rigid-leaf-side ab-rigid-leaf-side--front">
-                                    <SpreadPage album={album} pageNum={fromPages.right} totalPages={totalPages} isLeft={false} />
-                                    <div className="ab-leaf-overlay ab-leaf-overlay--front" />
-                                </div>
-                                <div className="ab-rigid-leaf-side ab-rigid-leaf-side--back">
-                                    <SpreadPage album={album} pageNum={underPages.left} totalPages={totalPages} isLeft={true} />
-                                    <div className="ab-leaf-overlay ab-leaf-overlay--back" />
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {flip?.direction === 'prev' && fromPages && underPages && (
-                        <>
-                            {/* Under spread: Destination pages */}
-                            <div className="ab-spread ab-spread--under">
-                                <div className="ab-under-left-wrapper">
-                                    <SpreadPage album={album} pageNum={underPages.left} totalPages={totalPages} isLeft={true} />
-                                    <div className="ab-static-shadow ab-static-shadow--under-left" />
-                                </div>
-                                <SpreadPage album={album} pageNum={underPages.right} totalPages={totalPages} isLeft={false} />
-                            </div>
-
-                            {/* Static Right page (Current page being covered) */}
-                            <div className="ab-sheet-static ab-sheet-static--right">
-                                <SpreadPage album={album} pageNum={fromPages.right} totalPages={totalPages} isLeft={false} />
-                                <div className="ab-static-shadow ab-static-shadow--static-right" />
-                            </div>
-
-                            {/* Flipping Leaf */}
-                            <div className="ab-rigid-leaf ab-rigid-leaf--prev ab-rigid-leaf--anim">
-                                <div className="ab-rigid-leaf-side ab-rigid-leaf-side--front">
-                                    <SpreadPage album={album} pageNum={fromPages.left} totalPages={totalPages} isLeft={true} />
-                                    <div className="ab-leaf-overlay ab-leaf-overlay--front" />
-                                </div>
-                                <div className="ab-rigid-leaf-side ab-rigid-leaf-side--back">
-                                    <SpreadPage album={album} pageNum={underPages.right} totalPages={totalPages} isLeft={false} />
-                                    <div className="ab-leaf-overlay ab-leaf-overlay--back" />
-                                </div>
-                            </div>
-                        </>
                     )}
 
                     <div className="ab-gutter" />
