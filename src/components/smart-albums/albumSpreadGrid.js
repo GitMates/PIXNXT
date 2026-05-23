@@ -107,6 +107,21 @@ export function getProofCellPhotoIndex(pageNum, cellId, totalPages, { showCover 
     return Math.min(Math.max(0, idx), max);
 }
 
+/** Page indices for proof slots 1–5 on the spread whose left page is `leftPage`. */
+export function getProofSpreadSlotPageIndices(leftPage, totalPages, options) {
+    return [1, 2, 3, 4, 5].map((cellId) =>
+        getProofCellPhotoIndex(leftPage, cellId, totalPages, options)
+    );
+}
+
+export const PROOF_CELL_LABELS = {
+    1: 'Tall left',
+    2: 'Framed portrait',
+    3: 'Hero',
+    4: 'Thumbnail left',
+    5: 'Thumbnail right',
+};
+
 /** Percent-based layout (scales with flipbook page size; book dimensions unchanged). */
 export function getProofLeftPageGridPercent() {
     const gutterPct = PROOF_VINO_RATIOS.gutterSpread * 100;

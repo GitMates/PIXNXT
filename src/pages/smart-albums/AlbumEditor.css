@@ -289,6 +289,59 @@
   color: #888;
 }
 
+.ae-selection-badge {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #eef4ff;
+  border: 1px solid #c7d9f7;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #1e40af;
+}
+
+.ae-slot-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ae-slot-btn {
+  min-width: 40px;
+  padding: 8px 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.ae-slot-btn:hover {
+  border-color: #999;
+  background: #f8f9fb;
+}
+
+.ae-slot-btn--active {
+  border-color: #2563eb;
+  background: #eef4ff;
+  color: #1e40af;
+}
+
+.ae-slot-btn--all {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.ae-panel-list--compact {
+  font-size: 12px;
+  color: #777;
+}
+
 /* Canvas */
 .ae-canvas {
   flex: 1;

@@ -23,7 +23,17 @@ function getBookDimensions(stageEl) {
     };
 }
 
-const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
+const AlbumBook = ({
+    album,
+    totalPages,
+    initialPage = 0,
+    onPageChange,
+    clickToFlip = false,
+    editable = false,
+    gridSelection = null,
+    onSelectGridCell,
+    onSelectGridSpread,
+}) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
     const rootRef = useRef(null);
@@ -162,9 +172,24 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
                     album={album}
                     pageNum={pageNum}
                     totalPages={totalPages}
+                    editable={editable}
+                    selectionLeftPage={gridSelection?.leftPage ?? null}
+                    selectionMode={gridSelection?.mode ?? null}
+                    selectedCellId={gridSelection?.cellId ?? null}
+                    onSelectCell={onSelectGridCell}
+                    onSelectSpread={onSelectGridSpread}
                 />
             )),
-        [album, totalPages]
+        [
+            album,
+            totalPages,
+            editable,
+            gridSelection?.leftPage,
+            gridSelection?.mode,
+            gridSelection?.cellId,
+            onSelectGridCell,
+            onSelectGridSpread,
+        ]
     );
 
     return (
@@ -205,11 +230,11 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
                         maxShadowOpacity={0.5}
                         flippingTime={FLIP_TIME_MS}
                         usePortrait={false}
-                        useMouseEvents
+                        useMouseEvents={clickToFlip}
                         mobileScrollSupport={false}
                         showCover
-                        showPageCorners
-                        disableFlipByClick={false}
+                        showPageCorners={clickToFlip}
+                        disableFlipByClick
                         startPage={initialPage}
                         clickEventForward={false}
                         onFlip={handleFlip}

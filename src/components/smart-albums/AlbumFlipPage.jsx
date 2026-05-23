@@ -43,7 +43,20 @@ function PagePhoto({ src, pageNum }) {
     );
 }
 
-const AlbumFlipPage = React.forwardRef(function AlbumFlipPage({ album, pageNum, totalPages }, ref) {
+const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
+    {
+        album,
+        pageNum,
+        totalPages,
+        editable = false,
+        selectionLeftPage = null,
+        selectionMode = null,
+        selectedCellId = null,
+        onSelectCell,
+        onSelectSpread,
+    },
+    ref
+) {
     if (pageNum < 0 || pageNum >= totalPages) {
         return (
             <div className="ab-flip-page ab-flip-page--empty" ref={ref} data-density="hard">
@@ -61,7 +74,18 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage({ album, pageNum, 
         const { cells } = getProofLeftPageGridPercent();
         return (
             <div className="ab-flip-page ab-flip-page--grid" ref={ref} data-density="hard">
-                <AlbumPageGrid album={album} pageNum={pageNum} totalPages={totalPages} cells={cells} />
+                <AlbumPageGrid
+                    album={album}
+                    pageNum={pageNum}
+                    totalPages={totalPages}
+                    cells={cells}
+                    editable={editable}
+                    selectionLeftPage={selectionLeftPage}
+                    selectionMode={selectionMode}
+                    selectedCellId={selectedCellId}
+                    onSelectCell={onSelectCell}
+                    onSelectSpread={onSelectSpread}
+                />
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#f5c518" stroke="#f5c518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -77,7 +101,18 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage({ album, pageNum, 
         const { cells } = getProofRightPageGridPercent();
         return (
             <div className="ab-flip-page ab-flip-page--grid" ref={ref} data-density="hard">
-                <AlbumPageGrid album={album} pageNum={pageNum} totalPages={totalPages} cells={cells} />
+                <AlbumPageGrid
+                    album={album}
+                    pageNum={pageNum}
+                    totalPages={totalPages}
+                    cells={cells}
+                    editable={editable}
+                    selectionLeftPage={selectionLeftPage}
+                    selectionMode={selectionMode}
+                    selectedCellId={selectedCellId}
+                    onSelectCell={onSelectCell}
+                    onSelectSpread={onSelectSpread}
+                />
             </div>
         );
     }

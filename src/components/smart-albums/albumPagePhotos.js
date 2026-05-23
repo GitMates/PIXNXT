@@ -38,25 +38,33 @@ function readFileAsDataUrl(file) {
 }
 
 /**
- * Assign uploaded images to album pages starting at startPage (default 1, skips cover).
+ * Assign uploaded images to album pages.
+ * Pass `targets` (page indices) to fill specific grid slots; otherwise sequential from startPage.
  */
-export async function assignPhotosFromFiles(albumId, files, { startPage = 1, totalPages = 21 } = {}) {
+export async function assignPhotosFromFiles(
+    albumId,
+    files,
+    { startPage = 1, totalPages = 21, targets } = {}
+) {
     if (!albumId || !files?.length) return 0;
 
     const all = readAll();
     const album = { ...(all[albumId] || {}) };
     const imageFiles = files.filter((f) => f.type.startsWith('image/'));
-    let page = startPage;
+    const pageQueue =
+        targets?.length > 0
+            ? targets
+            : imageFiles.map((_, i) => startPage + i);
     let assigned = 0;
 
-    for (const file of imageFiles) {
-        if (page >= totalPages) break;
+    for (let i = 0; i < imageFiles.length; i++) {
+        const page = pageQueue[i];
+        if (page == null || page < 0 || page >= totalPages) break;
         try {
-            album[String(page)] = await readFileAsDataUrl(file);
+            album[String(page)] = await readFileAsDataUrl(imageFiles[i]);
             assigned += 1;
-            page += 1;
         } catch (e) {
-            console.warn('Skip file', file.name, e);
+            console.warn('Skip file', imageFiles[i].name, e);
         }
     }
 

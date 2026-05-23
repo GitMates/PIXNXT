@@ -1,4 +1,5 @@
 import React, { useRef } from 'react';
+import { PROOF_CELL_LABELS } from './albumSpreadGrid';
 
 const IconGrid = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -38,6 +39,17 @@ const NAV = [
     { id: 'pages', label: 'Pages', icon: IconPages },
 ];
 
+function selectionSummary(gridSelection) {
+    if (!gridSelection?.leftPage) {
+        return 'Flip to an inner spread, then pick a slot on the canvas.';
+    }
+    if (gridSelection.mode === 'cell' && gridSelection.cellId) {
+        const label = PROOF_CELL_LABELS[gridSelection.cellId] || `Slot ${gridSelection.cellId}`;
+        return `Slot ${gridSelection.cellId} · ${label}`;
+    }
+    return 'Whole spread · all 5 photo slots';
+}
+
 export default function AlbumEditorSidebar({
     activePanel,
     onPanelChange,
@@ -45,6 +57,10 @@ export default function AlbumEditorSidebar({
     totalPages,
     onUploadFiles,
     uploading = false,
+    gridSelection = null,
+    onSelectWholeSpread,
+    onSelectCell,
+    canSelectGrid = false,
 }) {
     const fileRef = useRef(null);
 
@@ -83,8 +99,15 @@ export default function AlbumEditorSidebar({
                     <>
                         <h3 className="ae-panel-title">Upload to grid</h3>
                         <p className="ae-panel-text">
-                            Add photos to your spreads. Images fill the layout slots in order.
+                            {canSelectGrid
+                                ? 'Photos go into the selected slot or spread below. Click the canvas to change the target.'
+                                : 'Open an inner spread in the editor, then choose a slot or the whole grid.'}
                         </p>
+                        {canSelectGrid && (
+                            <p className="ae-selection-badge" role="status">
+                                {selectionSummary(gridSelection)}
+                            </p>
+                        )}
                         <input
                             ref={fileRef}
                             type="file"
@@ -110,13 +133,50 @@ export default function AlbumEditorSidebar({
                     <>
                         <h3 className="ae-panel-title">Grid layout</h3>
                         <p className="ae-panel-text">
-                            Each spread uses a 5-photo Proof layout: two slots on the left page and three on
-                            the right. Sizes are calculated automatically.
+                            Click a photo slot on the spread, or select the whole grid. Then upload to fill
+                            that slot or all five slots in order.
                         </p>
-                        <ul className="ae-panel-list">
-                            <li>Left: tall + framed portrait</li>
-                            <li>Right: hero + two thumbnails</li>
-                        </ul>
+                        {canSelectGrid ? (
+                            <>
+                                <p className="ae-selection-badge" role="status">
+                                    {selectionSummary(gridSelection)}
+                                </p>
+                                <div className="ae-slot-picker">
+                                    <button
+                                        type="button"
+                                        className={`ae-slot-btn ae-slot-btn--all${
+                                            gridSelection?.mode === 'spread' ? ' ae-slot-btn--active' : ''
+                                        }`}
+                                        onClick={() => onSelectWholeSpread?.()}
+                                    >
+                                        Whole spread
+                                    </button>
+                                    {[1, 2, 3, 4, 5].map((id) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            className={`ae-slot-btn${
+                                                gridSelection?.mode === 'cell' &&
+                                                gridSelection?.cellId === id
+                                                    ? ' ae-slot-btn--active'
+                                                    : ''
+                                            }`}
+                                            onClick={() => onSelectCell?.(id)}
+                                        >
+                                            {id}
+                                        </button>
+                                    ))}
+                                </div>
+                                <ul className="ae-panel-list ae-panel-list--compact">
+                                    <li>1–2: left page</li>
+                                    <li>3–5: right page (hero + thumbnails)</li>
+                                </ul>
+                            </>
+                        ) : (
+                            <p className="ae-panel-text ae-panel-text--muted">
+                                Use the arrows to open an inner spread (not the cover), then select slots.
+                            </p>
+                        )}
                     </>
                 )}
 
@@ -124,8 +184,8 @@ export default function AlbumEditorSidebar({
                     <>
                         <h3 className="ae-panel-title">Edit spreads</h3>
                         <p className="ae-panel-text">
-                            Use the canvas to flip through pages. Drag corners to turn pages, or use arrow
-                            keys and the side buttons.
+                            Click grid slots on the canvas to choose where uploads go. Change spreads with
+                            the arrow buttons or keyboard.
                         </p>
                         <p className="ae-panel-text ae-panel-text--muted">
                             Open Preview to see exactly what clients will receive.
