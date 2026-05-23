@@ -7,7 +7,7 @@
   position: relative;
   width: 100%;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .ab-book-stage {
@@ -20,7 +20,13 @@
   max-width: 1100px;
   min-height: calc(100vh - 180px);
   max-height: calc(100vh - 140px);
-  overflow: hidden;
+  overflow: visible;
+}
+
+/* Flip curl/shadows render outside the book box (Proof Albums-style) */
+.ab-book-stage--flipping {
+  z-index: 20;
+  overflow: visible;
 }
 
 .ab-flipbook-wrap {
@@ -29,15 +35,36 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: visible;
+  position: relative;
+}
+
+.ab-flipbook-wrap--flipping {
+  z-index: 25;
+  overflow: visible;
 }
 
 .ab-html-flipbook {
   margin: 0 auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  overflow: visible;
 }
 
 .ab-html-flipbook .stf__parent {
   margin: 0 auto;
+  overflow: visible;
+}
+
+.ab-html-flipbook .stf__block {
+  overflow: visible !important;
+}
+
+.ab-html-flipbook .stf__outerShadow,
+.ab-html-flipbook .stf__innerShadow,
+.ab-html-flipbook .stf__hardShadow,
+.ab-html-flipbook .stf__hardInnerShadow {
+  z-index: 30;
+  pointer-events: none;
 }
 
 /* Hard-page flip (same curl as cover) for every sheet */

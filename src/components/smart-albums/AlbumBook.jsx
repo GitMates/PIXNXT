@@ -136,8 +136,8 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
                 </svg>
             </button>
 
-            <div className="ab-book-stage" ref={stageRef}>
-                <div className="ab-flipbook-wrap">
+            <div className={`ab-book-stage${isFlipping ? ' ab-book-stage--flipping' : ''}`} ref={stageRef}>
+                <div className={`ab-flipbook-wrap${isFlipping ? ' ab-flipbook-wrap--flipping' : ''}`}>
                     <HTMLFlipBook
                         key={`${album?.id}-${totalPages}`}
                         ref={bookRef}
