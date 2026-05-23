@@ -16,6 +16,23 @@ const AlbumNavIcon = () => (
     </svg>
 );
 
+const StarNavIcon = ({ className }) => (
+    <svg
+        className={className}
+        xmlns="http://www.w3.org/2000/svg"
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+    >
+        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+);
+
 const SmartAlbumsSidebarLayout = ({ children }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -30,6 +47,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
 
     const userInitial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
     const isAlbumsActive = path === '/smart-albums' || path === '/smart-albums/';
+    const isStarredActive = path.startsWith('/smart-albums/starred');
     const isSettingsActive = path.startsWith('/smart-albums/settings');
 
     useEffect(() => {
@@ -233,6 +251,19 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                             <AlbumNavIcon />
                         </span>
                         {(!isCollapsed || isMobileMenuOpen) && <span>Albums</span>}
+                    </div>
+                    <div
+                        className={navItemClass(isStarredActive)}
+                        onMouseEnter={(e) => {
+                            if (!isStarredActive) e.currentTarget.style.background = PURPLE_HOVER;
+                        }}
+                        onMouseLeave={(e) => {
+                            if (!isStarredActive) e.currentTarget.style.background = '';
+                        }}
+                        onClick={() => navigate('/smart-albums/starred')}
+                    >
+                        <StarNavIcon className={navIconClass(isStarredActive)} />
+                        {(!isCollapsed || isMobileMenuOpen) && <span>Starred</span>}
                     </div>
                     <div
                         className={navItemClass(isSettingsActive)}

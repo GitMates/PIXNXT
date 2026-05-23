@@ -47,7 +47,20 @@ function PageSheet({ album, pageNum, totalPages }) {
         return <div className="ab-page-placeholder">Add photos to this spread</div>;
     }
 
-    return <PagePhoto src={src} pageNum={pageNum} />;
+    const showStar = pageNum === 1 && album.is_starred;
+
+    return (
+        <div className="ab-page-photo-wrap">
+            <PagePhoto src={src} pageNum={pageNum} />
+            {showStar && (
+                <span className="ab-page-star" aria-label="Starred">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#f5c518" stroke="#f5c518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                </span>
+            )}
+        </div>
+    );
 }
 
 export function AlbumSpreadPage({ album, pageNum, totalPages, isLeft }) {
