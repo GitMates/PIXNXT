@@ -3,10 +3,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px 48px;
+  padding: 16px 56px;
   position: relative;
   width: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .ab-book-stage {
@@ -17,76 +18,48 @@
   justify-content: center;
   width: 100%;
   max-width: 1100px;
-  min-height: calc(100vh - 200px);
-  max-height: calc(100vh - 160px);
-}
-
-.ab-book {
-  position: relative;
-  width: 100%;
-  max-width: 1000px;
-  aspect-ratio: 2 / 1.15;
-  max-height: calc(100vh - 200px);
-  perspective: 2400px;
-  perspective-origin: 50% 50%;
-  background: #e8e8e8;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  min-height: calc(100vh - 180px);
+  max-height: calc(100vh - 140px);
   overflow: hidden;
-  transform-style: preserve-3d;
-  isolation: isolate;
 }
 
-.ab-spread {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 1fr;
-  align-items: stretch;
-  align-content: stretch;
-  gap: 0;
-  z-index: 3;
-  transform-style: preserve-3d;
-}
-
-.ab-sheet {
-  position: relative;
-  overflow: hidden;
-  background: #fff;
+.ab-flipbook-wrap {
   width: 100%;
   height: 100%;
-  min-height: 0;
-  align-self: stretch;
-  transform-style: preserve-3d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.ab-spread .ab-sheet--left,
-.ab-spread .ab-sheet--right {
-  transform: none;
-  box-shadow: none;
+.ab-html-flipbook {
+  margin: 0 auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
 }
 
-/* Cover sub-pixel gaps at spine and outer edges */
-.ab-spread > .ab-sheet--left {
-  z-index: 2;
+.ab-html-flipbook .stf__parent {
+  margin: 0 auto;
 }
 
-.ab-spread > .ab-sheet--right {
-  z-index: 1;
-  margin-left: -1px;
+/* Hard-page flip (same curl as cover) for every sheet */
+.ab-html-flipbook .stf__item.--hard {
+  background: #fff;
 }
 
-.ab-gutter {
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  margin-left: -0.5px;
-  z-index: 6;
-  pointer-events: none;
-  background: rgba(0, 0, 0, 0.08);
-  transition: opacity 0.12s;
+.ab-html-flipbook .stf__item .ab-flip-page {
+  width: 100%;
+  height: 100%;
+}
+
+.ab-flip-page {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  overflow: hidden;
+  position: relative;
+}
+
+.ab-flip-page--empty {
+  background: #fafafa;
 }
 
 .ab-page-photo-wrap {
@@ -100,18 +73,24 @@
   height: 100%;
   object-fit: cover;
   display: block;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
-.ab-page-star {
-  position: absolute;
-  bottom: 12px;
-  right: 12px;
-  z-index: 4;
+.ab-page-cover-placeholder {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
-  pointer-events: none;
+  background: linear-gradient(145deg, #f3ebf8 0%, #e8dff0 100%);
+  color: #5a4a66;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 24px;
+  text-align: center;
 }
 
 .ab-page-placeholder {
@@ -131,12 +110,25 @@
   background: #fff;
 }
 
+.ab-page-star {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+  pointer-events: none;
+}
+
 .ab-badge {
   position: absolute;
   top: 12px;
   left: 12px;
-  width: 22px;
+  min-width: 22px;
   height: 22px;
+  padding: 0 5px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
   font-size: 11px;
@@ -146,29 +138,32 @@
   justify-content: center;
   z-index: 2;
   pointer-events: none;
+  border-radius: 2px;
 }
 
 .ab-nav {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border: none;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #666;
+  color: #555;
   z-index: 30;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
 .ab-nav:hover:not(:disabled) {
   color: #111;
   background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
 }
 
 .ab-nav:disabled {
@@ -177,26 +172,39 @@
 }
 
 .ab-nav--prev {
-  left: 8px;
+  left: 4px;
 }
 
 .ab-nav--next {
-  right: 8px;
+  right: 4px;
 }
 
 .ab-spread-controls {
   position: absolute;
-  bottom: 16px;
-  right: 16px;
+  bottom: 12px;
+  right: 12px;
   z-index: 25;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.96);
   padding: 6px 12px;
-  border-radius: 4px;
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
 }
 
 .ab-page-counter {
   font-size: 12px;
-  color: #555;
-  font-weight: 500;
+  color: #444;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 768px) {
+  .ab-root {
+    padding: 12px 44px;
+  }
+
+  .ab-nav {
+    width: 40px;
+    height: 40px;
+  }
 }

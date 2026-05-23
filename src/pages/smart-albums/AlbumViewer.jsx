@@ -2,8 +2,16 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import AlbumBook, { pageToSpreadIndex } from '../../components/smart-albums/AlbumBook';
+import AlbumBook from '../../components/smart-albums/AlbumBook';
 import './AlbumViewer.css';
+
+/** Proof Albums-style URL: ?page=14 is the left page index (0-based) of the spread. */
+function parseUrlPage(raw, totalPages) {
+    if (raw == null || raw === '') return 0;
+    const n = parseInt(raw, 10);
+    if (Number.isNaN(n)) return 0;
+    return Math.max(0, Math.min(totalPages - 1, n));
+}
 
 const AlbumViewer = () => {
     const { albumId } = useParams();
@@ -15,16 +23,7 @@ const AlbumViewer = () => {
     const [comment, setComment] = useState('');
 
     const totalPages = album?.page_count || 21;
-
-    const parseStartPage = () => {
-        const raw = searchParams.get('page');
-        if (raw == null || raw === '') return 0;
-        const n = parseInt(raw, 10);
-        if (Number.isNaN(n)) return 0;
-        return Math.max(0, Math.min(totalPages - 1, n));
-    };
-
-    const initialPage = parseStartPage();
+    const initialPage = parseUrlPage(searchParams.get('page'), totalPages);
 
     useEffect(() => {
         if (!user || !albumId) return;
@@ -49,11 +48,10 @@ const AlbumViewer = () => {
     }, [user, albumId]);
 
     const handlePageChange = (pageIdx) => {
-        const spread = pageToSpreadIndex(pageIdx);
         setSearchParams(
             (prev) => {
                 const next = new URLSearchParams(prev);
-                next.set('page', String(spread * 2));
+                next.set('page', String(pageIdx));
                 return next;
             },
             { replace: true }
@@ -100,15 +98,26 @@ const AlbumViewer = () => {
                     </span>
                 </div>
                 <h1 className="av-title">{title}</h1>
-                <div className="av-topbar-spacer" />
+                <div className="av-topbar-right">
+                    <button type="button" className="av-icon-btn" aria-label="Album options">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="1" />
+                            <circle cx="12" cy="5" r="1" />
+                            <circle cx="12" cy="19" r="1" />
+                        </svg>
+                    </button>
+                </div>
             </header>
 
-            <AlbumBook
-                album={album}
-                totalPages={totalPages}
-                initialPage={initialPage}
-                onPageChange={(pageIdx) => handlePageChange(pageIdx)}
-            />
+            <div className="av-viewer-body">
+                <AlbumBook
+                    key={albumId}
+                    album={album}
+                    totalPages={totalPages}
+                    initialPage={initialPage}
+                    onPageChange={handlePageChange}
+                />
+            </div>
 
             <footer className="av-comments">
                 <span className="av-comments-count">0 comments</span>

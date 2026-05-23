@@ -2,23 +2,27 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: #f0f0f0;
-  font-family: 'Roboto', system-ui, sans-serif;
+  background: #ebebeb;
+  font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
 }
 
 .av-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 24px;
+  padding: 10px 20px;
   background: #fff;
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+  z-index: 40;
 }
 
 .av-topbar-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
+  min-width: 88px;
 }
 
 .av-back-btn {
@@ -29,10 +33,12 @@
   padding: 6px;
   display: flex;
   align-items: center;
+  border-radius: 4px;
 }
 
 .av-back-btn:hover {
   color: #111;
+  background: #f5f5f5;
 }
 
 .av-bell {
@@ -44,30 +50,59 @@
 .av-title {
   flex: 1;
   text-align: center;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   color: #333;
   text-transform: uppercase;
   margin: 0;
-  padding: 0 24px;
+  padding: 0 16px;
 }
 
-.av-topbar-spacer {
-  width: 80px;
+.av-topbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 88px;
+}
+
+.av-icon-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.av-icon-btn:hover {
+  color: #333;
+  background: #f5f5f5;
+}
+
+.av-viewer-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .av-comments {
-  background: #3d3d3d;
+  background: #3a3a3a;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 10px 20px;
-  min-height: 48px;
+  gap: 14px;
+  padding: 10px 18px;
+  min-height: 46px;
+  flex-shrink: 0;
+  z-index: 40;
 }
 
 .av-comments-count {
-  color: #ccc;
+  color: #c8c8c8;
   font-size: 12px;
   white-space: nowrap;
 }
@@ -86,6 +121,10 @@
 
 .av-comment-input::placeholder {
   color: #888;
+}
+
+.av-comment-input:focus {
+  background: #fff;
 }
 
 .av-loading {

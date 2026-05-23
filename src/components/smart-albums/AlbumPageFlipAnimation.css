@@ -1,61 +1,38 @@
-/* Peek pages behind the open spread */
-.ab-peek-page {
+.ab-flip-layers {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50%;
-  z-index: 1;
-  pointer-events: none;
-  opacity: 0.95;
+  inset: 0;
   transform-style: preserve-3d;
+  isolation: isolate;
 }
 
-.ab-peek-page--left {
-  left: 0;
-  transform-origin: right center;
-  transform: translateZ(-40px) rotateY(2deg);
-  overflow: hidden;
-}
-
-.ab-peek-page--right {
-  right: 0;
-  transform-origin: left center;
-  transform: translateZ(-40px) rotateY(-2deg);
-  overflow: hidden;
-}
-
-.ab-peek-page .ab-sheet--left,
-.ab-peek-page .ab-sheet--right {
-  transform: none !important;
-  box-shadow: none !important;
-}
-
-.ab-book--flipping .ab-gutter {
-  opacity: 0;
-}
-
-/* Under-spread during flip */
-.ab-spread--under {
+.ab-book .ab-spread--under {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   z-index: 2;
 }
 
-.ab-under-right-wrapper,
-.ab-under-left-wrapper {
+.ab-under-slot {
   position: relative;
   width: 100%;
   height: 100%;
   min-height: 0;
-  align-self: stretch;
   overflow: hidden;
-  transform-style: preserve-3d;
+  background: #fff;
+}
+
+.ab-under-slot--left[aria-hidden],
+.ab-under-slot--right[aria-hidden] {
+  visibility: hidden;
+  background: #fff;
 }
 
 .ab-spread--under .ab-sheet--left,
 .ab-spread--under .ab-sheet--right,
 .ab-sheet-static .ab-sheet--left,
 .ab-sheet-static .ab-sheet--right,
-.ab-under-right-wrapper .ab-sheet,
-.ab-under-left-wrapper .ab-sheet {
+.ab-under-slot .ab-sheet {
   transform: none;
   box-shadow: none;
 }
@@ -66,7 +43,9 @@
   height: 100%;
   width: 50%;
   z-index: 4;
+  overflow: hidden;
   transform-style: preserve-3d;
+  background: #fff;
 }
 
 .ab-sheet-static--left {
@@ -77,15 +56,18 @@
   right: 0;
 }
 
-/* Double-sided leaf — 180° Y rotation */
 .ab-rigid-leaf {
   position: absolute;
   top: 0;
   width: 50%;
   height: 100%;
   z-index: 8;
+  overflow: hidden;
   transform-style: preserve-3d;
-  box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+}
+
+.ab-rigid-leaf--anim {
+  filter: drop-shadow(-2px 0 8px rgba(0, 0, 0, 0.15));
 }
 
 .ab-rigid-leaf--next {
@@ -100,11 +82,13 @@
 }
 
 .ab-rigid-leaf--anim.ab-rigid-leaf--next {
-  animation: ab-rigid-next 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ab-rigid-next 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
+  will-change: transform;
 }
 
 .ab-rigid-leaf--anim.ab-rigid-leaf--prev {
-  animation: ab-rigid-prev 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: ab-rigid-prev 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
+  will-change: transform;
 }
 
 .ab-rigid-leaf-side {
@@ -112,6 +96,7 @@
   inset: 0;
   width: 100%;
   height: 100%;
+  overflow: hidden;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform-style: preserve-3d;
@@ -133,7 +118,6 @@
   box-shadow: none !important;
 }
 
-/* Leaf highlight / shadow overlays */
 .ab-leaf-overlay {
   position: absolute;
   inset: 0;
@@ -142,70 +126,37 @@
 }
 
 .ab-rigid-leaf--next .ab-leaf-overlay--front {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.1) 60%, rgba(255, 255, 255, 0.2) 80%, rgba(0, 0, 0, 0.2) 100%);
-  animation: ab-overlay-front 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.15) 100%);
+  animation: ab-overlay-front 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
 }
 
 .ab-rigid-leaf--next .ab-leaf-overlay--back {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.1) 60%, rgba(255, 255, 255, 0.2) 80%, rgba(0, 0, 0, 0.2) 100%);
-  animation: ab-overlay-back 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.15) 100%);
+  animation: ab-overlay-back 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
 }
 
 .ab-rigid-leaf--prev .ab-leaf-overlay--front {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.1) 60%, rgba(255, 255, 255, 0.2) 80%, rgba(0, 0, 0, 0.2) 100%);
-  animation: ab-overlay-front 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.15) 100%);
+  animation: ab-overlay-front 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
 }
 
 .ab-rigid-leaf--prev .ab-leaf-overlay--back {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0) 30%, rgba(0, 0, 0, 0.1) 60%, rgba(255, 255, 255, 0.2) 80%, rgba(0, 0, 0, 0.2) 100%);
-  animation: ab-overlay-back 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.15) 100%);
+  animation: ab-overlay-back 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
 }
 
-.ab-static-shadow {
+/* Covers sub-pixel bleed at the spine during the turn */
+.ab-spine-mask {
   position: absolute;
-  inset: 0;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  margin-left: -1.5px;
+  z-index: 12;
   pointer-events: none;
-  z-index: 15;
-}
-
-.ab-static-shadow--static-left {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0) 100%);
-  animation: ab-shadow-fade-in 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.ab-static-shadow--under-right {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 100%);
-  animation: ab-shadow-fade-out 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.ab-static-shadow--static-right {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.25) 0%, rgba(0, 0, 0, 0) 100%);
-  animation: ab-shadow-fade-in 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-.ab-static-shadow--under-left {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.3) 0%, rgba(0, 0, 0, 0) 100%);
-  animation: ab-shadow-fade-out 720ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-@keyframes ab-shadow-fade-in {
-  0% {
-    opacity: 0;
-  }
-
-  100% {
-    opacity: 1;
-  }
-}
-
-@keyframes ab-shadow-fade-out {
-  0% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-  }
+  background: #fff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.08);
 }
 
 @keyframes ab-overlay-front {
@@ -213,8 +164,8 @@
     opacity: 0;
   }
 
-  35% {
-    opacity: 0.6;
+  40% {
+    opacity: 0.45;
   }
 
   100% {
@@ -227,8 +178,8 @@
     opacity: 1;
   }
 
-  65% {
-    opacity: 0.6;
+  60% {
+    opacity: 0.45;
   }
 
   100% {
@@ -238,33 +189,29 @@
 
 @keyframes ab-rigid-next {
   0% {
-    transform: rotateY(-5deg);
-    z-index: 10;
+    transform: rotateY(0deg);
   }
 
   50% {
-    z-index: 12;
+    transform: rotateY(-90deg);
   }
 
   100% {
-    transform: rotateY(-175deg);
-    z-index: 10;
+    transform: rotateY(-180deg);
   }
 }
 
 @keyframes ab-rigid-prev {
   0% {
-    transform: rotateY(5deg);
-    z-index: 10;
+    transform: rotateY(0deg);
   }
 
   50% {
-    z-index: 12;
+    transform: rotateY(90deg);
   }
 
   100% {
-    transform: rotateY(175deg);
-    z-index: 10;
+    transform: rotateY(180deg);
   }
 }
 

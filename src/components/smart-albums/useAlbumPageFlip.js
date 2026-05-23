@@ -1,14 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getSpreadPages } from './albumSpreadUtils';
 
-export const FLIP_DURATION_MS = 720;
+export const FLIP_DURATION_MS = 800;
 
-/**
- * Spread flip state and timing. Animation markup lives in AlbumPageFlipAnimation.
- */
 export function useAlbumPageFlip({ currentSpread, totalSpreads, setCurrentSpread, onPageChange }) {
     const [flip, setFlip] = useState(null);
     const timerRef = useRef(null);
+    const finishingRef = useRef(false);
 
     useEffect(() => () => {
         if (timerRef.current) clearTimeout(timerRef.current);
@@ -18,9 +16,16 @@ export function useAlbumPageFlip({ currentSpread, totalSpreads, setCurrentSpread
 
     const finishFlip = useCallback(
         (toSpread) => {
+            if (finishingRef.current) return;
+            finishingRef.current = true;
+            if (timerRef.current) {
+                clearTimeout(timerRef.current);
+                timerRef.current = null;
+            }
             setCurrentSpread(toSpread);
             onPageChange?.(toSpread * 2);
             setFlip(null);
+            finishingRef.current = false;
         },
         [onPageChange, setCurrentSpread]
     );
@@ -32,16 +37,27 @@ export function useAlbumPageFlip({ currentSpread, totalSpreads, setCurrentSpread
             const toSpread = direction === 'next' ? currentSpread + 1 : currentSpread - 1;
             if (toSpread < 0 || toSpread >= totalSpreads) return;
 
-            const fromSpread = currentSpread;
-            const fromPages = getSpreadPages(fromSpread);
+            const fromPages = getSpreadPages(currentSpread);
             const toPages = getSpreadPages(toSpread);
 
-            setFlip({ direction, fromSpread, toSpread, fromPages, toPages });
+            finishingRef.current = false;
+            setFlip({
+                direction,
+                fromSpread: currentSpread,
+                toSpread,
+                fromPages,
+                toPages,
+            });
 
-            timerRef.current = setTimeout(() => finishFlip(toSpread), FLIP_DURATION_MS);
+            timerRef.current = setTimeout(() => finishFlip(toSpread), FLIP_DURATION_MS + 80);
         },
         [currentSpread, finishFlip, isAnimating, totalSpreads]
     );
 
-    return { flip, isAnimating, startFlip };
+    const completeFlipFromAnimation = useCallback(() => {
+        if (!flip) return;
+        finishFlip(flip.toSpread);
+    }, [flip, finishFlip]);
+
+    return { flip, isAnimating, startFlip, completeFlipFromAnimation };
 }
