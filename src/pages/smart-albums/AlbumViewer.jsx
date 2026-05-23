@@ -1,0 +1,84 @@
+import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
+import AlbumEditor from './AlbumEditor';
+import AlbumPreview from './AlbumPreview';
+import { useAlbumWorkspace } from './useAlbumWorkspace';
+import './AlbumViewer.css';
+
+/**
+ * Album workspace router: edit (sidebar + canvas) vs preview (final output).
+ * URLs: /album/:id  ·  /album/:id?view=preview  ·  /album/:id?view=gallery → edit
+ */
+const AlbumViewer = () => {
+    const navigate = useNavigate();
+    const [photoRevision, setPhotoRevision] = useState(0);
+    const {
+        albumId,
+        album,
+        loading,
+        totalPages,
+        initialPage,
+        isPreview,
+        handlePageChange,
+        setView,
+    } = useAlbumWorkspace();
+
+    useEffect(() => {
+        if (albumId) {
+            setPhotoRevision(getAlbumPhotoRevision(albumId) || 0);
+        }
+    }, [albumId, album?.id]);
+
+    if (loading) {
+        return (
+            <div className="av-page">
+                <div className="av-loading">Loading album…</div>
+            </div>
+        );
+    }
+
+    if (!album) {
+        return (
+            <div className="av-page">
+                <div className="av-topbar">
+                    <button type="button" className="av-back-btn" onClick={() => navigate('/smart-albums')}>
+                        Back to Albums
+                    </button>
+                </div>
+                <div className="av-loading">Album not found.</div>
+            </div>
+        );
+    }
+
+    if (isPreview) {
+        return (
+            <AlbumPreview
+                album={album}
+                albumId={albumId}
+                totalPages={totalPages}
+                initialPage={initialPage}
+                photoRevision={photoRevision}
+                onPageChange={handlePageChange}
+                onBackToEdit={() => setView('edit')}
+            />
+        );
+    }
+
+    return (
+        <AlbumEditor
+            album={album}
+            albumId={albumId}
+            totalPages={totalPages}
+            initialPage={initialPage}
+            photoRevision={photoRevision}
+            onPageChange={handlePageChange}
+            onOpenPreview={() => setView('preview')}
+            onPhotosUploaded={() =>
+                setPhotoRevision(getAlbumPhotoRevision(albumId) || Date.now())
+            }
+        />
+    );
+};
+
+export default AlbumViewer;

@@ -1,0 +1,137 @@
+.av-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  background: #ebebeb;
+  font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  overscroll-behavior: none;
+  scrollbar-gutter: stable;
+  isolation: isolate;
+}
+
+/* Page-turn draws over header/footer chrome while flipping */
+.av-page:has(.ab-root--flipping) .av-viewer-body {
+  z-index: 60;
+}
+
+.av-page:has(.ab-root--flipping) .av-topbar {
+  z-index: 10;
+}
+
+.av-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 20px;
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 40;
+}
+
+.av-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 88px;
+}
+
+.av-back-btn {
+  background: none;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.av-back-btn:hover {
+  color: #111;
+  background: #f5f5f5;
+}
+
+.av-title {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  color: #333;
+  text-transform: uppercase;
+  margin: 0;
+  padding: 0 16px;
+}
+
+.av-topbar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 88px;
+}
+
+.av-icon-btn {
+  background: none;
+  border: none;
+  color: #888;
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+}
+
+.av-icon-btn:hover {
+  color: #333;
+  background: #f5f5f5;
+}
+
+.av-viewer-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+}
+
+.av-loading {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #666;
+}
+
+.av-page--preview {
+  background: #ebebeb;
+}
+
+.av-topbar--preview .av-topbar-right {
+  gap: 8px;
+}
+
+.av-btn-ghost {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #444;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.av-btn-ghost:hover {
+  background: #eee;
+  color: #111;
+}

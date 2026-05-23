@@ -150,6 +150,15 @@ const SidebarLayout = ({ children }) => {
                                         <span className="text-xs text-[#888] leading-[1.4]">Better way to share, deliver, proof and sell</span>
                                     </div>
                                 </div>
+                                <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]" onClick={() => { navigate('/smart-albums'); setShowAppDropdown(false); }}>
+                                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #9b59b6, #8e44ad)' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path><line x1="8" y1="6" x2="16" y2="6"></line><line x1="8" y1="10" x2="14" y2="10"></line></svg>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-[15px] font-semibold text-[#111]">Smart Albums</span>
+                                        <span className="text-xs text-[#888] leading-[1.4]">Design and deliver beautiful photo albums</span>
+                                    </div>
+                                </div>
                                 <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]" onClick={() => setShowAppDropdown(false)}>
                                     <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #3498db, #2980b9)' }}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>

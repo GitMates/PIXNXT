@@ -1,0 +1,222 @@
+.ab-flip-layers {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  isolation: isolate;
+}
+
+.ab-book .ab-spread--under {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  z-index: 2;
+}
+
+.ab-under-slot {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ab-under-slot--left[aria-hidden],
+.ab-under-slot--right[aria-hidden] {
+  visibility: hidden;
+  background: #fff;
+}
+
+.ab-spread--under .ab-sheet--left,
+.ab-spread--under .ab-sheet--right,
+.ab-sheet-static .ab-sheet--left,
+.ab-sheet-static .ab-sheet--right,
+.ab-under-slot .ab-sheet {
+  transform: none;
+  box-shadow: none;
+}
+
+.ab-sheet-static {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 50%;
+  z-index: 4;
+  overflow: hidden;
+  transform-style: preserve-3d;
+  background: #fff;
+}
+
+.ab-sheet-static--left {
+  left: 0;
+}
+
+.ab-sheet-static--right {
+  right: 0;
+}
+
+.ab-rigid-leaf {
+  position: absolute;
+  top: 0;
+  width: 50%;
+  height: 100%;
+  z-index: 8;
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+
+.ab-rigid-leaf--anim {
+  filter: drop-shadow(-2px 0 8px rgba(0, 0, 0, 0.15));
+}
+
+.ab-rigid-leaf--next {
+  right: 0;
+  left: auto;
+  transform-origin: left center;
+}
+
+.ab-rigid-leaf--prev {
+  left: 0;
+  transform-origin: right center;
+}
+
+.ab-rigid-leaf--anim.ab-rigid-leaf--next {
+  animation: ab-rigid-next 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
+  will-change: transform;
+}
+
+.ab-rigid-leaf--anim.ab-rigid-leaf--prev {
+  animation: ab-rigid-prev 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
+  will-change: transform;
+}
+
+.ab-rigid-leaf-side {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+.ab-rigid-leaf-side--front {
+  z-index: 2;
+  transform: rotateY(0deg);
+}
+
+.ab-rigid-leaf-side--back {
+  z-index: 1;
+  transform: rotateY(180deg);
+}
+
+.ab-rigid-leaf-side .ab-sheet--left,
+.ab-rigid-leaf-side .ab-sheet--right {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.ab-leaf-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.ab-rigid-leaf--next .ab-leaf-overlay--front {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.15) 100%);
+  animation: ab-overlay-front 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
+.ab-rigid-leaf--next .ab-leaf-overlay--back {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.15) 100%);
+  animation: ab-overlay-back 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
+.ab-rigid-leaf--prev .ab-leaf-overlay--front {
+  background: linear-gradient(to left, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.15) 100%);
+  animation: ab-overlay-front 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
+.ab-rigid-leaf--prev .ab-leaf-overlay--back {
+  background: linear-gradient(to right, rgba(0, 0, 0, 0) 50%, rgba(0, 0, 0, 0.15) 100%);
+  animation: ab-overlay-back 800ms cubic-bezier(0.33, 1, 0.68, 1) forwards;
+}
+
+/* Covers sub-pixel bleed at the spine during the turn */
+.ab-spine-mask {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  margin-left: -1.5px;
+  z-index: 12;
+  pointer-events: none;
+  background: #fff;
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.08);
+}
+
+@keyframes ab-overlay-front {
+  0% {
+    opacity: 0;
+  }
+
+  40% {
+    opacity: 0.45;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes ab-overlay-back {
+  0% {
+    opacity: 1;
+  }
+
+  60% {
+    opacity: 0.45;
+  }
+
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes ab-rigid-next {
+  0% {
+    transform: rotateY(0deg);
+  }
+
+  50% {
+    transform: rotateY(-90deg);
+  }
+
+  100% {
+    transform: rotateY(-180deg);
+  }
+}
+
+@keyframes ab-rigid-prev {
+  0% {
+    transform: rotateY(0deg);
+  }
+
+  50% {
+    transform: rotateY(90deg);
+  }
+
+  100% {
+    transform: rotateY(180deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ab-rigid-leaf--anim {
+    animation-duration: 0.01ms;
+  }
+}

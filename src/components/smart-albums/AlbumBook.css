@@ -1,0 +1,475 @@
+.ab-root {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 56px;
+  position: relative;
+  width: 100%;
+  min-height: 0;
+  overflow: visible;
+}
+
+.ab-root--flipping {
+  z-index: 80;
+  position: relative;
+}
+
+.ab-book-stage {
+  --ab-flip-pad-y: 140px;
+  --ab-flip-pad-x: min(32vw, 240px);
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 1100px;
+  overflow: visible;
+}
+
+/* Full-screen preview: use viewport height */
+.av-viewer-body .ab-book-stage,
+.av-page--preview .ab-book-stage {
+  min-height: calc(100vh - 228px);
+  max-height: calc(100vh - 172px);
+}
+
+/* Editor canvas: fill panel between sidebar and chrome */
+.ae-canvas-stage .ab-book-stage {
+  min-height: 0;
+  max-height: none;
+  height: 100%;
+  flex: 1;
+}
+
+/* Sizing grid only — same footprint as before; does not clip the flip */
+.ab-book-stage-inner {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.ab-book-stage--flipping {
+  z-index: 20;
+  /* Reach over the viewer top bar (header grid) while turning */
+  --ab-flip-pad-y: calc(56px + 160px);
+}
+
+/*
+ * Paint layer larger than the book grid so curl/shadows draw in the gray area.
+ * Book pixel size comes from ab-flipbook-wrap inline width/height (unchanged).
+ */
+.ab-flip-escape {
+  position: absolute;
+  top: calc(-1 * var(--ab-flip-pad-y));
+  right: calc(-1 * var(--ab-flip-pad-x));
+  bottom: calc(-1 * var(--ab-flip-pad-y));
+  left: calc(-1 * var(--ab-flip-pad-x));
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ab-flip-escape > * {
+  pointer-events: auto;
+}
+
+.ab-flip-escape--flipping {
+  z-index: 100;
+}
+
+.ab-flipbook-wrap {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: visible;
+}
+
+.ab-flipbook-wrap--flipping {
+  z-index: 35;
+}
+
+.ab-html-flipbook {
+  margin: 0 auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  overflow: visible !important;
+}
+
+.ab-html-flipbook.stf__parent {
+  overflow: visible !important;
+}
+
+.ab-html-flipbook .stf__wrapper {
+  overflow: visible !important;
+}
+
+.ab-html-flipbook .stf__block {
+  overflow: visible !important;
+}
+
+.ab-html-flipbook .stf__item {
+  overflow: visible !important;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.ab-flip-escape--flipping .ab-html-flipbook,
+.ab-flip-escape--flipping .stf__parent {
+  will-change: transform;
+}
+
+.ab-html-flipbook .stf__outerShadow,
+.ab-html-flipbook .stf__innerShadow,
+.ab-html-flipbook .stf__hardShadow,
+.ab-html-flipbook .stf__hardInnerShadow {
+  z-index: 30;
+  pointer-events: none;
+}
+
+/* Hard-page flip (same curl as cover) for every sheet */
+.ab-html-flipbook .stf__item.--hard {
+  background: #fff;
+}
+
+.ab-html-flipbook .stf__item .ab-flip-page {
+  width: 100%;
+  height: 100%;
+}
+
+.ab-flip-page {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+  overflow: visible;
+  position: relative;
+}
+
+/* Clip photos inside the page only — flip curl extends past the book grid */
+.ab-page-photo-wrap,
+.ab-page-cover-placeholder,
+.ab-page-placeholder {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ab-flip-page--empty {
+  background: #fafafa;
+}
+
+.ab-page-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.ab-page-cover-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(145deg, #f3ebf8 0%, #e8dff0 100%);
+  color: #5a4a66;
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 24px;
+  text-align: center;
+}
+
+.ab-page-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fafafa;
+  color: #bbb;
+  font-size: 14px;
+}
+
+.ab-page-empty {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+
+/* Proof Albums spread grid (images 1 & 2 on left page, 3–5 on right) */
+.ab-flip-page--grid {
+  background: #fff;
+}
+
+.ab-page-grid {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+
+.ab-grid-cell {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: #f5f5f5;
+}
+
+.ab-page-grid--editable {
+  cursor: default;
+}
+
+.ab-grid-cell--interactive {
+  margin: 0;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  text-align: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.ab-grid-cell--interactive:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+  z-index: 4;
+}
+
+.ab-grid-cell--selected {
+  box-shadow: inset 0 0 0 3px #2563eb;
+  z-index: 3;
+}
+
+.ab-page-grid--spread-selected .ab-grid-cell--selected {
+  box-shadow: inset 0 0 0 2px #2563eb;
+}
+
+.ab-grid-cell-add {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 300;
+  color: #aaa;
+  pointer-events: none;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.ab-grid-cell--selected .ab-grid-cell-add {
+  color: #2563eb;
+  background: rgba(37, 99, 235, 0.08);
+}
+
+.ab-page-grid--spread-edit .ab-grid-cell--editing {
+  overflow: visible;
+}
+
+.ab-grid-editable-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ab-grid-cell-photo--editable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.ab-grid-cell-photo--editable:active {
+  cursor: grabbing;
+}
+
+.ab-grid-resize-handle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 2px;
+  background: #2563eb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  cursor: nwse-resize;
+  z-index: 5;
+}
+
+.ab-grid-cell--framed {
+  padding: 3px;
+  background: #fff;
+  box-sizing: border-box;
+}
+
+.ab-grid-cell--framed .ab-grid-cell-photo-wrap {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #f0f0f0;
+}
+
+.ab-grid-cell-photo-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ab-grid-cell-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+/* One image across an open spread (left / right page halves) */
+.ab-grid-cell-photo--spread-left {
+  width: 200%;
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+  object-position: left center;
+}
+
+.ab-grid-cell-photo--spread-right {
+  width: 200%;
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+  margin-left: -100%;
+}
+
+.ab-page-grid--whole-target .ab-grid-cell--whole-unified.ab-grid-cell--selected {
+  box-shadow: inset 0 0 0 3px #2563eb;
+}
+
+.ab-page-grid--whole-target.ab-page-grid--spread-selected {
+  outline: 3px solid #2563eb;
+  outline-offset: -3px;
+}
+
+.ab-grid-cell-placeholder {
+  width: 100%;
+  height: 100%;
+  background: #fafafa;
+}
+
+.ab-grid-cell .ab-badge {
+  z-index: 3;
+}
+
+.ab-page-star {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+  pointer-events: none;
+}
+
+.ab-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: 2px;
+}
+
+.ab-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #555;
+  z-index: 50;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+.ab-nav:hover:not(:disabled) {
+  color: #111;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
+}
+
+.ab-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.ab-nav--prev {
+  left: 4px;
+}
+
+.ab-nav--next {
+  right: 4px;
+}
+
+.ab-spread-controls {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 25;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 6px 12px;
+  border-radius: 3px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.ab-page-counter {
+  font-size: 12px;
+  color: #444;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 768px) {
+  .ab-root {
+    padding: 12px 44px;
+  }
+
+  .ab-book-stage {
+    --ab-flip-pad-x: min(22vw, 120px);
+    --ab-flip-pad-y: 80px;
+  }
+
+  .ab-nav {
+    width: 40px;
+    height: 40px;
+  }
+}
