@@ -7,11 +7,8 @@ import './Homepage.css';
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const buildHomepageUrl = (profile, user) => {
-    let slug = profile?.homepage_slug || profile?.username;
-    if (!slug) {
-        slug = user?.email ? user.email.split('@')[0] : 'poojz';
-    }
-    return `https://${slug.toLowerCase()}.pixnxt.com`;
+    const slug = profile?.homepage_slug || (user?.email ? user.email.split('@')[0] : 'poojz');
+    return `http://${slug.toLowerCase()}.localhost:5173/`;
 };
 
 const formatEventDate = (dateStr) => {
@@ -92,6 +89,18 @@ const Homepage = () => {
             .catch((err) => console.error('Failed to load collections:', err))
             .finally(() => setCollectionsLoading(false));
     }, [user?.id]);
+
+    // ── Sync username from AccountSettings in real-time ──────────────────────
+    useEffect(() => {
+        const handleUsernameChanged = (e) => {
+            const newSlug = e.detail?.slug;
+            if (newSlug) {
+                setProfile((prev) => ({ ...(prev || {}), homepage_slug: newSlug }));
+            }
+        };
+        window.addEventListener('pixnxt:username-changed', handleUsernameChanged);
+        return () => window.removeEventListener('pixnxt:username-changed', handleUsernameChanged);
+    }, []);
 
     // ── Sorted preview collections ───────────────────────────────────────────
     const previewCollections = React.useMemo(() => {
@@ -217,7 +226,9 @@ const Homepage = () => {
 
     // ── View site ─────────────────────────────────────────────────────────────
     const handleViewSite = () => {
-        window.open(buildHomepageUrl(profile, user), '_blank');
+        const slug = profile?.homepage_slug || (user?.email ? user.email.split('@')[0] : 'poojz');
+        const targetUrl = `http://${slug.toLowerCase()}.localhost:5173/`;
+        window.open(targetUrl, '_blank');
     };
 
     // ── Derived display values ────────────────────────────────────────────────
@@ -410,10 +421,7 @@ const Homepage = () => {
                             {/* Homepage Info — which fields to show */}
                             <div className="hp-form-group">
                                 <label className="hp-label">Homepage Info</label>
-                                <div className="hp-info-banner">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                                    <span>These values come from your <a href="/settings">Profile settings</a>. Tick the boxes to show them publicly.</span>
-                                </div>
+
 
                                 <div className="hp-checkbox-list">
                                     <CheckboxItem checked={showBio} onChange={(v) => { setShowBio(v); autoSave({ show_bio: v }, true); }} label="Biography" sublabel={bio ? `"${bio.slice(0, 40)}${bio.length > 40 ? '…' : ''}"` : 'No bio added yet'} />

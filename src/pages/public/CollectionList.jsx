@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { galleryService } from '../../services/gallery.service';
 import { useNavigate } from 'react-router-dom';
+
+const ITEMS_PER_PAGE = 12;
 
 const CollectionList = ({ slug }) => {
   const [profile, setProfile] = useState(null);
@@ -14,7 +16,26 @@ const CollectionList = ({ slug }) => {
   const [passwordInput, setPasswordInput] = useState('');
   const [passwordError, setPasswordError] = useState(false);
   
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const gridRef = useRef(null);
+  
   const navigate = useNavigate();
+
+  // Reset body theme and scroll when navigating back from gallery
+  useEffect(() => {
+    document.body.classList.remove('dark-theme');
+    document.body.style.backgroundColor = '#ffffff';
+    document.documentElement.style.backgroundColor = '#ffffff';
+    window.scrollTo(0, 0);
+    return () => {
+      document.body.style.backgroundColor = '';
+      document.documentElement.style.backgroundColor = '';
+    };
+  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -33,8 +54,6 @@ const CollectionList = ({ slug }) => {
         // Only fetch collections if homepage is enabled
         if (photographerData.homepage_enabled !== false) {
             const collectionsData = await galleryService.getPublicCollections(photographerData.id);
-            
-            // Sort according to homepage_sort setting if needed, but getPublicCollections already sorts by created_at desc
             setCollections(collectionsData || []);
         }
       } catch (err) {
@@ -108,14 +127,64 @@ const CollectionList = ({ slug }) => {
   }
 
   // Derived Info
-  const photographerName = profile.business_name || profile.first_name ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : slug;
-  
+  const photographerName = profile.business_name || (profile.first_name ? `${profile.first_name} ${profile.last_name || ''}`.trim() : slug);
+
+  const filteredCollections = collections
+    .filter(c => c.status === 'published' && c.show_on_homepage !== false)
+    .filter(collection =>
+      collection.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredCollections.length / ITEMS_PER_PAGE);
+  const safePage = Math.min(currentPage, Math.max(1, totalPages));
+  const pagedCollections = filteredCollections.slice(
+    (safePage - 1) * ITEMS_PER_PAGE,
+    safePage * ITEMS_PER_PAGE
+  );
+
+  const goToPage = (page) => {
+    setCurrentPage(page);
+    // Scroll to top of grid smoothly
+    if (gridRef.current) {
+      gridRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Reset to page 1 when search changes — handled inline via safePage
+  const handleSearchChange = (val) => {
+    setSearchQuery(val);
+    setCurrentPage(1);
+  };
+
   return (
     <div className="min-h-screen bg-white text-[#333] font-['Helvetica_Neue',Helvetica,Arial,sans-serif]">
-      {/* Top Navigation (Minimalist with just search icon) */}
-      <nav className="w-full h-20 flex justify-end items-center px-10">
-        <button className="text-gray-400 hover:text-gray-900 transition-colors">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      {/* Top Navigation (Minimalist with working search) */}
+      <nav className="w-full h-20 flex justify-end items-center px-10 relative">
+        <div className={`flex items-center overflow-hidden transition-all duration-300 ${isSearchOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'}`}>
+           <input 
+             type="text" 
+             autoFocus={isSearchOpen}
+             value={searchQuery}
+             onChange={(e) => handleSearchChange(e.target.value)}
+             placeholder="Search collections..." 
+             className="w-full border-b border-gray-300 py-2 outline-none text-sm bg-transparent placeholder-gray-400 focus:border-gray-900 transition-colors mr-4"
+           />
+        </div>
+        <button 
+           onClick={() => {
+              setIsSearchOpen(!isSearchOpen);
+              if (isSearchOpen) handleSearchChange('');
+           }} 
+           className={`${isSearchOpen ? 'text-gray-900' : 'text-gray-400'} hover:text-gray-900 transition-colors z-10 bg-white`}
+        >
+          {isSearchOpen ? (
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          ) : (
+             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          )}
         </button>
       </nav>
 
@@ -184,10 +253,10 @@ const CollectionList = ({ slug }) => {
         )}
       </header>
 
-      {/* Collections Grid (Minimalist Pixieset Style) */}
-      <main className="container mx-auto px-10 pb-32 max-w-7xl">
+      {/* Collections Grid */}
+      <main ref={gridRef} className="container mx-auto px-10 pb-16 max-w-7xl">
         <div className="grid grid-cols-1 gap-x-10 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
-          {collections.map((collection, idx) => (
+          {pagedCollections.map((collection, idx) => (
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -219,9 +288,55 @@ const CollectionList = ({ slug }) => {
           ))}
         </div>
 
-        {collections.length === 0 && (
+        {filteredCollections.length === 0 && (
           <div className="py-20 text-center">
-             <p className="text-[12px] tracking-widest text-[#999] uppercase">No public collections available yet.</p>
+             <p className="text-[12px] tracking-widest text-[#999] uppercase">
+                {collections.length === 0 ? "No public collections available yet." : "No collections match your search."}
+             </p>
+          </div>
+        )}
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="mt-20 mb-8 flex items-center justify-center gap-2">
+            {/* Prev arrow */}
+            <button
+              onClick={() => goToPage(safePage - 1)}
+              disabled={safePage === 1}
+              className="w-9 h-9 flex items-center justify-center text-[#999] hover:text-[#222] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+              aria-label="Previous page"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+
+            {/* Page numbers */}
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <button
+                key={page}
+                onClick={() => goToPage(page)}
+                className={`w-9 h-9 flex items-center justify-center text-[12px] font-bold tracking-[0.08em] transition-colors
+                  ${safePage === page
+                    ? 'text-[#222] border-b-2 border-[#222]'
+                    : 'text-[#bbb] hover:text-[#555]'
+                  }`}
+              >
+                {page}
+              </button>
+            ))}
+
+            {/* Next arrow */}
+            <button
+              onClick={() => goToPage(safePage + 1)}
+              disabled={safePage === totalPages}
+              className="w-9 h-9 flex items-center justify-center text-[#999] hover:text-[#222] disabled:opacity-20 disabled:cursor-not-allowed transition-colors"
+              aria-label="Next page"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
           </div>
         )}
       </main>
