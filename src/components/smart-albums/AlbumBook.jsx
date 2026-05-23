@@ -7,26 +7,35 @@ import './AlbumBook.css';
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
 
 const FLIP_TIME_MS = 800;
+const BOOK_PAGE_HEIGHT_MIN = 300;
+const BOOK_PAGE_HEIGHT_MAX = 520;
+const BOOK_PAGE_HEIGHT_SCALE = 0.93;
 
 function getBookDimensions(stageEl) {
     if (!stageEl) return { width: 480, height: 340 };
     const w = stageEl.clientWidth;
     const h = stageEl.clientHeight;
     const pageWidth = Math.floor(w / 2);
-    const pageHeight = Math.floor(h);
+    const pageHeight = Math.floor(h * BOOK_PAGE_HEIGHT_SCALE);
     return {
         width: Math.max(280, Math.min(520, pageWidth)),
-        height: Math.max(300, Math.min(560, pageHeight)),
+        height: Math.max(BOOK_PAGE_HEIGHT_MIN, Math.min(BOOK_PAGE_HEIGHT_MAX, pageHeight)),
     };
 }
 
 const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
+    const rootRef = useRef(null);
+    const stageOuterRef = useRef(null);
+    const escapeRef = useRef(null);
+    const wrapRef = useRef(null);
+    const prevNavRef = useRef(null);
+    const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
+    const dimsRafRef = useRef(null);
     const [dims, setDims] = useState({ width: 480, height: 340 });
     const [pageIndex, setPageIndex] = useState(initialPage);
-    const [isFlipping, setIsFlipping] = useState(false);
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
     const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true });
@@ -65,7 +74,11 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
 
         const update = () => {
             if (isFlippingRef.current) return;
-            setDims(getBookDimensions(stage));
+            if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
+            dimsRafRef.current = requestAnimationFrame(() => {
+                dimsRafRef.current = null;
+                setDims(getBookDimensions(stage));
+            });
         };
         update();
         const ro = new ResizeObserver(update);
@@ -74,23 +87,46 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
         return () => {
             ro.disconnect();
             window.removeEventListener('resize', update);
+            if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
         };
+    }, []);
+
+    const atStart = spreadIndex <= 0;
+    const atEnd = spreadIndex >= totalSpreads - 1;
+
+    const syncNavDisabled = useCallback(() => {
+        const flipping = isFlippingRef.current;
+        if (prevNavRef.current) prevNavRef.current.disabled = atStart || flipping;
+        if (nextNavRef.current) nextNavRef.current.disabled = atEnd || flipping;
+    }, [atStart, atEnd]);
+
+    const setFlippingUi = useCallback((flipping) => {
+        rootRef.current?.classList.toggle('ab-root--flipping', flipping);
+        stageOuterRef.current?.classList.toggle('ab-book-stage--flipping', flipping);
+        escapeRef.current?.classList.toggle('ab-flip-escape--flipping', flipping);
+        wrapRef.current?.classList.toggle('ab-flipbook-wrap--flipping', flipping);
     }, []);
 
     const handleFlip = useCallback(
         (e) => {
             const idx = e.data;
-            setPageIndex(idx);
-            onPageChange?.(idx);
+            requestAnimationFrame(() => {
+                setPageIndex(idx);
+                onPageChange?.(idx);
+            });
         },
         [onPageChange]
     );
 
-    const handleChangeState = useCallback((e) => {
-        const flipping = e.data === 'flipping';
-        isFlippingRef.current = flipping;
-        setIsFlipping(flipping);
-    }, []);
+    const handleChangeState = useCallback(
+        (e) => {
+            const flipping = e.data === 'flipping';
+            isFlippingRef.current = flipping;
+            setFlippingUi(flipping);
+            syncNavDisabled();
+        },
+        [setFlippingUi, syncNavDisabled]
+    );
 
     const flipPrev = useCallback(() => {
         bookRef.current?.pageFlip?.()?.flipPrev('bottom');
@@ -114,8 +150,9 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
         return () => window.removeEventListener('keydown', onKey);
     }, [flipPrev, flipNext]);
 
-    const atStart = spreadIndex <= 0;
-    const atEnd = spreadIndex >= totalSpreads - 1;
+    useEffect(() => {
+        syncNavDisabled();
+    }, [atStart, atEnd, syncNavDisabled]);
 
     const pages = useMemo(
         () =>
@@ -131,12 +168,13 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
     );
 
     return (
-        <div className={`ab-root${isFlipping ? ' ab-root--flipping' : ''}`}>
+        <div className="ab-root" ref={rootRef}>
             <button
                 type="button"
+                ref={prevNavRef}
                 className="ab-nav ab-nav--prev"
                 onClick={flipPrev}
-                disabled={atStart || isFlipping}
+                disabled={atStart}
                 aria-label="Previous page"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -144,11 +182,12 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
                 </svg>
             </button>
 
-            <div className={`ab-book-stage${isFlipping ? ' ab-book-stage--flipping' : ''}`}>
+            <div className="ab-book-stage" ref={stageOuterRef}>
                 <div className="ab-book-stage-inner" ref={stageRef} aria-hidden="true" />
-                <div className={`ab-flip-escape${isFlipping ? ' ab-flip-escape--flipping' : ''}`}>
+                <div className="ab-flip-escape" ref={escapeRef}>
                 <div
-                    className={`ab-flipbook-wrap${isFlipping ? ' ab-flipbook-wrap--flipping' : ''}`}
+                    className="ab-flipbook-wrap"
+                    ref={wrapRef}
                     style={{ width: dims.width * 2, height: dims.height }}
                 >
                     <HTMLFlipBook
@@ -160,8 +199,8 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
                         size="stretch"
                         minWidth={280}
                         maxWidth={520}
-                        minHeight={300}
-                        maxHeight={560}
+                        minHeight={BOOK_PAGE_HEIGHT_MIN}
+                        maxHeight={BOOK_PAGE_HEIGHT_MAX}
                         drawShadow
                         maxShadowOpacity={0.5}
                         flippingTime={FLIP_TIME_MS}
@@ -194,9 +233,10 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
 
             <button
                 type="button"
+                ref={nextNavRef}
                 className="ab-nav ab-nav--next"
                 onClick={flipNext}
-                disabled={atEnd || isFlipping}
+                disabled={atEnd}
                 aria-label="Next page"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
