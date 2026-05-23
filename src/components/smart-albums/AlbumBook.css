@@ -31,8 +31,9 @@
   perspective-origin: 50% 50%;
   background: #e8e8e8;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
-  overflow: visible;
+  overflow: hidden;
   transform-style: preserve-3d;
+  isolation: isolate;
 }
 
 .ab-spread {
@@ -63,6 +64,16 @@
 .ab-spread .ab-sheet--right {
   transform: none;
   box-shadow: none;
+}
+
+/* Cover sub-pixel gaps at spine and outer edges */
+.ab-spread > .ab-sheet--left {
+  z-index: 2;
+}
+
+.ab-spread > .ab-sheet--right {
+  z-index: 1;
+  margin-left: -1px;
 }
 
 .ab-gutter {

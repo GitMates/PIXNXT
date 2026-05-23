@@ -1,10 +1,36 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { getSampleImageForPage } from './sampleAlbumImages';
 
 function getPageImageSrc(album, pageNum) {
     if (pageNum === 1 && album.cover_image_url) {
         return album.cover_image_url;
     }
-    return null;
+    return getSampleImageForPage(pageNum);
+}
+
+function PagePhoto({ src, pageNum }) {
+    const [useSampleFallback, setUseSampleFallback] = useState(false);
+    const sampleSrc = getSampleImageForPage(pageNum);
+    const displaySrc = useSampleFallback ? sampleSrc : src;
+
+    if (!displaySrc) {
+        return <div className="ab-page-placeholder">Add photos to this spread</div>;
+    }
+
+    return (
+        <img
+            key={displaySrc}
+            src={displaySrc}
+            alt=""
+            className="ab-page-photo"
+            draggable={false}
+            onError={() => {
+                if (!useSampleFallback && sampleSrc && src !== sampleSrc) {
+                    setUseSampleFallback(true);
+                }
+            }}
+        />
+    );
 }
 
 function PageSheet({ album, pageNum, totalPages }) {
@@ -17,11 +43,11 @@ function PageSheet({ album, pageNum, totalPages }) {
     }
 
     const src = getPageImageSrc(album, pageNum);
-    if (src) {
-        return <img src={src} alt="" className="ab-page-photo" draggable={false} />;
+    if (!src) {
+        return <div className="ab-page-placeholder">Add photos to this spread</div>;
     }
 
-    return <div className="ab-page-placeholder">Add photos to this spread</div>;
+    return <PagePhoto src={src} pageNum={pageNum} />;
 }
 
 export function AlbumSpreadPage({ album, pageNum, totalPages, isLeft }) {

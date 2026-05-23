@@ -13,13 +13,15 @@
 .ab-peek-page--left {
   left: 0;
   transform-origin: right center;
-  transform: translateX(-14px) translateZ(-35px) rotateY(2deg);
+  transform: translateZ(-40px) rotateY(2deg);
+  overflow: hidden;
 }
 
 .ab-peek-page--right {
   right: 0;
   transform-origin: left center;
-  transform: translateX(14px) translateZ(-35px) rotateY(-2deg);
+  transform: translateZ(-40px) rotateY(-2deg);
+  overflow: hidden;
 }
 
 .ab-peek-page .ab-sheet--left,
