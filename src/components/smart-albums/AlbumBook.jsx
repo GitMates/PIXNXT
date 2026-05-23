@@ -23,6 +23,7 @@ function getBookDimensions(stageEl) {
 const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
+    const isFlippingRef = useRef(false);
     const [dims, setDims] = useState({ width: 480, height: 340 });
     const [pageIndex, setPageIndex] = useState(initialPage);
     const [isFlipping, setIsFlipping] = useState(false);
@@ -44,6 +45,8 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
     }, [leftNum, rightNum, totalPages]);
 
     useEffect(() => {
+        if (isFlippingRef.current) return;
+
         const api = bookRef.current?.pageFlip?.();
         if (!api) {
             setPageIndex(initialPage);
@@ -60,7 +63,10 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
         const stage = stageRef.current;
         if (!stage) return undefined;
 
-        const update = () => setDims(getBookDimensions(stage));
+        const update = () => {
+            if (isFlippingRef.current) return;
+            setDims(getBookDimensions(stage));
+        };
         update();
         const ro = new ResizeObserver(update);
         ro.observe(stage);
@@ -81,7 +87,9 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
     );
 
     const handleChangeState = useCallback((e) => {
-        setIsFlipping(e.data === 'flipping');
+        const flipping = e.data === 'flipping';
+        isFlippingRef.current = flipping;
+        setIsFlipping(flipping);
     }, []);
 
     const flipPrev = useCallback(() => {
@@ -123,7 +131,7 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
     );
 
     return (
-        <div className="ab-root">
+        <div className={`ab-root${isFlipping ? ' ab-root--flipping' : ''}`}>
             <button
                 type="button"
                 className="ab-nav ab-nav--prev"
@@ -136,8 +144,13 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
                 </svg>
             </button>
 
-            <div className={`ab-book-stage${isFlipping ? ' ab-book-stage--flipping' : ''}`} ref={stageRef}>
-                <div className={`ab-flipbook-wrap${isFlipping ? ' ab-flipbook-wrap--flipping' : ''}`}>
+            <div className={`ab-book-stage${isFlipping ? ' ab-book-stage--flipping' : ''}`}>
+                <div className="ab-book-stage-inner" ref={stageRef} aria-hidden="true" />
+                <div className={`ab-flip-escape${isFlipping ? ' ab-flip-escape--flipping' : ''}`}>
+                <div
+                    className={`ab-flipbook-wrap${isFlipping ? ' ab-flipbook-wrap--flipping' : ''}`}
+                    style={{ width: dims.width * 2, height: dims.height }}
+                >
                     <HTMLFlipBook
                         key={`${album?.id}-${totalPages}`}
                         ref={bookRef}
@@ -154,7 +167,7 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
                         flippingTime={FLIP_TIME_MS}
                         usePortrait={false}
                         useMouseEvents
-                        mobileScrollSupport
+                        mobileScrollSupport={false}
                         showCover
                         showPageCorners
                         disableFlipByClick={false}
@@ -169,6 +182,7 @@ const AlbumBook = ({ album, totalPages, initialPage = 0, onPageChange }) => {
                     >
                         {pages}
                     </HTMLFlipBook>
+                </div>
                 </div>
 
                 <div className="ab-spread-controls">

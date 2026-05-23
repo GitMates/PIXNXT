@@ -10,7 +10,14 @@
   overflow: visible;
 }
 
+.ab-root--flipping {
+  z-index: 80;
+  position: relative;
+}
+
 .ab-book-stage {
+  --ab-flip-pad-y: 160px;
+  --ab-flip-pad-x: min(32vw, 240px);
   position: relative;
   flex: 1;
   display: flex;
@@ -23,39 +30,75 @@
   overflow: visible;
 }
 
-/* Flip curl/shadows render outside the book box (Proof Albums-style) */
-.ab-book-stage--flipping {
-  z-index: 20;
-  overflow: visible;
+/* Sizing grid only — same footprint as before; does not clip the flip */
+.ab-book-stage-inner {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
-.ab-flipbook-wrap {
-  width: 100%;
-  height: 100%;
+.ab-book-stage--flipping {
+  z-index: 20;
+  /* Reach over the viewer top bar (header grid) while turning */
+  --ab-flip-pad-y: calc(56px + 180px);
+}
+
+/*
+ * Paint layer larger than the book grid so curl/shadows draw in the gray area.
+ * Book pixel size comes from ab-flipbook-wrap inline width/height (unchanged).
+ */
+.ab-flip-escape {
+  position: absolute;
+  top: calc(-1 * var(--ab-flip-pad-y));
+  right: calc(-1 * var(--ab-flip-pad-x));
+  bottom: calc(-1 * var(--ab-flip-pad-y));
+  left: calc(-1 * var(--ab-flip-pad-x));
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: visible;
+  pointer-events: none;
+}
+
+.ab-flip-escape > * {
+  pointer-events: auto;
+}
+
+.ab-flip-escape--flipping {
+  z-index: 100;
+}
+
+.ab-flipbook-wrap {
   position: relative;
+  flex: 0 0 auto;
+  overflow: visible;
 }
 
 .ab-flipbook-wrap--flipping {
-  z-index: 25;
-  overflow: visible;
+  z-index: 35;
 }
 
 .ab-html-flipbook {
   margin: 0 auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
-  overflow: visible;
+  overflow: visible !important;
 }
 
-.ab-html-flipbook .stf__parent {
-  margin: 0 auto;
-  overflow: visible;
+.ab-html-flipbook.stf__parent {
+  overflow: visible !important;
+}
+
+.ab-html-flipbook .stf__wrapper {
+  overflow: visible !important;
 }
 
 .ab-html-flipbook .stf__block {
+  overflow: visible !important;
+}
+
+.ab-html-flipbook .stf__item {
   overflow: visible !important;
 }
 
@@ -81,18 +124,21 @@
   width: 100%;
   height: 100%;
   background: #fff;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
+}
+
+/* Clip photos inside the page only — flip curl extends past the book grid */
+.ab-page-photo-wrap,
+.ab-page-cover-placeholder,
+.ab-page-placeholder {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 
 .ab-flip-page--empty {
   background: #fafafa;
-}
-
-.ab-page-photo-wrap {
-  position: relative;
-  width: 100%;
-  height: 100%;
 }
 
 .ab-page-photo {
@@ -183,7 +229,7 @@
   align-items: center;
   justify-content: center;
   color: #555;
-  z-index: 30;
+  z-index: 50;
   transition: background 0.15s, color 0.15s, box-shadow 0.15s;
 }
 
@@ -228,6 +274,11 @@
 @media (max-width: 768px) {
   .ab-root {
     padding: 12px 44px;
+  }
+
+  .ab-book-stage {
+    --ab-flip-pad-x: min(22vw, 120px);
+    --ab-flip-pad-y: 80px;
   }
 
   .ab-nav {
