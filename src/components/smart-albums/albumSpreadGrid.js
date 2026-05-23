@@ -87,13 +87,24 @@ export function isProofRightGridPage(pageNum, { showCover = true } = {}) {
     return pageNum % 2 === 0;
 }
 
-/** Photo index for a grid cell on the current album page. */
-export function getProofCellPhotoIndex(pageNum, cellId, totalPages) {
-    if (cellId === 1 || cellId === 3) return pageNum;
-    if (cellId === 2) return Math.min(pageNum + 1, Math.max(0, totalPages - 1));
-    if (cellId === 4) return Math.min(pageNum + 1, Math.max(0, totalPages - 1));
-    if (cellId === 5) return Math.min(pageNum + 2, Math.max(0, totalPages - 1));
-    return pageNum;
+/** Left page index of the spread that contains `pageNum`. */
+export function getSpreadLeftPageIndex(pageNum, { showCover = true } = {}) {
+    if (pageNum <= 0) return 0;
+    if (showCover) {
+        return pageNum % 2 === 1 ? pageNum : pageNum - 1;
+    }
+    return pageNum % 2 === 0 ? pageNum : pageNum - 1;
+}
+
+/**
+ * Photo index for grid cell 1–5 across the whole spread (left + right page).
+ * Cell 1–2 sit on the left page; 3–5 on the right — indices must not restart at the right page.
+ */
+export function getProofCellPhotoIndex(pageNum, cellId, totalPages, { showCover = true } = {}) {
+    const left = getSpreadLeftPageIndex(pageNum, { showCover });
+    const idx = left + (cellId - 1);
+    const max = Math.max(0, totalPages - 1);
+    return Math.min(Math.max(0, idx), max);
 }
 
 /** Percent-based layout (scales with flipbook page size; book dimensions unchanged). */
