@@ -49,11 +49,16 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         pageNum,
         totalPages,
         editable = false,
+        spreadEdit = false,
+        placementMode = 'single',
+        showSamples = true,
         selectionLeftPage = null,
         selectionMode = null,
         selectedCellId = null,
         onSelectCell,
         onSelectSpread,
+        onTransformChange,
+        transformRevision = 0,
     },
     ref
 ) {
@@ -80,11 +85,16 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     totalPages={totalPages}
                     cells={cells}
                     editable={editable}
+                    spreadEdit={spreadEdit}
+                    placementMode={placementMode}
+                    showSamples={showSamples}
                     selectionLeftPage={selectionLeftPage}
                     selectionMode={selectionMode}
                     selectedCellId={selectedCellId}
                     onSelectCell={onSelectCell}
                     onSelectSpread={onSelectSpread}
+                    onTransformChange={onTransformChange}
+                    transformRevision={transformRevision}
                 />
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
@@ -107,11 +117,16 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     totalPages={totalPages}
                     cells={cells}
                     editable={editable}
+                    spreadEdit={spreadEdit}
+                    placementMode={placementMode}
+                    showSamples={showSamples}
                     selectionLeftPage={selectionLeftPage}
                     selectionMode={selectionMode}
                     selectedCellId={selectedCellId}
                     onSelectCell={onSelectCell}
                     onSelectSpread={onSelectSpread}
+                    onTransformChange={onTransformChange}
+                    transformRevision={transformRevision}
                 />
             </div>
         );

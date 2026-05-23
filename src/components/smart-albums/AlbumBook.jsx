@@ -30,9 +30,14 @@ const AlbumBook = ({
     onPageChange,
     clickToFlip = false,
     editable = false,
+    spreadEdit = false,
+    placementMode = 'single',
+    showSamples = true,
     gridSelection = null,
     onSelectGridCell,
     onSelectGridSpread,
+    onTransformChange,
+    transformRevision = 0,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -173,22 +178,32 @@ const AlbumBook = ({
                     pageNum={pageNum}
                     totalPages={totalPages}
                     editable={editable}
+                    spreadEdit={spreadEdit}
+                    placementMode={placementMode}
+                    showSamples={showSamples}
                     selectionLeftPage={gridSelection?.leftPage ?? null}
                     selectionMode={gridSelection?.mode ?? null}
                     selectedCellId={gridSelection?.cellId ?? null}
                     onSelectCell={onSelectGridCell}
                     onSelectSpread={onSelectGridSpread}
+                    onTransformChange={onTransformChange}
+                    transformRevision={transformRevision}
                 />
             )),
         [
             album,
             totalPages,
             editable,
+            spreadEdit,
+            placementMode,
+            showSamples,
             gridSelection?.leftPage,
             gridSelection?.mode,
             gridSelection?.cellId,
             onSelectGridCell,
             onSelectGridSpread,
+            onTransformChange,
+            transformRevision,
         ]
     );
 

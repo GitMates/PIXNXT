@@ -1,20 +1,19 @@
 import React, { useRef } from 'react';
-import { PROOF_CELL_LABELS } from './albumSpreadGrid';
+import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
 
 const IconGrid = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="3" width="7" height="18" rx="1" />
-        <rect x="14" y="3" width="7" height="8" rx="1" />
-        <rect x="14" y="14" width="3" height="7" rx="1" />
-        <rect x="18" y="14" width="3" height="7" rx="1" />
+        <rect x="3" y="3" width="8" height="18" rx="1" />
+        <rect x="13" y="3" width="8" height="18" rx="1" />
     </svg>
 );
 
-const IconUpload = () => (
+const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-        <polyline points="17 8 12 3 7 8" />
-        <line x1="12" y1="3" x2="12" y2="15" />
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
     </svg>
 );
 
@@ -33,21 +32,24 @@ const IconPages = () => (
 );
 
 const NAV = [
-    { id: 'upload', label: 'Upload photos', icon: IconUpload },
+    { id: 'collections', label: 'Collections', icon: IconCollection },
     { id: 'grid', label: 'Grid layout', icon: IconGrid },
     { id: 'edit', label: 'Edit spreads', icon: IconEdit },
     { id: 'pages', label: 'Pages', icon: IconPages },
 ];
 
-function selectionSummary(gridSelection) {
-    if (!gridSelection?.leftPage) {
-        return 'Flip to an inner spread, then pick a slot on the canvas.';
+function placementHint(gridEditSet, gridSelection, canSelectGrid) {
+    if (!canSelectGrid) {
+        return 'Open an inner spread (not the cover), then choose how to place photos.';
     }
-    if (gridSelection.mode === 'cell' && gridSelection.cellId) {
-        const label = PROOF_CELL_LABELS[gridSelection.cellId] || `Slot ${gridSelection.cellId}`;
-        return `Slot ${gridSelection.cellId} · ${label}`;
+    if (gridEditSet === 'whole') {
+        return 'Whole grid — click the spread, then one collection photo fills both pages.';
     }
-    return 'Whole spread · all 5 photo slots';
+    if (gridSelection?.mode === 'cell' && gridSelection.cellId) {
+        const label = PROOF_CELL_LABELS[gridSelection.cellId] || '';
+        return `Single slot ${gridSelection.cellId}${label ? ` · ${label}` : ''}`;
+    }
+    return 'Single slot — click a slot on the spread, then pick a collection photo.';
 }
 
 export default function AlbumEditorSidebar({
@@ -55,18 +57,23 @@ export default function AlbumEditorSidebar({
     onPanelChange,
     album,
     totalPages,
-    onUploadFiles,
+    collectionItems = [],
+    onUploadToCollection,
+    onPlaceCollectionItem,
+    onClearAllPhotos,
     uploading = false,
+    gridEditSet = 'single',
+    onGridEditSetChange,
     gridSelection = null,
-    onSelectWholeSpread,
     onSelectCell,
+    onSelectWholeSpread,
     canSelectGrid = false,
 }) {
     const fileRef = useRef(null);
 
     const handleFiles = (e) => {
         const files = Array.from(e.target.files || []);
-        if (files.length) onUploadFiles?.(files);
+        if (files.length) onUploadToCollection?.(files);
         e.target.value = '';
     };
 
@@ -75,7 +82,7 @@ export default function AlbumEditorSidebar({
             <div className="ae-sidebar-head">
                 <p className="ae-sidebar-label">Album studio</p>
                 <h2 className="ae-sidebar-title">{album?.name || 'Album'}</h2>
-                <p className="ae-sidebar-meta">{totalPages} pages · Proof-style grid</p>
+                <p className="ae-sidebar-meta">{totalPages} pages · 2-photo spread</p>
             </div>
 
             <nav className="ae-nav" aria-label="Editor tools">
@@ -95,19 +102,16 @@ export default function AlbumEditorSidebar({
             </nav>
 
             <div className="ae-panel">
-                {activePanel === 'upload' && (
+                {activePanel === 'collections' && (
                     <>
-                        <h3 className="ae-panel-title">Upload to grid</h3>
+                        <h3 className="ae-panel-title">Collections</h3>
                         <p className="ae-panel-text">
-                            {canSelectGrid
-                                ? 'Photos go into the selected slot or spread below. Click the canvas to change the target.'
-                                : 'Open an inner spread in the editor, then choose a slot or the whole grid.'}
+                            Uploads are saved here. Set placement in Grid layout, then click a photo to
+                            add it to the spread.
                         </p>
-                        {canSelectGrid && (
-                            <p className="ae-selection-badge" role="status">
-                                {selectionSummary(gridSelection)}
-                            </p>
-                        )}
+                        <p className="ae-selection-badge" role="status">
+                            {placementHint(gridEditSet, gridSelection, canSelectGrid)}
+                        </p>
                         <input
                             ref={fileRef}
                             type="file"
@@ -118,14 +122,29 @@ export default function AlbumEditorSidebar({
                         />
                         <button
                             type="button"
-                            className="ae-upload-zone"
+                            className="ae-upload-zone ae-upload-zone--compact"
                             disabled={uploading}
                             onClick={() => fileRef.current?.click()}
                         >
-                            <IconUpload />
-                            <span>{uploading ? 'Uploading…' : 'Choose photos'}</span>
-                            <span className="ae-upload-hint">JPG, PNG · multiple files</span>
+                            <span>{uploading ? 'Uploading…' : 'Add to collection'}</span>
                         </button>
+                        {collectionItems.length === 0 ? (
+                            <p className="ae-panel-text ae-panel-text--muted">No photos yet.</p>
+                        ) : (
+                            <div className="ae-collection-grid" role="list">
+                                {collectionItems.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        className="ae-collection-thumb"
+                                        onClick={() => onPlaceCollectionItem?.(item.id)}
+                                        title={item.name}
+                                    >
+                                        <img src={item.dataUrl} alt="" />
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </>
                 )}
 
@@ -133,50 +152,60 @@ export default function AlbumEditorSidebar({
                     <>
                         <h3 className="ae-panel-title">Grid layout</h3>
                         <p className="ae-panel-text">
-                            Click a photo slot on the spread, or select the whole grid. Then upload to fill
-                            that slot or all five slots in order.
+                            Choose how photos from your collection are placed on the current spread.
                         </p>
-                        {canSelectGrid ? (
-                            <>
-                                <p className="ae-selection-badge" role="status">
-                                    {selectionSummary(gridSelection)}
-                                </p>
-                                <div className="ae-slot-picker">
+                        <div className="ae-edit-set">
+                            <button
+                                type="button"
+                                className={`ae-edit-set-btn${
+                                    gridEditSet === 'single' ? ' ae-edit-set-btn--active' : ''
+                                }`}
+                                onClick={() => onGridEditSetChange?.('single')}
+                            >
+                                Single slot
+                            </button>
+                            <button
+                                type="button"
+                                className={`ae-edit-set-btn${
+                                    gridEditSet === 'whole' ? ' ae-edit-set-btn--active' : ''
+                                }`}
+                                onClick={() => onGridEditSetChange?.('whole')}
+                            >
+                                Whole grid
+                            </button>
+                        </div>
+                        {canSelectGrid && gridEditSet === 'single' && (
+                            <div className="ae-slot-picker ae-slot-picker--compact">
+                                {Array.from({ length: PROOF_SLOT_COUNT }, (_, i) => i + 1).map((id) => (
                                     <button
+                                        key={id}
                                         type="button"
-                                        className={`ae-slot-btn ae-slot-btn--all${
-                                            gridSelection?.mode === 'spread' ? ' ae-slot-btn--active' : ''
+                                        className={`ae-slot-btn${
+                                            gridSelection?.mode === 'cell' &&
+                                            gridSelection?.cellId === id
+                                                ? ' ae-slot-btn--active'
+                                                : ''
                                         }`}
-                                        onClick={() => onSelectWholeSpread?.()}
+                                        onClick={() => onSelectCell?.(id)}
                                     >
-                                        Whole spread
+                                        {id}
                                     </button>
-                                    {[1, 2, 3, 4, 5].map((id) => (
-                                        <button
-                                            key={id}
-                                            type="button"
-                                            className={`ae-slot-btn${
-                                                gridSelection?.mode === 'cell' &&
-                                                gridSelection?.cellId === id
-                                                    ? ' ae-slot-btn--active'
-                                                    : ''
-                                            }`}
-                                            onClick={() => onSelectCell?.(id)}
-                                        >
-                                            {id}
-                                        </button>
-                                    ))}
-                                </div>
-                                <ul className="ae-panel-list ae-panel-list--compact">
-                                    <li>1–2: left page</li>
-                                    <li>3–5: right page (hero + thumbnails)</li>
-                                </ul>
-                            </>
-                        ) : (
+                                ))}
+                            </div>
+                        )}
+                        {canSelectGrid && gridEditSet === 'whole' && (
                             <p className="ae-panel-text ae-panel-text--muted">
-                                Use the arrows to open an inner spread (not the cover), then select slots.
+                                Click either page on the spread to select it, then choose one photo from
+                                Collections.
                             </p>
                         )}
+                        <button
+                            type="button"
+                            className="ae-btn-clear"
+                            onClick={() => onClearAllPhotos?.()}
+                        >
+                            Remove all images from album
+                        </button>
                     </>
                 )}
 
@@ -184,11 +213,11 @@ export default function AlbumEditorSidebar({
                     <>
                         <h3 className="ae-panel-title">Edit spreads</h3>
                         <p className="ae-panel-text">
-                            Click grid slots on the canvas to choose where uploads go. Change spreads with
-                            the arrow buttons or keyboard.
+                            Drag a photo to reposition it inside its slot. Use the corner handle to resize
+                            (zoom). Change spreads with the arrows or keyboard.
                         </p>
                         <p className="ae-panel-text ae-panel-text--muted">
-                            Open Preview to see exactly what clients will receive.
+                            Only slots with placed photos can be adjusted.
                         </p>
                     </>
                 )}

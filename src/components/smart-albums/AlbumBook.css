@@ -271,6 +271,40 @@
   background: rgba(37, 99, 235, 0.08);
 }
 
+.ab-page-grid--spread-edit .ab-grid-cell--editing {
+  overflow: visible;
+}
+
+.ab-grid-editable-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ab-grid-cell-photo--editable {
+  cursor: grab;
+  touch-action: none;
+}
+
+.ab-grid-cell-photo--editable:active {
+  cursor: grabbing;
+}
+
+.ab-grid-resize-handle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 2px solid #fff;
+  border-radius: 2px;
+  background: #2563eb;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  cursor: nwse-resize;
+  z-index: 5;
+}
+
 .ab-grid-cell--framed {
   padding: 3px;
   background: #fff;
@@ -297,6 +331,33 @@
   display: block;
   user-select: none;
   -webkit-user-drag: none;
+}
+
+/* One image across an open spread (left / right page halves) */
+.ab-grid-cell-photo--spread-left {
+  width: 200%;
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+  object-position: left center;
+}
+
+.ab-grid-cell-photo--spread-right {
+  width: 200%;
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+  object-position: right center;
+  margin-left: -100%;
+}
+
+.ab-page-grid--whole-target .ab-grid-cell--whole-unified.ab-grid-cell--selected {
+  box-shadow: inset 0 0 0 3px #2563eb;
+}
+
+.ab-page-grid--whole-target.ab-page-grid--spread-selected {
+  outline: 3px solid #2563eb;
+  outline-offset: -3px;
 }
 
 .ab-grid-cell-placeholder {

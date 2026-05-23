@@ -342,6 +342,92 @@
   color: #777;
 }
 
+.ae-edit-set {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ae-edit-set-btn {
+  padding: 12px 10px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #444;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.ae-edit-set-btn:hover {
+  border-color: #999;
+  background: #f8f9fb;
+}
+
+.ae-edit-set-btn--active {
+  border-color: #2563eb;
+  background: #eef4ff;
+  color: #1e40af;
+}
+
+.ae-btn-clear {
+  width: 100%;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1px solid #e5b4b4;
+  border-radius: 8px;
+  background: #fff5f5;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b42318;
+  cursor: pointer;
+}
+
+.ae-btn-clear:hover {
+  background: #fee;
+}
+
+.ae-collection-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 12px;
+  max-height: min(50vh, 420px);
+  overflow-y: auto;
+}
+
+.ae-collection-thumb {
+  aspect-ratio: 1;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #eee;
+}
+
+.ae-collection-thumb:hover {
+  border-color: #2563eb;
+}
+
+.ae-collection-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ae-upload-zone--compact {
+  padding: 14px 16px;
+  margin-bottom: 4px;
+}
+
+.ae-slot-picker--compact {
+  margin-bottom: 12px;
+}
+
 /* Canvas */
 .ae-canvas {
   flex: 1;
