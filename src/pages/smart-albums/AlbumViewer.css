@@ -109,3 +109,29 @@
   justify-content: center;
   color: #666;
 }
+
+.av-page--preview {
+  background: #ebebeb;
+}
+
+.av-topbar--preview .av-topbar-right {
+  gap: 8px;
+}
+
+.av-btn-ghost {
+  height: 34px;
+  padding: 0 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #444;
+  background: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.av-btn-ghost:hover {
+  background: #eee;
+  color: #111;
+}

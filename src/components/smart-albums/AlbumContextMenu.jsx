@@ -22,7 +22,14 @@ const IconTrash = () => (
   </svg>
 );
 
-export function AlbumContextMenu({ menuRef, anchorEl, variant = 'grid', onMoveTo, onDuplicate, onDelete }) {
+const IconPreview = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+export function AlbumContextMenu({ menuRef, anchorEl, variant = 'grid', onPreview, onMoveTo, onDuplicate, onDelete }) {
   const menuLayout = useContextMenuPortalLayout(anchorEl, variant);
 
   const run = (fn) => (e) => {
@@ -40,6 +47,12 @@ export function AlbumContextMenu({ menuRef, anchorEl, variant = 'grid', onMoveTo
       onClick={(e) => e.stopPropagation()}
       role="menu"
     >
+      {onPreview && (
+        <button type="button" className="cg-ctx-item" onClick={run(onPreview)}>
+          <IconPreview />
+          Preview album
+        </button>
+      )}
       <button type="button" className="cg-ctx-item" onClick={run(onMoveTo)}>
         <IconMove />
         Move to

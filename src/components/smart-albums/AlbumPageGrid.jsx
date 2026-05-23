@@ -54,7 +54,6 @@ export default function AlbumPageGrid({ album, pageNum, totalPages, cells }) {
                             height: cell.height,
                         }}
                     >
-                        <span className="ab-badge">{cell.id}</span>
                         <div className="ab-grid-cell-photo-wrap">
                             <GridPhoto src={src} pageNum={photoIndex} />
                         </div>

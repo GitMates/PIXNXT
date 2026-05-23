@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getPagePhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import AlbumPageGrid from './AlbumPageGrid';
 import {
@@ -9,6 +10,8 @@ import {
 } from './albumSpreadGrid';
 
 function getPageImageSrc(album, pageNum) {
+    const override = getPagePhotoOverride(album?.id, pageNum);
+    if (override) return override;
     if (pageNum === 1 && album.cover_image_url) {
         return album.cover_image_url;
     }
@@ -79,11 +82,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage({ album, pageNum, 
         );
     }
 
-    const showBadge = pageNum > 0;
-
     return (
         <div className="ab-flip-page" ref={ref} data-density="hard">
-            {showBadge && <span className="ab-badge">{pageNum}</span>}
             <div className="ab-page-photo-wrap">
                 {src ? (
                     <PagePhoto src={src} pageNum={pageNum} />

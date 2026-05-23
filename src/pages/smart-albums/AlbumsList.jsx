@@ -165,6 +165,10 @@ const AlbumsList = ({ starredOnly = false }) => {
             <AlbumContextMenu
                 menuRef={contextRef}
                 anchorEl={contextMenuAnchor}
+                onPreview={() => {
+                    closeContextMenu();
+                    navigate(`/smart-albums/album/${album.id}?view=preview`);
+                }}
                 onMoveTo={handleMoveTo}
                 onDuplicate={() => handleDuplicateAlbum(album)}
                 onDelete={() => handleDeleteAlbum(album)}
