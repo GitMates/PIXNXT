@@ -33,6 +33,7 @@ const AlbumBook = ({
     spreadEdit = false,
     placementMode = 'single',
     showSamples = true,
+    previewMode = false,
     gridSelection = null,
     onSelectGridCell,
     onSelectGridSpread,
@@ -181,6 +182,7 @@ const AlbumBook = ({
                     spreadEdit={spreadEdit}
                     placementMode={placementMode}
                     showSamples={showSamples}
+                    previewMode={previewMode}
                     selectionLeftPage={gridSelection?.leftPage ?? null}
                     selectionMode={gridSelection?.mode ?? null}
                     selectedCellId={gridSelection?.cellId ?? null}
@@ -197,6 +199,7 @@ const AlbumBook = ({
             spreadEdit,
             placementMode,
             showSamples,
+            previewMode,
             gridSelection?.leftPage,
             gridSelection?.mode,
             gridSelection?.cellId,
@@ -208,7 +211,7 @@ const AlbumBook = ({
     );
 
     return (
-        <div className="ab-root" ref={rootRef}>
+        <div className={`ab-root${previewMode ? ' ab-root--preview' : ''}`} ref={rootRef}>
             <button
                 type="button"
                 ref={prevNavRef}

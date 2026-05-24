@@ -402,6 +402,31 @@ export const smartAlbumsService = {
 
 
 
+  async updateAlbumPageCount(photographerId, albumId, pageCount) {
+    const count = Math.max(1, Math.min(99, Math.floor(Number(pageCount) || 21)));
+
+    const { data, error } = await supabase
+      .from('smart_albums')
+      .update({ page_count: count, updated_at: new Date().toISOString() })
+      .eq('photographer_id', photographerId)
+      .eq('id', albumId)
+      .select()
+      .single();
+
+    if (!error && data) {
+      return mapAlbumRow(data, photographerId);
+    }
+
+    if (error && shouldUseLocalStore(error)) {
+      const updated = updateLocalAlbum(photographerId, albumId, { page_count: count });
+      if (updated) return updated;
+    }
+
+    const album = await this.getAlbum(photographerId, albumId);
+    if (!album) throw new Error('Album not found');
+    return { ...album, page_count: count };
+  },
+
   async updateAlbumStar(photographerId, albumId, isStarred) {
 
     writeStarredOverride(photographerId, albumId, isStarred);

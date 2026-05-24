@@ -1,30 +1,46 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { getPagePhotoTransform, setPagePhotoTransform } from './albumPageTransforms';
+import {
+    getPagePhotoTransform,
+    getSpreadPhotoTransform,
+    setPagePhotoTransform,
+    setSpreadPhotoTransform,
+} from './albumPageTransforms';
 
 export default function EditableGridPhoto({
     albumId,
     pageNum,
+    spreadLeftPage = null,
+    panoramic = null,
     src,
     transformRevision = 0,
     onTransformChange,
 }) {
     const wrapRef = useRef(null);
     const liveRef = useRef(null);
-    const [transform, setTransform] = useState(() =>
-        getPagePhotoTransform(albumId, pageNum)
-    );
+    const isSpread = panoramic != null && spreadLeftPage != null;
+
+    const readTransform = useCallback(() => {
+        if (isSpread) return getSpreadPhotoTransform(albumId, spreadLeftPage);
+        return getPagePhotoTransform(albumId, pageNum);
+    }, [albumId, pageNum, spreadLeftPage, isSpread]);
+
+    const [transform, setTransform] = useState(readTransform);
 
     useEffect(() => {
-        setTransform(getPagePhotoTransform(albumId, pageNum));
-    }, [albumId, pageNum, transformRevision]);
+        setTransform(readTransform());
+    }, [readTransform, transformRevision]);
 
     const persist = useCallback(
         (next) => {
             setTransform(next);
-            setPagePhotoTransform(albumId, pageNum, next);
+            if (isSpread) {
+                setSpreadPhotoTransform(albumId, spreadLeftPage, next);
+            } else {
+                setPagePhotoTransform(albumId, pageNum, next);
+            }
             onTransformChange?.();
         },
-        [albumId, pageNum, onTransformChange]
+        [albumId, pageNum, spreadLeftPage, isSpread, onTransformChange]
     );
 
     const updateLocal = useCallback((next) => {
@@ -62,14 +78,19 @@ export default function EditableGridPhoto({
         window.addEventListener('pointerup', onUp);
     };
 
-    const startResize = (e) => {
+    const startEdgeResize = (edge) => (e) => {
         e.preventDefault();
         e.stopPropagation();
+        const startX = e.clientX;
         const startY = e.clientY;
         const base = { ...transform };
 
         const onMove = (ev) => {
-            const delta = (startY - ev.clientY) * 0.008;
+            let delta = 0;
+            if (edge === 'n') delta = (startY - ev.clientY) * 0.008;
+            else if (edge === 's') delta = (ev.clientY - startY) * 0.008;
+            else if (edge === 'e') delta = (ev.clientX - startX) * 0.008;
+            else if (edge === 'w') delta = (startX - ev.clientX) * 0.008;
             const next = {
                 ...base,
                 scale: Math.max(0.5, Math.min(3, base.scale + delta)),
@@ -92,24 +113,34 @@ export default function EditableGridPhoto({
         return <div className="ab-grid-cell-placeholder" />;
     }
 
+    const panoClass =
+        panoramic === 'left'
+            ? ' ab-grid-cell-photo--spread-left'
+            : panoramic === 'right'
+              ? ' ab-grid-cell-photo--spread-right'
+              : '';
+
     return (
-        <div className="ab-grid-editable-wrap" ref={wrapRef}>
+        <div className="ab-grid-editable-wrap ab-grid-editable-wrap--active" ref={wrapRef}>
             <img
                 src={src}
                 alt=""
-                className="ab-grid-cell-photo ab-grid-cell-photo--editable"
+                className={`ab-grid-cell-photo ab-grid-cell-photo--editable${panoClass}`}
                 draggable={false}
                 style={{
                     transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,
                 }}
                 onPointerDown={startPan}
             />
-            <button
-                type="button"
-                className="ab-grid-resize-handle"
-                aria-label="Resize photo"
-                onPointerDown={startResize}
-            />
+            {['n', 'e', 's', 'w'].map((edge) => (
+                <div
+                    key={edge}
+                    className={`ab-grid-edge-handle ab-grid-edge-handle--${edge}`}
+                    role="presentation"
+                    onPointerDown={startEdgeResize(edge)}
+                />
+            ))}
+            <span className="ab-grid-edit-hint">Drag to move · edges to zoom</span>
         </div>
     );
 }

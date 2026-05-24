@@ -19,6 +19,36 @@ function writeAll(data) {
     }
 }
 
+function spreadTransformKey(leftPage) {
+    return `spread:${leftPage}`;
+}
+
+export function getSpreadPhotoTransform(albumId, leftPage) {
+    if (!albumId || leftPage == null) return { ...DEFAULT };
+    const album = readAll()[albumId];
+    const t = album?.[spreadTransformKey(leftPage)];
+    if (!t) return { ...DEFAULT };
+    return {
+        x: Number(t.x) || 0,
+        y: Number(t.y) || 0,
+        scale: Math.max(0.5, Math.min(3, Number(t.scale) || 1)),
+    };
+}
+
+export function setSpreadPhotoTransform(albumId, leftPage, transform) {
+    if (!albumId || leftPage == null) return;
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    album[spreadTransformKey(leftPage)] = {
+        x: transform.x ?? 0,
+        y: transform.y ?? 0,
+        scale: Math.max(0.5, Math.min(3, transform.scale ?? 1)),
+    };
+    album.__revision = (album.__revision || 0) + 1;
+    all[albumId] = album;
+    writeAll(all);
+}
+
 export function getPagePhotoTransform(albumId, pageNum) {
     if (!albumId || pageNum == null) return { ...DEFAULT };
     const album = readAll()[albumId];

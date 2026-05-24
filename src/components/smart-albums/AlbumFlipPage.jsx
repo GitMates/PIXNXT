@@ -9,22 +9,22 @@ import {
     isProofRightGridPage,
 } from './albumSpreadGrid';
 
-function getPageImageSrc(album, pageNum) {
+function getPageImageSrc(album, pageNum, showSamples) {
     const override = getPagePhotoOverride(album?.id, pageNum);
     if (override) return override;
-    if (pageNum === 1 && album.cover_image_url) {
+    if (pageNum === 0 && album.cover_image_url) {
         return album.cover_image_url;
     }
-    return getSampleImageForPage(pageNum);
+    return showSamples ? getSampleImageForPage(pageNum) : null;
 }
 
-function PagePhoto({ src, pageNum }) {
+function PagePhoto({ src, pageNum, showSamples }) {
     const [useSampleFallback, setUseSampleFallback] = useState(false);
-    const sampleSrc = getSampleImageForPage(pageNum);
+    const sampleSrc = showSamples ? getSampleImageForPage(pageNum) : null;
     const displaySrc = useSampleFallback ? sampleSrc : src;
 
     if (!displaySrc) {
-        return <div className="ab-page-placeholder">Add photos to this spread</div>;
+        return <div className="ab-page-placeholder" />;
     }
 
     return (
@@ -46,12 +46,14 @@ function PagePhoto({ src, pageNum }) {
 const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     {
         album,
+        albumId: albumIdProp,
         pageNum,
         totalPages,
         editable = false,
         spreadEdit = false,
         placementMode = 'single',
         showSamples = true,
+        previewMode = false,
         selectionLeftPage = null,
         selectionMode = null,
         selectedCellId = null,
@@ -70,9 +72,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         );
     }
 
+    const albumId = albumIdProp ?? album?.id;
     const useLeftGrid = isProofLeftGridPage(pageNum);
     const useRightGrid = isProofRightGridPage(pageNum);
-    const src = getPageImageSrc(album, pageNum);
+    const src = getPageImageSrc(album, pageNum, showSamples);
     const showStar = pageNum === 1 && album.is_starred;
 
     if (useLeftGrid) {
@@ -81,6 +84,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             <div className="ab-flip-page ab-flip-page--grid" ref={ref} data-density="hard">
                 <AlbumPageGrid
                     album={album}
+                    albumId={albumId}
                     pageNum={pageNum}
                     totalPages={totalPages}
                     cells={cells}
@@ -88,6 +92,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     spreadEdit={spreadEdit}
                     placementMode={placementMode}
                     showSamples={showSamples}
+                    previewMode={previewMode}
                     selectionLeftPage={selectionLeftPage}
                     selectionMode={selectionMode}
                     selectedCellId={selectedCellId}
@@ -113,6 +118,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             <div className="ab-flip-page ab-flip-page--grid" ref={ref} data-density="hard">
                 <AlbumPageGrid
                     album={album}
+                    albumId={albumId}
                     pageNum={pageNum}
                     totalPages={totalPages}
                     cells={cells}
@@ -120,6 +126,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     spreadEdit={spreadEdit}
                     placementMode={placementMode}
                     showSamples={showSamples}
+                    previewMode={previewMode}
                     selectionLeftPage={selectionLeftPage}
                     selectionMode={selectionMode}
                     selectedCellId={selectedCellId}
@@ -136,7 +143,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         <div className="ab-flip-page" ref={ref} data-density="hard">
             <div className="ab-page-photo-wrap">
                 {src ? (
-                    <PagePhoto src={src} pageNum={pageNum} />
+                    <PagePhoto src={src} pageNum={pageNum} showSamples={showSamples} />
                 ) : pageNum === 0 ? (
                     <div className="ab-page-cover-placeholder">
                         <span>{album.name}</span>

@@ -17,14 +17,7 @@ function writeAll(data) {
     }
 }
 
-function readFileAsDataUrl(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
+import { expandUploadFilesToImages } from '../../lib/pdfToImages';
 
 function nextId() {
     return `c_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
@@ -46,22 +39,18 @@ export async function addFilesToAlbumCollection(albumId, files) {
 
     const all = readAll();
     const bucket = { ...(all[albumId] || {}), items: [...(all[albumId]?.items || [])] };
-    const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+    const expanded = await expandUploadFilesToImages(files);
     const added = [];
 
-    for (const file of imageFiles) {
-        try {
-            const item = {
-                id: nextId(),
-                name: file.name || 'Photo',
-                dataUrl: await readFileAsDataUrl(file),
-                createdAt: Date.now(),
-            };
-            bucket.items.push(item);
-            added.push(item);
-        } catch (e) {
-            console.warn('Skip file', file.name, e);
-        }
+    for (const { name, dataUrl } of expanded) {
+        const item = {
+            id: nextId(),
+            name: name || 'Photo',
+            dataUrl,
+            createdAt: Date.now(),
+        };
+        bucket.items.push(item);
+        added.push(item);
     }
 
     bucket.__revision = (bucket.__revision || 0) + 1;

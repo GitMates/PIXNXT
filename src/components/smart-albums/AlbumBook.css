@@ -256,14 +256,41 @@
   position: absolute;
   inset: 0;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-  font-weight: 300;
-  color: #aaa;
+  gap: 6px;
   pointer-events: none;
   z-index: 2;
-  background: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.5);
+  transition: background 0.2s ease;
+}
+
+.ab-grid-cell--interactive:hover .ab-grid-cell-add {
+  background: rgba(238, 244, 255, 0.85);
+}
+
+.ab-grid-cell-add-icon {
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1;
+  color: #2563eb;
+}
+
+.ab-grid-cell-add-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e40af;
+  letter-spacing: 0.02em;
+}
+
+.ab-grid-cell--interactive {
+  transition: box-shadow 0.18s ease, transform 0.12s ease;
+}
+
+.ab-grid-cell--interactive:hover {
+  transform: scale(1.005);
+  z-index: 2;
 }
 
 .ab-grid-cell--selected .ab-grid-cell-add {
@@ -290,19 +317,71 @@
   cursor: grabbing;
 }
 
-.ab-grid-resize-handle {
+.ab-grid-edge-handle {
   position: absolute;
-  right: 4px;
-  bottom: 4px;
-  width: 14px;
-  height: 14px;
-  padding: 0;
-  border: 2px solid #fff;
-  border-radius: 2px;
-  background: #2563eb;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
-  cursor: nwse-resize;
   z-index: 5;
+  touch-action: none;
+}
+
+.ab-grid-edge-handle--n {
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: ns-resize;
+}
+
+.ab-grid-edge-handle--s {
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: ns-resize;
+}
+
+.ab-grid-edge-handle--e {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: ew-resize;
+}
+
+.ab-grid-edge-handle--w {
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 12px;
+  cursor: ew-resize;
+}
+
+.ab-grid-edit-hint {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 4;
+  white-space: nowrap;
+}
+
+.ab-grid-editable-wrap--active:hover .ab-grid-edit-hint {
+  opacity: 1;
+}
+
+.ab-page-grid--spread-edit .ab-grid-cell--editing {
+  outline: 2px solid rgba(37, 99, 235, 0.45);
+  outline-offset: -2px;
 }
 
 .ab-grid-cell--framed {
@@ -358,6 +437,36 @@
 .ab-page-grid--whole-target.ab-page-grid--spread-selected {
   outline: 3px solid #2563eb;
   outline-offset: -3px;
+}
+
+/* Client preview — same 2-slot grid as editor, no stock photos */
+.ab-root--preview {
+  padding: 8px 24px;
+}
+
+.ab-page-grid--preview {
+  background: #fff;
+}
+
+.ab-page-grid--preview .ab-grid-cell {
+  background: #f7f8fa;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.ab-page-grid--preview .ab-grid-cell-placeholder,
+.ab-page-grid--preview .ab-grid-cell-empty {
+  background: #f0f1f3;
+}
+
+.ab-page-grid--preview .ab-grid-cell-empty {
+  position: absolute;
+  inset: 0;
+  display: block;
+  pointer-events: none;
+}
+
+.ab-flip-page--grid .ab-page-placeholder {
+  background: #f7f8fa;
 }
 
 .ab-grid-cell-placeholder {

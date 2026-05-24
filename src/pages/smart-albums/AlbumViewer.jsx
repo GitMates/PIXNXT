@@ -21,7 +21,12 @@ const AlbumViewer = () => {
         initialPage,
         isPreview,
         handlePageChange,
+        changePageCount,
+        spreadCount,
         setView,
+        minPages,
+        maxPages,
+        pagesPerSpread,
     } = useAlbumWorkspace();
 
     useEffect(() => {
@@ -77,6 +82,11 @@ const AlbumViewer = () => {
             onPhotosUploaded={() =>
                 setPhotoRevision(getAlbumPhotoRevision(albumId) || Date.now())
             }
+            spreadCount={spreadCount}
+            onChangePageCount={changePageCount}
+            minPages={minPages}
+            maxPages={maxPages}
+            pagesPerSpread={pagesPerSpread}
         />
     );
 };

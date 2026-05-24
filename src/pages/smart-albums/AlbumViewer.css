@@ -111,7 +111,11 @@
 }
 
 .av-page--preview {
-  background: #ebebeb;
+  background: #e8e9ec;
+}
+
+.av-page--preview .av-viewer-body {
+  background: #e8e9ec;
 }
 
 .av-topbar--preview .av-topbar-right {

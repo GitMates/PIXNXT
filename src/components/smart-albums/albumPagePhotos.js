@@ -1,3 +1,5 @@
+import { expandUploadFilesToImages } from '../../lib/pdfToImages';
+
 const STORAGE_KEY = 'pixnxt_album_page_photos';
 
 function readAll() {
@@ -54,15 +56,6 @@ export function getAlbumPhotoRevision(albumId) {
     return album?.__revision ?? 0;
 }
 
-function readFileAsDataUrl(file) {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-    });
-}
-
 /**
  * Assign uploaded images to album pages.
  * Pass `targets` (page indices) to fill specific grid slots; otherwise sequential from startPage.
@@ -76,21 +69,19 @@ export async function assignPhotosFromFiles(
 
     const all = readAll();
     const album = { ...(all[albumId] || {}) };
-    const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+    const images = await expandUploadFilesToImages(files);
     const pageQueue =
-        targets?.length > 0
-            ? targets
-            : imageFiles.map((_, i) => startPage + i);
+        targets?.length > 0 ? targets : images.map((_, i) => startPage + i);
     let assigned = 0;
 
-    for (let i = 0; i < imageFiles.length; i++) {
+    for (let i = 0; i < images.length; i++) {
         const page = pageQueue[i];
         if (page == null || page < 0 || page >= totalPages) break;
         try {
-            album[String(page)] = await readFileAsDataUrl(imageFiles[i]);
+            album[String(page)] = images[i].dataUrl;
             assigned += 1;
         } catch (e) {
-            console.warn('Skip file', imageFiles[i].name, e);
+            console.warn('Skip image', images[i]?.name, e);
         }
     }
 

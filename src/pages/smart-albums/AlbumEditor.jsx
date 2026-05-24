@@ -2,11 +2,14 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
+import CollectionPickerModal from '../../components/smart-albums/CollectionPickerModal';
 import {
     addFilesToAlbumCollection,
     getAlbumCollection,
+    getAlbumCollectionRevision,
     getCollectionItem,
 } from '../../components/smart-albums/albumCollection';
+import { isPdfFile } from '../../lib/pdfToImages';
 import {
     clearAllAlbumPagePhotos,
     getAlbumPhotoRevision,
@@ -16,6 +19,7 @@ import {
 import { clearAlbumTransforms, getTransformRevision } from '../../components/smart-albums/albumPageTransforms';
 import {
     getProofCellPhotoIndex,
+    PROOF_CELL_LABELS,
     getSpreadRightPageIndex,
 } from '../../components/smart-albums/albumSpreadGrid';
 import { getSpreadPages, pageToSpreadIndex } from '../../components/smart-albums/albumSpreadUtils';
@@ -38,6 +42,15 @@ function buildCellSelection(leftPage, cellId) {
     return { mode: 'cell', leftPage, cellId };
 }
 
+function pickerTitle(gridEditSet, gridSelection) {
+    if (gridEditSet === 'whole' || gridSelection?.mode === 'spread') {
+        return 'Choose photo for whole spread';
+    }
+    const id = gridSelection?.cellId;
+    const label = id ? PROOF_CELL_LABELS[id] : '';
+    return id ? `Choose photo · Slot ${id}${label ? ` (${label})` : ''}` : 'Choose photo';
+}
+
 export default function AlbumEditor({
     album,
     albumId,
@@ -47,6 +60,11 @@ export default function AlbumEditor({
     onOpenPreview,
     photoRevision = 0,
     onPhotosUploaded,
+    spreadCount = 1,
+    onChangePageCount,
+    minPages = 3,
+    maxPages = 99,
+    pagesPerSpread = 2,
 }) {
     const navigate = useNavigate();
     const [activePanel, setActivePanel] = useState('collections');
@@ -56,10 +74,14 @@ export default function AlbumEditor({
     const [gridEditSet, setGridEditSet] = useState('single');
     const [collectionRevision, setCollectionRevision] = useState(0);
     const [transformRevision, setTransformRevision] = useState(0);
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [pageCountBusy, setPageCountBusy] = useState(false);
     const [gridSelection, setGridSelection] = useState(() => {
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
         return isProofGridSpread(left) ? buildCellSelection(left, 1) : null;
     });
+
+    const albumForBook = useMemo(() => ({ ...album, id: albumId }), [album, albumId]);
 
     const collectionItems = useMemo(
         () => getAlbumCollection(albumId),
@@ -69,8 +91,12 @@ export default function AlbumEditor({
     const bumpWorkspace = useCallback(() => {
         onPhotosUploaded?.();
         setTransformRevision(getTransformRevision(albumId));
-        setCollectionRevision((n) => n + 1);
+        setCollectionRevision(getAlbumCollectionRevision(albumId));
     }, [albumId, onPhotosUploaded]);
+
+    useEffect(() => {
+        setCollectionRevision(getAlbumCollectionRevision(albumId));
+    }, [albumId]);
 
     useEffect(() => {
         setBookPage(initialPage);
@@ -113,7 +139,6 @@ export default function AlbumEditor({
     const handleGridEditSetChange = useCallback(
         (set) => {
             setGridEditSet(set);
-            setWholeGridNextSlot(0);
             const left =
                 gridSelection?.leftPage ?? getSpreadLeftForBookPage(bookPage, totalPages);
             if (!isProofGridSpread(left)) return;
@@ -126,23 +151,30 @@ export default function AlbumEditor({
         [gridSelection, bookPage, totalPages]
     );
 
+    const openPicker = useCallback(() => {
+        if (!gridSelection?.leftPage) {
+            setUploadNotice('Open an inner spread (not the cover) first.');
+            window.setTimeout(() => setUploadNotice(null), 3500);
+            return;
+        }
+        setPickerOpen(true);
+    }, [gridSelection]);
+
     const handleSelectGridCell = useCallback((leftPage, cellId) => {
         setGridEditSet('single');
         setGridSelection(buildCellSelection(leftPage, cellId));
-        setActivePanel('collections');
+        setPickerOpen(true);
     }, []);
 
     const handleSelectGridSpread = useCallback((leftPage) => {
         setGridEditSet('whole');
         setGridSelection(buildSpreadSelection(leftPage));
-        setActivePanel('collections');
+        setPickerOpen(true);
     }, []);
 
     const placementTargets = useMemo(() => {
         if (!gridSelection || !isProofGridSpread(gridSelection.leftPage)) return [];
-        if (gridEditSet === 'whole' || gridSelection.mode === 'spread') {
-            return [];
-        }
+        if (gridEditSet === 'whole' || gridSelection.mode === 'spread') return [];
         if (gridSelection.cellId) {
             return [
                 getProofCellPhotoIndex(
@@ -155,15 +187,42 @@ export default function AlbumEditor({
         return [];
     }, [gridSelection, gridEditSet, totalPages]);
 
+    const placeItemOnSpread = useCallback(
+        (itemId) => {
+            const item = getCollectionItem(albumId, itemId);
+            if (!item?.dataUrl || !gridSelection?.leftPage) return false;
+
+            if (gridEditSet === 'whole' || gridSelection.mode === 'spread') {
+                const left = gridSelection.leftPage;
+                const right = getSpreadRightPageIndex(left, totalPages);
+                return setSpreadPhoto(albumId, left, item.dataUrl, right);
+            }
+
+            const targets = placementTargets;
+            if (!targets.length) return false;
+            return (
+                placeCollectionPhotoOnPages(albumId, item.dataUrl, targets, {
+                    spreadLeftPage: gridSelection.leftPage,
+                }) > 0
+            );
+        },
+        [albumId, gridSelection, gridEditSet, placementTargets, totalPages]
+    );
+
     const handleUploadToCollection = async (files) => {
         setUploading(true);
+        if (files.some((f) => isPdfFile(f))) {
+            setUploadNotice('Converting PDF pages to images…');
+        }
         try {
             const added = await addFilesToAlbumCollection(albumId, files);
             if (added.length > 0) {
-                setCollectionRevision((n) => n + 1);
-                setUploadNotice(`Added ${added.length} photo${added.length === 1 ? '' : 's'} to collection.`);
+                setCollectionRevision(getAlbumCollectionRevision(albumId));
+                setUploadNotice(
+                    `Added ${added.length} image${added.length === 1 ? '' : 's'} to collection (PDF pages count as separate photos).`
+                );
             } else {
-                setUploadNotice('No image files selected.');
+                setUploadNotice('No supported files selected (JPG, PNG, or PDF).');
             }
         } catch (e) {
             console.error(e);
@@ -176,35 +235,42 @@ export default function AlbumEditor({
 
     const handlePlaceCollectionItem = useCallback(
         (itemId) => {
-            const item = getCollectionItem(albumId, itemId);
-            if (!item?.dataUrl || !gridSelection?.leftPage) {
-                setUploadNotice('Open an inner spread and set placement in Grid layout.');
-                window.setTimeout(() => setUploadNotice(null), 3500);
-                return;
-            }
-
-            if (gridEditSet === 'whole' || gridSelection.mode === 'spread') {
-                const left = gridSelection.leftPage;
-                const right = getSpreadRightPageIndex(left, totalPages);
-                if (setSpreadPhoto(albumId, left, item.dataUrl, right)) {
-                    bumpWorkspace();
-                    setUploadNotice('Placed one photo across the whole spread.');
-                }
-            } else {
-                const targets = placementTargets;
-                if (!targets.length) return;
-                const count = placeCollectionPhotoOnPages(albumId, item.dataUrl, targets, {
-                    spreadLeftPage: gridSelection.leftPage,
-                });
-                if (count > 0) {
-                    bumpWorkspace();
-                    setUploadNotice('Placed photo on spread.');
-                }
+            if (placeItemOnSpread(itemId)) {
+                bumpWorkspace();
+                setPickerOpen(false);
+                setUploadNotice('Photo placed on spread.');
             }
             window.setTimeout(() => setUploadNotice(null), 3500);
         },
-        [albumId, placementTargets, gridEditSet, gridSelection, totalPages, bumpWorkspace]
+        [placeItemOnSpread, bumpWorkspace]
     );
+
+    const canAddPages = totalPages + pagesPerSpread <= maxPages;
+    const canRemovePages = totalPages - pagesPerSpread >= minPages;
+
+    const handleAddPages = useCallback(async () => {
+        if (!canAddPages || !onChangePageCount) return;
+        setPageCountBusy(true);
+        const result = await onChangePageCount(pagesPerSpread);
+        setPageCountBusy(false);
+        if (result) {
+            bumpWorkspace();
+            setUploadNotice(`Added ${pagesPerSpread} pages (${result.next} total).`);
+            window.setTimeout(() => setUploadNotice(null), 3500);
+        }
+    }, [canAddPages, onChangePageCount, pagesPerSpread, bumpWorkspace]);
+
+    const handleRemovePages = useCallback(async () => {
+        if (!canRemovePages || !onChangePageCount) return;
+        setPageCountBusy(true);
+        const result = await onChangePageCount(-pagesPerSpread);
+        setPageCountBusy(false);
+        if (result) {
+            bumpWorkspace();
+            setUploadNotice(`Removed ${pagesPerSpread} pages (${result.next} total).`);
+            window.setTimeout(() => setUploadNotice(null), 3500);
+        }
+    }, [canRemovePages, onChangePageCount, pagesPerSpread, bumpWorkspace]);
 
     const handleClearAllPhotos = useCallback(() => {
         clearAllAlbumPagePhotos(albumId, { totalPages });
@@ -216,6 +282,11 @@ export default function AlbumEditor({
 
     const spreadEdit = activePanel === 'edit';
     const workspaceKey = `${photoRevision}-${collectionRevision}-${transformRevision}-${getAlbumPhotoRevision(albumId)}`;
+
+    const pickerSubtitle =
+        collectionItems.length > 0
+            ? `${collectionItems.length} photo${collectionItems.length === 1 ? '' : 's'} in your collection`
+            : 'Upload photos to your collection first';
 
     return (
         <div className="ae-page">
@@ -256,6 +327,7 @@ export default function AlbumEditor({
                     collectionItems={collectionItems}
                     onUploadToCollection={handleUploadToCollection}
                     onPlaceCollectionItem={handlePlaceCollectionItem}
+                    onOpenPicker={openPicker}
                     onClearAllPhotos={handleClearAllPhotos}
                     uploading={uploading}
                     gridEditSet={gridEditSet}
@@ -268,6 +340,14 @@ export default function AlbumEditor({
                         if (isProofGridSpread(left)) handleSelectGridCell(left, cellId);
                     }}
                     canSelectGrid={Boolean(gridSelection)}
+                    spreadCount={spreadCount}
+                    innerPageCount={Math.max(0, totalPages - 1)}
+                    canAddPages={canAddPages}
+                    canRemovePages={canRemovePages}
+                    pagesPerSpread={pagesPerSpread}
+                    pageCountBusy={pageCountBusy}
+                    onAddPages={handleAddPages}
+                    onRemovePages={handleRemovePages}
                 />
 
                 <main className="ae-canvas">
@@ -275,14 +355,14 @@ export default function AlbumEditor({
                         <span className="ae-canvas-label">Spread editor</span>
                         <span className="ae-canvas-hint">
                             {spreadEdit
-                                ? 'Drag photos · corner handle to resize'
-                                : 'Collections → place photos · Grid layout sets single or whole grid'}
+                                ? 'Drag to reposition · handle to zoom'
+                                : 'Click a page slot to pick a photo from your collection'}
                         </span>
                     </div>
-                    <div className="ae-canvas-stage">
+                    <div className={`ae-canvas-stage${spreadEdit ? ' ae-canvas-stage--edit' : ''}`}>
                         <AlbumBook
-                            key={`${albumId}-edit-${workspaceKey}`}
-                            album={album}
+                            key={`${albumId}-edit-${workspaceKey}-${totalPages}`}
+                            album={albumForBook}
                             totalPages={totalPages}
                             initialPage={initialPage}
                             onPageChange={handleBookPageChange}
@@ -302,6 +382,17 @@ export default function AlbumEditor({
                     </div>
                 </main>
             </div>
+
+            <CollectionPickerModal
+                open={pickerOpen}
+                title={pickerTitle(gridEditSet, gridSelection)}
+                subtitle={pickerSubtitle}
+                items={collectionItems}
+                uploading={uploading}
+                onClose={() => setPickerOpen(false)}
+                onSelectItem={handlePlaceCollectionItem}
+                onUploadFiles={handleUploadToCollection}
+            />
         </div>
     );
 }

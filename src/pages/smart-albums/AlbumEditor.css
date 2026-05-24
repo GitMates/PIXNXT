@@ -135,7 +135,7 @@
 }
 
 .ae-sidebar-head {
-  padding: 20px 18px 16px;
+  padding: 14px 14px 10px;
   border-bottom: 1px solid #eee;
 }
 
@@ -149,15 +149,15 @@
 }
 
 .ae-sidebar-title {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   font-size: 17px;
   font-weight: 600;
   color: #1a1a1a;
-  line-height: 1.3;
+  line-height: 1.25;
 }
 
 .ae-sidebar-meta {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   font-size: 12px;
   color: #888;
 }
@@ -165,22 +165,24 @@
 .ae-nav {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 12px 10px;
+  gap: 0;
+  padding: 6px 8px;
+  flex-shrink: 0;
 }
 
 .ae-nav-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   width: 100%;
-  padding: 10px 12px;
+  padding: 6px 8px;
   border: none;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
   color: #444;
   font-size: 13px;
   font-weight: 500;
+  line-height: 1.25;
   text-align: left;
   cursor: pointer;
   transition: background 0.12s, color 0.12s;
@@ -201,9 +203,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
   background: #f5f6f8;
   color: #555;
   flex-shrink: 0;
@@ -350,26 +352,163 @@
 }
 
 .ae-edit-set-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
   padding: 12px 10px;
   border: 1px solid #d0d5dd;
-  border-radius: 8px;
+  border-radius: 10px;
   background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.18s, background 0.18s, box-shadow 0.18s, transform 0.12s;
+}
+
+.ae-edit-set-label {
   font-size: 13px;
   font-weight: 600;
-  color: #444;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  color: #333;
+}
+
+.ae-edit-set-desc {
+  font-size: 11px;
+  font-weight: 400;
+  color: #888;
+  line-height: 1.3;
 }
 
 .ae-edit-set-btn:hover {
-  border-color: #999;
+  border-color: #b8c0cc;
   background: #f8f9fb;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .ae-edit-set-btn--active {
   border-color: #2563eb;
   background: #eef4ff;
+  box-shadow: 0 0 0 1px #2563eb;
+}
+
+.ae-edit-set-btn--active .ae-edit-set-label {
   color: #1e40af;
+}
+
+.ae-btn-picker {
+  width: 100%;
+  margin: 10px 0 4px;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.ae-btn-picker:hover {
+  background: #333;
+}
+
+.ae-btn-picker:active {
+  transform: scale(0.98);
+}
+
+.ae-collection-count {
+  margin: 10px 0 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+}
+
+.ae-tips-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: #777;
+}
+
+.ae-canvas-stage--edit {
+  background: linear-gradient(180deg, #e2e4e8 0%, #d8dbe0 100%);
+}
+
+.ae-page-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.ae-page-stat {
+  padding: 12px 10px;
+  border-radius: 10px;
+  background: #f5f6f8;
+  border: 1px solid #e8eaed;
+  text-align: center;
+}
+
+.ae-page-stat-value {
+  display: block;
+  font-size: 22px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.1;
+}
+
+.ae-page-stat-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ae-page-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ae-page-action-btn {
+  width: 100%;
+  padding: 11px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.ae-page-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ae-page-action-btn--add {
+  background: #eef4ff;
+  border-color: #c7d9f7;
+  color: #1e40af;
+}
+
+.ae-page-action-btn--add:hover:not(:disabled) {
+  background: #dbeafe;
+}
+
+.ae-page-action-btn--remove {
+  background: #fff;
+  border-color: #e5b4b4;
+  color: #b42318;
+}
+
+.ae-page-action-btn--remove:hover:not(:disabled) {
+  background: #fff5f5;
 }
 
 .ae-btn-clear {
