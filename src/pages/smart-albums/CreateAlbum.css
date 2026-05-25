@@ -12,3 +12,21 @@
 .sa-create-page .cc-form-group .dp-wrapper:focus-within {
   border-color: #9b59b6;
 }
+
+.sa-select {
+  appearance: auto;
+  cursor: pointer;
+}
+
+.sa-file-input {
+  height: auto;
+  padding: 13px 14px;
+  cursor: pointer;
+}
+
+.sa-field-note {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #777;
+}

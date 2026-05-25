@@ -155,7 +155,7 @@
 
 .ae-nav {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 6px;
   padding: 6px 8px;
   flex-shrink: 0;
@@ -387,6 +387,36 @@
 
 .ae-edit-set-btn--active .ae-edit-set-label {
   color: #1e40af;
+}
+
+.ae-locked-grid {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ae-locked-grid > div {
+  padding: 10px 12px;
+  border: 1px solid #e2e5ea;
+  border-radius: 8px;
+  background: #f8f9fb;
+}
+
+.ae-locked-grid-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8a8f98;
+}
+
+.ae-locked-grid strong {
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #222;
 }
 
 .ae-btn-picker {

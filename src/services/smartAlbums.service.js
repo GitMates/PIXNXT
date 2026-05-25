@@ -194,6 +194,10 @@ function mapAlbumRow(row, photographerId) {
 
     page_count: row.page_count ?? 21,
 
+    grid_size: row.grid_size ?? 'square',
+
+    grid_layout: row.grid_layout ?? 'two-page',
+
     photo_count: row.photo_count ?? 0,
 
     category_tags: row.category_tags ?? [],
@@ -316,7 +320,14 @@ export const smartAlbumsService = {
 
 
 
-  async createAlbum({ photographer_id, name, event_date }) {
+  async createAlbum({
+    photographer_id,
+    name,
+    event_date,
+    page_count = 21,
+    grid_size = 'square',
+    grid_layout = 'two-page',
+  }) {
 
     const payload = {
 
@@ -328,7 +339,11 @@ export const smartAlbumsService = {
 
       slug: generateSlug(name),
 
-      page_count: 21,
+      page_count: Math.max(1, Math.min(99, Math.floor(Number(page_count) || 21))),
+
+      grid_size,
+
+      grid_layout,
 
       status: 'draft',
 
@@ -350,7 +365,7 @@ export const smartAlbumsService = {
 
     if (error) {
 
-      if (isMissingTableError(error)) {
+      if (shouldUseLocalStore(error)) {
 
         const album = {
 
@@ -528,6 +543,12 @@ export const smartAlbumsService = {
       name: `${source.name} (Copy)`,
 
       event_date: source.event_date,
+
+      page_count: source.page_count,
+
+      grid_size: source.grid_size,
+
+      grid_layout: source.grid_layout,
 
     });
 

@@ -18,18 +18,28 @@ const BOOK_PAGE_HEIGHT_MIN = 300;
 const BOOK_PAGE_HEIGHT_MAX = 520;
 const BOOK_PAGE_HEIGHT_SCALE = 0.93;
 
-function getBookDimensions(stageEl) {
+const GRID_SIZE_ASPECT = {
+    square: 1,
+    portrait: 0.8,
+    landscape: 1.25,
+    wide: 16 / 9,
+};
+
+function getBookDimensions(stageEl, gridSize = 'square') {
     if (!stageEl) return { width: 480, height: 480 };
     const w = stageEl.clientWidth;
     const h = stageEl.clientHeight;
-    const pageSize = Math.floor(Math.min(w / 2, h * BOOK_PAGE_HEIGHT_SCALE));
-    const clampedPageSize = Math.max(
+    const aspect = GRID_SIZE_ASPECT[gridSize] || GRID_SIZE_ASPECT.square;
+    const maxPageWidth = w / 2;
+    const maxPageHeight = h * BOOK_PAGE_HEIGHT_SCALE;
+    const pageHeight = Math.floor(Math.min(maxPageHeight, maxPageWidth / aspect));
+    const clampedPageHeight = Math.max(
         BOOK_PAGE_HEIGHT_MIN,
-        Math.min(BOOK_PAGE_HEIGHT_MAX, pageSize)
+        Math.min(BOOK_PAGE_HEIGHT_MAX, pageHeight)
     );
     return {
-        width: clampedPageSize,
-        height: clampedPageSize,
+        width: Math.round(clampedPageHeight * aspect),
+        height: clampedPageHeight,
     };
 }
 
@@ -119,7 +129,7 @@ const AlbumBook = ({
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
             dimsRafRef.current = requestAnimationFrame(() => {
                 dimsRafRef.current = null;
-                setDims(getBookDimensions(stage));
+                setDims(getBookDimensions(stage, album?.grid_size));
             });
         };
         update();
@@ -131,7 +141,7 @@ const AlbumBook = ({
             window.removeEventListener('resize', update);
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
         };
-    }, []);
+    }, [album?.grid_size]);
 
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
@@ -307,7 +317,7 @@ const AlbumBook = ({
                         height={dims.height}
                         size="stretch"
                         minWidth={BOOK_PAGE_HEIGHT_MIN}
-                        maxWidth={520}
+                        maxWidth={Math.max(520, dims.width)}
                         minHeight={BOOK_PAGE_HEIGHT_MIN}
                         maxHeight={BOOK_PAGE_HEIGHT_MAX}
                         drawShadow

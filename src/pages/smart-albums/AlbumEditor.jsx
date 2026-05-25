@@ -48,6 +48,10 @@ function buildCoverSelection() {
     return { mode: 'cover', leftPage: 0, cellId: null };
 }
 
+function layoutToPlacementMode(layout) {
+    return layout === 'whole-spread' ? 'whole' : 'single';
+}
+
 function pickerTitle(gridEditSet, gridSelection) {
     if (gridSelection?.mode === 'cover') {
         return 'Choose cover photo';
@@ -80,7 +84,9 @@ export default function AlbumEditor({
     const { toast, showToast, clearToast } = useAppToast(4000);
     const [uploading, setUploading] = useState(false);
     const [bookPage, setBookPage] = useState(initialPage);
-    const [gridEditSet, setGridEditSet] = useState('single');
+    const [gridEditSet, setGridEditSet] = useState(() =>
+        layoutToPlacementMode(album?.grid_layout)
+    );
     const [collectionRevision, setCollectionRevision] = useState(0);
     const [transformRevision, setTransformRevision] = useState(0);
     const [pickerOpen, setPickerOpen] = useState(false);
@@ -106,6 +112,19 @@ export default function AlbumEditor({
     useEffect(() => {
         setCollectionRevision(getAlbumCollectionRevision(albumId));
     }, [albumId]);
+
+    useEffect(() => {
+        const lockedSet = layoutToPlacementMode(album?.grid_layout);
+        setGridEditSet(lockedSet);
+        const left = getSpreadLeftForBookPage(bookPage, totalPages);
+        if (isProofGridSpread(left)) {
+            setGridSelection(
+                lockedSet === 'whole'
+                    ? buildSpreadSelection(left)
+                    : buildCellSelection(left, 1)
+            );
+        }
+    }, [album?.grid_layout, bookPage, totalPages]);
 
     useEffect(() => {
         setBookPage(initialPage);
@@ -147,6 +166,8 @@ export default function AlbumEditor({
 
     const handleGridEditSetChange = useCallback(
         (set) => {
+            const lockedSet = layoutToPlacementMode(album?.grid_layout);
+            if (set !== lockedSet) return;
             setGridEditSet(set);
             const left =
                 gridSelection?.leftPage ?? getSpreadLeftForBookPage(bookPage, totalPages);
@@ -157,7 +178,7 @@ export default function AlbumEditor({
                 setGridSelection(buildCellSelection(left, gridSelection?.cellId || 1));
             }
         },
-        [gridSelection, bookPage, totalPages]
+        [album?.grid_layout, gridSelection, bookPage, totalPages]
     );
 
     const openPicker = useCallback(() => {

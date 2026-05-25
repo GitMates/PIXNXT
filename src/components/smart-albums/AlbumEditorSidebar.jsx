@@ -1,13 +1,6 @@
 import React, { useRef } from 'react';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
 
-const IconGrid = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="3" width="8" height="18" rx="1" />
-        <rect x="13" y="3" width="8" height="18" rx="1" />
-    </svg>
-);
-
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <rect x="3" y="3" width="7" height="7" rx="1" />
@@ -17,26 +10,21 @@ const IconCollection = () => (
     </svg>
 );
 
-const IconEdit = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M12 20h9" />
-        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-    </svg>
-);
-
-const IconPages = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-    </svg>
-);
-
 const NAV = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
-    { id: 'grid', label: 'Grid layout', icon: IconGrid },
-    { id: 'edit', label: 'Edit spreads', icon: IconEdit },
-    { id: 'pages', label: 'Pages', icon: IconPages },
 ];
+
+const GRID_SIZE_LABELS = {
+    square: 'Square pages (1:1)',
+    portrait: 'Portrait pages (4:5)',
+    landscape: 'Landscape pages (5:4)',
+    wide: 'Wide pages (16:9)',
+};
+
+const GRID_LAYOUT_LABELS = {
+    'two-page': 'Two-page grid (left + right)',
+    'whole-spread': 'Whole-spread photo',
+};
 
 function placementHint(gridEditSet, gridSelection, canSelectGrid) {
     if (!canSelectGrid) {
@@ -182,28 +170,20 @@ export default function AlbumEditorSidebar({
                 {activePanel === 'grid' && (
                     <>
                         <h3 className="ae-panel-title">Grid layout</h3>
-                        <p className="ae-panel-text">How photos fill the current spread when you pick from your collection.</p>
-                        <div className="ae-edit-set">
-                            <button
-                                type="button"
-                                className={`ae-edit-set-btn${
-                                    gridEditSet === 'single' ? ' ae-edit-set-btn--active' : ''
-                                }`}
-                                onClick={() => onGridEditSetChange?.('single')}
-                            >
-                                <span className="ae-edit-set-label">Single slot</span>
-                                <span className="ae-edit-set-desc">Left or right page</span>
-                            </button>
-                            <button
-                                type="button"
-                                className={`ae-edit-set-btn${
-                                    gridEditSet === 'whole' ? ' ae-edit-set-btn--active' : ''
-                                }`}
-                                onClick={() => onGridEditSetChange?.('whole')}
-                            >
-                                <span className="ae-edit-set-label">Whole grid</span>
-                                <span className="ae-edit-set-desc">One image · full spread</span>
-                            </button>
+                        <p className="ae-panel-text">
+                            These album setup options were selected at creation and are locked.
+                        </p>
+                        <div className="ae-locked-grid">
+                            <div>
+                                <span className="ae-locked-grid-label">Grid size</span>
+                                <strong>{GRID_SIZE_LABELS[album?.grid_size] || GRID_SIZE_LABELS.square}</strong>
+                            </div>
+                            <div>
+                                <span className="ae-locked-grid-label">Grid layout</span>
+                                <strong>
+                                    {GRID_LAYOUT_LABELS[album?.grid_layout] || GRID_LAYOUT_LABELS['two-page']}
+                                </strong>
+                            </div>
                         </div>
                         {canSelectGrid && gridEditSet === 'single' && (
                             <div className="ae-slot-picker ae-slot-picker--compact">
