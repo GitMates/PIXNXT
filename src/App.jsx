@@ -32,10 +32,15 @@ function App() {
   // 1. For local development (e.g., poojz.localhost)
   const devSubdomain = host.endsWith('.localhost') && host !== 'localhost' ? host.split('.')[0] : null;
   
-  // 2. For production/preview domains (e.g. poojz.pixnxt.com or poojz.vercel.app)
+  // 2. For production/preview domains
   const parts = host.split('.');
-  const isVercelMain = host === 'pixnxt.vercel.app';
-  const isProductionSubdomain = parts.length > 2 && parts[0] !== 'www' && !host.endsWith('.localhost') && !isVercelMain;
+  let isProductionSubdomain = false;
+  if (host.endsWith('.vercel.app')) {
+    // Vercel preview and main URLs have 3 parts (e.g. pixnxt.vercel.app). Only treat as subdomain if > 3 parts (e.g. pooja.pixnxt.vercel.app)
+    isProductionSubdomain = parts.length > 3 && parts[0] !== 'www';
+  } else {
+    isProductionSubdomain = parts.length > 2 && parts[0] !== 'www' && !host.endsWith('.localhost');
+  }
   const prodSubdomain = isProductionSubdomain ? parts[0] : null;
 
   const activeSlug = prodSubdomain || devSubdomain;
