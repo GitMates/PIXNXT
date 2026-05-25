@@ -1,4 +1,4 @@
-﻿.pl-main {
+.pl-main {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -110,9 +110,10 @@
     margin: 0 0 24px 0;
 }
 
+
 .pl-new-btn {
-    background-color: #1a9b84;
-    color: #fff;
+    background-color: #8BDFDD;
+    color: #222;
     border: none;
     border-radius: 0;
     padding: 12px 24px;
@@ -123,7 +124,7 @@
 }
 
 .pl-new-btn:hover {
-    background-color: #147d6a;
+    background-color: #71cbca;
 }
 
 /* ============================================================

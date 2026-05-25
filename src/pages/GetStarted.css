@@ -1,4 +1,4 @@
-﻿.gs-main {
+.gs-main {
     flex: 1;
     overflow-y: auto;
     background-color: #fff;
@@ -36,8 +36,8 @@
 }
 
 .gs-btn {
-    background-color: #1a9b84;
-    color: #fff;
+    background-color: #8BDFDD;
+    color: #222;
     border: none;
     border-radius: 0;
     padding: 12px 24px;
@@ -51,7 +51,7 @@
 }
 
 .gs-btn:hover {
-    background-color: #147d6a;
+    background-color: #71cbca;
 }
 
 .gs-btn.gs-left {
@@ -115,7 +115,7 @@
 }
 
 .gs-form-group input:focus {
-    border-color: #1a9b84;
+    border-color: #8BDFDD;
 }
 
 .gs-date-input {
@@ -170,7 +170,7 @@
     left: 0;
     top: 0;
     bottom: 0;
-    background-color: #1a9b84;
+    background-color: #8BDFDD;
     width: 0%;
     animation: fillProgress 2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }

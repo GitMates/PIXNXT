@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import brandPng from '../assets/icons/clientgallery.png';
 
 const SidebarLayout = ({ children }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -115,7 +116,7 @@ const SidebarLayout = ({ children }) => {
     );
 
     return (
-        <div className="flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-[#ffffff] md:overflow-hidden" style={{ fontFamily: "'Roboto', system-ui, sans-serif" }}>
+        <div className="flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-[#ffffff] md:overflow-hidden">
             {/* Mobile Hamburger Button */}
             <button 
                 className="fixed top-4 right-4 z-[1100] w-10 h-10 border-none rounded-none bg-[#1a9b84] text-white cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.18)] flex items-center justify-center md:hidden" 
@@ -133,11 +134,8 @@ const SidebarLayout = ({ children }) => {
             <aside className={`${isCollapsed ? 'md:w-[80px]' : 'md:w-[320px]'} ${isMobileMenuOpen ? 'left-0' : '-left-[320px]'} fixed md:static top-0 w-[280px] h-screen bg-[#ffffff] flex flex-col shrink-0 z-[1000] md:z-10 shadow-[4px_0_20px_rgba(0,0,0,0.15)] md:shadow-[1px_0_0_rgba(0,0,0,0.06)] border-r border-[#eeeeee] transition-[width,left] duration-300 ease overflow-y-auto md:overflow-y-visible`}>
                 <div className={`h-[80px] flex items-center px-6 ${isCollapsed ? 'md:justify-center md:px-0' : 'justify-between'}`}>
                     <div className="flex items-center gap-2 cursor-pointer relative" ref={appDropdownRef}>
-                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="12" cy="12" r="10" fill="#1a9b84" />
-                            <rect x="10" y="10" width="8" height="8" fill="#fff" />
-                        </svg>
-                        {(!isCollapsed || isMobileMenuOpen) && <span className="text-[15px] font-bold text-[#444]">Client Gallery</span>}
+                        <img src={brandPng} alt="Pixnxt" className="w-[30px] h-[30px] object-contain shrink-0" />
+                        {(!isCollapsed || isMobileMenuOpen) && <span className="text-[14px] font-bold text-[#444] uppercase tracking-[0.08em]">Client Gallery</span>}
                         {(!isCollapsed || isMobileMenuOpen) && <svg className="text-[#999] cursor-pointer" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" onClick={(e) => { e.stopPropagation(); setShowAppDropdown(!showAppDropdown); }}><polyline points="6 9 12 15 18 9"></polyline></svg>}
                         {showAppDropdown && (!isCollapsed || isMobileMenuOpen) && (
                             <div className="absolute top-[calc(100%+8px)] left-0 md:w-[360px] bg-[#ffffff] rounded-none shadow-[0_12px_48px_rgba(0,0,0,0.15)] z-[500] py-3 animate-[cgFadeIn_0.15s_ease] max-md:fixed max-md:top-[70px] max-md:left-3 max-md:right-3 max-md:w-auto max-md:z-[99999] max-md:max-h-[80vh] max-md:overflow-y-auto">
@@ -222,22 +220,21 @@ const SidebarLayout = ({ children }) => {
                 </div>
 
                 <div className="flex-1 pt-2.5 flex flex-col gap-3">
-                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-medium hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path === '/client-gallery' || path.startsWith('/collections') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/client-gallery')}>
+                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path === '/client-gallery' || path.startsWith('/collections') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/client-gallery')}>
                         <svg className={`shrink-0 ${path === '/client-gallery' || path.startsWith('/collections') ? 'text-[#111]' : 'text-[#555]'}`} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"></path><circle cx="12" cy="13" r="2"></circle><path d="m14 13-1.5 1.5-1-1L10 15h6Z"></path></svg>
-                        {(!isCollapsed || isMobileMenuOpen) && <span>Collections</span>}
+                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[13px] font-bold">Collections</span>}
                     </div>
-                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-medium hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path.startsWith('/starred') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/starred/collections')}>
+                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path.startsWith('/starred') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/starred/collections')}>
                         <svg className={`shrink-0 ${path.startsWith('/starred') ? 'text-[#111]' : 'text-[#555]'}`} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                        {(!isCollapsed || isMobileMenuOpen) && <span>Starred</span>}
+                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[13px] font-bold">Starred</span>}
                     </div>
-
-                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-medium hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path === '/homepage' ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/homepage')}>
+                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path === '/homepage' ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/homepage')}>
                         <svg className={`shrink-0 ${path === '/homepage' ? 'text-[#111]' : 'text-[#555]'}`} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                        {(!isCollapsed || isMobileMenuOpen) && <span>Homepage</span>}
+                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[13px] font-bold">Homepage</span>}
                     </div>
-                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer font-medium hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path.startsWith('/settings') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/settings')}>
+                    <div className={`h-[52px] flex items-center pl-6 text-[15px] cursor-pointer hover:text-[#111] hover:bg-[rgba(26,155,132,0.05)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path.startsWith('/settings') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/settings')}>
                         <svg className={`shrink-0 ${path.startsWith('/settings') ? 'text-[#111]' : 'text-[#555]'}`} xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-                        {(!isCollapsed || isMobileMenuOpen) && <span>Settings</span>}
+                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[13px] font-bold">Settings</span>}
                     </div>
                 </div>
 

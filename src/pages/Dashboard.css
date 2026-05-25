@@ -1,4 +1,4 @@
-﻿/* ===== Dashboard Fonts ===== */
+/* ===== Dashboard Fonts ===== */
 @import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;600;700&display=swap');
 
 /* ===== Dashboard Variables (exact Pixieset values) ===== */
@@ -295,8 +295,8 @@
 /* ===== Products Grid ===== */
 .dash-products-grid {
   display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 24px;
   margin-bottom: 60px;
 }
 
@@ -327,8 +327,26 @@
   color: #fff;
 }
 
+.dash-product-image-gif {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.dash-product-image-png {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+}
+
 .dash-product-icon.teal {
-  background: linear-gradient(135deg, #1abc9c, #16a085);
+  background: transparent;
+  border-radius: 0;
+}
+
+.dash-product-icon.teal:hover {
+  box-shadow: none;
 }
 
 .dash-product-icon.blue {
@@ -348,7 +366,12 @@
 }
 
 .dash-product-icon.purple {
-  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+  background: transparent;
+  border-radius: 0;
+}
+
+.dash-product-icon.purple:hover {
+  box-shadow: none;
 }
 
 .dash-product-name {
