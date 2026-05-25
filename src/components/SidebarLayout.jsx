@@ -159,6 +159,8 @@ const SidebarLayout = ({ children }) => {
                                         <span className="text-xs text-[#888] leading-[1.4]">Design and deliver beautiful photo albums</span>
                                     </div>
                                 </div>
+                                {/* Commented out unused secondary app options as requested */}
+                                {/*
                                 <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]" onClick={() => setShowAppDropdown(false)}>
                                     <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #3498db, #2980b9)' }}>
                                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
@@ -195,6 +197,7 @@ const SidebarLayout = ({ children }) => {
                                         <span className="text-xs text-[#888] leading-[1.4]">Simple, personalized mobile photo albums</span>
                                     </div>
                                 </div>
+                                */}
                                 <div className="h-px bg-[#f0f0f0] my-2"></div>
                                 <div className="flex items-center gap-[14px] px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]" onClick={() => { navigate('/dashboard'); setShowAppDropdown(false); }}>
                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>

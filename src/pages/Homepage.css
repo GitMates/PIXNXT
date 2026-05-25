@@ -1,4 +1,4 @@
-﻿/* ================================================================
+/* ================================================================
    HOMEPAGE Ã¢â‚¬â€ matches the app's SidebarLayout design system
    Colors: #ffffff bg, #1a9b84 primary, #e2e8f0 border
    Font: Inter (clean modern sans-serif)
@@ -793,6 +793,17 @@
         height: 34px;
         padding: 0 13px;
         font-size: 13px;
+    }
+}
+
+@keyframes hpToastIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
     }
 }
 
