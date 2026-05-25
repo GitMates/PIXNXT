@@ -47,7 +47,7 @@ export default function AccountSettings() {
     }, []);
 
     return (
-        <div className="w-full min-h-screen bg-white text-[#111] font-['Roboto',sans-serif]">
+        <div className="w-full min-h-screen bg-white text-[#111]">
             {/* Top Navigation */}
             <div className="w-full h-[80px] border-b border-[#cccccc] bg-[#f5f5f5] flex items-center justify-between px-10">
                 <div className="flex items-center">
@@ -1204,7 +1204,7 @@ function AccountTab({ user, showToast }) {
             {/* Set/Change Password Modal */}
             {showPasswordModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <form onSubmit={handleSetPassword} className="bg-white w-[500px] shadow-lg flex flex-col font-['Roboto',sans-serif]">
+                    <form onSubmit={handleSetPassword} className="bg-white w-[500px] shadow-lg flex flex-col">
                         <div className="px-8 py-6 border-b border-[#f1f1f1]">
                             <h2 className="text-[13px] font-bold text-[#333] tracking-[0.1em] uppercase">
                                 {formData.login_password_set ? 'CHANGE PASSWORD' : 'SET A PASSWORD'}
@@ -1266,7 +1266,7 @@ function AccountTab({ user, showToast }) {
             {/* Delete Account Modal */}
             {showDeleteModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <form onSubmit={handleDeleteAccount} className="bg-white w-[500px] shadow-lg flex flex-col font-['Roboto',sans-serif]">
+                    <form onSubmit={handleDeleteAccount} className="bg-white w-[500px] shadow-lg flex flex-col">
                         <div className="px-8 py-6 border-b border-[#f1f1f1]">
                             <h2 className="text-[13px] font-bold text-[#ff4d4f] tracking-[0.1em] uppercase">DELETE ACCOUNT</h2>
                         </div>
@@ -1322,7 +1322,7 @@ function AccountTab({ user, showToast }) {
             {/* Edit Username Modal */}
             {showUsernameModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <div className="bg-white w-[500px] shadow-lg flex flex-col font-['Roboto',sans-serif]">
+                    <div className="bg-white w-[500px] shadow-lg flex flex-col">
                         <div className="px-8 py-6 border-b border-[#f1f1f1]">
                             <h2 className="text-[13px] font-bold text-[#333] tracking-[0.1em] uppercase">EDIT USERNAME</h2>
                         </div>
@@ -1376,7 +1376,7 @@ function AccountTab({ user, showToast }) {
             {/* Edit Email Modal */}
             {showEmailModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <div className="bg-white w-[500px] shadow-lg flex flex-col font-['Roboto',sans-serif]">
+                    <div className="bg-white w-[500px] shadow-lg flex flex-col">
                         <div className="px-8 py-6 border-b border-[#f1f1f1]">
                             <h2 className="text-[13px] font-bold text-[#333] tracking-[0.1em] uppercase">EDIT ACCOUNT EMAIL</h2>
                         </div>
@@ -1571,7 +1571,7 @@ function BillingTab({ user, showToast }) {
     };
 
     return (
-        <div className="flex flex-col gap-10 pb-20 font-['Roboto',sans-serif] text-[#111]">
+        <div className="flex flex-col gap-10 pb-20 text-[#111]">
             {/* Header */}
             <div>
                 <h1 className="text-[26px] font-light text-[#222] mb-1">Billing</h1>
@@ -1826,7 +1826,7 @@ function BillingTab({ user, showToast }) {
             {/* Upgrade Modal */}
             {showUpgradeModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <div className="bg-white w-[540px] shadow-2xl flex flex-col rounded-[4px] overflow-hidden font-['Roboto',sans-serif]">
+                    <div className="bg-white w-[540px] shadow-2xl flex flex-col rounded-[4px] overflow-hidden">
                         <div className="px-8 py-6 border-b border-[#f1f1f1] flex justify-between items-center">
                             <h2 className="text-[14px] font-bold text-[#333] tracking-[0.1em] uppercase">Upgrade {selectedUpgradeProduct}</h2>
                             <button onClick={() => setShowUpgradeModal(false)} className="text-[#888] hover:text-[#111] transition-colors">
@@ -2024,7 +2024,7 @@ function AdvancedTab({ user, showToast }) {
     );
 
     return (
-        <div className="flex flex-col gap-8 pb-20 font-['Roboto',sans-serif] text-[#111]">
+        <div className="flex flex-col gap-8 pb-20 text-[#111]">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[#eeeeee] pb-5">
                 <div>
@@ -2034,7 +2034,7 @@ function AdvancedTab({ user, showToast }) {
 
             {/* Notifications Sub-header */}
             <div>
-                <span className="text-[11px] font-bold text-[#888] tracking-[0.15em] uppercase block mb-1 font-['Roboto',sans-serif]">NOTIFICATIONS</span>
+                <span className="text-[11px] font-bold text-[#888] tracking-[0.15em] uppercase block mb-1">NOTIFICATIONS</span>
                 <h2 className="text-[17px] font-semibold text-[#222] mb-6">Email Notifications</h2>
             </div>
 
@@ -2226,7 +2226,7 @@ function AdvancedTab({ user, showToast }) {
                     </div>
 
                     {langDropdownOpen && (
-                        <div className="absolute top-[105%] left-0 w-full bg-white border border-[#ccc] rounded-[2px] shadow-lg z-[600] py-1 text-[15px] font-['Roboto',sans-serif]">
+                        <div className="absolute top-[105%] left-0 w-full bg-white border border-[#ccc] rounded-[2px] shadow-lg z-[600] py-1 text-[15px]">
                             <div 
                                 className={`px-4 py-2 cursor-pointer transition-colors ${settings.language === 'English (US)' ? 'bg-[#1890ff] text-white' : 'hover:bg-[#f5f5f5] text-[#222]'}`}
                                 onClick={() => handleLanguageSelect('English (US)')}

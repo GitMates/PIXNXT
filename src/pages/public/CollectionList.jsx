@@ -175,8 +175,6 @@ const CollectionList = ({ slug }) => {
   return (
     <div className="min-h-screen bg-[#fafafa] text-[#222] portfolio-wrapper pb-24">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&family=Inter:wght@300;400;500&display=swap');
-        
         /* Custom Elegant Scrollbar */
         ::-webkit-scrollbar {
             width: 6px;
@@ -194,8 +192,12 @@ const CollectionList = ({ slug }) => {
         }
 
         .portfolio-wrapper {
-            font-family: 'Outfit', 'Inter', sans-serif !important;
+            font-family: 'EB Garamond', serif !important;
             background-color: #fafafa !important;
+        }
+
+        .portfolio-wrapper * {
+            font-family: 'EB Garamond', serif !important;
         }
 
         .collection-card-image-container {
@@ -258,7 +260,7 @@ const CollectionList = ({ slug }) => {
         {/* Left Side: Brand Name appearing dynamically on scroll */}
         <div className="flex items-center">
           {scrolled && (
-            <span className="text-[12px] font-semibold tracking-[0.2em] text-[#111] uppercase animate-[cgFadeIn_0.3s_ease] font-['Outfit'] select-none">
+            <span className="text-[12px] font-semibold tracking-[0.2em] text-[#111] uppercase animate-[cgFadeIn_0.3s_ease] select-none">
               {photographerName}
             </span>
           )}
@@ -274,7 +276,7 @@ const CollectionList = ({ slug }) => {
                value={searchQuery}
                onChange={(e) => handleSearchChange(e.target.value)}
                placeholder="Search collections..." 
-               className="w-full border-b border-gray-300 py-1.5 outline-none text-[13px] bg-transparent placeholder-gray-400 focus:border-gray-900 transition-colors mr-4 font-['Inter']"
+               className="w-full border-b border-gray-300 py-1.5 outline-none text-[13px] bg-transparent placeholder-gray-400 focus:border-gray-900 transition-colors mr-4"
              />
           </div>
 
@@ -310,7 +312,7 @@ const CollectionList = ({ slug }) => {
         </div>
       </nav>
       {/* Photographer Header */}
-      <header className="container mx-auto px-6 pt-16 pb-20 text-center max-w-4xl font-['Roboto',sans-serif]">
+      <header className="container mx-auto px-6 pt-16 pb-20 text-center max-w-4xl">
         {profile.profile_icon_url && (
            <div className="mb-8 flex justify-center">
               <img 

@@ -1,4 +1,4 @@
-﻿.cf-form-title {
+.cf-form-title {
     font-family: 'Roboto', system-ui, sans-serif;
 }
 
@@ -94,8 +94,9 @@
     transition: transform 0.2s;
 }
 
+
 .cf-toggle input:checked + .cf-toggle-slider {
-    background-color: #1a9b84;
+    background-color: #8BDFDD;
 }
 
 .cf-toggle input:checked + .cf-toggle-slider::before {

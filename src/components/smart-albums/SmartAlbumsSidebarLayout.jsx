@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import brandPng from '../../assets/icons/clientgallery.png';
 
 const PURPLE = '#9b59b6';
 const PURPLE_DARK = '#8e44ad';
@@ -114,7 +115,6 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
     return (
         <div
             className="flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-[#ffffff] md:overflow-hidden"
-            style={{ fontFamily: "'Roboto', system-ui, sans-serif" }}
         >
             <button
                 className="fixed top-4 right-4 z-[1100] w-10 h-10 border-none rounded-none text-white cursor-pointer shadow-[0_2px_8px_rgba(0,0,0,0.18)] flex items-center justify-center md:hidden"
@@ -139,12 +139,9 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
             >
                 <div className={`h-[80px] flex items-center px-6 ${isCollapsed ? 'md:justify-center md:px-0' : 'justify-between'}`}>
                     <div className="flex items-center gap-2 cursor-pointer relative" ref={appDropdownRef}>
-                        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <circle cx="12" cy="12" r="10" fill={PURPLE} />
-                            <rect x="10" y="10" width="8" height="8" fill="#fff" />
-                        </svg>
+                        <img src={brandPng} alt="Pixnxt" className="w-[30px] h-[30px] object-contain shrink-0" />
                         {(!isCollapsed || isMobileMenuOpen) && (
-                            <span className="text-[15px] font-bold text-[#444]">Smart Albums</span>
+                            <span className="text-[14px] font-bold text-[#444] uppercase tracking-[0.08em]">Smart Albums</span>
                         )}
                         {(!isCollapsed || isMobileMenuOpen) && (
                             <svg
@@ -250,7 +247,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                         <span className={navIconClass(isAlbumsActive)}>
                             <AlbumNavIcon />
                         </span>
-                        {(!isCollapsed || isMobileMenuOpen) && <span>Albums</span>}
+                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[13px] font-bold">Albums</span>}
                     </div>
                     <div
                         className={navItemClass(isStarredActive)}
@@ -263,7 +260,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                         onClick={() => navigate('/smart-albums/starred')}
                     >
                         <StarNavIcon className={navIconClass(isStarredActive)} />
-                        {(!isCollapsed || isMobileMenuOpen) && <span>Starred</span>}
+                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[13px] font-bold">Starred</span>}
                     </div>
                     <div
                         className={navItemClass(isSettingsActive)}
@@ -290,7 +287,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                             <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
                             <circle cx="12" cy="12" r="3" />
                         </svg>
-                        {(!isCollapsed || isMobileMenuOpen) && <span>Settings</span>}
+                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[13px] font-bold">Settings</span>}
                     </div>
                 </div>
 

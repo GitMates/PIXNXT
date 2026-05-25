@@ -1,4 +1,4 @@
-﻿.fv-main {
+.fv-main {
   padding-bottom: 48px;
 }
 
@@ -114,12 +114,13 @@
 }
 
 .fv-btn-primary.cg-style-11 {
-  background: #1a9b84;
-  border-color: #1a9b84;
+  background: #8BDFDD;
+  border-color: #8BDFDD;
+  color: #222;
 }
 
 .fv-btn-primary.cg-style-11:hover {
-  background: #147d6a;
+  background: #71cbca;
 }
 
 .fv-new-collection-solo {
@@ -173,8 +174,8 @@
 .fv-empty-cta {
   display: inline-block;
   padding: 12px 28px;
-  background: #1a9b84;
-  color: #fff;
+  background: #8BDFDD;
+  color: #222;
   border: none;
   border-radius: 0;
   font-size: 15px;
@@ -183,7 +184,7 @@
 }
 
 .fv-empty-cta:hover {
-  background: #147d6a;
+  background: #71cbca;
 }
 
 .fv-grid {

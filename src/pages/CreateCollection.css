@@ -1,4 +1,4 @@
-﻿.cc-page {
+.cc-page {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -98,7 +98,7 @@
 }
 
 .cc-input:focus {
-    border-color: #1a9b84;
+    border-color: #8BDFDD;
 }
 
 .cc-select-wrapper {
@@ -136,8 +136,8 @@
 }
 
 .cc-submit-btn {
-    background-color: #1a9b84;
-    color: #fff;
+    background-color: #8BDFDD;
+    color: #222;
     border: none;
     border-radius: 0;
     height: 44px;
@@ -149,7 +149,7 @@
 }
 
 .cc-submit-btn:hover {
-    background-color: #147d6a;
+    background-color: #71cbca;
 }
 
 .cc-cancel-btn {
@@ -174,7 +174,7 @@
 }
 
 .cc-form-group .dp-wrapper:focus-within {
-    border-color: #1a9b84;
+    border-color: #8BDFDD;
     box-shadow: none;
 }
 

@@ -19,13 +19,30 @@
   font-display: swap;
 }
 
+/* ── LOCAL FONT: EB Garamond (from /src/assets/font/) ─────────── */
+@font-face {
+  font-family: 'EB Garamond';
+  src: url('./assets/font/EBGaramond-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'EB Garamond';
+  src: url('./assets/font/EBGaramond-Italic-VariableFont_wght.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   body {
-    font-family: 'Roboto', system-ui, -apple-system, sans-serif;
+    font-family: 'EB Garamond', serif;
   }
   
   :root {
@@ -94,10 +111,26 @@
 @layer base {
   * {
     @apply border-border;
+    font-family: 'EB Garamond', serif !important;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'EB Garamond', serif !important;
+  }
+
+  h1 {
+    font-size: 24px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.12em !important;
+    color: #111 !important;
+  }
+
+  h2, h3, h4, h5, h6 {
+    text-transform: uppercase !important;
+    letter-spacing: 0.12em !important;
+    font-weight: 700 !important;
   }
 }
 
@@ -122,8 +155,8 @@
 
 /* Typography presets — gallery view + gallery preview */
 .font-sans {
-  --body-font: 'Inter', sans-serif;
-  --heading-font: 'Montserrat', sans-serif;
+  --body-font: 'EB Garamond', serif;
+  --heading-font: 'EB Garamond', serif;
   --heading-letter-spacing: 0.15em;
   --heading-transform: uppercase;
   --heading-weight: 500;

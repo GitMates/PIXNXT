@@ -1,4 +1,4 @@
-﻿.set-main {
+.set-main {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -124,13 +124,13 @@
 }
 
 .text-teal {
-    color: #1a9b84;
+    color: #8BDFDD;
     cursor: pointer;
     font-weight: 500;
 }
 
 .text-teal:hover {
-    color: #147d6a;
+    color: #71cbca;
     text-decoration: underline;
 }
 
@@ -226,7 +226,7 @@
 }
 
 .set-toggle.on {
-    background-color: #1a9b84;
+    background-color: #8BDFDD;
 }
 
 .set-toggle-handle {
@@ -262,11 +262,11 @@
 }
 
 .teal-link {
-    color: #1a9b84;
+    color: #8BDFDD;
 }
 
 .teal-link:hover {
-    color: #147d6a;
+    color: #71cbca;
     text-decoration: underline;
 }
 
