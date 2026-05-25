@@ -1,4 +1,4 @@
-﻿@tailwind components;
+@tailwind components;
 
 @layer components {
 
@@ -454,7 +454,7 @@
     border-radius: 0;
     overflow: hidden;
     height: 38px;
-    background-color: #26a69a;
+    background-color: #8BDFDD;
 }
 
 .cd-share-main {
