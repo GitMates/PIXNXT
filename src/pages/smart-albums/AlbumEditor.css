@@ -539,7 +539,7 @@
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
-  background: #eee;
+  background: #fff;
 }
 
 .ae-collection-thumb:hover {
@@ -549,7 +549,7 @@
 .ae-collection-thumb img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 

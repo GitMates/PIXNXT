@@ -12,14 +12,17 @@ const BOOK_PAGE_HEIGHT_MAX = 520;
 const BOOK_PAGE_HEIGHT_SCALE = 0.93;
 
 function getBookDimensions(stageEl) {
-    if (!stageEl) return { width: 480, height: 340 };
+    if (!stageEl) return { width: 480, height: 480 };
     const w = stageEl.clientWidth;
     const h = stageEl.clientHeight;
-    const pageWidth = Math.floor(w / 2);
-    const pageHeight = Math.floor(h * BOOK_PAGE_HEIGHT_SCALE);
+    const pageSize = Math.floor(Math.min(w / 2, h * BOOK_PAGE_HEIGHT_SCALE));
+    const clampedPageSize = Math.max(
+        BOOK_PAGE_HEIGHT_MIN,
+        Math.min(BOOK_PAGE_HEIGHT_MAX, pageSize)
+    );
     return {
-        width: Math.max(280, Math.min(520, pageWidth)),
-        height: Math.max(BOOK_PAGE_HEIGHT_MIN, Math.min(BOOK_PAGE_HEIGHT_MAX, pageHeight)),
+        width: clampedPageSize,
+        height: clampedPageSize,
     };
 }
 
@@ -50,7 +53,7 @@ const AlbumBook = ({
     const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
     const dimsRafRef = useRef(null);
-    const [dims, setDims] = useState({ width: 480, height: 340 });
+    const [dims, setDims] = useState({ width: 480, height: 480 });
     const [pageIndex, setPageIndex] = useState(initialPage);
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
@@ -240,7 +243,7 @@ const AlbumBook = ({
                         width={dims.width}
                         height={dims.height}
                         size="stretch"
-                        minWidth={280}
+                        minWidth={BOOK_PAGE_HEIGHT_MIN}
                         maxWidth={520}
                         minHeight={BOOK_PAGE_HEIGHT_MIN}
                         maxHeight={BOOK_PAGE_HEIGHT_MAX}
