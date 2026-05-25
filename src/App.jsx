@@ -34,9 +34,10 @@ function App() {
   
   // 2. For production/preview domains (e.g. poojz.pixnxt.com or poojz.vercel.app)
   const parts = host.split('.');
-  const isProductionSubdomain = parts.length > 2 && parts[0] !== 'www' && !host.endsWith('.localhost');
+  const isVercelMain = host === 'pixnxt.vercel.app';
+  const isProductionSubdomain = parts.length > 2 && parts[0] !== 'www' && !host.endsWith('.localhost') && !isVercelMain;
   const prodSubdomain = isProductionSubdomain ? parts[0] : null;
-  
+
   const activeSlug = prodSubdomain || devSubdomain;
 
   const location = useLocation();
