@@ -27,9 +27,17 @@ import { GlobalUploadShell } from './components/features/CollectionDashboard/Upl
 
 function App() {
   const host = window.location.hostname;
-  const isSubdomain = host.includes('.pixnxt.com') && host.split('.')[0] !== 'www';
+  
+  // Generic subdomain resolver:
+  // 1. For local development (e.g., poojz.localhost)
   const devSubdomain = host.endsWith('.localhost') && host !== 'localhost' ? host.split('.')[0] : null;
-  const activeSlug = isSubdomain ? host.split('.')[0] : devSubdomain;
+  
+  // 2. For production/preview domains (e.g. poojz.pixnxt.com or poojz.vercel.app)
+  const parts = host.split('.');
+  const isProductionSubdomain = parts.length > 2 && parts[0] !== 'www' && !host.endsWith('.localhost');
+  const prodSubdomain = isProductionSubdomain ? parts[0] : null;
+  
+  const activeSlug = prodSubdomain || devSubdomain;
 
   const location = useLocation();
   const navigate = useNavigate();
