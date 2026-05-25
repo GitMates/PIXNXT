@@ -7,8 +7,17 @@ import './Homepage.css';
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 const buildHomepageUrl = (profile, user) => {
-    const slug = profile?.homepage_slug || (user?.email ? user.email.split('@')[0] : 'poojz');
-    return `http://${slug.toLowerCase()}.localhost:5173/`;
+    const slug = (profile?.homepage_slug || user?.email?.split('@')[0] || 'poojz').toLowerCase();
+    const host = window.location.host; // includes port
+    const protocol = window.location.protocol;
+    
+    if (host.includes('localhost') || host.includes('127.0.0.1')) {
+        const baseHost = host.replace(/^[a-zA-Z0-9-]+\.localhost/, 'localhost');
+        return `${protocol}//${slug}.${baseHost}/`;
+    }
+    
+    const hostWithoutSubdomain = host.replace(/^(www\.|[a-zA-Z0-9-]+\.)/i, '');
+    return `${protocol}//${slug}.${hostWithoutSubdomain}/`;
 };
 
 const formatEventDate = (dateStr) => {
@@ -36,6 +45,12 @@ const Homepage = () => {
     const [pwCopyDone, setPwCopyDone] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState(null);
+    const [toastMessage, setToastMessage] = useState('');
+
+    const showToast = (msg) => {
+        setToastMessage(msg);
+        setTimeout(() => setToastMessage(''), 3000);
+    };
 
     // Editable fields (controlled inputs, seeded from DB)
     const [statusOn, setStatusOn] = useState(true);
@@ -174,11 +189,13 @@ const Homepage = () => {
             clearTimeout(saveTimeoutRef.current);
         }
         if (immediate) {
+            showToast('Changes saved successfully!');
             performSave(overrides);
         } else {
             saveTimeoutRef.current = setTimeout(() => {
+                showToast('Changes saved successfully!');
                 performSave(overrides);
-            }, 800);
+            }, 500); // reduced from 800ms to 500ms for even faster typing commit
         }
     };
 
@@ -226,8 +243,7 @@ const Homepage = () => {
 
     // ── View site ─────────────────────────────────────────────────────────────
     const handleViewSite = () => {
-        const slug = profile?.homepage_slug || (user?.email ? user.email.split('@')[0] : 'poojz');
-        const targetUrl = `http://${slug.toLowerCase()}.localhost:5173/`;
+        const targetUrl = buildHomepageUrl(profile, user);
         window.open(targetUrl, '_blank');
     };
 
@@ -247,16 +263,6 @@ const Homepage = () => {
                 <header className="hp-header">
                     <h1 className="hp-title">Homepage</h1>
                     <div className="hp-header-actions">
-                        <span className="hp-autosave-status">
-                            {saving ? (
-                                <span className="hp-status-saving">
-                                    <div className="hp-spinner"></div>
-                                    Saving...
-                                </span>
-                            ) : saveSuccess ? (
-                                <span className="hp-status-saved">✓ Saved</span>
-                            ) : null}
-                        </span>
                         <button className="hp-view-btn" onClick={handleViewSite} disabled={profileLoading}>
                             View Site
                         </button>
@@ -528,6 +534,14 @@ const Homepage = () => {
                     </div>
                 ) : null}
             </main>
+            {toastMessage && (
+                <div className="fixed bottom-6 right-6 bg-[#1a9b84] text-white px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-[13px] font-medium transition-all duration-300 z-[9999] flex items-center gap-2" style={{ animation: 'hpToastIn 0.3s ease-out' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    {toastMessage}
+                </div>
+            )}
         </SidebarLayout>
     );
 };

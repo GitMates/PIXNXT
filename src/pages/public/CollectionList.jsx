@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { galleryService } from '../../services/gallery.service';
 import { useNavigate } from 'react-router-dom';
+import { sortCollections } from '../../utils/sortCollections';
 
 const ITEMS_PER_PAGE = 12;
 
@@ -24,6 +25,16 @@ const CollectionList = ({ slug }) => {
   const gridRef = useRef(null);
   
   const navigate = useNavigate();
+  const [layoutMode, setLayoutMode] = useState('grid');
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 80);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   // Reset body theme and scroll when navigating back from gallery
   useEffect(() => {
@@ -135,10 +146,12 @@ const CollectionList = ({ slug }) => {
       collection.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+  const sortedCollections = sortCollections(filteredCollections, profile?.homepage_sort || 'created-new');
+
   // Pagination logic
-  const totalPages = Math.ceil(filteredCollections.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(sortedCollections.length / ITEMS_PER_PAGE);
   const safePage = Math.min(currentPage, Math.max(1, totalPages));
-  const pagedCollections = filteredCollections.slice(
+  const pagedCollections = sortedCollections.slice(
     (safePage - 1) * ITEMS_PER_PAGE,
     safePage * ITEMS_PER_PAGE
   );
@@ -160,73 +173,212 @@ const CollectionList = ({ slug }) => {
   };
 
   return (
-    <div className="min-h-screen bg-white text-[#333] font-['Helvetica_Neue',Helvetica,Arial,sans-serif]">
-      {/* Top Navigation (Minimalist with working search) */}
-      <nav className="w-full h-20 flex justify-end items-center px-10 relative">
-        <div className={`flex items-center overflow-hidden transition-all duration-300 ${isSearchOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'}`}>
-           <input 
-             type="text" 
-             autoFocus={isSearchOpen}
-             value={searchQuery}
-             onChange={(e) => handleSearchChange(e.target.value)}
-             placeholder="Search collections..." 
-             className="w-full border-b border-gray-300 py-2 outline-none text-sm bg-transparent placeholder-gray-400 focus:border-gray-900 transition-colors mr-4"
-           />
-        </div>
-        <button 
-           onClick={() => {
-              setIsSearchOpen(!isSearchOpen);
-              if (isSearchOpen) handleSearchChange('');
-           }} 
-           className={`${isSearchOpen ? 'text-gray-900' : 'text-gray-400'} hover:text-gray-900 transition-colors z-10 bg-white`}
-        >
-          {isSearchOpen ? (
-             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-          ) : (
-             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-          )}
-        </button>
-      </nav>
+    <div className="min-h-screen bg-[#fafafa] text-[#222] portfolio-wrapper pb-24">
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600&family=Inter:wght@300;400;500&display=swap');
+        
+        /* Custom Elegant Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #fafafa;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #e2e2e2;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #cccccc;
+        }
 
+        .portfolio-wrapper {
+            font-family: 'Outfit', 'Inter', sans-serif !important;
+            background-color: #fafafa !important;
+        }
+
+        .collection-card-image-container {
+            position: relative;
+            overflow: hidden;
+            background-color: #f3f3f3;
+            border: 1px solid rgba(0, 0, 0, 0.04);
+            transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .collection-card-image-container::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.015);
+            transition: opacity 0.4s ease;
+        }
+
+        .group:hover .collection-card-image-container::after {
+            opacity: 0;
+        }
+
+        .collection-card-title {
+            position: relative;
+            display: inline-block;
+            padding-bottom: 2px;
+        }
+
+        .collection-card-title::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            width: 0;
+            height: 1.5px;
+            background-color: #111;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateX(-50%);
+        }
+
+        .group:hover .collection-card-title::after {
+            width: 100%;
+        }
+
+        /* Glassmorphic Navbar transition */
+        .scrolled-nav {
+            backdrop-filter: blur(16px) !important;
+            -webkit-backdrop-filter: blur(16px) !important;
+            background-color: rgba(250, 250, 250, 0.8) !important;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+            height: 4.5rem !important;
+        }
+      `}</style>
+
+      {/* Top Navigation (Minimalist Glassmorphic Sticky Header) */}
+      <nav className={`w-full h-24 flex justify-between items-center px-10 sticky top-0 z-50 transition-all duration-300 ${scrolled ? 'scrolled-nav shadow-[0_2px_20px_-5px_rgba(0,0,0,0.015)]' : 'bg-transparent'}`}>
+        {/* Left Side: Brand Name appearing dynamically on scroll */}
+        <div className="flex items-center">
+          {scrolled && (
+            <span className="text-[12px] font-semibold tracking-[0.2em] text-[#111] uppercase animate-[cgFadeIn_0.3s_ease] font-['Outfit'] select-none">
+              {photographerName}
+            </span>
+          )}
+        </div>
+
+        {/* Right Side Actions */}
+        <div className="flex items-center">
+          {/* Search bar input slider */}
+          <div className={`flex items-center overflow-hidden transition-all duration-300 ${isSearchOpen ? 'w-64 opacity-100' : 'w-0 opacity-0'}`}>
+             <input 
+               type="text" 
+               autoFocus={isSearchOpen}
+               value={searchQuery}
+               onChange={(e) => handleSearchChange(e.target.value)}
+               placeholder="Search collections..." 
+               className="w-full border-b border-gray-300 py-1.5 outline-none text-[13px] bg-transparent placeholder-gray-400 focus:border-gray-900 transition-colors mr-4 font-['Inter']"
+             />
+          </div>
+
+          {/* Layout Mode Switcher Toggle */}
+          <button
+             onClick={() => setLayoutMode(prev => prev === 'grid' ? 'list' : 'grid')}
+             className="text-gray-400 hover:text-gray-900 transition-colors mr-6 flex items-center justify-center"
+             title={layoutMode === 'grid' ? "Switch to Editorial List View" : "Switch to Grid View"}
+          >
+             {layoutMode === 'grid' ? (
+                /* List Icon */
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+             ) : (
+                /* Grid Icon */
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+             )}
+          </button>
+
+          {/* Search Trigger Button */}
+          <button 
+             onClick={() => {
+                setIsSearchOpen(!isSearchOpen);
+                if (isSearchOpen) handleSearchChange('');
+             }} 
+             className={`${isSearchOpen ? 'text-gray-900' : 'text-gray-400'} hover:text-gray-900 transition-colors z-10 flex items-center justify-center`}
+          >
+            {isSearchOpen ? (
+               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            ) : (
+               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            )}
+          </button>
+        </div>
+      </nav>
       {/* Photographer Header */}
-      <header className="container mx-auto px-6 pt-12 pb-24 text-center max-w-4xl">
-        <h1 className="mb-10 text-[26px] font-bold tracking-[0.1em] text-[#222] uppercase">
+      <header className="container mx-auto px-6 pt-16 pb-20 text-center max-w-4xl font-['Roboto',sans-serif]">
+        {profile.profile_icon_url && (
+           <div className="mb-8 flex justify-center">
+              <img 
+                 src={profile.profile_icon_url} 
+                 alt={photographerName} 
+                 className="w-20 h-20 rounded-full object-cover border border-[#eaeaea] shadow-sm" 
+              />
+           </div>
+        )}
+        
+        <h1 className="mb-8 text-[32px] font-light tracking-[0.18em] text-[#111] uppercase leading-tight">
            {photographerName}
         </h1>
         
-        {/* Contact Info (Minimalist vertical list) */}
-        <div className="flex flex-col items-center gap-y-3 text-[14px] text-[#555]">
+        {/* Contact Info (Sleek Centered Horizontal List) */}
+        <div className="flex flex-wrap justify-center items-center gap-y-3.5 text-[13px] text-[#666] uppercase tracking-[0.08em] font-medium">
            {profile.show_phone !== false && profile.phone && (
-              <div className="flex items-center gap-3">
-                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                 <a href={`tel:${profile.phone}`} className="hover:text-black transition-colors tracking-wide">{profile.phone}</a>
+              <div className="flex items-center hover:text-black transition-colors px-3">
+                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 shrink-0 mr-2 translate-y-[1px]">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                 </svg>
+                 <a href={`tel:${profile.phone.trim()}`}>{profile.phone.trim()}</a>
               </div>
+           )}
+           {profile.show_phone !== false && profile.phone && profile.show_email !== false && profile.contact_email && (
+              <span className="text-gray-300 select-none text-[10px]">•</span>
            )}
            {profile.show_email !== false && profile.contact_email && (
-              <div className="flex items-center gap-3">
-                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                 <a href={`mailto:${profile.contact_email}`} className="hover:text-black transition-colors tracking-wide">{profile.contact_email}</a>
+              <div className="flex items-center hover:text-black transition-colors px-3">
+                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 shrink-0 mr-2 translate-y-[1.5px]">
+                    <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                    <polyline points="22,6 12,13 2,6"/>
+                 </svg>
+                 <a href={`mailto:${profile.contact_email.trim()}`} className="lowercase tracking-normal">{profile.contact_email.trim()}</a>
               </div>
            )}
+           {((profile.show_phone !== false && profile.phone) || (profile.show_email !== false && profile.contact_email)) && profile.show_website !== false && profile.website && (
+              <span className="text-gray-300 select-none text-[10px]">•</span>
+           )}
            {profile.show_website !== false && profile.website && (
-              <div className="flex items-center gap-3">
-                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                 <a href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} target="_blank" rel="noreferrer" className="hover:text-black transition-colors tracking-wide">
-                    {profile.website.replace(/^https?:\/\//, '')}
+              <div className="flex items-center hover:text-black transition-colors px-3">
+                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 shrink-0 mr-2 translate-y-[1px]">
+                    <circle cx="12" cy="12" r="10"/>
+                    <line x1="2" y1="12" x2="22" y2="12"/>
+                    <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                 </svg>
+                 <a href={profile.website.trim().startsWith('http') ? profile.website.trim() : `https://${profile.website.trim()}`} target="_blank" rel="noreferrer">
+                    {profile.website.trim().replace(/^https?:\/\//, '')}
                  </a>
               </div>
            )}
+           {((profile.show_phone !== false && profile.phone) || (profile.show_email !== false && profile.contact_email) || (profile.show_website !== false && profile.website)) && profile.show_address !== false && profile.address_line_1 && (
+              <span className="text-gray-300 select-none text-[10px]">•</span>
+           )}
            {profile.show_address !== false && profile.address_line_1 && (
-              <div className="flex items-center gap-3">
-                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-                 <span className="tracking-wide">{[profile.address_line_1, profile.city, profile.state_province].filter(Boolean).join(', ')}</span>
+              <div className="flex items-center hover:text-black transition-colors px-3">
+                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 shrink-0 mr-2 translate-y-[1px]">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                    <circle cx="12" cy="10" r="3"/>
+                 </svg>
+                 <span>{[profile.address_line_1.trim(), profile.city ? profile.city.trim() : '', profile.state_province ? profile.state_province.trim() : ''].filter(Boolean).join(', ')}</span>
               </div>
            )}
         </div>
 
         {/* Bio (if toggled) */}
         {profile.show_bio !== false && profile.bio && (
-           <p className="mt-8 text-[#555] leading-relaxed max-w-2xl mx-auto text-[15px] tracking-wide">
+           <p className="mt-8 text-[#555] leading-relaxed max-w-xl mx-auto text-[14px] font-normal tracking-wide border-t border-[#f0f0f0] pt-6">
               {profile.bio}
            </p>
         )}
@@ -253,9 +405,10 @@ const CollectionList = ({ slug }) => {
         )}
       </header>
 
-      {/* Collections Grid */}
-      <main ref={gridRef} className="container mx-auto px-10 pb-16 max-w-7xl">
-        <div className="grid grid-cols-1 gap-x-10 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
+      {/* Collections Grid / List */}
+      <main ref={gridRef} className="container mx-auto px-10 pb-16 max-w-7xl transition-all duration-500">
+        {layoutMode === 'grid' ? (
+          <div className="grid grid-cols-1 gap-x-10 gap-y-16 sm:grid-cols-2 lg:grid-cols-3">
           {pagedCollections.map((collection, idx) => (
             <motion.div
               initial={{ opacity: 0, y: 15 }}
@@ -266,20 +419,20 @@ const CollectionList = ({ slug }) => {
               className="group cursor-pointer flex flex-col items-center"
               onClick={() => navigate(`/gallery/${collection.slug || collection.name.toLowerCase().replace(/ /g, '-')}`)}
             >
-              <div className="w-full aspect-[4/3] sm:aspect-[3/2] md:aspect-[4/3] overflow-hidden bg-gray-50 mb-6">
+              <div className="w-full h-auto collection-card-image-container mb-6 shadow-sm overflow-hidden">
                 <img 
                   src={collection.cover_url || collection.cover || "https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&auto=format&fit=crop&q=60"} 
                   alt={collection.name} 
-                  className="h-full w-full object-cover transition-transform duration-[2s] group-hover:scale-[1.03]"
+                  className="w-full h-auto object-contain transition-transform duration-[1.2s] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.04]"
                 />
               </div>
 
               <div className="text-center">
-                <h3 className="mb-2 text-[14px] font-bold tracking-[0.08em] text-[#222] uppercase group-hover:text-gray-500 transition-colors">
+                <h3 className="mb-2 text-[13px] font-medium tracking-[0.14em] text-[#111] uppercase group-hover:text-black transition-colors collection-card-title">
                   {collection.name}
                 </h3>
                 {collection.event_date && (
-                  <div className="text-[11px] font-medium tracking-[0.1em] text-[#999] uppercase">
+                  <div className="text-[10px] font-normal tracking-[0.16em] text-[#888] uppercase mt-1">
                     {new Date(collection.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).replace(',', 'th,')}
                   </div>
                 )}
@@ -287,8 +440,42 @@ const CollectionList = ({ slug }) => {
             </motion.div>
           ))}
         </div>
+      ) : (
+          <div className="flex flex-col items-center gap-24 max-w-4xl mx-auto">
+            {pagedCollections.map((collection, idx) => (
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8 }}
+                key={collection.id || idx}
+                className="group cursor-pointer flex flex-col items-center w-full"
+                onClick={() => navigate(`/gallery/${collection.slug || collection.name.toLowerCase().replace(/ /g, '-')}`)}
+              >
+                <div className="w-full h-auto collection-card-image-container mb-8 shadow-sm overflow-hidden">
+                  <img 
+                    src={collection.cover_url || collection.cover || "https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&auto=format&fit=crop&q=60"} 
+                    alt={collection.name} 
+                    className="w-full h-auto object-contain transition-transform duration-[1.5s] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.03]"
+                  />
+                </div>
 
-        {filteredCollections.length === 0 && (
+                <div className="text-center">
+                  <h3 className="mb-2 text-[15px] font-medium tracking-[0.16em] text-[#111] uppercase group-hover:text-black transition-colors collection-card-title">
+                    {collection.name}
+                  </h3>
+                  {collection.event_date && (
+                    <div className="text-[11px] font-normal tracking-[0.18em] text-[#888] uppercase mt-1">
+                      {new Date(collection.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).replace(',', 'th,')}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+
+        {sortedCollections.length === 0 && (
           <div className="py-20 text-center">
              <p className="text-[12px] tracking-widest text-[#999] uppercase">
                 {collections.length === 0 ? "No public collections available yet." : "No collections match your search."}
