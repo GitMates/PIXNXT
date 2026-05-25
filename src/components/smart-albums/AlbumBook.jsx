@@ -73,6 +73,10 @@ const AlbumBook = ({
     onSelectCover,
     onTransformChange,
     transformRevision = 0,
+    canAddPages = false,
+    onAddPages,
+    pageCountBusy = false,
+    overviewReopenToken = 0,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -214,6 +218,10 @@ const AlbumBook = ({
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [overviewOpen]);
+
+    useEffect(() => {
+        if (overviewReopenToken) setOverviewOpen(true);
+    }, [overviewReopenToken]);
 
     const closeFocusView = useCallback(() => {
         setFocusOpen(false);
@@ -471,6 +479,23 @@ const AlbumBook = ({
                                 </button>
                             );
                         })}
+                        {canAddPages && onAddPages && (
+                            <button
+                                type="button"
+                                className="ab-overview-item ab-overview-item--add"
+                                disabled={pageCountBusy}
+                                onClick={async () => {
+                                    await onAddPages();
+                                }}
+                            >
+                                <span className="ab-overview-thumb ab-overview-thumb--add">
+                                    <span className="ab-overview-add-plus">+</span>
+                                </span>
+                                <span className="ab-overview-label">
+                                    {pageCountBusy ? 'Adding...' : 'Add page'}
+                                </span>
+                            </button>
+                        )}
                     </div>
                 </div>
             )}

@@ -91,6 +91,7 @@ export default function AlbumEditor({
     const [transformRevision, setTransformRevision] = useState(0);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pageCountBusy, setPageCountBusy] = useState(false);
+    const [overviewReopenToken, setOverviewReopenToken] = useState(0);
     const [gridSelection, setGridSelection] = useState(() => {
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
         return isProofGridSpread(left) ? buildCellSelection(left, 1) : buildCoverSelection();
@@ -300,7 +301,7 @@ export default function AlbumEditor({
     const canRemovePages = totalPages - pagesPerSpread >= minPages;
 
     const handleAddPages = useCallback(async () => {
-        if (!canAddPages || !onChangePageCount) return;
+        if (!canAddPages || !onChangePageCount) return null;
         setPageCountBusy(true);
         const result = await onChangePageCount(pagesPerSpread);
         setPageCountBusy(false);
@@ -308,7 +309,14 @@ export default function AlbumEditor({
             bumpWorkspace();
             showToast(`Added ${pagesPerSpread} pages (${result.next} total).`, { duration: 3500 });
         }
+        return result;
     }, [canAddPages, onChangePageCount, pagesPerSpread, bumpWorkspace, showToast]);
+
+    const handleAddPagesFromOverview = useCallback(async () => {
+        const result = await handleAddPages();
+        if (result) setOverviewReopenToken(Date.now());
+        return result;
+    }, [handleAddPages]);
 
     const handleRemovePages = useCallback(async () => {
         if (!canRemovePages || !onChangePageCount) return;
@@ -421,6 +429,10 @@ export default function AlbumEditor({
                             onSelectGridCell={handleSelectGridCell}
                             onSelectGridSpread={handleSelectGridSpread}
                             onSelectCover={handleSelectCover}
+                            canAddPages={canAddPages}
+                            onAddPages={handleAddPagesFromOverview}
+                            pageCountBusy={pageCountBusy}
+                            overviewReopenToken={overviewReopenToken}
                             onTransformChange={() => {
                                 setTransformRevision(getTransformRevision(albumId));
                                 onPhotosUploaded?.();

@@ -709,6 +709,28 @@
   border-color: rgba(0, 0, 0, 0.35);
 }
 
+.ab-overview-item--add:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.ab-overview-thumb--add {
+  border: 1px dashed rgba(0, 0, 0, 0.22);
+  color: #9b9b9b;
+}
+
+.ab-overview-item--add:not(:disabled):hover .ab-overview-thumb--add {
+  color: #666;
+  border-color: rgba(0, 0, 0, 0.42);
+  background: #fafafa;
+}
+
+.ab-overview-add-plus {
+  font-size: 34px;
+  font-weight: 300;
+  line-height: 1;
+}
+
 .ab-focus-view {
   position: fixed;
   inset: 0;
