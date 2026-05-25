@@ -380,8 +380,7 @@
 }
 
 .ab-page-grid--spread-edit .ab-grid-cell--editing {
-  outline: 2px solid rgba(37, 99, 235, 0.45);
-  outline-offset: -2px;
+  outline: none;
 }
 
 .ab-grid-cell--framed {

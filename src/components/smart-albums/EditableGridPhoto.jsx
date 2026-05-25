@@ -2,9 +2,20 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     getPagePhotoTransform,
     getSpreadPhotoTransform,
+    normalizePhotoTransform,
+    photoTransformStyle,
     setPagePhotoTransform,
     setSpreadPhotoTransform,
 } from './albumPageTransforms';
+
+const EDGE_ORIGIN = {
+    n: '50% 100%',
+    s: '50% 0%',
+    e: '0% 50%',
+    w: '100% 50%',
+};
+
+const clampScale = (value) => Math.max(0.5, Math.min(3, value));
 
 export default function EditableGridPhoto({
     albumId,
@@ -25,6 +36,7 @@ export default function EditableGridPhoto({
     }, [albumId, pageNum, spreadLeftPage, isSpread]);
 
     const [transform, setTransform] = useState(readTransform);
+    const [transformOrigin, setTransformOrigin] = useState('50% 50%');
 
     useEffect(() => {
         setTransform(readTransform());
@@ -32,11 +44,12 @@ export default function EditableGridPhoto({
 
     const persist = useCallback(
         (next) => {
-            setTransform(next);
+            const normalized = normalizePhotoTransform(next);
+            setTransform(normalized);
             if (isSpread) {
-                setSpreadPhotoTransform(albumId, spreadLeftPage, next);
+                setSpreadPhotoTransform(albumId, spreadLeftPage, normalized);
             } else {
-                setPagePhotoTransform(albumId, pageNum, next);
+                setPagePhotoTransform(albumId, pageNum, normalized);
             }
             onTransformChange?.();
         },
@@ -44,15 +57,16 @@ export default function EditableGridPhoto({
     );
 
     const updateLocal = useCallback((next) => {
-        setTransform(next);
+        setTransform(normalizePhotoTransform(next));
     }, []);
 
     const startPan = (e) => {
         e.preventDefault();
         e.stopPropagation();
+        setTransformOrigin('50% 50%');
         const startX = e.clientX;
         const startY = e.clientY;
-        const base = { ...transform };
+        const base = normalizePhotoTransform(transform);
 
         const onMove = (ev) => {
             const rect = wrapRef.current?.getBoundingClientRect();
@@ -81,9 +95,11 @@ export default function EditableGridPhoto({
     const startEdgeResize = (edge) => (e) => {
         e.preventDefault();
         e.stopPropagation();
+        setTransformOrigin(EDGE_ORIGIN[edge]);
         const startX = e.clientX;
         const startY = e.clientY;
-        const base = { ...transform };
+        const base = normalizePhotoTransform(transform);
+        const vertical = edge === 'n' || edge === 's';
 
         const onMove = (ev) => {
             let delta = 0;
@@ -91,10 +107,10 @@ export default function EditableGridPhoto({
             else if (edge === 's') delta = (ev.clientY - startY) * 0.008;
             else if (edge === 'e') delta = (ev.clientX - startX) * 0.008;
             else if (edge === 'w') delta = (startX - ev.clientX) * 0.008;
-            const next = {
-                ...base,
-                scale: Math.max(0.5, Math.min(3, base.scale + delta)),
-            };
+
+            const next = vertical
+                ? { ...base, scaleY: clampScale(base.scaleY + delta) }
+                : { ...base, scaleX: clampScale(base.scaleX + delta) };
             liveRef.current = next;
             updateLocal(next);
         };
@@ -128,7 +144,8 @@ export default function EditableGridPhoto({
                 className={`ab-grid-cell-photo ab-grid-cell-photo--editable${panoClass}`}
                 draggable={false}
                 style={{
-                    transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,
+                    ...photoTransformStyle(transform),
+                    transformOrigin,
                 }}
                 onPointerDown={startPan}
             />
@@ -140,7 +157,7 @@ export default function EditableGridPhoto({
                     onPointerDown={startEdgeResize(edge)}
                 />
             ))}
-            <span className="ab-grid-edit-hint">Drag to move · edges to zoom</span>
+            <span className="ab-grid-edit-hint">Drag to move · each edge zooms</span>
         </div>
     );
 }

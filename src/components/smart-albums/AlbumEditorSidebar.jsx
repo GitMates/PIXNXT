@@ -241,7 +241,7 @@ export default function AlbumEditorSidebar({
                         <h3 className="ae-panel-title">Edit spreads</h3>
                         <p className="ae-panel-text">
                             Fine-tune photos already on the spread. Drag the photo to reposition; drag
-                            any edge to zoom in or out.
+                            top/bottom or left/right edges separately to zoom.
                         </p>
                         <ul className="ae-tips-list">
                             <li>Works on left, right, or whole-spread photos</li>

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { getGridSlotPhoto, getPagePhotoOverride, hasGridSlotPhoto } from './albumPagePhotos';
-import { getPagePhotoTransform, getSpreadPhotoTransform } from './albumPageTransforms';
+import {
+    getPagePhotoTransform,
+    getSpreadPhotoTransform,
+    photoTransformStyle,
+} from './albumPageTransforms';
 import { getSpreadPhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
@@ -20,7 +24,7 @@ function GridPhoto({
             ? getSpreadPhotoTransform(albumId, spreadLeft)
             : albumId != null
               ? getPagePhotoTransform(albumId, pageNum)
-              : { x: 0, y: 0, scale: 1 };
+              : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
     void transformRevision;
     const [useSampleFallback, setUseSampleFallback] = useState(false);
     const sampleSrc = showSamples ? getSampleImageForPage(pageNum) : null;
@@ -43,9 +47,7 @@ function GridPhoto({
             alt=""
             className={`ab-grid-cell-photo${panoClass}`}
             draggable={false}
-            style={{
-                transform: `translate(${transform.x}%, ${transform.y}%) scale(${transform.scale})`,
-            }}
+            style={photoTransformStyle(transform)}
             onError={() => {
                 if (!useSampleFallback && sampleSrc && src !== sampleSrc) {
                     setUseSampleFallback(true);

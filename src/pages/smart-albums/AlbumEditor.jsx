@@ -23,6 +23,7 @@ import {
     getSpreadRightPageIndex,
 } from '../../components/smart-albums/albumSpreadGrid';
 import { getSpreadPages, pageToSpreadIndex } from '../../components/smart-albums/albumSpreadUtils';
+import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import './AlbumEditor.css';
 
 function getSpreadLeftForBookPage(bookPageIndex, totalPages) {
@@ -68,7 +69,7 @@ export default function AlbumEditor({
 }) {
     const navigate = useNavigate();
     const [activePanel, setActivePanel] = useState('collections');
-    const [uploadNotice, setUploadNotice] = useState(null);
+    const { toast, showToast, clearToast } = useAppToast(4000);
     const [uploading, setUploading] = useState(false);
     const [bookPage, setBookPage] = useState(initialPage);
     const [gridEditSet, setGridEditSet] = useState('single');
@@ -153,12 +154,11 @@ export default function AlbumEditor({
 
     const openPicker = useCallback(() => {
         if (!gridSelection?.leftPage) {
-            setUploadNotice('Open an inner spread (not the cover) first.');
-            window.setTimeout(() => setUploadNotice(null), 3500);
+            showToast('Open an inner spread (not the cover) first.', { variant: 'info', duration: 3500 });
             return;
         }
         setPickerOpen(true);
-    }, [gridSelection]);
+    }, [gridSelection, showToast]);
 
     const handleSelectGridCell = useCallback((leftPage, cellId) => {
         setGridEditSet('single');
@@ -212,24 +212,27 @@ export default function AlbumEditor({
     const handleUploadToCollection = async (files) => {
         setUploading(true);
         if (files.some((f) => isPdfFile(f))) {
-            setUploadNotice('Converting PDF pages to images…');
+            showToast('Converting PDF pages to images…', { variant: 'info', duration: 0 });
         }
         try {
             const added = await addFilesToAlbumCollection(albumId, files);
             if (added.length > 0) {
                 setCollectionRevision(getAlbumCollectionRevision(albumId));
-                setUploadNotice(
-                    `Added ${added.length} image${added.length === 1 ? '' : 's'} to collection (PDF pages count as separate photos).`
+                showToast(
+                    `Added ${added.length} image${added.length === 1 ? '' : 's'} to collection (PDF pages count as separate photos).`,
+                    { variant: 'success', duration: 4500 }
                 );
             } else {
-                setUploadNotice('No supported files selected (JPG, PNG, or PDF).');
+                showToast('No supported files selected (JPG, PNG, or PDF).', {
+                    variant: 'error',
+                    duration: 4500,
+                });
             }
         } catch (e) {
             console.error(e);
-            setUploadNotice('Upload failed. Try again.');
+            showToast('Upload failed. Try again.', { variant: 'error', duration: 4500 });
         } finally {
             setUploading(false);
-            window.setTimeout(() => setUploadNotice(null), 4500);
         }
     };
 
@@ -238,11 +241,10 @@ export default function AlbumEditor({
             if (placeItemOnSpread(itemId)) {
                 bumpWorkspace();
                 setPickerOpen(false);
-                setUploadNotice('Photo placed on spread.');
+                showToast('Photo placed on spread.', { duration: 3500 });
             }
-            window.setTimeout(() => setUploadNotice(null), 3500);
         },
-        [placeItemOnSpread, bumpWorkspace]
+        [placeItemOnSpread, bumpWorkspace, showToast]
     );
 
     const canAddPages = totalPages + pagesPerSpread <= maxPages;
@@ -255,10 +257,9 @@ export default function AlbumEditor({
         setPageCountBusy(false);
         if (result) {
             bumpWorkspace();
-            setUploadNotice(`Added ${pagesPerSpread} pages (${result.next} total).`);
-            window.setTimeout(() => setUploadNotice(null), 3500);
+            showToast(`Added ${pagesPerSpread} pages (${result.next} total).`, { duration: 3500 });
         }
-    }, [canAddPages, onChangePageCount, pagesPerSpread, bumpWorkspace]);
+    }, [canAddPages, onChangePageCount, pagesPerSpread, bumpWorkspace, showToast]);
 
     const handleRemovePages = useCallback(async () => {
         if (!canRemovePages || !onChangePageCount) return;
@@ -267,18 +268,16 @@ export default function AlbumEditor({
         setPageCountBusy(false);
         if (result) {
             bumpWorkspace();
-            setUploadNotice(`Removed ${pagesPerSpread} pages (${result.next} total).`);
-            window.setTimeout(() => setUploadNotice(null), 3500);
+            showToast(`Removed ${pagesPerSpread} pages (${result.next} total).`, { duration: 3500 });
         }
-    }, [canRemovePages, onChangePageCount, pagesPerSpread, bumpWorkspace]);
+    }, [canRemovePages, onChangePageCount, pagesPerSpread, bumpWorkspace, showToast]);
 
     const handleClearAllPhotos = useCallback(() => {
         clearAllAlbumPagePhotos(albumId, { totalPages });
         clearAlbumTransforms(albumId);
         bumpWorkspace();
-        setUploadNotice('Removed all images from the album.');
-        window.setTimeout(() => setUploadNotice(null), 3500);
-    }, [albumId, totalPages, bumpWorkspace]);
+        showToast('Removed all images from the album.', { duration: 3500 });
+    }, [albumId, totalPages, bumpWorkspace, showToast]);
 
     const spreadEdit = activePanel === 'edit';
     const workspaceKey = `${photoRevision}-${collectionRevision}-${transformRevision}-${getAlbumPhotoRevision(albumId)}`;
@@ -308,7 +307,6 @@ export default function AlbumEditor({
                     </div>
                 </div>
                 <div className="ae-topbar-right">
-                    {uploadNotice && <span className="ae-toast">{uploadNotice}</span>}
                     <button type="button" className="ae-btn-secondary" onClick={() => onOpenPreview()}>
                         Preview
                     </button>
@@ -355,7 +353,7 @@ export default function AlbumEditor({
                         <span className="ae-canvas-label">Spread editor</span>
                         <span className="ae-canvas-hint">
                             {spreadEdit
-                                ? 'Drag to reposition · handle to zoom'
+                                ? 'Drag photo to move · drag each edge to zoom'
                                 : 'Click a page slot to pick a photo from your collection'}
                         </span>
                     </div>
@@ -382,6 +380,8 @@ export default function AlbumEditor({
                     </div>
                 </main>
             </div>
+
+            <AppToast toast={toast} onDismiss={clearToast} />
 
             <CollectionPickerModal
                 open={pickerOpen}
