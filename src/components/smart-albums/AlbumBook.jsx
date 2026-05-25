@@ -1,7 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
+import {
+    getGridSlotPhoto,
+    getPagePhotoOverride,
+    getSpreadPhotoOverride,
+} from './albumPagePhotos';
+import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+import { getSampleImageForPage } from './sampleAlbumImages';
 import './AlbumBook.css';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
@@ -11,16 +18,42 @@ const BOOK_PAGE_HEIGHT_MIN = 300;
 const BOOK_PAGE_HEIGHT_MAX = 520;
 const BOOK_PAGE_HEIGHT_SCALE = 0.93;
 
-function getBookDimensions(stageEl) {
-    if (!stageEl) return { width: 480, height: 340 };
+const GRID_SIZE_ASPECT = {
+    square: 1,
+    portrait: 0.8,
+    landscape: 1.25,
+    wide: 16 / 9,
+};
+
+function getBookDimensions(stageEl, gridSize = 'square') {
+    if (!stageEl) return { width: 480, height: 480 };
     const w = stageEl.clientWidth;
     const h = stageEl.clientHeight;
-    const pageWidth = Math.floor(w / 2);
-    const pageHeight = Math.floor(h * BOOK_PAGE_HEIGHT_SCALE);
+    const aspect = GRID_SIZE_ASPECT[gridSize] || GRID_SIZE_ASPECT.square;
+    const maxPageWidth = w / 2;
+    const maxPageHeight = h * BOOK_PAGE_HEIGHT_SCALE;
+    const pageHeight = Math.floor(Math.min(maxPageHeight, maxPageWidth / aspect));
+    const clampedPageHeight = Math.max(
+        BOOK_PAGE_HEIGHT_MIN,
+        Math.min(BOOK_PAGE_HEIGHT_MAX, pageHeight)
+    );
     return {
-        width: Math.max(280, Math.min(520, pageWidth)),
-        height: Math.max(BOOK_PAGE_HEIGHT_MIN, Math.min(BOOK_PAGE_HEIGHT_MAX, pageHeight)),
+        width: Math.round(clampedPageHeight * aspect),
+        height: clampedPageHeight,
     };
+}
+
+function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
+    const albumId = album?.id;
+    const directSrc = getPagePhotoOverride(albumId, pageNum);
+    if (directSrc) return directSrc;
+    if (pageNum === 0) {
+        return album?.cover_image_url || (showSamples ? getSampleImageForPage(pageNum) : null);
+    }
+    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true });
+    const cellId = pageNum === spreadLeft ? 1 : 2;
+    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft);
+    return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);
 }
 
 const AlbumBook = ({
@@ -33,11 +66,17 @@ const AlbumBook = ({
     spreadEdit = false,
     placementMode = 'single',
     showSamples = true,
+    previewMode = false,
     gridSelection = null,
     onSelectGridCell,
     onSelectGridSpread,
+    onSelectCover,
     onTransformChange,
     transformRevision = 0,
+    canAddPages = false,
+    onAddPages,
+    pageCountBusy = false,
+    overviewReopenToken = 0,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -49,8 +88,10 @@ const AlbumBook = ({
     const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
     const dimsRafRef = useRef(null);
-    const [dims, setDims] = useState({ width: 480, height: 340 });
+    const [dims, setDims] = useState({ width: 480, height: 480 });
     const [pageIndex, setPageIndex] = useState(initialPage);
+    const [overviewOpen, setOverviewOpen] = useState(false);
+    const [focusOpen, setFocusOpen] = useState(false);
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
     const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true });
@@ -92,7 +133,7 @@ const AlbumBook = ({
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
             dimsRafRef.current = requestAnimationFrame(() => {
                 dimsRafRef.current = null;
-                setDims(getBookDimensions(stage));
+                setDims(getBookDimensions(stage, album?.grid_size));
             });
         };
         update();
@@ -104,7 +145,7 @@ const AlbumBook = ({
             window.removeEventListener('resize', update);
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
         };
-    }, []);
+    }, [album?.grid_size]);
 
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
@@ -169,6 +210,48 @@ const AlbumBook = ({
         syncNavDisabled();
     }, [atStart, atEnd, syncNavDisabled]);
 
+    useEffect(() => {
+        if (!overviewOpen) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape') setOverviewOpen(false);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [overviewOpen]);
+
+    useEffect(() => {
+        if (overviewReopenToken) setOverviewOpen(true);
+    }, [overviewReopenToken]);
+
+    const closeFocusView = useCallback(() => {
+        setFocusOpen(false);
+        if (document.fullscreenElement) {
+            document.exitFullscreen?.().catch(() => {});
+        }
+    }, []);
+
+    const openFocusView = useCallback(() => {
+        setOverviewOpen(false);
+        setFocusOpen(true);
+        document.documentElement.requestFullscreen?.().catch(() => {});
+    }, []);
+
+    useEffect(() => {
+        if (!focusOpen) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape') closeFocusView();
+        };
+        const onFullscreenChange = () => {
+            if (!document.fullscreenElement) setFocusOpen(false);
+        };
+        window.addEventListener('keydown', onKey);
+        document.addEventListener('fullscreenchange', onFullscreenChange);
+        return () => {
+            window.removeEventListener('keydown', onKey);
+            document.removeEventListener('fullscreenchange', onFullscreenChange);
+        };
+    }, [focusOpen, closeFocusView]);
+
     const pages = useMemo(
         () =>
             Array.from({ length: totalPages }, (_, pageNum) => (
@@ -181,11 +264,13 @@ const AlbumBook = ({
                     spreadEdit={spreadEdit}
                     placementMode={placementMode}
                     showSamples={showSamples}
+                    previewMode={previewMode}
                     selectionLeftPage={gridSelection?.leftPage ?? null}
                     selectionMode={gridSelection?.mode ?? null}
                     selectedCellId={gridSelection?.cellId ?? null}
                     onSelectCell={onSelectGridCell}
                     onSelectSpread={onSelectGridSpread}
+                    onSelectCover={onSelectCover}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
                 />
@@ -197,18 +282,20 @@ const AlbumBook = ({
             spreadEdit,
             placementMode,
             showSamples,
+            previewMode,
             gridSelection?.leftPage,
             gridSelection?.mode,
             gridSelection?.cellId,
             onSelectGridCell,
             onSelectGridSpread,
+            onSelectCover,
             onTransformChange,
             transformRevision,
         ]
     );
 
     return (
-        <div className="ab-root" ref={rootRef}>
+        <div className={`ab-root${previewMode ? ' ab-root--preview' : ''}`} ref={rootRef}>
             <button
                 type="button"
                 ref={prevNavRef}
@@ -237,8 +324,8 @@ const AlbumBook = ({
                         width={dims.width}
                         height={dims.height}
                         size="stretch"
-                        minWidth={280}
-                        maxWidth={520}
+                        minWidth={BOOK_PAGE_HEIGHT_MIN}
+                        maxWidth={Math.max(520, dims.width)}
                         minHeight={BOOK_PAGE_HEIGHT_MIN}
                         maxHeight={BOOK_PAGE_HEIGHT_MAX}
                         drawShadow
@@ -265,6 +352,31 @@ const AlbumBook = ({
                 </div>
 
                 <div className="ab-spread-controls">
+                    <button
+                        type="button"
+                        className="ab-control-icon ab-control-icon--button"
+                        aria-label="Show spread full screen"
+                        onClick={openFocusView}
+                    >
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            <path d="M5 11V5h6M17 5h6v6M23 17v6h-6M11 23H5v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
+                            <path d="M6 6l6 6M22 6l-6 6M22 22l-6-6M6 22l6-6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="square" />
+                        </svg>
+                    </button>
+                    <button
+                        type="button"
+                        className="ab-control-icon ab-control-icon--button"
+                        aria-label="Show page overview"
+                        onClick={() => setOverviewOpen(true)}
+                    >
+                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                            {Array.from({ length: 9 }, (_, i) => {
+                                const x = 5 + (i % 3) * 7;
+                                const y = 5 + Math.floor(i / 3) * 7;
+                                return <rect key={i} x={x} y={y} width="4" height="4" stroke="currentColor" strokeWidth="1.5" />;
+                            })}
+                        </svg>
+                    </button>
                     <span className="ab-page-counter" title={`Pages ${pageRangeLabel}`}>
                         {counterLabel}
                     </span>
@@ -283,6 +395,170 @@ const AlbumBook = ({
                     <polyline points="9 18 15 12 9 6" />
                 </svg>
             </button>
+
+            {overviewOpen && (
+                <div
+                    className="ab-overview"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Page overview"
+                    onClick={() => setOverviewOpen(false)}
+                >
+                    <button
+                        type="button"
+                        className="ab-overview-close"
+                        aria-label="Close page overview"
+                        onClick={() => setOverviewOpen(false)}
+                    >
+                        ×
+                    </button>
+                    <div className="ab-overview-grid" onClick={(e) => e.stopPropagation()}>
+                        {Array.from({ length: totalSpreads }, (_, overviewSpreadIndex) => {
+                            const { left, right } = getSpreadPages(
+                                overviewSpreadIndex,
+                                totalPages,
+                                { showCover: true }
+                            );
+                            const targetPage = overviewSpreadIndex === 0 ? 0 : left;
+                            const leftSrc = getOverviewPageImage(
+                                album,
+                                left,
+                                totalPages,
+                                showSamples
+                            );
+                            const rightSrc =
+                                right !== left
+                                    ? getOverviewPageImage(album, right, totalPages, showSamples)
+                                    : null;
+                            const spreadSrc =
+                                overviewSpreadIndex > 0
+                                    ? getSpreadPhotoOverride(album?.id, left)
+                                    : null;
+                            const isCurrent = overviewSpreadIndex === spreadIndex;
+                            return (
+                                <button
+                                    key={overviewSpreadIndex}
+                                    type="button"
+                                    className={`ab-overview-item${
+                                        isCurrent ? ' ab-overview-item--active' : ''
+                                    }`}
+                                    onClick={() => {
+                                        bookRef.current?.pageFlip?.()?.turnToPage(targetPage);
+                                        setPageIndex(targetPage);
+                                        onPageChange?.(targetPage);
+                                        setOverviewOpen(false);
+                                    }}
+                                >
+                                    <span className="ab-overview-thumb ab-overview-thumb--spread">
+                                        {spreadSrc ? (
+                                            <span className="ab-overview-page ab-overview-page--spread-full">
+                                                <img src={spreadSrc} alt="" loading="lazy" />
+                                            </span>
+                                        ) : (
+                                            <span className="ab-overview-page">
+                                                {leftSrc ? (
+                                                    <img src={leftSrc} alt="" loading="lazy" />
+                                                ) : (
+                                                    <span className="ab-overview-placeholder" />
+                                                )}
+                                            </span>
+                                        )}
+                                        {overviewSpreadIndex > 0 && !spreadSrc && (
+                                            <span className="ab-overview-page">
+                                                {rightSrc ? (
+                                                    <img src={rightSrc} alt="" loading="lazy" />
+                                                ) : (
+                                                    <span className="ab-overview-placeholder" />
+                                                )}
+                                            </span>
+                                        )}
+                                    </span>
+                                    <span className="ab-overview-label">
+                                        {overviewSpreadIndex + 1}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                        {canAddPages && onAddPages && (
+                            <button
+                                type="button"
+                                className="ab-overview-item ab-overview-item--add"
+                                disabled={pageCountBusy}
+                                onClick={async () => {
+                                    await onAddPages();
+                                }}
+                            >
+                                <span className="ab-overview-thumb ab-overview-thumb--add">
+                                    <span className="ab-overview-add-plus">+</span>
+                                </span>
+                                <span className="ab-overview-label">
+                                    {pageCountBusy ? 'Adding...' : 'Add page'}
+                                </span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {focusOpen && (
+                <div
+                    className="ab-focus-view"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Full screen spread view"
+                    onClick={closeFocusView}
+                >
+                    {(() => {
+                        const spreadSrc =
+                            spreadIndex > 0 ? getSpreadPhotoOverride(album?.id, leftNum) : null;
+                        const leftSrc = getOverviewPageImage(
+                            album,
+                            leftNum,
+                            totalPages,
+                            showSamples
+                        );
+                        const rightSrc =
+                            rightNum !== leftNum
+                                ? getOverviewPageImage(album, rightNum, totalPages, showSamples)
+                                : null;
+                        const backdropSrc = spreadSrc || rightSrc || leftSrc;
+
+                        return (
+                            <>
+                                {backdropSrc && (
+                                    <img
+                                        className="ab-focus-backdrop-img"
+                                        src={backdropSrc}
+                                        alt=""
+                                        aria-hidden="true"
+                                    />
+                                )}
+                                <div
+                                    className={`ab-focus-spread${
+                                        spreadSrc ? ' ab-focus-spread--single-image' : ''
+                                    }`}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {spreadSrc ? (
+                                        <img src={spreadSrc} alt="" className="ab-focus-image" />
+                                    ) : (
+                                        <>
+                                            <div className="ab-focus-page">
+                                                {leftSrc && <img src={leftSrc} alt="" />}
+                                            </div>
+                                            {rightSrc && (
+                                                <div className="ab-focus-page">
+                                                    <img src={rightSrc} alt="" />
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+                                </div>
+                            </>
+                        );
+                    })()}
+                </div>
+            )}
         </div>
     );
 };

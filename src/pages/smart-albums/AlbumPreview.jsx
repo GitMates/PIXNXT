@@ -51,10 +51,12 @@ export default function AlbumPreview({
             <div className="av-viewer-body">
                 <AlbumBook
                     key={`${albumId}-preview-${photoRevision}`}
-                    album={album}
+                    album={{ ...album, id: albumId }}
                     totalPages={totalPages}
                     initialPage={initialPage}
                     onPageChange={onPageChange}
+                    previewMode
+                    showSamples={false}
                 />
             </div>
         </div>

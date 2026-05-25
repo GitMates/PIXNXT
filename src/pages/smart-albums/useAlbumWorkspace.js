@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import {
+    MAX_ALBUM_PAGES,
+    MIN_ALBUM_PAGES,
+    PAGES_PER_SPREAD,
+    pruneAlbumStorageForPageCount,
+} from '../../components/smart-albums/albumPageStorage';
+import { getTotalSpreads } from '../../components/smart-albums/albumSpreadUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 
@@ -31,6 +38,7 @@ export function useAlbumWorkspace() {
 
     const totalPages = album?.page_count || 21;
     const initialPage = parseUrlPage(searchParams.get('page'), totalPages);
+    const spreadCount = getTotalSpreads(totalPages, { showCover: true });
     const isPreview = isAlbumPreviewView(searchParams);
 
     useEffect(() => {
@@ -96,6 +104,48 @@ export function useAlbumWorkspace() {
         [navigate, albumId, searchParams]
     );
 
+    const changePageCount = useCallback(
+        async (delta) => {
+            if (!user || !albumId || !album) return null;
+            const current = album.page_count || 21;
+            const next = Math.max(
+                MIN_ALBUM_PAGES,
+                Math.min(MAX_ALBUM_PAGES, current + delta)
+            );
+            if (next === current) return null;
+
+            try {
+                const updated = await smartAlbumsService.updateAlbumPageCount(
+                    user.id,
+                    albumId,
+                    next
+                );
+                if (next < current) {
+                    pruneAlbumStorageForPageCount(albumId, next);
+                }
+                setAlbum(updated);
+
+                const urlPage = parseUrlPage(searchParams.get('page'), current);
+                const clamped = Math.min(urlPage, next - 1);
+                if (clamped !== urlPage) {
+                    setSearchParams(
+                        (prev) => {
+                            const p = new URLSearchParams(prev);
+                            p.set('page', String(clamped));
+                            return p;
+                        },
+                        { replace: true }
+                    );
+                }
+                return { previous: current, next, updated };
+            } catch (err) {
+                console.error(err);
+                return null;
+            }
+        },
+        [user, albumId, album, searchParams, setSearchParams]
+    );
+
     useEffect(() => {
         if (searchParams.get('view') === 'gallery') {
             const next = new URLSearchParams(searchParams);
@@ -110,10 +160,15 @@ export function useAlbumWorkspace() {
         album,
         loading,
         totalPages,
+        spreadCount,
         initialPage,
         isPreview,
         handlePageChange,
+        changePageCount,
         setView,
         searchParams,
+        minPages: MIN_ALBUM_PAGES,
+        maxPages: MAX_ALBUM_PAGES,
+        pagesPerSpread: PAGES_PER_SPREAD,
     };
 }
