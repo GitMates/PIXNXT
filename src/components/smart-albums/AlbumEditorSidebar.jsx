@@ -42,6 +42,9 @@ function placementHint(gridEditSet, gridSelection, canSelectGrid) {
     if (!canSelectGrid) {
         return 'Flip to an inner spread (not the cover) to place photos.';
     }
+    if (gridSelection?.mode === 'cover') {
+        return 'Cover page';
+    }
     if (gridEditSet === 'whole' || gridSelection?.mode === 'spread') {
         return 'Whole grid · one photo across both pages';
     }

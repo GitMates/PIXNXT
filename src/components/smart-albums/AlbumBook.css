@@ -157,6 +157,17 @@
   overflow: hidden;
 }
 
+.ab-page-photo-wrap {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+}
+
+.ab-page-photo-wrap--interactive {
+  cursor: pointer;
+}
+
 .ab-flip-page--empty {
   background: #fafafa;
 }
@@ -547,21 +558,214 @@
 
 .ab-spread-controls {
   position: absolute;
-  bottom: 12px;
-  right: 12px;
+  bottom: 0;
+  right: 18px;
   z-index: 25;
-  background: rgba(255, 255, 255, 0.96);
-  padding: 6px 12px;
-  border-radius: 3px;
-  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.12);
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  color: #9b9b9b;
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
   pointer-events: none;
 }
 
+.ab-control-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+}
+
+.ab-control-icon--button {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.ab-control-icon--button:hover {
+  color: #6f6f6f;
+}
+
 .ab-page-counter {
-  font-size: 12px;
-  color: #444;
-  font-weight: 600;
+  font-size: 16px;
+  color: #9b9b9b;
+  font-weight: 700;
   letter-spacing: 0.02em;
+}
+
+.ab-root--preview .ab-spread-controls {
+  bottom: -30px;
+  right: 0;
+}
+
+.ab-overview {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 56px 72px;
+  background: rgba(240, 240, 240, 0.94);
+  overflow-y: auto;
+}
+
+.ab-overview-close {
+  position: fixed;
+  top: 22px;
+  right: 28px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #aaa;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ab-overview-close:hover {
+  color: #666;
+}
+
+.ab-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 210px);
+  gap: 34px 28px;
+  justify-content: center;
+  width: min(1160px, 100%);
+}
+
+.ab-overview-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #8f8f8f;
+  cursor: pointer;
+}
+
+.ab-overview-thumb {
+  width: 210px;
+  height: 102px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.ab-overview-page {
+  flex: 1;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ab-overview-page + .ab-overview-page {
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.ab-overview-page--spread-full {
+  flex: 1 1 100%;
+}
+
+.ab-overview-page img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ab-overview-placeholder {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+
+.ab-overview-label {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ab-overview-item--active .ab-overview-thumb,
+.ab-overview-item:hover .ab-overview-thumb {
+  border-color: rgba(0, 0, 0, 0.35);
+}
+
+.ab-focus-view {
+  position: fixed;
+  inset: 0;
+  z-index: 3200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 72px 8vw;
+  background: #fff;
+  overflow: hidden;
+  cursor: zoom-out;
+}
+
+.ab-focus-backdrop-img {
+  position: absolute;
+  inset: auto 0 0;
+  width: 100%;
+  height: 42vh;
+  object-fit: cover;
+  filter: blur(8px);
+  opacity: 0.72;
+  transform: scale(1.04);
+}
+
+.ab-focus-spread {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(86vw, 1120px);
+  min-height: min(58vh, 560px);
+  cursor: default;
+}
+
+.ab-focus-spread--single-image {
+  display: block;
+}
+
+.ab-focus-page,
+.ab-focus-spread--single-image {
+  overflow: hidden;
+  background: #fff;
+  border: 3px solid #fff;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.18);
+}
+
+.ab-focus-page + .ab-focus-page {
+  margin-left: 10px;
+}
+
+.ab-focus-page img,
+.ab-focus-image {
+  width: 100%;
+  height: 100%;
+  min-height: min(58vh, 560px);
+  object-fit: cover;
+  display: block;
 }
 
 @media (max-width: 768px) {

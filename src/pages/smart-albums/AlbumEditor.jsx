@@ -13,8 +13,9 @@ import { isPdfFile } from '../../lib/pdfToImages';
 import {
     clearAllAlbumPagePhotos,
     getAlbumPhotoRevision,
-    placeCollectionPhotoOnPages,
-    setSpreadPhoto,
+    placeCollectionItemOnPages,
+    setPagePhotoFromCollectionItem,
+    setSpreadPhotoFromCollectionItem,
 } from '../../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms, getTransformRevision } from '../../components/smart-albums/albumPageTransforms';
 import {
@@ -43,7 +44,14 @@ function buildCellSelection(leftPage, cellId) {
     return { mode: 'cell', leftPage, cellId };
 }
 
+function buildCoverSelection() {
+    return { mode: 'cover', leftPage: 0, cellId: null };
+}
+
 function pickerTitle(gridEditSet, gridSelection) {
+    if (gridSelection?.mode === 'cover') {
+        return 'Choose cover photo';
+    }
     if (gridEditSet === 'whole' || gridSelection?.mode === 'spread') {
         return 'Choose photo for whole spread';
     }
@@ -79,7 +87,7 @@ export default function AlbumEditor({
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [gridSelection, setGridSelection] = useState(() => {
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
-        return isProofGridSpread(left) ? buildCellSelection(left, 1) : null;
+        return isProofGridSpread(left) ? buildCellSelection(left, 1) : buildCoverSelection();
     });
 
     const albumForBook = useMemo(() => ({ ...album, id: albumId }), [album, albumId]);
@@ -107,7 +115,7 @@ export default function AlbumEditor({
                 prev?.leftPage === left ? prev : buildCellSelection(left, prev?.cellId || 1)
             );
         } else {
-            setGridSelection(null);
+            setGridSelection(buildCoverSelection());
         }
     }, [initialPage, totalPages]);
 
@@ -122,7 +130,7 @@ export default function AlbumEditor({
                         : buildCellSelection(left, prev?.cellId || 1);
                 });
             } else {
-                setGridSelection(null);
+                setGridSelection(buildCoverSelection());
             }
         },
         [totalPages, gridEditSet]
@@ -153,12 +161,18 @@ export default function AlbumEditor({
     );
 
     const openPicker = useCallback(() => {
-        if (!gridSelection?.leftPage) {
+        if (!gridSelection) {
             showToast('Open an inner spread (not the cover) first.', { variant: 'info', duration: 3500 });
             return;
         }
         setPickerOpen(true);
     }, [gridSelection, showToast]);
+
+    const handleSelectCover = useCallback(() => {
+        setGridEditSet('single');
+        setGridSelection(buildCoverSelection());
+        setPickerOpen(true);
+    }, []);
 
     const handleSelectGridCell = useCallback((leftPage, cellId) => {
         setGridEditSet('single');
@@ -190,18 +204,22 @@ export default function AlbumEditor({
     const placeItemOnSpread = useCallback(
         (itemId) => {
             const item = getCollectionItem(albumId, itemId);
-            if (!item?.dataUrl || !gridSelection?.leftPage) return false;
+            if (!item?.dataUrl || !gridSelection) return false;
+
+            if (gridSelection.mode === 'cover') {
+                return setPagePhotoFromCollectionItem(albumId, 0, item.id);
+            }
 
             if (gridEditSet === 'whole' || gridSelection.mode === 'spread') {
                 const left = gridSelection.leftPage;
                 const right = getSpreadRightPageIndex(left, totalPages);
-                return setSpreadPhoto(albumId, left, item.dataUrl, right);
+                return setSpreadPhotoFromCollectionItem(albumId, left, item.id, right);
             }
 
             const targets = placementTargets;
             if (!targets.length) return false;
             return (
-                placeCollectionPhotoOnPages(albumId, item.dataUrl, targets, {
+                placeCollectionItemOnPages(albumId, item.id, targets, {
                     spreadLeftPage: gridSelection.leftPage,
                 }) > 0
             );
@@ -241,10 +259,20 @@ export default function AlbumEditor({
             if (placeItemOnSpread(itemId)) {
                 bumpWorkspace();
                 setPickerOpen(false);
-                showToast('Photo placed on spread.', { duration: 3500 });
+                showToast(
+                    gridSelection?.mode === 'cover'
+                        ? 'Photo placed on cover.'
+                        : 'Photo placed on spread.',
+                    { duration: 3500 }
+                );
+            } else {
+                showToast('Could not place photo. Try another image.', {
+                    variant: 'error',
+                    duration: 4500,
+                });
             }
         },
-        [placeItemOnSpread, bumpWorkspace, showToast]
+        [placeItemOnSpread, bumpWorkspace, showToast, gridSelection?.mode]
     );
 
     const canAddPages = totalPages + pagesPerSpread <= maxPages;
@@ -371,6 +399,7 @@ export default function AlbumEditor({
                             gridSelection={gridSelection}
                             onSelectGridCell={handleSelectGridCell}
                             onSelectGridSpread={handleSelectGridSpread}
+                            onSelectCover={handleSelectCover}
                             onTransformChange={() => {
                                 setTransformRevision(getTransformRevision(albumId));
                                 onPhotosUploaded?.();

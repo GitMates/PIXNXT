@@ -1,4 +1,5 @@
 import { expandUploadFilesToImages } from '../../lib/pdfToImages';
+import { getCollectionItem } from './albumCollection';
 
 const STORAGE_KEY = 'pixnxt_album_page_photos';
 
@@ -14,8 +15,10 @@ function readAll() {
 function writeAll(data) {
     try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        return true;
     } catch (e) {
         console.warn('Could not save album photos', e);
+        return false;
     }
 }
 
@@ -23,16 +26,26 @@ function spreadStorageKey(leftPage) {
     return `spread:${leftPage}`;
 }
 
+function resolveStoredPhoto(albumId, stored) {
+    if (!stored) return null;
+    if (typeof stored === 'string') return stored;
+    if (stored.dataUrl) return stored.dataUrl;
+    if (stored.collectionItemId) {
+        return getCollectionItem(albumId, stored.collectionItemId)?.dataUrl ?? null;
+    }
+    return null;
+}
+
 export function getSpreadPhotoOverride(albumId, leftPage) {
     if (!albumId || leftPage == null) return null;
     const album = readAll()[albumId];
-    return album?.[spreadStorageKey(leftPage)] ?? null;
+    return resolveStoredPhoto(albumId, album?.[spreadStorageKey(leftPage)]);
 }
 
 export function getPagePhotoOverride(albumId, pageNum) {
     if (!albumId || pageNum == null) return null;
     const album = readAll()[albumId];
-    return album?.[String(pageNum)] ?? null;
+    return resolveStoredPhoto(albumId, album?.[String(pageNum)]);
 }
 
 /** Per-slot image: whole-spread photo (panoramic) or single-page override. */
@@ -101,8 +114,25 @@ export function setPagePhotoFromDataUrl(albumId, pageNum, dataUrl, { clearSpread
     album[String(pageNum)] = dataUrl;
     album.__revision = (album.__revision || 0) + 1;
     all[albumId] = album;
-    writeAll(all);
-    return true;
+    return writeAll(all);
+}
+
+export function setPagePhotoFromCollectionItem(
+    albumId,
+    pageNum,
+    collectionItemId,
+    { clearSpreadForLeft } = {}
+) {
+    if (!albumId || pageNum == null || !collectionItemId) return false;
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    if (clearSpreadForLeft != null) {
+        delete album[spreadStorageKey(clearSpreadForLeft)];
+    }
+    album[String(pageNum)] = { collectionItemId };
+    album.__revision = (album.__revision || 0) + 1;
+    all[albumId] = album;
+    return writeAll(all);
 }
 
 export function clearPagePhoto(albumId, pageNum) {
@@ -113,8 +143,7 @@ export function clearPagePhoto(albumId, pageNum) {
     delete album[String(pageNum)];
     album.__revision = (album.__revision || 0) + 1;
     all[albumId] = album;
-    writeAll(all);
-    return true;
+    return writeAll(all);
 }
 
 /** Remove all placed photos from album pages (collection is unchanged). */
@@ -141,8 +170,19 @@ export function setSpreadPhoto(albumId, leftPage, dataUrl, rightPage) {
     if (rightPage != null) delete album[String(rightPage)];
     album.__revision = (album.__revision || 0) + 1;
     all[albumId] = album;
-    writeAll(all);
-    return true;
+    return writeAll(all);
+}
+
+export function setSpreadPhotoFromCollectionItem(albumId, leftPage, collectionItemId, rightPage) {
+    if (!albumId || leftPage == null || !collectionItemId) return false;
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    album[spreadStorageKey(leftPage)] = { collectionItemId };
+    delete album[String(leftPage)];
+    if (rightPage != null) delete album[String(rightPage)];
+    album.__revision = (album.__revision || 0) + 1;
+    all[albumId] = album;
+    return writeAll(all);
 }
 
 export function placeCollectionPhotoOnPages(albumId, dataUrl, pageIndices, { spreadLeftPage } = {}) {
@@ -151,6 +191,26 @@ export function placeCollectionPhotoOnPages(albumId, dataUrl, pageIndices, { spr
     for (const page of pageIndices) {
         if (setPagePhotoFromDataUrl(albumId, page, dataUrl, { clearSpreadForLeft: spreadLeftPage }))
             placed += 1;
+    }
+    return placed;
+}
+
+export function placeCollectionItemOnPages(
+    albumId,
+    collectionItemId,
+    pageIndices,
+    { spreadLeftPage } = {}
+) {
+    if (!albumId || !collectionItemId || !pageIndices?.length) return 0;
+    let placed = 0;
+    for (const page of pageIndices) {
+        if (
+            setPagePhotoFromCollectionItem(albumId, page, collectionItemId, {
+                clearSpreadForLeft: spreadLeftPage,
+            })
+        ) {
+            placed += 1;
+        }
     }
     return placed;
 }

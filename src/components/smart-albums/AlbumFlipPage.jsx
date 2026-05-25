@@ -59,6 +59,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         selectedCellId = null,
         onSelectCell,
         onSelectSpread,
+        onSelectCover,
         onTransformChange,
         transformRevision = 0,
     },
@@ -77,6 +78,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const useRightGrid = isProofRightGridPage(pageNum);
     const src = getPageImageSrc(album, pageNum, showSamples);
     const showStar = pageNum === 1 && album.is_starred;
+    const canSelectCover = pageNum === 0 && editable && !spreadEdit;
+    const PageWrapTag = canSelectCover ? 'button' : 'div';
 
     if (useLeftGrid) {
         const { cells } = getProofLeftPageGridPercent();
@@ -141,7 +144,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
 
     return (
         <div className="ab-flip-page" ref={ref} data-density="hard">
-            <div className="ab-page-photo-wrap">
+            <PageWrapTag
+                type={canSelectCover ? 'button' : undefined}
+                className={`ab-page-photo-wrap${
+                    canSelectCover ? ' ab-page-photo-wrap--interactive' : ''
+                }`}
+                onClick={canSelectCover ? () => onSelectCover?.() : undefined}
+                aria-label={canSelectCover ? 'Choose cover photo' : undefined}
+            >
                 {src ? (
                     <PagePhoto src={src} pageNum={pageNum} showSamples={showSamples} />
                 ) : pageNum === 0 ? (
@@ -158,7 +168,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         </svg>
                     </span>
                 )}
-            </div>
+            </PageWrapTag>
         </div>
     );
 });
