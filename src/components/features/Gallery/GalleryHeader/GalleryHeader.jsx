@@ -57,7 +57,7 @@ function HeaderAction({ icon, label, onClick, hideMobile }) {
     <button
       onClick={onClick}
       className={cn(
-        "flex items-center gap-2 text-[12px] font-bold tracking-widest uppercase hover:opacity-40 transition-all",
+        "flex items-center gap-2 text-[10px] font-bold tracking-widest uppercase hover:opacity-40 transition-all",
         hideMobile && "hidden md:flex"
       )}
     >

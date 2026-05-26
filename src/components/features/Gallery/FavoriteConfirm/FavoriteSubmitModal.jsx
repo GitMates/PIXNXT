@@ -54,7 +54,7 @@ export function FavoriteSubmitModal({
             </p>
             <label className="mb-6 block text-left">
               <span
-                className="mb-2 block text-[12px] font-bold uppercase tracking-[0.2em] opacity-60"
+                className="mb-2 block text-[10px] font-bold uppercase tracking-[0.2em] opacity-60"
                 style={{ color: 'var(--gallery-meta-text)' }}
               >
                 Message to photographer (optional)
@@ -86,7 +86,7 @@ export function FavoriteSubmitModal({
                 type="button"
                 disabled={isSubmitting || photoCount < 1}
                 onClick={onConfirm}
-                className="rounded px-6 py-2 text-[12px] font-bold uppercase tracking-[0.2em] transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded px-6 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
                 style={{ backgroundColor: 'var(--gallery-accent)', color: 'var(--gallery-bg)' }}
               >
                 {isSubmitting ? 'Submitting…' : 'Confirm'}

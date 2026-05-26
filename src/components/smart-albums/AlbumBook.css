@@ -189,7 +189,7 @@
   justify-content: center;
   background: linear-gradient(145deg, #f3ebf8 0%, #e8dff0 100%);
   color: #5a4a66;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -205,7 +205,7 @@
   justify-content: center;
   background: #fafafa;
   color: #bbb;
-  font-size: 16px;
+  font-size: 14px;
 }
 
 .ab-page-empty {
@@ -281,14 +281,14 @@
 }
 
 .ab-grid-cell-add-icon {
-  font-size: 28px;
+  font-size: 26px;
   font-weight: 300;
   line-height: 1;
   color: #2563eb;
 }
 
 .ab-grid-cell-add-label {
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   color: #1e40af;
   letter-spacing: 0.02em;
@@ -374,7 +374,7 @@
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: uppercase;
@@ -508,7 +508,7 @@
   padding: 0 5px;
   background: rgba(0, 0, 0, 0.55);
   color: #fff;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 600;
   display: flex;
   align-items: center;
@@ -594,7 +594,7 @@
 }
 
 .ab-page-counter {
-  font-size: 18px;
+  font-size: 16px;
   color: #9b9b9b;
   font-weight: 700;
   letter-spacing: 0.02em;
@@ -627,7 +627,7 @@
   border: none;
   background: transparent;
   color: #aaa;
-  font-size: 26px;
+  font-size: 24px;
   line-height: 1;
   cursor: pointer;
 }
@@ -699,7 +699,7 @@
 }
 
 .ab-overview-label {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   line-height: 1;
 }
@@ -726,7 +726,7 @@
 }
 
 .ab-overview-add-plus {
-  font-size: 36px;
+  font-size: 34px;
   font-weight: 300;
   line-height: 1;
 }

@@ -524,12 +524,12 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
             className="flex flex-wrap items-center justify-center gap-2 border-b border-black/5 px-4 py-2 text-center"
             style={{ backgroundColor: 'var(--gallery-bg)', color: 'var(--gallery-text)' }}
           >
-            <span className="gallery-body-text text-[10px] font-bold uppercase tracking-widest opacity-70">
+            <span className="gallery-body-text text-[8px] font-bold uppercase tracking-widest opacity-70">
               My favorites ({filteredPhotos.length})
             </span>
             <button
               type="button"
-              className="gallery-body-text text-[10px] font-bold uppercase tracking-widest underline opacity-90 hover:opacity-60"
+              className="gallery-body-text text-[8px] font-bold uppercase tracking-widest underline opacity-90 hover:opacity-60"
               style={{ color: 'var(--gallery-text)' }}
               onClick={() => setShowOnlyFavorites(false)}
             >
@@ -571,7 +571,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           >
             {filteredPhotos.length === 0 && showMediaFilter && photosForActiveSet.length > 0 ? (
               <p
-                className="gallery-body-text py-10 text-center text-[12px] font-bold uppercase tracking-[0.2em] opacity-40 md:text-[13px]"
+                className="gallery-body-text py-10 text-center text-[10px] font-bold uppercase tracking-[0.2em] opacity-40 md:text-[11px]"
                 style={{ color: 'var(--gallery-text)' }}
               >
                 No {mediaFilter} in this set
@@ -706,7 +706,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 />
                 <button
                   type="button"
-                  className="gallery-body-text w-full bg-zinc-950 py-4 text-[12px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer mt-4 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="gallery-body-text w-full bg-zinc-950 py-4 text-[10px] font-bold uppercase tracking-[0.2em] text-white hover:bg-zinc-800 transition-colors border-none cursor-pointer mt-4 disabled:cursor-not-allowed disabled:opacity-50"
                   onClick={() => void handleFavoriteEmailSubmit()}
                   disabled={isSubmittingEmail || !email?.trim()}
                 >

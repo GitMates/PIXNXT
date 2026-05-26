@@ -178,23 +178,23 @@
 }
 
 .cd-preview-gallery-card.style-vintage .cover-vintage-layout__date {
-  font-size: 8px !important;
+  font-size: 6px !important;
   letter-spacing: 0.3em !important;
   margin-bottom: 4px !important;
 }
 
 .cd-preview-gallery-card.style-vintage .cover-vintage-layout__title {
-  font-size: 22px !important;
+  font-size: 20px !important;
   margin-bottom: 6px !important;
 }
 
 .cd-preview-gallery-card.style-vintage .cover-vintage-layout__brand {
-  font-size: 7px !important;
+  font-size: 5px !important;
   letter-spacing: 0.38em !important;
 }
 
 .cd-preview-gallery-card.style-vintage .cover-vintage-layout__cta .view-gallery-btn {
-  font-size: 8px !important;
+  font-size: 6px !important;
   padding: 3px 9px !important;
   letter-spacing: 0.18em !important;
 }

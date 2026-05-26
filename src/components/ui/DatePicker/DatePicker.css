@@ -21,7 +21,7 @@
 }
 
 .dp-value {
-    font-size: 16px;
+    font-size: 14px;
     color: #111;
 }
 
@@ -69,7 +69,7 @@
 }
 
 .month-year {
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 500;
     color: #111;
     min-width: 150px;
@@ -106,7 +106,7 @@
 
 .weekday {
     text-align: center;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
     color: #999;
 }
@@ -122,7 +122,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 15px;
+    font-size: 13px;
     color: #111;
     cursor: pointer;
     border-radius: 2px;
@@ -165,7 +165,7 @@
 }
 
 .quick-search-label {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     color: #999;
     letter-spacing: 1px;
@@ -176,7 +176,7 @@
     background: none;
     border: none;
     text-align: left;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 500;
     color: #111;
     padding: 6px 0;

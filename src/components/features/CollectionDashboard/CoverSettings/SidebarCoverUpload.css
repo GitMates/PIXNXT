@@ -110,7 +110,7 @@
 
 .cd-sidebar-cover-drop-label {
   margin: 0;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -121,7 +121,7 @@
 .cd-sidebar-cover-drop-title {
   margin: 0;
   max-width: 220px;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 500;
   color: #374151;
   line-height: 1.4;
@@ -146,7 +146,7 @@
   border: 1px solid #d1d5db;
   border-radius: 999px;
   background: #fff;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   color: #111827;
   cursor: pointer;

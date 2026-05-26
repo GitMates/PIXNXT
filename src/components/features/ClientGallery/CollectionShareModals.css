@@ -27,7 +27,7 @@
 
 .cgm-title {
     margin: 0;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     color: #333;
@@ -53,7 +53,7 @@
 .cgm-label {
     display: block;
     margin-bottom: 8px;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 600;
     letter-spacing: 0.05em;
     color: #666;
@@ -66,7 +66,7 @@
 .cgm-input {
     flex: 1;
     padding: 10px 12px;
-    font-size: 16px;
+    font-size: 14px;
     color: #555;
     border: 1px solid #ddd;
     border-right: none;
@@ -80,7 +80,7 @@
     border: 1px solid #ddd;
     border-radius: 0 4px 4px 0;
     background: #fff;
-    font-size: 15px;
+    font-size: 13px;
     font-weight: 500;
     cursor: pointer;
 }
@@ -91,14 +91,14 @@
 
 .cgm-hint {
     margin: 0;
-    font-size: 15px;
+    font-size: 13px;
     color: #888;
 }
 
 .cgm-warning {
     margin: 0 0 12px;
     padding: 10px 12px;
-    font-size: 15px;
+    font-size: 13px;
     line-height: 1.45;
     color: #7a4a00;
     background: #fff8e6;
@@ -114,13 +114,13 @@
 
 .cgm-text {
     margin: 0 0 12px;
-    font-size: 16px;
+    font-size: 14px;
     color: #444;
     line-height: 1.5;
 }
 
 .cgm-text--muted {
-    font-size: 15px;
+    font-size: 13px;
     color: #888;
 }
 
@@ -132,7 +132,7 @@
 
 .cgm-duplicate-notes li {
     margin-bottom: 12px;
-    font-size: 15px;
+    font-size: 13px;
     color: #666;
     line-height: 1.45;
 }
@@ -152,7 +152,7 @@
     padding: 10px 16px;
     border: none;
     background: transparent;
-    font-size: 16px;
+    font-size: 14px;
     color: #555;
     cursor: pointer;
 }
@@ -162,7 +162,7 @@
     border: none;
     border-radius: 4px;
     background: #20b2aa;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: #fff;
     cursor: pointer;
@@ -177,7 +177,7 @@
     padding: 10px 16px;
     border: none;
     background: transparent;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: #111;
     cursor: pointer;

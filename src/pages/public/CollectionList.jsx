@@ -260,7 +260,7 @@ const CollectionList = ({ slug }) => {
         {/* Left Side: Brand Name appearing dynamically on scroll */}
         <div className="flex items-center">
           {scrolled && (
-            <span className="text-[8px] font-semibold tracking-[0.2em] text-[#111] uppercase animate-[cgFadeIn_0.3s_ease] select-none">
+            <span className="text-[12px] font-semibold tracking-[0.2em] text-[#111] uppercase animate-[cgFadeIn_0.3s_ease] select-none">
               {photographerName}
             </span>
           )}
@@ -276,7 +276,7 @@ const CollectionList = ({ slug }) => {
                value={searchQuery}
                onChange={(e) => handleSearchChange(e.target.value)}
                placeholder="Search collections..." 
-               className="w-full border-b border-gray-300 py-1.5 outline-none text-[9px] bg-transparent placeholder-gray-400 focus:border-gray-900 transition-colors mr-4"
+               className="w-full border-b border-gray-300 py-1.5 outline-none text-[13px] bg-transparent placeholder-gray-400 focus:border-gray-900 transition-colors mr-4"
              />
           </div>
 
@@ -323,12 +323,12 @@ const CollectionList = ({ slug }) => {
            </div>
         )}
         
-        <h1 className="mb-8 text-[28px] font-light tracking-[0.18em] text-[#111] uppercase leading-tight">
+        <h1 className="mb-8 text-[32px] font-light tracking-[0.18em] text-[#111] uppercase leading-tight">
            {photographerName}
         </h1>
         
         {/* Contact Info (Sleek Centered Horizontal List) */}
-        <div className="flex flex-wrap justify-center items-center gap-y-3.5 text-[9px] text-[#666] uppercase tracking-[0.08em] font-medium">
+        <div className="flex flex-wrap justify-center items-center gap-y-3.5 text-[13px] text-[#666] uppercase tracking-[0.08em] font-medium">
            {profile.show_phone !== false && profile.phone && (
               <div className="flex items-center hover:text-black transition-colors px-3">
                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 shrink-0 mr-2 translate-y-[1px]">
@@ -338,7 +338,7 @@ const CollectionList = ({ slug }) => {
               </div>
            )}
            {profile.show_phone !== false && profile.phone && profile.show_email !== false && profile.contact_email && (
-              <span className="text-gray-300 select-none text-[6px]">•</span>
+              <span className="text-gray-300 select-none text-[10px]">•</span>
            )}
            {profile.show_email !== false && profile.contact_email && (
               <div className="flex items-center hover:text-black transition-colors px-3">
@@ -350,7 +350,7 @@ const CollectionList = ({ slug }) => {
               </div>
            )}
            {((profile.show_phone !== false && profile.phone) || (profile.show_email !== false && profile.contact_email)) && profile.show_website !== false && profile.website && (
-              <span className="text-gray-300 select-none text-[6px]">•</span>
+              <span className="text-gray-300 select-none text-[10px]">•</span>
            )}
            {profile.show_website !== false && profile.website && (
               <div className="flex items-center hover:text-black transition-colors px-3">
@@ -365,7 +365,7 @@ const CollectionList = ({ slug }) => {
               </div>
            )}
            {((profile.show_phone !== false && profile.phone) || (profile.show_email !== false && profile.contact_email) || (profile.show_website !== false && profile.website)) && profile.show_address !== false && profile.address_line_1 && (
-              <span className="text-gray-300 select-none text-[6px]">•</span>
+              <span className="text-gray-300 select-none text-[10px]">•</span>
            )}
            {profile.show_address !== false && profile.address_line_1 && (
               <div className="flex items-center hover:text-black transition-colors px-3">
@@ -380,7 +380,7 @@ const CollectionList = ({ slug }) => {
 
         {/* Bio (if toggled) */}
         {profile.show_bio !== false && profile.bio && (
-           <p className="mt-8 text-[#555] leading-relaxed max-w-xl mx-auto text-[10px] font-normal tracking-wide border-t border-[#f0f0f0] pt-6">
+           <p className="mt-8 text-[#555] leading-relaxed max-w-xl mx-auto text-[14px] font-normal tracking-wide border-t border-[#f0f0f0] pt-6">
               {profile.bio}
            </p>
         )}
@@ -430,11 +430,11 @@ const CollectionList = ({ slug }) => {
               </div>
 
               <div className="text-center">
-                <h3 className="mb-2 text-[9px] font-medium tracking-[0.14em] text-[#111] uppercase group-hover:text-black transition-colors collection-card-title">
+                <h3 className="mb-2 text-[13px] font-medium tracking-[0.14em] text-[#111] uppercase group-hover:text-black transition-colors collection-card-title">
                   {collection.name}
                 </h3>
                 {collection.event_date && (
-                  <div className="text-[6px] font-normal tracking-[0.16em] text-[#888] uppercase mt-1">
+                  <div className="text-[10px] font-normal tracking-[0.16em] text-[#888] uppercase mt-1">
                     {new Date(collection.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).replace(',', 'th,')}
                   </div>
                 )}
@@ -463,11 +463,11 @@ const CollectionList = ({ slug }) => {
                 </div>
 
                 <div className="text-center">
-                  <h3 className="mb-2 text-[11px] font-medium tracking-[0.16em] text-[#111] uppercase group-hover:text-black transition-colors collection-card-title">
+                  <h3 className="mb-2 text-[15px] font-medium tracking-[0.16em] text-[#111] uppercase group-hover:text-black transition-colors collection-card-title">
                     {collection.name}
                   </h3>
                   {collection.event_date && (
-                    <div className="text-[7px] font-normal tracking-[0.18em] text-[#888] uppercase mt-1">
+                    <div className="text-[11px] font-normal tracking-[0.18em] text-[#888] uppercase mt-1">
                       {new Date(collection.event_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).replace(',', 'th,')}
                     </div>
                   )}
@@ -479,7 +479,7 @@ const CollectionList = ({ slug }) => {
 
         {sortedCollections.length === 0 && (
           <div className="py-20 text-center">
-             <p className="text-[8px] tracking-widest text-[#999] uppercase">
+             <p className="text-[12px] tracking-widest text-[#999] uppercase">
                 {collections.length === 0 ? "No public collections available yet." : "No collections match your search."}
              </p>
           </div>
@@ -505,7 +505,7 @@ const CollectionList = ({ slug }) => {
               <button
                 key={page}
                 onClick={() => goToPage(page)}
-                className={`w-9 h-9 flex items-center justify-center text-[8px] font-bold tracking-[0.08em] transition-colors
+                className={`w-9 h-9 flex items-center justify-center text-[12px] font-bold tracking-[0.08em] transition-colors
                   ${safePage === page
                     ? 'text-[#222] border-b-2 border-[#222]'
                     : 'text-[#bbb] hover:text-[#555]'
