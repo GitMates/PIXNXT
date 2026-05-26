@@ -42,11 +42,11 @@
   }
 
   .cg-style-11 {
-    @apply flex items-center gap-2 bg-[#8BDFDD] text-[#222] border-none rounded-l-[3px] px-5 h-[38px] text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#71cbca] max-md:px-4 max-md:text-[13px] max-md:h-[36px];
+    @apply flex items-center gap-2 bg-[#8BDFDD] text-[#222] border-none rounded-l-[3px] px-5 h-[38px] text-[15px] font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#8BDFDD] max-md:px-4 max-md:text-[14px] max-md:h-[36px];
   }
 
   .cg-style-12 {
-    @apply flex items-center justify-center bg-[#71cbca] text-[#222] border-none border-l border-white/25 rounded-r-[3px] w-[36px] h-[38px] cursor-pointer transition-colors duration-200 hover:bg-[#59b2b1] max-md:h-[36px];
+    @apply flex items-center justify-center bg-[#8BDFDD] text-[#222] border-none border-l border-white/25 rounded-r-[3px] w-[36px] h-[38px] cursor-pointer transition-colors duration-200 hover:bg-[#8BDFDD] max-md:h-[36px];
   }
 
   .cg-style-13 {
@@ -309,7 +309,7 @@
   }
 
   .cg-style-63 {
-    @apply bg-[#8BDFDD] text-[#222] border-none rounded-[3px] px-7 py-3 text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#71cbca];
+    @apply bg-[#8BDFDD] text-[#222] border-none rounded-[3px] px-7 py-3 text-[15px] font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#8BDFDD];
   }
 
   .cg-style-64 {

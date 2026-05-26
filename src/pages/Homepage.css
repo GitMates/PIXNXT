@@ -30,7 +30,7 @@
 }
 
 .hp-title {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 600;
     color: #1a1a1a;
     margin: 0;
@@ -47,7 +47,7 @@
 
 /* Autosave status indicator */
 .hp-autosave-status {
-    font-size: 12.5px;
+    font-size: 14.5px;
     font-family: 'Roboto', system-ui, sans-serif;
     color: #888;
     margin-right: 8px;
@@ -90,7 +90,7 @@
     color: #222;
     border: none;
     border-radius: 0;
-    font-size: 13.5px;
+    font-size: 15.5px;
     font-weight: 500;
     cursor: pointer;
     transition: background 0.18s;
@@ -99,7 +99,7 @@
 }
 
 .hp-view-btn:hover:not(:disabled) {
-    background-color: #71cbca;
+    background-color: #8BDFDD;
 }
 
 .hp-view-btn:disabled {
@@ -115,7 +115,7 @@
     color: #c0392b;
     padding: 10px 14px;
     border-radius: 0;
-    font-size: 13px;
+    font-size: 15px;
     margin-bottom: 20px;
     font-family: 'Roboto', system-ui, sans-serif;
 }
@@ -128,7 +128,7 @@
     gap: 10px;
     padding: 48px 0;
     color: #888;
-    font-size: 13.5px;
+    font-size: 15.5px;
     font-family: 'Roboto', system-ui, sans-serif;
 }
 
@@ -170,7 +170,7 @@
 }
 
 .hp-label {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: #1a1a1a;
     font-family: 'Roboto', system-ui, sans-serif;
@@ -178,7 +178,7 @@
 }
 
 .hp-help-text {
-    font-size: 12.5px;
+    font-size: 14.5px;
     color: #888;
     line-height: 1.55;
     margin: 0;
@@ -202,7 +202,7 @@
     border: 1px solid #bceceb;
     border-radius: 0;
     padding: 9px 12px;
-    font-size: 12.5px;
+    font-size: 14.5px;
     color: #44aaa7;
     line-height: 1.5;
     font-family: 'Roboto', system-ui, sans-serif;
@@ -249,7 +249,7 @@
 .hp-toggle.on .hp-toggle-handle { transform: translateX(18px); }
 
 .hp-toggle-label {
-    font-size: 13.5px;
+    font-size: 15.5px;
     color: #555;
     font-weight: 500;
     font-family: 'Roboto', system-ui, sans-serif;
@@ -278,7 +278,7 @@
     background: transparent;
     border: none;
     padding: 0 13px;
-    font-size: 13.5px;
+    font-size: 15.5px;
     color: #333;
     outline: none;
     font-family: 'Roboto', system-ui, sans-serif;
@@ -288,7 +288,7 @@
     display: flex;
     align-items: center;
     color: #555;
-    font-size: 13px;
+    font-size: 15px;
     user-select: all;
 }
 
@@ -304,7 +304,7 @@
     border: none;
     border-left: 1px solid #e2e8f0;
     color: #44aaa7;
-    font-size: 12.5px;
+    font-size: 14.5px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
@@ -326,7 +326,7 @@
     border: none;
     border-left: 1px solid #e2e8f0;
     color: #44aaa7;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
@@ -335,7 +335,7 @@
     flex-shrink: 0;
 }
 
-.hp-pw-generate-btn:hover { color: #71cbca; background: rgba(139,223,221,0.1); }
+.hp-pw-generate-btn:hover { color: #8BDFDD; background: rgba(139,223,221,0.1); }
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬ PASSWORD Ã¢â‚¬â€ ICON BUTTONS (eye + copy) Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
@@ -362,7 +362,7 @@
     flex-shrink: 0;
 }
 
-.hp-pw-icon-btn:hover { color: #71cbca; background: rgba(139,223,221,0.15); }
+.hp-pw-icon-btn:hover { color: #8BDFDD; background: rgba(139,223,221,0.15); }
 .hp-pw-icon-btn--done { color: #22863a; }
 
 /* Ã¢â€â‚¬Ã¢â€â‚¬ PASSWORD HELP TEXT Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
@@ -378,7 +378,7 @@
     background: none;
     border: none;
     color: #44aaa7;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     padding: 0;
@@ -410,7 +410,7 @@
     border: none;
     outline: none;
     resize: none;
-    font-size: 13.5px;
+    font-size: 15.5px;
     color: #333;
     font-family: 'Roboto', system-ui, sans-serif;
     line-height: 1.55;
@@ -422,7 +422,7 @@
     position: absolute;
     bottom: 8px;
     right: 12px;
-    font-size: 11.5px;
+    font-size: 13.5px;
     color: #bbb;
     font-family: 'Roboto', system-ui, sans-serif;
 }
@@ -480,14 +480,14 @@
 }
 
 .hp-checkbox-main {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: #333;
     font-family: 'Roboto', system-ui, sans-serif;
 }
 
 .hp-checkbox-sub {
-    font-size: 11.5px;
+    font-size: 13.5px;
     color: #aaa;
     max-width: 280px;
     overflow: hidden;
@@ -507,7 +507,7 @@
     background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23999999' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center;
     border: 1px solid #e2e8f0;
     border-radius: 0;
-    font-size: 13.5px;
+    font-size: 15.5px;
     color: #333;
     font-family: 'Roboto', system-ui, sans-serif;
     appearance: none;
@@ -579,7 +579,7 @@
 
 /* Photographer name */
 .hp-mockup-title {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 700;
     text-align: center;
     margin: 8px 0 6px;
@@ -592,7 +592,7 @@
 /* Bio */
 .hp-mockup-bio {
     text-align: center;
-    font-size: 8px;
+    font-size: 10px;
     color: #666;
     margin: 0 0 8px;
     line-height: 1.5;
@@ -613,7 +613,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 8px;
+    font-size: 10px;
     color: #4f4f4f;
     font-family: 'Roboto', system-ui, sans-serif;
     max-width: 100%;
@@ -634,7 +634,7 @@
 }
 
 .hp-mockup-no-contact {
-    font-size: 8px;
+    font-size: 10px;
     color: #bbb;
     font-style: italic;
     font-family: 'Roboto', system-ui, sans-serif;
@@ -699,7 +699,7 @@
 .hp-mockup-img-placeholder svg { width: 14px; height: 14px; }
 
 .hp-mockup-name {
-    font-size: 7px;
+    font-size: 9px;
     font-weight: 600;
     color: #444;
     text-align: left;
@@ -711,7 +711,7 @@
 }
 
 .hp-mockup-date {
-    font-size: 6.5px;
+    font-size: 8.5px;
     color: #aaa;
     font-family: 'Roboto', system-ui, sans-serif;
 }
@@ -734,7 +734,7 @@
 /* Footer of card */
 .hp-mockup-footer {
     text-align: center;
-    font-size: 7.5px;
+    font-size: 9.5px;
     color: #aaa;
     padding: 8px 12px 0px;
     border-top: 1px solid #f3f3f3;
@@ -786,13 +786,13 @@
         gap: 8px;
     }
 
-    .hp-title { font-size: 20px; }
+    .hp-title { font-size: 22px; }
 
     .hp-save-btn,
     .hp-view-btn {
         height: 34px;
         padding: 0 13px;
-        font-size: 13px;
+        font-size: 15px;
     }
 }
 

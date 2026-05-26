@@ -8,18 +8,18 @@
 .activity-col-email {
     font-weight: 400;
     color: #111;
-    font-size: 15px;
+    font-size: 17px;
 }
 
 .set-badge {
     color: #00c0a3;
     font-weight: 600;
-    font-size: 13px;
+    font-size: 15px;
 }
 
 .activity-col-date-downloaded {
     color: #666;
-    font-size: 13px;
+    font-size: 15px;
 }
 
 .row-action-btn {
@@ -45,7 +45,7 @@
     border: 1px solid #ebebeb;
     border-radius: 4px;
     padding: 8px 16px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #111;
     cursor: pointer;
@@ -109,7 +109,7 @@
     border: none;
     background: none;
     font: inherit;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: #333;
     text-align: left;
@@ -307,7 +307,7 @@
     padding: 0;
     border: none;
     background: none;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: #00c0a3;
     cursor: pointer;
@@ -369,7 +369,7 @@
 .favorite-list-detail-title,
 .download-detail-title {
     margin: 0;
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 600;
     color: #111;
     letter-spacing: -0.01em;
@@ -394,7 +394,7 @@
 .download-detail-meta {
     padding: 24px 20px;
     border-bottom: 1px solid #f2f2f2;
-    font-size: 15px;
+    font-size: 17px;
     color: #111;
 }
 
@@ -414,7 +414,7 @@
 .download-detail-meta-label {
     flex: 0 0 100px;
     color: #999;
-    font-size: 13px;
+    font-size: 15px;
     text-align: right;
 }
 
@@ -448,7 +448,7 @@
     gap: 4px;
     background: none;
     border: none;
-    font-size: 12px;
+    font-size: 14px;
     color: #888;
     font-weight: 400;
     cursor: pointer;
@@ -479,7 +479,7 @@
 .favorite-detail-loading,
 .favorite-detail-empty {
     padding: 24px 16px;
-    font-size: 13px;
+    font-size: 15px;
     color: #888;
     text-align: center;
 }
@@ -518,7 +518,7 @@
 
 .favorite-detail-filename,
 .download-detail-filename {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: #111;
     white-space: nowrap;
@@ -529,7 +529,7 @@
 
 .favorite-detail-sub,
 .download-detail-sub {
-    font-size: 13px;
+    font-size: 15px;
     color: #999;
     display: flex;
     align-items: center;
@@ -537,13 +537,13 @@
 }
 
 .favorite-detail-set-tag {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 400;
     color: #999;
 }
 
 .download-detail-set-tag {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 400;
     color: #00c0a3;
 }

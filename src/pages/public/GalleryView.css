@@ -1,6 +1,6 @@
 ﻿/* Slightly larger cover hero text â€” public GalleryView only */
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__subtitle:not(.cover-stamp-layout__brand):not(.cover-journal-layout__brand):not(.cover-novel-layout__brand):not(.cover-vintage-layout__brand) {
-  font-size: 11px !important;
+  font-size: 7px !important;
   line-height: 1.25 !important;
   margin-bottom: 8px !important;
   letter-spacing: 0.5em !important;
@@ -8,7 +8,7 @@
 
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__title:not(.cover-journal-layout__title):not(.cover-novel-layout__title):not(.cover-vintage-layout__title):not(.cover-stamp-layout__title),
 .gallery-view-hero[data-cover-text-scale='large'] .gallery-heading:not(.cover-novel-layout__title):not(.cover-vintage-layout__title):not(.cover-journal-layout__title):not(.cover-stamp-layout__title) {
-  font-size: 32px !important;
+  font-size: 28px !important;
   line-height: 1.12 !important;
   margin-bottom: 10px !important;
 }
@@ -136,21 +136,21 @@
 }
 
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__date:not(.cover-vintage-layout__date):not(.cover-journal-layout__date):not(.cover-stamp-layout__date) {
-  font-size: 12px !important;
+  font-size: 8px !important;
   line-height: 1.25 !important;
   margin-bottom: 24px !important;
   letter-spacing: 0.3em !important;
 }
 
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__description {
-  font-size: 12px !important;
+  font-size: 8px !important;
   line-height: 1.4 !important;
   margin-bottom: 24px !important;
 }
 
 .gallery-view-hero[data-cover-text-scale='large'] .cover-text-grid__button,
 .gallery-view-hero[data-cover-text-scale='large'] button {
-  font-size: 11px !important;
+  font-size: 7px !important;
   padding: 12px 36px !important;
   letter-spacing: 0.2em !important;
 }
@@ -259,13 +259,13 @@
 }
 
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-subtitle {
-  font-size: 10px !important;
+  font-size: 6px !important;
   letter-spacing: 0.3em !important;
 }
 
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__tab,
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__action {
-  font-size: 11px !important;
+  font-size: 7px !important;
   letter-spacing: 0.2em !important;
 }
 
@@ -380,7 +380,7 @@
   }
 
   .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__brand-subtitle {
-    font-size: 8px !important;
+    font-size: 4px !important;
     margin-top: 0.25rem !important;
     letter-spacing: 0.22em !important;
   }
@@ -404,7 +404,7 @@
 
   .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__tab {
     flex-shrink: 0;
-    font-size: 9px !important;
+    font-size: 5px !important;
     white-space: nowrap;
   }
 
@@ -428,7 +428,7 @@
 }
 
 .gallery-view-page[data-gallery-chrome='large'] .gallery-chrome__set-heading {
-  font-size: 12px !important;
+  font-size: 8px !important;
   letter-spacing: 0.38em !important;
   padding-top: 0.25rem !important;
   padding-bottom: 0.25rem !important;

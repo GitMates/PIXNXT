@@ -20,7 +20,7 @@
 }
 
 .cd-settings-main-title {
-    font-size: 26px !important;
+    font-size: 28px !important;
     font-weight: 700 !important;
     color: #111;
     display: flex;
@@ -38,7 +38,7 @@
     align-items: center;
     gap: 8px;
     color: #666;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
 }
@@ -58,21 +58,21 @@
 }
 
 .settings-label {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: #333;
     margin-bottom: 4px;
 }
 
 .settings-desc {
-    font-size: 13px;
+    font-size: 15px;
     color: #777;
     line-height: 1.6;
     margin: 4px 0 0 0;
 }
 
 .settings-desc.small {
-    font-size: 12px;
+    font-size: 14px;
     margin-top: 4px;
 }
 
@@ -99,7 +99,7 @@
     padding: 0 16px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 16px;
     color: #333;
 }
 
@@ -115,7 +115,7 @@
     padding: 0 16px;
     border: 1px solid #ddd;
     border-radius: 4px;
-    font-size: 14px;
+    font-size: 16px;
     appearance: none;
     background-color: #ffffff;
 }
@@ -136,7 +136,7 @@
     background: none;
     border: none;
     color: #111111;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
     padding: 0;
@@ -155,7 +155,7 @@
 }
 
 .toggle-state-label {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     color: #333;
     text-transform: uppercase;
@@ -163,7 +163,7 @@
 }
 
 .tab-badge {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 800;
     padding: 2px 4px;
     border-radius: 4px;
@@ -217,7 +217,7 @@
 }
 
 .cd-settings-main-title {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 700;
     color: #111;
     display: flex;
@@ -231,7 +231,7 @@
     align-items: center;
     gap: 8px;
     color: #666;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
     transition: color 0.2s;
@@ -252,7 +252,7 @@
 
 .settings-tab-item {
     padding: 12px 0;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: #888;
     cursor: pointer;
@@ -285,7 +285,7 @@
     border: 1px solid #ddd;
     border-radius: 4px;
     padding: 0 16px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #111111;
     cursor: pointer;
@@ -366,7 +366,7 @@ input:checked+.cd-toggle-slider:before {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: #333;
     cursor: pointer;
@@ -382,7 +382,7 @@ input:checked+.cd-toggle-slider:before {
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 13px;
+    font-size: 15px;
     color: #555;
     cursor: pointer;
 }
@@ -411,14 +411,14 @@ input:checked+.cd-toggle-slider:before {
 }
 
 .info-box-title {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 700;
     color: #333;
     margin: 0 0 8px 0;
 }
 
 .info-box-text {
-    font-size: 13px;
+    font-size: 15px;
     color: #666;
     line-height: 1.6;
     margin: 0 0 12px 0;

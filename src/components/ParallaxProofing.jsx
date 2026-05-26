@@ -26,7 +26,7 @@ const ParallaxProofing = () => {
                     >
                         A photo sharing platform you and your clients will love. View, select and communicate all online. Enable watermarks, downloads, favorites and password protection.
                     </Typography>
-                    <button className="px-10 py-4 text-[10px] font-bold uppercase tracking-widest border border-white/30 hover:bg-white hover:text-black transition-all">
+                    <button className="px-10 py-4 text-[12px] font-bold uppercase tracking-widest border border-white/30 hover:bg-white hover:text-black transition-all">
                       Learn More
                     </button>
                 </div>

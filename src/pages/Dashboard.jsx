@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import clientGalleryGif from '../assets/icons/photograph_17904525.gif';
 import smartAlbumsGif from '../assets/icons/folder_15944871.gif';
-import balancePng from '../assets/icons/clientgallery.png';
+import balancePng from '../assets/icons/client gallery.png';
 import './Dashboard.css';
 
 /* ===== SVG Icon Components ===== */

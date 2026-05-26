@@ -91,14 +91,14 @@ const ClientGallerySection = () => {
                                       className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" 
                                     />
                                     <div className="absolute inset-0 flex items-center justify-center bg-black/0 transition-all duration-500 group-hover:bg-black/20">
-                                        <span className="translate-y-4 text-[10px] font-bold uppercase tracking-[0.3em] text-white opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
+                                        <span className="translate-y-4 text-[12px] font-bold uppercase tracking-[0.3em] text-white opacity-0 transition-all duration-500 group-hover:translate-y-0 group-hover:opacity-100">
                                           View Gallery
                                         </span>
                                     </div>
                                 </div>
                                 <div className="flex flex-col gap-1">
                                     <Typography variant="h4" className="text-sm font-bold uppercase tracking-tight">{item.title}</Typography>
-                                    <Typography variant="label" className="text-[10px]">{item.subtitle}</Typography>
+                                    <Typography variant="label" className="text-[12px]">{item.subtitle}</Typography>
                                 </div>
                             </a>
                         ))}
@@ -112,7 +112,7 @@ const ClientGallerySection = () => {
 function Pill({ children, active }) {
   return (
     <button className={cn(
-      "px-6 py-2 text-[10px] font-bold uppercase tracking-widest transition-all duration-300 border-b-2",
+      "px-6 py-2 text-[12px] font-bold uppercase tracking-widest transition-all duration-300 border-b-2",
       active 
         ? "border-zinc-950 text-zinc-950" 
         : "border-transparent text-zinc-400 hover:text-zinc-600 hover:border-zinc-200"

@@ -359,7 +359,7 @@
 /* REFINED TYPOGRAPHY */
 .h-super {
     font-family: inherit;
-    font-size: 11px;
+    font-size: 13px;
     letter-spacing: 4px;
     color: #888;
     text-transform: uppercase;
@@ -368,7 +368,7 @@
 
 .h-title {
     font-family: inherit;
-    font-size: 48px;
+    font-size: 50px;
     font-weight: 400;
     color: #111;
     margin-bottom: 20px;
@@ -377,12 +377,12 @@
 }
 
 .style-novel .h-title {
-    font-size: 42px;
+    font-size: 44px;
 }
 
 .h-date {
     font-family: inherit;
-    font-size: 11px;
+    font-size: 13px;
     letter-spacing: 2px;
     color: #666;
     margin-bottom: 40px;
@@ -395,7 +395,7 @@
 
 /* MOBILE RESPONSIVE OVERRIDES */
 .cd-design-preview-pane.mobile .h-title {
-    font-size: 42px;
+    font-size: 44px;
 }
 
 .cd-design-preview-pane.mobile .style-novel .cd-preview-gallery-header {
@@ -430,7 +430,7 @@
 
 .nav-item {
     white-space: nowrap;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     color: var(--gallery-text);
     text-transform: uppercase;
@@ -442,7 +442,7 @@
 }
 
 .hi-label {
-    font-size: 7px;
+    font-size: 9px;
     font-weight: 400;
     color: #888;
     margin-bottom: 2px;
@@ -474,7 +474,7 @@
     gap: 8px;
     color: var(--gallery-text);
     cursor: pointer;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -703,7 +703,7 @@
 }
 
 .header-overlay .h-title {
-    font-size: 80px;
+    font-size: 82px;
     color: #fff;
 }
 
@@ -731,7 +731,7 @@
 }
 
 .header-left-layout .h-title {
-    font-size: 60px;
+    font-size: 62px;
     margin-bottom: 10px;
     color: #fff;
 }
@@ -848,7 +848,7 @@
 
 .style-stripe .h-title {
     color: #fff;
-    font-size: 48px;
+    font-size: 50px;
     text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
@@ -863,7 +863,7 @@
 }
 
 .style-novel .h-title {
-    font-size: 64px;
+    font-size: 66px;
     color: #111;
 }
 
@@ -948,7 +948,7 @@
 
 /* Compact cover hero text â€” dashboard GalleryPreview only (not public /gallery) */
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__subtitle {
-    font-size: 7px !important;
+    font-size: 9px !important;
     line-height: 1.2 !important;
     margin-bottom: 4px !important;
     letter-spacing: 0.35em !important;
@@ -957,7 +957,7 @@
 /* White text only on photo-overlay covers â€” not novel/journal/stamp/vintage panels */
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__title:not(.cover-novel-layout__title):not(.cover-journal-layout__title):not(.cover-vintage-layout__title):not(.cover-stamp-layout__title),
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cover-left-layout__footer .cover-text-grid__title {
-    font-size: 14px !important;
+    font-size: 16px !important;
     line-height: 1.15 !important;
     margin-bottom: 4px !important;
     letter-spacing: 0.04em !important;
@@ -966,7 +966,7 @@
 }
 
 .cd-preview-gallery-card.style-novel[data-cover-text-scale='compact'] .cover-novel-layout__title.cover-text-grid__title {
-    font-size: 22px !important;
+    font-size: 24px !important;
     line-height: 0.95 !important;
     letter-spacing: 0.02em !important;
     color: var(--gallery-text) !important;
@@ -974,7 +974,7 @@
 }
 
 .cd-preview-gallery-card.style-novel[data-cover-text-scale='compact'] .cover-novel-layout__brand.cover-text-grid__subtitle {
-    font-size: 6px !important;
+    font-size: 8px !important;
     letter-spacing: 0.38em !important;
     font-weight: 400 !important;
     color: var(--gallery-meta-text) !important;
@@ -982,7 +982,7 @@
 }
 
 .cd-preview-gallery-card.style-novel[data-cover-text-scale='compact'] .cover-novel-layout__date.cover-text-grid__date {
-    font-size: 8px !important;
+    font-size: 10px !important;
     letter-spacing: 0.24em !important;
     margin-top: 6px !important;
     color: var(--gallery-meta-text) !important;
@@ -990,7 +990,7 @@
 }
 
 .cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__title.cover-text-grid__title {
-    font-size: 22px !important;
+    font-size: 24px !important;
     line-height: 1 !important;
     font-family: var(--heading-font, 'Playfair Display', Georgia, 'Times New Roman', serif) !important;
     font-style: var(--heading-style, normal) !important;
@@ -999,7 +999,7 @@
 }
 
 .cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__date.cover-text-grid__date {
-    font-size: 6px !important;
+    font-size: 8px !important;
     letter-spacing: 0.28em !important;
     margin-bottom: 4px !important;
     color: var(--gallery-meta-text) !important;
@@ -1007,7 +1007,7 @@
 }
 
 .cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__brand.cover-text-grid__subtitle {
-    font-size: 5px !important;
+    font-size: 7px !important;
     letter-spacing: 0.36em !important;
     color: var(--gallery-meta-text) !important;
     opacity: 1 !important;
@@ -1019,11 +1019,11 @@
 }
 
 .cd-preview-gallery-card.style-vintage[data-cover-text-scale='compact'] .cover-vintage-layout__title.cover-text-grid__title {
-    font-size: 22px !important;
+    font-size: 24px !important;
 }
 
 .cd-preview-gallery-card.style-journal[data-cover-text-scale='compact'] .cover-journal-layout__title.cover-text-grid__title {
-    font-size: 20px !important;
+    font-size: 22px !important;
     line-height: 1 !important;
     letter-spacing: 0.02em !important;
     color: var(--gallery-text) !important;
@@ -1031,7 +1031,7 @@
 }
 
 .cd-preview-gallery-card.style-journal[data-cover-text-scale='compact'] .cover-journal-layout__brand.cover-text-grid__subtitle {
-    font-size: 5px !important;
+    font-size: 7px !important;
     letter-spacing: 0.36em !important;
     font-weight: 400 !important;
     color: var(--gallery-meta-text) !important;
@@ -1039,7 +1039,7 @@
 }
 
 .cd-preview-gallery-card.style-journal[data-cover-text-scale='compact'] .cover-journal-layout__date.cover-text-grid__date {
-    font-size: 7px !important;
+    font-size: 9px !important;
     letter-spacing: 0.28em !important;
     margin-bottom: 4px !important;
     color: var(--gallery-meta-text) !important;
@@ -1047,7 +1047,7 @@
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__title.cover-text-grid__title {
-    font-size: 38px !important;
+    font-size: 40px !important;
     line-height: 0.95 !important;
     letter-spacing: 0.01em !important;
     margin-bottom: 14px !important;
@@ -1056,7 +1056,7 @@
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__brand.cover-text-grid__subtitle {
-    font-size: 8px !important;
+    font-size: 10px !important;
     letter-spacing: 0.4em !important;
     font-weight: 400 !important;
     margin-bottom: 14px !important;
@@ -1065,7 +1065,7 @@
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__date.cover-text-grid__date {
-    font-size: 8px !important;
+    font-size: 10px !important;
     letter-spacing: 0.26em !important;
     margin-bottom: 6px !important;
     color: var(--gallery-meta-text) !important;
@@ -1081,7 +1081,7 @@
 }
 
 .cd-preview-gallery-card.style-stamp[data-cover-text-scale='compact'] .cover-stamp-layout__cta .view-gallery-btn {
-    font-size: 8px !important;
+    font-size: 10px !important;
     padding: 5px 16px !important;
     letter-spacing: 0.2em !important;
     border-radius: 0 !important;
@@ -1092,12 +1092,12 @@
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .gallery-heading:not(.cover-vintage-layout__title):not(.cover-novel-layout__title):not(.cover-journal-layout__title):not(.cover-stamp-layout__title) {
-    font-size: 14px !important;
+    font-size: 16px !important;
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__date:not(.cover-novel-layout__date):not(.cover-journal-layout__date):not(.cover-vintage-layout__date):not(.cover-stamp-layout__date),
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cover-left-layout__footer .cover-text-grid__date {
-    font-size: 8px !important;
+    font-size: 10px !important;
     line-height: 1.2 !important;
     margin-bottom: 0 !important;
     letter-spacing: 0.2em !important;
@@ -1106,13 +1106,13 @@
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__description {
-    font-size: 8px !important;
+    font-size: 10px !important;
     line-height: 1.35 !important;
     margin-bottom: 8px !important;
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .cover-text-grid__button {
-    font-size: 7px !important;
+    font-size: 9px !important;
     padding: 4px 12px !important;
     letter-spacing: 0.18em !important;
 }
@@ -1125,13 +1125,13 @@
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cover-left-layout__brand-text {
-    font-size: 6px !important;
+    font-size: 8px !important;
     letter-spacing: 0.32em !important;
 }
 
 /* Stripe + any stray headings in the preview cover header */
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header .gallery-heading:not(.cover-novel-layout__brand):not(.cover-journal-layout__brand):not(.cover-stamp-layout__brand) {
-    font-size: 14px !important;
+    font-size: 16px !important;
     line-height: 1.15 !important;
     margin-bottom: 6px !important;
 }
@@ -1141,13 +1141,13 @@
 }
 
 .cd-preview-gallery-card.style-novel .gallery-chrome__brand-title {
-    font-size: 7px !important;
+    font-size: 9px !important;
     line-height: 1.1 !important;
     letter-spacing: 0.06em !important;
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .cd-preview-gallery-header button {
-    font-size: 7px !important;
+    font-size: 9px !important;
     padding: 4px 12px !important;
     letter-spacing: 0.18em !important;
 }
@@ -1165,12 +1165,12 @@
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__brand-title {
-    font-size: 9px !important;
+    font-size: 11px !important;
     line-height: 1.1 !important;
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__brand-subtitle {
-    font-size: 5px !important;
+    font-size: 7px !important;
     letter-spacing: 0.1em !important;
     margin-top: 1px !important;
 }
@@ -1178,7 +1178,7 @@
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__tab,
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__action,
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter-inline button {
-    font-size: 6px !important;
+    font-size: 8px !important;
     letter-spacing: 0.08em !important;
     line-height: 1.2 !important;
 }
@@ -1231,7 +1231,7 @@
 }
 
 .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__set-heading {
-    font-size: 5px !important;
+    font-size: 7px !important;
     line-height: 1.15 !important;
     letter-spacing: 0.16em !important;
     padding-top: 0.125rem !important;
@@ -1264,13 +1264,13 @@
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__brand-title,
 .cd-preview-gallery-body--mobile-frame .gallery-chrome__brand-title {
-    font-size: 8px !important;
+    font-size: 10px !important;
     line-height: 1.1 !important;
 }
 
 .cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-chrome__brand-subtitle,
 .cd-preview-gallery-body--mobile-frame .gallery-chrome__brand-subtitle {
-    font-size: 4.5px !important;
+    font-size: 6.5px !important;
     letter-spacing: 0.1em !important;
     margin-top: 1px !important;
 }
@@ -1311,7 +1311,7 @@
 .cd-design-preview-pane.mobile .cd-preview-gallery-card[data-cover-text-scale='compact'] .gallery-media-filter-inline button,
 .cd-preview-gallery-body--mobile-frame .gallery-chrome__tab,
 .cd-preview-gallery-body--mobile-frame .gallery-media-filter-inline button {
-    font-size: 5.5px !important;
+    font-size: 7.5px !important;
     letter-spacing: 0.07em !important;
     line-height: 1.15 !important;
 }

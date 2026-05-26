@@ -44,7 +44,7 @@
 
 .fv-folder-name {
   margin: 0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
   font-family: 'Roboto', system-ui, sans-serif;
   color: #111;
@@ -52,7 +52,7 @@
 
 .fv-folder-date {
   margin: 4px 0 0;
-  font-size: 14px;
+  font-size: 16px;
   color: #666;
 }
 
@@ -75,7 +75,7 @@
   border: 1px solid #ddd;
   border-radius: 0;
   background: #fff;
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 600;
   color: #333;
   cursor: pointer;
@@ -105,7 +105,7 @@
   padding: 10px 16px;
   border: none;
   background: none;
-  font-size: 14px;
+  font-size: 16px;
   cursor: pointer;
 }
 
@@ -120,7 +120,7 @@
 }
 
 .fv-btn-primary.cg-style-11:hover {
-  background: #71cbca;
+  background: #8BDFDD;
 }
 
 .fv-new-collection-solo {
@@ -157,7 +157,7 @@
 }
 
 .fv-empty-title {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
   font-family: 'Roboto', system-ui, sans-serif;
   margin: 0 0 12px;
@@ -165,7 +165,7 @@
 }
 
 .fv-empty-desc {
-  font-size: 15px;
+  font-size: 17px;
   line-height: 1.55;
   color: #666;
   margin: 0 0 28px;
@@ -178,13 +178,13 @@
   color: #222;
   border: none;
   border-radius: 0;
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .fv-empty-cta:hover {
-  background: #71cbca;
+  background: #8BDFDD;
 }
 
 .fv-grid {
