@@ -200,7 +200,7 @@ export default function AccountSettings() {
                     {activeTab === 'account' && <AccountTab user={user} showToast={showToast} />}
                     {activeTab === 'billing' && <BillingTab user={user} showToast={showToast} />}
                     {activeTab === 'advanced' && <AdvancedTab user={user} showToast={showToast} />}
-                    {activeTab === 'refer' && <div className="text-[#888]">Refer a Friend Coming Soon</div>}
+                    {activeTab === 'refer' && <ReferTab user={user} showToast={showToast} />}
                 </div>
             </div>
             {toastMessage && (
@@ -2252,6 +2252,331 @@ function AdvancedTab({ user, showToast }) {
                 <p className="text-[14px] text-[#888] leading-relaxed mt-1">
                     Choose your preferred language for the Pixieset dashboard. During the beta phase, this setting applies only to Client Gallery.
                 </p>
+            </div>
+        </div>
+    );
+}
+
+function ReferTab({ user, showToast }) {
+    const [email, setEmail] = useState('');
+    const [referralCode, setReferralCode] = useState('');
+    const [referrals, setReferrals] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [isTrackingOpen, setIsTrackingOpen] = useState(true); // Open by default based on screenshot
+
+    const stats = {
+        totalConversions: referrals.filter(r => r.status === 'signed_up' || r.status === 'upgraded').length,
+        totalEarned: referrals.reduce((sum, r) => sum + (r.earned_reward || 0), 0),
+        creditBalance: referrals.reduce((sum, r) => sum + (r.earned_reward || 0), 0)
+    };
+
+    useEffect(() => {
+        if (user?.id) {
+            fetchReferralData();
+        }
+    }, [user]);
+
+    const fetchReferralData = async () => {
+        try {
+            setLoading(true);
+            
+            // 1. Get or generate referral code
+            let { data: profile } = await supabase
+                .from('photographers')
+                .select('referral_code')
+                .eq('id', user.id)
+                .single();
+
+            if (profile && !profile.referral_code) {
+                // Generate a random code
+                const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+                await supabase
+                    .from('photographers')
+                    .update({ referral_code: newCode })
+                    .eq('id', user.id);
+                setReferralCode(newCode);
+            } else if (profile) {
+                setReferralCode(profile.referral_code);
+            }
+
+            // 2. Fetch referrals
+            const { data: referralData } = await supabase
+                .from('referrals')
+                .select('*')
+                .eq('referrer_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (referralData) {
+                // Deduplicate emails in case of dirty data
+                const uniqueRefs = [];
+                const seenEmails = new Set();
+                for (const r of referralData) {
+                    if (!seenEmails.has(r.referred_email)) {
+                        seenEmails.add(r.referred_email);
+                        uniqueRefs.push(r);
+                    }
+                }
+                setReferrals(uniqueRefs);
+            }
+        } catch (error) {
+            console.error('Error fetching referral data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCopyLink = () => {
+        const link = `${window.location.origin}/ref/${referralCode || 'YOUR_CODE'}`;
+        navigator.clipboard.writeText(link);
+        showToast('Referral link copied to clipboard!');
+    };
+
+    const handleSendInvite = async () => {
+        if (!email) return;
+        if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+            showToast('Please enter a valid email address');
+            return;
+        }
+
+        try {
+            // Check if already invited
+            const { data: existing } = await supabase
+                .from('referrals')
+                .select('id, status')
+                .eq('referrer_id', user.id)
+                .eq('referred_email', email)
+                .maybeSingle();
+
+            if (existing) {
+                if (existing.status !== 'invited') {
+                    showToast('This person has already signed up or upgraded.');
+                    return;
+                }
+                showToast('Resending invite to this email...');
+                // We don't insert a new row, we just proceed to email sending
+            } else {
+                // First insert into database
+                const { error: dbError } = await supabase
+                    .from('referrals')
+                    .insert([{
+                        referrer_id: user.id,
+                        referred_email: email,
+                        status: 'invited'
+                    }]);
+
+                if (dbError) throw dbError;
+            }
+
+            // Fetch user's profile to get their name
+            const { data: profile } = await supabase
+                .from('photographers')
+                .select('display_name')
+                .eq('id', user.id)
+                .single();
+
+            // Invoke the Edge Function to send the email
+            const { error: emailError } = await supabase.functions.invoke('send-referral-invite', {
+                body: {
+                    email: email,
+                    referralCode: referralCode,
+                    photographerName: profile?.display_name || '',
+                    siteOrigin: window.location.origin
+                }
+            });
+
+            if (emailError) {
+                console.error('Error triggering email:', emailError);
+                // We still sent the invite to the DB, so we don't throw completely
+                showToast('Invite logged, but email delivery failed.');
+            } else {
+                showToast('Invite sent successfully!');
+            }
+            
+            setEmail('');
+            fetchReferralData();
+        } catch (error) {
+            console.error('Error sending invite:', error);
+            showToast('Failed to send invite. Have you created the table in Supabase?');
+        }
+    };
+
+    if (loading) {
+        return <div className="py-8 text-[#888]">Loading referral dashboard...</div>;
+    }
+
+    return (
+        <div className="flex flex-col gap-8 pb-20">
+            <div>
+                <h1 className="text-[30px] font-normal text-[#111] mb-8 pb-4 border-b border-[#f1f1f1]">Referral Dashboard</h1>
+                
+                <div className="mb-10">
+                    <h2 className="text-[17px] font-bold text-[#111] mb-2">Invite Friends & Get $20</h2>
+                    <p className="text-[15px] text-[#555] leading-relaxed">
+                        Give your friends $20 off their first bill on Pixnxt, and get a $20 referral credit for each person that subscribes to Pixnxt.
+                    </p>
+                </div>
+
+                <div className="mb-10">
+                    <label className="block text-[17px] font-bold text-[#111] mb-2">Your Referral Link</label>
+                    <div className="flex items-center">
+                        <div className="flex-1 bg-[#f5f5f5] border border-r-0 border-[#ddd] px-4 py-3 text-[16px] text-[#555] select-all overflow-hidden text-ellipsis whitespace-nowrap">
+                            {window.location.origin}/ref/{referralCode || 'YOUR_CODE'}
+                        </div>
+                        <button 
+                            onClick={handleCopyLink}
+                            className="bg-[#1a9b84] hover:bg-[#147d6a] text-white px-6 py-3 border border-[#1a9b84] hover:border-[#147d6a] transition-colors text-[16px] font-medium whitespace-nowrap"
+                        >
+                            Copy Link
+                        </button>
+                    </div>
+                </div>
+
+                <div className="mb-12">
+                    <label className="block text-[17px] font-bold text-[#111] mb-2">Share With Friends</label>
+                    <div className="flex items-center">
+                        <input 
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="e.g. friend@mail.com"
+                            className="flex-1 border border-r-0 border-[#ddd] px-4 py-3 text-[16px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                        />
+                        <button 
+                            onClick={handleSendInvite}
+                            className="bg-[#1a9b84] hover:bg-[#147d6a] text-white px-6 py-3 border border-[#1a9b84] hover:border-[#147d6a] transition-colors text-[16px] font-medium whitespace-nowrap"
+                        >
+                            Send Invite
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 className="text-[17px] font-bold text-[#111] mb-6">Analytics</h2>
+                    
+                    <div className="flex flex-wrap gap-x-20 gap-y-6 mb-8">
+                        <div>
+                            <div className="flex items-center gap-1.5 text-[#555] text-[15px] mb-2">
+                                Total conversions
+                                <div className="text-[#999] cursor-help" title="Number of friends who signed up and upgraded">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                </div>
+                            </div>
+                            <div className="text-[24px] text-[#111]">{stats.totalConversions}</div>
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-1.5 text-[#555] text-[15px] mb-2">
+                                Total earned
+                                <div className="text-[#999] cursor-help" title="Total amount of referral credit you have earned">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                </div>
+                            </div>
+                            <div className="text-[24px] text-[#111]">${stats.totalEarned.toFixed(2)}</div>
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-1.5 text-[#555] text-[15px] mb-2">
+                                Credit balance
+                                <div className="text-[#999] cursor-help" title="Current available referral credit">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                </div>
+                            </div>
+                            <div className="text-[24px] text-[#111]">${stats.creditBalance.toFixed(2)}</div>
+                        </div>
+                    </div>
+
+                    <div 
+                        className="inline-flex items-center gap-1.5 text-[15px] text-[#1a9b84] font-medium cursor-pointer hover:text-[#147d6a] transition-colors"
+                        onClick={() => setIsTrackingOpen(!isTrackingOpen)}
+                    >
+                        Track referrals status
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform duration-200 ${isTrackingOpen ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+
+                    {isTrackingOpen && (
+                        <div className="mt-8 overflow-x-auto">
+                            <table className="w-full min-w-[600px] border-collapse table-fixed">
+                                <thead>
+                                    <tr className="border-b border-[#eee]">
+                                        <th className="text-left py-4 text-[13px] font-bold text-[#555] pb-8 w-[25%] align-bottom">Referral</th>
+                                        <th className="text-center py-4 pb-8 w-[18%] relative align-top">
+                                            <div className="absolute top-[64px] bottom-[-20px] left-1/2 w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+                                            <div className="relative z-10 flex flex-col items-center gap-2.5">
+                                                <span className="text-[13px] font-normal text-[#888]">Invited</span>
+                                                <div className="w-[34px] h-[34px] rounded-full bg-[#fffcf3] text-[#f59e0b] flex items-center justify-center border border-[#fde68a]">
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="text-center py-4 pb-8 w-[18%] relative align-top">
+                                            <div className="absolute top-[64px] bottom-[-20px] left-1/2 w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+                                            <div className="relative z-10 flex flex-col items-center gap-2.5">
+                                                <span className="text-[13px] font-normal text-[#888]">Signed up</span>
+                                                <div className="w-[34px] h-[34px] rounded-full bg-[#fffcf3] text-[#f59e0b] flex items-center justify-center border border-[#fde68a]">
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="text-center py-4 pb-8 w-[18%] relative align-top">
+                                            <div className="absolute top-[64px] bottom-[-20px] left-1/2 w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+                                            <div className="relative z-10 flex flex-col items-center gap-2.5">
+                                                <span className="text-[13px] font-normal text-[#888]">Upgraded to a<br/>paid account</span>
+                                                <div className="w-[34px] h-[34px] rounded-full bg-[#fffcf3] text-[#f59e0b] flex items-center justify-center border border-[#fde68a]">
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="text-right py-4 text-[13px] font-bold text-[#555] pb-8 w-[21%] align-bottom">Earned Rewards</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {referrals.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="5" className="py-8 text-center text-[#888] text-[15px]">
+                                                No referrals yet. Share your link to get started!
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        referrals.map(ref => {
+                                            const isSignedUp = ref.status === 'signed_up' || ref.status === 'upgraded';
+                                            const isUpgraded = ref.status === 'upgraded';
+                                            
+                                            return (
+                                                <tr key={ref.id} className="border-b border-[#eee]">
+                                                    <td className="py-[30px] text-[15px] font-medium text-[#ccc] truncate pr-4">{ref.referred_email}</td>
+                                                    <td colSpan="3" className="py-[30px] relative">
+                                                        {/* Vertical lines connecting the rows */}
+                                                        <div className="absolute top-[-20px] bottom-[-20px] left-[16.66%] w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+                                                        <div className="absolute top-[-20px] bottom-[-20px] left-[50%] w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+                                                        <div className="absolute top-[-20px] bottom-[-20px] left-[83.33%] w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+
+                                                        <div className="relative w-full flex items-center z-10 h-8">
+                                                            {/* Active Track */}
+                                                            <div className={`absolute top-1/2 left-[16.66%] w-[33.33%] h-[18px] -translate-y-1/2 z-10 transition-colors ${isSignedUp ? 'bg-[#f5f5f5]' : 'bg-transparent'}`}></div>
+                                                            <div className={`absolute top-1/2 left-[50%] w-[33.33%] h-[18px] -translate-y-1/2 z-10 transition-colors ${isUpgraded ? 'bg-[#f5f5f5]' : 'bg-transparent'}`}></div>
+
+                                                            {/* Node 1: Invited */}
+                                                            <div className="absolute top-1/2 left-[16.66%] w-[34px] h-[18px] bg-[#f5f5f5] rounded-[4px] -translate-x-1/2 -translate-y-1/2 z-20"></div>
+                                                            
+                                                            {/* Node 2: Signed up */}
+                                                            <div className={`absolute top-1/2 left-[50%] w-[34px] -translate-x-1/2 -translate-y-1/2 z-20 transition-all ${isSignedUp && !isUpgraded ? 'h-[34px] bg-[#f1f1f1] rounded-[8px] shadow-sm border border-[#fff]' : isUpgraded ? 'h-[18px] bg-[#f5f5f5]' : 'bg-transparent'}`}></div>
+                                                            
+                                                            {/* Node 3: Upgraded */}
+                                                            <div className={`absolute top-1/2 left-[83.33%] w-[34px] -translate-x-1/2 -translate-y-1/2 z-20 transition-all ${isUpgraded ? 'h-[34px] bg-[#f1f1f1] rounded-[8px] shadow-sm border border-[#fff]' : 'bg-transparent'}`}></div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-[30px] text-right">
+                                                        <div className={`inline-flex items-center justify-center px-[22px] py-1.5 rounded-full text-[15px] font-medium transition-colors ${ref.earned_reward > 0 ? 'bg-[#e8f7f2] text-[#1a9b84]' : 'bg-[#f2fcfa] text-[#1a9b84] opacity-40'}`}>
+                                                            ${(ref.earned_reward || 0).toFixed(2)}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
