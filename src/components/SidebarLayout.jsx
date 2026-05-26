@@ -140,7 +140,7 @@ const SidebarLayout = ({ children }) => {
             )}
 
             {/* Sidebar */}
-            <aside className={`${isCollapsed ? 'md:w-[80px]' : 'md:w-[320px]'} ${isMobileMenuOpen ? 'left-0' : '-left-[320px]'} fixed md:static top-0 w-[280px] h-screen bg-[#ffffff] flex flex-col shrink-0 z-[1000] md:z-10 shadow-[4px_0_20px_rgba(0,0,0,0.15)] md:shadow-[1px_0_0_rgba(0,0,0,0.06)] border-r border-[#eeeeee] transition-[width,left] duration-300 ease overflow-y-auto md:overflow-y-visible`}>
+            <aside className={`${isCollapsed ? 'md:w-[80px]' : 'md:w-[320px]'} ${isMobileMenuOpen ? 'left-0' : '-left-[320px]'} fixed md:static top-0 w-[280px] h-screen bg-[#ffffff] flex flex-col shrink-0 z-[1000] md:z-10 shadow-[4px_0_20px_rgba(0,0,0,0.15)] md:shadow-[1px_0_0_rgba(0,0,0,0.06)] border-r border-[#e0e0e0] transition-[width,left] duration-300 ease overflow-y-auto md:overflow-y-visible`}>
                 <div className={`h-[80px] flex items-center px-4 ${isCollapsed ? 'md:justify-center md:px-0' : 'justify-between'}`}>
                     <div className="flex items-center gap-2 cursor-pointer relative" ref={appDropdownRef}>
                         <img src={brandPng} alt="Pixnxt" className="w-[36px] h-[36px] object-contain shrink-0" />
