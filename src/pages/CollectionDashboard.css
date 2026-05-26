@@ -460,23 +460,26 @@
 .cd-share-main {
     background: none;
     color: #222;
+    color: #000000;
     border: none;
     padding: 0 24px;
     font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    border-right: 1px solid rgba(255, 255, 255, 0.25);
+    border-right: 1px solid rgba(0, 0, 0, 0.15);
     transition: background 0.2s;
     font-family: 'Roboto', system-ui, sans-serif;
 }
 
 .cd-share-main:hover {
     background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.08);
 }
 
 .cd-share-arrow {
     background: none;
     color: #222;
+    color: #000000;
     border: none;
     padding: 0 10px;
     cursor: pointer;
@@ -488,6 +491,7 @@
 
 .cd-share-arrow:hover {
     background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.08);
 }
 
 .cd-share-dropdown {
