@@ -2263,7 +2263,7 @@ const CollectionDashboard = () => {
             <div className="flex h-screen items-center justify-center bg-white">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-[#111111] border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-[#111111] font-medium tracking-widest uppercase text-sm">Loading Collection...</p>
+                    <p className="text-[#111111] font-medium tracking-widest uppercase text-[16px]">Loading Collection...</p>
                 </div>
             </div>
         );
@@ -2309,7 +2309,6 @@ const CollectionDashboard = () => {
                         onClick={toggleStatus}
                     >
                         {status}
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </div>
                 </div>
 
@@ -3565,7 +3564,7 @@ const CollectionDashboard = () => {
                         aria-labelledby="favorite-list-modal-title"
                     >
                         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
-                            <h3 id="favorite-list-modal-title" className="text-sm font-bold uppercase tracking-[0.12em] text-gray-900">
+                            <h3 id="favorite-list-modal-title" className="text-[16px] font-bold uppercase tracking-[0.12em] text-gray-900">
                                 {editingFavoriteList ? 'Edit favorite list' : 'Create favorite list'}
                             </h3>
                             <button
@@ -3580,57 +3579,57 @@ const CollectionDashboard = () => {
 
                         <div className="max-h-[70vh] overflow-y-auto px-6 py-6">
                             <div className="mb-6">
-                                <label className="mb-2 block text-sm font-semibold text-gray-900">Client email</label>
+                                <label className="mb-2 block text-[16px] font-semibold text-gray-900">Client email</label>
                                 <input
                                     type="email"
                                     disabled={!!editingFavoriteList}
-                                    className="w-full rounded border border-gray-200 p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C] disabled:cursor-not-allowed disabled:bg-gray-50"
+                                    className="w-full rounded border border-gray-200 p-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C] disabled:cursor-not-allowed disabled:bg-gray-50"
                                     placeholder="e.g. client@email.com"
                                     value={favoriteListEmail}
                                     onChange={(e) => setFavoriteListEmail(e.target.value)}
                                 />
-                                <p className="mt-2 text-xs text-gray-500">
+                                <p className="mt-2 text-[14px] text-gray-500">
                                     Your client is required to sign in using this email to see this favorite list
                                 </p>
                             </div>
 
                             <div className="mb-6 flex flex-col gap-6 sm:flex-row sm:gap-6">
                                 <div className="min-w-0 flex-1">
-                                    <label className="mb-2 block text-sm font-semibold text-gray-900">Favorite list name</label>
+                                    <label className="mb-2 block text-[16px] font-semibold text-gray-900">Favorite list name</label>
                                     <input
                                         type="text"
-                                        className="w-full rounded border border-gray-200 p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
+                                        className="w-full rounded border border-gray-200 p-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
                                         placeholder="e.g. For retouching"
                                         value={favoriteListName}
                                         onChange={(e) => setFavoriteListName(e.target.value)}
                                     />
-                                    <p className="mt-2 text-xs text-gray-500">Your clients will see this name</p>
+                                    <p className="mt-2 text-[14px] text-gray-500">Your clients will see this name</p>
                                 </div>
                                 <div className="min-w-0 flex-1">
-                                    <label className="mb-2 block text-sm font-semibold text-gray-900">Max selection</label>
+                                    <label className="mb-2 block text-[16px] font-semibold text-gray-900">Max selection</label>
                                     <input
                                         type="number"
                                         min={0}
-                                        className="w-full rounded border border-gray-200 p-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
+                                        className="w-full rounded border border-gray-200 p-3 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
                                         placeholder="e.g. 30"
                                         value={favoriteListMax}
                                         onChange={(e) => setFavoriteListMax(e.target.value)}
                                     />
-                                    <p className="mt-2 text-xs text-gray-500">Limit the number of photos your clients can pick</p>
+                                    <p className="mt-2 text-[14px] text-gray-500">Limit the number of photos your clients can pick</p>
                                 </div>
                             </div>
 
                             <div>
-                                <label className="mb-2 block text-sm font-semibold text-gray-900">List description</label>
+                                <label className="mb-2 block text-[16px] font-semibold text-gray-900">List description</label>
                                 <div className="relative">
                                     <textarea
-                                        className="h-32 w-full resize-none rounded border border-gray-200 p-3 pb-8 text-sm text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
+                                        className="h-32 w-full resize-none rounded border border-gray-200 p-3 pb-8 text-[16px] text-gray-900 placeholder:text-gray-400 focus:border-[#1ABC9C] focus:outline-none focus:ring-1 focus:ring-[#1ABC9C]"
                                         placeholder="Optional"
                                         maxLength={500}
                                         value={favoriteListDesc}
                                         onChange={(e) => setFavoriteListDesc(e.target.value)}
                                     />
-                                    <span className="pointer-events-none absolute bottom-2 left-3 text-xs text-gray-400">
+                                    <span className="pointer-events-none absolute bottom-2 left-3 text-[14px] text-gray-400">
                                         {favoriteListDesc.length} / 500
                                     </span>
                                 </div>
@@ -3641,7 +3640,7 @@ const CollectionDashboard = () => {
                             <button
                                 type="button"
                                 onClick={() => setShowCreateFavoriteListModal(false)}
-                                className="px-2 py-2 text-sm font-medium text-gray-600 transition-colors hover:text-gray-900"
+                                className="px-2 py-2 text-[16px] font-medium text-gray-600 transition-colors hover:text-gray-900"
                             >
                                 Cancel
                             </button>
@@ -3649,7 +3648,7 @@ const CollectionDashboard = () => {
                                 type="button"
                                 onClick={handleCreateFavoriteList}
                                 disabled={!favoriteListEmail?.trim() || !favoriteListName?.trim()}
-                                className="rounded bg-[#1ABC9C] px-6 py-2 text-sm font-medium text-white transition-colors hover:bg-[#16a085] disabled:cursor-not-allowed disabled:opacity-50"
+                                className="rounded bg-[#1ABC9C] px-6 py-2 text-[16px] font-medium text-white transition-colors hover:bg-[#16a085] disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {editingFavoriteList ? 'Save' : 'Create'}
                             </button>
@@ -3979,11 +3978,11 @@ const CollectionDashboard = () => {
                                 <div className="flex gap-4 mt-2">
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input type="radio" checked={moveMode === 'move'} onChange={() => setMoveMode('move')} />
-                                        <span className="text-sm">Move</span>
+                                        <span className="text-[16px]">Move</span>
                                     </label>
                                     <label className="flex items-center gap-2 cursor-pointer">
                                         <input type="radio" checked={moveMode === 'copy'} onChange={() => setMoveMode('copy')} />
-                                        <span className="text-sm">Copy</span>
+                                        <span className="text-[16px]">Copy</span>
                                     </label>
                                 </div>
                             </div>
@@ -4022,7 +4021,7 @@ const CollectionDashboard = () => {
                             </button>
                         </div>
                         <div className="cd-modal-body">
-                            <p className="text-sm text-[#666] mb-6">
+                            <p className="text-[16px] text-[#666] mb-6">
                                 Choose a new photo to replace the current one. The new photo will inherit the star status.
                             </p>
                             <input

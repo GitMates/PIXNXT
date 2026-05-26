@@ -13,7 +13,7 @@
 }
 
 .gs-label {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #888;
     text-transform: uppercase;
@@ -23,7 +23,7 @@
 }
 
 .gs-title {
-    font-size: 32px;
+    font-size: 34px;
     font-weight: 700;
     color: #222;
     margin: 0 0 24px 0;
@@ -31,7 +31,7 @@
 
 .gs-title.gs-left {
     text-align: left;
-    font-size: 28px;
+    font-size: 30px;
     margin-bottom: 30px;
 }
 
@@ -41,7 +41,7 @@
     border: none;
     border-radius: 0;
     padding: 12px 24px;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s;
@@ -51,7 +51,7 @@
 }
 
 .gs-btn:hover {
-    background-color: #71cbca;
+    background-color: #8BDFDD;
 }
 
 .gs-btn.gs-left {
@@ -68,7 +68,7 @@
 }
 
 .gs-step-label {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #888;
     text-transform: uppercase;
@@ -94,7 +94,7 @@
 
 .gs-form-group label {
     display: block;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: #444;
     margin-bottom: 10px;
@@ -106,7 +106,7 @@
     padding: 0 16px;
     border: 1px solid #e0e0e0;
     border-radius: 0;
-    font-size: 15px;
+    font-size: 17px;
     color: #333;
     background-color: #fff;
     outline: none;
@@ -144,7 +144,7 @@
 }
 
 .gs-filename {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: #333;
     display: block;
@@ -222,7 +222,7 @@
     }
 
     .gs-title {
-        font-size: 24px !important;
+        font-size: 26px !important;
     }
 }
 

@@ -41,7 +41,7 @@ function FooterLink({ href, children, className }) {
     <a 
       href={href} 
       className={cn(
-        "text-[10px] font-bold uppercase tracking-widest text-zinc-600 hover:text-zinc-950 transition-colors",
+        "text-[12px] font-bold uppercase tracking-widest text-zinc-600 hover:text-zinc-950 transition-colors",
         className
       )}
     >

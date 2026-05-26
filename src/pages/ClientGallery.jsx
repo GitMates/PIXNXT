@@ -630,7 +630,7 @@ const ClientGallery = () => {
                 </div>
 
                 {loading ? (
-                    <div className="px-10 py-20 text-center text-[#666] text-sm">Loading…</div>
+                    <div className="px-10 py-20 text-center text-[#666] text-[16px]">Loading…</div>
                 ) : normalizedSearch && dashboardGridItems.length === 0 ? (
                     <div className="cg-style-60">
                         <h3 className="cg-style-61">No results</h3>
