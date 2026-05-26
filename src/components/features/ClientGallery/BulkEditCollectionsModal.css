@@ -29,7 +29,7 @@
 
 .bec-title {
     margin: 0;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.08em;
     color: #333;
@@ -69,7 +69,7 @@
 .bec-sidebar-heading {
     margin: 0 0 8px;
     padding: 0 20px;
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -89,7 +89,7 @@
     border: none;
     background: transparent;
     text-align: left;
-    font-size: 16px;
+    font-size: 14px;
     color: #333;
     cursor: pointer;
 }
@@ -111,7 +111,7 @@
 
 .bec-empty {
     margin: 0;
-    font-size: 16px;
+    font-size: 14px;
     color: #888;
 }
 
@@ -122,7 +122,7 @@
 .bec-label {
     display: block;
     margin-bottom: 8px;
-    font-size: 14px;
+    font-size: 12px;
     font-weight: 500;
     color: #555;
 }
@@ -131,7 +131,7 @@
     width: 100%;
     box-sizing: border-box;
     padding: 11px 12px;
-    font-size: 16px;
+    font-size: 14px;
     color: #222;
     border: 1px solid #ddd;
     border-radius: 4px;
@@ -154,7 +154,7 @@
 }
 
 .bec-toggle-label {
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 500;
     color: #333;
 }
@@ -191,13 +191,13 @@
 }
 
 .bec-toggle-state {
-    font-size: 15px;
+    font-size: 13px;
     color: #666;
 }
 
 .bec-toggle-hint {
     margin: 0;
-    font-size: 15px;
+    font-size: 13px;
     line-height: 1.5;
     color: #888;
 }
@@ -215,7 +215,7 @@
     padding: 10px 16px;
     border: none;
     background: transparent;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 500;
     color: #555;
     cursor: pointer;
@@ -226,7 +226,7 @@
     border: none;
     border-radius: 4px;
     background: #20b2aa;
-    font-size: 16px;
+    font-size: 14px;
     font-weight: 600;
     color: #fff;
     cursor: pointer;

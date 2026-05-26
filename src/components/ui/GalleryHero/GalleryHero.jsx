@@ -52,7 +52,7 @@ export function GalleryHero({ title, date, coverImage, onEnter }) {
           transition={{ duration: 2, repeat: Infinity }}
           className="absolute bottom-12 flex flex-col items-center gap-2 opacity-50"
         >
-          <span className="text-[12px] tracking-[0.2em] uppercase">Scroll</span>
+          <span className="text-[10px] tracking-[0.2em] uppercase">Scroll</span>
           <ChevronDown size={20} strokeWidth={1} />
         </motion.div>
       </div>

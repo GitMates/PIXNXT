@@ -79,7 +79,7 @@
 
 .modal-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   letter-spacing: 0.14em;
   color: #111;
@@ -88,7 +88,7 @@
 
 .cover-modal-scope {
   margin: 6px 0 0;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 500;
   color: #888;
 }
@@ -148,7 +148,7 @@
 
 .cd-cover-modal-drop-title {
   margin: 0 0 20px;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   color: #3d3d3d;
   line-height: 1.4;
@@ -161,7 +161,7 @@
   border-radius: 4px;
   background: #26a69a;
   color: #fff;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s, opacity 0.2s;
@@ -185,7 +185,7 @@
   border: none;
   background: none;
   color: #666;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: color 0.2s;
@@ -281,7 +281,7 @@
   border: none;
   padding: 8px 14px;
   border-radius: 4px;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #111;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
@@ -294,7 +294,7 @@
   justify-content: center;
   min-height: 280px;
   color: #999;
-  font-size: 16px;
+  font-size: 14px;
   text-align: center;
   padding: 24px;
 }

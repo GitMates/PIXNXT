@@ -158,7 +158,7 @@ export function PhotoLightbox({
             <button
               type="button"
               onClick={onToggleSlideshow}
-              className="flex items-center gap-2 text-[12px] font-bold uppercase tracking-widest transition-opacity hover:opacity-50"
+              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest transition-opacity hover:opacity-50"
             >
               {isSlideshowActive ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" />}
               {isSlideshowActive ? 'Pause' : 'Play'}
@@ -278,7 +278,7 @@ export function PhotoLightbox({
               ) : (
                 <div className="flex flex-col items-center gap-4 opacity-20">
                   <div className="h-12 w-12 animate-spin rounded-full border border-current border-t-transparent" />
-                  <span className="text-[12px] font-bold uppercase tracking-widest">Loading photo…</span>
+                  <span className="text-[10px] font-bold uppercase tracking-widest">Loading photo…</span>
                 </div>
               )}
             </div>
@@ -299,7 +299,7 @@ export function PhotoLightbox({
         </div>
 
         <div className="relative z-[50] flex h-14 shrink-0 items-center justify-center px-6 md:h-16">
-          <span className="text-[12px] font-bold uppercase tracking-[0.4em] opacity-40">
+          <span className="text-[10px] font-bold uppercase tracking-[0.4em] opacity-40">
             {currentIndex + 1} / {images.length}
           </span>
         </div>

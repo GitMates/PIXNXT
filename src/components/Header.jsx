@@ -48,7 +48,7 @@ const Header = () => {
               <Link 
                 to="/dashboard" 
                 className={cn(
-                  "text-[12px] font-bold uppercase tracking-widest transition-colors",
+                  "text-[10px] font-bold uppercase tracking-widest transition-colors",
                   scrolled || !isHome ? "text-zinc-600 hover:text-zinc-950" : "text-white/70 hover:text-white"
                 )}
               >
@@ -59,7 +59,7 @@ const Header = () => {
                 variant={scrolled || !isHome ? "primary" : "outline"} 
                 size="sm"
                 className={cn(
-                  "rounded-none h-8 px-6 text-[12px] font-bold uppercase tracking-widest",
+                  "rounded-none h-8 px-6 text-[10px] font-bold uppercase tracking-widest",
                   !scrolled && isHome && "border-white/30 text-white hover:bg-white hover:text-black"
                 )}
               >
@@ -71,7 +71,7 @@ const Header = () => {
               <Link 
                 to="/auth" 
                 className={cn(
-                  "text-[12px] font-bold uppercase tracking-widest transition-colors",
+                  "text-[10px] font-bold uppercase tracking-widest transition-colors",
                   scrolled || !isHome ? "text-zinc-600 hover:text-zinc-950" : "text-white/70 hover:text-white"
                 )}
               >
@@ -82,7 +82,7 @@ const Header = () => {
                 variant={scrolled || !isHome ? "primary" : "outline"} 
                 size="sm"
                 className={cn(
-                  "rounded-none h-8 px-6 text-[12px] font-bold uppercase tracking-widest",
+                  "rounded-none h-8 px-6 text-[10px] font-bold uppercase tracking-widest",
                   !scrolled && isHome && "border-white/30 text-white hover:bg-white hover:text-black"
                 )}
               >

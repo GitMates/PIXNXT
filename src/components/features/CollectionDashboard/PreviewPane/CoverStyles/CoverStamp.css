@@ -110,7 +110,7 @@
 }
 
 .cd-preview-gallery-card.style-stamp .cover-stamp-layout__brand {
-  font-size: 10px !important;
+  font-size: 8px !important;
   letter-spacing: 0.4em !important;
   margin-bottom: 14px !important;
 }
@@ -123,19 +123,19 @@
 }
 
 .cd-preview-gallery-card.style-stamp .cover-stamp-layout__date {
-  font-size: 10px !important;
+  font-size: 8px !important;
   letter-spacing: 0.26em !important;
   margin-bottom: 6px !important;
 }
 
 .cd-preview-gallery-card.style-stamp .cover-stamp-layout__title {
-  font-size: 40px !important;
+  font-size: 38px !important;
   line-height: 0.95 !important;
   margin-bottom: 14px !important;
 }
 
 .cd-preview-gallery-card.style-stamp .cover-stamp-layout__cta .view-gallery-btn {
-  font-size: 10px !important;
+  font-size: 8px !important;
   padding: 5px 16px !important;
   letter-spacing: 0.2em !important;
 }

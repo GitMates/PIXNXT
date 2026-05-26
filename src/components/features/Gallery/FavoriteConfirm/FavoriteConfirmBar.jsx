@@ -33,7 +33,7 @@ export function FavoriteConfirmBar({
     >
       <div className="mx-auto flex max-w-4xl flex-col items-center justify-between gap-3 sm:flex-row">
         <div className="text-center sm:text-left">
-          <p className="text-[12px] font-bold uppercase tracking-[0.25em] opacity-60">
+          <p className="text-[10px] font-bold uppercase tracking-[0.25em] opacity-60">
             {listName || 'Favorites'}
           </p>
           <p className="text-sm font-medium">{countLabel}</p>

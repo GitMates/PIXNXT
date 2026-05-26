@@ -52,7 +52,7 @@ export function GalleryHero({ title, date, coverImage, onEnter }) {
 
           <button
             onClick={onEnter}
-            className="group relative overflow-hidden px-12 py-5 text-[12px] font-bold tracking-[0.4em] uppercase transition-all duration-500 hover:tracking-[0.6em]"
+            className="group relative overflow-hidden px-12 py-5 text-[10px] font-bold tracking-[0.4em] uppercase transition-all duration-500 hover:tracking-[0.6em]"
           >
             <span className="relative z-10 mix-difference">Enter Gallery</span>
             <div className="absolute inset-0 border border-white/30 transition-all duration-500 group-hover:bg-white" />
@@ -66,7 +66,7 @@ export function GalleryHero({ title, date, coverImage, onEnter }) {
           transition={{ duration: 3, repeat: Infinity }}
           className="absolute bottom-12 flex flex-col items-center gap-4"
         >
-          <span className="text-[12px] font-bold tracking-widest uppercase opacity-40">Scroll</span>
+          <span className="text-[10px] font-bold tracking-widest uppercase opacity-40">Scroll</span>
           <ChevronDown size={18} strokeWidth={1} />
         </motion.div>
       </div>
