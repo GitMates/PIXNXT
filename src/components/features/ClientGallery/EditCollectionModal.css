@@ -29,7 +29,7 @@
 
 .ecm-title {
     margin: 0;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.08em;
     color: #333;
@@ -73,7 +73,7 @@
 .ecm-label {
     display: block;
     margin-bottom: 8px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 500;
     color: #555;
 }
@@ -82,7 +82,7 @@
     width: 100%;
     box-sizing: border-box;
     padding: 11px 12px;
-    font-size: 14px;
+    font-size: 16px;
     color: #222;
     border: 1px solid #ddd;
     border-radius: 4px;
@@ -106,7 +106,7 @@
     width: 100%;
     appearance: none;
     padding: 11px 36px 11px 12px;
-    font-size: 14px;
+    font-size: 16px;
     color: #222;
     border: 1px solid #ddd;
     border-radius: 4px;
@@ -140,7 +140,7 @@
 }
 
 .ecm-toggle-label {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: #333;
 }
@@ -178,13 +178,13 @@
 }
 
 .ecm-toggle-state {
-    font-size: 13px;
+    font-size: 15px;
     color: #666;
 }
 
 .ecm-toggle-hint {
     margin: 0;
-    font-size: 13px;
+    font-size: 15px;
     line-height: 1.5;
     color: #888;
 }
@@ -218,7 +218,7 @@
     padding: 0;
     border: none;
     background: none;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: #20b2aa;
     cursor: pointer;
@@ -238,7 +238,7 @@
     padding: 10px 16px;
     border: none;
     background: transparent;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: #555;
     cursor: pointer;
@@ -253,7 +253,7 @@
     border: none;
     border-radius: 4px;
     background: #20b2aa;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: #fff;
     cursor: pointer;

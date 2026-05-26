@@ -766,7 +766,7 @@ const GalleryView = () => {
     <div className="flex h-screen flex-col items-center justify-center p-6 text-center bg-white">
       <Typography variant="h2" className="mb-4">Gallery Not Found</Typography>
       <Typography variant="muted" className="mb-8">The collection you are looking for does not exist or is private.</Typography>
-      <a href="/" className="text-[10px] font-bold underline uppercase tracking-[0.4em]">Back to Home</a>
+      <a href="/" className="text-[6px] font-bold underline uppercase tracking-[0.4em]">Back to Home</a>
     </div>
   );
 
@@ -837,7 +837,7 @@ const GalleryView = () => {
           ) : null}
           {favoritesLocked && sessionId && !isFavoriteListMode ? (
             <div
-              className="gallery-body-text mb-6 border px-4 py-3 text-center text-[11px] font-bold uppercase tracking-[0.2em]"
+              className="gallery-body-text mb-6 border px-4 py-3 text-center text-[7px] font-bold uppercase tracking-[0.2em]"
               style={{ borderColor: 'var(--gallery-border)', color: 'var(--gallery-meta-text)' }}
             >
               Your favorites for {activeFavoriteList?.name || 'this list'} have been submitted
@@ -906,7 +906,7 @@ const GalleryView = () => {
                   window.history.replaceState({}, '', window.location.pathname);
                   setIsFavoriteListMode(false);
                 }}
-                className="gallery-body-text text-[10px] font-bold uppercase tracking-[0.2em] underline transition-opacity hover:opacity-50"
+                className="gallery-body-text text-[6px] font-bold uppercase tracking-[0.2em] underline transition-opacity hover:opacity-50"
                 style={{ color: 'var(--gallery-text)' }}
               >
                 Show all photos
@@ -926,7 +926,7 @@ const GalleryView = () => {
           !isFavoriteListMode &&
           photosForActiveSet.length > 0 ? (
             <p
-              className="gallery-body-text py-16 text-center text-[11px] font-bold uppercase tracking-[0.35em] opacity-40"
+              className="gallery-body-text py-16 text-center text-[7px] font-bold uppercase tracking-[0.35em] opacity-40"
               style={{ color: 'var(--gallery-text)' }}
             >
               No {mediaFilter} in this set
@@ -1089,7 +1089,7 @@ const GalleryView = () => {
                   <button
                     type="button"
                     className={cn(
-                      'gallery-body-text px-8 py-3 text-[10px] font-bold uppercase tracking-[0.25em] transition-opacity disabled:opacity-50',
+                      'gallery-body-text px-8 py-3 text-[6px] font-bold uppercase tracking-[0.25em] transition-opacity disabled:opacity-50',
                       isGalleryDark
                         ? 'bg-white/10 text-white hover:bg-white/20'
                         : 'w-full bg-zinc-950 py-4 text-white hover:bg-zinc-800 md:w-auto'
@@ -1118,7 +1118,7 @@ const GalleryView = () => {
             {favoriteToast.thumb && !favoriteToast.limit && (
               <img src={favoriteToast.thumb} alt="" className="h-11 w-11 shrink-0 rounded object-cover" />
             )}
-            <p className="text-left text-[13px] font-medium leading-snug">
+            <p className="text-left text-[9px] font-medium leading-snug">
               {favoriteToast.limit ? (
                 <>
                   Selection limit reached for <span className="font-semibold">{favoriteToast.listName}</span>
@@ -1185,7 +1185,7 @@ function FooterLink({ href, children }) {
   return (
     <a
       href={href}
-      className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-950 transition-colors"
+      className="text-[6px] font-bold uppercase tracking-widest text-zinc-400 hover:text-zinc-950 transition-colors"
     >
       {children}
     </a>

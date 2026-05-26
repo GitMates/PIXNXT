@@ -548,10 +548,10 @@ export const DownloadModal = ({
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                <h2 className="text-center text-[13px] font-bold uppercase tracking-[0.3em] text-zinc-900 mb-2">
+                <h2 className="text-center text-[15px] font-bold uppercase tracking-[0.3em] text-zinc-900 mb-2">
                   Download Photos
                 </h2>
-                <p className="text-center text-[12px] text-zinc-500 mb-8 leading-relaxed max-w-[280px] mx-auto">
+                <p className="text-center text-[14px] text-zinc-500 mb-8 leading-relaxed max-w-[280px] mx-auto">
                   {limitOnly
                     ? `Verifying download availability for this collection.`
                     : needsPin && needsEmail
@@ -561,12 +561,12 @@ export const DownloadModal = ({
                     : `Please enter your email address to download this photo collection.`
                   }
                   {hasDownloadLimit && (
-                    <span className="block mt-2 text-zinc-400 text-[11px]">
+                    <span className="block mt-2 text-zinc-400 text-[13px]">
                       {collection.download_limit_gallery} download{collection.download_limit_gallery !== 1 ? 's' : ''} remaining for this collection.
                     </span>
                   )}
                   {hasPinUsageLimit && (
-                    <span className="block text-zinc-400 text-[11px]">
+                    <span className="block text-zinc-400 text-[13px]">
                       PIN can be used {collection.pin_usage_limit} time{collection.pin_usage_limit !== 1 ? 's' : ''} total.
                     </span>
                   )}
@@ -604,7 +604,7 @@ export const DownloadModal = ({
                   )}
 
                   {error && (
-                    <div className="flex items-center gap-2 text-rose-500 text-[11px] justify-center">
+                    <div className="flex items-center gap-2 text-rose-500 text-[13px] justify-center">
                       <AlertCircle size={14} />
                       <span>{error}</span>
                     </div>
@@ -613,7 +613,7 @@ export const DownloadModal = ({
                   <button
                     onClick={handleAuth}
                     disabled={isProcessing}
-                    className="w-full bg-[#111] text-white py-4 text-[11px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors mt-2 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    className="w-full bg-[#111] text-white py-4 text-[13px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors mt-2 flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                   >
                     {isProcessing ? (
                       <>
@@ -637,16 +637,16 @@ export const DownloadModal = ({
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                <h2 className="text-center text-[13px] font-bold uppercase tracking-[0.3em] text-zinc-900 mb-2">
+                <h2 className="text-center text-[15px] font-bold uppercase tracking-[0.3em] text-zinc-900 mb-2">
                   Choose Photo Set
                 </h2>
-                <p className="text-center text-[12px] text-zinc-500 mb-8">
+                <p className="text-center text-[14px] text-zinc-500 mb-8">
                   Select which photos you would like to download.
                 </p>
 
                 {/* Download destination */}
                 <div className="mb-8">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-4">
                     Save to
                   </p>
                   <div className="grid grid-cols-2 gap-2">
@@ -664,10 +664,10 @@ export const DownloadModal = ({
                       )}
                     >
                       <HardDrive size={20} strokeWidth={1.5} />
-                      <span className="text-[11px] font-bold uppercase tracking-[0.12em]">Local</span>
+                      <span className="text-[13px] font-bold uppercase tracking-[0.12em]">Local</span>
                       <span
                         className={cn(
-                          'text-[10px] leading-snug',
+                          'text-[12px] leading-snug',
                           downloadDestination === 'local' ? 'text-zinc-300' : 'text-zinc-500'
                         )}
                       >
@@ -689,12 +689,12 @@ export const DownloadModal = ({
                       )}
                     >
                       <Cloud size={20} strokeWidth={1.5} />
-                      <span className="text-[11px] font-bold uppercase tracking-[0.12em]">
+                      <span className="text-[13px] font-bold uppercase tracking-[0.12em]">
                         Google Drive
                       </span>
                       <span
                         className={cn(
-                          'text-[10px] leading-snug',
+                          'text-[12px] leading-snug',
                           downloadDestination === 'google_drive' ? 'text-zinc-300' : 'text-zinc-500'
                         )}
                       >
@@ -703,7 +703,7 @@ export const DownloadModal = ({
                     </button>
                   </div>
                   {!googleDriveAvailable && downloadDestination === 'google_drive' ? (
-                    <p className="mt-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-relaxed text-amber-900">
+                    <p className="mt-3 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-[13px] leading-relaxed text-amber-900">
                       {getGoogleDriveSetupMessage()}
                     </p>
                   ) : null}
@@ -712,12 +712,12 @@ export const DownloadModal = ({
                 {/* Photo Set Selection */}
                 <div className="mb-10">
                   {initialPhoto ? (
-                    <p className="text-center text-[12px] text-zinc-500 mb-6">
+                    <p className="text-center text-[14px] text-zinc-500 mb-6">
                       Downloading this {initialPhoto.media_type === 'video' ? 'video' : 'photo'}.
                     </p>
                   ) : (
                     <>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-4">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-zinc-400 mb-4">
                     Photo Sets
                   </p>
                   <div className="flex flex-wrap gap-2">
@@ -725,7 +725,7 @@ export const DownloadModal = ({
                     <button
                       onClick={() => setSelectedSet('all')}
                       className={cn(
-                        'rounded-full px-5 py-2.5 text-[12px] font-bold transition-all',
+                        'rounded-full px-5 py-2.5 text-[14px] font-bold transition-all',
                         selectedSet === 'all'
                           ? 'bg-[#111] text-white'
                           : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -739,7 +739,7 @@ export const DownloadModal = ({
                       <button
                         onClick={() => setSelectedSet(null)}
                         className={cn(
-                          'rounded-full px-5 py-2.5 text-[12px] font-bold transition-all',
+                          'rounded-full px-5 py-2.5 text-[14px] font-bold transition-all',
                           selectedSet === null
                             ? 'bg-[#111] text-white'
                             : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -755,7 +755,7 @@ export const DownloadModal = ({
                           key={set.id}
                           onClick={() => setSelectedSet(set.id)}
                           className={cn(
-                            'rounded-full px-5 py-2.5 text-[12px] font-bold transition-all',
+                            'rounded-full px-5 py-2.5 text-[14px] font-bold transition-all',
                             selectedSet === set.id
                               ? 'bg-[#111] text-white'
                               : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'
@@ -770,7 +770,7 @@ export const DownloadModal = ({
                 </div>
 
                 {error && (
-                  <div className="flex items-center gap-2 text-rose-500 text-[11px] mb-4 justify-center">
+                  <div className="flex items-center gap-2 text-rose-500 text-[13px] mb-4 justify-center">
                     <AlertCircle size={14} />
                     <span>{error}</span>
                   </div>
@@ -779,7 +779,7 @@ export const DownloadModal = ({
                 <button
                   onClick={startDownload}
                   disabled={isProcessing}
-                  className="w-full bg-[#111] text-white py-4 text-[11px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="w-full bg-[#111] text-white py-4 text-[13px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
                   {isProcessing ? (
                     <>
@@ -827,12 +827,12 @@ export const DownloadModal = ({
                   )}
                 </div>
 
-                <h2 className="text-[13px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-2">
+                <h2 className="text-[15px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-2">
                   {googleSignInPending ? 'Sign in with Google' : 'Preparing Photos'}
                 </h2>
-                <p className="max-w-[300px] text-[13px] leading-relaxed text-zinc-500">{statusText}</p>
+                <p className="max-w-[300px] text-[15px] leading-relaxed text-zinc-500">{statusText}</p>
 
-                <div className="mt-6 flex items-center gap-2 text-[11px] text-zinc-400">
+                <div className="mt-6 flex items-center gap-2 text-[13px] text-zinc-400">
                   <Loader2 size={12} className="animate-spin" />
                   Please keep this window open
                 </div>
@@ -852,14 +852,14 @@ export const DownloadModal = ({
                   <CheckCircle2 size={32} strokeWidth={1.5} />
                 </div>
 
-                <h2 className="text-[13px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-3">
+                <h2 className="text-[15px] font-bold uppercase tracking-[0.25em] text-zinc-900 mb-3">
                   {downloadCompleteMeta.destination === 'google_drive'
                     ? 'Saved to Google Drive'
                     : downloadCompleteMeta.isZip
                       ? 'Download Finished'
                       : 'Photo saved'}
                 </h2>
-                <p className="mx-auto mb-6 max-w-[300px] text-[14px] leading-relaxed text-zinc-600">
+                <p className="mx-auto mb-6 max-w-[300px] text-[16px] leading-relaxed text-zinc-600">
                   {downloadCompleteMeta.destination === 'google_drive' ? (
                     <>
                       {downloadCompleteMeta.total > 1 ? (
@@ -895,13 +895,13 @@ export const DownloadModal = ({
                     href={downloadCompleteMeta.driveFileUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mb-6 inline-block text-[12px] font-bold uppercase tracking-[0.15em] text-zinc-800 underline underline-offset-2 hover:text-zinc-950"
+                    className="mb-6 inline-block text-[14px] font-bold uppercase tracking-[0.15em] text-zinc-800 underline underline-offset-2 hover:text-zinc-950"
                   >
                     Open in Google Drive
                   </a>
                 ) : null}
 
-                <p className="mb-6 text-[12px] text-zinc-400">
+                <p className="mb-6 text-[14px] text-zinc-400">
                   {downloadCompleteMeta.destination === 'google_drive'
                     ? "Didn't see the file?"
                     : downloadCompleteMeta.isZip
@@ -919,7 +919,7 @@ export const DownloadModal = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="w-full bg-zinc-900 text-white py-3.5 text-[11px] font-bold uppercase tracking-[0.2em] hover:bg-zinc-700 transition-colors"
+                  className="w-full bg-zinc-900 text-white py-3.5 text-[13px] font-bold uppercase tracking-[0.2em] hover:bg-zinc-700 transition-colors"
                 >
                   Done
                 </button>

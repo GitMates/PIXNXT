@@ -77,7 +77,7 @@ const BrandingTab = () => {
                     <div className="set-upload-square">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </div>
-                    <p className="set-help-text-sm">Your logo will be used in place of the text logo and profile icon, including on the white background of your homepage. For the cover logo, use a light/white logo with a transparent background for best display. <span className="text-teal">Learn more</span></p>
+                    <p className="set-help-text-[16px]">Your logo will be used in place of the text logo and profile icon, including on the white background of your homepage. For the cover logo, use a light/white logo with a transparent background for best display. <span className="text-teal">Learn more</span></p>
                 </div>
 
                 <div className="set-branding-item mt-4">
@@ -85,7 +85,7 @@ const BrandingTab = () => {
                     <div className="set-upload-square">
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
                     </div>
-                    <p className="set-help-text-sm">You can upload a GIF, PNG or ICO file up to 32x32 pixels. <span className="text-teal">Learn more</span></p>
+                    <p className="set-help-text-[16px]">You can upload a GIF, PNG or ICO file up to 32x32 pixels. <span className="text-teal">Learn more</span></p>
                 </div>
 
                 <div className="set-branding-item mt-4">
@@ -96,7 +96,7 @@ const BrandingTab = () => {
                         </button>
                         <span className="set-toggle-label">{pToggle ? 'On' : 'Off'}</span>
                     </div>
-                    <p className="set-help-text-sm mt-2">Switching this off will hide Pixieset branding from your collections and homepage.</p>
+                    <p className="set-help-text-[16px] mt-2">Switching this off will hide Pixieset branding from your collections and homepage.</p>
                 </div>
             </div>
         </div>
