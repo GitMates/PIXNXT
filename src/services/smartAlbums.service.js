@@ -1,4 +1,7 @@
 import { supabase } from '../lib/supabase/client';
+import { deleteAlbumCollectionAssets } from '../components/smart-albums/albumCollection';
+import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
+import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
 
 
 
@@ -250,6 +253,46 @@ function removeLocalAlbum(photographerId, albumId) {
 
 
 
+async function deleteAlbumAssets(albumId) {
+
+  await deleteAlbumCollectionAssets(albumId);
+
+  clearAllAlbumPagePhotos(albumId);
+
+  clearAlbumTransforms(albumId);
+
+}
+
+
+
+function findLocalAlbum(photographerId, albumId) {
+
+  const found = readLocalAlbums(photographerId).find((a) => a.id === albumId);
+
+  return found ? mapAlbumRow(found, photographerId) : null;
+
+}
+
+
+
+function mergeAlbumRows(remoteRows, photographerId) {
+
+  const remote = (remoteRows || []).map((r) => mapAlbumRow(r, photographerId));
+
+  const remoteIds = new Set(remote.map((a) => a.id));
+
+  const localOnly = readLocalAlbums(photographerId)
+
+    .filter((a) => !remoteIds.has(a.id))
+
+    .map((r) => mapAlbumRow(r, photographerId));
+
+  return [...localOnly, ...remote];
+
+}
+
+
+
 export const smartAlbumsService = {
 
   async getAlbums(photographerId) {
@@ -268,7 +311,7 @@ export const smartAlbumsService = {
 
     if (error) {
 
-      if (isMissingTableError(error)) {
+      if (shouldUseLocalStore(error)) {
 
         return readLocalAlbums(photographerId).map((r) => mapAlbumRow(r, photographerId));
 
@@ -278,7 +321,7 @@ export const smartAlbumsService = {
 
     }
 
-    return (data || []).map((r) => mapAlbumRow(r, photographerId));
+    return mergeAlbumRows(data, photographerId);
 
   },
 
@@ -302,11 +345,9 @@ export const smartAlbumsService = {
 
     if (error) {
 
-      if (isMissingTableError(error)) {
+      if (shouldUseLocalStore(error)) {
 
-        const found = readLocalAlbums(photographerId).find((a) => a.id === albumId);
-
-        return found ? mapAlbumRow(found, photographerId) : null;
+        return findLocalAlbum(photographerId, albumId);
 
       }
 
@@ -314,7 +355,7 @@ export const smartAlbumsService = {
 
     }
 
-    return data ? mapAlbumRow(data, photographerId) : null;
+    return data ? mapAlbumRow(data, photographerId) : findLocalAlbum(photographerId, albumId);
 
   },
 
@@ -496,6 +537,8 @@ export const smartAlbumsService = {
 
     removeStarredOverride(photographerId, albumId);
 
+    await deleteAlbumAssets(albumId);
+
 
 
     const { error } = await supabase
@@ -512,7 +555,7 @@ export const smartAlbumsService = {
 
     if (error) {
 
-      if (isMissingTableError(error)) {
+      if (shouldUseLocalStore(error)) {
 
         removeLocalAlbum(photographerId, albumId);
 
@@ -523,6 +566,8 @@ export const smartAlbumsService = {
       throw error;
 
     }
+
+    removeLocalAlbum(photographerId, albumId);
 
   },
 
