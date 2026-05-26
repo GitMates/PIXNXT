@@ -1,13 +1,25 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LoginForm, SignupForm } from '../components/features/Auth';
 
 /**
  * AuthPage component that toggles between Login and Signup forms.
  */
 const AuthPage = () => {
-  const [isLogin, setIsLogin] = useState(true);
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  const mode = searchParams.get('mode');
+  
+  const [isLogin, setIsLogin] = useState(mode !== 'signup');
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (mode === 'signup') {
+      setIsLogin(false);
+    } else if (mode === 'login') {
+      setIsLogin(true);
+    }
+  }, [mode]);
 
   const handleAuthSuccess = () => {
     // Redirect to dashboard on successful authentication

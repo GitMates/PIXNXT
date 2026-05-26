@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
+import { Routes, Route, useLocation, useNavigate, Navigate, useParams } from 'react-router-dom';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -146,6 +146,7 @@ function App() {
           <Route path="/collections" element={<CollectionList />} />
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
+          <Route path="/ref/:code" element={<ReferralRedirect />} />
         </Routes>
 
         {!hideLayout && <Footer />}
@@ -153,6 +154,11 @@ function App() {
       </div>
     </UploadQueueProvider>
   );
+}
+
+function ReferralRedirect() {
+  const { code } = useParams();
+  return <Navigate to={`/auth?mode=signup&ref=${code}`} replace />;
 }
 
 export default App;
