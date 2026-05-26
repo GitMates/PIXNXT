@@ -158,14 +158,14 @@ const products = [
   {
     name: 'Client Gallery',
     color: 'teal',
-    icon: <img src={clientGalleryGif} alt="Client Gallery" className="dash-product-image-gif" />,
+    icon: <img src={clientGalleryGif} alt="Client Gallery" className="dash-product-image-gif" loading="lazy" decoding="async" />,
     route: '/client-gallery',
     links: ['Manage Collections', 'Create Collection', 'Search Photo Library', 'View Homepage', 'Settings'],
   },
   {
     name: 'Smart Albums',
     color: 'purple',
-    icon: <img src={smartAlbumsGif} alt="Smart Albums" className="dash-product-image-gif" />,
+    icon: <img src={smartAlbumsGif} alt="Smart Albums" className="dash-product-image-gif" loading="lazy" decoding="async" />,
     route: '/smart-albums',
     links: [
       { label: 'Manage Albums', path: '/smart-albums' },
@@ -440,9 +440,11 @@ const Dashboard = () => {
             <p className="dash-section-label">MORE FROM PIXNXT</p>
             <div className="dash-blog-card">
               <img
-                src="https://blog.pixieset.com/wp-content/uploads/2026/01/Pixieset-website-new-templates-custom-fonts-updates-thumbnail.gif"
+                src="https://images.unsplash.com/photo-1493863641943-9b68992a8d07?auto=format&fit=crop&w=800&q=80"
                 alt="Blog post - New website templates"
                 className="dash-blog-image"
+                loading="lazy"
+                decoding="async"
               />
               <div className="dash-blog-content">
                 <p className="dash-blog-label">PIXNXT BLOG</p>

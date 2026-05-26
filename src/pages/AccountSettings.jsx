@@ -2259,9 +2259,17 @@ function AdvancedTab({ user, showToast }) {
 
 function ReferTab({ user, showToast }) {
     const [email, setEmail] = useState('');
-    const [referralCode, setReferralCode] = useState('');
-    const [referrals, setReferrals] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const [referralCode, setReferralCode] = useState(() => {
+        return localStorage.getItem(`referral_code_${user?.id}`) || '';
+    });
+    const [referrals, setReferrals] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem(`referrals_${user?.id}`)) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [loading, setLoading] = useState(!referralCode);
     const [isTrackingOpen, setIsTrackingOpen] = useState(true); // Open by default based on screenshot
 
     const stats = {
@@ -2278,8 +2286,6 @@ function ReferTab({ user, showToast }) {
 
     const fetchReferralData = async () => {
         try {
-            setLoading(true);
-            
             // 1. Get or generate referral code
             let { data: profile } = await supabase
                 .from('photographers')
@@ -2287,6 +2293,7 @@ function ReferTab({ user, showToast }) {
                 .eq('id', user.id)
                 .single();
 
+            let code = referralCode;
             if (profile && !profile.referral_code) {
                 // Generate a random code
                 const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
@@ -2294,9 +2301,14 @@ function ReferTab({ user, showToast }) {
                     .from('photographers')
                     .update({ referral_code: newCode })
                     .eq('id', user.id);
-                setReferralCode(newCode);
+                code = newCode;
             } else if (profile) {
-                setReferralCode(profile.referral_code);
+                code = profile.referral_code;
+            }
+
+            if (code) {
+                setReferralCode(code);
+                localStorage.setItem(`referral_code_${user.id}`, code);
             }
 
             // 2. Fetch referrals
@@ -2317,6 +2329,7 @@ function ReferTab({ user, showToast }) {
                     }
                 }
                 setReferrals(uniqueRefs);
+                localStorage.setItem(`referrals_${user.id}`, JSON.stringify(uniqueRefs));
             }
         } catch (error) {
             console.error('Error fetching referral data:', error);
