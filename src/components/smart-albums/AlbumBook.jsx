@@ -9,12 +9,7 @@ import {
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
-import GridCellComments from './GridCellComments';
-import {
-    COMMENTS_CHANGED_EVENT,
-    mapCommentsToPhotoSlots,
-    smartAlbumCommentsService,
-} from '../../services/smartAlbumComments.service';
+import SpreadGridComments from './SpreadGridComments';
 import './AlbumBook.css';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
@@ -84,7 +79,7 @@ const AlbumBook = ({
     pageCountBusy = false,
     overviewReopenToken = 0,
     showGridComments = false,
-    showOverviewComments = false,
+    spreadCommentsBySpread = null,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -100,45 +95,13 @@ const AlbumBook = ({
     const [pageIndex, setPageIndex] = useState(initialPage);
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [focusOpen, setFocusOpen] = useState(false);
-    const [albumComments, setAlbumComments] = useState([]);
-
-    const loadAlbumComments = useCallback(async () => {
-        if (!album?.id) return;
-        try {
-            const rows = await smartAlbumCommentsService.listAlbumComments(album.id);
-            setAlbumComments(rows);
-        } catch (e) {
-            console.warn('Could not load album comments', e);
-        }
-    }, [album?.id]);
-
-    const showPhotoComments = showGridComments || showOverviewComments;
-
-    useEffect(() => {
-        if (!showPhotoComments && !overviewOpen) return;
-        loadAlbumComments();
-    }, [showPhotoComments, overviewOpen, loadAlbumComments]);
-
-    useEffect(() => {
-        if (!album?.id) return undefined;
-        const onChanged = (e) => {
-            if (e.detail?.albumId === album.id) loadAlbumComments();
-        };
-        window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-        return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-    }, [album?.id, loadAlbumComments]);
-
-    const getCellCommentsForPage = useCallback(
-        (pageNum) => {
-            if (!showPhotoComments) return null;
-            const idx = pageToSpreadIndex(pageNum, { showCover: true });
-            return mapCommentsToPhotoSlots(albumComments, idx);
-        },
-        [showPhotoComments, albumComments]
-    );
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
     const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true });
+    const currentSpreadComments =
+        showGridComments && spreadCommentsBySpread
+            ? spreadCommentsBySpread[spreadIndex] || null
+            : null;
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, {
         showCover: true,
     });
@@ -309,6 +272,7 @@ const AlbumBook = ({
                     placementMode={placementMode}
                     showSamples={showSamples}
                     previewMode={previewMode}
+                    showGridComments={showGridComments}
                     selectionLeftPage={gridSelection?.leftPage ?? null}
                     selectionMode={gridSelection?.mode ?? null}
                     selectedCellId={gridSelection?.cellId ?? null}
@@ -317,8 +281,6 @@ const AlbumBook = ({
                     onSelectCover={onSelectCover}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
-                    cellComments={getCellCommentsForPage(pageNum)}
-                    showCellComments={showPhotoComments}
                 />
             )),
         [
@@ -329,6 +291,7 @@ const AlbumBook = ({
             placementMode,
             showSamples,
             previewMode,
+            showGridComments,
             gridSelection?.leftPage,
             gridSelection?.mode,
             gridSelection?.cellId,
@@ -337,8 +300,6 @@ const AlbumBook = ({
             onSelectCover,
             onTransformChange,
             transformRevision,
-            getCellCommentsForPage,
-            showPhotoComments,
         ]
     );
 
@@ -360,6 +321,10 @@ const AlbumBook = ({
             <div className="ab-book-stage" ref={stageOuterRef}>
                 <div className="ab-book-stage-inner" ref={stageRef} aria-hidden="true" />
                 <div className="ab-flip-escape" ref={escapeRef}>
+                <div
+                    className="ab-spread-display"
+                    style={{ width: dims.width * 2 }}
+                >
                 <div
                     className="ab-flipbook-wrap"
                     ref={wrapRef}
@@ -396,6 +361,15 @@ const AlbumBook = ({
                     >
                         {pages}
                     </HTMLFlipBook>
+                </div>
+                {currentSpreadComments?.length > 0 && (
+                    <div className="ab-spread-comments-bar">
+                        <SpreadGridComments
+                            comments={currentSpreadComments}
+                            variant="spreadBar"
+                        />
+                    </div>
+                )}
                 </div>
                 </div>
 
@@ -483,76 +457,70 @@ const AlbumBook = ({
                                     ? getSpreadPhotoOverride(album?.id, left)
                                     : null;
                             const isCurrent = overviewSpreadIndex === spreadIndex;
-                            const slotComments = mapCommentsToPhotoSlots(
-                                albumComments,
-                                overviewSpreadIndex
-                            );
-                            const twoPhotos = overviewSpreadIndex > 0 && !spreadSrc;
-                            const goToPage = (page) => {
-                                bookRef.current?.pageFlip?.()?.turnToPage(page);
-                                setPageIndex(page);
-                                onPageChange?.(page);
-                                setOverviewOpen(false);
-                            };
+                            const spreadComments =
+                                showGridComments && spreadCommentsBySpread
+                                    ? spreadCommentsBySpread[overviewSpreadIndex] || null
+                                    : null;
                             return (
-                                <div
+                                <button
                                     key={overviewSpreadIndex}
+                                    type="button"
                                     className={`ab-overview-item${
                                         isCurrent ? ' ab-overview-item--active' : ''
                                     }`}
+                                    onClick={() => {
+                                        bookRef.current?.pageFlip?.()?.turnToPage(targetPage);
+                                        setPageIndex(targetPage);
+                                        onPageChange?.(targetPage);
+                                        setOverviewOpen(false);
+                                    }}
                                 >
-                                    <div
-                                        className={`ab-overview-photos${
-                                            twoPhotos ? '' : ' ab-overview-photos--single'
-                                        }`}
-                                    >
-                                        <div className="ab-overview-photo-col">
-                                            <button
-                                                type="button"
-                                                className="ab-overview-thumb ab-overview-thumb--single"
-                                                onClick={() => goToPage(targetPage)}
-                                            >
-                                                {spreadSrc ? (
-                                                    <img src={spreadSrc} alt="" loading="lazy" />
-                                                ) : leftSrc ? (
+                                    <span className="ab-overview-thumb ab-overview-thumb--spread">
+                                        {spreadSrc ? (
+                                            <span className="ab-overview-page ab-overview-page--spread-full">
+                                                <img src={spreadSrc} alt="" loading="lazy" />
+                                                {spreadComments?.length > 0 && (
+                                                    <SpreadGridComments
+                                                        comments={spreadComments}
+                                                        className="ab-grid-comments--overview"
+                                                    />
+                                                )}
+                                            </span>
+                                        ) : (
+                                            <span className="ab-overview-page">
+                                                {leftSrc ? (
                                                     <img src={leftSrc} alt="" loading="lazy" />
                                                 ) : (
                                                     <span className="ab-overview-placeholder" />
                                                 )}
-                                            </button>
-                                            <GridCellComments
-                                                items={slotComments[1]}
-                                                className="ab-grid-cell-comments--overview"
-                                            />
-                                        </div>
-                                        {twoPhotos && (
-                                            <div className="ab-overview-photo-col">
-                                                <button
-                                                    type="button"
-                                                    className="ab-overview-thumb ab-overview-thumb--single"
-                                                    onClick={() => goToPage(right)}
-                                                >
-                                                    {rightSrc ? (
-                                                        <img
-                                                            src={rightSrc}
-                                                            alt=""
-                                                            loading="lazy"
-                                                        />
-                                                    ) : (
-                                                        <span className="ab-overview-placeholder" />
-                                                    )}
-                                                </button>
-                                                <GridCellComments
-                                                    items={slotComments[2]}
-                                                    className="ab-grid-cell-comments--overview"
-                                                />
-                                            </div>
+                                                {spreadComments?.length > 0 && leftSrc && (
+                                                    <SpreadGridComments
+                                                        comments={spreadComments}
+                                                        className="ab-grid-comments--overview"
+                                                    />
+                                                )}
+                                            </span>
                                         )}
-                                    </div>
+                                        {overviewSpreadIndex > 0 && !spreadSrc && (
+                                            <span className="ab-overview-page">
+                                                {rightSrc ? (
+                                                    <img src={rightSrc} alt="" loading="lazy" />
+                                                ) : (
+                                                    <span className="ab-overview-placeholder" />
+                                                )}
+                                                {spreadComments?.length > 0 && rightSrc && (
+                                                    <SpreadGridComments
+                                                        comments={spreadComments}
+                                                        className="ab-grid-comments--overview"
+                                                    />
+                                                )}
+                                            </span>
+                                        )}
+                                    </span>
                                     <span className="ab-overview-label">
                                         {overviewSpreadIndex + 1}
                                     </span>
-                                </div>
+                                </button>
                             );
                         })}
                         {canAddPages && onAddPages && (

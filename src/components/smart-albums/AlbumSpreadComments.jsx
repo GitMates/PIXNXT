@@ -4,7 +4,6 @@ import { AppToast, useAppToast } from '../ui/AppToast';
 import {
     COMMENTS_CHANGED_EVENT,
     countMeaningfulComments,
-    draftKeyForSlot,
     getGuestProfile,
     groupCommentsByThread,
     hasCommentBody,
@@ -26,7 +25,6 @@ export default function AlbumSpreadComments({
     albumId,
     spreadIndex,
     spreadLabel = 'Spread',
-    photoSlot = 1,
     commentsEnabled = true,
     isPhotographer = false,
     photographerName = 'Photographer',
@@ -67,18 +65,9 @@ export default function AlbumSpreadComments({
             setGuestEmail(email);
             setShowGuestFields(!name.trim());
 
-            const slotKey = draftKeyForSlot(spreadIndex, photoSlot);
-            const draftCommentId =
-                profile.drafts?.[slotKey] ?? profile.drafts?.[spreadIndex];
+            const draftCommentId = profile.drafts?.[spreadIndex];
             if (draftCommentId) {
-                const draft = rows.find(
-                    (c) =>
-                        c.id === draftCommentId &&
-                        c.author_type === 'client' &&
-                        (c.photo_slot == null ||
-                            c.photo_slot === photoSlot ||
-                            profile.drafts?.[spreadIndex] === draftCommentId)
-                );
+                const draft = rows.find((c) => c.id === draftCommentId && c.author_type === 'client');
                 if (draft && hasCommentBody(draft)) {
                     setDraftId(draft.id);
                     setDraftBody(draft.body);
@@ -100,7 +89,7 @@ export default function AlbumSpreadComments({
         } finally {
             setLoading(false);
         }
-    }, [albumId, spreadIndex, photoSlot]);
+    }, [albumId, spreadIndex]);
 
     const refreshAlbumCommentCount = useCallback(async () => {
         if (!albumId) return;
@@ -162,17 +151,13 @@ export default function AlbumSpreadComments({
                     body,
                     authorName,
                     authorEmail: email || null,
-                    photoSlot,
                 });
                 setDraftId(saved.id);
                 setGuestName(authorName);
-                const drafts = { ...getGuestProfile(albumId).drafts };
-                drafts[draftKeyForSlot(spreadIndex, photoSlot)] = saved.id;
-                delete drafts[spreadIndex];
                 persistGuestProfile({
                     name: authorName,
                     email: email || null,
-                    drafts,
+                    drafts: { ...getGuestProfile(albumId).drafts, [spreadIndex]: saved.id },
                 });
                 setShowGuestFields(false);
                 setShowGuestPopover(false);
@@ -197,7 +182,7 @@ export default function AlbumSpreadComments({
                 setSaveState('error');
             }
         },
-        [albumId, spreadIndex, photoSlot, draftId, loadComments, persistGuestProfile, isFooter, refreshAlbumCommentCount]
+        [albumId, spreadIndex, draftId, loadComments, persistGuestProfile, isFooter, refreshAlbumCommentCount]
     );
 
     const clearDraftComment = useCallback(async () => {
@@ -207,7 +192,6 @@ export default function AlbumSpreadComments({
             await smartAlbumCommentsService.deleteClientComment({ albumId, commentId: id });
             const profile = getGuestProfile(albumId);
             const drafts = { ...profile.drafts };
-            delete drafts[draftKeyForSlot(spreadIndex, photoSlot)];
             delete drafts[spreadIndex];
             persistGuestProfile({ drafts });
             setDraftId(null);
@@ -217,7 +201,7 @@ export default function AlbumSpreadComments({
         } catch (e) {
             console.error(e);
         }
-    }, [albumId, spreadIndex, photoSlot, draftId, persistGuestProfile, isFooter, refreshAlbumCommentCount]);
+    }, [albumId, spreadIndex, draftId, persistGuestProfile, isFooter, refreshAlbumCommentCount]);
 
     useEffect(() => {
         if (!isFooter) return undefined;

@@ -34,6 +34,11 @@ import { getSpreadPages, pageToSpreadIndex } from '../../components/smart-albums
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
 import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
+import {
+    COMMENTS_CHANGED_EVENT,
+    groupRootCommentsBySpread,
+    smartAlbumCommentsService,
+} from '../../services/smartAlbumComments.service';
 import { useAuth } from '../../hooks/useAuth';
 import './AlbumEditor.css';
 
@@ -93,6 +98,7 @@ export default function AlbumEditor({
     const { user } = useAuth();
     const [activePanel, setActivePanel] = useState('collections');
     const { toast, showToast, clearToast } = useAppToast(4000);
+    const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
     const [uploading, setUploading] = useState(false);
     const [bookPage, setBookPage] = useState(initialPage);
     const [gridEditSet, setGridEditSet] = useState(() =>
@@ -371,7 +377,32 @@ export default function AlbumEditor({
     }, [albumId, totalPages, bumpWorkspace, showToast]);
 
     const spreadEdit = activePanel === 'edit';
+    const showGridComments = activePanel === 'comments';
     const workspaceKey = `${photoRevision}-${collectionRevision}-${transformRevision}-${getAlbumPhotoRevision(albumId)}`;
+
+    const loadSpreadComments = useCallback(async () => {
+        if (!albumId) return;
+        try {
+            const rows = await smartAlbumCommentsService.listAlbumComments(albumId);
+            setSpreadCommentsBySpread(groupRootCommentsBySpread(rows));
+        } catch (e) {
+            console.warn('Could not load spread comments for grid', e);
+        }
+    }, [albumId]);
+
+    useEffect(() => {
+        if (!showGridComments) return;
+        loadSpreadComments();
+    }, [showGridComments, loadSpreadComments]);
+
+    useEffect(() => {
+        if (!showGridComments || !albumId) return undefined;
+        const onChanged = (e) => {
+            if (e.detail?.albumId === albumId) loadSpreadComments();
+        };
+        window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+        return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+    }, [showGridComments, albumId, loadSpreadComments]);
 
     const pickerSubtitle =
         collectionItems.length > 0
@@ -543,13 +574,13 @@ export default function AlbumEditor({
                             onAddPages={handleAddPagesFromOverview}
                             pageCountBusy={pageCountBusy}
                             overviewReopenToken={overviewReopenToken}
-                            showGridComments={activePanel === 'comments'}
-                            showOverviewComments={activePanel === 'comments'}
                             onTransformChange={() => {
                                 setTransformRevision(getTransformRevision(albumId));
                                 onPhotosUploaded?.();
                             }}
                             transformRevision={transformRevision}
+                            showGridComments={showGridComments}
+                            spreadCommentsBySpread={spreadCommentsBySpread}
                         />
                     </div>
                 </main>

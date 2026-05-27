@@ -1,7 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumSpreadComments from '../../components/smart-albums/AlbumSpreadComments';
-import { pageToPhotoSlot } from '../../components/smart-albums/albumSpreadGrid';
 import { pageToSpreadIndex, getTotalSpreads } from '../../components/smart-albums/albumSpreadUtils';
 import { useAuth } from '../../hooks/useAuth';
 import './AlbumViewer.css';
@@ -28,7 +27,6 @@ export default function AlbumPreview({
         () => pageToSpreadIndex(bookPage, { showCover: true }),
         [bookPage]
     );
-    const photoSlot = useMemo(() => pageToPhotoSlot(bookPage, { showCover: true }), [bookPage]);
     const spreadCount = getTotalSpreads(totalPages, { showCover: true });
     const commentsEnabled = album?.comments_enabled !== false;
 
@@ -84,8 +82,6 @@ export default function AlbumPreview({
                             onPageChange={handleBookPageChange}
                             previewMode
                             showSamples={false}
-                            showOverviewComments={commentsEnabled}
-                            showGridComments={commentsEnabled}
                         />
                     </div>
                 </div>
@@ -94,7 +90,6 @@ export default function AlbumPreview({
                     <AlbumSpreadComments
                         albumId={albumId}
                         spreadIndex={spreadIndex}
-                        photoSlot={photoSlot}
                         spreadLabel={spreadLabel}
                         commentsEnabled={commentsEnabled}
                         isPhotographer={isPhotographer}

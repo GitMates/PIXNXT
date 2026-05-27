@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { getPagePhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import AlbumPageGrid from './AlbumPageGrid';
-import GridCellComments from './GridCellComments';
 import {
     getProofLeftPageGridPercent,
     getProofRightPageGridPercent,
@@ -55,6 +54,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         placementMode = 'single',
         showSamples = true,
         previewMode = false,
+        showGridComments = false,
         selectionLeftPage = null,
         selectionMode = null,
         selectedCellId = null,
@@ -63,8 +63,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         onSelectCover,
         onTransformChange,
         transformRevision = 0,
-        cellComments = null,
-        showCellComments = false,
     },
     ref
 ) {
@@ -99,6 +97,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     placementMode={placementMode}
                     showSamples={showSamples}
                     previewMode={previewMode}
+                    showGridComments={showGridComments}
                     selectionLeftPage={selectionLeftPage}
                     selectionMode={selectionMode}
                     selectedCellId={selectedCellId}
@@ -106,8 +105,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     onSelectSpread={onSelectSpread}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
-                    cellComments={cellComments}
-                    showCellComments={showCellComments}
                 />
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
@@ -135,6 +132,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     placementMode={placementMode}
                     showSamples={showSamples}
                     previewMode={previewMode}
+                    showGridComments={showGridComments}
                     selectionLeftPage={selectionLeftPage}
                     selectionMode={selectionMode}
                     selectedCellId={selectedCellId}
@@ -142,8 +140,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     onSelectSpread={onSelectSpread}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
-                    cellComments={cellComments}
-                    showCellComments={showCellComments}
                 />
             </div>
         );
@@ -174,12 +170,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     </span>
                 )}
             </PageWrapTag>
-            {showCellComments && pageNum === 0 && (
-                <GridCellComments
-                    items={cellComments?.[1]}
-                    className="ab-grid-cell-comments--cover"
-                />
-            )}
         </div>
     );
 });
