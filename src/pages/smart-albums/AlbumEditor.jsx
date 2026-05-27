@@ -255,13 +255,21 @@ export default function AlbumEditor({
             showToast('Converting PDF pages to images…', { variant: 'info', duration: 0 });
         }
         try {
-            const added = await addFilesToAlbumCollection(albumId, files);
+            const added = await addFilesToAlbumCollection(albumId, files, {
+                photographerId: album?.photographer_id,
+            });
+            const skippedDuplicates = added.skippedDuplicates || 0;
             if (added.length > 0) {
                 setCollectionRevision(getAlbumCollectionRevision(albumId));
                 showToast(
-                    `Added ${added.length} image${added.length === 1 ? '' : 's'} to collection (PDF pages count as separate photos).`,
+                    `Added ${added.length} image${added.length === 1 ? '' : 's'} to collection${skippedDuplicates ? `, skipped ${skippedDuplicates} duplicate${skippedDuplicates === 1 ? '' : 's'}` : ''}.`,
                     { variant: 'success', duration: 4500 }
                 );
+            } else if (skippedDuplicates > 0) {
+                showToast('Duplicate file skipped. It is already in this album.', {
+                    variant: 'info',
+                    duration: 4500,
+                });
             } else {
                 showToast('No supported files selected (JPG, PNG, or PDF).', {
                     variant: 'error',

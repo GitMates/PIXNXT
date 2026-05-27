@@ -23,6 +23,74 @@ function formatAlbumDate(dateStr) {
     }
 }
 
+function getAlbumCategories(album) {
+    return Array.isArray(album.category_tags) ? album.category_tags.filter(Boolean) : [];
+}
+
+function isThisMonth(dateStr) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return false;
+    const now = new Date();
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+}
+
+function isThisYear(dateStr) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (Number.isNaN(d.getTime())) return false;
+    return d.getFullYear() === new Date().getFullYear();
+}
+
+const STAR_FILTERS = [
+    { value: 'all', label: 'All albums' },
+    { value: 'starred', label: 'Starred' },
+    { value: 'not-starred', label: 'Not starred' },
+];
+
+const CREATED_FILTERS = [
+    { value: 'newest', label: 'Newest first' },
+    { value: 'oldest', label: 'Oldest first' },
+    { value: 'this-month', label: 'This month' },
+    { value: 'this-year', label: 'This year' },
+];
+
+function FilterDropdown({ id, label, valueLabel, open, onToggle, options, value, onChange }) {
+    return (
+        <div className="sa-filter-dropdown">
+            <button
+                type="button"
+                className={`sa-filter-pill${value !== 'all' && value !== 'newest' ? ' sa-filter-pill--active' : ''}`}
+                onClick={() => onToggle(open ? null : id)}
+                aria-expanded={open}
+            >
+                <span>{valueLabel || label}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                    <polyline points="6 9 12 15 18 9" />
+                </svg>
+            </button>
+            {open && (
+                <div className="sa-filter-menu">
+                    {options.map((option) => (
+                        <button
+                            key={option.value}
+                            type="button"
+                            className={`sa-filter-option${value === option.value ? ' sa-filter-option--selected' : ''}`}
+                            onClick={() => {
+                                onChange(option.value);
+                                onToggle(null);
+                            }}
+                        >
+                            <span>{option.label}</span>
+                            {value === option.value && <span className="sa-filter-check">✓</span>}
+                        </button>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
 const AlbumStarButton = ({ starred, onClick }) => (
     <svg
         className={`cg-style-76 ${starred ? 'opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]' : 'opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] group-hover:opacity-100'}`}
@@ -56,9 +124,14 @@ const AlbumsList = ({ starredOnly = false }) => {
     const [albums, setAlbums] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+    const [starFilter, setStarFilter] = useState(starredOnly ? 'starred' : 'all');
+    const [createdFilter, setCreatedFilter] = useState('newest');
+    const [categoryFilter, setCategoryFilter] = useState('all');
+    const [openFilter, setOpenFilter] = useState(null);
     const [contextMenuId, setContextMenuId] = useState(null);
     const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
     const contextRef = useRef(null);
+    const filtersRef = useRef(null);
     const pageTitle = starredOnly ? 'Starred' : 'Albums';
 
     const closeContextMenu = useCallback(() => {
@@ -95,10 +168,16 @@ const AlbumsList = ({ starredOnly = false }) => {
             if (contextRef.current?.contains(e.target)) return;
             if (contextMenuAnchor?.contains(e.target)) return;
             closeContextMenu();
+            if (filtersRef.current?.contains(e.target)) return;
+            setOpenFilter(null);
         };
         document.addEventListener('mousedown', onDocClick);
         return () => document.removeEventListener('mousedown', onDocClick);
     }, [contextMenuAnchor, closeContextMenu]);
+
+    useEffect(() => {
+        if (starredOnly) setStarFilter('starred');
+    }, [starredOnly]);
 
     const handleToggleStar = async (e, album) => {
         e.stopPropagation();
@@ -176,16 +255,56 @@ const AlbumsList = ({ starredOnly = false }) => {
         );
     };
 
+    const categoryOptions = useMemo(() => {
+        const categories = Array.from(
+            new Set(albums.flatMap((album) => getAlbumCategories(album)))
+        ).sort((a, b) => a.localeCompare(b));
+        return [
+            { value: 'all', label: 'All categories' },
+            ...categories.map((category) => ({ value: category, label: category })),
+        ];
+    }, [albums]);
+
+    const starLabel =
+        starFilter === 'all'
+            ? 'Starred'
+            : STAR_FILTERS.find((f) => f.value === starFilter)?.label || 'Starred';
+    const createdLabel =
+        createdFilter === 'newest'
+            ? 'Created date'
+            : CREATED_FILTERS.find((f) => f.value === createdFilter)?.label || 'Created date';
+    const categoryLabel =
+        categoryFilter === 'all'
+            ? 'Category'
+            : categoryOptions.find((f) => f.value === categoryFilter)?.label || 'Category';
+
     const filteredAlbums = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
-        return albums.filter((a) => {
+        const result = albums.filter((a) => {
             if (starredOnly && !a.is_starred) return false;
+            if (starFilter === 'starred' && !a.is_starred) return false;
+            if (starFilter === 'not-starred' && a.is_starred) return false;
+            if (createdFilter === 'this-month' && !isThisMonth(a.created_at)) return false;
+            if (createdFilter === 'this-year' && !isThisYear(a.created_at)) return false;
+            if (categoryFilter !== 'all' && !getAlbumCategories(a).includes(categoryFilter)) {
+                return false;
+            }
             if (q && !a.name?.toLowerCase().includes(q)) return false;
             return true;
         });
-    }, [albums, searchQuery, starredOnly]);
+        return result.sort((a, b) => {
+            const aTime = new Date(a.created_at || 0).getTime() || 0;
+            const bTime = new Date(b.created_at || 0).getTime() || 0;
+            return createdFilter === 'oldest' ? aTime - bTime : bTime - aTime;
+        });
+    }, [albums, searchQuery, starredOnly, starFilter, createdFilter, categoryFilter]);
 
-    const showEmpty = !loading && filteredAlbums.length === 0 && !searchQuery;
+    const hasActiveFilters =
+        (!starredOnly && starFilter !== 'all') ||
+        (starredOnly && starFilter !== 'starred') ||
+        createdFilter !== 'newest' ||
+        categoryFilter !== 'all';
+    const showEmpty = !loading && filteredAlbums.length === 0 && !searchQuery && !hasActiveFilters;
 
     return (
         <main className="sa-main cg-style-2">
@@ -215,6 +334,39 @@ const AlbumsList = ({ starredOnly = false }) => {
                     </div>
                 )}
             </header>
+
+            <div className="sa-filter-bar" ref={filtersRef}>
+                <FilterDropdown
+                    id="starred"
+                    label="Starred"
+                    valueLabel={starLabel}
+                    open={openFilter === 'starred'}
+                    onToggle={setOpenFilter}
+                    options={STAR_FILTERS}
+                    value={starFilter}
+                    onChange={setStarFilter}
+                />
+                <FilterDropdown
+                    id="created"
+                    label="Created date"
+                    valueLabel={createdLabel}
+                    open={openFilter === 'created'}
+                    onToggle={setOpenFilter}
+                    options={CREATED_FILTERS}
+                    value={createdFilter}
+                    onChange={setCreatedFilter}
+                />
+                <FilterDropdown
+                    id="category"
+                    label="Category"
+                    valueLabel={categoryLabel}
+                    open={openFilter === 'category'}
+                    onToggle={setOpenFilter}
+                    options={categoryOptions}
+                    value={categoryFilter}
+                    onChange={setCategoryFilter}
+                />
+            </div>
 
             <div className="sa-content sa-albums-content">
                 {loading ? (
