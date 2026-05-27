@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
+import { openSmartAlbumPreview } from '../../lib/shareSmartAlbum';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { getAlbumListThumbnailUrl } from '../../components/smart-albums/albumPagePhotos';
 import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu';
@@ -246,7 +247,7 @@ const AlbumsList = ({ starredOnly = false }) => {
                 anchorEl={contextMenuAnchor}
                 onPreview={() => {
                     closeContextMenu();
-                    navigate(`/smart-albums/album/${album.id}?view=preview`);
+                    openSmartAlbumPreview(album.id);
                 }}
                 onMoveTo={handleMoveTo}
                 onDuplicate={() => handleDuplicateAlbum(album)}

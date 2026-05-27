@@ -449,7 +449,7 @@
 
 /* Client preview — same 2-slot grid as editor, no stock photos */
 .ab-root--preview {
-  padding: 8px 24px;
+  padding: 4px 16px 40px;
 }
 
 .ab-page-grid--preview {
@@ -516,6 +516,73 @@
   z-index: 2;
   pointer-events: none;
   border-radius: 2px;
+}
+
+.ab-grid-cell-comments {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 6;
+  max-height: 42%;
+  padding: 6px 8px;
+  overflow-y: auto;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.82) 0%, rgba(0, 0, 0, 0.55) 70%, transparent 100%);
+  pointer-events: none;
+}
+
+.ab-grid-cell-comment {
+  margin: 0 0 6px;
+}
+
+.ab-grid-cell-comment:last-child {
+  margin-bottom: 0;
+}
+
+.ab-grid-cell-comment-line {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #fff;
+  word-break: break-word;
+}
+
+.ab-grid-cell-comment-line strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.9;
+  margin-bottom: 2px;
+}
+
+.ab-grid-cell-comment-line--reply {
+  margin-top: 4px;
+  padding-left: 8px;
+  border-left: 2px solid rgba(255, 255, 255, 0.35);
+  opacity: 0.95;
+}
+
+.ab-flip-page:not(.ab-flip-page--grid) {
+  position: relative;
+}
+
+.ab-flip-page:not(.ab-flip-page--grid) > .ab-grid-cell-comments {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-height: 28%;
+  z-index: 4;
+}
+
+.ab-badge--slot {
+  top: 8px;
+  left: 8px;
+  min-width: 20px;
+  height: 20px;
+  font-size: 12px;
+  background: rgba(55, 55, 55, 0.82);
+  border-radius: 3px;
 }
 
 .ab-nav {
@@ -601,8 +668,59 @@
 }
 
 .ab-root--preview .ab-spread-controls {
-  bottom: -30px;
+  bottom: 12px;
+  right: 20px;
+  z-index: 20;
+}
+
+/* Gallery proofing — arrows pinned to viewport corners */
+.ab-root--preview .ab-nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  height: auto;
+  padding: 16px 10px;
+  background: transparent;
+  box-shadow: none;
+  color: #c5c5c5;
+  z-index: 45;
+}
+
+.ab-root--preview .ab-nav:hover:not(:disabled) {
+  background: transparent;
+  box-shadow: none;
+  color: #8a8a8a;
+}
+
+.ab-root--preview .ab-nav svg {
+  width: 40px;
+  height: 40px;
+  stroke-width: 1.15;
+}
+
+.ab-root--preview .ab-nav--prev {
+  left: 0;
+  right: auto;
+}
+
+.ab-root--preview .ab-nav--next {
   right: 0;
+  left: auto;
+}
+
+.ab-root--preview .ab-page-counter {
+  font-size: 15px;
+  font-weight: 600;
+  color: #b0b0b0;
+}
+
+.ab-root--preview .ab-control-icon {
+  color: #b0b0b0;
+}
+
+.ab-root--preview .ab-control-icon--button:hover {
+  color: #777;
 }
 
 .ab-overview {

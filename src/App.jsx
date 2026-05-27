@@ -91,7 +91,8 @@ function App() {
     location.pathname.startsWith('/account') ||
     location.pathname === '/collections' ||
     location.pathname.startsWith('/gallery/') ||
-    location.pathname.startsWith('/album-preview/');
+    location.pathname.startsWith('/album-preview/') ||
+    /\/smart-albums\/preview\//.test(location.pathname);
 
   if (activeSlug) {
     return (

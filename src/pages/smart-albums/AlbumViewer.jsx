@@ -1,17 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
+import { openSmartAlbumPreview } from '../../lib/shareSmartAlbum';
 import AlbumEditor from './AlbumEditor';
-import AlbumPreview from './AlbumPreview';
-import { useAlbumWorkspace } from './useAlbumWorkspace';
+import { useAlbumWorkspace, isAlbumPreviewView, parseUrlPage } from './useAlbumWorkspace';
 import './AlbumViewer.css';
 
 /**
- * Album workspace router: edit (sidebar + canvas) vs preview (final output).
- * URLs: /album/:id  ·  /album/:id?view=preview  ·  /album/:id?view=gallery → edit
+ * Album editor workspace. Preview opens in a separate tab (like gallery view).
  */
 const AlbumViewer = () => {
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const [photoRevision, setPhotoRevision] = useState(0);
     const {
         albumId,
@@ -19,11 +19,9 @@ const AlbumViewer = () => {
         loading,
         totalPages,
         initialPage,
-        isPreview,
         handlePageChange,
         changePageCount,
         spreadCount,
-        setView,
         patchAlbum,
         minPages,
         maxPages,
@@ -35,6 +33,16 @@ const AlbumViewer = () => {
             setPhotoRevision(getAlbumPhotoRevision(albumId) || 0);
         }
     }, [albumId, album?.id]);
+
+    useEffect(() => {
+        if (!albumId || !isAlbumPreviewView(searchParams)) return;
+        const page = parseUrlPage(searchParams.get('page'), totalPages);
+        openSmartAlbumPreview(albumId, page);
+        const next = new URLSearchParams(searchParams);
+        next.delete('view');
+        const qs = next.toString();
+        navigate(`/smart-albums/album/${albumId}${qs ? `?${qs}` : ''}`, { replace: true });
+    }, [albumId, searchParams, navigate, totalPages]);
 
     if (loading) {
         return (
@@ -57,21 +65,6 @@ const AlbumViewer = () => {
         );
     }
 
-    if (isPreview) {
-        return (
-            <AlbumPreview
-                album={album}
-                albumId={albumId}
-                totalPages={totalPages}
-                initialPage={initialPage}
-                photoRevision={photoRevision}
-                onPageChange={handlePageChange}
-                onBackToEdit={() => setView('edit')}
-                onAlbumUpdate={patchAlbum}
-            />
-        );
-    }
-
     return (
         <AlbumEditor
             album={album}
@@ -81,7 +74,6 @@ const AlbumViewer = () => {
             initialPage={initialPage}
             photoRevision={photoRevision}
             onPageChange={handlePageChange}
-            onOpenPreview={() => setView('preview')}
             onPhotosUploaded={() =>
                 setPhotoRevision(getAlbumPhotoRevision(albumId) || Date.now())
             }

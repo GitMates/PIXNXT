@@ -199,7 +199,7 @@
 
 .ae-nav {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 6px;
   padding: 6px 8px;
   flex-shrink: 0;

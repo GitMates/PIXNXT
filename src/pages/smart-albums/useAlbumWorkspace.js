@@ -159,7 +159,11 @@ export function useAlbumWorkspace() {
     }, [searchParams, navigate, albumId]);
 
     const patchAlbum = useCallback((patch) => {
-        setAlbum((prev) => (prev ? { ...prev, ...patch } : prev));
+        setAlbum((prev) => {
+            if (!prev) return prev;
+            const next = typeof patch === 'function' ? patch(prev) : { ...prev, ...patch };
+            return next;
+        });
     }, []);
 
     return {

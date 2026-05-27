@@ -77,6 +77,8 @@ const AlbumBook = ({
     onAddPages,
     pageCountBusy = false,
     overviewReopenToken = 0,
+    albumComments = null,
+    showGridComments = false,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -273,6 +275,8 @@ const AlbumBook = ({
                     onSelectCover={onSelectCover}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
+                    albumComments={albumComments}
+                    showGridComments={showGridComments}
                 />
             )),
         [
@@ -291,6 +295,8 @@ const AlbumBook = ({
             onSelectCover,
             onTransformChange,
             transformRevision,
+            albumComments,
+            showGridComments,
         ]
     );
 

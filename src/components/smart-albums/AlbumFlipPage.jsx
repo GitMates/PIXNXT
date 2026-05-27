@@ -1,6 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { mapSpreadCommentsToCells } from '../../services/smartAlbumComments.service';
+import { pageToSpreadIndex } from './albumSpreadUtils';
 import { getPagePhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
+import AlbumGridCellComments from './AlbumGridCellComments';
 import AlbumPageGrid from './AlbumPageGrid';
 import {
     getProofLeftPageGridPercent,
@@ -62,6 +65,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         onSelectCover,
         onTransformChange,
         transformRevision = 0,
+        albumComments = null,
+        showGridComments = false,
     },
     ref
 ) {
@@ -74,6 +79,12 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     const albumId = albumIdProp ?? album?.id;
+    const spreadIndex = pageToSpreadIndex(pageNum, { showCover: true });
+    const commentsByCell = useMemo(() => {
+        if (!showGridComments || !albumComments?.length) return null;
+        const spreadRows = albumComments.filter((c) => c.spread_index === spreadIndex);
+        return mapSpreadCommentsToCells(spreadRows, { spreadIndex });
+    }, [showGridComments, albumComments, spreadIndex]);
     const useLeftGrid = isProofLeftGridPage(pageNum);
     const useRightGrid = isProofRightGridPage(pageNum);
     const src = getPageImageSrc(album, pageNum, showSamples);
@@ -103,6 +114,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     onSelectSpread={onSelectSpread}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
+                    commentsByCell={commentsByCell}
                 />
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
@@ -137,10 +149,13 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     onSelectSpread={onSelectSpread}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
+                    commentsByCell={commentsByCell}
                 />
             </div>
         );
     }
+
+    const coverComments = pageNum === 0 ? commentsByCell?.[1] : null;
 
     return (
         <div className="ab-flip-page" ref={ref} data-density="hard">
@@ -167,6 +182,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     </span>
                 )}
             </PageWrapTag>
+            {coverComments?.length > 0 && <AlbumGridCellComments threads={coverComments} />}
         </div>
     );
 });

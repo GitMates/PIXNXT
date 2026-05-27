@@ -7,6 +7,7 @@ import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/sma
 import {
     getSmartAlbumPreviewShareUrl,
     openShareByEmail,
+    openSmartAlbumPreview,
     openWhatsAppShare,
 } from '../../lib/shareSmartAlbum';
 import {
@@ -32,6 +33,11 @@ import {
 import { getSpreadPages, pageToSpreadIndex } from '../../components/smart-albums/albumSpreadUtils';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
+import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
+import {
+    COMMENTS_CHANGED_EVENT,
+    smartAlbumCommentsService,
+} from '../../services/smartAlbumComments.service';
 import { useAuth } from '../../hooks/useAuth';
 import './AlbumEditor.css';
 
@@ -78,7 +84,6 @@ export default function AlbumEditor({
     totalPages,
     initialPage,
     onPageChange,
-    onOpenPreview,
     photoRevision = 0,
     onPhotosUploaded,
     spreadCount = 1,
@@ -94,6 +99,7 @@ export default function AlbumEditor({
     const { toast, showToast, clearToast } = useAppToast(4000);
     const [uploading, setUploading] = useState(false);
     const [bookPage, setBookPage] = useState(initialPage);
+    const [albumComments, setAlbumComments] = useState([]);
     const [gridEditSet, setGridEditSet] = useState(() =>
         layoutToPlacementMode(album?.grid_layout)
     );
@@ -127,6 +133,28 @@ export default function AlbumEditor({
     useEffect(() => {
         setCollectionRevision(getAlbumCollectionRevision(albumId));
     }, [albumId]);
+
+    const loadAlbumComments = useCallback(async () => {
+        if (!albumId) return;
+        try {
+            const rows = await smartAlbumCommentsService.listAlbumComments(albumId);
+            setAlbumComments(rows);
+        } catch (e) {
+            console.warn('loadAlbumComments:', e);
+        }
+    }, [albumId]);
+
+    useEffect(() => {
+        loadAlbumComments();
+    }, [loadAlbumComments]);
+
+    useEffect(() => {
+        const onChanged = (e) => {
+            if (e.detail?.albumId === albumId) loadAlbumComments();
+        };
+        window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+        return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+    }, [albumId, loadAlbumComments]);
 
     useEffect(() => {
         if (!showShareMenu) return undefined;
@@ -397,7 +425,11 @@ export default function AlbumEditor({
                     </div>
                 </div>
                 <div className="ae-topbar-right">
-                    <button type="button" className="ae-btn-secondary" onClick={() => onOpenPreview()}>
+                    <button
+                        type="button"
+                        className="ae-btn-secondary"
+                        onClick={() => openSmartAlbumPreview(albumId, initialPage)}
+                    >
                         Preview
                     </button>
                     <div className="ae-share-wrap" ref={shareRef}>
@@ -470,14 +502,17 @@ export default function AlbumEditor({
                 <AlbumEditorSidebar
                     activePanel={activePanel}
                     onPanelChange={setActivePanel}
-                    commentSettingsSlot={
-                        gridSelection?.mode === 'cover' && user?.id ? (
+                    commentSettings={
+                        user?.id ? (
                             <AlbumCommentSettings
                                 album={album}
                                 photographerId={user.id}
                                 onUpdated={onAlbumUpdate}
                             />
                         ) : null
+                    }
+                    commentsFeed={
+                        albumId ? <AlbumCommentsFeed albumId={albumId} /> : null
                     }
                     album={album}
                     totalPages={totalPages}
@@ -539,6 +574,8 @@ export default function AlbumEditor({
                                 setTransformRevision(getTransformRevision(albumId));
                                 onPhotosUploaded?.();
                             }}
+                            albumComments={albumComments}
+                            showGridComments={activePanel === 'comments'}
                             transformRevision={transformRevision}
                         />
                     </div>
