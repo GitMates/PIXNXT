@@ -19,7 +19,6 @@ export default function SpreadGridComments({ comments, className = '', variant =
             </div>
         );
     }
-
     return (
         <div className={`ab-grid-comments${className ? ` ${className}` : ''}`} aria-label="Client comments">
             {comments.map((comment) => (
