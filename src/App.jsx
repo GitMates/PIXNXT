@@ -89,7 +89,8 @@ function App() {
     location.pathname.startsWith('/settings') ||
     location.pathname.startsWith('/account') ||
     location.pathname === '/collections' ||
-    location.pathname.startsWith('/gallery/');
+    location.pathname.startsWith('/gallery/') ||
+    location.pathname.startsWith('/p/');
 
   if (activeSlug) {
     return (
