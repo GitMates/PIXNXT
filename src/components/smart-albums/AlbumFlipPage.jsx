@@ -155,9 +155,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 {src ? (
                     <PagePhoto src={src} pageNum={pageNum} showSamples={showSamples} />
                 ) : pageNum === 0 ? (
-                    <div className="ab-page-cover-placeholder">
-                        <span>{album.name}</span>
-                    </div>
+                    <div className="ab-page-cover-placeholder" />
                 ) : (
                     <div className="ab-page-placeholder">Add photos to this spread</div>
                 )}
