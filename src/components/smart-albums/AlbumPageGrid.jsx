@@ -8,8 +8,8 @@ import {
 import { getSpreadPhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
-import AlbumGridCellComments from './AlbumGridCellComments';
 import EditableGridPhoto from './EditableGridPhoto';
+import GridCellComments from './GridCellComments';
 
 function GridPhoto({
     src,
@@ -83,7 +83,8 @@ export default function AlbumPageGrid({
     onSelectSpread,
     onTransformChange,
     transformRevision = 0,
-    commentsByCell = null,
+    cellComments = null,
+    showCellComments = false,
 }) {
     const albumId = albumIdProp ?? album?.id;
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true });
@@ -211,8 +212,8 @@ export default function AlbumPageGrid({
                         {previewMode && hasPhoto && (
                             <span className="ab-badge ab-badge--slot">{cell.id}</span>
                         )}
-                        {commentsByCell?.[cell.id]?.length > 0 && (
-                            <AlbumGridCellComments threads={commentsByCell[cell.id]} />
+                        {showCellComments && (
+                            <GridCellComments items={cellComments?.[cell.id]} />
                         )}
                     </CellTag>
                 );

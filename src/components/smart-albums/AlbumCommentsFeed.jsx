@@ -3,10 +3,8 @@ import {
     COMMENTS_CHANGED_EVENT,
     countMeaningfulComments,
     groupCommentsBySpread,
-    mapSpreadCommentsToCells,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
-import { PROOF_CELL_LABELS } from './albumSpreadGrid';
 import './AlbumSpreadComments.css';
 
 export default function AlbumCommentsFeed({ albumId }) {
@@ -65,53 +63,25 @@ export default function AlbumCommentsFeed({ albumId }) {
                         threads.length === 0 ? null : (
                             <li key={spreadIndex} className="asc-feed-spread">
                                 <p className="asc-feed-spread-label">{spreadLabel}</p>
-                                {(() => {
-                                    const spreadRows = threads.flatMap((t) => [
-                                        t.root,
-                                        ...t.replies,
-                                    ]);
-                                    const byCell = mapSpreadCommentsToCells(spreadRows, {
-                                        spreadIndex,
-                                    });
-                                    const cellIds = spreadIndex <= 0 ? [1] : [1, 2];
-                                    return cellIds.map((cellId) => {
-                                        const cellThreads = byCell[cellId] || [];
-                                        if (cellThreads.length === 0) return null;
-                                        const photoLabel =
-                                            spreadIndex <= 0
-                                                ? 'Cover'
-                                                : PROOF_CELL_LABELS[cellId] || `Photo ${cellId}`;
-                                        return (
-                                            <div key={cellId} className="asc-feed-photo-group">
-                                                <p className="asc-feed-photo-label">{photoLabel}</p>
-                                                <ul className="asc-feed-thread-list">
-                                                    {cellThreads.map(({ root, replies }) => (
-                                                        <li
-                                                            key={root.id}
-                                                            className="asc-feed-thread"
-                                                        >
-                                                            <div className="asc-feed-message">
-                                                                <strong>{root.author_name}</strong>
-                                                                <span>{root.body}</span>
-                                                            </div>
-                                                            {replies.map((reply) => (
-                                                                <div
-                                                                    key={reply.id}
-                                                                    className="asc-feed-message asc-feed-message--reply"
-                                                                >
-                                                                    <strong>
-                                                                        {reply.author_name}
-                                                                    </strong>
-                                                                    <span>{reply.body}</span>
-                                                                </div>
-                                                            ))}
-                                                        </li>
-                                                    ))}
-                                                </ul>
+                                <ul className="asc-feed-thread-list">
+                                    {threads.map(({ root, replies }) => (
+                                        <li key={root.id} className="asc-feed-thread">
+                                            <div className="asc-feed-message">
+                                                <strong>{root.author_name}</strong>
+                                                <span>{root.body}</span>
                                             </div>
-                                        );
-                                    });
-                                })()}
+                                            {replies.map((reply) => (
+                                                <div
+                                                    key={reply.id}
+                                                    className="asc-feed-message asc-feed-message--reply"
+                                                >
+                                                    <strong>{reply.author_name}</strong>
+                                                    <span>{reply.body}</span>
+                                                </div>
+                                            ))}
+                                        </li>
+                                    ))}
+                                </ul>
                             </li>
                         )
                     )}

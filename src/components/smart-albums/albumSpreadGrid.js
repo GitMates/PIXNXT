@@ -76,6 +76,13 @@ export function getSpreadRightPageIndex(leftPage, totalPages, options) {
     return right;
 }
 
+/** Photo slot within a spread: 1 = left page, 2 = right page (cover uses 1). */
+export function pageToPhotoSlot(pageIndex, { showCover = true } = {}) {
+    if (pageIndex <= 0) return 1;
+    const left = getSpreadLeftPageIndex(pageIndex, { showCover });
+    return pageIndex === left ? 1 : 2;
+}
+
 export const PROOF_CELL_LABELS = {
     1: 'Left page',
     2: 'Right page',

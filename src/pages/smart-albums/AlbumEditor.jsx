@@ -34,10 +34,6 @@ import { getSpreadPages, pageToSpreadIndex } from '../../components/smart-albums
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
 import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
-import {
-    COMMENTS_CHANGED_EVENT,
-    smartAlbumCommentsService,
-} from '../../services/smartAlbumComments.service';
 import { useAuth } from '../../hooks/useAuth';
 import './AlbumEditor.css';
 
@@ -99,7 +95,6 @@ export default function AlbumEditor({
     const { toast, showToast, clearToast } = useAppToast(4000);
     const [uploading, setUploading] = useState(false);
     const [bookPage, setBookPage] = useState(initialPage);
-    const [albumComments, setAlbumComments] = useState([]);
     const [gridEditSet, setGridEditSet] = useState(() =>
         layoutToPlacementMode(album?.grid_layout)
     );
@@ -133,28 +128,6 @@ export default function AlbumEditor({
     useEffect(() => {
         setCollectionRevision(getAlbumCollectionRevision(albumId));
     }, [albumId]);
-
-    const loadAlbumComments = useCallback(async () => {
-        if (!albumId) return;
-        try {
-            const rows = await smartAlbumCommentsService.listAlbumComments(albumId);
-            setAlbumComments(rows);
-        } catch (e) {
-            console.warn('loadAlbumComments:', e);
-        }
-    }, [albumId]);
-
-    useEffect(() => {
-        loadAlbumComments();
-    }, [loadAlbumComments]);
-
-    useEffect(() => {
-        const onChanged = (e) => {
-            if (e.detail?.albumId === albumId) loadAlbumComments();
-        };
-        window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-        return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-    }, [albumId, loadAlbumComments]);
 
     useEffect(() => {
         if (!showShareMenu) return undefined;
@@ -570,12 +543,12 @@ export default function AlbumEditor({
                             onAddPages={handleAddPagesFromOverview}
                             pageCountBusy={pageCountBusy}
                             overviewReopenToken={overviewReopenToken}
+                            showGridComments={activePanel === 'comments'}
+                            showOverviewComments={activePanel === 'comments'}
                             onTransformChange={() => {
                                 setTransformRevision(getTransformRevision(albumId));
                                 onPhotosUploaded?.();
                             }}
-                            albumComments={albumComments}
-                            showGridComments={activePanel === 'comments'}
                             transformRevision={transformRevision}
                         />
                     </div>

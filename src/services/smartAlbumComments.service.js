@@ -54,10 +54,12 @@ export function countMeaningfulComments(comments) {
 }
 
 function mapRow(row) {
+    const slot = row.photo_slot;
     return {
         id: row.id,
         album_id: row.album_id,
         spread_index: row.spread_index,
+        photo_slot: slot === 1 || slot === 2 ? slot : null,
         parent_id: row.parent_id,
         author_type: row.author_type,
         author_name: row.author_name || '',
@@ -66,6 +68,41 @@ function mapRow(row) {
         created_at: row.created_at,
         updated_at: row.updated_at,
     };
+}
+
+export function draftKeyForSlot(spreadIndex, photoSlot = 1) {
+    return `${spreadIndex}:${photoSlot}`;
+}
+
+/** Comments grouped by photo slot (1 = left, 2 = right) for a spread. */
+export function mapCommentsToPhotoSlots(allComments, spreadIndex) {
+    const slots = { 1: [], 2: [] };
+    const roots = (allComments || [])
+        .filter((c) => c.spread_index === spreadIndex && !c.parent_id && hasCommentBody(c))
+        .sort(
+            (a, b) =>
+                new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
+
+    const unassigned = [];
+    roots.forEach((c) => {
+        if (c.photo_slot === 1 || c.photo_slot === 2) {
+            slots[c.photo_slot].push(c);
+        } else {
+            unassigned.push(c);
+        }
+    });
+
+    unassigned.forEach((c, i) => {
+        if (spreadIndex <= 0) {
+            slots[1].push(c);
+            return;
+        }
+        const slot = i === 0 ? 1 : 2;
+        slots[slot].push(c);
+    });
+
+    return slots;
 }
 
 export function getGuestProfile(albumId) {
@@ -155,10 +192,20 @@ export const smartAlbumCommentsService = {
         );
     },
 
-    async saveClientComment({ albumId, spreadIndex, commentId, body, authorName, authorEmail }) {
+    async saveClientComment({
+        albumId,
+        spreadIndex,
+        commentId,
+        body,
+        authorName,
+        authorEmail,
+        photoSlot = 1,
+    }) {
+        const slot = photoSlot === 2 ? 2 : 1;
         const payload = {
             album_id: albumId,
             spread_index: spreadIndex,
+            photo_slot: slot,
             author_type: 'client',
             author_name: authorName || 'Guest',
             author_email: authorEmail || null,
@@ -176,7 +223,11 @@ export const smartAlbumCommentsService = {
             try {
                 const { data, error } = await supabase
                     .from('smart_album_comments')
-                    .update({ body: payload.body, updated_at: payload.updated_at })
+                    .update({
+                        body: payload.body,
+                        photo_slot: payload.photo_slot,
+                        updated_at: payload.updated_at,
+                    })
                     .eq('id', commentId)
                     .select();
 
@@ -205,6 +256,7 @@ export const smartAlbumCommentsService = {
                 .insert({
                     album_id: insertPayload.album_id,
                     spread_index: insertPayload.spread_index,
+                    photo_slot: insertPayload.photo_slot,
                     author_type: insertPayload.author_type,
                     author_name: insertPayload.author_name,
                     author_email: insertPayload.author_email,
@@ -333,27 +385,6 @@ export function groupCommentsByThread(comments) {
         root,
         replies: replies.filter((r) => r.parent_id === root.id),
     }));
-}
-
-/** Map spread comments to proof grid slots (1 = left, 2 = right). */
-export function mapSpreadCommentsToCells(comments, { spreadIndex = 0 } = {}) {
-    const byCell = { 1: [], 2: [] };
-    const threads = groupCommentsByThread(comments || []).filter((t) => hasCommentBody(t.root));
-    const sorted = [...threads].sort(
-        (a, b) =>
-            new Date(a.root.created_at).getTime() - new Date(b.root.created_at).getTime()
-    );
-
-    if (spreadIndex <= 0) {
-        byCell[1] = sorted;
-        return byCell;
-    }
-
-    sorted.forEach((thread, index) => {
-        const cellId = (index % 2) + 1;
-        byCell[cellId].push(thread);
-    });
-    return byCell;
 }
 
 export function groupCommentsBySpread(comments) {
