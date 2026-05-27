@@ -5,6 +5,14 @@ import { galleryService } from '../services/gallery.service';
 import clientGalleryGif from '../assets/icons/photograph_17904525.gif';
 import smartAlbumsGif from '../assets/icons/folder_15944871.gif';
 import balancePng from '../assets/icons/client gallery.png';
+import helpPng from '../assets/icons/help.png';
+import notificationPng from '../assets/icons/notification.png';
+import dashboardHelpPng from '../assets/icons/dashboard help.png';
+import heartPng from '../assets/icons/heart.png';
+import recentCollectionsGif from '../assets/icons/recent collections.gif';
+import recentOrdersGif from '../assets/icons/recent orders.gif';
+import notificationGif from '../assets/icons/notification.gif';
+import referAFriendGif from '../assets/icons/refer a friend.gif';
 import './Dashboard.css';
 
 /* ===== SVG Icon Components ===== */
@@ -229,7 +237,7 @@ const Dashboard = () => {
   if (loading && !profile) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-[#fafbfc]">
-        <div className="w-10 h-10 border-4 border-[#10b981] border-t-transparent rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-4 border-[#8e8e93] border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
@@ -240,19 +248,14 @@ const Dashboard = () => {
       <nav className="dash-navbar">
         <div className="dash-navbar-left">
           <Link to="/" className="dash-logo">PIXNXT</Link>
-          <button className="dash-nav-switcher">
-            <GridIcon />
-            <span>Dashboard</span>
-            <ChevronDown />
-          </button>
         </div>
 
         <div className="dash-navbar-right">
           <button className="dash-nav-icon" title="Help">
-            <HelpIcon />
+            <img src={helpPng} alt="Help" className="dash-nav-icon-img" />
           </button>
           <button className="dash-nav-icon" title="Notifications">
-            <BellIcon />
+            <img src={notificationPng} alt="Notifications" className="dash-nav-icon-img" />
           </button>
 
           <div className="dash-profile-wrapper" ref={profileRef}>
@@ -351,7 +354,7 @@ const Dashboard = () => {
             {/* Recent Collections */}
             <div className="dash-quick-card">
               <div className="dash-quick-card-header teal-icon">
-                <FolderIcon /> RECENT COLLECTIONS
+                <img src={recentCollectionsGif} alt="Recent Collections" /> RECENT COLLECTIONS
               </div>
               <div className="dash-quick-card-body">
                 {collections.length > 0 ? (
@@ -377,7 +380,7 @@ const Dashboard = () => {
             {/* Recent Orders */}
             <div className="dash-quick-card">
               <div className="dash-quick-card-header red-icon">
-                <PackageIcon /> RECENT ORDERS
+                <img src={recentOrdersGif} alt="Recent Orders" /> RECENT ORDERS
               </div>
               <div className="dash-quick-card-body">
                 <h3>Setup your 24/7 Print Store</h3>
@@ -389,7 +392,7 @@ const Dashboard = () => {
             {/* Notifications */}
             <div className="dash-quick-card">
               <div className="dash-quick-card-header dark-icon">
-                <BellIcon /> NOTIFICATIONS
+                <img src={notificationGif} alt="Notifications" /> NOTIFICATIONS
               </div>
               <div className="dash-quick-card-body">
                 <h3>Your latest Notifications</h3>
@@ -397,68 +400,17 @@ const Dashboard = () => {
               </div>
             </div>
 
-            {/* Quick Links */}
+            {/* Refer a Friend */}
             <div className="dash-quick-card">
               <div className="dash-quick-card-header dark-icon">
-                <LinkIcon /> QUICK LINKS
+                <img src={referAFriendGif} alt="Refer a Friend" /> REFER A FRIEND
               </div>
-              <div className="dash-quick-links-list">
-                <div className="dash-quick-link-item">
-                  <div className="dash-quick-link-icon"><UserIcon /></div>
-                  <div className="dash-quick-link-info">
-                    <h4>Your Profile</h4>
-                    <p>Edit your profile photo, business name, and more</p>
-                  </div>
-                </div>
-                <div className="dash-quick-link-item">
-                  <div className="dash-quick-link-icon"><SettingsIcon /></div>
-                  <div className="dash-quick-link-info">
-                    <h4>Account</h4>
-                    <p>Edit your username, email, and password</p>
-                  </div>
-                </div>
-                <div className="dash-quick-link-item">
-                  <div className="dash-quick-link-icon"><CreditCardIcon /></div>
-                  <div className="dash-quick-link-info">
-                    <h4>Billing</h4>
-                    <p>Manage your current subscriptions, view billing history</p>
-                  </div>
-                </div>
-                <div className="dash-quick-link-item">
-                  <div className="dash-quick-link-icon"><UsersIcon /></div>
-                  <div className="dash-quick-link-info">
-                    <h4>Refer a Friend</h4>
-                    <p>Earn referral credits for every friend you refer</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* More from Pixieset */}
-          <div className="dash-more-section">
-            <p className="dash-section-label">MORE FROM PIXNXT</p>
-            <div className="dash-blog-card">
-              <img
-                src="https://images.unsplash.com/photo-1493863641943-9b68992a8d07?auto=format&fit=crop&w=800&q=80"
-                alt="Blog post - New website templates"
-                className="dash-blog-image"
-                loading="lazy"
-                decoding="async"
-              />
-              <div className="dash-blog-content">
-                <p className="dash-blog-label">PIXNXT BLOG</p>
-                <h3 className="dash-blog-title">
-                  📂 New website templates, custom fonts, blog migration, and more
-                </h3>
-                <p className="dash-blog-excerpt">
-                  Our latest updates bring powerful new tools to design, customize,
-                  and manage your Pixnxt website. With 3 gorgeous new website
-                  templates, support for custom fonts, shareable block designs,
-                  ready-made landing pages, blog migration, and more — building
-                  and updating your site is easier than ever.
-                </p>
-                <p className="dash-blog-date">Jan 28th, 2026</p>
+              <div className="dash-quick-card-body">
+                <h3>Invite friends & get $20</h3>
+                <p>Earn referral credits for every friend you refer</p>
+                <button className="dash-get-started-btn" onClick={() => navigate('/account/refer')}>
+                  Refer a Friend
+                </button>
               </div>
             </div>
           </div>
@@ -467,7 +419,7 @@ const Dashboard = () => {
           <div className="dash-footer-info">
             <div className="dash-footer-block">
               <div className="dash-footer-block-icon">
-                <LifeBuoyIcon />
+                <img src={dashboardHelpPng} alt="Help Center" />
               </div>
               <h3>We're Here for You</h3>
               <p>
@@ -477,7 +429,7 @@ const Dashboard = () => {
             </div>
             <div className="dash-footer-block">
               <div className="dash-footer-block-icon">
-                <HeartIcon />
+                <img src={heartPng} alt="Invite Friends" />
               </div>
               <h3>Invite friends & get $20</h3>
               <p>

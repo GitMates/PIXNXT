@@ -5,8 +5,8 @@
 :root {
   --dash-font: 'Lato', 'proxima-nova', 'Lucida Sans Unicode', 'Lucida Grande', sans-serif;
   --dash-font-serif: 'Times New Roman', Times, serif;
-  --dash-accent: #1abc9c;
-  --dash-accent-hover: #16a085;
+  --dash-accent: #8e8e93; /* Ash gray colour */
+  --dash-accent-hover: #7a7a7e; /* Ash gray hover */
   --dash-text: #333333;
   --dash-text-secondary: #939393;
   --dash-text-link: #777777;
@@ -120,9 +120,13 @@
   color: var(--dash-text);
 }
 
-.dash-nav-icon svg {
-  width: 20px;
-  height: 20px;
+.dash-nav-icon svg,
+.dash-nav-icon img,
+.dash-nav-icon-img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
 }
 
 /* Profile Avatar */
@@ -130,7 +134,7 @@
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background-color: var(--dash-accent);
+  background-color: #8e8e93; /* Ash gray colour */
   color: #fff;
   display: flex;
   align-items: center;
@@ -141,12 +145,12 @@
   border: none;
   transition: transform 0.2s, box-shadow 0.2s;
   position: relative;
-  font-family: var(--dash-font);
+  font-family: var(--dash-font-serif);
 }
 
 .dash-profile-btn:hover {
   transform: scale(1.05);
-  box-shadow: 0 2px 8px rgba(26, 188, 156, 0.3);
+  box-shadow: 0 2px 8px rgba(142, 142, 147, 0.4);
 }
 
 /* Profile Dropdown */
@@ -191,7 +195,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: var(--dash-accent);
+  background-color: #8e8e93; /* Ash gray colour */
   color: #fff;
   display: flex;
   align-items: center;
@@ -199,6 +203,7 @@
   font-size: 18px;
   font-weight: 600;
   flex-shrink: 0;
+  font-family: var(--dash-font-serif);
 }
 
 .dash-dropdown-user-info h4 {
@@ -453,6 +458,13 @@
   height: 18px;
 }
 
+.dash-quick-card-header img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
 /* Colored header icons to match Pixieset */
 .dash-quick-card-header.teal-icon svg {
   color: var(--dash-accent);
@@ -659,6 +671,13 @@
   stroke-width: 1;
 }
 
+.dash-footer-block-icon img {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
 .dash-footer-block h3 {
   font-size: 18px;
   font-weight: 600;
@@ -732,5 +751,108 @@
     letter-spacing: 4px;
   }
 }
+
+/* ===== Premium UI Enhancements & Animations ===== */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes wiggle {
+  0%, 100% { transform: rotate(0deg); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
+}
+
+/* Apply staggered entrance animations */
+.dash-welcome {
+  animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.dash-products-grid {
+  animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.1s;
+}
+
+.dash-quick-grid {
+  animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.2s;
+}
+
+.dash-footer-info {
+  animation: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: 0.3s;
+}
+
+/* Card hover scaling and transitions */
+.dash-quick-card {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease !important;
+}
+
+.dash-quick-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Product cards hover visual lift */
+.dash-product-card {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dash-product-card:hover {
+  transform: translateY(-8px);
+}
+
+.dash-product-icon {
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.dash-product-card:hover .dash-product-icon {
+  transform: scale(1.06);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+}
+
+/* Header hover interaction */
+.dash-nav-icon img {
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.dash-nav-icon:hover img {
+  transform: scale(1.15) rotate(8deg);
+}
+
+/* Interactive Refer a Friend Link */
+.dash-quick-link-item {
+  transition: background-color 0.3s ease, transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), padding-left 0.3s ease !important;
+  border-radius: 4px;
+}
+
+.dash-quick-link-item:hover {
+  background-color: #fafbfc;
+  transform: translateX(4px);
+  padding-left: 8px;
+}
+
+.dash-quick-link-item:hover .dash-quick-link-icon {
+  animation: wiggle 0.5s ease-in-out infinite alternate;
+}
+
 
 
