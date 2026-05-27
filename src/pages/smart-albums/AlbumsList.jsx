@@ -2,14 +2,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import { getSampleImageForPage } from '../../components/smart-albums/sampleAlbumImages';
+import { getAlbumListThumbnailUrl } from '../../components/smart-albums/albumPagePhotos';
 import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu';
 import '../ClientGallery.css';
 import './SmartAlbums.css';
 
 function getAlbumThumbSrc(album) {
     if (album.cover_image_url) return album.cover_image_url;
-    return getSampleImageForPage(1);
+    return getAlbumListThumbnailUrl(album.id);
 }
 
 function formatAlbumDate(dateStr) {
