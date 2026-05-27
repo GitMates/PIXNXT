@@ -1,4 +1,4 @@
-﻿.cf-form-title {
+.cf-form-title {
     font-family: 'Roboto', system-ui, sans-serif;
 }
 
@@ -8,7 +8,7 @@
     padding: 12px;
     border-radius: 8px;
     margin-bottom: 24px;
-    font-size: 14px;
+    font-size: 16px;
     border: 1px solid #fee2e2;
 }
 
@@ -30,7 +30,7 @@
 }
 
 .cf-toggle-label {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: #111;
     display: inline-flex;
@@ -46,7 +46,7 @@
     height: 14px;
     border-radius: 50%;
     border: 1px solid #bbb;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     font-style: italic;
     color: #888;
@@ -94,8 +94,9 @@
     transition: transform 0.2s;
 }
 
+
 .cf-toggle input:checked + .cf-toggle-slider {
-    background-color: #1a9b84;
+    background-color: #8BDFDD;
 }
 
 .cf-toggle input:checked + .cf-toggle-slider::before {
@@ -103,7 +104,7 @@
 }
 
 .cf-toggle-state {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: #666;
     min-width: 24px;

@@ -1,4 +1,4 @@
-﻿@tailwind components;
+@tailwind components;
 
 @layer components {
   .cg-style-1 {
@@ -42,11 +42,11 @@
   }
 
   .cg-style-11 {
-    @apply flex items-center gap-2 bg-[#1a9b84] text-white border-none rounded-l-[3px] px-5 h-[38px] text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#147d6a] max-md:px-4 max-md:text-[13px] max-md:h-[36px];
+    @apply flex items-center gap-2 bg-[#8BDFDD] text-[#222] border-none rounded-l-[3px] px-5 h-[38px] text-[15px] font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#8BDFDD] max-md:px-4 max-md:text-[14px] max-md:h-[36px];
   }
 
   .cg-style-12 {
-    @apply flex items-center justify-center bg-[#147d6a] text-white border-none border-l border-white/25 rounded-r-[3px] w-[36px] h-[38px] cursor-pointer transition-colors duration-200 hover:bg-[#106354] max-md:h-[36px];
+    @apply flex items-center justify-center bg-[#8BDFDD] text-[#222] border-none border-l border-white/25 rounded-r-[3px] w-[36px] h-[38px] cursor-pointer transition-colors duration-200 hover:bg-[#8BDFDD] max-md:h-[36px];
   }
 
   .cg-style-13 {
@@ -82,7 +82,7 @@
   }
 
   .cg-filter-chip--active {
-    @apply bg-[#e8f7f2] border border-[#b8e8d8] shadow-[0_2px_8px_rgba(0,0,0,0.04)];
+    @apply bg-[#eefaf9] border border-[#bceceb] shadow-[0_2px_8px_rgba(0,0,0,0.04)];
   }
 
   .cg-filter-chip-clear {
@@ -90,7 +90,7 @@
   }
 
   .cg-filter-clear-all {
-    @apply border-none bg-transparent p-0 text-[13px] font-medium text-[#1a9b84] cursor-pointer whitespace-nowrap hover:underline;
+    @apply border-none bg-transparent p-0 text-[13px] font-medium text-[#44aaa7] cursor-pointer whitespace-nowrap hover:underline;
   }
 
   .cg-filter-clear-all--inline {
@@ -106,11 +106,11 @@
   }
 
   .cg-calendar-day--in-range {
-    @apply bg-[#e8f7f2] text-[#333];
+    @apply bg-[#eefaf9] text-[#333];
   }
 
   .cg-calendar-day--endpoint {
-    @apply bg-[#1a9b84] text-white font-semibold;
+    @apply bg-[#8BDFDD] text-[#222] font-semibold;
   }
 
   .cg-calendar-day--today:not(.cg-calendar-day--endpoint) {
@@ -309,7 +309,7 @@
   }
 
   .cg-style-63 {
-    @apply bg-[#1a9b84] text-white border-none rounded-[3px] px-7 py-3 text-sm font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#147d6a];
+    @apply bg-[#8BDFDD] text-[#222] border-none rounded-[3px] px-7 py-3 text-[15px] font-semibold cursor-pointer transition-colors duration-200 hover:bg-[#8BDFDD];
   }
 
   .cg-style-64 {
@@ -353,7 +353,7 @@
   }
 
   .cg-style-71.cg-sort-active {
-    @apply text-[#1a9b84] font-semibold bg-[#e8f7f2];
+    @apply text-[#44aaa7] font-semibold bg-[#eefaf9];
   }
 
   .cg-style-72 {
@@ -369,7 +369,7 @@
   }
 
   .cg-style-74--selected {
-    @apply border-[3px] border-[#1a9b84] rounded-md;
+    @apply border-[3px] border-[#8BDFDD] rounded-md;
   }
 
   .cg-style-74 img {

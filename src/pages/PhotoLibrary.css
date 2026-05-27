@@ -1,4 +1,4 @@
-﻿.pl-main {
+.pl-main {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -16,7 +16,7 @@
 }
 
 .pl-title {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 700;
     color: #333;
     margin: 0;
@@ -50,7 +50,7 @@
     border: none;
     background: transparent;
     outline: none;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 500;
     color: #444;
     width: 100%;
@@ -96,34 +96,35 @@
 }
 
 .pl-empty-title {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: #333;
     margin: 0 0 12px 0;
 }
 
 .pl-empty-text {
-    font-size: 15px;
+    font-size: 17px;
     color: #666;
     text-align: center;
     line-height: 1.6;
     margin: 0 0 24px 0;
 }
 
+
 .pl-new-btn {
-    background-color: #1a9b84;
-    color: #fff;
+    background-color: #8BDFDD;
+    color: #222;
     border: none;
     border-radius: 0;
     padding: 12px 24px;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     cursor: pointer;
     transition: background-color 0.2s;
 }
 
 .pl-new-btn:hover {
-    background-color: #147d6a;
+    background-color: #8BDFDD;
 }
 
 /* ============================================================
@@ -139,7 +140,7 @@
     }
 
     .pl-title {
-        font-size: 20px !important;
+        font-size: 22px !important;
         margin-bottom: 8px !important;
         width: 100% !important;
         position: relative !important;

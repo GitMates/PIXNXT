@@ -47,12 +47,12 @@ export default function AccountSettings() {
     }, []);
 
     return (
-        <div className="w-full min-h-screen bg-white text-[#111] font-['Roboto',sans-serif]">
+        <div className="w-full min-h-screen bg-white text-[#111]">
             {/* Top Navigation */}
             <div className="w-full h-[80px] border-b border-[#cccccc] bg-[#f5f5f5] flex items-center justify-between px-10">
                 <div className="flex items-center">
                     <div 
-                        className="text-[17px] font-medium cursor-pointer text-[#111]" 
+                        className="text-[19px] font-medium cursor-pointer text-[#111]" 
                         style={{ letterSpacing: '8px', marginRight: '60px' }}
                         onClick={() => navigate('/dashboard')}
                     >
@@ -62,7 +62,7 @@ export default function AccountSettings() {
                     {/* Account Dropdown Trigger */}
                     <div className="relative" ref={dropdownRef}>
                         <div 
-                            className="flex items-center gap-1.5 text-[14px] text-[#444] cursor-pointer hover:text-[#111] font-medium"
+                            className="flex items-center gap-1.5 text-[16px] text-[#444] cursor-pointer hover:text-[#111] font-medium"
                             onClick={() => setShowDropdown(!showDropdown)}
                         >
                             Account
@@ -87,8 +87,8 @@ export default function AccountSettings() {
                                         </svg>
                                     </div>
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[15px] font-semibold text-[#111]">Client Gallery</span>
-                                        <span className="text-xs text-[#888] leading-[1.4]">Better way to share, deliver, proof and sell</span>
+                                        <span className="text-[17px] font-semibold text-[#111]">Client Gallery</span>
+                                        <span className="text-[14px] text-[#888] leading-[1.4]">Better way to share, deliver, proof and sell</span>
                                     </div>
                                 </div>
                                 <div
@@ -107,8 +107,8 @@ export default function AccountSettings() {
                                         </svg>
                                     </div>
                                     <div className="flex flex-col gap-0.5">
-                                        <span className="text-[15px] font-semibold text-[#111]">Smart Albums</span>
-                                        <span className="text-xs text-[#888] leading-[1.4]">Design and deliver beautiful photo albums</span>
+                                        <span className="text-[17px] font-semibold text-[#111]">Smart Albums</span>
+                                        <span className="text-[14px] text-[#888] leading-[1.4]">Design and deliver beautiful photo albums</span>
                                     </div>
                                 </div>
                                 <div className="h-px bg-[#f0f0f0] my-2" />
@@ -125,7 +125,7 @@ export default function AccountSettings() {
                                         <rect x="14" y="14" width="7" height="7" />
                                         <rect x="3" y="14" width="7" height="7" />
                                     </svg>
-                                    <span className="text-sm font-medium text-[#333]">View Dashboard</span>
+                                    <span className="text-[16px] font-medium text-[#333]">View Dashboard</span>
                                 </div>
                             </div>
                         )}
@@ -144,7 +144,7 @@ export default function AccountSettings() {
                         <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                     </svg>
                     <div 
-                        className="rounded-full bg-[#e8f7f2] text-[#1a9b84] flex items-center justify-center text-[14px] font-medium cursor-pointer"
+                        className="rounded-full bg-[#e8f7f2] text-[#1a9b84] flex items-center justify-center text-[16px] font-medium cursor-pointer"
                         style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', flexShrink: 0 }}
                     >
                         {userInitial}
@@ -156,35 +156,35 @@ export default function AccountSettings() {
             <div className="w-full border-b border-[#cccccc] bg-[#fafafa]">
                 <div className="flex gap-8 px-10 pt-1">
                     <button 
-                        className={`py-3 text-[14px] transition-colors relative ${activeTab === 'profile' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
+                        className={`py-3 text-[16px] transition-colors relative ${activeTab === 'profile' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
                         onClick={() => navigate('/account/profile')}
                     >
                         Profile
                         {activeTab === 'profile' && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#1a9b84]" />}
                     </button>
                     <button 
-                        className={`py-3 text-[14px] transition-colors relative ${activeTab === 'account' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
+                        className={`py-3 text-[16px] transition-colors relative ${activeTab === 'account' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
                         onClick={() => navigate('/account/account')}
                     >
                         Account
                         {activeTab === 'account' && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#1a9b84]" />}
                     </button>
                     <button 
-                        className={`py-3 text-[14px] transition-colors relative ${activeTab === 'billing' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
+                        className={`py-3 text-[16px] transition-colors relative ${activeTab === 'billing' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
                         onClick={() => navigate('/account/billing')}
                     >
                         Billing
                         {activeTab === 'billing' && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#1a9b84]" />}
                     </button>
                     <button 
-                        className={`py-3 text-[14px] transition-colors relative ${activeTab === 'advanced' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
+                        className={`py-3 text-[16px] transition-colors relative ${activeTab === 'advanced' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
                         onClick={() => navigate('/account/advanced')}
                     >
                         Advanced Settings
                         {activeTab === 'advanced' && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#1a9b84]" />}
                     </button>
                     <button 
-                        className={`py-3 text-[14px] transition-colors relative ${activeTab === 'refer' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
+                        className={`py-3 text-[16px] transition-colors relative ${activeTab === 'refer' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
                         onClick={() => navigate('/account/refer')}
                     >
                         Refer a Friend
@@ -200,11 +200,11 @@ export default function AccountSettings() {
                     {activeTab === 'account' && <AccountTab user={user} showToast={showToast} />}
                     {activeTab === 'billing' && <BillingTab user={user} showToast={showToast} />}
                     {activeTab === 'advanced' && <AdvancedTab user={user} showToast={showToast} />}
-                    {activeTab === 'refer' && <div className="text-[#888]">Refer a Friend Coming Soon</div>}
+                    {activeTab === 'refer' && <ReferTab user={user} showToast={showToast} />}
                 </div>
             </div>
             {toastMessage && (
-                <div className="fixed bottom-6 right-6 bg-[#1a9b84] text-white px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-[13px] font-medium transition-all duration-300 z-[9999] flex items-center gap-2" style={{ animation: 'cgFadeIn 0.25s ease-out' }}>
+                <div className="fixed bottom-6 right-6 bg-[#1a9b84] text-white px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-[15px] font-medium transition-all duration-300 z-[9999] flex items-center gap-2" style={{ animation: 'cgFadeIn 0.25s ease-out' }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>
@@ -444,14 +444,14 @@ function ProfileTab({ user, showToast }) {
                 }
             `}</style>
             <div>
-                <h1 className="text-[28px] font-normal text-[#111] mb-8 pb-4 border-b border-[#f1f1f1]">Profile</h1>
+                <h1 className="text-[30px] font-normal text-[#111] mb-8 pb-4 border-b border-[#f1f1f1]">Profile</h1>
                 
                 {/* Business Details */}
-                <h2 className="text-[11px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">BUSINESS DETAILS</h2>
+                <h2 className="text-[13px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">BUSINESS DETAILS</h2>
                 
                 <div className="flex flex-col gap-8 w-full">
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Profile Icon</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Profile Icon</label>
                         <div 
                             className="profile-upload-box" 
                             onClick={handleIconClick}
@@ -486,24 +486,24 @@ function ProfileTab({ user, showToast }) {
                                 </div>
                             )}
                         </div>
-                        <p className="text-[13px] text-[#888] leading-relaxed">Your profile icon is a center cropped square icon shown on your galleries, homepage<br/>and applicable places. Tip: make your image a square image before uploading.</p>
+                        <p className="text-[15px] text-[#888] leading-relaxed">Your profile icon is a center cropped square icon shown on your galleries, homepage<br/>and applicable places. Tip: make your image a square image before uploading.</p>
                     </div>
 
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Business Name</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Business Name</label>
                         <input 
                             type="text" 
                             name="business_name"
                             value={formData.business_name}
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('business_name', e.target.value)}
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
-                        <p className="text-[13px] text-[#888] mt-2">Your business name is shown on your homepage, collections, email notifications and more.</p>
+                        <p className="text-[15px] text-[#888] mt-2">Your business name is shown on your homepage, collections, email notifications and more.</p>
                     </div>
 
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">First Name</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">First Name</label>
                         <input 
                             type="text" 
                             name="first_name"
@@ -511,51 +511,51 @@ function ProfileTab({ user, showToast }) {
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('first_name', e.target.value)}
                             placeholder="Your first name"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
-                        <p className="text-[13px] text-[#888] mt-2">Your first name is shown on your Studio Manager documents including contract signatures.</p>
+                        <p className="text-[15px] text-[#888] mt-2">Your first name is shown on your Studio Manager documents including contract signatures.</p>
                     </div>
 
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Last Name</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Last Name</label>
                         <input 
                             type="text" 
                             name="last_name"
                             value={formData.last_name}
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('last_name', e.target.value)}
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
-                        <p className="text-[13px] text-[#888] mt-2">Your last name is shown on your Studio Manager documents including contract signatures.</p>
+                        <p className="text-[15px] text-[#888] mt-2">Your last name is shown on your Studio Manager documents including contract signatures.</p>
                     </div>
 
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Contact Email</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Contact Email</label>
                         <input 
                             type="email" 
                             name="contact_email"
                             value={formData.contact_email}
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('contact_email', e.target.value)}
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
-                        <p className="text-[13px] text-[#888] mt-2">This email is shown publicly to your clients. This is not your account login email.</p>
+                        <p className="text-[15px] text-[#888] mt-2">This email is shown publicly to your clients. This is not your account login email.</p>
                     </div>
 
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Phone</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Phone</label>
                         <input 
                             type="text" 
                             name="phone"
                             value={formData.phone}
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('phone', e.target.value)}
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
                     </div>
 
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Website</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Website</label>
                         <input 
                             type="text" 
                             name="website"
@@ -563,13 +563,13 @@ function ProfileTab({ user, showToast }) {
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('website', e.target.value)}
                             placeholder="https://"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
-                        <p className="text-[13px] text-[#888] mt-2">Your client will find links back to your website in many places throughout Pixieset. It is important that you enter a valid website</p>
+                        <p className="text-[15px] text-[#888] mt-2">Your client will find links back to your website in many places throughout Pixieset. It is important that you enter a valid website</p>
                     </div>
 
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Biography</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Biography</label>
                         <textarea 
                             name="biography"
                             value={formData.biography}
@@ -578,25 +578,25 @@ function ProfileTab({ user, showToast }) {
                             rows="4"
                             maxLength="500"
                             placeholder="Optional. Max 500 characters."
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] resize-y transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] resize-y transition-colors"
                         ></textarea>
-                        <div className="w-full text-left text-[12px] text-[#888] mt-1">{formData.biography.length} / 500</div>
+                        <div className="w-full text-left text-[14px] text-[#888] mt-1">{formData.biography.length} / 500</div>
                     </div>
                 </div>
             </div>
 
             {/* Business Address */}
             <div className="mt-2">
-                <h2 className="text-[12px] font-bold text-[#999] tracking-[0.1em] uppercase mb-4">BUSINESS ADDRESS</h2>
+                <h2 className="text-[14px] font-bold text-[#999] tracking-[0.1em] uppercase mb-4">BUSINESS ADDRESS</h2>
                 
                 <div className="flex flex-col gap-6 w-full">
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Business Country</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Business Country</label>
                         <select 
                             name="business_country"
                             value={formData.business_country}
                             onChange={(e) => { handleChange(e); handleAutoSave('business_country', e.target.value); }}
-                            className="w-full border border-[#ddd] px-3 py-2 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
+                            className="w-full border border-[#ddd] px-3 py-2 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
                         >
                             <option value="">Select a country</option>
                             <option value="US">United States</option>
@@ -607,7 +607,7 @@ function ProfileTab({ user, showToast }) {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Address Line 1</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Address Line 1</label>
                         <input 
                             type="text" 
                             name="address_line_1"
@@ -615,11 +615,11 @@ function ProfileTab({ user, showToast }) {
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('address_line_1', e.target.value)}
                             placeholder="Street Address"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
                     </div>
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Address Line 2</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Address Line 2</label>
                         <input 
                             type="text" 
                             name="address_line_2"
@@ -627,11 +627,11 @@ function ProfileTab({ user, showToast }) {
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('address_line_2', e.target.value)}
                             placeholder="Unit / Apartment Number"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
                     </div>
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">State / Province</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">State / Province</label>
                         <input 
                             type="text" 
                             name="state_province"
@@ -639,11 +639,11 @@ function ProfileTab({ user, showToast }) {
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('state_province', e.target.value)}
                             placeholder="State / Province"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
                     </div>
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">City</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">City</label>
                         <input 
                             type="text" 
                             name="city"
@@ -651,11 +651,11 @@ function ProfileTab({ user, showToast }) {
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('city', e.target.value)}
                             placeholder="City"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
                     </div>
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Zip / Postal Code</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Zip / Postal Code</label>
                         <input 
                             type="text" 
                             name="zip_postal_code"
@@ -663,7 +663,7 @@ function ProfileTab({ user, showToast }) {
                             onChange={handleChange}
                             onBlur={(e) => handleAutoSave('zip_postal_code', e.target.value)}
                             placeholder="Zip / Postal"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                         />
                     </div>
                 </div>
@@ -671,16 +671,16 @@ function ProfileTab({ user, showToast }) {
 
             {/* Standards & Formats */}
             <div className="mt-2">
-                <h2 className="text-[12px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">STANDARDS & FORMATS</h2>
+                <h2 className="text-[14px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">STANDARDS & FORMATS</h2>
                 
                 <div className="flex flex-col gap-6 w-full">
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Time Zone</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Time Zone</label>
                         <select 
                             name="time_zone"
                             value={formData.time_zone}
                             onChange={(e) => { handleChange(e); handleAutoSave('time_zone', e.target.value); }}
-                            className="w-full border border-[#ddd] px-3 py-2 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
+                            className="w-full border border-[#ddd] px-3 py-2 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
                         >
                             <option value="(GMT-08:00) Pacific Time (US & Canada)">(GMT-08:00) Pacific Time (US & Canada)</option>
                             <option value="(GMT-05:00) Eastern Time (US & Canada)">(GMT-05:00) Eastern Time (US & Canada)</option>
@@ -691,12 +691,12 @@ function ProfileTab({ user, showToast }) {
                     </div>
                     
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Preferred Date Format</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Preferred Date Format</label>
                         <select 
                             name="preferred_date_format"
                             value={formData.preferred_date_format}
                             onChange={(e) => { handleChange(e); handleAutoSave('preferred_date_format', e.target.value); }}
-                            className="w-full border border-[#ddd] px-3 py-2 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
+                            className="w-full border border-[#ddd] px-3 py-2 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
                         >
                             <option value="mm/dd/yyyy">mm/dd/yyyy</option>
                             <option value="dd/mm/yyyy">dd/mm/yyyy</option>
@@ -708,7 +708,7 @@ function ProfileTab({ user, showToast }) {
 
             {/* Social */}
             <div className="mt-2">
-                <h2 className="text-[12px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">SOCIAL</h2>
+                <h2 className="text-[14px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">SOCIAL</h2>
                 
                 <div className="flex flex-col gap-6 w-full">
                     {[
@@ -770,7 +770,7 @@ function ProfileTab({ user, showToast }) {
                         }
                     ].map(social => (
                         <div key={social.name}>
-                            <label className="flex items-center gap-2 text-[15px] font-bold text-[#111] mb-2">
+                            <label className="flex items-center gap-2 text-[17px] font-bold text-[#111] mb-2">
                                 <span className="flex items-center w-[18px] h-[18px] justify-center">{social.icon}</span>
                                 <span>{social.label}</span>
                             </label>
@@ -781,7 +781,7 @@ function ProfileTab({ user, showToast }) {
                                 onChange={handleChange}
                                 onBlur={(e) => handleAutoSave(social.name, e.target.value)}
                                 placeholder="e.g. mydomain.com"
-                                className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                             />
                         </div>
                     ))}
@@ -992,17 +992,17 @@ function AccountTab({ user, showToast }) {
     return (
         <div className="flex flex-col gap-12 pb-20 relative">
             <div>
-                <h1 className="text-[28px] font-normal text-[#111] mb-8 pb-4 border-b border-[#f1f1f1]">Account</h1>
+                <h1 className="text-[30px] font-normal text-[#111] mb-8 pb-4 border-b border-[#f1f1f1]">Account</h1>
                 
                 {/* Account Info */}
-                <h2 className="text-[11px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">ACCOUNT INFO</h2>
+                <h2 className="text-[13px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">ACCOUNT INFO</h2>
                 
                 <div className="flex flex-col gap-8 w-full">
                     {/* Username */}
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Username</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Username</label>
                         <div className="w-full bg-[#f9f9f9] border border-[#f1f1f1] px-4 py-3 flex justify-between items-center group transition-colors hover:border-[#ddd]">
-                            <span className="text-[15px] text-[#111]">{formData.homepage_slug}</span>
+                            <span className="text-[17px] text-[#111]">{formData.homepage_slug}</span>
                             <svg 
                                 width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
                                 className="cursor-pointer opacity-80 hover:opacity-100 flex-shrink-0 ml-2"
@@ -1015,7 +1015,7 @@ function AccountTab({ user, showToast }) {
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                             </svg>
                         </div>
-                        <p className="text-[13px] text-[#888] mt-2">
+                        <p className="text-[15px] text-[#888] mt-2">
                             Your Homepage will be at{' '}
                             <a 
                                 href={getDynamicHomepageUrl(formData.homepage_slug)} 
@@ -1030,7 +1030,7 @@ function AccountTab({ user, showToast }) {
 
                     {/* Account Email */}
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Account Email</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Account Email</label>
                         
                         <div className="bg-[#fff9e6] border border-[#ffecb3] p-4 flex gap-3 mb-4 rounded-[2px]">
                             <div className="mt-0.5">
@@ -1038,13 +1038,13 @@ function AccountTab({ user, showToast }) {
                                     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
                                 </svg>
                             </div>
-                            <div className="text-[13px] text-[#333] font-medium leading-relaxed">
+                            <div className="text-[15px] text-[#333] font-medium leading-relaxed">
                                 Your email address has not been verified. To keep your account safe and secure, we've sent an email to verify your email address and activate your account. <span className="text-[#1a9b84] cursor-pointer hover:underline">Resend confirmation email.</span>
                             </div>
                         </div>
 
                         <div className="w-full bg-[#f9f9f9] border border-[#f1f1f1] px-4 py-3 flex justify-between items-center group transition-colors hover:border-[#ddd]">
-                            <span className="text-[15px] text-[#111]">{formData.email}</span>
+                            <span className="text-[17px] text-[#111]">{formData.email}</span>
                             <svg 
                                 width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
                                 className="cursor-pointer opacity-80 hover:opacity-100 flex-shrink-0 ml-2"
@@ -1054,24 +1054,24 @@ function AccountTab({ user, showToast }) {
                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
                             </svg>
                         </div>
-                        <p className="text-[13px] text-[#888] mt-2">You will receive important notifications at this email, and your client will see this email where applicable.</p>
+                        <p className="text-[15px] text-[#888] mt-2">You will receive important notifications at this email, and your client will see this email where applicable.</p>
                     </div>
 
                     {/* Account Password */}
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Account Password</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Account Password</label>
                         <div className="w-full border border-[#f1f1f1] p-2 flex justify-between items-center bg-white">
-                            <span className={`text-[15px] px-2 ${formData.login_password_set ? 'text-[#111]' : 'text-[#999]'}`}>
+                            <span className={`text-[17px] px-2 ${formData.login_password_set ? 'text-[#111]' : 'text-[#999]'}`}>
                                 {formData.login_password_set ? 'Password set' : 'No Password set'}
                             </span>
                             <button 
                                 onClick={() => setShowPasswordModal(true)}
-                                className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[14px] font-medium px-4 py-2 transition-colors rounded-[2px]"
+                                className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[16px] font-medium px-4 py-2 transition-colors rounded-[2px]"
                             >
                                 {formData.login_password_set ? 'Change Password' : 'Set a Password'}
                             </button>
                         </div>
-                        <p className="text-[13px] text-[#888] mt-2">
+                        <p className="text-[15px] text-[#888] mt-2">
                             {formData.login_password_set 
                                 ? 'Your password is set, you can use it to log in alongside your social connections.' 
                                 : "Your password is not set, once you create it you'll be able to log in using it as well."}
@@ -1080,7 +1080,7 @@ function AccountTab({ user, showToast }) {
 
                     {/* Social Login */}
                     <div>
-                        <label className="block text-[15px] font-bold text-[#111] mb-2">Social Login</label>
+                        <label className="block text-[17px] font-bold text-[#111] mb-2">Social Login</label>
                         <div className="border border-[#f1f1f1] bg-white flex flex-col">
                             {/* Google */}
                             <div className="flex justify-between items-center p-3 border-b border-[#f1f1f1]">
@@ -1091,11 +1091,11 @@ function AccountTab({ user, showToast }) {
                                         <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
                                         <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
                                     </svg>
-                                    <span className="text-[15px] font-bold text-[#111]">Google</span>
-                                    <span className="text-[14px] text-[#999]">{formData.google_connected ? 'Connected' : 'Not connected'}</span>
+                                    <span className="text-[17px] font-bold text-[#111]">Google</span>
+                                    <span className="text-[16px] text-[#999]">{formData.google_connected ? 'Connected' : 'Not connected'}</span>
                                 </div>
                                 <button 
-                                    className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[14px] font-medium px-4 py-2 transition-colors rounded-[2px] min-w-[120px]"
+                                    className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[16px] font-medium px-4 py-2 transition-colors rounded-[2px] min-w-[120px]"
                                     onClick={async () => {
                                         const newValue = !formData.google_connected;
                                         setFormData(prev => ({ ...prev, google_connected: newValue }));
@@ -1113,11 +1113,11 @@ function AccountTab({ user, showToast }) {
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="#000000" xmlns="http://www.w3.org/2000/svg">
                                         <path d="M17.05 13.92c-.023-1.944 1.583-2.894 1.656-2.94-1.258-1.841-3.21-2.091-3.922-2.115-1.66-.17-3.242 1.002-4.088 1.002-.858 0-2.164-1.01-3.56-1.01-1.83 0-3.524 1.066-4.464 2.716-1.905 3.303-.487 8.2 1.365 10.876.908 1.31 1.977 2.775 3.407 2.723 1.385-.05 1.907-.893 3.525-.893 1.606 0 2.096.893 3.537.868 1.488-.025 2.417-1.318 3.313-2.636 1.037-1.517 1.464-2.983 1.484-3.058-.032-.014-2.222-.853-2.253-5.533zM15.467 4.966c.773-.935 1.293-2.235 1.15-3.533-1.11.045-2.455.74-3.25 1.67-.714.832-1.336 2.155-1.173 3.432 1.238.096 2.5-.66 3.273-1.569z"/>
                                     </svg>
-                                    <span className="text-[15px] font-bold text-[#111]">Apple</span>
-                                    <span className="text-[14px] text-[#999]">{formData.apple_connected ? 'Connected' : 'Not connected'}</span>
+                                    <span className="text-[17px] font-bold text-[#111]">Apple</span>
+                                    <span className="text-[16px] text-[#999]">{formData.apple_connected ? 'Connected' : 'Not connected'}</span>
                                 </div>
                                 <button 
-                                    className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[14px] font-medium px-4 py-2 transition-colors rounded-[2px] min-w-[120px]"
+                                    className="bg-[#f5f5f5] hover:bg-[#ebebeb] text-[#333] text-[16px] font-medium px-4 py-2 transition-colors rounded-[2px] min-w-[120px]"
                                     onClick={async () => {
                                         const newValue = !formData.apple_connected;
                                         setFormData(prev => ({ ...prev, apple_connected: newValue }));
@@ -1134,12 +1134,12 @@ function AccountTab({ user, showToast }) {
 
                 {/* Account Security */}
                 <div className="mt-14">
-                    <h2 className="text-[11px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">ACCOUNT SECURITY</h2>
+                    <h2 className="text-[13px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">ACCOUNT SECURITY</h2>
                     
                     <div className="flex flex-col gap-10 w-full">
                         {/* Two-Factor Authentication */}
                         <div>
-                            <h3 className="text-[15px] font-bold text-[#111] mb-4">Two-Factor Authentication</h3>
+                            <h3 className="text-[17px] font-bold text-[#111] mb-4">Two-Factor Authentication</h3>
                             <div className="flex items-center gap-3 mb-4">
                                 <button 
                                     className={`w-[48px] h-[24px] rounded-full relative transition-colors ${formData.two_factor_enabled ? 'bg-[#1a9b84]' : 'bg-[#e0e0e0]'}`}
@@ -1147,27 +1147,27 @@ function AccountTab({ user, showToast }) {
                                 >
                                     <div className={`absolute top-1 left-1 w-[16px] h-[16px] rounded-full bg-white transition-transform ${formData.two_factor_enabled ? 'translate-x-[24px]' : 'translate-x-0'}`}></div>
                                 </button>
-                                <span className={`text-[14px] ${formData.two_factor_enabled ? 'text-[#1a9b84]' : 'text-[#999]'}`}>
+                                <span className={`text-[16px] ${formData.two_factor_enabled ? 'text-[#1a9b84]' : 'text-[#999]'}`}>
                                     {formData.two_factor_enabled ? 'Enabled' : 'Disabled'}
                                 </span>
                             </div>
-                            <p className="text-[13px] text-[#888] leading-relaxed">
+                            <p className="text-[15px] text-[#888] leading-relaxed">
                                 Two-factor authentication adds an extra layer of protection by requiring a verification code when you log in to your account with an email address and password. <span className="text-[#1a9b84] cursor-pointer hover:underline">Learn more</span>
                             </p>
                         </div>
 
                         {/* Your Devices / Browsers */}
                         <div>
-                            <h3 className="text-[15px] font-bold text-[#111] mb-6">Your Devices / Browsers</h3>
+                            <h3 className="text-[17px] font-bold text-[#111] mb-6">Your Devices / Browsers</h3>
                             <div className="w-full">
-                                <div className="flex items-center border-b border-[#f1f1f1] pb-3 text-[13px] font-bold text-[#111]">
+                                <div className="flex items-center border-b border-[#f1f1f1] pb-3 text-[15px] font-bold text-[#111]">
                                     <div className="w-[40%]">Device</div>
                                     <div className="w-[30%]">Last Active</div>
                                     <div className="w-[30%]">IP Address</div>
                                 </div>
                                 
                                 {formData.active_sessions.map((session, idx) => (
-                                    <div key={session.id || idx} className="flex items-center border-b border-[#f1f1f1] py-4 text-[14px] group">
+                                    <div key={session.id || idx} className="flex items-center border-b border-[#f1f1f1] py-4 text-[16px] group">
                                         <div className="w-[40%] text-[#333]">{session.device}</div>
                                         <div className={`w-[30%] ${idx === 0 ? 'text-[#1a9b84]' : 'text-[#666]'}`}>
                                             {idx === 0 ? 'Current session' : session.lastActive}
@@ -1194,8 +1194,8 @@ function AccountTab({ user, showToast }) {
 
                 {/* Manage Account */}
                 <div className="mt-14">
-                    <h2 className="text-[11px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">MANAGE ACCOUNT</h2>
-                    <p className="text-[14px] text-[#888] leading-relaxed">
+                    <h2 className="text-[13px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">MANAGE ACCOUNT</h2>
+                    <p className="text-[16px] text-[#888] leading-relaxed">
                         Please understand that by deleting your account, all photos, collections, mobile apps and other account data will be permanently deleted. Yes, <span onClick={() => setShowDeleteModal(true)} className="text-[#1a9b84] cursor-pointer hover:underline">delete</span> my account.
                     </p>
                 </div>
@@ -1204,37 +1204,37 @@ function AccountTab({ user, showToast }) {
             {/* Set/Change Password Modal */}
             {showPasswordModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <form onSubmit={handleSetPassword} className="bg-white w-[500px] shadow-lg flex flex-col font-['Roboto',sans-serif]">
+                    <form onSubmit={handleSetPassword} className="bg-white w-[500px] shadow-lg flex flex-col">
                         <div className="px-8 py-6 border-b border-[#f1f1f1]">
-                            <h2 className="text-[13px] font-bold text-[#333] tracking-[0.1em] uppercase">
+                            <h2 className="text-[15px] font-bold text-[#333] tracking-[0.1em] uppercase">
                                 {formData.login_password_set ? 'CHANGE PASSWORD' : 'SET A PASSWORD'}
                             </h2>
                         </div>
                         
                         <div className="p-8 flex flex-col gap-6">
                             {passwordError && (
-                                <div className="text-[13px] text-red-500 bg-red-50 border border-red-200 px-4 py-3 rounded-[2px]">
+                                <div className="text-[15px] text-red-500 bg-red-50 border border-red-200 px-4 py-3 rounded-[2px]">
                                     {passwordError}
                                 </div>
                             )}
                             <div>
-                                <label className="block text-[15px] font-bold text-[#111] mb-2">New Password</label>
+                                <label className="block text-[17px] font-bold text-[#111] mb-2">New Password</label>
                                 <input 
                                     type="password" 
                                     required
                                     value={passwordForm.newPassword}
                                     onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[15px] font-bold text-[#111] mb-2">Confirm Password</label>
+                                <label className="block text-[17px] font-bold text-[#111] mb-2">Confirm Password</label>
                                 <input 
                                     type="password" 
                                     required
                                     value={passwordForm.confirmPassword}
                                     onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                                 />
                             </div>
                         </div>
@@ -1242,7 +1242,7 @@ function AccountTab({ user, showToast }) {
                         <div className="px-8 py-5 flex justify-end items-center gap-4 border-t border-[#f1f1f1] bg-[#fafafa]">
                             <button 
                                 type="button"
-                                className="text-[14px] text-[#666] font-medium hover:text-[#111] transition-colors"
+                                className="text-[16px] text-[#666] font-medium hover:text-[#111] transition-colors"
                                 onClick={() => {
                                     setShowPasswordModal(false);
                                     setPasswordForm({ newPassword: '', confirmPassword: '' });
@@ -1254,7 +1254,7 @@ function AccountTab({ user, showToast }) {
                             <button 
                                 type="submit"
                                 disabled={passwordSaving}
-                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[14px] font-medium px-6 py-2 transition-colors rounded-[2px] disabled:opacity-50"
+                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px] disabled:opacity-50"
                             >
                                 {passwordSaving ? 'Saving...' : 'Save'}
                             </button>
@@ -1266,22 +1266,22 @@ function AccountTab({ user, showToast }) {
             {/* Delete Account Modal */}
             {showDeleteModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <form onSubmit={handleDeleteAccount} className="bg-white w-[500px] shadow-lg flex flex-col font-['Roboto',sans-serif]">
+                    <form onSubmit={handleDeleteAccount} className="bg-white w-[500px] shadow-lg flex flex-col">
                         <div className="px-8 py-6 border-b border-[#f1f1f1]">
-                            <h2 className="text-[13px] font-bold text-[#ff4d4f] tracking-[0.1em] uppercase">DELETE ACCOUNT</h2>
+                            <h2 className="text-[15px] font-bold text-[#ff4d4f] tracking-[0.1em] uppercase">DELETE ACCOUNT</h2>
                         </div>
                         
                         <div className="p-8 flex flex-col gap-6">
-                            <div className="text-[14px] text-[#333] bg-red-50 border border-red-200 px-4 py-3 rounded-[2px] leading-relaxed">
+                            <div className="text-[16px] text-[#333] bg-red-50 border border-red-200 px-4 py-3 rounded-[2px] leading-relaxed">
                                 <strong>Warning:</strong> Deleting your account will permanently delete all of your photos, collections, client galleries, mobile apps, and other related data. This action is completely irreversible.
                             </div>
                             {deleteError && (
-                                <div className="text-[13px] text-red-500 bg-red-50 border border-red-200 px-4 py-3 rounded-[2px]">
+                                <div className="text-[15px] text-red-500 bg-red-50 border border-red-200 px-4 py-3 rounded-[2px]">
                                     {deleteError}
                                 </div>
                             )}
                             <div>
-                                <label className="block text-[15px] font-bold text-[#111] mb-2">
+                                <label className="block text-[17px] font-bold text-[#111] mb-2">
                                     To confirm, type your account email: <strong className="select-all text-[#1a9b84]">{formData.email}</strong>
                                 </label>
                                 <input 
@@ -1290,7 +1290,7 @@ function AccountTab({ user, showToast }) {
                                     value={deleteConfirmEmail}
                                     onChange={(e) => setDeleteConfirmEmail(e.target.value)}
                                     placeholder={formData.email}
-                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#ff4d4f] transition-colors"
+                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#ff4d4f] transition-colors"
                                 />
                             </div>
                         </div>
@@ -1298,7 +1298,7 @@ function AccountTab({ user, showToast }) {
                         <div className="px-8 py-5 flex justify-end items-center gap-4 border-t border-[#f1f1f1] bg-[#fafafa]">
                             <button 
                                 type="button"
-                                className="text-[14px] text-[#666] font-medium hover:text-[#111] transition-colors"
+                                className="text-[16px] text-[#666] font-medium hover:text-[#111] transition-colors"
                                 onClick={() => {
                                     setShowDeleteModal(false);
                                     setDeleteConfirmEmail('');
@@ -1310,7 +1310,7 @@ function AccountTab({ user, showToast }) {
                             <button 
                                 type="submit"
                                 disabled={deleteSaving}
-                                className="bg-[#ff4d4f] hover:bg-[#d9363e] text-white text-[14px] font-medium px-6 py-2 transition-colors rounded-[2px] disabled:opacity-50"
+                                className="bg-[#ff4d4f] hover:bg-[#d9363e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px] disabled:opacity-50"
                             >
                                 {deleteSaving ? 'Deleting...' : 'Delete Account'}
                             </button>
@@ -1322,9 +1322,9 @@ function AccountTab({ user, showToast }) {
             {/* Edit Username Modal */}
             {showUsernameModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <div className="bg-white w-[500px] shadow-lg flex flex-col font-['Roboto',sans-serif]">
+                    <div className="bg-white w-[500px] shadow-lg flex flex-col">
                         <div className="px-8 py-6 border-b border-[#f1f1f1]">
-                            <h2 className="text-[13px] font-bold text-[#333] tracking-[0.1em] uppercase">EDIT USERNAME</h2>
+                            <h2 className="text-[15px] font-bold text-[#333] tracking-[0.1em] uppercase">EDIT USERNAME</h2>
                         </div>
                         
                         <div className="p-8">
@@ -1334,31 +1334,31 @@ function AccountTab({ user, showToast }) {
                                         <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
                                     </svg>
                                 </div>
-                                <div className="text-[14px] text-[#333] leading-relaxed">
+                                <div className="text-[16px] text-[#333] leading-relaxed">
                                     Your username is directly tied to your Pixieset URL (e.g. https://yourusername.pixieset.com). If you change your username, your URLs for existing galleries, portfolio website, and booking site will be immediately changed as well.
                                 </div>
                             </div>
                             
                             <div>
-                                <label className="block text-[15px] font-bold text-[#111] mb-2">New Username</label>
+                                <label className="block text-[17px] font-bold text-[#111] mb-2">New Username</label>
                                 <input 
                                     type="text" 
                                     value={modalUsername}
                                     onChange={(e) => setModalUsername(e.target.value)}
-                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                                 />
                             </div>
                         </div>
                         
                         <div className="px-8 py-5 flex justify-end items-center gap-4 border-t border-[#f1f1f1] bg-[#fafafa]">
                             <button 
-                                className="text-[14px] text-[#666] font-medium hover:text-[#111] transition-colors"
+                                className="text-[16px] text-[#666] font-medium hover:text-[#111] transition-colors"
                                 onClick={() => setShowUsernameModal(false)}
                             >
                                 Cancel
                             </button>
                             <button 
-                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[14px] font-medium px-6 py-2 transition-colors rounded-[2px]"
+                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px]"
                                 onClick={async () => {
                                     setFormData(prev => ({ ...prev, homepage_slug: modalUsername }));
                                     setShowUsernameModal(false);
@@ -1376,9 +1376,9 @@ function AccountTab({ user, showToast }) {
             {/* Edit Email Modal */}
             {showEmailModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <div className="bg-white w-[500px] shadow-lg flex flex-col font-['Roboto',sans-serif]">
+                    <div className="bg-white w-[500px] shadow-lg flex flex-col">
                         <div className="px-8 py-6 border-b border-[#f1f1f1]">
-                            <h2 className="text-[13px] font-bold text-[#333] tracking-[0.1em] uppercase">EDIT ACCOUNT EMAIL</h2>
+                            <h2 className="text-[15px] font-bold text-[#333] tracking-[0.1em] uppercase">EDIT ACCOUNT EMAIL</h2>
                         </div>
                         
                         <div className="p-8">
@@ -1389,21 +1389,21 @@ function AccountTab({ user, showToast }) {
                                             <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
                                         </svg>
                                     </div>
-                                    <div className="text-[14px] text-[#333] leading-relaxed">
+                                    <div className="text-[16px] text-[#333] leading-relaxed">
                                         Your Pixieset account is connected to your Google account. To update your email, you must first disconnect your Google account.
                                     </div>
                                 </div>
                             ) : (
                                 <div>
-                                    <label className="block text-[15px] font-bold text-[#111] mb-2">New Account Email</label>
+                                    <label className="block text-[17px] font-bold text-[#111] mb-2">New Account Email</label>
                                     <input 
                                         type="email" 
                                         value={formData.email}
                                         onChange={handleChange}
                                         name="email"
-                                        className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                        className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
                                     />
-                                    <p className="text-[13px] text-[#888] mt-2">Updating your email will require re-verification.</p>
+                                    <p className="text-[15px] text-[#888] mt-2">Updating your email will require re-verification.</p>
                                 </div>
                             )}
                         </div>
@@ -1411,7 +1411,7 @@ function AccountTab({ user, showToast }) {
                         <div className="px-8 py-5 flex justify-end items-center gap-4 border-t border-[#f1f1f1] bg-[#fafafa]">
                             {formData.google_connected ? (
                                 <button 
-                                    className="text-[14px] text-[#666] font-medium hover:text-[#111] transition-colors"
+                                    className="text-[16px] text-[#666] font-medium hover:text-[#111] transition-colors"
                                     onClick={() => setShowEmailModal(false)}
                                 >
                                     Close
@@ -1419,13 +1419,13 @@ function AccountTab({ user, showToast }) {
                             ) : (
                                 <>
                                     <button 
-                                        className="text-[14px] text-[#666] font-medium hover:text-[#111] transition-colors"
+                                        className="text-[16px] text-[#666] font-medium hover:text-[#111] transition-colors"
                                         onClick={() => setShowEmailModal(false)}
                                     >
                                         Cancel
                                     </button>
                                     <button 
-                                        className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[14px] font-medium px-6 py-2 transition-colors rounded-[2px]"
+                                        className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px]"
                                         onClick={async () => {
                                             setShowEmailModal(false);
                                             await handleAutoSave('contact_email', formData.email);
@@ -1571,19 +1571,19 @@ function BillingTab({ user, showToast }) {
     };
 
     return (
-        <div className="flex flex-col gap-10 pb-20 font-['Roboto',sans-serif] text-[#111]">
+        <div className="flex flex-col gap-10 pb-20 text-[#111]">
             {/* Header */}
             <div>
-                <h1 className="text-[26px] font-light text-[#222] mb-1">Billing</h1>
+                <h1 className="text-[28px] font-light text-[#222] mb-1">Billing</h1>
             </div>
 
             {/* Current Subscriptions */}
             <div className="bg-white border border-[#eeeeee] rounded-[2px] p-8">
-                <h2 className="text-[17px] font-medium text-[#222] mb-6">Current Subscriptions</h2>
+                <h2 className="text-[19px] font-medium text-[#222] mb-6">Current Subscriptions</h2>
                 
                 <div className="w-full">
                     {/* Table Header */}
-                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] pb-3 border-b border-[#f1f1f1] text-[11px] font-bold text-[#888] uppercase tracking-wider">
+                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] pb-3 border-b border-[#f1f1f1] text-[13px] font-bold text-[#888] uppercase tracking-wider">
                         <div>Product</div>
                         <div>Plan</div>
                         <div>Details</div>
@@ -1591,7 +1591,7 @@ function BillingTab({ user, showToast }) {
                     </div>
 
                     {/* Row 1: Client Gallery */}
-                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] py-5 border-b border-[#f1f1f1] items-center text-[14px]">
+                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] py-5 border-b border-[#f1f1f1] items-center text-[16px]">
                         <div className="flex items-center gap-3.5">
                             <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-[#e8f7f2]">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
@@ -1599,7 +1599,7 @@ function BillingTab({ user, showToast }) {
                             <span className="font-medium text-[#222]">Client Gallery</span>
                         </div>
                         <div className="text-[#444] font-medium">Free</div>
-                        <div className="text-[#666] leading-relaxed text-[13px] flex flex-col gap-0.5">
+                        <div className="text-[#666] leading-relaxed text-[15px] flex flex-col gap-0.5">
                             <div>• 3 GB photo ({formatStorageText(storageUsedBytes)})</div>
                             <div>• 15% Store commission</div>
                             <div>• Limited mobile apps</div>
@@ -1607,7 +1607,7 @@ function BillingTab({ user, showToast }) {
                         <div className="text-right">
                             <button 
                                 onClick={() => { setSelectedUpgradeProduct('Client Gallery'); setShowUpgradeModal(true); }}
-                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[13px] font-medium px-5 py-2 transition-colors rounded-[2px]"
+                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[15px] font-medium px-5 py-2 transition-colors rounded-[2px]"
                             >
                                 Upgrade
                             </button>
@@ -1615,7 +1615,7 @@ function BillingTab({ user, showToast }) {
                     </div>
 
                     {/* Row 2: Website */}
-                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] py-5 border-b border-[#f1f1f1] items-center text-[14px]">
+                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] py-5 border-b border-[#f1f1f1] items-center text-[16px]">
                         <div className="flex items-center gap-3.5">
                             <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-[#e3f2fd]">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1976d2" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
@@ -1623,13 +1623,13 @@ function BillingTab({ user, showToast }) {
                             <span className="font-medium text-[#222]">Website</span>
                         </div>
                         <div className="text-[#444] font-medium">Free</div>
-                        <div className="text-[#666] leading-relaxed text-[13px] flex flex-col gap-0.5">
+                        <div className="text-[#666] leading-relaxed text-[15px] flex flex-col gap-0.5">
                             <div>• Limited pages, photos and blog posts</div>
                         </div>
                         <div className="text-right">
                             <button 
                                 onClick={() => { setSelectedUpgradeProduct('Website'); setShowUpgradeModal(true); }}
-                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[13px] font-medium px-5 py-2 transition-colors rounded-[2px]"
+                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[15px] font-medium px-5 py-2 transition-colors rounded-[2px]"
                             >
                                 Upgrade
                             </button>
@@ -1637,7 +1637,7 @@ function BillingTab({ user, showToast }) {
                     </div>
 
                     {/* Row 3: Studio Manager */}
-                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] py-5 items-center text-[14px]">
+                    <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] py-5 items-center text-[16px]">
                         <div className="flex items-center gap-3.5">
                             <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-[#e8f5e9]">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
@@ -1645,7 +1645,7 @@ function BillingTab({ user, showToast }) {
                             <span className="font-medium text-[#222]">Studio Manager</span>
                         </div>
                         <div className="text-[#444] font-medium">Free</div>
-                        <div className="text-[#666] leading-relaxed text-[13px] flex flex-col gap-0.5">
+                        <div className="text-[#666] leading-relaxed text-[15px] flex flex-col gap-0.5">
                             <div>• Unlimited invoices</div>
                             <div>• 3 contracts, 3 questionnaires, 3 quotes</div>
                             <div>• 1 session type and 1 payment link</div>
@@ -1654,7 +1654,7 @@ function BillingTab({ user, showToast }) {
                         <div className="text-right">
                             <button 
                                 onClick={() => { setSelectedUpgradeProduct('Studio Manager'); setShowUpgradeModal(true); }}
-                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[13px] font-medium px-5 py-2 transition-colors rounded-[2px]"
+                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[15px] font-medium px-5 py-2 transition-colors rounded-[2px]"
                             >
                                 Upgrade
                             </button>
@@ -1676,20 +1676,20 @@ function BillingTab({ user, showToast }) {
                     </div>
                     
                     <div className="flex flex-col gap-1 text-center md:text-left">
-                        <span className="text-[13px] font-bold text-[#1a9b84] uppercase tracking-wider">The Pixnxt Suite</span>
-                        <h3 className="text-[18px] font-bold text-[#222]">All essential apps. One simple plan.</h3>
-                        <p className="text-[13px] text-[#666] max-w-[500px] leading-relaxed">Everything you need - Website, Client Gallery, Studio Manager, Store, Mobile Gallery App - in one package at a great price.</p>
+                        <span className="text-[15px] font-bold text-[#1a9b84] uppercase tracking-wider">The Pixnxt Suite</span>
+                        <h3 className="text-[20px] font-bold text-[#222]">All essential apps. One simple plan.</h3>
+                        <p className="text-[15px] text-[#666] max-w-[500px] leading-relaxed">Everything you need - Website, Client Gallery, Studio Manager, Store, Mobile Gallery App - in one package at a great price.</p>
                     </div>
                 </div>
                 
                 <div className="flex flex-col items-center md:items-end gap-3 shrink-0">
                     <div className="flex flex-col items-center md:items-end">
-                        <span className="text-[20px] font-bold text-[#222]">From $28/month</span>
-                        <span className="text-[12px] font-medium text-[#ff4d4f] bg-[#fff1f0] px-2 py-0.5 rounded-[2px] mt-0.5">Up to 37% OFF</span>
+                        <span className="text-[22px] font-bold text-[#222]">From $28/month</span>
+                        <span className="text-[14px] font-medium text-[#ff4d4f] bg-[#fff1f0] px-2 py-0.5 rounded-[2px] mt-0.5">Up to 37% OFF</span>
                     </div>
                     <button 
                         onClick={() => { setSelectedUpgradeProduct('The Pixnxt Suite'); setShowUpgradeModal(true); }}
-                        className="border border-[#1a9b84] text-[#1a9b84] hover:bg-[#1a9b84] hover:text-white transition-all text-[13px] font-semibold px-6 py-2.5 rounded-[2px]"
+                        className="border border-[#1a9b84] text-[#1a9b84] hover:bg-[#1a9b84] hover:text-white transition-all text-[15px] font-semibold px-6 py-2.5 rounded-[2px]"
                     >
                         SEE PRICING
                     </button>
@@ -1698,33 +1698,33 @@ function BillingTab({ user, showToast }) {
 
             {/* Credit Card Section */}
             <div className="bg-white border border-[#eeeeee] rounded-[2px] p-8">
-                <h2 className="text-[17px] font-medium text-[#222] mb-4">Credit Card</h2>
+                <h2 className="text-[19px] font-medium text-[#222] mb-4">Credit Card</h2>
                 
                 {card ? (
                     <div className="flex items-center justify-between border border-[#e8f7f2] bg-[#fcfdfe] p-5 rounded-[4px]">
                         <div className="flex items-center gap-4">
                             {/* Card Brand Badge */}
-                            <div className="w-14 h-9 border border-[#eaeaea] bg-white rounded-[4px] flex items-center justify-center font-bold text-[13px] text-[#444] shadow-sm tracking-wide">
+                            <div className="w-14 h-9 border border-[#eaeaea] bg-white rounded-[4px] flex items-center justify-center font-bold text-[15px] text-[#444] shadow-sm tracking-wide">
                                 {card.brand}
                             </div>
                             <div className="flex flex-col gap-0.5">
-                                <span className="text-[15px] font-medium text-[#222]">{card.brand} ending in {card.last4}</span>
-                                <span className="text-[12px] text-[#666]">Expires {card.expiry} • Cardholder: {card.name}</span>
+                                <span className="text-[17px] font-medium text-[#222]">{card.brand} ending in {card.last4}</span>
+                                <span className="text-[14px] text-[#666]">Expires {card.expiry} • Cardholder: {card.name}</span>
                             </div>
                         </div>
                         <button 
                             onClick={handleRemoveCard}
-                            className="text-[13px] font-semibold text-[#ff4d4f] hover:text-[#d32f2f] hover:bg-[#fff1f0] px-4 py-2 transition-all rounded-[2px]"
+                            className="text-[15px] font-semibold text-[#ff4d4f] hover:text-[#d32f2f] hover:bg-[#fff1f0] px-4 py-2 transition-all rounded-[2px]"
                         >
                             Remove Card
                         </button>
                     </div>
                 ) : (
                     <div className="flex flex-col items-start gap-4">
-                        <p className="text-[14px] text-[#666]">You do not have a credit card on your account.</p>
+                        <p className="text-[16px] text-[#666]">You do not have a credit card on your account.</p>
                         <button 
                             onClick={() => setShowCardModal(true)}
-                            className="bg-[#f0f0f0] hover:bg-[#e4e4e4] text-[#444] hover:text-[#111] text-[13px] font-medium px-5 py-2.5 transition-colors rounded-[2px] border border-[#dcdcdc]"
+                            className="bg-[#f0f0f0] hover:bg-[#e4e4e4] text-[#444] hover:text-[#111] text-[15px] font-medium px-5 py-2.5 transition-colors rounded-[2px] border border-[#dcdcdc]"
                         >
                             Add Credit Card
                         </button>
@@ -1737,7 +1737,7 @@ function BillingTab({ user, showToast }) {
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
                     <div className="bg-white w-[480px] shadow-2xl flex flex-col rounded-[4px] overflow-hidden">
                         <div className="px-8 py-6 border-b border-[#f1f1f1] flex justify-between items-center">
-                            <h2 className="text-[14px] font-bold text-[#333] tracking-[0.1em] uppercase">Add Credit Card</h2>
+                            <h2 className="text-[16px] font-bold text-[#333] tracking-[0.1em] uppercase">Add Credit Card</h2>
                             <button onClick={() => setShowCardModal(false)} className="text-[#888] hover:text-[#111] transition-colors">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
@@ -1745,19 +1745,19 @@ function BillingTab({ user, showToast }) {
                         
                         <form onSubmit={handleSaveCard} className="p-8 flex flex-col gap-5">
                             <div>
-                                <label className="block text-[13px] font-bold text-[#333] mb-2 uppercase tracking-wide">Cardholder Name</label>
+                                <label className="block text-[15px] font-bold text-[#333] mb-2 uppercase tracking-wide">Cardholder Name</label>
                                 <input 
                                     type="text" 
                                     required
                                     placeholder="e.g. John Doe"
                                     value={cardName}
                                     onChange={(e) => setCardName(e.target.value)}
-                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px]"
+                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px]"
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-[13px] font-bold text-[#333] mb-2 uppercase tracking-wide">Card Number</label>
+                                <label className="block text-[15px] font-bold text-[#333] mb-2 uppercase tracking-wide">Card Number</label>
                                 <div className="relative flex items-center">
                                     <input 
                                         type="text" 
@@ -1766,10 +1766,10 @@ function BillingTab({ user, showToast }) {
                                         placeholder="0000 0000 0000 0000"
                                         value={cardNumber}
                                         onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                                        className="w-full border border-[#ddd] pl-4 pr-12 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px] tracking-wider"
+                                        className="w-full border border-[#ddd] pl-4 pr-12 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px] tracking-wider"
                                     />
                                     {/* Brand Detection Icon */}
-                                    <div className="absolute right-4 text-[11px] font-bold text-[#888]">
+                                    <div className="absolute right-4 text-[13px] font-bold text-[#888]">
                                         {cardNumber.charAt(0) === '4' ? 'VISA' : cardNumber.charAt(0) === '5' ? 'MC' : cardNumber.charAt(0) === '3' ? 'AMEX' : 'CARD'}
                                     </div>
                                 </div>
@@ -1777,7 +1777,7 @@ function BillingTab({ user, showToast }) {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-[13px] font-bold text-[#333] mb-2 uppercase tracking-wide">Expiration</label>
+                                    <label className="block text-[15px] font-bold text-[#333] mb-2 uppercase tracking-wide">Expiration</label>
                                     <input 
                                         type="text" 
                                         required
@@ -1785,11 +1785,11 @@ function BillingTab({ user, showToast }) {
                                         placeholder="MM/YY"
                                         value={cardExpiry}
                                         onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
-                                        className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px] text-center"
+                                        className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px] text-center"
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-[13px] font-bold text-[#333] mb-2 uppercase tracking-wide">CVC</label>
+                                    <label className="block text-[15px] font-bold text-[#333] mb-2 uppercase tracking-wide">CVC</label>
                                     <input 
                                         type="password" 
                                         required
@@ -1797,7 +1797,7 @@ function BillingTab({ user, showToast }) {
                                         placeholder="•••"
                                         value={cardCvc}
                                         onChange={(e) => setCardCvc(e.target.value.replace(/[^0-9]/g, ''))}
-                                        className="w-full border border-[#ddd] px-4 py-2.5 text-[15px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px] text-center"
+                                        className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px] text-center"
                                     />
                                 </div>
                             </div>
@@ -1805,7 +1805,7 @@ function BillingTab({ user, showToast }) {
                             <div className="mt-4 flex justify-end gap-3.5">
                                 <button 
                                     type="button"
-                                    className="text-[14px] text-[#666] font-medium hover:text-[#111] px-4 py-2 transition-colors"
+                                    className="text-[16px] text-[#666] font-medium hover:text-[#111] px-4 py-2 transition-colors"
                                     onClick={() => setShowCardModal(false)}
                                 >
                                     Cancel
@@ -1813,7 +1813,7 @@ function BillingTab({ user, showToast }) {
                                 <button 
                                     type="submit"
                                     disabled={savingCard}
-                                    className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[14px] font-medium px-6 py-2 transition-colors rounded-[2px] min-w-[100px] flex items-center justify-center"
+                                    className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px] min-w-[100px] flex items-center justify-center"
                                 >
                                     {savingCard ? 'Saving...' : 'Save Card'}
                                 </button>
@@ -1826,16 +1826,16 @@ function BillingTab({ user, showToast }) {
             {/* Upgrade Modal */}
             {showUpgradeModal && (
                 <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[1000] animate-[cgFadeIn_0.2s_ease]">
-                    <div className="bg-white w-[540px] shadow-2xl flex flex-col rounded-[4px] overflow-hidden font-['Roboto',sans-serif]">
+                    <div className="bg-white w-[540px] shadow-2xl flex flex-col rounded-[4px] overflow-hidden">
                         <div className="px-8 py-6 border-b border-[#f1f1f1] flex justify-between items-center">
-                            <h2 className="text-[14px] font-bold text-[#333] tracking-[0.1em] uppercase">Upgrade {selectedUpgradeProduct}</h2>
+                            <h2 className="text-[16px] font-bold text-[#333] tracking-[0.1em] uppercase">Upgrade {selectedUpgradeProduct}</h2>
                             <button onClick={() => setShowUpgradeModal(false)} className="text-[#888] hover:text-[#111] transition-colors">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                             </button>
                         </div>
                         
                         <div className="p-8 flex flex-col gap-6">
-                            <div className="text-[15px] text-[#444] leading-relaxed">
+                            <div className="text-[17px] text-[#444] leading-relaxed">
                                 You are about to upgrade your plan for <span className="font-semibold text-[#111]">{selectedUpgradeProduct}</span>. Choose the billing frequency below:
                             </div>
 
@@ -1844,26 +1844,26 @@ function BillingTab({ user, showToast }) {
                                     <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-[#1a9b84] flex items-center justify-center">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                     </div>
-                                    <span className="text-[12px] font-bold text-[#1a9b84] uppercase tracking-wide">Yearly Plan</span>
-                                    <span className="text-[22px] font-bold text-[#222]">$28<span className="text-sm font-normal text-[#666]">/mo</span></span>
-                                    <span className="text-[12px] text-[#2ecc71] font-semibold">Save 37% ($168 billed annually)</span>
+                                    <span className="text-[14px] font-bold text-[#1a9b84] uppercase tracking-wide">Yearly Plan</span>
+                                    <span className="text-[24px] font-bold text-[#222]">$28<span className="text-[16px] font-normal text-[#666]">/mo</span></span>
+                                    <span className="text-[14px] text-[#2ecc71] font-semibold">Save 37% ($168 billed annually)</span>
                                 </div>
                                 <div className="border border-[#ddd] hover:border-[#aaa] p-5 rounded-[4px] flex flex-col gap-2 cursor-pointer transition-colors">
-                                    <span className="text-[12px] font-bold text-[#666] uppercase tracking-wide">Monthly Plan</span>
-                                    <span className="text-[22px] font-bold text-[#222]">$45<span className="text-sm font-normal text-[#666]">/mo</span></span>
-                                    <span className="text-[12px] text-[#888]">Billed monthly, cancel anytime</span>
+                                    <span className="text-[14px] font-bold text-[#666] uppercase tracking-wide">Monthly Plan</span>
+                                    <span className="text-[24px] font-bold text-[#222]">$45<span className="text-[16px] font-normal text-[#666]">/mo</span></span>
+                                    <span className="text-[14px] text-[#888]">Billed monthly, cancel anytime</span>
                                 </div>
                             </div>
 
                             {card ? (
                                 <div className="border border-[#eaeaea] bg-[#fafafa] p-4 rounded-[4px] flex items-center gap-3.5">
-                                    <div className="w-10 h-7 border border-[#ddd] bg-white rounded-[2px] flex items-center justify-center font-bold text-[11px] text-[#444]">
+                                    <div className="w-10 h-7 border border-[#ddd] bg-white rounded-[2px] flex items-center justify-center font-bold text-[13px] text-[#444]">
                                         {card.brand}
                                     </div>
-                                    <span className="text-[13px] text-[#555]">Will be charged to <span className="font-semibold text-[#222]">{card.brand} ending in {card.last4}</span></span>
+                                    <span className="text-[15px] text-[#555]">Will be charged to <span className="font-semibold text-[#222]">{card.brand} ending in {card.last4}</span></span>
                                 </div>
                             ) : (
-                                <div className="border border-[#ffccc7] bg-[#fff2f0] p-4 rounded-[4px] flex items-center gap-3 text-[#ff4d4f] text-[13px]">
+                                <div className="border border-[#ffccc7] bg-[#fff2f0] p-4 rounded-[4px] flex items-center gap-3 text-[#ff4d4f] text-[15px]">
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
                                     <span>Please add a credit card to your account to complete the upgrade.</span>
                                 </div>
@@ -1871,7 +1871,7 @@ function BillingTab({ user, showToast }) {
 
                             <div className="mt-4 flex justify-end gap-3.5">
                                 <button 
-                                    className="text-[14px] text-[#666] font-medium hover:text-[#111] px-4 py-2 transition-colors"
+                                    className="text-[16px] text-[#666] font-medium hover:text-[#111] px-4 py-2 transition-colors"
                                     onClick={() => setShowUpgradeModal(false)}
                                 >
                                     Cancel
@@ -1886,7 +1886,7 @@ function BillingTab({ user, showToast }) {
                                             setShowUpgradeModal(false);
                                         }
                                     }}
-                                    className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[14px] font-medium px-6 py-2 transition-colors rounded-[2px]"
+                                    className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px]"
                                 >
                                     {card ? 'Complete Upgrade' : 'Add Card & Upgrade'}
                                 </button>
@@ -2009,7 +2009,7 @@ function AdvancedTab({ user, showToast }) {
     };
 
     const renderToggleRow = (label, key) => (
-        <div className="flex items-center justify-between py-3.5 border-b border-[#f9f9f9] text-[14px]">
+        <div className="flex items-center justify-between py-3.5 border-b border-[#f9f9f9] text-[16px]">
             <span className="text-[#333] font-normal">{label}</span>
             <div className="flex items-center gap-3 select-none">
                 <button
@@ -2018,24 +2018,24 @@ function AdvancedTab({ user, showToast }) {
                 >
                     <span className={`absolute top-[2px] left-[2px] w-[20px] h-[20px] bg-white rounded-full transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${settings[key] ? 'translate-x-[20px]' : 'translate-x-0'}`} />
                 </button>
-                <span className="text-[13px] text-[#888] w-7 font-normal">{settings[key] ? 'On' : 'Off'}</span>
+                <span className="text-[15px] text-[#888] w-7 font-normal">{settings[key] ? 'On' : 'Off'}</span>
             </div>
         </div>
     );
 
     return (
-        <div className="flex flex-col gap-8 pb-20 font-['Roboto',sans-serif] text-[#111]">
+        <div className="flex flex-col gap-8 pb-20 text-[#111]">
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[#eeeeee] pb-5">
                 <div>
-                    <h1 className="text-[26px] font-light text-[#222] mb-1">Advanced Settings</h1>
+                    <h1 className="text-[28px] font-light text-[#222] mb-1">Advanced Settings</h1>
                 </div>
             </div>
 
             {/* Notifications Sub-header */}
             <div>
-                <span className="text-[11px] font-bold text-[#888] tracking-[0.15em] uppercase block mb-1 font-['Roboto',sans-serif]">NOTIFICATIONS</span>
-                <h2 className="text-[17px] font-semibold text-[#222] mb-6">Email Notifications</h2>
+                <span className="text-[13px] font-bold text-[#888] tracking-[0.15em] uppercase block mb-1">NOTIFICATIONS</span>
+                <h2 className="text-[19px] font-semibold text-[#222] mb-6">Email Notifications</h2>
             </div>
 
             {/* Email Notifications Collapsible Container */}
@@ -2050,7 +2050,7 @@ function AdvancedTab({ user, showToast }) {
                             <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 bg-[#e8f7f2]">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                             </div>
-                            <span className="font-semibold text-[15px] text-[#222]">Client Gallery</span>
+                            <span className="font-semibold text-[17px] text-[#222]">Client Gallery</span>
                         </div>
                         <svg 
                             className={`transition-transform duration-200 text-[#888] ${openCategories.cg ? 'rotate-180' : 'rotate-0'}`} 
@@ -2067,7 +2067,7 @@ function AdvancedTab({ user, showToast }) {
 
                     {openCategories.cg && (
                         <div className="px-6 pb-6 pt-1 border-t border-[#f8f8f8] animate-[cgFadeIn_0.15s_ease]">
-                            <div className="text-[12px] text-[#888] font-normal mb-3">Send me an email when:</div>
+                            <div className="text-[14px] text-[#888] font-normal mb-3">Send me an email when:</div>
                             <div className="flex flex-col text-[#222]">
                                 {renderToggleRow("Someone downloads a Collection", "cgDownloadCollection")}
                                 {renderToggleRow("Someone downloads a single photo", "cgDownloadPhoto")}
@@ -2092,7 +2092,7 @@ function AdvancedTab({ user, showToast }) {
                             <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 bg-[#fff1f0]">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ff4d4f" strokeWidth="2.5"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg>
                             </div>
-                            <span className="font-semibold text-[15px] text-[#222]">Store</span>
+                            <span className="font-semibold text-[17px] text-[#222]">Store</span>
                         </div>
                         <svg 
                             className={`transition-transform duration-200 text-[#888] ${openCategories.store ? 'rotate-180' : 'rotate-0'}`} 
@@ -2109,7 +2109,7 @@ function AdvancedTab({ user, showToast }) {
 
                     {openCategories.store && (
                         <div className="px-6 pb-6 pt-1 border-t border-[#f8f8f8] animate-[cgFadeIn_0.15s_ease]">
-                            <div className="text-[12px] text-[#888] font-normal mb-3">Send me an email when:</div>
+                            <div className="text-[14px] text-[#888] font-normal mb-3">Send me an email when:</div>
                             <div className="flex flex-col text-[#222]">
                                 {renderToggleRow("Someone places a new Store order", "storeNewOrder")}
                                 {renderToggleRow("A lab-fulfillment order has been processed", "storeLabProcessed")}
@@ -2129,7 +2129,7 @@ function AdvancedTab({ user, showToast }) {
                             <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 bg-[#e8f5e9]">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2e7d32" strokeWidth="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
                             </div>
-                            <span className="font-semibold text-[15px] text-[#222]">Studio Manager</span>
+                            <span className="font-semibold text-[17px] text-[#222]">Studio Manager</span>
                         </div>
                         <svg 
                             className={`transition-transform duration-200 text-[#888] ${openCategories.sm ? 'rotate-180' : 'rotate-0'}`} 
@@ -2146,23 +2146,23 @@ function AdvancedTab({ user, showToast }) {
 
                     {openCategories.sm && (
                         <div className="px-6 pb-6 pt-1 border-t border-[#f8f8f8] animate-[cgFadeIn_0.15s_ease]">
-                            <div className="text-[12px] text-[#888] font-normal mb-3">Send me an email when:</div>
+                            <div className="text-[14px] text-[#888] font-normal mb-3">Send me an email when:</div>
                             <div className="flex flex-col text-[#222]">
                                 {/* PAYMENTS */}
-                                <div className="text-[10px] font-bold text-[#888] tracking-[0.15em] uppercase mt-4 mb-2">PAYMENTS</div>
+                                <div className="text-[12px] font-bold text-[#888] tracking-[0.15em] uppercase mt-4 mb-2">PAYMENTS</div>
                                 {renderToggleRow("An invoice payment has been made", "smPaymentMade")}
                                 {renderToggleRow("An invoice payment is past due", "smPaymentPastDue")}
                                 {renderToggleRow("An invoice bank payment has failed", "smPaymentFailed")}
 
                                 {/* DOCUMENTS */}
-                                <div className="text-[10px] font-bold text-[#888] tracking-[0.15em] uppercase mt-6 mb-2">DOCUMENTS</div>
+                                <div className="text-[12px] font-bold text-[#888] tracking-[0.15em] uppercase mt-6 mb-2">DOCUMENTS</div>
                                 {renderToggleRow("A contract has been signed", "smContractSigned")}
                                 {renderToggleRow("A quote has been accepted", "smQuoteAccepted")}
                                 {renderToggleRow("A questionnaire has been completed", "smQuestionnaireCompleted")}
                                 {renderToggleRow("A contract, quote, or questionnaire has expired", "smDocExpired")}
 
                                 {/* SESSIONS */}
-                                <div className="text-[10px] font-bold text-[#888] tracking-[0.15em] uppercase mt-6 mb-2">SESSIONS</div>
+                                <div className="text-[12px] font-bold text-[#888] tracking-[0.15em] uppercase mt-6 mb-2">SESSIONS</div>
                                 {renderToggleRow("A session inquiry has been received", "smSessionInquiry")}
                                 {renderToggleRow("A session is confirmed, canceled, or rescheduled", "smSessionConfirmed")}
                                 {renderToggleRow("A session is upcoming tomorrow", "smSessionUpcoming")}
@@ -2178,8 +2178,8 @@ function AdvancedTab({ user, showToast }) {
                         onClick={() => toggleCategory('others')}
                     >
                         <div className="flex items-center gap-3">
-                            <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 bg-[#222] text-white font-bold text-[12px] select-none shadow-sm">P</div>
-                            <span className="font-semibold text-[15px] text-[#222]">Others</span>
+                            <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 bg-[#222] text-white font-bold text-[14px] select-none shadow-sm">P</div>
+                            <span className="font-semibold text-[17px] text-[#222]">Others</span>
                         </div>
                         <svg 
                             className={`transition-transform duration-200 text-[#888] ${openCategories.others ? 'rotate-180' : 'rotate-0'}`} 
@@ -2196,7 +2196,7 @@ function AdvancedTab({ user, showToast }) {
 
                     {openCategories.others && (
                         <div className="px-6 pb-6 pt-1 border-t border-[#f8f8f8] animate-[cgFadeIn_0.15s_ease]">
-                            <div className="text-[12px] text-[#888] font-normal mb-3">Send me an email when:</div>
+                            <div className="text-[14px] text-[#888] font-normal mb-3">Send me an email when:</div>
                             <div className="flex flex-col text-[#222]">
                                 {renderToggleRow("An email was unable to be delivered", "othersEmailBounced")}
                                 {renderToggleRow("You receive credit as a referral reward", "othersReferralCredit")}
@@ -2211,14 +2211,14 @@ function AdvancedTab({ user, showToast }) {
             {/* Language Section at the bottom */}
             <div className="bg-white border border-[#eeeeee] rounded-[2px] p-8 mt-4 flex flex-col gap-3">
                 <div className="flex items-center gap-2">
-                    <h2 className="text-[16px] font-semibold text-[#222]">Language</h2>
-                    <span className="text-[9px] font-bold text-[#1890ff] bg-[#e6f7ff] border border-[#bae7ff] px-1.5 py-0.5 rounded-[2px] select-none tracking-wide">BETA</span>
+                    <h2 className="text-[18px] font-semibold text-[#222]">Language</h2>
+                    <span className="text-[11px] font-bold text-[#1890ff] bg-[#e6f7ff] border border-[#bae7ff] px-1.5 py-0.5 rounded-[2px] select-none tracking-wide">BETA</span>
                 </div>
 
                 {/* Custom Language Select Dropdown */}
                 <div className="relative w-full max-w-[480px]" ref={langRef}>
                     <div 
-                        className="flex items-center justify-between border border-[#ddd] bg-white px-4 py-2.5 text-[15px] text-[#111] cursor-pointer hover:border-[#aaa] transition-colors rounded-[2px]"
+                        className="flex items-center justify-between border border-[#ddd] bg-white px-4 py-2.5 text-[17px] text-[#111] cursor-pointer hover:border-[#aaa] transition-colors rounded-[2px]"
                         onClick={() => setLangDropdownOpen(!langDropdownOpen)}
                     >
                         <span>{settings.language}</span>
@@ -2226,7 +2226,7 @@ function AdvancedTab({ user, showToast }) {
                     </div>
 
                     {langDropdownOpen && (
-                        <div className="absolute top-[105%] left-0 w-full bg-white border border-[#ccc] rounded-[2px] shadow-lg z-[600] py-1 text-[15px] font-['Roboto',sans-serif]">
+                        <div className="absolute top-[105%] left-0 w-full bg-white border border-[#ccc] rounded-[2px] shadow-lg z-[600] py-1 text-[17px]">
                             <div 
                                 className={`px-4 py-2 cursor-pointer transition-colors ${settings.language === 'English (US)' ? 'bg-[#1890ff] text-white' : 'hover:bg-[#f5f5f5] text-[#222]'}`}
                                 onClick={() => handleLanguageSelect('English (US)')}
@@ -2249,9 +2249,347 @@ function AdvancedTab({ user, showToast }) {
                     )}
                 </div>
 
-                <p className="text-[12px] text-[#888] leading-relaxed mt-1">
+                <p className="text-[14px] text-[#888] leading-relaxed mt-1">
                     Choose your preferred language for the Pixieset dashboard. During the beta phase, this setting applies only to Client Gallery.
                 </p>
+            </div>
+        </div>
+    );
+}
+
+function ReferTab({ user, showToast }) {
+    const [email, setEmail] = useState('');
+    const [referralCode, setReferralCode] = useState(() => {
+        return localStorage.getItem(`referral_code_${user?.id}`) || '';
+    });
+    const [referrals, setReferrals] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem(`referrals_${user?.id}`)) || [];
+        } catch {
+            return [];
+        }
+    });
+    const [loading, setLoading] = useState(!referralCode);
+    const [isTrackingOpen, setIsTrackingOpen] = useState(true); // Open by default based on screenshot
+
+    const stats = {
+        totalConversions: referrals.filter(r => r.status === 'signed_up' || r.status === 'upgraded').length,
+        totalEarned: referrals.reduce((sum, r) => sum + (r.earned_reward || 0), 0),
+        creditBalance: referrals.reduce((sum, r) => sum + (r.earned_reward || 0), 0)
+    };
+
+    useEffect(() => {
+        if (user?.id) {
+            fetchReferralData();
+        }
+    }, [user]);
+
+    const fetchReferralData = async () => {
+        try {
+            // 1. Get or generate referral code
+            let { data: profile } = await supabase
+                .from('photographers')
+                .select('referral_code')
+                .eq('id', user.id)
+                .single();
+
+            let code = referralCode;
+            if (profile && !profile.referral_code) {
+                // Generate a random code
+                const newCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+                await supabase
+                    .from('photographers')
+                    .update({ referral_code: newCode })
+                    .eq('id', user.id);
+                code = newCode;
+            } else if (profile) {
+                code = profile.referral_code;
+            }
+
+            if (code) {
+                setReferralCode(code);
+                localStorage.setItem(`referral_code_${user.id}`, code);
+            }
+
+            // 2. Fetch referrals
+            const { data: referralData } = await supabase
+                .from('referrals')
+                .select('*')
+                .eq('referrer_id', user.id)
+                .order('created_at', { ascending: false });
+
+            if (referralData) {
+                // Deduplicate emails in case of dirty data
+                const uniqueRefs = [];
+                const seenEmails = new Set();
+                for (const r of referralData) {
+                    if (!seenEmails.has(r.referred_email)) {
+                        seenEmails.add(r.referred_email);
+                        uniqueRefs.push(r);
+                    }
+                }
+                setReferrals(uniqueRefs);
+                localStorage.setItem(`referrals_${user.id}`, JSON.stringify(uniqueRefs));
+            }
+        } catch (error) {
+            console.error('Error fetching referral data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCopyLink = () => {
+        const link = `${window.location.origin}/ref/${referralCode || 'YOUR_CODE'}`;
+        navigator.clipboard.writeText(link);
+        showToast('Referral link copied to clipboard!');
+    };
+
+    const handleSendInvite = async () => {
+        if (!email) return;
+        if (!email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+            showToast('Please enter a valid email address');
+            return;
+        }
+
+        try {
+            // Check if already invited
+            const { data: existing } = await supabase
+                .from('referrals')
+                .select('id, status')
+                .eq('referrer_id', user.id)
+                .eq('referred_email', email)
+                .maybeSingle();
+
+            if (existing) {
+                if (existing.status !== 'invited') {
+                    showToast('This person has already signed up or upgraded.');
+                    return;
+                }
+                showToast('Resending invite to this email...');
+                // We don't insert a new row, we just proceed to email sending
+            } else {
+                // First insert into database
+                const { error: dbError } = await supabase
+                    .from('referrals')
+                    .insert([{
+                        referrer_id: user.id,
+                        referred_email: email,
+                        status: 'invited'
+                    }]);
+
+                if (dbError) throw dbError;
+            }
+
+            // Fetch user's profile to get their name
+            const { data: profile } = await supabase
+                .from('photographers')
+                .select('display_name')
+                .eq('id', user.id)
+                .single();
+
+            // Invoke the Edge Function to send the email
+            const { error: emailError } = await supabase.functions.invoke('send-referral-invite', {
+                body: {
+                    email: email,
+                    referralCode: referralCode,
+                    photographerName: profile?.display_name || '',
+                    siteOrigin: window.location.origin
+                }
+            });
+
+            if (emailError) {
+                console.error('Error triggering email:', emailError);
+                // We still sent the invite to the DB, so we don't throw completely
+                showToast('Invite logged, but email delivery failed.');
+            } else {
+                showToast('Invite sent successfully!');
+            }
+            
+            setEmail('');
+            fetchReferralData();
+        } catch (error) {
+            console.error('Error sending invite:', error);
+            showToast('Failed to send invite. Have you created the table in Supabase?');
+        }
+    };
+
+    if (loading) {
+        return <div className="py-8 text-[#888]">Loading referral dashboard...</div>;
+    }
+
+    return (
+        <div className="flex flex-col gap-8 pb-20">
+            <div>
+                <h1 className="text-[30px] font-normal text-[#111] mb-8 pb-4 border-b border-[#f1f1f1]">Referral Dashboard</h1>
+                
+                <div className="mb-10">
+                    <h2 className="text-[17px] font-bold text-[#111] mb-2">Invite Friends & Get $20</h2>
+                    <p className="text-[15px] text-[#555] leading-relaxed">
+                        Give your friends $20 off their first bill on Pixnxt, and get a $20 referral credit for each person that subscribes to Pixnxt.
+                    </p>
+                </div>
+
+                <div className="mb-10">
+                    <label className="block text-[17px] font-bold text-[#111] mb-2">Your Referral Link</label>
+                    <div className="flex items-center">
+                        <div className="flex-1 bg-[#f5f5f5] border border-r-0 border-[#ddd] px-4 py-3 text-[16px] text-[#555] select-all overflow-hidden text-ellipsis whitespace-nowrap">
+                            {window.location.origin}/ref/{referralCode || 'YOUR_CODE'}
+                        </div>
+                        <button 
+                            onClick={handleCopyLink}
+                            className="bg-[#1a9b84] hover:bg-[#147d6a] text-white px-6 py-3 border border-[#1a9b84] hover:border-[#147d6a] transition-colors text-[16px] font-medium whitespace-nowrap"
+                        >
+                            Copy Link
+                        </button>
+                    </div>
+                </div>
+
+                <div className="mb-12">
+                    <label className="block text-[17px] font-bold text-[#111] mb-2">Share With Friends</label>
+                    <div className="flex items-center">
+                        <input 
+                            type="email"
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            placeholder="e.g. friend@mail.com"
+                            className="flex-1 border border-r-0 border-[#ddd] px-4 py-3 text-[16px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                        />
+                        <button 
+                            onClick={handleSendInvite}
+                            className="bg-[#1a9b84] hover:bg-[#147d6a] text-white px-6 py-3 border border-[#1a9b84] hover:border-[#147d6a] transition-colors text-[16px] font-medium whitespace-nowrap"
+                        >
+                            Send Invite
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <h2 className="text-[17px] font-bold text-[#111] mb-6">Analytics</h2>
+                    
+                    <div className="flex flex-wrap gap-x-20 gap-y-6 mb-8">
+                        <div>
+                            <div className="flex items-center gap-1.5 text-[#555] text-[15px] mb-2">
+                                Total conversions
+                                <div className="text-[#999] cursor-help" title="Number of friends who signed up and upgraded">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                </div>
+                            </div>
+                            <div className="text-[24px] text-[#111]">{stats.totalConversions}</div>
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-1.5 text-[#555] text-[15px] mb-2">
+                                Total earned
+                                <div className="text-[#999] cursor-help" title="Total amount of referral credit you have earned">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                </div>
+                            </div>
+                            <div className="text-[24px] text-[#111]">${stats.totalEarned.toFixed(2)}</div>
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-1.5 text-[#555] text-[15px] mb-2">
+                                Credit balance
+                                <div className="text-[#999] cursor-help" title="Current available referral credit">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                                </div>
+                            </div>
+                            <div className="text-[24px] text-[#111]">${stats.creditBalance.toFixed(2)}</div>
+                        </div>
+                    </div>
+
+                    <div 
+                        className="inline-flex items-center gap-1.5 text-[15px] text-[#1a9b84] font-medium cursor-pointer hover:text-[#147d6a] transition-colors"
+                        onClick={() => setIsTrackingOpen(!isTrackingOpen)}
+                    >
+                        Track referrals status
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform duration-200 ${isTrackingOpen ? 'rotate-180' : ''}`}><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </div>
+
+                    {isTrackingOpen && (
+                        <div className="mt-8 overflow-x-auto">
+                            <table className="w-full min-w-[600px] border-collapse table-fixed">
+                                <thead>
+                                    <tr className="border-b border-[#eee]">
+                                        <th className="text-left py-4 text-[13px] font-bold text-[#555] pb-8 w-[25%] align-bottom">Referral</th>
+                                        <th className="text-center py-4 pb-8 w-[18%] relative align-top">
+                                            <div className="absolute top-[64px] bottom-[-20px] left-1/2 w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+                                            <div className="relative z-10 flex flex-col items-center gap-2.5">
+                                                <span className="text-[13px] font-normal text-[#888]">Invited</span>
+                                                <div className="w-[34px] h-[34px] rounded-full bg-[#fffcf3] text-[#f59e0b] flex items-center justify-center border border-[#fde68a]">
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="text-center py-4 pb-8 w-[18%] relative align-top">
+                                            <div className="absolute top-[64px] bottom-[-20px] left-1/2 w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+                                            <div className="relative z-10 flex flex-col items-center gap-2.5">
+                                                <span className="text-[13px] font-normal text-[#888]">Signed up</span>
+                                                <div className="w-[34px] h-[34px] rounded-full bg-[#fffcf3] text-[#f59e0b] flex items-center justify-center border border-[#fde68a]">
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="text-center py-4 pb-8 w-[18%] relative align-top">
+                                            <div className="absolute top-[64px] bottom-[-20px] left-1/2 w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+                                            <div className="relative z-10 flex flex-col items-center gap-2.5">
+                                                <span className="text-[13px] font-normal text-[#888]">Upgraded to a<br/>paid account</span>
+                                                <div className="w-[34px] h-[34px] rounded-full bg-[#fffcf3] text-[#f59e0b] flex items-center justify-center border border-[#fde68a]">
+                                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                                                </div>
+                                            </div>
+                                        </th>
+                                        <th className="text-right py-4 text-[13px] font-bold text-[#555] pb-8 w-[21%] align-bottom">Earned Rewards</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {referrals.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="5" className="py-8 text-center text-[#888] text-[15px]">
+                                                No referrals yet. Share your link to get started!
+                                            </td>
+                                        </tr>
+                                    ) : (
+                                        referrals.map(ref => {
+                                            const isSignedUp = ref.status === 'signed_up' || ref.status === 'upgraded';
+                                            const isUpgraded = ref.status === 'upgraded';
+                                            
+                                            return (
+                                                <tr key={ref.id} className="border-b border-[#eee]">
+                                                    <td className="py-[30px] text-[15px] font-medium text-[#ccc] truncate pr-4">{ref.referred_email}</td>
+                                                    <td colSpan="3" className="py-[30px] relative">
+                                                        {/* Vertical lines connecting the rows */}
+                                                        <div className="absolute top-[-20px] bottom-[-20px] left-[16.66%] w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+                                                        <div className="absolute top-[-20px] bottom-[-20px] left-[50%] w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+                                                        <div className="absolute top-[-20px] bottom-[-20px] left-[83.33%] w-px bg-[#f3f3f3] -translate-x-1/2 z-0"></div>
+
+                                                        <div className="relative w-full flex items-center z-10 h-8">
+                                                            {/* Active Track */}
+                                                            <div className={`absolute top-1/2 left-[16.66%] w-[33.33%] h-[18px] -translate-y-1/2 z-10 transition-colors ${isSignedUp ? 'bg-[#f5f5f5]' : 'bg-transparent'}`}></div>
+                                                            <div className={`absolute top-1/2 left-[50%] w-[33.33%] h-[18px] -translate-y-1/2 z-10 transition-colors ${isUpgraded ? 'bg-[#f5f5f5]' : 'bg-transparent'}`}></div>
+
+                                                            {/* Node 1: Invited */}
+                                                            <div className="absolute top-1/2 left-[16.66%] w-[34px] h-[18px] bg-[#f5f5f5] rounded-[4px] -translate-x-1/2 -translate-y-1/2 z-20"></div>
+                                                            
+                                                            {/* Node 2: Signed up */}
+                                                            <div className={`absolute top-1/2 left-[50%] w-[34px] -translate-x-1/2 -translate-y-1/2 z-20 transition-all ${isSignedUp && !isUpgraded ? 'h-[34px] bg-[#f1f1f1] rounded-[8px] shadow-sm border border-[#fff]' : isUpgraded ? 'h-[18px] bg-[#f5f5f5]' : 'bg-transparent'}`}></div>
+                                                            
+                                                            {/* Node 3: Upgraded */}
+                                                            <div className={`absolute top-1/2 left-[83.33%] w-[34px] -translate-x-1/2 -translate-y-1/2 z-20 transition-all ${isUpgraded ? 'h-[34px] bg-[#f1f1f1] rounded-[8px] shadow-sm border border-[#fff]' : 'bg-transparent'}`}></div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="py-[30px] text-right">
+                                                        <div className={`inline-flex items-center justify-center px-[22px] py-1.5 rounded-full text-[15px] font-medium transition-colors ${ref.earned_reward > 0 ? 'bg-[#e8f7f2] text-[#1a9b84]' : 'bg-[#f2fcfa] text-[#1a9b84] opacity-40'}`}>
+                                                            ${(ref.earned_reward || 0).toFixed(2)}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );

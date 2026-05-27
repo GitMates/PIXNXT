@@ -17,7 +17,7 @@
 }
 
 .sa-title {
-  font-size: 28px;
+  font-size: 24px;
   font-weight: 600;
   color: #222;
   margin: 0;
@@ -43,7 +43,7 @@
   border: none;
   background: transparent;
   outline: none;
-  font-size: 14px;
+  font-size: 10px;
   color: #333;
   width: 180px;
 }
@@ -53,7 +53,7 @@
   color: #fff;
   border: none;
   padding: 10px 20px;
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 600;
   cursor: pointer;
   border-radius: 2px;
@@ -160,7 +160,7 @@
 
 .sa-loading-text {
   color: #666;
-  font-size: 14px;
+  font-size: 10px;
   padding: 24px 0;
 }
 
@@ -187,14 +187,14 @@
 }
 
 .sa-empty h2 {
-  font-size: 22px;
+  font-size: 18px;
   font-weight: 600;
   color: #222;
   margin: 0 0 12px;
 }
 
 .sa-empty p {
-  font-size: 15px;
+  font-size: 11px;
   color: #666;
   line-height: 1.5;
   margin: 0 0 28px;
@@ -205,7 +205,7 @@
 }
 
 .sa-settings-content h2 {
-  font-size: 20px;
+  font-size: 16px;
   font-weight: 600;
   color: #222;
   margin: 0 0 8px;
@@ -213,6 +213,6 @@
 
 .sa-settings-content p {
   color: #666;
-  font-size: 14px;
+  font-size: 10px;
   margin: 0;
 }

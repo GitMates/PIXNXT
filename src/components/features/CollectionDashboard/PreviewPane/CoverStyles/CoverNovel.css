@@ -144,7 +144,7 @@
 
 /* Dashboard preview */
 .cd-preview-gallery-card.style-novel .cover-novel-layout__brand {
-  font-size: 5px !important;
+  font-size: 7px !important;
   letter-spacing: 0.38em !important;
   margin-bottom: 4px !important;
   line-height: 1.2 !important;
@@ -152,7 +152,7 @@
 }
 
 .cd-preview-gallery-card.style-novel .cover-novel-layout__title {
-  font-size: 22px !important;
+  font-size: 24px !important;
   line-height: 0.95 !important;
   margin-bottom: 0 !important;
   color: var(--gallery-text) !important;
@@ -165,7 +165,7 @@
 }
 
 .cd-preview-gallery-card.style-novel .cover-novel-layout__date {
-  font-size: 8px !important;
+  font-size: 10px !important;
   letter-spacing: 0.24em !important;
   margin-top: 6px !important;
   margin-bottom: 0 !important;
@@ -178,7 +178,7 @@
 }
 
 .cd-preview-gallery-card.style-novel .cover-novel-layout__cta .view-gallery-btn {
-  font-size: 6px !important;
+  font-size: 8px !important;
   padding: 4px 10px !important;
   letter-spacing: 0.18em !important;
 }
@@ -240,7 +240,7 @@
 
 /* Dashboard preview â€” sticky nav collection title when Novel cover is selected */
 .cd-preview-gallery-card.style-novel .gallery-chrome__brand-title {
-  font-size: 7px !important;
+  font-size: 9px !important;
   line-height: 1.1 !important;
   letter-spacing: 0.06em !important;
 }

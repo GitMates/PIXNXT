@@ -2,6 +2,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
+import clientGalleryGif from '../assets/icons/photograph_17904525.gif';
+import smartAlbumsGif from '../assets/icons/folder_15944871.gif';
+import balancePng from '../assets/icons/client gallery.png';
 import './Dashboard.css';
 
 /* ===== SVG Icon Components ===== */
@@ -151,49 +154,24 @@ const PackageIcon = () => (
   </svg>
 );
 
-/* ===== Product Data ===== */
 const products = [
   {
     name: 'Client Gallery',
     color: 'teal',
-    icon: <GalleryIcon />,
+    icon: <img src={clientGalleryGif} alt="Client Gallery" className="dash-product-image-gif" loading="lazy" decoding="async" />,
     route: '/client-gallery',
     links: ['Manage Collections', 'Create Collection', 'Search Photo Library', 'View Homepage', 'Settings'],
   },
   {
     name: 'Smart Albums',
     color: 'purple',
-    icon: <AlbumIcon />,
+    icon: <img src={smartAlbumsGif} alt="Smart Albums" className="dash-product-image-gif" loading="lazy" decoding="async" />,
     route: '/smart-albums',
     links: [
       { label: 'Manage Albums', path: '/smart-albums' },
       { label: 'Create Album', path: '/smart-albums/create' },
       { label: 'Settings', path: '/smart-albums/settings' },
     ],
-  },
-  {
-    name: 'Website',
-    color: 'blue',
-    icon: <GlobeIcon />,
-    links: ['Edit Website', 'Settings'],
-  },
-  {
-    name: 'Store',
-    color: 'red',
-    icon: <ShoppingBagIcon />,
-    links: ['View Orders', 'Settings'],
-  },
-  {
-    name: 'Studio Manager',
-    color: 'green',
-    icon: <BriefcaseIcon />,
-    links: ['Manage Contacts', 'New Project', 'New Document', 'New Session', 'New Message', 'View Payments'],
-  },
-  {
-    name: 'Mobile Gallery App',
-    color: 'yellow',
-    icon: <SmartphoneIcon />,
-    links: ['Manage Apps', 'Create New App', 'Settings'],
   },
 ];
 
@@ -462,9 +440,11 @@ const Dashboard = () => {
             <p className="dash-section-label">MORE FROM PIXNXT</p>
             <div className="dash-blog-card">
               <img
-                src="https://blog.pixieset.com/wp-content/uploads/2026/01/Pixieset-website-new-templates-custom-fonts-updates-thumbnail.gif"
+                src="https://images.unsplash.com/photo-1493863641943-9b68992a8d07?auto=format&fit=crop&w=800&q=80"
                 alt="Blog post - New website templates"
                 className="dash-blog-image"
+                loading="lazy"
+                decoding="async"
               />
               <div className="dash-blog-content">
                 <p className="dash-blog-label">PIXNXT BLOG</p>

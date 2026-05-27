@@ -193,7 +193,7 @@ export default function GalleryFavoritesHub() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-[10px] font-bold uppercase tracking-[0.5em] text-white/40">
+      <div className="flex min-h-screen items-center justify-center bg-[#0a0a0a] text-[6px] font-bold uppercase tracking-[0.5em] text-white/40">
         Loading
       </div>
     );
@@ -203,7 +203,7 @@ export default function GalleryFavoritesHub() {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] p-8 text-center text-white">
         <p className="mb-6 text-sm text-white/60">This gallery could not be found.</p>
-        <Link to="/" className="text-[10px] font-bold uppercase tracking-[0.35em] underline">
+        <Link to="/" className="text-[6px] font-bold uppercase tracking-[0.35em] underline">
           Home
         </Link>
       </div>
@@ -226,7 +226,7 @@ export default function GalleryFavoritesHub() {
           </p>
           <Link
             to={galleryPath}
-            className="inline-flex items-center justify-center border px-8 py-3 text-[10px] font-bold uppercase tracking-[0.35em] transition-opacity hover:opacity-70"
+            className="inline-flex items-center justify-center border px-8 py-3 text-[6px] font-bold uppercase tracking-[0.35em] transition-opacity hover:opacity-70"
             style={{ borderColor: 'var(--gallery-accent)', color: 'var(--gallery-text)' }}
           >
             View gallery
@@ -249,7 +249,7 @@ export default function GalleryFavoritesHub() {
       >
         <Link
           to={galleryPath}
-          className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.25em] transition-opacity hover:opacity-60"
+          className="flex items-center gap-3 text-[6px] font-bold uppercase tracking-[0.25em] transition-opacity hover:opacity-60"
         >
           <ArrowLeft size={18} strokeWidth={1.5} />
           <span>{collection.name}</span>
@@ -259,7 +259,7 @@ export default function GalleryFavoritesHub() {
             type="button"
             onClick={openCreateModal}
             disabled={creating}
-            className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] opacity-90 transition-opacity hover:opacity-60 disabled:opacity-40"
+            className="flex items-center gap-2 text-[6px] font-bold uppercase tracking-[0.2em] opacity-90 transition-opacity hover:opacity-60 disabled:opacity-40"
           >
             <Plus size={16} strokeWidth={2} />
             <span>Create</span>
@@ -271,7 +271,7 @@ export default function GalleryFavoritesHub() {
                 e.stopPropagation();
                 setMoreOpen((v) => !v);
               }}
-              className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] opacity-90 transition-opacity hover:opacity-60"
+              className="flex items-center gap-2 text-[6px] font-bold uppercase tracking-[0.2em] opacity-90 transition-opacity hover:opacity-60"
             >
               <MoreHorizontal size={18} strokeWidth={1.75} />
               <span>More</span>
@@ -283,7 +283,7 @@ export default function GalleryFavoritesHub() {
               >
                 <button
                   type="button"
-                  className="block w-full px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide opacity-90 hover:opacity-100"
+                  className="block w-full px-4 py-2.5 text-left text-[7px] font-semibold uppercase tracking-wide opacity-90 hover:opacity-100"
                   onClick={() => {
                     setMoreOpen(false);
                     handleSignOut();
@@ -331,7 +331,7 @@ export default function GalleryFavoritesHub() {
                   <span className="text-xl font-bold uppercase tracking-[0.2em] md:text-2xl">{list.name}</span>
                   <span className="mt-2 text-sm font-normal opacity-90">{listCountLabel(list)}</span>
                   {list.submitted_at ? (
-                    <span className="mt-1 text-[10px] font-bold uppercase tracking-[0.2em] opacity-80">
+                    <span className="mt-1 text-[6px] font-bold uppercase tracking-[0.2em] opacity-80">
                       Locked
                     </span>
                   ) : null}
@@ -354,7 +354,7 @@ export default function GalleryFavoritesHub() {
                     list.description?.trim() ? 'mt-4' : 'mt-5'
                   )}
                 >
-                  <p className="text-[10px] font-bold uppercase tracking-[0.28em] opacity-50">
+                  <p className="text-[6px] font-bold uppercase tracking-[0.28em] opacity-50">
                     {list.name}
                   </p>
                   <p className="mb-4 mt-1 text-sm font-medium" style={{ color: 'var(--gallery-meta-text)' }}>
@@ -374,7 +374,7 @@ export default function GalleryFavoritesHub() {
                         sessionStorage.setItem(`pixnxt_fav_pick_list_${collection.id}`, list.id);
                       }
                     }}
-                    className="mt-4 inline-block text-[10px] font-bold uppercase tracking-[0.25em] underline opacity-60 transition-opacity hover:opacity-100"
+                    className="mt-4 inline-block text-[6px] font-bold uppercase tracking-[0.25em] underline opacity-60 transition-opacity hover:opacity-100"
                   >
                     {list.photoCount > 0 ? 'Edit selection in gallery' : 'Select photos in gallery'}
                   </Link>
@@ -388,7 +388,7 @@ export default function GalleryFavoritesHub() {
           type="button"
           onClick={openCreateModal}
           disabled={creating}
-          className="mx-auto mt-12 flex w-full max-w-md items-center justify-center border py-4 text-[10px] font-bold uppercase tracking-[0.35em] transition-opacity hover:opacity-70 disabled:opacity-40"
+          className="mx-auto mt-12 flex w-full max-w-md items-center justify-center border py-4 text-[6px] font-bold uppercase tracking-[0.35em] transition-opacity hover:opacity-70 disabled:opacity-40"
           style={{ borderColor: 'var(--gallery-accent)', color: 'var(--gallery-text)' }}
         >
           <Plus size={14} className="mr-2" strokeWidth={2} />
@@ -439,7 +439,7 @@ export default function GalleryFavoritesHub() {
                   type="button"
                   disabled={creating || !newListName.trim()}
                   onClick={submitNewList}
-                  className="rounded px-6 py-2 text-[10px] font-bold uppercase tracking-[0.2em] transition-opacity disabled:opacity-40"
+                  className="rounded px-6 py-2 text-[6px] font-bold uppercase tracking-[0.2em] transition-opacity disabled:opacity-40"
                   style={{ backgroundColor: 'var(--gallery-accent)', color: 'var(--gallery-bg)' }}
                 >
                   {creating ? 'Saving…' : 'Create'}

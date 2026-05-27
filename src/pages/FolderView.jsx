@@ -448,10 +448,10 @@ const FolderView = () => {
             </button>
             {showViewDropdown && (
               <div className="cg-style-35">
-                <div className={`cg-style-71 ${activeView === 'grid' ? 'text-[#1a9b84]' : 'text-[#333]'}`} onClick={() => { setActiveView('grid'); setShowViewDropdown(false); }}>
+                <div className={`cg-style-71 ${activeView === 'grid' ? 'text-[#44aaa7]' : 'text-[#333]'}`} onClick={() => { setActiveView('grid'); setShowViewDropdown(false); }}>
                   Grid View
                 </div>
-                <div className={`cg-style-71 ${activeView === 'list' ? 'text-[#1a9b84]' : 'text-[#333]'}`} onClick={() => { setActiveView('list'); setShowViewDropdown(false); }}>
+                <div className={`cg-style-71 ${activeView === 'list' ? 'text-[#44aaa7]' : 'text-[#333]'}`} onClick={() => { setActiveView('list'); setShowViewDropdown(false); }}>
                   List View
                 </div>
               </div>
@@ -466,8 +466,8 @@ const FolderView = () => {
           <div className="fv-empty">
             <div className="fv-empty-art" aria-hidden>
               <svg viewBox="0 0 120 120" width="120" height="120">
-                <circle cx="60" cy="60" r="56" fill="#e8f6f3" />
-                <path d="M40 85 L55 55 L70 75 L85 45 L95 85 Z" fill="none" stroke="#1a9b87" strokeWidth="2" />
+                <circle cx="60" cy="60" r="56" fill="#eefaf9" />
+                <path d="M40 85 L55 55 L70 75 L85 45 L95 85 Z" fill="none" stroke="#8BDFDD" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                 <rect x="48" y="38" width="24" height="18" rx="2" fill="none" stroke="#333" strokeWidth="2" />
                 <circle cx="60" cy="44" r="3" fill="#333" />
               </svg>
@@ -482,202 +482,202 @@ const FolderView = () => {
           </div>
         )}
 
-        {!loading && !error && sortedCollections.length > 0 && activeView === 'grid' && (
-          <div className="cg-style-37 fv-grid">
-            {sortedCollections.map((collection) => (
-              <div
-                key={collection.id}
-                className={`cg-style-73 group ${contextMenuId === collection.id ? 'cg-style-73--ctx-open' : ''}`}
-                onClick={() => handleCardClick(collection)}
-              >
-                <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'cg-style-74--selected' : ''}`}>
-                  {getCoverSrc(collection) ? (
-                    <img src={getCoverSrc(collection)} alt={collection.name} loading="lazy" />
-                  ) : (
-                    <div className="cg-style-38">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5">
-                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <polyline points="21 15 16 10 5 21" />
-                      </svg>
-                    </div>
+      {!loading && !error && sortedCollections.length > 0 && activeView === 'grid' && (
+        <div className="cg-style-37 fv-grid">
+          {sortedCollections.map((collection) => (
+            <div
+              key={collection.id}
+              className={`cg-style-73 group ${contextMenuId === collection.id ? 'cg-style-73--ctx-open' : ''}`}
+              onClick={() => handleCardClick(collection)}
+            >
+              <div className={`cg-style-74 ${selectedCards.includes(collection.id) ? 'cg-style-74--selected' : ''}`}>
+                {getCoverSrc(collection) ? (
+                  <img src={getCoverSrc(collection)} alt={collection.name} loading="lazy" />
+                ) : (
+                  <div className="cg-style-38">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5">
+                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      <circle cx="8.5" cy="8.5" r="1.5" />
+                      <polyline points="21 15 16 10 5 21" />
+                    </svg>
+                  </div>
+                )}
+                <div
+                  className={`cg-style-75 ${selectedCards.includes(collection.id) ? 'border-[#8BDFDD] bg-[#8BDFDD] opacity-100' : 'border-white/85 bg-black/15 opacity-0 group-hover:opacity-100'}`}
+                  onClick={(e) => toggleSelectCard(e, collection.id)}
+                >
+                  {selectedCards.includes(collection.id) && (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#222" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
                   )}
-                  <div
-                    className={`cg-style-75 ${selectedCards.includes(collection.id) ? 'border-[#1a9b84] bg-[#1a9b84] opacity-100' : 'border-white/85 bg-black/15 opacity-0 group-hover:opacity-100'}`}
-                    onClick={(e) => toggleSelectCard(e, collection.id)}
-                  >
-                    {selectedCards.includes(collection.id) && (
-                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-                    )}
-                  </div>
-                  <div className="cg-style-39" onClick={(e) => openContextMenu(e, collection.id)}>
-                    ⋮
-                  </div>
-                  <svg
-                    className={`cg-style-76 ${collection.is_starred ? 'opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]' : 'opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] group-hover:opacity-100'}`}
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="22"
-                    height="22"
-                    viewBox="0 0 24 24"
-                    fill={collection.is_starred ? '#f5c518' : 'none'}
-                    stroke={collection.is_starred ? '#f5c518' : 'white'}
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    onClick={(e) => handleToggleCollectionStar(e, collection)}
-                  >
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
                 </div>
-                {renderContextMenu(collection)}
-                <div className="px-1">
-                  <h3 className="cg-style-43">{collection.name}</h3>
-                  <div className="cg-style-44 cg-style-44--split">
-                    <div className="cg-style-44-meta">
-                      <span>{collection.photo_count || 0} items</span>
-                      <span className="cg-style-46">·</span>
-                      <span>{collection.event_date ? new Date(collection.event_date).toLocaleDateString() : 'No date'}</span>
-                    </div>
-                    <span className="cg-style-80">{formatStorageBytes(collection.storage_bytes)}</span>
+                <div className="cg-style-39" onClick={(e) => openContextMenu(e, collection.id)}>
+                  ⋮
+                </div>
+                <svg
+                  className={`cg-style-76 ${collection.is_starred ? 'opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]' : 'opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] group-hover:opacity-100'}`}
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="22"
+                  height="22"
+                  viewBox="0 0 24 24"
+                  fill={collection.is_starred ? '#f5c518' : 'none'}
+                  stroke={collection.is_starred ? '#f5c518' : 'white'}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  onClick={(e) => handleToggleCollectionStar(e, collection)}
+                >
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </div>
+              {renderContextMenu(collection)}
+              <div className="px-1">
+                <h3 className="cg-style-43">{collection.name}</h3>
+                <div className="cg-style-44 cg-style-44--split">
+                  <div className="cg-style-44-meta">
+                    <span>{collection.photo_count || 0} items</span>
+                    <span className="cg-style-46">·</span>
+                    <span>{collection.event_date ? new Date(collection.event_date).toLocaleDateString() : 'No date'}</span>
                   </div>
+                  <span className="cg-style-80">{formatStorageBytes(collection.storage_bytes)}</span>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          ))}
+        </div>
+      )}
 
-        {!loading && !error && sortedCollections.length > 0 && activeView === 'list' && (
-          <div className="px-10 fv-list">
-            {sortedCollections.map((collection) => (
-              <div key={collection.id} className="cg-style-52" onClick={() => handleCardClick(collection)}>
-                <div className="cg-style-48">
-                  <div className="cg-style-53">
-                    {getCoverSrc(collection) ? (
-                      <img src={getCoverSrc(collection)} alt="" loading="lazy" />
-                    ) : (
-                      <div className="cg-style-38" />
-                    )}
-                  </div>
-                  <div className="cg-style-54">
-                    <span className="cg-style-55">{collection.name}</span>
-                    <span className="cg-style-56">
-                      {collection.photo_count || 0} items · {formatStorageBytes(collection.storage_bytes)}
-                    </span>
-                  </div>
+      {!loading && !error && sortedCollections.length > 0 && activeView === 'list' && (
+        <div className="px-10 fv-list">
+          {sortedCollections.map((collection) => (
+            <div key={collection.id} className="cg-style-52" onClick={() => handleCardClick(collection)}>
+              <div className="cg-style-48">
+                <div className="cg-style-53">
+                  {getCoverSrc(collection) ? (
+                    <img src={getCoverSrc(collection)} alt="" loading="lazy" />
+                  ) : (
+                    <div className="cg-style-38" />
+                  )}
                 </div>
-                <span className="cg-style-59" onClick={(e) => openContextMenu(e, collection.id)}>
-                  ···
-                </span>
-                {renderContextMenu(collection, 'list')}
+                <div className="cg-style-54">
+                  <span className="cg-style-55">{collection.name}</span>
+                  <span className="cg-style-56">
+                    {collection.photo_count || 0} items · {formatStorageBytes(collection.storage_bytes)}
+                  </span>
+                </div>
               </div>
-            ))}
-          </div>
-        )}
-
-        <EditCollectionModal
-          collection={editCollection}
-          isOpen={Boolean(editCollection)}
-          onClose={() => setEditCollection(null)}
-          onSave={handleEditSave}
-          onAdvanced={(c) => navigate(`/collections/manage?id=${c.id}`)}
-          saving={editSaving}
-        />
-        <CollectionDirectLinkModal collection={directLinkCollection} isOpen={Boolean(directLinkCollection)} onClose={() => setDirectLinkCollection(null)} />
-        <CollectionQrModal collection={qrCollection} isOpen={Boolean(qrCollection)} onClose={() => setQrCollection(null)} />
-        <CollectionDuplicateModal
-          collection={duplicateCollection}
-          isOpen={Boolean(duplicateCollection)}
-          onClose={() => setDuplicateCollection(null)}
-          onConfirm={handleDuplicateConfirm}
-          busy={duplicateBusy}
-        />
-        <MoveCollectionModal
-          isOpen={Boolean(moveToCollection)}
-          onClose={() => setMoveToCollection(null)}
-          collectionId={moveToCollection?.id}
-          photographerId={user?.id}
-          currentFolderId={folderId}
-          onMoved={() => {
-            setMoveToCollection(null);
-            void load();
-          }}
-        />
-        <FolderDirectLinkModal folder={folder} isOpen={folderLinkOpen} onClose={() => setFolderLinkOpen(false)} />
-        <FolderQrModal folder={folder} isOpen={folderQrOpen} onClose={() => setFolderQrOpen(false)} />
-
-        {selectedCards.length > 0 && (
-          <div className="cg-style-64">
-            <div className="cg-style-65" ref={selectionMenuRef}>
-              <button type="button" className="cg-style-66" onClick={clearSelection} aria-label="Clear selection">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-              <span className="whitespace-nowrap">{selectedCards.length} selected</span>
-              <button
-                type="button"
-                className="cg-style-66"
-                onClick={() => setShowSelectionMenu((v) => !v)}
-                aria-label="Selection options"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
-              </button>
-              {showSelectionMenu ? (
-                <div className="cg-selection-menu">
-                  <button type="button" onClick={selectAllCollections}>Select all</button>
-                  <button type="button" onClick={clearSelection}>Deselect all</button>
-                </div>
-              ) : null}
+              <span className="cg-style-59" onClick={(e) => openContextMenu(e, collection.id)}>
+                ···
+              </span>
+              {renderContextMenu(collection, 'list')}
             </div>
-            <div className="cg-style-67">
-              <button type="button" className="cg-style-68" title="Edit starred" onClick={handleBulkStar} disabled={bulkApplying}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={selectedCollections.every((c) => c.is_starred) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
-              </button>
-              <button type="button" className="cg-style-68" title="Edit status" onClick={() => setBulkStatusOpen(true)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
-              </button>
-              <button type="button" className="cg-style-68" title="Edit tags" onClick={() => setBulkTagsOpen(true)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg>
-              </button>
-              <button type="button" className="cg-style-68" title="Move to" onClick={() => setBulkMoveOpen(true)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /><line x1="19" y1="12" x2="19" y2="5" /></svg>
-              </button>
-              <button type="button" className="cg-style-68" title="Edit settings" onClick={() => setBulkEditOpen(true)}>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
-              </button>
-            </div>
-          </div>
-        )}
+          ))}
+        </div>
+      )}
 
-        <MoveCollectionModal
-          isOpen={bulkMoveOpen}
-          onClose={() => setBulkMoveOpen(false)}
-          collectionIds={selectedCards}
-          photographerId={user?.id}
-          currentFolderIds={selectedCollections.map(() => folderId)}
-          onMoved={handleBulkMoveComplete}
-        />
-        <BulkCollectionStatusModal
-          isOpen={bulkStatusOpen}
-          count={selectedCards.length}
-          onClose={() => setBulkStatusOpen(false)}
-          applying={bulkApplying}
-          onApply={(payload) => applyBulkUpdate(payload, { closeStatus: true })}
-        />
-        <BulkCollectionTagsModal
-          isOpen={bulkTagsOpen}
-          count={selectedCards.length}
-          onClose={() => setBulkTagsOpen(false)}
-          applying={bulkApplying}
-          onApply={(payload) => applyBulkUpdate(payload, { closeTags: true })}
-        />
-        <BulkEditCollectionsModal
-          isOpen={bulkEditOpen}
-          count={selectedCards.length}
-          onClose={() => setBulkEditOpen(false)}
-          applying={bulkApplying}
-          onApply={(payload) => applyBulkUpdate(payload, { closeEdit: true })}
-        />
-      </main>
-    </SidebarLayout>
+      <EditCollectionModal
+        collection={editCollection}
+        isOpen={Boolean(editCollection)}
+        onClose={() => setEditCollection(null)}
+        onSave={handleEditSave}
+        onAdvanced={(c) => navigate(`/collections/manage?id=${c.id}`)}
+        saving={editSaving}
+      />
+      <CollectionDirectLinkModal collection={directLinkCollection} isOpen={Boolean(directLinkCollection)} onClose={() => setDirectLinkCollection(null)} />
+      <CollectionQrModal collection={qrCollection} isOpen={Boolean(qrCollection)} onClose={() => setQrCollection(null)} />
+      <CollectionDuplicateModal
+        collection={duplicateCollection}
+        isOpen={Boolean(duplicateCollection)}
+        onClose={() => setDuplicateCollection(null)}
+        onConfirm={handleDuplicateConfirm}
+        busy={duplicateBusy}
+      />
+      <MoveCollectionModal
+        isOpen={Boolean(moveToCollection)}
+        onClose={() => setMoveToCollection(null)}
+        collectionId={moveToCollection?.id}
+        photographerId={user?.id}
+        currentFolderId={folderId}
+        onMoved={() => {
+          setMoveToCollection(null);
+          void load();
+        }}
+      />
+      <FolderDirectLinkModal folder={folder} isOpen={folderLinkOpen} onClose={() => setFolderLinkOpen(false)} />
+      <FolderQrModal folder={folder} isOpen={folderQrOpen} onClose={() => setFolderQrOpen(false)} />
+
+      {selectedCards.length > 0 && (
+        <div className="cg-style-64">
+          <div className="cg-style-65" ref={selectionMenuRef}>
+            <button type="button" className="cg-style-66" onClick={clearSelection} aria-label="Clear selection">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+            </button>
+            <span className="whitespace-nowrap">{selectedCards.length} selected</span>
+            <button
+              type="button"
+              className="cg-style-66"
+              onClick={() => setShowSelectionMenu((v) => !v)}
+              aria-label="Selection options"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9" /></svg>
+            </button>
+            {showSelectionMenu ? (
+              <div className="cg-selection-menu">
+                <button type="button" onClick={selectAllCollections}>Select all</button>
+                <button type="button" onClick={clearSelection}>Deselect all</button>
+              </div>
+            ) : null}
+          </div>
+          <div className="cg-style-67">
+            <button type="button" className="cg-style-68" title="Edit starred" onClick={handleBulkStar} disabled={bulkApplying}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill={selectedCollections.every((c) => c.is_starred) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></svg>
+            </button>
+            <button type="button" className="cg-style-68" title="Edit status" onClick={() => setBulkStatusOpen(true)}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" /></svg>
+            </button>
+            <button type="button" className="cg-style-68" title="Edit tags" onClick={() => setBulkTagsOpen(true)}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" /><line x1="7" y1="7" x2="7.01" y2="7" /></svg>
+            </button>
+            <button type="button" className="cg-style-68" title="Move to" onClick={() => setBulkMoveOpen(true)}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M5 12h14" /><path d="M12 5l7 7-7 7" /><line x1="19" y1="12" x2="19" y2="5" /></svg>
+            </button>
+            <button type="button" className="cg-style-68" title="Edit settings" onClick={() => setBulkEditOpen(true)}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" /></svg>
+            </button>
+          </div>
+        </div>
+      )}
+
+      <MoveCollectionModal
+        isOpen={bulkMoveOpen}
+        onClose={() => setBulkMoveOpen(false)}
+        collectionIds={selectedCards}
+        photographerId={user?.id}
+        currentFolderIds={selectedCollections.map(() => folderId)}
+        onMoved={handleBulkMoveComplete}
+      />
+      <BulkCollectionStatusModal
+        isOpen={bulkStatusOpen}
+        count={selectedCards.length}
+        onClose={() => setBulkStatusOpen(false)}
+        applying={bulkApplying}
+        onApply={(payload) => applyBulkUpdate(payload, { closeStatus: true })}
+      />
+      <BulkCollectionTagsModal
+        isOpen={bulkTagsOpen}
+        count={selectedCards.length}
+        onClose={() => setBulkTagsOpen(false)}
+        applying={bulkApplying}
+        onApply={(payload) => applyBulkUpdate(payload, { closeTags: true })}
+      />
+      <BulkEditCollectionsModal
+        isOpen={bulkEditOpen}
+        count={selectedCards.length}
+        onClose={() => setBulkEditOpen(false)}
+        applying={bulkApplying}
+        onApply={(payload) => applyBulkUpdate(payload, { closeEdit: true })}
+      />
+    </main>
+    </SidebarLayout >
   );
 };
 

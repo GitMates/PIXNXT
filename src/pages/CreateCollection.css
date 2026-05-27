@@ -1,4 +1,4 @@
-﻿.cc-page {
+.cc-page {
     display: flex;
     flex-direction: column;
     min-height: 100vh;
@@ -43,7 +43,7 @@
 }
 
 .cc-header-title {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: #111;
     text-transform: none;
@@ -63,7 +63,7 @@
 }
 
 .cc-form-title {
-    font-size: 32px;
+    font-size: 34px;
     font-weight: 700;
     color: #111;
     margin-bottom: 48px;
@@ -76,7 +76,7 @@
 
 .cc-label {
     display: block;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     color: #888;
     margin-bottom: 12px;
@@ -90,7 +90,7 @@
     border: 1px solid #ebebeb;
     border-radius: 0;
     padding: 0 16px;
-    font-size: 14px;
+    font-size: 16px;
     color: #111;
     background-color: #fff;
     outline: none;
@@ -98,7 +98,7 @@
 }
 
 .cc-input:focus {
-    border-color: #1a9b84;
+    border-color: #8BDFDD;
 }
 
 .cc-select-wrapper {
@@ -113,7 +113,7 @@
     border: 1px solid #ebebeb;
     border-radius: 0;
     padding: 0 16px;
-    font-size: 14px;
+    font-size: 16px;
     color: #111;
     outline: none;
     appearance: none;
@@ -136,27 +136,27 @@
 }
 
 .cc-submit-btn {
-    background-color: #1a9b84;
-    color: #fff;
+    background-color: #8BDFDD;
+    color: #222;
     border: none;
     border-radius: 0;
     height: 44px;
     padding: 0 32px;
-    font-size: 14px;
+    font-size: 17px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
 }
 
 .cc-submit-btn:hover {
-    background-color: #147d6a;
+    background-color: #8BDFDD;
 }
 
 .cc-cancel-btn {
     background: none;
     border: none;
     color: #666;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: color 0.2s;
@@ -174,7 +174,7 @@
 }
 
 .cc-form-group .dp-wrapper:focus-within {
-    border-color: #1a9b84;
+    border-color: #8BDFDD;
     box-shadow: none;
 }
 

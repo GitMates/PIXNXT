@@ -1,4 +1,4 @@
-﻿@tailwind components;
+@tailwind components;
 
 @layer components {
 
@@ -295,7 +295,7 @@
 .cd-lightbox-caption {
     margin-top: 20px;
     color: rgba(255, 255, 255, 0.5);
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     letter-spacing: 0.5px;
 }
@@ -314,7 +314,7 @@
     padding: 10px 24px;
     color: #fff;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     display: flex;
     align-items: center;
@@ -334,7 +334,7 @@
 }
 
 .cd-title {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     color: #111;
     margin: 0 0 3px 0;
@@ -342,7 +342,7 @@
 }
 
 .cd-subtitle {
-    font-size: 12px;
+    font-size: 14px;
     color: #999;
     line-height: 1;
 }
@@ -355,7 +355,7 @@
     color: #333;
     padding: 6px 14px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     letter-spacing: 0.5px;
     margin-left: 20px;
@@ -369,14 +369,14 @@
 }
 
 .cd-status-badge.published {
-    background-color: #e6f4f1;
-    color: #0d9488;
-    border: 1px solid #b8e0d8;
+    background-color: rgba(139, 223, 221, 0.15);
+    color: #111;
+    border: 1px solid #8BDFDD;
 }
 
 .cd-status-badge.published:hover {
-    background-color: #d6eee9;
-    border-color: #9dd4c8;
+    background-color: rgba(139, 223, 221, 0.25);
+    border-color: #8BDFDD;
 }
 
 .cd-topbar-right {
@@ -391,7 +391,7 @@
 .cd-text-btn {
     background: none;
     border: none;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #444;
     cursor: pointer;
@@ -411,7 +411,7 @@
     border-radius: 0;
     padding: 0 24px;
     height: 38px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
@@ -451,31 +451,35 @@
 .cd-share-split-btn {
     display: flex;
     align-items: stretch;
-    border-radius: 0;
+    border-radius: 3px;
     overflow: hidden;
     height: 38px;
-    background-color: #26a69a;
+    background-color: #8BDFDD;
 }
 
 .cd-share-main {
     background: none;
-    color: #fff;
+    color: #222;
+    color: #000000;
     border: none;
     padding: 0 24px;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
-    border-right: 1px solid rgba(255, 255, 255, 0.4);
+    border-right: 1px solid rgba(0, 0, 0, 0.15);
     transition: background 0.2s;
+    font-family: 'Roboto', system-ui, sans-serif;
 }
 
 .cd-share-main:hover {
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.08);
 }
 
 .cd-share-arrow {
     background: none;
-    color: #fff;
+    color: #222;
+    color: #000000;
     border: none;
     padding: 0 10px;
     cursor: pointer;
@@ -486,7 +490,8 @@
 }
 
 .cd-share-arrow:hover {
-    background-color: rgba(255, 255, 255, 0.12);
+    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(0, 0, 0, 0.08);
 }
 
 .cd-share-dropdown {
@@ -522,7 +527,7 @@
     padding: 16px 24px;
     cursor: pointer;
     color: #333;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 500;
     transition: background 0.15s;
 }
@@ -549,8 +554,8 @@
     width: 280px;
     height: 100%;
     /* Relative to cd-layout-body */
-    background-color: #fafafa;
-    border-right: 1px solid #ebebeb;
+    background-color: #ffffff;
+    border-right: 1px solid #e0e0e0;
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
@@ -611,7 +616,7 @@
 }
 
 .cd-sidebar-collection-name {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: #111;
     margin: 0 0 6px 0;
@@ -619,7 +624,7 @@
 }
 
 .cd-sidebar-collection-date {
-    font-size: 14px;
+    font-size: 16px;
     color: #777;
 }
 
@@ -657,12 +662,12 @@
 }
 
 .cd-icon-bar-btn.active {
-    color: #26a69a;
-    border-bottom-color: #26a69a;
+    color: #8BDFDD;
+    border-bottom-color: #8BDFDD;
 }
 
 .cd-icon-bar-btn.active svg {
-    stroke: #26a69a;
+    stroke: #8BDFDD;
 }
 
 .cd-icon-bar-btn:not(.active) svg {
@@ -686,8 +691,8 @@
 
 .sidebar-collapsed .cd-icon-bar-btn.active {
     background-color: #ffffff;
-    color: #26a69a;
-    box-shadow: 0 0 0 2px #26a69a inset;
+    color: #8BDFDD;
+    box-shadow: 0 0 0 2px #8BDFDD inset;
 }
 
 .sidebar-collapsed .cd-icon-bar-btn:hover {
@@ -733,7 +738,7 @@
 }
 
 .cd-cover-hover-overlay span {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     letter-spacing: 0.5px;
 }
@@ -797,7 +802,7 @@
 }
 
 .cd-photos-label {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 700;
     color: #888;
     letter-spacing: 1.2px;
@@ -811,7 +816,7 @@
     background: none;
     border: none;
     color: #111111;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     cursor: pointer;
     padding: 4px 8px;
@@ -866,7 +871,7 @@
 }
 
 .cd-set-name {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     flex: 1;
     white-space: nowrap;
@@ -986,7 +991,7 @@
 }
 
 .cd-main-title {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 700;
     color: #000;
     margin: 0;
@@ -1035,7 +1040,7 @@
     background: none;
     border: none;
     color: #111111;
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
     cursor: pointer;
     padding: 0;
@@ -1083,14 +1088,14 @@
 }
 
 .cd-drop-title {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: #333;
     margin: 0 0 8px 0;
 }
 
 .cd-drop-subtitle {
-    font-size: 14px;
+    font-size: 16px;
     color: #666;
     margin: 0;
 }
@@ -1210,7 +1215,7 @@
     box-sizing: border-box;
     margin: 0;
     padding: 6px 8px 8px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 500;
     color: #1a1a1a;
     line-height: 1.35;
@@ -1397,7 +1402,7 @@
 
 .cd-raw-loading-label {
     z-index: 2;
-    font-size: 12px;
+    font-size: 14px;
     color: #888;
     letter-spacing: 0.02em;
 }
@@ -1464,7 +1469,7 @@
     padding: 11px 20px;
     cursor: pointer;
     color: #333;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     transition: background 0.12s;
 }
@@ -1488,7 +1493,7 @@
 
 /* Photo Filename */
 .cd-photo-filename {
-    font-size: 11px;
+    font-size: 13px;
     color: #888;
     margin-top: 6px;
     padding: 0 2px;
@@ -1519,7 +1524,7 @@
 
 .cd-sort-label {
     padding: 10px 20px 6px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: #888;
 }
@@ -1527,7 +1532,7 @@
 .cd-sort-option {
     padding: 10px 20px;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: #333;
     transition: background 0.12s;
@@ -1577,7 +1582,7 @@
     transition: border-color 0.15s, background 0.15s;
     background: #fafafa;
     color: #888;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 500;
     letter-spacing: 0.02em;
     text-transform: uppercase;
@@ -1604,7 +1609,7 @@
 
 .cd-grid-section-label {
     padding: 10px 20px 6px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 500;
     color: #999;
     text-transform: none;
@@ -1616,7 +1621,7 @@
     justify-content: space-between;
     padding: 10px 20px;
     cursor: pointer;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: #333;
     transition: background 0.12s;
@@ -1641,7 +1646,7 @@
     align-items: center;
     gap: 12px;
     padding: 10px 20px;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: #333;
 }
@@ -1693,7 +1698,7 @@
 }
 
 .cd-toggle-label {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: #888;
 }
@@ -1731,7 +1736,7 @@
     background: transparent;
     cursor: pointer;
     color: #333;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     font-family: inherit;
     text-align: left;
@@ -1859,7 +1864,7 @@
 }
 
 .cd-modal-title {
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
     color: #111;
     margin: 0;
@@ -1895,7 +1900,7 @@
 
 .cd-form-label {
     display: block;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #374151;
     margin-bottom: 8px;
@@ -1908,7 +1913,7 @@
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
-    font-size: 14px;
+    font-size: 16px;
     color: #111;
     transition: all 0.2s;
 }
@@ -1958,7 +1963,7 @@
 .cd-modal-tab {
     background: none;
     border: none;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: #999;
     padding: 0 0 12px 0;
@@ -2004,11 +2009,11 @@
     flex: 1;
     border: none;
     outline: none;
-    font-size: 14px;
+    font-size: 16px;
 }
 
 .cd-embed-helper {
-    font-size: 13px;
+    font-size: 15px;
     color: #666;
     margin: 0 0 32px 0;
 }
@@ -2082,14 +2087,14 @@
 }
 
 .cd-modal-drop-text {
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: #333;
     margin: 0 0 8px 0;
 }
 
 .cd-modal-drop-browse {
-    font-size: 14px;
+    font-size: 16px;
     color: #666;
     margin: 0;
 }
@@ -2104,7 +2109,7 @@
 }
 
 .cd-modal-switch {
-    font-size: 13px;
+    font-size: 15px;
     color: #999;
     cursor: pointer;
     text-decoration: underline;
@@ -2183,7 +2188,7 @@
 
 .cd-selection-count {
     color: #fff;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     letter-spacing: 0.5px;
 }
@@ -2225,7 +2230,7 @@
 }
 
 .cd-selection-count {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 500;
     white-space: nowrap;
 }
@@ -2267,7 +2272,7 @@
 
 .cd-selection-move-dropdown .cd-sort-label {
     padding: 10px 16px 6px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: #888;
     letter-spacing: 0.04em;
@@ -2280,7 +2285,7 @@
     display: block;
     width: 100%;
     padding: 10px 16px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: #333;
     text-align: left;
@@ -2356,7 +2361,7 @@
 
 .cd-selection-more-dropdown .cd-ctx-hotkey {
     margin-left: auto;
-    font-size: 12px;
+    font-size: 14px;
     color: #888;
     background: #f0f0f0;
     padding: 2px 6px;
@@ -2385,7 +2390,7 @@
     color: #fff;
     padding: 6px 12px;
     border-radius: 0;
-    font-size: 13px;
+    font-size: 15px;
     white-space: nowrap;
     opacity: 0;
     pointer-events: none;
@@ -2493,7 +2498,7 @@
 
 .cd-ctx-text {
     flex: 1;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 400;
     color: #333;
     text-align: left;
@@ -2501,7 +2506,7 @@
 }
 
 .cd-ctx-hotkey {
-    font-size: 11px;
+    font-size: 13px;
     color: #999;
     background: #fafafa;
     padding: 2px 6px;
@@ -2546,7 +2551,7 @@
 }
 
 .cd-design-title {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: #040404;
     margin: 0;
@@ -2566,7 +2571,7 @@
     border: none;
     background: transparent !important;
     border-radius: 0;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: #666;
     cursor: pointer;
@@ -2632,7 +2637,7 @@
 }
 
 .cd-cover-card-name {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #444;
     text-align: center;
@@ -2664,7 +2669,7 @@
 
 .preview-title {
     position: absolute;
-    font-size: 8px;
+    font-size: 10px;
     font-weight: 700;
     color: #fff;
     letter-spacing: 1.5px;
@@ -2697,7 +2702,7 @@
     top: 8px;
     left: 8px;
     bottom: auto;
-    font-size: 6px;
+    font-size: 8px;
     letter-spacing: 0.2em;
     opacity: 0.9;
 }
@@ -2707,7 +2712,7 @@
     position: absolute;
     bottom: 8px;
     left: 8px;
-    font-size: 7px;
+    font-size: 9px;
     font-weight: 700;
     color: #fff;
     letter-spacing: 1px;
@@ -2736,7 +2741,7 @@
     color: #111;
     text-shadow: none;
     position: static;
-    font-size: 7px;
+    font-size: 9px;
     padding: 0 4px;
 }
 
@@ -2990,19 +2995,19 @@
 }
 
 .cd-typography-card .sample-text {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     margin-bottom: 4px;
 }
 
 .cd-typography-card .desc-text {
-    font-size: 11px;
+    font-size: 13px;
     color: #999;
 }
 
 .cd-typography-name,
 .cd-color-name {
-    font-size: 13px;
+    font-size: 15px;
     color: #666;
     text-align: center;
 }
@@ -3075,7 +3080,7 @@
 
 .grid-section-label {
     display: block;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     color: #111;
     margin-bottom: 12px;
@@ -3084,7 +3089,7 @@
 
 /* Grid Settings Sidebar */
 .grid-main-title {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 700;
     color: #111;
     margin-bottom: 32px;
@@ -3131,7 +3136,7 @@
 }
 
 .card-label {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: #666;
 }
@@ -3155,7 +3160,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
 }
 
@@ -3166,7 +3171,7 @@
 }
 
 .card-label {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--px-grey-medium);
     text-transform: uppercase;
@@ -3188,7 +3193,7 @@
     flex: 1;
     text-align: center;
     padding: 8px 4px;
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 500;
     color: #666;
     cursor: pointer;
@@ -3212,7 +3217,7 @@
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 0;
-    font-size: 13px;
+    font-size: 15px;
     background: white;
 }
 
@@ -3287,7 +3292,7 @@
 }
 
 .cover-option-title {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 700;
     letter-spacing: 1px;
     color: #111;
@@ -3295,7 +3300,7 @@
 }
 
 .cover-option-desc {
-    font-size: 13px;
+    font-size: 15px;
     color: #888;
     margin: 0;
 }
@@ -3312,7 +3317,7 @@
 /* --- REFINEMENTS --- */
 
 .h-super {
-    font-size: 11px;
+    font-size: 13px;
     letter-spacing: 3px;
     font-weight: 500;
     color: #888;
@@ -3322,7 +3327,7 @@
 
 .h-title {
     font-family: inherit;
-    font-size: 72px;
+    font-size: 74px;
     font-weight: 400;
     color: #111;
     margin-bottom: 24px;
@@ -3330,7 +3335,7 @@
 
 .h-date {
     font-family: inherit;
-    font-size: 12px;
+    font-size: 14px;
     letter-spacing: 2px;
     color: #777;
     margin-bottom: 40px;
@@ -3352,7 +3357,7 @@
 
 /* Mobile Adjustments */
 .cd-design-preview-pane.mobile .h-title {
-    font-size: 36px;
+    font-size: 38px;
 }
 
 .header-vintage-layout .h-super {
@@ -3360,11 +3365,11 @@
 }
 
 .header-vintage-layout .h-title {
-    font-size: 56px;
+    font-size: 58px;
 }
 
 .header-journal-layout .h-title {
-    font-size: 56px;
+    font-size: 58px;
 }
 
 /* Grid Mockup Refinement */
@@ -3401,14 +3406,14 @@
 }
 
 .cd-empty-state-title {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: #111;
     margin: 0 0 12px 0;
 }
 
 .cd-empty-state-text {
-    font-size: 14px;
+    font-size: 16px;
     color: #666;
     line-height: 1.6;
     margin: 0;
@@ -3490,7 +3495,7 @@
 
 /* Cover modal drop text styling */
 .cover-selection-modal .cd-modal-drop-text {
-    font-size: 14px !important;
+    font-size: 16px !important;
     color: #3D3D3D !important;
     font-weight: 500 !important;
     margin-bottom: 16px !important;
@@ -4055,7 +4060,7 @@
     /* --- Task 2: Further fix popup overflow & size --- */
     .cd-ctx-item {
         padding: 8px 12px !important;
-        font-size: 13px !important;
+        font-size: 15px !important;
     }
 
     .cd-ctx-item svg {
@@ -4167,14 +4172,14 @@
 
 .upload-progress-info h4 {
     margin: 0;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: #fff;
     letter-spacing: 0.3px;
 }
 
 .upload-progress-info span {
-    font-size: 12px;
+    font-size: 14px;
     color: rgba(255, 255, 255, 0.5);
     margin-top: 2px;
 }
@@ -4237,14 +4242,14 @@
 
 .upload-item-name {
     margin: 0;
-    font-size: 13.5px;
+    font-size: 15.5px;
     font-weight: 500;
     color: rgba(255, 255, 255, 0.9);
 }
 
 .upload-item-status {
     margin: 4px 0 0;
-    font-size: 11px;
+    font-size: 13px;
     color: rgba(255, 255, 255, 0.4);
     letter-spacing: 0.2px;
 }
@@ -4286,7 +4291,7 @@
 }
 
 .cd-set-field-label {
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #333;
     letter-spacing: 0.3px;
@@ -4295,7 +4300,7 @@
 .cd-set-field-input {
     width: 100%;
     padding: 10px 14px;
-    font-size: 14px;
+    font-size: 16px;
     color: #333;
     background: #fff;
     border: 1px solid #d9d9d9;
@@ -4317,7 +4322,7 @@
 .cd-set-field-textarea {
     width: 100%;
     padding: 10px 14px;
-    font-size: 14px;
+    font-size: 16px;
     color: #333;
     background: #fff;
     border: 1px solid #d9d9d9;
@@ -4340,7 +4345,7 @@
 }
 
 .cd-set-field-counter {
-    font-size: 11px;
+    font-size: 13px;
     color: #aaa;
     text-align: right;
     display: block;
@@ -4348,7 +4353,7 @@
 }
 
 .cd-set-field-hint {
-    font-size: 12px;
+    font-size: 14px;
     color: #999;
     line-height: 1.4;
     margin: 0;
@@ -4365,7 +4370,7 @@
 
 .cd-set-modal-footer .cd-cancel-btn {
     padding: 8px 20px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     color: #666;
     background: transparent;
@@ -4382,7 +4387,7 @@
 
 .cd-set-modal-footer .cd-save-btn {
     padding: 8px 24px;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     color: #fff;
     background: #111111;
@@ -4447,7 +4452,7 @@
     gap: 10px;
     width: 100%;
     padding: 10px 16px;
-    font-size: 13px;
+    font-size: 15px;
     color: #333;
     cursor: pointer;
     transition: background 0.15s;
@@ -4515,7 +4520,7 @@
     align-items: center;
     gap: 12px;
     padding: 10px 20px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 500;
     color: #374151;
     cursor: pointer;
@@ -4538,7 +4543,7 @@
 
 .cd-photo-menu-filename-hint {
     padding: 10px 18px 6px;
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 600;
     color: #111827;
     line-height: 1.35;
@@ -4564,7 +4569,7 @@
     border: none;
     padding: 10px 24px;
     border-radius: 0;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -4586,7 +4591,7 @@
     border: 1px solid #ddd;
     padding: 10px 24px;
     border-radius: 0;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -4698,7 +4703,7 @@
 }
 
 .cd-main-title {
-    font-size: 20px;
+    font-size: 22px;
     font-weight: 700;
     color: #111111;
     margin: 0;
@@ -4726,7 +4731,7 @@
     border: none;
     border-radius: 0;
     padding: 8px 20px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
@@ -4788,7 +4793,7 @@
 }
 
 .focal-instruction {
-    font-size: 13px;
+    font-size: 15px;
     color: #666;
     text-align: center;
     margin: 0;
@@ -4848,7 +4853,7 @@
 }
 
 .meta-icon-item span {
-    font-size: 10px !important;
+    font-size: 12px !important;
     font-weight: 700 !important;
     letter-spacing: 1px !important;
     text-transform: uppercase !important;
@@ -4871,7 +4876,7 @@
     background-color: #fff;
     border-bottom: 1px solid #f0f0f0;
     padding: 16px 20px;
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.12em;
@@ -4890,7 +4895,7 @@
     padding: 20px 20px;
     border-bottom: 1px solid #f2f2f2;
     align-items: center;
-    font-size: 15px;
+    font-size: 17px;
     color: #111;
     transition: background 0.2s;
 }
@@ -4929,12 +4934,12 @@
 .activity-col-filename,
 .activity-col-size {
     color: #666;
-    font-size: 13px;
+    font-size: 15px;
 }
 
 .activity-col-date {
     color: #999;
-    font-size: 13px;
+    font-size: 15px;
 }
 
 .activity-col-pin {
@@ -4984,7 +4989,7 @@
 }
 
 .expiry-email-header .header-left .header-title {
-    font-size: 16px;
+    font-size: 18px;
     font-weight: 600;
     color: #111;
     margin: 0;
@@ -5008,7 +5013,7 @@
     background: none;
     border: none;
     padding: 6px 24px 6px 4px;
-    font-size: 14px;
+    font-size: 16px;
     color: #333;
     cursor: pointer;
     outline: none;
@@ -5028,7 +5033,7 @@
     border: none;
     border-radius: 0;
     padding: 10px 24px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: background 0.2s;
@@ -5083,7 +5088,7 @@
 }
 
 .expiry-to-label {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: #333;
     white-space: nowrap;
@@ -5094,7 +5099,7 @@
     flex: 1;
     border: none;
     outline: none;
-    font-size: 14px;
+    font-size: 16px;
     color: #555;
     background: transparent;
     padding: 0;
@@ -5114,7 +5119,7 @@
     border: none;
     border-bottom: 1px solid #efefef;
     padding: 14px 0;
-    font-size: 15px;
+    font-size: 17px;
     font-weight: 600;
     color: #111;
     outline: none;
@@ -5130,7 +5135,7 @@
     box-sizing: border-box;
     border: none;
     padding: 14px 0;
-    font-size: 14px;
+    font-size: 16px;
     color: #333;
     line-height: 1.7;
     outline: none;
@@ -5146,7 +5151,7 @@
 
 .expiry-sender-name {
     padding: 10px 0 14px;
-    font-size: 14px;
+    font-size: 16px;
     color: #333;
     font-weight: 500;
     border-bottom: 1px solid #efefef;
@@ -5162,7 +5167,7 @@
 }
 
 .activity-lists-grid .grid-label {
-    font-size: 12px;
+    font-size: 14px;
     font-weight: 700;
     color: #999;
     text-transform: uppercase;
@@ -5180,7 +5185,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 14px;
+    font-size: 16px;
     color: #555;
 }
 
@@ -5190,7 +5195,7 @@
 }
 
 .activity-lists-grid .upgrade-notice {
-    font-size: 13px;
+    font-size: 15px;
     color: #009070;
     margin-top: 16px;
     font-weight: 500;
@@ -5205,7 +5210,7 @@
     align-items: center;
     gap: 6px;
     color: #009070;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 500;
     cursor: pointer;
     padding: 6px 0;
@@ -5218,7 +5223,7 @@
 
 .dynamic-text-section .section-content {
     padding: 10px 0 4px;
-    font-size: 13px;
+    font-size: 15px;
     color: #666;
 }
 
@@ -5232,7 +5237,7 @@
 }
 
 .dynamic-text-section .section-content li {
-    font-size: 13px;
+    font-size: 15px;
     color: #666;
 }
 
@@ -5245,7 +5250,7 @@
 }
 
 .include-info-section .section-label {
-    font-size: 12px;
+    font-size: 14px;
     color: #999;
     font-weight: 500;
     margin-bottom: 10px;
@@ -5261,7 +5266,7 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    font-size: 13px;
+    font-size: 15px;
     color: #333;
     cursor: pointer;
     user-select: none;
@@ -5283,7 +5288,7 @@
 }
 
 .activity-lists-container .grid-label {
-    font-size: 11px;
+    font-size: 13px;
     font-weight: 600;
     color: #999;
     text-transform: uppercase;
@@ -5305,7 +5310,7 @@
 }
 
 .activity-lists-grid .list-item label {
-    font-size: 14px;
+    font-size: 16px;
     color: #555;
     cursor: pointer;
 }
@@ -5316,7 +5321,7 @@
 }
 
 .upgrade-notice {
-    font-size: 13px;
+    font-size: 15px;
     color: #009070;
     font-weight: 500;
     margin-top: 4px;
@@ -5375,7 +5380,7 @@
 }
 
 .email-preview-photographer {
-    font-size: 10px;
+    font-size: 12px;
     font-weight: 700;
     letter-spacing: 2px;
     text-transform: uppercase;
@@ -5385,7 +5390,7 @@
 }
 
 .email-preview-title {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 600;
     color: #111;
     margin: 0 0 20px;
@@ -5408,7 +5413,7 @@
 }
 
 .email-preview-body {
-    font-size: 14px;
+    font-size: 16px;
     color: #333;
     line-height: 1.7;
 }
@@ -5418,7 +5423,7 @@
 }
 
 .preview-greeting {
-    font-size: 14px;
+    font-size: 16px;
     color: #333;
     margin-bottom: 12px !important;
 }
@@ -5432,7 +5437,7 @@
     border: none;
     border-radius: 0;
     padding: 12px 36px;
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     cursor: default;
     text-align: center;
@@ -5484,7 +5489,7 @@
 }
 
 .reminder-item-text {
-    font-size: 14px;
+    font-size: 16px;
     font-weight: 600;
     color: #2d3748;
 }
@@ -5500,7 +5505,7 @@
     border: none;
     color: #2b78c5;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     padding: 4px 8px;
     border-radius: 0;
@@ -5516,7 +5521,7 @@
     border: none;
     color: #e53e3e;
     cursor: pointer;
-    font-size: 13px;
+    font-size: 15px;
     font-weight: 600;
     padding: 4px 8px;
     border-radius: 0;

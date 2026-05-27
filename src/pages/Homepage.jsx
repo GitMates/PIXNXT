@@ -535,8 +535,8 @@ const Homepage = () => {
                 ) : null}
             </main>
             {toastMessage && (
-                <div className="fixed bottom-6 right-6 bg-[#1a9b84] text-white px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-[13px] font-medium transition-all duration-300 z-[9999] flex items-center gap-2" style={{ animation: 'hpToastIn 0.3s ease-out' }}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <div className="fixed bottom-6 right-6 bg-[#8BDFDD] text-[#222] px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-[15px] font-medium transition-all duration-300 z-[9999] flex items-center gap-2" style={{ animation: 'hpToastIn 0.3s ease-out' }}>
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>
                     {toastMessage}
