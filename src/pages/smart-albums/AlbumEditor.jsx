@@ -1,15 +1,17 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
 import CollectionPickerModal from '../../components/smart-albums/CollectionPickerModal';
+/* Share disabled — uncomment to restore
 import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
 import {
     getSmartAlbumPreviewShareUrl,
     openShareByEmail,
-    openSmartAlbumPreview,
     openWhatsAppShare,
 } from '../../lib/shareSmartAlbum';
+*/
+import { openSmartAlbumPreview } from '../../lib/shareSmartAlbum';
 import {
     addFilesToAlbumCollection,
     getAlbumCollection,
@@ -118,10 +120,12 @@ export default function AlbumEditor({
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [overviewReopenToken, setOverviewReopenToken] = useState(0);
+    /* Share disabled
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
     const [shareQrOpen, setShareQrOpen] = useState(false);
     const shareRef = useRef(null);
+    */
     const [gridSelection, setGridSelection] = useState(() => {
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
         return isProofGridSpread(left) ? buildCellSelection(left, 1) : buildCoverSelection();
@@ -144,6 +148,7 @@ export default function AlbumEditor({
         setCollectionRevision(getAlbumCollectionRevision(albumId));
     }, [albumId]);
 
+    /* Share disabled
     useEffect(() => {
         if (!showShareMenu) return undefined;
         const onDocClick = (e) => {
@@ -154,6 +159,7 @@ export default function AlbumEditor({
         document.addEventListener('mousedown', onDocClick);
         return () => document.removeEventListener('mousedown', onDocClick);
     }, [showShareMenu]);
+    */
 
     useEffect(() => {
         const lockedSet = layoutToPlacementMode(album?.grid_layout);
@@ -447,69 +453,11 @@ export default function AlbumEditor({
                     >
                         Preview
                     </button>
+                    {/* Share disabled — uncomment ae-share-wrap block and related imports/state/modals
                     <div className="ae-share-wrap" ref={shareRef}>
-                        <button
-                            type="button"
-                            className="ae-btn-primary ae-btn-share"
-                            onClick={() => setShowShareMenu((v) => !v)}
-                            aria-expanded={showShareMenu}
-                        >
-                            Share
-                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                                <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                        </button>
-                        {showShareMenu && (
-                            <div className="ae-share-dropdown" role="menu">
-                                <button
-                                    type="button"
-                                    className="ae-share-dropdown-item"
-                                    onClick={() => {
-                                        setShowShareMenu(false);
-                                        openShareByEmail(
-                                            getSmartAlbumPreviewShareUrl(album),
-                                            album.name || 'Album preview'
-                                        );
-                                    }}
-                                >
-                                    Share by email
-                                </button>
-                                <button
-                                    type="button"
-                                    className="ae-share-dropdown-item"
-                                    onClick={() => {
-                                        setShowShareMenu(false);
-                                        setShareLinkOpen(true);
-                                    }}
-                                >
-                                    Get direct link
-                                </button>
-                                <button
-                                    type="button"
-                                    className="ae-share-dropdown-item"
-                                    onClick={() => {
-                                        setShowShareMenu(false);
-                                        setShareQrOpen(true);
-                                    }}
-                                >
-                                    Get QR code
-                                </button>
-                                <button
-                                    type="button"
-                                    className="ae-share-dropdown-item ae-share-dropdown-item--whatsapp"
-                                    onClick={() => {
-                                        setShowShareMenu(false);
-                                        openWhatsAppShare(
-                                            getSmartAlbumPreviewShareUrl(album),
-                                            album.name || 'Album preview'
-                                        );
-                                    }}
-                                >
-                                    Share on WhatsApp
-                                </button>
-                            </div>
-                        )}
+                        ...
                     </div>
+                    */}
                 </div>
             </header>
 
@@ -589,6 +537,7 @@ export default function AlbumEditor({
 
             <AppToast toast={toast} onDismiss={clearToast} />
 
+            {/* Share disabled
             <AlbumPreviewLinkModal
                 album={album}
                 isOpen={shareLinkOpen}
@@ -599,6 +548,7 @@ export default function AlbumEditor({
                 isOpen={shareQrOpen}
                 onClose={() => setShareQrOpen(false)}
             />
+            */}
 
             <CollectionPickerModal
                 open={pickerOpen}
