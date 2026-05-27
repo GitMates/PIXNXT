@@ -128,6 +128,13 @@ const CollectionList = ({ slug }) => {
   const showcaseOpacity = panelProgress;
 
   const highlightCollection = sortedCollections[0];
+  const coverUrl = highlightCollection?.cover_url || highlightCollection?.cover;
+  const coverName = highlightCollection?.name || 'Featured Work';
+  const coverDate = highlightCollection?.event_date ? new Date(highlightCollection.event_date).toLocaleDateString('en-US', { month:'short', year:'numeric' }) : '';
+  const collageImages = sortedCollections
+    .map(c => c.cover_url || c.cover)
+    .filter(Boolean)
+    .slice(0, 3);
 
   return (
     <div ref={containerRef} style={{ background:'#0a0a0a', minHeight:'200vh', fontFamily:"'EB Garamond', Georgia, serif" }}>
@@ -221,33 +228,92 @@ const CollectionList = ({ slug }) => {
         )}
 
         {/* Section label */}
-        <div style={{ padding:'48px 64px 32px', flexShrink:0 }}>
-          <p style={{ fontSize:11, letterSpacing:'0.28em', textTransform:'uppercase', color:'#8BDFDD', margin:0, fontFamily:'sans-serif' }}>Editorial Showcase</p>
-          <div style={{ marginTop:8, width:40, height:1, background:'rgba(139,223,221,0.3)' }} />
+        <div style={{ padding:'64px 64px 24px', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:20 }}>
+            <span style={{ fontSize:9, letterSpacing:'0.35em', textTransform:'uppercase', color:'#8BDFDD', fontFamily:'sans-serif', fontWeight:600 }}>
+              editorial showcase
+            </span>
+            <div style={{ flex:1, height:1, background:'linear-gradient(to right, rgba(139,223,221,0.25), transparent)' }} />
+          </div>
         </div>
 
         {/* Collections Grid */}
-        <div style={{ flex:1, overflowY:'auto', padding:'0 64px 64px' }}>
+        <div style={{ flex:1, overflowY:'auto', padding:'0 64px 80px' }}>
           {sortedCollections.length === 0 ? (
             <p style={{ color:'#555', letterSpacing:'0.1em', textTransform:'uppercase', fontSize:13 }}>
               {collections.length === 0 ? 'No collections yet.' : 'No results found.'}
             </p>
           ) : (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(280px, 1fr))', gap:32 }}>
+            <div style={{ 
+              display:'grid', 
+              gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))', 
+              gap:'48px 40px',
+              paddingTop:12,
+            }}>
               {pagedCollections.map((col, idx) => (
-                <div key={col.id || idx} className="coll-card"
-                  onClick={() => navigate(`/gallery/${col.slug || col.name.toLowerCase().replace(/ /g, '-')}`)}>
-                  <div style={{ aspectRatio:'3/2', overflow:'hidden', borderRadius:8, background:'#1a1a1a' }}>
-                    <img src={col.cover_url || col.cover || 'https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&q=60'}
-                      alt={col.name} className="coll-img" />
-                  </div>
-                  <div className="coll-title">{col.name}</div>
-                  {col.event_date && (
-                    <div className="coll-date">
-                      {new Date(col.event_date).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}
+                <motion.div 
+                  key={col.id || idx} 
+                  whileHover="hover"
+                  initial={{ opacity:0, y:30 }}
+                  whileInView={{ opacity:1, y:0 }}
+                  viewport={{ once:true, margin:'-40px' }}
+                  transition={{ duration:0.8, delay: (idx % 3) * 0.15, ease:[0.16,1,0.3,1] }}
+                  className="coll-card"
+                  onClick={() => navigate(`/gallery/${col.slug || col.name.toLowerCase().replace(/ /g, '-')}`)}
+                  style={{ 
+                    position:'relative',
+                    marginTop: idx % 2 === 1 ? 24 : 0, // asymmetrical height stagger for editorial vibe
+                  }}
+                >
+                  {/* Passe-Partout Framed Container in Dark Mode */}
+                  <div style={{ 
+                    aspectRatio:'4/3', 
+                    overflow:'hidden', 
+                    borderRadius:4, 
+                    background:'#121212',
+                    border:'1px solid rgba(255,255,255,0.06)',
+                    padding:16, // physical mat board spacing
+                    boxShadow:'0 20px 40px rgba(0,0,0,0.3)',
+                    transition:'all 0.5s cubic-bezier(0.16,1,0.3,1)',
+                  }}>
+                    <div style={{ width:'100%', height:'100%', overflow:'hidden', borderRadius:2, position:'relative' }}>
+                      <img src={col.cover_url || col.cover || 'https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&q=60'}
+                        alt={col.name} className="coll-img" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
                     </div>
-                  )}
-                </div>
+                  </div>
+
+                  {/* Title & Info Block */}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginTop:18, padding:'0 4px' }}>
+                    <div>
+                      <h4 className="coll-title" style={{ 
+                        margin:0, 
+                        fontSize:18, 
+                        fontWeight:400, 
+                        letterSpacing:'0.04em', 
+                        color:'#fff',
+                        fontFamily:"'EB Garamond',serif",
+                        textTransform:'none',
+                      }}>
+                        {col.name}
+                      </h4>
+                      {col.event_date && (
+                        <div className="coll-date" style={{ fontSize:10, letterSpacing:'0.14em', color:'#8BDFDD', marginTop:6, textTransform:'uppercase', fontFamily:'sans-serif' }}>
+                          {new Date(col.event_date).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* tactual arrow indicator */}
+                    <motion.span 
+                      variants={{ hover: { x: 4, opacity: 1 } }}
+                      initial={{ x: -4, opacity: 0 }}
+                      transition={{ duration: 0.3 }}
+                      style={{ color:'#8BDFDD', fontFamily:"'EB Garamond',serif", fontSize:20, alignSelf:'center' }}
+                    >
+                      →
+                    </motion.span>
+                  </div>
+                </motion.div>
               ))}
             </div>
           )}
@@ -273,7 +339,7 @@ const CollectionList = ({ slug }) => {
       {/* ── WHITE INTRO PANEL (slides up on scroll) ── */}
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, height: '100vh',
-        background: '#fafafa', zIndex: 10,
+        background: '#fbfaf7', zIndex: 10,
         transform: `translateY(${whiteY}vh)`,
         transition: 'none',
         display: 'flex', flexDirection: 'column',
@@ -281,7 +347,7 @@ const CollectionList = ({ slug }) => {
         pointerEvents: panelProgress > 0.95 ? 'none' : 'auto',
       }}>
         {/* White nav */}
-        <div style={{ padding:'36px 64px 0', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
+        <div style={{ padding:'36px 64px 0', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0, zIndex:10 }}>
           <span style={{ fontFamily:"'EB Garamond',serif", fontSize:18, fontWeight:500, letterSpacing:'0.28em', textTransform:'uppercase', color:'#111' }}>{photographerName}</span>
           <div style={{ display:'flex', gap:8, alignItems:'center' }}>
             <span style={{ fontFamily:'sans-serif', fontSize:10, letterSpacing:'0.2em', textTransform:'uppercase', color:'#bbb' }}>Professional Portfolio</span>
@@ -289,105 +355,302 @@ const CollectionList = ({ slug }) => {
         </div>
 
         {/* Main editorial layout */}
-        <div style={{ flex:1, display:'flex', flexDirection:'column', padding:'0 64px 48px', position:'relative' }}>
-
-          {/* Large hero greeting — centered vertically */}
-          <div style={{ flex:1, display:'flex', flexDirection:'column', justifyContent:'center' }}>
-            <motion.div initial={{ opacity:0, y:40 }} animate={{ opacity:1, y:0 }} transition={{ duration:1.3, ease:[0.16,1,0.3,1] }}>
-              <h1 style={{ fontFamily:"'EB Garamond',serif", fontWeight:400, fontSize:'clamp(56px, 8.5vw, 116px)', lineHeight:0.95, letterSpacing:'-0.02em', color:'#111', margin:0 }}>
-                hello,<br />
-                welcome to my<br />
-                <em style={{ fontStyle:'italic', color:'#222' }}>portfolio</em>
-              </h1>
-            </motion.div>
-
-            {/* Horizontal rule accent */}
-            <motion.div initial={{ scaleX:0, originX:0 }} animate={{ scaleX:1 }} transition={{ delay:0.6, duration:1, ease:[0.16,1,0.3,1] }}
-              style={{ height:1, background:'linear-gradient(to right, #8BDFDD, transparent)', marginTop:40, marginBottom:40, maxWidth:480 }} />
-
-            {/* Bio — only if enabled AND has content */}
-            {(() => {
-              const bioText = profile.show_bio !== false && (profile.biography || profile.bio);
-              if (!bioText) return null;
-              return (
-                <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.5, duration:0.9 }}>
-                  <p style={{ fontFamily:"'EB Garamond',serif", fontSize:22, lineHeight:1.65, color:'#555', maxWidth:580, margin:0, fontWeight:400 }}>
-                    {bioText}
-                  </p>
-                </motion.div>
-              );
-            })()}
-
-            {/* Stats row — always show collection count; show city/phone only if enabled & set */}
-            <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.75, duration:0.9 }}
-              style={{ display:'flex', gap:48, marginTop:52 }}>
-              {sortedCollections.length > 0 && (
-                <div>
-                  <div style={{ fontFamily:"'EB Garamond',serif", fontSize:48, fontWeight:400, color:'#111', lineHeight:1 }}>
-                    {sortedCollections.length}
-                  </div>
-                  <div style={{ fontFamily:'sans-serif', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:'#bbb', marginTop:6 }}>Collections</div>
-                </div>
-              )}
-              {profile.show_address !== false && (profile.address_line_1 || profile.city) && (
-                <div>
-                  <div style={{ fontFamily:"'EB Garamond',serif", fontSize:22, fontWeight:400, color:'#333', lineHeight:1.3, maxWidth:280 }}>
-                    {profile.address_line_1 || ''}
-                    {(profile.city || profile.state_province) && (
-                      <div style={{ fontSize:15, color:'#666', marginTop:4 }}>
-                        {[profile.city, profile.state_province].filter(Boolean).join(', ')} {profile.zip_postal_code || ''}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ fontFamily:'sans-serif', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:'#bbb', marginTop:6 }}>Based In</div>
-                </div>
-              )}
-              {profile.show_phone !== false && profile.phone && (
-                <div>
-                  <div style={{ fontFamily:"'EB Garamond',serif", fontSize:22, fontWeight:400, color:'#333', lineHeight:1 }}>{profile.phone}</div>
-                  <div style={{ fontFamily:'sans-serif', fontSize:10, letterSpacing:'0.22em', textTransform:'uppercase', color:'#bbb', marginTop:6 }}>Contact</div>
-                </div>
-              )}
-            </motion.div>
+        <div style={{ flex:1, display:'flex', padding:'0 64px 48px', position:'relative', zIndex:1, overflow:'hidden' }}>
+          
+          {/* Subtle grid lines background */}
+          <div style={{ position:'absolute', top:0, left:0, right:0, bottom:0, display:'flex', pointerEvents:'none', opacity:0.4, zIndex:0 }}>
+            <div style={{ flex:1, borderRight:'1px solid rgba(0,0,0,0.03)' }} />
+            <div style={{ flex:1, borderRight:'1px solid rgba(0,0,0,0.03)' }} />
+            <div style={{ flex:1, borderRight:'1px solid rgba(0,0,0,0.03)' }} />
+            <div style={{ flex:1 }} />
           </div>
 
-          {/* Bottom row — collection preview strip + scroll cue */}
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-end' }}>
-
-            {/* Thumbnail strip — only collections with a real cover image */}
-            {sortedCollections.filter(c => c.cover_url || c.cover).length > 0 && (
-              <motion.div initial={{ opacity:0, y:20 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.9, duration:0.9 }}
-                style={{ display:'flex', gap:12, alignItems:'flex-end' }}>
-                {sortedCollections.filter(c => c.cover_url || c.cover).slice(0, 3).map((col, i) => (
-                  <div key={col.id || i} style={{
-                    width: i === 0 ? 120 : i === 1 ? 90 : 70,
-                    height: i === 0 ? 160 : i === 1 ? 120 : 90,
-                    borderRadius:6, overflow:'hidden',
-                    opacity: i === 0 ? 1 : i === 1 ? 0.6 : 0.35,
-                    flexShrink:0,
-                  }}>
-                    <img src={col.cover_url || col.cover}
-                      alt={col.name}
-                      style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                  </div>
-                ))}
-                <div style={{ marginLeft:16 }}>
-                  <div style={{ fontFamily:"'EB Garamond',serif", fontSize:13, color:'#888', letterSpacing:'0.06em' }}>Scroll to view all</div>
-                  <div style={{ fontFamily:"'EB Garamond',serif", fontSize:13, color:'#8BDFDD', letterSpacing:'0.06em', marginTop:2 }}>→ {sortedCollections.length} {sortedCollections.length === 1 ? 'gallery' : 'galleries'}</div>
-                </div>
+          <div style={{ display:'grid', gridTemplateColumns:'1.1fr 1fr', gap:48, width:'100%', position:'relative', zIndex:2 }}>
+            
+            {/* LEFT COLUMN: Texts and info */}
+            <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', zIndex:2, paddingLeft:32 }}>
+              
+              {/* Giant Editorial Greeting */}
+              <motion.div initial={{ opacity:0, y:40 }} animate={{ opacity:1, y:0 }} transition={{ duration:1.3, ease:[0.16,1,0.3,1] }}>
+                <h1 style={{ 
+                  fontFamily:"'EB Garamond',serif", 
+                  fontWeight:400, 
+                  fontSize:'clamp(42px, 5.5vw, 72px)', 
+                  lineHeight:1.05, 
+                  letterSpacing:'-0.03em', 
+                  color:'#111', 
+                  margin:0,
+                  textTransform:'lowercase'
+                }}>
+                  hello,<br />
+                  welcome to the<br />
+                  <span style={{ color:'#333', fontFamily:"'EB Garamond',serif", fontWeight:400 }}>creative showcase</span>
+                </h1>
               </motion.div>
-            )}
+
+              {/* Minimal Separator Line with Entrance Width Animation */}
+              <motion.div 
+                initial={{ width: 0 }} 
+                animate={{ width: '100%' }} 
+                transition={{ delay: 0.5, duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+                style={{ height:1, background: 'linear-gradient(to right, #8BDFDD, transparent)', marginTop:36, marginBottom:36, maxWidth:360 }} 
+              />
+
+              {/* Bio block */}
+              {(() => {
+                const bioText = profile.show_bio !== false && (profile.biography || profile.bio);
+                if (!bioText) return null;
+                return (
+                  <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.5, duration:0.9 }}
+                    style={{ marginBottom:40 }}>
+                    <p style={{ fontFamily:"'EB Garamond',serif", fontSize:20, lineHeight:1.75, color:'#555', maxWidth:520, margin:0, fontWeight:400 }}>
+                      {bioText}
+                    </p>
+                  </motion.div>
+                );
+              })()}
+
+              {/* Stats & Info row — Museum Label Grid */}
+              <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.75, duration:0.9 }}
+                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap:24, width: '100%', maxWidth: 480 }}>
+                {sortedCollections.length > 0 && (
+                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16 }}>
+                    <span style={{ fontFamily:'sans-serif', fontSize:8, letterSpacing:'0.2em', textTransform:'uppercase', color:'#8BDFDD', display:'block', marginBottom:8 }}>01 // exhibits</span>
+                    <div style={{ fontFamily:"'EB Garamond',serif", fontSize:32, fontWeight:400, color:'#111', lineHeight:1 }}>
+                      {sortedCollections.length} <span style={{ fontSize:16, color:'#888' }}>Galleries</span>
+                    </div>
+                  </div>
+                )}
+                {profile.show_address !== false && (profile.address_line_1 || profile.city) && (
+                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16 }}>
+                    <span style={{ fontFamily:'sans-serif', fontSize:8, letterSpacing:'0.2em', textTransform:'uppercase', color:'#8BDFDD', display:'block', marginBottom:8 }}>02 // based in</span>
+                    <div style={{ fontFamily:"'EB Garamond',serif", fontSize:18, fontWeight:400, color:'#333', lineHeight:1.3 }}>
+                      {profile.city || profile.address_line_1}
+                      {profile.state_province && <span style={{ color:'#888', display:'block', fontSize:13 }}>{profile.state_province}</span>}
+                    </div>
+                  </div>
+                )}
+                {profile.show_phone !== false && profile.phone && (
+                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16 }}>
+                    <span style={{ fontFamily:'sans-serif', fontSize:8, letterSpacing:'0.2em', textTransform:'uppercase', color:'#8BDFDD', display:'block', marginBottom:8 }}>03 // contact</span>
+                    <div style={{ fontFamily:"'EB Garamond',serif", fontSize:18, fontWeight:400, color:'#333', lineHeight:1 }}>
+                      {profile.phone}
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+
+            </div>
+
+            {/* RIGHT COLUMN: Dynamic Stacked Asymmetrical Shutter-Reveal Collage */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', position:'relative', height:'100%', zIndex:2, paddingRight: 48 }}>
+              
+              {/* Collage Frame Container */}
+              <div style={{
+                position: 'relative',
+                width: '100%',
+                maxWidth: 440,
+                height: '80vh',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+
+                {/* --- IMAGE 3 (Back-Right Card, if available) --- */}
+                {collageImages[2] && (
+                  <motion.div
+                    initial={{ opacity:0, scale:0.8, rotate:0 }}
+                    animate={{ opacity:1, scale:1, rotate:8 }}
+                    transition={{ delay:0.7, duration:1.2, ease:[0.16,1,0.3,1] }}
+                    style={{
+                      position: 'absolute',
+                      width: '65%',
+                      height: '48vh',
+                      bottom: '5%',
+                      right: '-10%',
+                      zIndex: 1,
+                      overflow: 'hidden',
+                      borderRadius: 12,
+                      boxShadow: '0 15px 45px rgba(0,0,0,0.1)',
+                      border: '1px solid rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    <img src={collageImages[2]} alt="collage-3" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    {/* Shutter Reveal Blind */}
+                    <motion.div
+                      initial={{ height: '100%' }}
+                      animate={{ height: '0%' }}
+                      transition={{ delay: 0.8, duration: 1.4, ease: [0.76, 0, 0.24, 1] }}
+                      style={{ position: 'absolute', top: 0, left: 0, right: 0, background: '#fbfaf7', zIndex: 3 }}
+                    />
+                  </motion.div>
+                )}
+
+                {/* --- IMAGE 2 (Back-Left Card, if available) --- */}
+                {collageImages[1] && (
+                  <motion.div
+                    initial={{ opacity:0, scale:0.8, rotate:0 }}
+                    animate={{ opacity:1, scale:1, rotate:-6 }}
+                    transition={{ delay:0.5, duration:1.2, ease:[0.16,1,0.3,1] }}
+                    style={{
+                      position: 'absolute',
+                      width: '75%',
+                      height: '52vh',
+                      top: '5%',
+                      left: '-15%',
+                      zIndex: 2,
+                      overflow: 'hidden',
+                      borderRadius: 12,
+                      boxShadow: '0 20px 50px rgba(0,0,0,0.12)',
+                      border: '1px solid rgba(0,0,0,0.04)',
+                    }}
+                  >
+                    <img src={collageImages[1]} alt="collage-2" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    {/* Shutter Reveal Blind */}
+                    <motion.div
+                      initial={{ height: '100%' }}
+                      animate={{ height: '0%' }}
+                      transition={{ delay: 0.6, duration: 1.4, ease: [0.76, 0, 0.24, 1] }}
+                      style={{ position: 'absolute', top: 0, left: 0, right: 0, background: '#fbfaf7', zIndex: 3 }}
+                    />
+                  </motion.div>
+                )}
+
+                {/* --- IMAGE 1 (Main Foreground Card) --- */}
+                <motion.div 
+                  initial={{ opacity:0, scale:0.9, y:30 }}
+                  animate={{ opacity:1, scale:1, y:0 }}
+                  transition={{ delay:0.2, duration:1.4, ease:[0.16,1,0.3,1] }}
+                  style={{
+                    width: collageImages.length > 1 ? '85%' : '100%',
+                    height: '60vh',
+                    position: 'relative',
+                    zIndex: 3,
+                    overflow: 'hidden',
+                    borderRadius: 12,
+                    boxShadow: '0 30px 80px rgba(0,0,0,0.15), 0 10px 30px rgba(0,0,0,0.05)',
+                    border: '1px solid rgba(0,0,0,0.04)',
+                  }}
+                >
+                  {/* Ken Burns zooming container */}
+                  <motion.div 
+                    animate={{ 
+                      scale: [1, 1.06, 1],
+                      x: [0, -4, 0],
+                      y: [0, -2, 0]
+                    }}
+                    transition={{ 
+                      duration: 20, 
+                      repeat: Infinity, 
+                      repeatType: "reverse",
+                      ease: "easeInOut" 
+                    }}
+                    style={{ width:'100%', height:'100%', background:'#f4f4f4' }}
+                  >
+                    {collageImages[0] ? (
+                      <img src={collageImages[0]} alt={coverName} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                    ) : (
+                      // Camera placeholder
+                      <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, color:'#bbb', background:'#faf9f6' }}>
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                          <circle cx="12" cy="13" r="4"/>
+                        </svg>
+                        <span style={{ fontSize:11, letterSpacing:'0.28em', textTransform:'uppercase', color:'#bbb', fontFamily:'sans-serif' }}>Pixnxt Studio</span>
+                      </div>
+                    )}
+                  </motion.div>
+
+                  {/* Shutter Reveal Blind */}
+                  <motion.div
+                    initial={{ width: '100%' }}
+                    animate={{ width: '0%' }}
+                    transition={{ delay: 0.4, duration: 1.5, ease: [0.76, 0, 0.24, 1] }}
+                    style={{
+                      position: 'absolute', top: 0, left: 0, bottom: 0, right: 0,
+                      background: '#fbfaf7', zIndex: 3,
+                    }}
+                  />
+
+                  {/* Glassmorphic Exhibition Tag */}
+                  <div style={{
+                    position:'absolute', bottom:24, left:24, right:24,
+                    background:'rgba(255,255,255,0.85)',
+                    backdropFilter:'blur(12px)',
+                    padding:'16px 20px',
+                    borderRadius:8,
+                    border:'1px solid rgba(255,255,255,0.4)',
+                    zIndex:4,
+                    boxShadow:'0 10px 30px rgba(0,0,0,0.05)',
+                  }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                      <span style={{ fontFamily:'sans-serif', fontSize:8, letterSpacing:'0.24em', textTransform:'uppercase', color:'#8BDFDD', fontWeight:600 }}>
+                        {collageImages[0] ? 'exhibition index' : 'studio index'}
+                      </span>
+                      {coverDate && (
+                        <span style={{ fontFamily:"'EB Garamond',serif", fontSize:11, fontStyle:'italic', color:'#666' }}>
+                          {coverDate}
+                        </span>
+                      )}
+                    </div>
+                    <h3 style={{ 
+                      fontFamily:"'EB Garamond',serif", 
+                      fontSize:18, 
+                      fontWeight:400, 
+                      color:'#111', 
+                      margin:'6px 0 0', 
+                      letterSpacing:'0.04em',
+                      textTransform:'lowercase',
+                    }}>
+                      {coverName}
+                    </h3>
+                  </div>
+
+                </motion.div>
+
+              </div>
+            </div>
 
           </div>
         </div>
 
-        {/* Decorative large background letter */}
+        {/* Vertical Editorial Indicator (Scroll for Galleries) */}
         <div style={{
-          position:'absolute', right:-20, top:'50%', transform:'translateY(-50%)',
-          fontFamily:"'EB Garamond',serif", fontSize:'38vw', fontWeight:400,
-          color:'rgba(0,0,0,0.03)', lineHeight:1, userSelect:'none', pointerEvents:'none', letterSpacing:'-0.04em',
-          zIndex:0,
-        }}>{(photographerName[0] || 'P').toUpperCase()}</div>
+          position: 'absolute',
+          right: -40,
+          top: '55%',
+          transform: 'translateY(-50%) rotate(90deg)',
+          transformOrigin: 'center center',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 16,
+          zIndex: 10,
+          pointerEvents: 'none',
+          userSelect: 'none',
+          opacity: 0.7,
+        }}>
+          <span style={{
+            fontFamily: 'sans-serif',
+            fontSize: 9,
+            letterSpacing: '0.24em',
+            textTransform: 'uppercase',
+            color: '#888',
+            fontWeight: 500,
+            whiteSpace: 'nowrap'
+          }}>
+            scroll through galleries
+          </span>
+          <motion.div
+            animate={{ x: [0, 6, 0] }}
+            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            style={{
+              width: 32,
+              height: 1,
+              background: '#8BDFDD',
+            }}
+          />
+        </div>
+
       </div>
 
       {/* Spacer so page is scrollable */}
