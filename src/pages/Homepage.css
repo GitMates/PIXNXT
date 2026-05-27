@@ -807,5 +807,172 @@
     }
 }
 
+/* ==========================================================================
+   PIXNXT Premium Redesign: Homepage Settings UI Modernization
+   Theme: Elegant Glass, White/Gray Canvas, Glowing #8BDFDD Brand Accents
+   ========================================================================== */
+
+/* 1. View Site Header CTA Button & Saving Status */
+.hp-view-btn {
+    height: 38px !important;
+    padding: 0 20px !important;
+    background-color: #8BDFDD !important;
+    color: #111111 !important;
+    border-radius: 4px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 4px 12px rgba(139, 223, 221, 0.2) !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.hp-view-btn:hover:not(:disabled) {
+    background-color: #72cfcd !important;
+    transform: translateY(-1.5px) !important;
+    box-shadow: 0 8px 24px rgba(139, 223, 221, 0.35) !important;
+}
+
+.hp-status-saving {
+    color: #8BDFDD !important;
+    font-weight: 600 !important;
+}
+
+.hp-spinner {
+    border-top-color: #8BDFDD !important;
+}
+
+/* 2. Premium Info Banner Overlay */
+.hp-info-banner {
+    border-radius: 6px !important;
+    background: rgba(139, 223, 221, 0.08) !important;
+    border: 1px solid rgba(139, 223, 221, 0.25) !important;
+    color: #111111 !important;
+    font-weight: 500 !important;
+    padding: 10px 14px !important;
+}
+
+.hp-info-banner a {
+    color: #111111 !important;
+    text-decoration: underline !important;
+    font-weight: 700 !important;
+}
+
+.hp-info-banner svg {
+    stroke: #8BDFDD !important;
+}
+
+/* 3. Sleek Toggle Switch Glow */
+.hp-toggle {
+    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+}
+
+.hp-toggle.on {
+    background-color: #8BDFDD !important;
+    box-shadow: inset 0 2px 4px rgba(139, 223, 221, 0.2), 0 2px 8px rgba(139, 223, 221, 0.15) !important;
+}
+
+/* 4. Beautiful Inputs, Textareas & Select Fields */
+.hp-input-wrap, .hp-textarea-wrap, .set-select {
+    border-radius: 6px !important;
+    background-color: #fafbfc !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.01) !important;
+}
+
+.hp-input-wrap:focus-within, .hp-textarea-wrap:focus-within, .set-select:focus {
+    border-color: #8BDFDD !important;
+    background-color: #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(139, 223, 221, 0.15), 0 4px 12px rgba(0, 0, 0, 0.02) !important;
+}
+
+.hp-input-wrap--has-value {
+    border-color: #8BDFDD !important;
+}
+
+/* 5. Custom Integrated Input Action Buttons */
+.hp-input-action-btn, .hp-pw-generate-btn, .hp-pw-icon-btn {
+    color: #111111 !important;
+    background-color: rgba(139, 223, 221, 0.06) !important;
+    border-left: 1px solid rgba(0, 0, 0, 0.04) !important;
+    font-weight: 700 !important;
+    transition: all 0.2s ease !important;
+}
+
+.hp-input-action-btn:hover, .hp-pw-generate-btn:hover, .hp-pw-icon-btn:hover {
+    color: #111111 !important;
+    background-color: rgba(139, 223, 221, 0.15) !important;
+}
+
+.hp-pw-clear-btn {
+    background: none !important;
+    border: none !important;
+    text-decoration: underline !important;
+    color: #777777 !important;
+    transition: color 0.2s ease !important;
+}
+
+.hp-pw-clear-btn:hover {
+    color: #c0392b !important;
+}
+
+/* 6. Stunning Photographer Live Preview Card */
+.hp-mockup-bg {
+    background: linear-gradient(135deg, #f6f8f9 0%, #ebedf0 100%) !important;
+    border-radius: 12px !important;
+    border: 1px solid rgba(0, 0, 0, 0.04) !important;
+    box-shadow: inset 0 4px 24px rgba(0, 0, 0, 0.015) !important;
+}
+
+.hp-mockup-card {
+    border-radius: 8px !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.02) !important;
+    border: 1px solid rgba(0, 0, 0, 0.03) !important;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s ease !important;
+}
+
+.hp-mockup-card:hover {
+    transform: translateY(-4px) scale(1.015) !important;
+    box-shadow: 0 28px 60px rgba(0, 0, 0, 0.1), 0 8px 24px rgba(0, 0, 0, 0.04) !important;
+}
+
+.hp-mockup-img {
+    border-radius: 4px !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.hp-mockup-item:hover .hp-mockup-img {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+    transform: scale(1.04) !important;
+}
+
+.hp-mockup-text-1 {
+    background-color: rgba(0, 0, 0, 0.08) !important;
+    border-radius: 2px !important;
+}
+
+.hp-mockup-text-2 {
+    background-color: rgba(0, 0, 0, 0.04) !important;
+    border-radius: 2px !important;
+}
+
+/* 7. Premium Checkbox Form Elements */
+.chk-box {
+    border: 1.5px solid rgba(0, 0, 0, 0.15) !important;
+    border-radius: 4px !important;
+    background-color: #fafbfc !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.hp-checkbox-item input:checked + .chk-box {
+    background-color: #111111 !important;
+    border-color: #111111 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.hp-checkbox-item:hover .chk-box {
+    border-color: #8BDFDD !important;
+    background-color: #ffffff !important;
+}
+
+
 
 

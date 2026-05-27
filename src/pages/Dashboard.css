@@ -11,9 +11,9 @@
   --dash-text-secondary: #939393;
   --dash-text-link: #777777;
   --dash-text-hover: #333333;
-  --dash-bg: #ffffff;
+  --dash-bg: #fafbfc; /* Premium off-white page background */
   --dash-navbar-bg: #f5f3f3;
-  --dash-card-bg: #f7f7f7;
+  --dash-card-bg: #ffffff; /* Bright white cards */
   --dash-border: #ebebeb;
 }
 
@@ -34,7 +34,10 @@
   left: 0;
   right: 0;
   height: 50px;
-  background-color: var(--dash-navbar-bg);
+  background-color: rgba(250, 251, 252, 0.85); /* Translucent off-white */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -289,12 +292,16 @@
 
 /* ===== Section Headers ===== */
 .dash-section-label {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   text-transform: uppercase;
-  color: #939393;
-  letter-spacing: 2px;
-  margin-bottom: 10px;
+  color: #8e8e93;
+  letter-spacing: 1.5px;
+  margin-bottom: 20px;
+  border-left: 2.5px solid var(--dash-accent);
+  padding-left: 8px;
+  display: inline-block;
+  line-height: 1.1;
 }
 
 /* ===== Products Grid ===== */
@@ -307,6 +314,12 @@
 
 .dash-product-card {
   text-align: center;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
+  padding: 28px 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.015);
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease;
 }
 
 .dash-product-icon {
@@ -431,26 +444,29 @@
 }
 
 .dash-quick-card {
-  background: #f7f7f7;
-  border: none;
-  border-radius: 0;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.04);
+  border-radius: 8px;
   overflow: hidden;
-  padding: 0 20px 20px 20px;
+  padding: 0 24px 24px 24px;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.015);
 }
 
 .dash-quick-card-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 16px 0 10px;
-  font-size: 15px;
-  font-weight: 600;
+  gap: 12px;
+  padding: 20px 0 14px;
+  font-size: 13px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.8125px;
+  letter-spacing: 1px;
   color: #4a4a4a;
-  background: #f7f7f7;
+  background: #ffffff;
+  border-bottom: 1px dashed rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
 }
 
 .dash-quick-card-header svg {
@@ -479,7 +495,7 @@
 }
 
 .dash-quick-card-body {
-  padding: 80px 20px 40px;
+  padding: 30px 10px 20px;
   text-align: center;
   min-height: 0;
   display: flex;

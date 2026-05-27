@@ -146,6 +146,7 @@ function App() {
           <Route path="/collections" element={<CollectionList />} />
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
+          <Route path="/p/:slug" element={<CollectionListWrapper />} />
           <Route path="/ref/:code" element={<ReferralRedirect />} />
         </Routes>
 
@@ -159,6 +160,11 @@ function App() {
 function ReferralRedirect() {
   const { code } = useParams();
   return <Navigate to={`/auth?mode=signup&ref=${code}`} replace />;
+}
+
+function CollectionListWrapper() {
+  const { slug } = useParams();
+  return <CollectionList slug={slug} />;
 }
 
 export default App;
