@@ -111,31 +111,210 @@
 }
 
 .av-page--preview {
-  background: #e8e9ec;
+  background: #fff;
 }
 
 .av-page--preview .av-viewer-body {
-  background: #e8e9ec;
+  background: transparent;
+}
+
+.av-page--gallery-proof {
+  background: #fff;
+}
+
+/* Gallery-style proofing header */
+.av-preview-header {
+  display: grid;
+  grid-template-columns: 48px 1fr 48px;
+  align-items: center;
+  flex-shrink: 0;
+  min-height: 52px;
+  padding: 0 16px;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+  z-index: 40;
+}
+
+.av-preview-header-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  border-radius: 8px;
+}
+
+.av-preview-header-btn:hover {
+  color: #333;
+  background: #f5f5f5;
+}
+
+.av-preview-header-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-align: center;
+  color: #2a2a2a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'Roboto', system-ui, sans-serif;
+}
+
+.av-preview-header-spacer {
+  width: 48px;
+}
+
+.av-page--with-comments {
+  overflow: hidden;
+}
+
+/* Preview: book fills middle, comments pinned in footer */
+.av-preview-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.av-preview-book-section {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 16px 24px 12px;
+  box-sizing: border-box;
+  background: #f3f3f3;
+  overflow: hidden;
+}
+
+.av-page--gallery-proof .av-preview-book-section {
+  background: #efefef;
+}
+
+.av-preview-footer {
+  flex-shrink: 0;
+  width: 100%;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.06);
+  max-height: min(40vh, 320px);
+  min-height: 120px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  z-index: 35;
+}
+
+.av-preview-footer--bar {
+  background: transparent;
+  border-top: none;
+  box-shadow: none;
+  max-height: min(50vh, 420px);
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
+  position: relative;
+  z-index: 50;
+}
+
+.av-viewer-body--preview-book {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 1100px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0;
+}
+
+/* Shrink flipbook so footer stays on screen (override AlbumBook preview viewport sizing) */
+.av-page--preview.av-page--with-comments .ab-book-stage {
+  min-height: 0 !important;
+  max-height: 100% !important;
+  height: 100%;
+  --ab-flip-pad-y: 40px;
+}
+
+.av-page--preview.av-page--with-comments .ab-root--preview {
+  height: 100%;
+  padding: 4px 48px 32px;
+  box-sizing: border-box;
+}
+
+.av-topbar--preview {
+  background: #fff;
+  border-bottom: 1px solid #e4e6ea;
+}
+
+.av-topbar--client {
+  border-bottom-color: #ebecef;
+}
+
+.av-topbar--preview .av-topbar-center {
+  flex: 1;
+  text-align: center;
+  min-width: 0;
+}
+
+.av-topbar--preview .av-title {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.av-topbar-sub {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.av-client-brand {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #9ca3af;
 }
 
 .av-topbar--preview .av-topbar-right {
   gap: 8px;
+  min-width: 120px;
 }
 
 .av-btn-ghost {
-  height: 34px;
-  padding: 0 14px;
-  font-size: 8px;
+  height: 36px;
+  padding: 0 16px;
+  font-size: 13px;
   font-weight: 600;
-  color: #444;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  border-radius: 6px;
+  color: #374151;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .av-btn-ghost:hover {
-  background: #eee;
+  background: #f9fafb;
+  border-color: #9ca3af;
   color: #111;
 }

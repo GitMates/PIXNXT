@@ -1,5 +1,5 @@
 import { expandUploadFilesToImages } from '../../lib/pdfToImages';
-import { getCollectionItem } from './albumCollection';
+import { getAlbumCollection, getCollectionItem } from './albumCollection';
 
 const STORAGE_KEY = 'pixnxt_album_page_photos';
 
@@ -67,6 +67,45 @@ export function hasGridSlotPhoto(albumId, pageNum, cellId, spreadLeftPage) {
 export function getAlbumPhotoRevision(albumId) {
     const album = readAll()[albumId];
     return album?.__revision ?? 0;
+}
+
+/** First available image for album list cards (cover, collection, or placed pages). */
+export function getAlbumListThumbnailUrl(albumId) {
+    if (!albumId) return null;
+
+    const coverSrc = getPagePhotoOverride(albumId, 0);
+    if (coverSrc) return coverSrc;
+
+    const collection = getAlbumCollection(albumId);
+    if (collection[0]?.dataUrl) return collection[0].dataUrl;
+
+    const stored = readAll()[albumId] || {};
+    const keys = Object.keys(stored).filter((k) => k !== '__revision');
+
+    const pageNums = keys
+        .filter((k) => !k.startsWith('spread:'))
+        .map((k) => Number(k))
+        .filter((n) => !Number.isNaN(n) && n > 0)
+        .sort((a, b) => a - b);
+
+    for (const page of pageNums) {
+        const src = getPagePhotoOverride(albumId, page);
+        if (src) return src;
+    }
+
+    const spreadKeys = keys.filter((k) => k.startsWith('spread:')).sort((a, b) => {
+        const leftA = Number(a.replace('spread:', ''));
+        const leftB = Number(b.replace('spread:', ''));
+        return leftA - leftB;
+    });
+
+    for (const key of spreadKeys) {
+        const leftPage = Number(key.replace('spread:', ''));
+        const src = getSpreadPhotoOverride(albumId, leftPage);
+        if (src) return src;
+    }
+
+    return null;
 }
 
 /**

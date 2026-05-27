@@ -2,9 +2,10 @@ import React from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import './AppToast.css';
 
-export default function AppToast({ toast, onDismiss }) {
+export default function AppToast({ toast, onDismiss, hostClassName = '' }) {
+    const hostClass = ['app-toast-host', hostClassName].filter(Boolean).join(' ');
     return (
-        <div className="app-toast-host" aria-live="polite" aria-atomic="true">
+        <div className={hostClass} aria-live="polite" aria-atomic="true">
             <AnimatePresence>
                 {toast?.message ? (
                     <motion.div

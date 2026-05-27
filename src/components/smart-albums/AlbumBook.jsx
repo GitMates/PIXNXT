@@ -9,6 +9,7 @@ import {
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
+import SpreadGridComments from './SpreadGridComments';
 import './AlbumBook.css';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
@@ -77,6 +78,8 @@ const AlbumBook = ({
     onAddPages,
     pageCountBusy = false,
     overviewReopenToken = 0,
+    showGridComments = false,
+    spreadCommentsBySpread = null,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -95,6 +98,10 @@ const AlbumBook = ({
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
     const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true });
+    const currentSpreadComments =
+        showGridComments && spreadCommentsBySpread
+            ? spreadCommentsBySpread[spreadIndex] || null
+            : null;
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, {
         showCover: true,
     });
@@ -265,6 +272,7 @@ const AlbumBook = ({
                     placementMode={placementMode}
                     showSamples={showSamples}
                     previewMode={previewMode}
+                    showGridComments={showGridComments}
                     selectionLeftPage={gridSelection?.leftPage ?? null}
                     selectionMode={gridSelection?.mode ?? null}
                     selectedCellId={gridSelection?.cellId ?? null}
@@ -283,6 +291,7 @@ const AlbumBook = ({
             placementMode,
             showSamples,
             previewMode,
+            showGridComments,
             gridSelection?.leftPage,
             gridSelection?.mode,
             gridSelection?.cellId,
@@ -312,6 +321,10 @@ const AlbumBook = ({
             <div className="ab-book-stage" ref={stageOuterRef}>
                 <div className="ab-book-stage-inner" ref={stageRef} aria-hidden="true" />
                 <div className="ab-flip-escape" ref={escapeRef}>
+                <div
+                    className="ab-spread-display"
+                    style={{ width: dims.width * 2 }}
+                >
                 <div
                     className="ab-flipbook-wrap"
                     ref={wrapRef}
@@ -348,6 +361,15 @@ const AlbumBook = ({
                     >
                         {pages}
                     </HTMLFlipBook>
+                </div>
+                {currentSpreadComments?.length > 0 && (
+                    <div className="ab-spread-comments-bar">
+                        <SpreadGridComments
+                            comments={currentSpreadComments}
+                            variant="spreadBar"
+                        />
+                    </div>
+                )}
                 </div>
                 </div>
 
@@ -435,6 +457,10 @@ const AlbumBook = ({
                                     ? getSpreadPhotoOverride(album?.id, left)
                                     : null;
                             const isCurrent = overviewSpreadIndex === spreadIndex;
+                            const spreadComments =
+                                showGridComments && spreadCommentsBySpread
+                                    ? spreadCommentsBySpread[overviewSpreadIndex] || null
+                                    : null;
                             return (
                                 <button
                                     key={overviewSpreadIndex}
@@ -453,6 +479,12 @@ const AlbumBook = ({
                                         {spreadSrc ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
                                                 <img src={spreadSrc} alt="" loading="lazy" />
+                                                {spreadComments?.length > 0 && (
+                                                    <SpreadGridComments
+                                                        comments={spreadComments}
+                                                        className="ab-grid-comments--overview"
+                                                    />
+                                                )}
                                             </span>
                                         ) : (
                                             <span className="ab-overview-page">
@@ -460,6 +492,12 @@ const AlbumBook = ({
                                                     <img src={leftSrc} alt="" loading="lazy" />
                                                 ) : (
                                                     <span className="ab-overview-placeholder" />
+                                                )}
+                                                {spreadComments?.length > 0 && leftSrc && (
+                                                    <SpreadGridComments
+                                                        comments={spreadComments}
+                                                        className="ab-grid-comments--overview"
+                                                    />
                                                 )}
                                             </span>
                                         )}
@@ -469,6 +507,12 @@ const AlbumBook = ({
                                                     <img src={rightSrc} alt="" loading="lazy" />
                                                 ) : (
                                                     <span className="ab-overview-placeholder" />
+                                                )}
+                                                {spreadComments?.length > 0 && rightSrc && (
+                                                    <SpreadGridComments
+                                                        comments={spreadComments}
+                                                        className="ab-grid-comments--overview"
+                                                    />
                                                 )}
                                             </span>
                                         )}

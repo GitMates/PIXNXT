@@ -21,6 +21,7 @@ import { ProtectedRoute } from './components/features/Auth';
 import CollectionList from './pages/public/CollectionList';
 import GalleryView from './pages/public/GalleryView';
 import GalleryFavoritesHub from './pages/public/GalleryFavoritesHub';
+import PublicAlbumPreview from './pages/smart-albums/PublicAlbumPreview';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
@@ -90,7 +91,8 @@ function App() {
     location.pathname.startsWith('/account') ||
     location.pathname === '/collections' ||
     location.pathname.startsWith('/gallery/') ||
-    location.pathname.startsWith('/p/');
+    location.pathname.startsWith('/album-preview/') ||
+    /\/smart-albums\/preview\//.test(location.pathname);
 
   if (activeSlug) {
     return (
@@ -147,7 +149,7 @@ function App() {
           <Route path="/collections" element={<CollectionList />} />
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
-          <Route path="/p/:slug" element={<CollectionListWrapper />} />
+          <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
           <Route path="/ref/:code" element={<ReferralRedirect />} />
         </Routes>
 
@@ -161,11 +163,6 @@ function App() {
 function ReferralRedirect() {
   const { code } = useParams();
   return <Navigate to={`/auth?mode=signup&ref=${code}`} replace />;
-}
-
-function CollectionListWrapper() {
-  const { slug } = useParams();
-  return <CollectionList slug={slug} />;
 }
 
 export default App;

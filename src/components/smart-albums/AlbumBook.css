@@ -89,6 +89,73 @@
   overflow: visible;
 }
 
+.ab-spread-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 0 0 auto;
+}
+
+.ab-spread-comments-bar {
+  flex-shrink: 0;
+  width: fit-content;
+  max-width: calc(100% - 24px);
+  margin: 16px auto 0;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid rgba(107, 91, 122, 0.12);
+  background: #fff;
+  box-shadow:
+    0 8px 22px rgba(0, 0, 0, 0.1),
+    0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+.ab-spread-comments-bar .ab-grid-comments {
+  width: auto;
+  min-width: 0;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0;
+}
+
+.ab-spread-comments-bar .ab-grid-comments--spread-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 14px;
+}
+
+.ab-spread-comments-bar .ab-spread-comment-chip {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0;
+  line-height: 1.35;
+}
+
+.ab-spread-comments-bar .ab-spread-comment-author {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6b5b7a;
+  letter-spacing: 0.01em;
+}
+
+.ab-spread-comments-bar .ab-spread-comment-author::after {
+  content: '·';
+  margin-left: 6px;
+  color: #c4b5d4;
+  font-weight: 400;
+}
+
+.ab-spread-comments-bar .ab-spread-comment-body {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1f2937;
+  word-break: break-word;
+}
+
 .ab-flipbook-wrap--flipping {
   z-index: 35;
 }
@@ -449,7 +516,7 @@
 
 /* Client preview — same 2-slot grid as editor, no stock photos */
 .ab-root--preview {
-  padding: 8px 24px;
+  padding: 4px 16px 40px;
 }
 
 .ab-page-grid--preview {
@@ -516,6 +583,16 @@
   z-index: 2;
   pointer-events: none;
   border-radius: 2px;
+}
+
+.ab-badge--slot {
+  top: 8px;
+  left: 8px;
+  min-width: 20px;
+  height: 20px;
+  font-size: 12px;
+  background: rgba(55, 55, 55, 0.82);
+  border-radius: 3px;
 }
 
 .ab-nav {
@@ -601,8 +678,59 @@
 }
 
 .ab-root--preview .ab-spread-controls {
-  bottom: -30px;
+  bottom: 12px;
+  right: 20px;
+  z-index: 20;
+}
+
+/* Gallery proofing — arrows pinned to viewport corners */
+.ab-root--preview .ab-nav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: auto;
+  height: auto;
+  padding: 16px 10px;
+  background: transparent;
+  box-shadow: none;
+  color: #c5c5c5;
+  z-index: 45;
+}
+
+.ab-root--preview .ab-nav:hover:not(:disabled) {
+  background: transparent;
+  box-shadow: none;
+  color: #8a8a8a;
+}
+
+.ab-root--preview .ab-nav svg {
+  width: 40px;
+  height: 40px;
+  stroke-width: 1.15;
+}
+
+.ab-root--preview .ab-nav--prev {
+  left: 0;
+  right: auto;
+}
+
+.ab-root--preview .ab-nav--next {
   right: 0;
+  left: auto;
+}
+
+.ab-root--preview .ab-page-counter {
+  font-size: 15px;
+  font-weight: 600;
+  color: #b0b0b0;
+}
+
+.ab-root--preview .ab-control-icon {
+  color: #b0b0b0;
+}
+
+.ab-root--preview .ab-control-icon--button:hover {
+  color: #777;
 }
 
 .ab-overview {
@@ -804,4 +932,78 @@
     width: 40px;
     height: 40px;
   }
+}
+
+/* Client feedback below spread grid (Comments tab in editor) */
+.ab-grid-comments {
+  position: static;
+  flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 0;
+  background: #f8f6fc;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.ab-grid-comment {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.35;
+  color: #1f2937;
+  word-break: break-word;
+}
+
+.ab-grid-comment + .ab-grid-comment {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.ab-grid-comment strong {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: #6b5b7a;
+  margin-bottom: 2px;
+}
+
+.ab-grid-comment span {
+  display: block;
+}
+
+.ab-grid-comments--overview {
+  position: static;
+  flex-shrink: 0;
+  width: 100%;
+  margin: 0;
+  padding: 3px 5px;
+  border-radius: 0;
+  font-size: 9px;
+  line-height: 1.25;
+  box-shadow: none;
+  background: #f5f0fa;
+}
+
+.ab-grid-comments--overview .ab-grid-comment {
+  font-size: 9px;
+}
+
+.ab-grid-comments--overview .ab-grid-comment strong {
+  font-size: 8px;
+  margin-bottom: 1px;
+}
+
+.ab-overview-page--with-comments {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+.ab-overview-page--with-comments img,
+.ab-overview-page--with-comments .ab-overview-placeholder {
+  flex: 1;
+  min-height: 0;
 }

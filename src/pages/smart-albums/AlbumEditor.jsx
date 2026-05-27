@@ -1,8 +1,15 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
 import CollectionPickerModal from '../../components/smart-albums/CollectionPickerModal';
+import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
+import {
+    getSmartAlbumPreviewShareUrl,
+    openShareByEmail,
+    openSmartAlbumPreview,
+    openWhatsAppShare,
+} from '../../lib/shareSmartAlbum';
 import {
     addFilesToAlbumCollection,
     getAlbumCollection,
@@ -25,6 +32,14 @@ import {
 } from '../../components/smart-albums/albumSpreadGrid';
 import { getSpreadPages, pageToSpreadIndex } from '../../components/smart-albums/albumSpreadUtils';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
+import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
+import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
+import {
+    COMMENTS_CHANGED_EVENT,
+    groupRootCommentsBySpread,
+    smartAlbumCommentsService,
+} from '../../services/smartAlbumComments.service';
+import { useAuth } from '../../hooks/useAuth';
 import './AlbumEditor.css';
 
 function getSpreadLeftForBookPage(bookPageIndex, totalPages) {
@@ -70,18 +85,20 @@ export default function AlbumEditor({
     totalPages,
     initialPage,
     onPageChange,
-    onOpenPreview,
     photoRevision = 0,
     onPhotosUploaded,
     spreadCount = 1,
     onChangePageCount,
+    onAlbumUpdate,
     minPages = 3,
     maxPages = 99,
     pagesPerSpread = 2,
 }) {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [activePanel, setActivePanel] = useState('collections');
     const { toast, showToast, clearToast } = useAppToast(4000);
+    const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
     const [uploading, setUploading] = useState(false);
     const [bookPage, setBookPage] = useState(initialPage);
     const [gridEditSet, setGridEditSet] = useState(() =>
@@ -92,6 +109,10 @@ export default function AlbumEditor({
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [overviewReopenToken, setOverviewReopenToken] = useState(0);
+    const [showShareMenu, setShowShareMenu] = useState(false);
+    const [shareLinkOpen, setShareLinkOpen] = useState(false);
+    const [shareQrOpen, setShareQrOpen] = useState(false);
+    const shareRef = useRef(null);
     const [gridSelection, setGridSelection] = useState(() => {
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
         return isProofGridSpread(left) ? buildCellSelection(left, 1) : buildCoverSelection();
@@ -113,6 +134,17 @@ export default function AlbumEditor({
     useEffect(() => {
         setCollectionRevision(getAlbumCollectionRevision(albumId));
     }, [albumId]);
+
+    useEffect(() => {
+        if (!showShareMenu) return undefined;
+        const onDocClick = (e) => {
+            if (shareRef.current && !shareRef.current.contains(e.target)) {
+                setShowShareMenu(false);
+            }
+        };
+        document.addEventListener('mousedown', onDocClick);
+        return () => document.removeEventListener('mousedown', onDocClick);
+    }, [showShareMenu]);
 
     useEffect(() => {
         const lockedSet = layoutToPlacementMode(album?.grid_layout);
@@ -345,7 +377,32 @@ export default function AlbumEditor({
     }, [albumId, totalPages, bumpWorkspace, showToast]);
 
     const spreadEdit = activePanel === 'edit';
+    const showGridComments = activePanel === 'comments';
     const workspaceKey = `${photoRevision}-${collectionRevision}-${transformRevision}-${getAlbumPhotoRevision(albumId)}`;
+
+    const loadSpreadComments = useCallback(async () => {
+        if (!albumId) return;
+        try {
+            const rows = await smartAlbumCommentsService.listAlbumComments(albumId);
+            setSpreadCommentsBySpread(groupRootCommentsBySpread(rows));
+        } catch (e) {
+            console.warn('Could not load spread comments for grid', e);
+        }
+    }, [albumId]);
+
+    useEffect(() => {
+        if (!showGridComments) return;
+        loadSpreadComments();
+    }, [showGridComments, loadSpreadComments]);
+
+    useEffect(() => {
+        if (!showGridComments || !albumId) return undefined;
+        const onChanged = (e) => {
+            if (e.detail?.albumId === albumId) loadSpreadComments();
+        };
+        window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+        return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+    }, [showGridComments, albumId, loadSpreadComments]);
 
     const pickerSubtitle =
         collectionItems.length > 0
@@ -372,12 +429,76 @@ export default function AlbumEditor({
                     </div>
                 </div>
                 <div className="ae-topbar-right">
-                    <button type="button" className="ae-btn-secondary" onClick={() => onOpenPreview()}>
+                    <button
+                        type="button"
+                        className="ae-btn-secondary"
+                        onClick={() => openSmartAlbumPreview(albumId, initialPage)}
+                    >
                         Preview
                     </button>
-                    <button type="button" className="ae-btn-primary" onClick={() => onOpenPreview()}>
-                        Publish view
-                    </button>
+                    <div className="ae-share-wrap" ref={shareRef}>
+                        <button
+                            type="button"
+                            className="ae-btn-primary ae-btn-share"
+                            onClick={() => setShowShareMenu((v) => !v)}
+                            aria-expanded={showShareMenu}
+                        >
+                            Share
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </button>
+                        {showShareMenu && (
+                            <div className="ae-share-dropdown" role="menu">
+                                <button
+                                    type="button"
+                                    className="ae-share-dropdown-item"
+                                    onClick={() => {
+                                        setShowShareMenu(false);
+                                        openShareByEmail(
+                                            getSmartAlbumPreviewShareUrl(album),
+                                            album.name || 'Album preview'
+                                        );
+                                    }}
+                                >
+                                    Share by email
+                                </button>
+                                <button
+                                    type="button"
+                                    className="ae-share-dropdown-item"
+                                    onClick={() => {
+                                        setShowShareMenu(false);
+                                        setShareLinkOpen(true);
+                                    }}
+                                >
+                                    Get direct link
+                                </button>
+                                <button
+                                    type="button"
+                                    className="ae-share-dropdown-item"
+                                    onClick={() => {
+                                        setShowShareMenu(false);
+                                        setShareQrOpen(true);
+                                    }}
+                                >
+                                    Get QR code
+                                </button>
+                                <button
+                                    type="button"
+                                    className="ae-share-dropdown-item ae-share-dropdown-item--whatsapp"
+                                    onClick={() => {
+                                        setShowShareMenu(false);
+                                        openWhatsAppShare(
+                                            getSmartAlbumPreviewShareUrl(album),
+                                            album.name || 'Album preview'
+                                        );
+                                    }}
+                                >
+                                    Share on WhatsApp
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </header>
 
@@ -385,6 +506,18 @@ export default function AlbumEditor({
                 <AlbumEditorSidebar
                     activePanel={activePanel}
                     onPanelChange={setActivePanel}
+                    commentSettings={
+                        user?.id ? (
+                            <AlbumCommentSettings
+                                album={album}
+                                photographerId={user.id}
+                                onUpdated={onAlbumUpdate}
+                            />
+                        ) : null
+                    }
+                    commentsFeed={
+                        albumId ? <AlbumCommentsFeed albumId={albumId} /> : null
+                    }
                     album={album}
                     totalPages={totalPages}
                     collectionItems={collectionItems}
@@ -446,12 +579,25 @@ export default function AlbumEditor({
                                 onPhotosUploaded?.();
                             }}
                             transformRevision={transformRevision}
+                            showGridComments={showGridComments}
+                            spreadCommentsBySpread={spreadCommentsBySpread}
                         />
                     </div>
                 </main>
             </div>
 
             <AppToast toast={toast} onDismiss={clearToast} />
+
+            <AlbumPreviewLinkModal
+                album={album}
+                isOpen={shareLinkOpen}
+                onClose={() => setShareLinkOpen(false)}
+            />
+            <AlbumPreviewQrModal
+                album={album}
+                isOpen={shareQrOpen}
+                onClose={() => setShareQrOpen(false)}
+            />
 
             <CollectionPickerModal
                 open={pickerOpen}

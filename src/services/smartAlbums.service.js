@@ -9,6 +9,8 @@ const STORAGE_KEY = 'pixnxt_smart_albums_local';
 
 const STARRED_OVR_KEY = 'pixnxt_smart_albums_starred';
 
+const SETTINGS_OVR_KEY = 'pixnxt_smart_album_settings_ovr';
+
 
 
 function generateSlug(name) {
@@ -169,6 +171,8 @@ function isMissingColumnError(error) {
 
     msg.includes('expiry_date') ||
 
+    msg.includes('comments_enabled') ||
+
     (msg.includes('column') && msg.includes('does not exist'))
 
   );
@@ -185,29 +189,74 @@ function shouldUseLocalStore(error) {
 
 
 
+function readSettingsOverrides(photographerId) {
+  try {
+    const raw = localStorage.getItem(SETTINGS_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    return all[photographerId] || {};
+  } catch {
+    return {};
+  }
+}
+
+function writeSettingsOverride(photographerId, albumId, patch) {
+  try {
+    const raw = localStorage.getItem(SETTINGS_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const userMap = { ...(all[photographerId] || {}) };
+    userMap[albumId] = {
+      ...(userMap[albumId] || {}),
+      ...patch,
+      saved_at: new Date().toISOString(),
+    };
+    all[photographerId] = userMap;
+    localStorage.setItem(SETTINGS_OVR_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
+function applySettingsOverrides(row, photographerId) {
+  if (!row || !photographerId) return row;
+  const ovr = readSettingsOverrides(photographerId)[row.id];
+  if (!ovr) return row;
+  const merged = { ...row };
+  if (ovr.comments_enabled !== undefined) {
+    merged.comments_enabled = ovr.comments_enabled;
+  }
+  if (ovr.status !== undefined) {
+    merged.status = ovr.status;
+  }
+  return merged;
+}
+
 function mapAlbumRow(row, photographerId) {
 
   const overrides = photographerId ? readStarredOverrides(photographerId) : {};
 
   const starredFromOverride = overrides[row.id];
 
+  const withSettings = applySettingsOverrides(row, photographerId);
+
   return {
 
-    ...row,
+    ...withSettings,
 
-    page_count: row.page_count ?? 21,
+    page_count: withSettings.page_count ?? 21,
 
-    grid_size: row.grid_size ?? 'square',
+    grid_size: withSettings.grid_size ?? 'square',
 
-    grid_layout: row.grid_layout ?? 'two-page',
+    grid_layout: withSettings.grid_layout ?? 'two-page',
 
-    photo_count: row.photo_count ?? 0,
+    comments_enabled: withSettings.comments_enabled !== false,
 
-    category_tags: row.category_tags ?? [],
+    photo_count: withSettings.photo_count ?? 0,
+
+    category_tags: withSettings.category_tags ?? [],
 
     is_starred:
 
-      starredFromOverride !== undefined ? starredFromOverride : (row.is_starred ?? false),
+      starredFromOverride !== undefined ? starredFromOverride : (withSettings.is_starred ?? false),
 
   };
 
@@ -481,6 +530,52 @@ export const smartAlbumsService = {
     const album = await this.getAlbum(photographerId, albumId);
     if (!album) throw new Error('Album not found');
     return { ...album, page_count: count };
+  },
+
+  /**
+   * Persist client preview settings (publish + comments) to Supabase and local cache.
+   */
+  async updateAlbumClientSettings(photographerId, albumId, patch) {
+    const payload = { ...patch, updated_at: new Date().toISOString() };
+    const settingsPatch = {};
+    if (patch.comments_enabled !== undefined) {
+      settingsPatch.comments_enabled = patch.comments_enabled;
+    }
+    if (patch.status !== undefined) {
+      settingsPatch.status = patch.status;
+    }
+    if (Object.keys(settingsPatch).length) {
+      writeSettingsOverride(photographerId, albumId, settingsPatch);
+    }
+
+    const { data, error } = await supabase
+      .from('smart_albums')
+      .update(payload)
+      .eq('photographer_id', photographerId)
+      .eq('id', albumId)
+      .select('*')
+      .maybeSingle();
+
+    if (!error && data) {
+      return mapAlbumRow(data, photographerId);
+    }
+
+    if (error && shouldUseLocalStore(error)) {
+      const updated = updateLocalAlbum(photographerId, albumId, patch);
+      if (updated) return updated;
+    }
+
+    const localUpdated = updateLocalAlbum(photographerId, albumId, patch);
+    if (localUpdated) return localUpdated;
+
+    const album = await this.getAlbum(photographerId, albumId);
+    if (!album) throw new Error('Album not found');
+
+    if (error) {
+      console.warn('smart_albums settings update:', error.message);
+    }
+
+    return { ...album, ...patch };
   },
 
   async updateAlbumStar(photographerId, albumId, isStarred) {

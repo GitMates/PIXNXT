@@ -10,8 +10,15 @@ const IconCollection = () => (
     </svg>
 );
 
+const IconComments = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+);
+
 const NAV = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
+    { id: 'comments', label: 'Comments', icon: IconComments },
 ];
 
 const GRID_SIZE_LABELS = {
@@ -67,6 +74,8 @@ export default function AlbumEditorSidebar({
     pageCountBusy = false,
     onAddPages,
     onRemovePages,
+    commentSettings = null,
+    commentsFeed = null,
 }) {
     const fileRef = useRef(null);
 
@@ -101,6 +110,18 @@ export default function AlbumEditorSidebar({
             </nav>
 
             <div className="ae-panel">
+                {activePanel === 'comments' && (
+                    <>
+                        <h3 className="ae-panel-title">Comment settings</h3>
+                        {commentSettings || (
+                            <p className="ae-panel-text ae-panel-text--muted">
+                                Sign in to manage client comments and publishing.
+                            </p>
+                        )}
+                        {commentsFeed}
+                    </>
+                )}
+
                 {activePanel === 'collections' && (
                     <>
                         <h3 className="ae-panel-title">Collections</h3>

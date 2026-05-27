@@ -75,6 +75,7 @@ export default function AlbumPageGrid({
     placementMode = 'single',
     showSamples = true,
     previewMode = false,
+    showGridComments = false,
     selectionLeftPage = null,
     selectionMode = null,
     selectedCellId = null,
@@ -205,6 +206,9 @@ export default function AlbumPageGrid({
                         )}
                         {previewMode && !hasPhoto && (
                             <span className="ab-grid-cell-empty" aria-hidden />
+                        )}
+                        {(previewMode || showGridComments) && hasPhoto && (
+                            <span className="ab-badge ab-badge--slot">{cell.id}</span>
                         )}
                     </CellTag>
                 );
