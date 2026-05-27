@@ -11,6 +11,7 @@ import settingsPng from '../assets/icons/settings.png';
 import storagePng from '../assets/icons/storage.png';
 import helpPng from '../assets/icons/help.png';
 import notificationPng from '../assets/icons/notification.png';
+import '../pages/ClientGallery.css';
 
 const SidebarLayout = ({ children }) => {
     const [isCollapsed, setIsCollapsed] = useState(false);
@@ -142,21 +143,21 @@ const SidebarLayout = ({ children }) => {
             {/* Sidebar */}
             <aside className={`${isCollapsed ? 'md:w-[80px]' : 'md:w-[320px]'} ${isMobileMenuOpen ? 'left-0' : '-left-[320px]'} fixed md:static top-0 w-[280px] h-screen bg-[#ffffff] flex flex-col shrink-0 z-[1000] md:z-10 shadow-[4px_0_20px_rgba(0,0,0,0.15)] md:shadow-[1px_0_0_rgba(0,0,0,0.06)] border-r border-[#e0e0e0] transition-[width,left] duration-300 ease overflow-y-auto md:overflow-y-visible`}>
                 <div className={`h-[80px] flex items-center px-4 ${isCollapsed ? 'md:justify-center md:px-0' : 'justify-between'}`}>
-                    <div className="flex items-center gap-2 cursor-pointer relative" ref={appDropdownRef}>
-                        <img src={brandPng} alt="Pixnxt" className="w-[36px] h-[36px] object-contain shrink-0" />
+                    <div className="flex items-center gap-2 cursor-pointer relative sb-logo-container" ref={appDropdownRef}>
+                        <img src={brandPng} alt="Pixnxt" className="w-[36px] h-[36px] object-contain shrink-0 mix-blend-multiply" />
                         {(!isCollapsed || isMobileMenuOpen) && <span className="text-[14px] font-bold text-[#444] uppercase tracking-[0.05em] whitespace-nowrap">Client Gallery</span>}
                         {(!isCollapsed || isMobileMenuOpen) && <svg className="text-[#999] cursor-pointer ml-0.5" xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" onClick={(e) => { e.stopPropagation(); setShowAppDropdown(!showAppDropdown); }}><polyline points="6 9 12 15 18 9"></polyline></svg>}
                         {showAppDropdown && (!isCollapsed || isMobileMenuOpen) && (
                             <div className="absolute top-[calc(100%+8px)] left-0 md:w-[360px] bg-[#ffffff] rounded-none shadow-[0_12px_48px_rgba(0,0,0,0.15)] z-[500] py-3 animate-[cgFadeIn_0.15s_ease] max-md:fixed max-md:top-[70px] max-md:left-3 max-md:right-3 max-md:w-auto max-md:z-[99999] max-md:max-h-[80vh] max-md:overflow-y-auto">
                                 <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]" onClick={() => { navigate('/client-gallery'); setShowAppDropdown(false); }}>
-                                    <img src={brandPng} alt="Client Gallery" className="w-11 h-11 object-contain shrink-0" />
+                                    <img src={brandPng} alt="Client Gallery" className="w-11 h-11 object-contain shrink-0 mix-blend-multiply" />
                                     <div className="flex flex-col gap-0.5">
                                         <span className="text-[17px] font-semibold text-[#111]">Client Gallery</span>
                                         <span className="text-xs text-[#888] leading-[1.4]">Better way to share, deliver, proof and sell</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]" onClick={() => { navigate('/smart-albums'); setShowAppDropdown(false); }}>
-                                    <img src={smartAlbumPng} alt="Smart Albums" className="w-11 h-11 object-contain shrink-0" />
+                                    <img src={smartAlbumPng} alt="Smart Albums" className="w-11 h-11 object-contain shrink-0 mix-blend-multiply" />
                                     <div className="flex flex-col gap-0.5">
                                         <span className="text-[17px] font-semibold text-[#111]">Smart Albums</span>
                                         <span className="text-xs text-[#888] leading-[1.4]">Design and deliver beautiful photo albums</span>
@@ -225,21 +226,33 @@ const SidebarLayout = ({ children }) => {
                 </div>
 
                 <div className="flex-1 pt-2.5 flex flex-col gap-3">
-                    <div className={`h-[52px] flex items-center pl-6 text-[17px] cursor-pointer hover:text-[#111] hover:bg-[rgba(139,223,221,0.1)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path === '/client-gallery' || path.startsWith('/collections') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/client-gallery')}>
-                        <img src={collectionsPng} alt="Collections" className={`w-[20px] h-[20px] shrink-0 object-contain transition-opacity duration-200 ${path === '/client-gallery' || path.startsWith('/collections') ? 'opacity-100' : 'opacity-[0.65]'}`} />
-                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[15px] font-bold">Collections</span>}
+                    <div 
+                        className={`sb-item ${isCollapsed && !isMobileMenuOpen ? 'sb-collapsed' : ''} ${path === '/client-gallery' || path.startsWith('/collections') ? 'sb-active' : ''}`} 
+                        onClick={() => navigate('/client-gallery')}
+                    >
+                        <img src={collectionsPng} alt="Collections" className="sb-item-icon" style={{ opacity: path === '/client-gallery' || path.startsWith('/collections') ? 1 : 0.65 }} />
+                        {(!isCollapsed || isMobileMenuOpen) && <span>Collections</span>}
                     </div>
-                    <div className={`h-[52px] flex items-center pl-6 text-[17px] cursor-pointer hover:text-[#111] hover:bg-[rgba(139,223,221,0.1)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path.startsWith('/starred') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/starred/collections')}>
-                        <img src={starredPng} alt="Starred" className={`w-[20px] h-[20px] shrink-0 object-contain transition-opacity duration-200 ${path.startsWith('/starred') ? 'opacity-100' : 'opacity-[0.65]'}`} />
-                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[15px] font-bold">Starred</span>}
+                    <div 
+                        className={`sb-item ${isCollapsed && !isMobileMenuOpen ? 'sb-collapsed' : ''} ${path.startsWith('/starred') ? 'sb-active' : ''}`} 
+                        onClick={() => navigate('/starred/collections')}
+                    >
+                        <img src={starredPng} alt="Starred" className="sb-item-icon" style={{ opacity: path.startsWith('/starred') ? 1 : 0.65 }} />
+                        {(!isCollapsed || isMobileMenuOpen) && <span>Starred</span>}
                     </div>
-                    <div className={`h-[52px] flex items-center pl-6 text-[17px] cursor-pointer hover:text-[#111] hover:bg-[rgba(139,223,221,0.1)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path === '/homepage' ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/homepage')}>
-                        <img src={homePagePng} alt="Homepage" className={`w-[20px] h-[20px] shrink-0 object-contain transition-opacity duration-200 ${path === '/homepage' ? 'opacity-100' : 'opacity-[0.65]'}`} />
-                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[15px] font-bold">Homepage</span>}
+                    <div 
+                        className={`sb-item ${isCollapsed && !isMobileMenuOpen ? 'sb-collapsed' : ''} ${path === '/homepage' ? 'sb-active' : ''}`} 
+                        onClick={() => navigate('/homepage')}
+                    >
+                        <img src={homePagePng} alt="Homepage" className="sb-item-icon" style={{ opacity: path === '/homepage' ? 1 : 0.65 }} />
+                        {(!isCollapsed || isMobileMenuOpen) && <span>Homepage</span>}
                     </div>
-                    <div className={`h-[52px] flex items-center pl-6 text-[17px] cursor-pointer hover:text-[#111] hover:bg-[rgba(139,223,221,0.1)] ${isCollapsed && !isMobileMenuOpen ? 'md:justify-center md:pl-0' : 'gap-4'} ${path.startsWith('/settings') ? 'text-[#111] bg-[#f3f4f6]' : 'text-[#444]'}`} onClick={() => navigate('/settings')}>
-                        <img src={settingsPng} alt="Settings" className={`w-[20px] h-[20px] shrink-0 object-contain transition-opacity duration-200 ${path.startsWith('/settings') ? 'opacity-100' : 'opacity-[0.65]'}`} />
-                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[15px] font-bold">Settings</span>}
+                    <div 
+                        className={`sb-item ${isCollapsed && !isMobileMenuOpen ? 'sb-collapsed' : ''} ${path.startsWith('/settings') ? 'sb-active' : ''}`} 
+                        onClick={() => navigate('/settings')}
+                    >
+                        <img src={settingsPng} alt="Settings" className="sb-item-icon" style={{ opacity: path.startsWith('/settings') ? 1 : 0.65 }} />
+                        {(!isCollapsed || isMobileMenuOpen) && <span>Settings</span>}
                     </div>
                 </div>
 
@@ -265,15 +278,15 @@ const SidebarLayout = ({ children }) => {
                             <div className="flex items-center justify-center text-[#444] cursor-pointer hover:text-[#111]" onClick={() => setIsCollapsed(true)}>
                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="11 17 6 12 11 7"></polyline><polyline points="18 17 13 12 18 7"></polyline></svg>
                             </div>
-                            <div className="flex-1 bg-[rgba(139,223,221,0.15)] rounded-none p-2.5 flex items-center gap-2.5 relative cursor-pointer transition-colors duration-200 hover:bg-[rgba(139,223,221,0.25)]">
-                                <div className="w-7 h-7 border-2 border-[#8BDFDD] rounded-full flex items-center justify-center bg-[rgba(139,223,221,0.15)]">
+                            <div className="flex-1 sb-storage-box rounded-none flex items-center gap-2.5 relative cursor-pointer">
+                                <div className="w-7 h-7 border-2 border-[#8BDFDD] rounded-full flex items-center justify-center bg-[rgba(139,223,221,0.15)] shrink-0">
                                     <img src={storagePng} alt="Storage" className="w-[16px] h-[16px] shrink-0 object-contain" />
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-[#222] text-[15px] font-medium">Storage</span>
-                                    <span className="text-[#888] text-[13px] mt-[1px]">0 GB of 3 GB used</span>
+                                    <span className="text-[#222] text-[15px] font-medium leading-none">Storage</span>
+                                    <span className="text-[#888] text-[13px] mt-1.5 leading-none">0 GB of 3 GB used</span>
                                 </div>
-                                <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer p-0">
+                                <button className="absolute right-3 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer p-0 flex items-center">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#222" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
                                 </button>
                             </div>

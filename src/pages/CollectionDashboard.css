@@ -5538,5 +5538,248 @@
     background-color: #cbd5e0;
 }
 
+/* ==========================================================================
+   PIXNXT Premium Redesign: Collection Dashboard UI Enhancements
+   Theme: Pure White Background, Sleek Gray, Premium #8BDFDD Accent
+   ========================================================================== */
+
+/* 1. Glassmorphic Header & Status Badge */
+.cd-topbar, .cd-style-2 {
+    background-color: rgba(255, 255, 255, 0.85) !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+}
+
+.cd-status-badge.published {
+    background-color: rgba(139, 223, 221, 0.1) !important;
+    color: #111111 !important;
+    border: 1px solid rgba(139, 223, 221, 0.4) !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.8px !important;
+    box-shadow: 0 2px 8px rgba(139, 223, 221, 0.12) !important;
+    font-family: 'Roboto', system-ui, sans-serif !important;
+}
+
+.cd-status-badge.published:hover {
+    background-color: rgba(139, 223, 221, 0.2) !important;
+    border-color: rgba(139, 223, 221, 0.6) !important;
+}
+
+/* 2. Premium Lift for Share & Add Buttons */
+.cd-share-split-btn {
+    border-radius: 4px !important;
+    overflow: hidden;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s ease !important;
+}
+
+.cd-share-split-btn:hover {
+    transform: translateY(-1.5px);
+    box-shadow: 0 6px 20px rgba(139, 223, 221, 0.35) !important;
+}
+
+.cd-share-split-btn:active {
+    transform: translateY(0);
+}
+
+.cd-add-media-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    background-color: #111111 !important;
+    color: #ffffff !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    padding: 8px 18px !important;
+    border-radius: 4px !important;
+    border: none !important;
+    margin-left: 8px !important;
+    border-left: none !important;
+    padding-left: 18px !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+.cd-add-media-btn:hover {
+    background-color: #000000 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15) !important;
+}
+
+.cd-add-media-btn svg {
+    stroke: #ffffff !important;
+}
+
+.cd-add-set-btn {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    background-color: rgba(139, 223, 221, 0.08) !important;
+    border: 1px dashed rgba(139, 223, 221, 0.3) !important;
+    color: #111111 !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.6px !important;
+    cursor: pointer !important;
+    padding: 6px 12px !important;
+    border-radius: 4px !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.cd-add-set-btn:hover {
+    background-color: rgba(139, 223, 221, 0.15) !important;
+    border-color: #8BDFDD !important;
+    transform: translateY(-1px);
+}
+
+/* 3. Sleek Active Tabs in Sidebar */
+.cd-icon-bar {
+    padding: 0 16px !important;
+}
+
+.cd-icon-bar-btn {
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    border-bottom: 2px solid transparent !important;
+}
+
+.cd-icon-bar-btn:hover {
+    background-color: rgba(139, 223, 221, 0.04) !important;
+    color: #111111 !important;
+}
+
+.cd-icon-bar-btn.active {
+    color: #111111 !important;
+    border-bottom: 2px solid #8BDFDD !important;
+    background-color: rgba(139, 223, 221, 0.06) !important;
+}
+
+.cd-icon-bar-btn.active svg {
+    stroke: #111111 !important;
+}
+
+/* 4. Elegant Set List & Design Navigation Items */
+.cd-set-item, .cd-design-nav-item {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 12px !important;
+    height: 50px !important;
+    padding: 0 20px 0 24px !important;
+    cursor: pointer !important;
+    color: #444444 !important;
+    background-color: transparent !important;
+    border-left: 3px solid transparent !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    font-weight: 500 !important;
+}
+
+.cd-set-item:hover, .cd-design-nav-item:hover {
+    color: #111111 !important;
+    background-color: rgba(139, 223, 221, 0.08) !important;
+    border-left-color: rgba(139, 223, 221, 0.4) !important;
+}
+
+.cd-set-item.active, .cd-design-nav-item.active {
+    color: #111111 !important;
+    background-color: rgba(139, 223, 221, 0.12) !important;
+    border-left-color: #8BDFDD !important;
+    font-weight: 700 !important;
+}
+
+/* 5. Stunning Photo Cards Grid & Selection glow */
+.cd-photo-grid--manage .cd-photo-card {
+    border-radius: 6px !important;
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.4s ease, box-shadow 0.4s ease !important;
+    border: 2px solid transparent !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02) !important;
+    background-color: #fafbfc !important;
+}
+
+.cd-photo-grid--manage .cd-photo-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(139, 223, 221, 0.3) !important;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(139, 223, 221, 0.08) !important;
+    z-index: 10 !important;
+}
+
+.cd-photo-grid--manage .cd-photo-card.selected {
+    border-color: #8BDFDD !important;
+    box-shadow: 0 0 0 3px rgba(139, 223, 221, 0.25), 0 8px 24px rgba(0, 0, 0, 0.05) !important;
+}
+
+.cd-photo-grid--manage .cd-photo-thumb-shell {
+    border-radius: 4px !important;
+    transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    background-color: #fafbfc !important;
+}
+
+.cd-photo-grid--manage .cd-photo-card:hover .cd-photo-thumb-shell {
+    transform: scale(1.04);
+}
+
+.cd-photo-grid--manage.cd-photo-grid--filenames .cd-photo-filename {
+    background: #fafbfc !important;
+    border-top: 1px solid rgba(0, 0, 0, 0.04) !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #444444 !important;
+    padding: 8px 10px !important;
+}
+
+/* 6. Premium Glassmorphic Dropdowns & Selectors */
+.cd-sort-dropdown, .cd-grid-dropdown, .cd-more-dropdown, .cd-share-dropdown, .cd-set-dropdown, .cd-preset-flyout {
+    border: 1px solid rgba(0, 0, 0, 0.04) !important;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.08) !important;
+    border-radius: 8px !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    background-color: rgba(255, 255, 255, 0.98) !important;
+}
+
+.cd-sort-option, .cd-grid-option, .cd-ctx-item, .cd-share-item {
+    transition: background-color 0.2s ease, color 0.2s ease !important;
+    border-radius: 4px !important;
+    margin: 2px 6px !important;
+    padding: 10px 14px !important;
+}
+
+.cd-sort-option:hover, .cd-grid-option:hover, .cd-ctx-item:hover, .cd-share-item:hover {
+    background-color: #f3f4f6 !important;
+}
+
+/* 7. Dropzone Premium Outline */
+.cd-dropzone {
+    border: 1px dashed rgba(0, 0, 0, 0.15) !important;
+    border-radius: 8px !important;
+    background-color: #fafbfc !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.01) !important;
+}
+
+.cd-dropzone:hover {
+    border-color: #8BDFDD !important;
+    background-color: rgba(139, 223, 221, 0.03) !important;
+    box-shadow: 0 4px 16px rgba(139, 223, 221, 0.05), inset 0 2px 8px rgba(0, 0, 0, 0.01) !important;
+}
+
+.cd-dropzone.dragging {
+    border-color: #8BDFDD !important;
+    background-color: rgba(139, 223, 221, 0.08) !important;
+}
+
+.cd-browse-link {
+    color: #8BDFDD !important;
+    font-weight: 700 !important;
+}
+
+.cd-browse-link:hover {
+    text-decoration: underline !important;
+}
+
+
 
 

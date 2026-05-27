@@ -15,6 +15,10 @@ const getDynamicHomepageUrl = (slug) => {
         return `${protocol}//${slug.toLowerCase()}.${baseHost}/`;
     }
     
+    if (host.endsWith('.vercel.app')) {
+        return `${protocol}//${host}/p/${slug.toLowerCase()}`;
+    }
+    
     const hostWithoutSubdomain = host.replace(/^(www\.|[a-zA-Z0-9-]+\.)/i, '');
     return `${protocol}//${slug.toLowerCase()}.${hostWithoutSubdomain}/`;
 };

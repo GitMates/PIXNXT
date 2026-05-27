@@ -3,6 +3,8 @@ import SidebarLayout from '../components/SidebarLayout';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import './Homepage.css';
+import imageIconPlaceholder from '../assets/icons/image icon.png';
+
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -14,6 +16,10 @@ const buildHomepageUrl = (profile, user) => {
     if (host.includes('localhost') || host.includes('127.0.0.1')) {
         const baseHost = host.replace(/^[a-zA-Z0-9-]+\.localhost/, 'localhost');
         return `${protocol}//${slug}.${baseHost}/`;
+    }
+    
+    if (host.endsWith('.vercel.app')) {
+        return `${protocol}//${host}/p/${slug}`;
     }
     
     const hostWithoutSubdomain = host.replace(/^(www\.|[a-zA-Z0-9-]+\.)/i, '');
@@ -78,7 +84,7 @@ const Homepage = () => {
                 setProfile(data);
                 // Seed editable fields from DB
                 setStatusOn(data?.homepage_enabled ?? true);
-                setBio(data?.bio || '');
+                setBio(data?.biography || data?.bio || '');
                 setPassword(data?.homepage_password || '');
                 setCollectionSort(data?.homepage_sort || 'created-new');
                 setShowBio(data?.show_bio ?? true);
@@ -119,8 +125,16 @@ const Homepage = () => {
 
     // ── Sorted preview collections ───────────────────────────────────────────
     const previewCollections = React.useMemo(() => {
-        const published = collections.filter((c) => c.status === 'published' && c.show_on_homepage !== false);
-        const sorted = [...published].sort((a, b) => {
+        // First get published collections
+        let list = collections.filter((c) => c.status === 'published' && c.show_on_homepage !== false);
+        
+        // If we have fewer than 6, fill with any other available collections to fully populate the mockup with real data!
+        if (list.length < 6) {
+            const others = collections.filter((c) => !list.some((existing) => existing.id === c.id));
+            list = [...list, ...others];
+        }
+
+        const sorted = [...list].sort((a, b) => {
             if (collectionSort === 'created-new') return new Date(b.created_at) - new Date(a.created_at);
             if (collectionSort === 'created-old') return new Date(a.created_at) - new Date(b.created_at);
             if (collectionSort === 'event-new') return new Date(b.event_date || 0) - new Date(a.event_date || 0);
@@ -158,6 +172,7 @@ const Homepage = () => {
             const updates = {
                 homepage_enabled: overrides.hasOwnProperty('homepage_enabled') ? overrides.homepage_enabled : current.statusOn,
                 bio: overrides.hasOwnProperty('bio') ? overrides.bio : current.bio,
+                biography: overrides.hasOwnProperty('bio') ? overrides.bio : current.bio,
                 homepage_password: overrides.hasOwnProperty('homepage_password') ? overrides.homepage_password : current.password,
                 homepage_sort: overrides.hasOwnProperty('homepage_sort') ? overrides.homepage_sort : current.collectionSort,
                 show_bio: overrides.hasOwnProperty('show_bio') ? overrides.show_bio : current.showBio,
@@ -170,6 +185,7 @@ const Homepage = () => {
 
             // Normalize values
             if (typeof updates.bio === 'string') updates.bio = updates.bio.trim() || null;
+            if (typeof updates.biography === 'string') updates.biography = updates.biography.trim() || null;
             if (typeof updates.homepage_password === 'string') updates.homepage_password = updates.homepage_password.trim() || null;
 
             const updated = await galleryService.updatePhotographerProfile(user.id, updates);
@@ -251,7 +267,7 @@ const Homepage = () => {
     const photographerName = profile?.studio_name || profile?.full_name || profile?.name || user?.email?.split('@')[0]?.toUpperCase() || 'STUDIO';
     const displayEmail = profile?.contact_email || profile?.email || user?.email || '';
     const displayPhone = profile?.phone || '';
-    const displayAddress = profile?.address || '';
+    const displayAddress = [profile?.address_line_1, profile?.city, profile?.state_province].filter(Boolean).join(', ') || '';
     const displayWebsite = profile?.website || '';
 
     const homepageUrl = buildHomepageUrl(profile, user);
@@ -417,7 +433,7 @@ const Homepage = () => {
                                         onChange={(e) => {
                                             const val = e.target.value;
                                             setBio(val);
-                                            autoSave({ bio: val }, false);
+                                            autoSave({ bio: val, biography: val }, false);
                                         }}
                                     ></textarea>
                                     <div className="hp-char-count">{bio.length} / 500</div>
@@ -431,7 +447,7 @@ const Homepage = () => {
 
                                 <div className="hp-checkbox-list">
                                     <CheckboxItem checked={showBio} onChange={(v) => { setShowBio(v); autoSave({ show_bio: v }, true); }} label="Biography" sublabel={bio ? `"${bio.slice(0, 40)}${bio.length > 40 ? '…' : ''}"` : 'No bio added yet'} />
-                                    <CheckboxItem checked={showSocial} onChange={(v) => { setShowSocial(v); autoSave({ show_social: v }, true); }} label="Social Links" sublabel={profile?.social_links?.length ? 'Configured' : 'Not configured'} />
+                                    <CheckboxItem checked={showSocial} onChange={(v) => { setShowSocial(v); autoSave({ show_social: v }, true); }} label="Social Links" sublabel={(profile?.social_instagram || profile?.social_facebook || profile?.social_x_twitter || profile?.social_pinterest || profile?.social_tiktok || profile?.social_youtube || profile?.social_vimeo || profile?.social_linkedin) ? 'Configured' : 'Not configured'} />
                                     <CheckboxItem checked={showWebsite} onChange={(v) => { setShowWebsite(v); autoSave({ show_website: v }, true); }} label="Website" sublabel={displayWebsite || 'Not set'} />
                                     <CheckboxItem checked={showEmail} onChange={(v) => { setShowEmail(v); autoSave({ show_email: v }, true); }} label="Contact Email" sublabel={displayEmail || 'Not set'} />
                                     <CheckboxItem checked={showPhone} onChange={(v) => { setShowPhone(v); autoSave({ show_phone: v }, true); }} label="Phone Number" sublabel={displayPhone || 'Not set'} />
@@ -475,16 +491,18 @@ const Homepage = () => {
                                 <div className="hp-mockup-card">
 
                                     {/* Social icons row — top left */}
-                                    <div className="hp-mockup-social-row">
-                                        {/* Facebook */}
-                                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
-                                        {/* Instagram */}
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
-                                        {/* Pinterest */}
-                                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
-                                        {/* YouTube */}
-                                        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
-                                    </div>
+                                    {showSocial && (
+                                        <div className="hp-mockup-social-row">
+                                            {/* Facebook */}
+                                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+                                            {/* Instagram */}
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="2" width="20" height="20" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/></svg>
+                                            {/* Pinterest */}
+                                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12c0 5.084 3.163 9.426 7.627 11.174-.105-.949-.2-2.405.042-3.441.218-.937 1.407-5.965 1.407-5.965s-.359-.719-.359-1.782c0-1.668.967-2.914 2.171-2.914 1.023 0 1.518.769 1.518 1.69 0 1.029-.655 2.568-.994 3.995-.283 1.194.599 2.169 1.777 2.169 2.133 0 3.772-2.249 3.772-5.495 0-2.873-2.064-4.882-5.012-4.882-3.414 0-5.418 2.561-5.418 5.207 0 1.031.397 2.138.893 2.738a.36.36 0 0 1 .083.345l-.333 1.36c-.053.22-.174.267-.402.161-1.499-.698-2.436-2.889-2.436-4.649 0-3.785 2.75-7.262 7.929-7.262 4.163 0 7.398 2.967 7.398 6.931 0 4.136-2.607 7.464-6.227 7.464-1.216 0-2.359-.632-2.75-1.378l-.748 2.853c-.271 1.043-1.002 2.35-1.492 3.146C9.57 23.812 10.763 24 12 24c6.627 0 12-5.373 12-12S18.627 0 12 0z"/></svg>
+                                            {/* YouTube */}
+                                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.95-1.96C18.88 4 12 4 12 4s-6.88 0-8.59.46a2.78 2.78 0 0 0-1.95 1.96A29 29 0 0 0 1 12a29 29 0 0 0 .46 5.58A2.78 2.78 0 0 0 3.41 19.6C5.12 20 12 20 12 20s6.88 0 8.59-.46a2.78 2.78 0 0 0 1.95-1.95A29 29 0 0 0 23 12a29 29 0 0 0-.46-5.58zM9.75 15.02V8.98L15.5 12l-5.75 3.02z"/></svg>
+                                        </div>
+                                    )}
 
                                     {/* Photographer name */}
                                     <h3 className="hp-mockup-title">{photographerName.toUpperCase()}</h3>
@@ -498,6 +516,12 @@ const Homepage = () => {
 
                                     {/* Contact info preview */}
                                     <div className="hp-mockup-contact">
+                                        {showWebsite && displayWebsite && (
+                                            <div className="hp-mockup-line">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                                                <span>{displayWebsite}</span>
+                                            </div>
+                                        )}
                                         {showEmail && (
                                             <div className="hp-mockup-line">
                                                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
@@ -518,15 +542,48 @@ const Homepage = () => {
                                         )}
                                     </div>
 
-                                    {/* Collections grid — always 6 slots (wireframe mockup) */}
+                                    {/* Collections grid — dynamic collections list or stunning fallback items */}
                                     <div className="hp-mockup-grid">
-                                        {Array(6).fill(0).map((_, i) => (
-                                            <div key={i} className="hp-mockup-item">
-                                                <div className="hp-mockup-img hp-mockup-img--empty"></div>
-                                                <div className="hp-mockup-text-1"></div>
-                                                <div className="hp-mockup-text-2"></div>
-                                            </div>
-                                        ))}
+                                        {Array(6).fill(0).map((_, i) => {
+                                            const col = previewCollections[i];
+                                            if (col) {
+                                                return (
+                                                    <div key={col.id || i} className="hp-mockup-item">
+                                                        <div className="hp-mockup-img">
+                                                            {col.cover_photo_url || col.cover_image ? (
+                                                                <img src={col.cover_photo_url || col.cover_image} alt={col.name} />
+                                                            ) : (
+                                                                <div className="hp-mockup-img-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                                    <img src={imageIconPlaceholder} alt="Placeholder Icon" className="hp-mockup-placeholder-icon" style={{ width: '15px', height: '15px', mixBlendMode: 'multiply' }} />
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="hp-mockup-name">{col.name}</div>
+                                                        <div className="hp-mockup-date">{formatEventDate(col.event_date) || formatEventDate(col.created_at)}</div>
+                                                    </div>
+                                                );
+                                            } else {
+                                                // High-end fallback placeholder using a gorgeous glass-gradient design and custom image icon
+                                                return (
+                                                    <div key={i} className="hp-mockup-item">
+                                                        <div className="hp-mockup-img hp-mockup-img--empty" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+                                                            <div className="hp-mockup-gradient-placeholder" style={{
+                                                                background: `linear-gradient(${135 + i * 25}deg, #8BDFDD 0%, #111111 100%)`,
+                                                                width: '100%',
+                                                                height: '100%',
+                                                                opacity: 0.15,
+                                                                position: 'absolute',
+                                                                top: 0,
+                                                                left: 0
+                                                            }} />
+                                                            <img src={imageIconPlaceholder} alt="Placeholder Icon" className="hp-mockup-placeholder-icon" style={{ width: '15px', height: '15px', mixBlendMode: 'multiply', opacity: 0.35, position: 'relative', zIndex: 1 }} />
+                                                        </div>
+                                                        <div className="hp-mockup-text-1"></div>
+                                                        <div className="hp-mockup-text-2"></div>
+                                                    </div>
+                                                );
+                                            }
+                                        })}
                                     </div>
                                 </div>
                             </div>
