@@ -46,13 +46,16 @@ export function useAlbumWorkspace() {
         const body = document.body;
         const prevHtmlOverflow = html.style.overflow;
         const prevBodyOverflow = body.style.overflow;
-        html.style.overflow = 'hidden';
-        body.style.overflow = 'hidden';
+        const lockScroll = !isAlbumPreviewView(searchParams);
+        if (lockScroll) {
+            html.style.overflow = 'hidden';
+            body.style.overflow = 'hidden';
+        }
         return () => {
             html.style.overflow = prevHtmlOverflow;
             body.style.overflow = prevBodyOverflow;
         };
-    }, []);
+    }, [searchParams]);
 
     useEffect(() => {
         if (!user || !albumId) return undefined;
@@ -155,9 +158,14 @@ export function useAlbumWorkspace() {
         }
     }, [searchParams, navigate, albumId]);
 
+    const patchAlbum = useCallback((patch) => {
+        setAlbum((prev) => (prev ? { ...prev, ...patch } : prev));
+    }, []);
+
     return {
         albumId,
         album,
+        patchAlbum,
         loading,
         totalPages,
         spreadCount,

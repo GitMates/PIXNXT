@@ -67,6 +67,7 @@ export default function AlbumEditorSidebar({
     pageCountBusy = false,
     onAddPages,
     onRemovePages,
+    commentSettingsSlot = null,
 }) {
     const fileRef = useRef(null);
 
@@ -103,6 +104,7 @@ export default function AlbumEditorSidebar({
             <div className="ae-panel">
                 {activePanel === 'collections' && (
                     <>
+                        {commentSettingsSlot}
                         <h3 className="ae-panel-title">Collections</h3>
                         <p className="ae-panel-text">
                             Upload photos here, then click a slot on the spread to choose which image

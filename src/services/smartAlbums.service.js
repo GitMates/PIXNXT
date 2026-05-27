@@ -201,6 +201,8 @@ function mapAlbumRow(row, photographerId) {
 
     grid_layout: row.grid_layout ?? 'two-page',
 
+    comments_enabled: row.comments_enabled !== false,
+
     photo_count: row.photo_count ?? 0,
 
     category_tags: row.category_tags ?? [],

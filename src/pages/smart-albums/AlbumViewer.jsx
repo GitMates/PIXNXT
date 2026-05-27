@@ -24,6 +24,7 @@ const AlbumViewer = () => {
         changePageCount,
         spreadCount,
         setView,
+        patchAlbum,
         minPages,
         maxPages,
         pagesPerSpread,
@@ -66,6 +67,7 @@ const AlbumViewer = () => {
                 photoRevision={photoRevision}
                 onPageChange={handlePageChange}
                 onBackToEdit={() => setView('edit')}
+                onAlbumUpdate={patchAlbum}
             />
         );
     }
@@ -74,6 +76,7 @@ const AlbumViewer = () => {
         <AlbumEditor
             album={album}
             albumId={albumId}
+            onAlbumUpdate={patchAlbum}
             totalPages={totalPages}
             initialPage={initialPage}
             photoRevision={photoRevision}

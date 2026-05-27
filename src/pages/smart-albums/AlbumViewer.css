@@ -118,6 +118,26 @@
   background: #e8e9ec;
 }
 
+.av-page--with-comments {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.av-preview-scroll {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.av-viewer-body--preview-book {
+  flex-shrink: 0;
+  min-height: min(72vh, 720px);
+  display: flex;
+  flex-direction: column;
+}
+
 .av-topbar--preview .av-topbar-right {
   gap: 8px;
 }
