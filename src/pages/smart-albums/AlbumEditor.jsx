@@ -32,6 +32,7 @@ import {
 } from '../../components/smart-albums/albumSpreadGrid';
 import { getSpreadPages, pageToSpreadIndex } from '../../components/smart-albums/albumSpreadUtils';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
+/* Smart album comments — disabled (see smartAlbumCommentsEnabled.js)
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
 import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
 import {
@@ -39,6 +40,8 @@ import {
     groupRootCommentsBySpread,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
+*/
+import { SMART_ALBUM_COMMENTS_ENABLED } from '../../components/smart-albums/smartAlbumCommentsEnabled';
 import { useAuth } from '../../hooks/useAuth';
 import './AlbumEditor.css';
 
@@ -97,8 +100,14 @@ export default function AlbumEditor({
     const navigate = useNavigate();
     const { user } = useAuth();
     const [activePanel, setActivePanel] = useState('collections');
+
+    useEffect(() => {
+        if (!SMART_ALBUM_COMMENTS_ENABLED && activePanel === 'comments') {
+            setActivePanel('collections');
+        }
+    }, [activePanel]);
     const { toast, showToast, clearToast } = useAppToast(4000);
-    const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
+    // const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
     const [uploading, setUploading] = useState(false);
     const [bookPage, setBookPage] = useState(initialPage);
     const [gridEditSet, setGridEditSet] = useState(() =>
@@ -377,9 +386,10 @@ export default function AlbumEditor({
     }, [albumId, totalPages, bumpWorkspace, showToast]);
 
     const spreadEdit = activePanel === 'edit';
-    const showGridComments = activePanel === 'comments';
+    const showGridComments = SMART_ALBUM_COMMENTS_ENABLED && activePanel === 'comments';
     const workspaceKey = `${photoRevision}-${collectionRevision}-${transformRevision}-${getAlbumPhotoRevision(albumId)}`;
 
+    /*
     const loadSpreadComments = useCallback(async () => {
         if (!albumId) return;
         try {
@@ -403,6 +413,7 @@ export default function AlbumEditor({
         window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
         return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
     }, [showGridComments, albumId, loadSpreadComments]);
+    */
 
     const pickerSubtitle =
         collectionItems.length > 0
@@ -506,18 +517,8 @@ export default function AlbumEditor({
                 <AlbumEditorSidebar
                     activePanel={activePanel}
                     onPanelChange={setActivePanel}
-                    commentSettings={
-                        user?.id ? (
-                            <AlbumCommentSettings
-                                album={album}
-                                photographerId={user.id}
-                                onUpdated={onAlbumUpdate}
-                            />
-                        ) : null
-                    }
-                    commentsFeed={
-                        albumId ? <AlbumCommentsFeed albumId={albumId} /> : null
-                    }
+                    commentSettings={null}
+                    commentsFeed={null}
                     album={album}
                     totalPages={totalPages}
                     collectionItems={collectionItems}
@@ -580,7 +581,7 @@ export default function AlbumEditor({
                             }}
                             transformRevision={transformRevision}
                             showGridComments={showGridComments}
-                            spreadCommentsBySpread={spreadCommentsBySpread}
+                            spreadCommentsBySpread={null}
                         />
                     </div>
                 </main>

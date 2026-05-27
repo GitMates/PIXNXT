@@ -302,6 +302,67 @@ function removeLocalAlbum(photographerId, albumId) {
 
 
 
+/** Push albums that exist only in localStorage up to Supabase so prod/dev stay in sync. */
+async function syncLocalAlbumsToSupabase(photographerId, remoteRows) {
+  const remote = [...(remoteRows || [])];
+  const remoteIds = new Set(remote.map((r) => r.id));
+  const localOnly = readLocalAlbums(photographerId).filter((a) => !remoteIds.has(a.id));
+
+  for (const local of localOnly) {
+    const row = {
+      id: local.id,
+      photographer_id: photographerId,
+      name: (local.name || 'Untitled').trim(),
+      event_date: local.event_date || null,
+      slug: local.slug || generateSlug(local.name),
+      page_count: local.page_count ?? 21,
+      grid_size: local.grid_size ?? 'square',
+      grid_layout: local.grid_layout ?? 'two-page',
+      status: local.status === 'published' ? 'published' : 'draft',
+      cover_image_url: local.cover_image_url || null,
+      is_starred: Boolean(local.is_starred),
+      category_tags: Array.isArray(local.category_tags) ? local.category_tags : [],
+      expiry_date: local.expiry_date || null,
+    };
+
+    const { data, error } = await supabase.from('smart_albums').insert(row).select().single();
+
+    if (!error && data) {
+      remote.push(data);
+      remoteIds.add(data.id);
+      removeLocalAlbum(photographerId, local.id);
+      continue;
+    }
+
+    const dup =
+      error?.code === '23505' ||
+      String(error?.message || '')
+        .toLowerCase()
+        .includes('duplicate');
+    if (dup) {
+      const { data: existing } = await supabase
+        .from('smart_albums')
+        .select('*')
+        .eq('id', local.id)
+        .maybeSingle();
+      if (existing) {
+        remote.push(existing);
+        remoteIds.add(existing.id);
+      }
+      removeLocalAlbum(photographerId, local.id);
+      continue;
+    }
+
+    console.warn('Could not sync local album to Supabase:', local.name, error?.message);
+  }
+
+  return remote.sort(
+    (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+  );
+}
+
+
+
 async function deleteAlbumAssets(albumId) {
 
   await deleteAlbumCollectionAssets(albumId);
@@ -370,7 +431,9 @@ export const smartAlbumsService = {
 
     }
 
-    return mergeAlbumRows(data, photographerId);
+    const synced = await syncLocalAlbumsToSupabase(photographerId, data || []);
+
+    return mergeAlbumRows(synced, photographerId);
 
   },
 
@@ -490,6 +553,8 @@ export const smartAlbumsService = {
       throw error;
 
     }
+
+    removeLocalAlbum(photographer_id, data.id);
 
     return mapAlbumRow(data, photographer_id);
 

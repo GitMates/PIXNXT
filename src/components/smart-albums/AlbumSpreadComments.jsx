@@ -1,3 +1,6 @@
+import { SMART_ALBUM_COMMENTS_ENABLED } from './smartAlbumCommentsEnabled';
+
+/* Smart album comment field + save/toast — disabled when SMART_ALBUM_COMMENTS_ENABLED is false */
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AppToast, useAppToast } from '../ui/AppToast';
@@ -31,6 +34,8 @@ export default function AlbumSpreadComments({
     clientView = false,
     variant = 'default',
 }) {
+    if (!SMART_ALBUM_COMMENTS_ENABLED) return null;
+
     const isFooter = variant === 'footer';
     const [comments, setComments] = useState([]);
     const [loading, setLoading] = useState(true);

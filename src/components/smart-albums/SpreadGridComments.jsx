@@ -1,7 +1,9 @@
 import React from 'react';
+import { SMART_ALBUM_COMMENTS_ENABLED } from './smartAlbumCommentsEnabled';
 
 /** Client feedback shown on spread grid or overview thumbnails. */
 export default function SpreadGridComments({ comments, className = '', variant = 'default' }) {
+    if (!SMART_ALBUM_COMMENTS_ENABLED) return null;
     if (!comments?.length) return null;
 
     if (variant === 'spreadBar') {
@@ -19,7 +21,6 @@ export default function SpreadGridComments({ comments, className = '', variant =
             </div>
         );
     }
-
     return (
         <div className={`ab-grid-comments${className ? ` ${className}` : ''}`} aria-label="Client comments">
             {comments.map((comment) => (

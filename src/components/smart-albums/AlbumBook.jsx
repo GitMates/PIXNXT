@@ -10,6 +10,7 @@ import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
+import { SMART_ALBUM_COMMENTS_ENABLED } from './smartAlbumCommentsEnabled';
 import './AlbumBook.css';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
@@ -98,8 +99,9 @@ const AlbumBook = ({
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
     const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true });
+    const commentsUiEnabled = SMART_ALBUM_COMMENTS_ENABLED && showGridComments;
     const currentSpreadComments =
-        showGridComments && spreadCommentsBySpread
+        commentsUiEnabled && spreadCommentsBySpread
             ? spreadCommentsBySpread[spreadIndex] || null
             : null;
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, {
@@ -458,7 +460,7 @@ const AlbumBook = ({
                                     : null;
                             const isCurrent = overviewSpreadIndex === spreadIndex;
                             const spreadComments =
-                                showGridComments && spreadCommentsBySpread
+                                commentsUiEnabled && spreadCommentsBySpread
                                     ? spreadCommentsBySpread[overviewSpreadIndex] || null
                                     : null;
                             return (
