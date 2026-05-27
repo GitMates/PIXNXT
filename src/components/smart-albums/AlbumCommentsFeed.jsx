@@ -1,3 +1,5 @@
+import { SMART_ALBUM_COMMENTS_ENABLED } from './smartAlbumCommentsEnabled';
+
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     COMMENTS_CHANGED_EVENT,
@@ -8,6 +10,8 @@ import {
 import './AlbumSpreadComments.css';
 
 export default function AlbumCommentsFeed({ albumId }) {
+    if (!SMART_ALBUM_COMMENTS_ENABLED) return null;
+
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
 

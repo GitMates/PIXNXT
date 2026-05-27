@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumSpreadComments from '../../components/smart-albums/AlbumSpreadComments';
+import { SMART_ALBUM_COMMENTS_ENABLED } from '../../components/smart-albums/smartAlbumCommentsEnabled';
 import { pageToSpreadIndex, getTotalSpreads } from '../../components/smart-albums/albumSpreadUtils';
 import { useAuth } from '../../hooks/useAuth';
 import './AlbumViewer.css';
@@ -28,7 +29,7 @@ export default function AlbumPreview({
         [bookPage]
     );
     const spreadCount = getTotalSpreads(totalPages, { showCover: true });
-    const commentsEnabled = album?.comments_enabled !== false;
+    const commentsEnabled = SMART_ALBUM_COMMENTS_ENABLED && album?.comments_enabled !== false;
 
     const handleBookPageChange = useCallback(
         (idx) => {
@@ -44,7 +45,11 @@ export default function AlbumPreview({
             : `Spread ${spreadIndex} of ${Math.max(0, spreadCount - 1)}`;
 
     return (
-        <div className="av-page av-page--preview av-page--gallery-proof av-page--with-comments">
+        <div
+            className={`av-page av-page--preview av-page--gallery-proof${
+                SMART_ALBUM_COMMENTS_ENABLED ? ' av-page--with-comments' : ''
+            }`}
+        >
             <header className="av-preview-header">
                 <button
                     type="button"
@@ -86,20 +91,22 @@ export default function AlbumPreview({
                     </div>
                 </div>
 
-                <footer className="av-preview-footer av-preview-footer--bar">
-                    <AlbumSpreadComments
-                        albumId={albumId}
-                        spreadIndex={spreadIndex}
-                        spreadLabel={spreadLabel}
-                        commentsEnabled={commentsEnabled}
-                        isPhotographer={isPhotographer}
-                        photographerName={
-                            user?.user_metadata?.full_name || user?.email || 'Photographer'
-                        }
-                        clientView={clientPreview || minimalChrome}
-                        variant="footer"
-                    />
-                </footer>
+                {SMART_ALBUM_COMMENTS_ENABLED && (
+                    <footer className="av-preview-footer av-preview-footer--bar">
+                        <AlbumSpreadComments
+                            albumId={albumId}
+                            spreadIndex={spreadIndex}
+                            spreadLabel={spreadLabel}
+                            commentsEnabled={commentsEnabled}
+                            isPhotographer={isPhotographer}
+                            photographerName={
+                                user?.user_metadata?.full_name || user?.email || 'Photographer'
+                            }
+                            clientView={clientPreview || minimalChrome}
+                            variant="footer"
+                        />
+                    </footer>
+                )}
             </div>
         </div>
     );
