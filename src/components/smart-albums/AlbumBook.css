@@ -873,6 +873,11 @@
   opacity: 0.6;
 }
 
+.ab-overview-item--remove:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .ab-overview-thumb--add {
   border: 1px dashed rgba(0, 0, 0, 0.22);
   color: #9b9b9b;
@@ -884,10 +889,26 @@
   background: #fafafa;
 }
 
+.ab-overview-thumb--remove {
+  border: 1px dashed rgba(220, 38, 38, 0.35);
+  color: #dc2626;
+}
+
+.ab-overview-item--remove:not(:disabled):hover .ab-overview-thumb--remove {
+  color: #b91c1c;
+  border-color: rgba(185, 28, 28, 0.6);
+  background: #fff5f5;
+}
+
 .ab-overview-add-plus {
   font-size: 36px;
   font-weight: 300;
   line-height: 1;
+}
+
+.ab-overview-remove-minus {
+  font-size: 40px;
+  transform: translateY(-2px);
 }
 
 .ab-focus-view {

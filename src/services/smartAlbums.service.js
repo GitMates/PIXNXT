@@ -11,6 +11,8 @@ const STARRED_OVR_KEY = 'pixnxt_smart_albums_starred';
 
 const SETTINGS_OVR_KEY = 'pixnxt_smart_album_settings_ovr';
 
+const PAGECOUNT_OVR_KEY = 'pixnxt_smart_album_pagecount_ovr';
+
 
 
 function generateSlug(name) {
@@ -230,6 +232,29 @@ function applySettingsOverrides(row, photographerId) {
   return merged;
 }
 
+function readPageCountOverrides(photographerId) {
+  try {
+    const raw = localStorage.getItem(PAGECOUNT_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    return all[photographerId] || {};
+  } catch {
+    return {};
+  }
+}
+
+function writePageCountOverride(photographerId, albumId, pageCount) {
+  try {
+    const raw = localStorage.getItem(PAGECOUNT_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const userMap = { ...(all[photographerId] || {}) };
+    userMap[albumId] = Number(pageCount);
+    all[photographerId] = userMap;
+    localStorage.setItem(PAGECOUNT_OVR_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
 function mapAlbumRow(row, photographerId) {
 
   const overrides = photographerId ? readStarredOverrides(photographerId) : {};
@@ -237,12 +262,14 @@ function mapAlbumRow(row, photographerId) {
   const starredFromOverride = overrides[row.id];
 
   const withSettings = applySettingsOverrides(row, photographerId);
+  const pageCountOverrides = photographerId ? readPageCountOverrides(photographerId) : {};
+  const pageCountFromOverride = pageCountOverrides[row.id];
 
   return {
 
     ...withSettings,
 
-    page_count: withSettings.page_count ?? 21,
+    page_count: pageCountFromOverride ?? withSettings.page_count ?? 21,
 
     grid_size: withSettings.grid_size ?? 'square',
 
@@ -574,6 +601,7 @@ export const smartAlbumsService = {
 
   async updateAlbumPageCount(photographerId, albumId, pageCount) {
     const count = Math.max(1, Math.min(99, Math.floor(Number(pageCount) || 21)));
+    writePageCountOverride(photographerId, albumId, count);
 
     const { data, error } = await supabase
       .from('smart_albums')
@@ -591,6 +619,9 @@ export const smartAlbumsService = {
       const updated = updateLocalAlbum(photographerId, albumId, { page_count: count });
       if (updated) return updated;
     }
+
+    const localUpdated = updateLocalAlbum(photographerId, albumId, { page_count: count });
+    if (localUpdated) return localUpdated;
 
     const album = await this.getAlbum(photographerId, albumId);
     if (!album) throw new Error('Album not found');

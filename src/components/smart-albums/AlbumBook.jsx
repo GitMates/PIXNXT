@@ -76,6 +76,8 @@ const AlbumBook = ({
     transformRevision = 0,
     canAddPages = false,
     onAddPages,
+    canRemovePages = false,
+    onRemovePages,
     pageCountBusy = false,
     overviewReopenToken = 0,
     showGridComments = false,
@@ -537,6 +539,23 @@ const AlbumBook = ({
                                 </span>
                                 <span className="ab-overview-label">
                                     {pageCountBusy ? 'Adding...' : 'Add page'}
+                                </span>
+                            </button>
+                        )}
+                        {canRemovePages && onRemovePages && (
+                            <button
+                                type="button"
+                                className="ab-overview-item ab-overview-item--remove"
+                                disabled={pageCountBusy}
+                                onClick={async () => {
+                                    await onRemovePages();
+                                }}
+                            >
+                                <span className="ab-overview-thumb ab-overview-thumb--remove">
+                                    <span className="ab-overview-add-plus ab-overview-remove-minus">−</span>
+                                </span>
+                                <span className="ab-overview-label">
+                                    {pageCountBusy ? 'Removing...' : 'Remove page'}
                                 </span>
                             </button>
                         )}

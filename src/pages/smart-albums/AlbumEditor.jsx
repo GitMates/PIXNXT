@@ -369,6 +369,11 @@ export default function AlbumEditor({
         }
     }, [canRemovePages, onChangePageCount, pagesPerSpread, bumpWorkspace, showToast]);
 
+    const handleRemovePagesFromOverview = useCallback(async () => {
+        await handleRemovePages();
+        setOverviewReopenToken(Date.now());
+    }, [handleRemovePages]);
+
     const handleClearAllPhotos = useCallback(() => {
         clearAllAlbumPagePhotos(albumId, { totalPages });
         clearAlbumTransforms(albumId);
@@ -572,6 +577,8 @@ export default function AlbumEditor({
                             onSelectCover={handleSelectCover}
                             canAddPages={canAddPages}
                             onAddPages={handleAddPagesFromOverview}
+                            canRemovePages={canRemovePages}
+                            onRemovePages={handleRemovePagesFromOverview}
                             pageCountBusy={pageCountBusy}
                             overviewReopenToken={overviewReopenToken}
                             onTransformChange={() => {
