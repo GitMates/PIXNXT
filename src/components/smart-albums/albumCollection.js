@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase/client';
 
 const STORAGE_KEY = 'pixnxt_album_collections';
 const ALBUM_PATH_CACHE = new Map();
+const PHOTOGRAPHER_PATH_CACHE = new Map();
 
 function readAll() {
     try {
@@ -75,14 +76,41 @@ async function getAlbumPathFolder(albumId) {
     }
 }
 
+async function getPhotographerPathFolder(photographerId) {
+    if (!photographerId) return 'photographer';
+    if (PHOTOGRAPHER_PATH_CACHE.has(photographerId)) {
+        return PHOTOGRAPHER_PATH_CACHE.get(photographerId);
+    }
+    try {
+        const { data } = await supabase
+            .from('photographers')
+            .select('id, display_name, email')
+            .eq('id', photographerId)
+            .maybeSingle();
+        const emailPrefix = String(data?.email || '').split('@')[0];
+        const folder = safeSegment(
+            data?.display_name || emailPrefix || photographerId,
+            'photographer'
+        );
+        PHOTOGRAPHER_PATH_CACHE.set(photographerId, folder);
+        return folder;
+    } catch {
+        return safeSegment(photographerId, 'photographer');
+    }
+}
+
 async function uploadCollectionImage({ albumId, photographerId, image, index }) {
     const file = await dataUrlToFile(image.dataUrl, image.name || `photo-${index + 1}`);
-    const albumFolder = await getAlbumPathFolder(albumId);
+    const [photographerFolder, albumFolder] = await Promise.all([
+        getPhotographerPathFolder(photographerId),
+        getAlbumPathFolder(albumId),
+    ]);
     const path = [
-        'smart-albums',
-        photographerId || 'local',
+        'users',
+        photographerFolder,
+        'smart-album',
         albumFolder,
-        `${Date.now()}-${index + 1}-${safeSegment(file.name)}`
+        `${Date.now()}-${index + 1}-${safeSegment(file.name)}`,
     ].join('/');
     return storageService.upload(path, file);
 }

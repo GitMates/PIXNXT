@@ -45,6 +45,7 @@ const PHOTO_STORAGE_PATH_COLUMNS = [
 ];
 
 const collectionPathNameCache = new Map();
+const photographerPathNameCache = new Map();
 
 function safePathSegment(value, fallback = 'item') {
   return String(value || fallback)
@@ -72,6 +73,26 @@ async function getCollectionPathFolder(collectionId) {
     return folder;
   } catch {
     return `collection__${collectionId}`;
+  }
+}
+
+async function getPhotographerPathFolder(photographerId) {
+  if (!photographerId) return 'photographer';
+  if (photographerPathNameCache.has(photographerId)) {
+    return photographerPathNameCache.get(photographerId);
+  }
+  try {
+    const { data } = await supabase
+      .from('photographers')
+      .select('id, display_name, email')
+      .eq('id', photographerId)
+      .maybeSingle();
+    const emailPrefix = String(data?.email || '').split('@')[0];
+    const folder = safePathSegment(data?.display_name || emailPrefix || photographerId, 'photographer');
+    photographerPathNameCache.set(photographerId, folder);
+    return folder;
+  } catch {
+    return safePathSegment(photographerId, 'photographer');
   }
 }
 
@@ -869,8 +890,14 @@ export const galleryService = {
     const mime = getFileMime(file);
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-    const collectionFolder = await getCollectionPathFolder(collectionId);
-    const filePath = `photographers/${photographerId}/collections/${collectionFolder}/${fileName}`;
+    const [photographerFolder, collectionFolder] = await Promise.all([
+      getPhotographerPathFolder(photographerId),
+      getCollectionPathFolder(collectionId),
+    ]);
+    const setFolder = setId ? `set__${safePathSegment(setId, 'set')}` : 'highlights';
+    const filePath =
+      `users/${photographerFolder}/clientgallery/${collectionFolder}` +
+      `/photoset/${setFolder}/${fileName}`;
 
     const isVideo = isVideoMime(mime);
     const isRaw = isRawImageFile(file);
@@ -1056,7 +1083,7 @@ export const galleryService = {
     const { data: existing, error: fetchError } = await supabase
       .from('photos')
       .select(
-        `id, collection_id, ${PHOTO_STORAGE_PATH_COLUMNS.join(', ')}`
+        `id, collection_id, set_id, ${PHOTO_STORAGE_PATH_COLUMNS.join(', ')}`
       )
       .eq('id', photoId)
       .single();
@@ -1069,8 +1096,16 @@ export const galleryService = {
     const mime = getFileMime(file);
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-    const collectionFolder = await getCollectionPathFolder(collectionId);
-    const filePath = `photographers/${photographerId}/collections/${collectionFolder}/${fileName}`;
+    const [photographerFolder, collectionFolder] = await Promise.all([
+      getPhotographerPathFolder(photographerId),
+      getCollectionPathFolder(collectionId),
+    ]);
+    const setFolder = existing?.set_id
+      ? `set__${safePathSegment(existing.set_id, 'set')}`
+      : 'highlights';
+    const filePath =
+      `users/${photographerFolder}/clientgallery/${collectionFolder}` +
+      `/photoset/${setFolder}/${fileName}`;
 
     const isVideo = isVideoMime(mime);
     const isRaw = isRawImageFile(file);
