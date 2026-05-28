@@ -85,7 +85,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     if (useLeftGrid) {
         const { cells } = getProofLeftPageGridPercent();
         return (
-            <div className="ab-flip-page ab-flip-page--grid" ref={ref} data-density="hard">
+            <div
+                className="ab-flip-page ab-flip-page--grid ab-flip-page--grid-left"
+                ref={ref}
+                data-density="hard"
+            >
                 <AlbumPageGrid
                     album={album}
                     albumId={albumId}
@@ -120,7 +124,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     if (useRightGrid) {
         const { cells } = getProofRightPageGridPercent();
         return (
-            <div className="ab-flip-page ab-flip-page--grid" ref={ref} data-density="hard">
+            <div
+                className="ab-flip-page ab-flip-page--grid ab-flip-page--grid-right"
+                ref={ref}
+                data-density="hard"
+            >
                 <AlbumPageGrid
                     album={album}
                     albumId={albumId}

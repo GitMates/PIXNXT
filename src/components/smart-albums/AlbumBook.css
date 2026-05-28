@@ -299,6 +299,24 @@
   background: #fff;
 }
 
+/* Subtle transparent center seam between left/right spread pages */
+.ab-flip-page--grid-left .ab-page-grid::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: -1px;
+  width: 2px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 7;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(0, 0, 0, 0.1) 100%
+  );
+}
+
 .ab-page-grid {
   position: relative;
   width: 100%;

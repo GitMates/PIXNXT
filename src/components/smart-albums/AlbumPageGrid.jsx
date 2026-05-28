@@ -207,9 +207,6 @@ export default function AlbumPageGrid({
                         {previewMode && !hasPhoto && (
                             <span className="ab-grid-cell-empty" aria-hidden />
                         )}
-                        {(previewMode || showGridComments) && hasPhoto && (
-                            <span className="ab-badge ab-badge--slot">{cell.id}</span>
-                        )}
                     </CellTag>
                 );
             })}

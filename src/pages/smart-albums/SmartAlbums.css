@@ -222,3 +222,96 @@
   content: none;
   display: none;
 }
+
+/* Smart Albums dashboard polish */
+.sa-main {
+  background: #f7f7f9;
+}
+
+.sa-main .cg-style-3.sa-header {
+  background: #fff;
+  border-bottom: 1px solid #eceef2;
+}
+
+.sa-main .cg-style-4 {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.sa-main .cg-style-5.sa-title-inline {
+  font-size: 42px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #121212;
+  line-height: 1;
+}
+
+.sa-main .cg-style-6 {
+  height: 44px;
+  min-width: 250px;
+  border-radius: 10px !important;
+  border: 1px solid #e2e6ec !important;
+  background: #fafbfc !important;
+}
+
+.sa-main .cg-style-7 {
+  font-size: 15px !important;
+}
+
+.sa-main .cg-style-7::placeholder {
+  color: #9aa3af;
+}
+
+.sa-filter-bar {
+  padding-top: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #eceef2;
+}
+
+.sa-filter-pill {
+  min-height: 42px;
+  padding: 0 18px;
+  font-size: 15px;
+}
+
+.sa-content.sa-albums-content {
+  padding-top: 24px;
+}
+
+.sa-empty {
+  margin-top: 30px;
+  padding: 38px 28px;
+  border: 1px solid #eceef2;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(16, 24, 40, 0.06);
+}
+
+.sa-empty h2 {
+  font-size: 28px;
+  letter-spacing: 0.03em;
+}
+
+.sa-empty p {
+  font-size: 13px;
+}
+
+.sa-empty .sa-btn-primary {
+  min-height: 42px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 960px) {
+  .sa-main .cg-style-5.sa-title-inline {
+    font-size: 32px;
+  }
+
+  .sa-main .cg-style-6 {
+    min-width: 220px;
+  }
+}
