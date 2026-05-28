@@ -1,9 +1,7 @@
 import React from 'react';
-import { SMART_ALBUM_COMMENTS_ENABLED } from './smartAlbumCommentsEnabled';
 
 /** Client feedback shown on spread grid or overview thumbnails. */
 export default function SpreadGridComments({ comments, className = '', variant = 'default' }) {
-    if (!SMART_ALBUM_COMMENTS_ENABLED) return null;
     if (!comments?.length) return null;
 
     if (variant === 'spreadBar') {

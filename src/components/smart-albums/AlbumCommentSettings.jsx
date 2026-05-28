@@ -1,5 +1,3 @@
-import { SMART_ALBUM_COMMENTS_ENABLED } from './smartAlbumCommentsEnabled';
-
 import React, { useState } from 'react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import './AlbumSpreadComments.css';
@@ -22,8 +20,6 @@ function SettingsSwitch({ id, checked, disabled, busy, onChange, label }) {
 }
 
 export default function AlbumCommentSettings({ album, photographerId, onUpdated }) {
-    if (!SMART_ALBUM_COMMENTS_ENABLED) return null;
-
     const commentsOn = album?.comments_enabled !== false;
     const published = album?.status === 'published';
     const [commentsBusy, setCommentsBusy] = useState(false);

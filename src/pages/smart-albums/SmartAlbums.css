@@ -216,3 +216,9 @@
   font-size: 10px;
   margin: 0;
 }
+
+/* Smart Albums should not show Client Gallery hover badge */
+.sa-main .cg-style-74::after {
+  content: none;
+  display: none;
+}
