@@ -44,6 +44,37 @@ const PHOTO_STORAGE_PATH_COLUMNS = [
   'watermarked_storage_path',
 ];
 
+const collectionPathNameCache = new Map();
+
+function safePathSegment(value, fallback = 'item') {
+  return String(value || fallback)
+    .trim()
+    .toLowerCase()
+    .replace(/\.[^.]+$/, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64) || fallback;
+}
+
+async function getCollectionPathFolder(collectionId) {
+  if (!collectionId) return 'collection';
+  if (collectionPathNameCache.has(collectionId)) {
+    return collectionPathNameCache.get(collectionId);
+  }
+  try {
+    const { data } = await supabase
+      .from('collections')
+      .select('id, name')
+      .eq('id', collectionId)
+      .maybeSingle();
+    const folder = `${safePathSegment(data?.name, 'collection')}__${collectionId}`;
+    collectionPathNameCache.set(collectionId, folder);
+    return folder;
+  } catch {
+    return `collection__${collectionId}`;
+  }
+}
+
 function collectPhotoStoragePaths(photo) {
   const paths = new Set();
   for (const col of PHOTO_STORAGE_PATH_COLUMNS) {
@@ -838,7 +869,8 @@ export const galleryService = {
     const mime = getFileMime(file);
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-    const filePath = `${photographerId}/${collectionId}/${fileName}`;
+    const collectionFolder = await getCollectionPathFolder(collectionId);
+    const filePath = `photographers/${photographerId}/collections/${collectionFolder}/${fileName}`;
 
     const isVideo = isVideoMime(mime);
     const isRaw = isRawImageFile(file);
@@ -1037,7 +1069,8 @@ export const galleryService = {
     const mime = getFileMime(file);
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-    const filePath = `${photographerId}/${collectionId}/${fileName}`;
+    const collectionFolder = await getCollectionPathFolder(collectionId);
+    const filePath = `photographers/${photographerId}/collections/${collectionFolder}/${fileName}`;
 
     const isVideo = isVideoMime(mime);
     const isRaw = isRawImageFile(file);
