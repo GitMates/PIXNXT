@@ -174,6 +174,7 @@ function isMissingColumnError(error) {
     msg.includes('expiry_date') ||
 
     msg.includes('comments_enabled') ||
+    msg.includes('replies_enabled') ||
 
     (msg.includes('column') && msg.includes('does not exist'))
 
@@ -226,6 +227,9 @@ function applySettingsOverrides(row, photographerId) {
   if (ovr.comments_enabled !== undefined) {
     merged.comments_enabled = ovr.comments_enabled;
   }
+  if (ovr.replies_enabled !== undefined) {
+    merged.replies_enabled = ovr.replies_enabled;
+  }
   if (ovr.status !== undefined) {
     merged.status = ovr.status;
   }
@@ -276,6 +280,8 @@ function mapAlbumRow(row, photographerId) {
     grid_layout: withSettings.grid_layout ?? 'two-page',
 
     comments_enabled: withSettings.comments_enabled !== false,
+
+    replies_enabled: withSettings.replies_enabled !== false,
 
     photo_count: withSettings.photo_count ?? 0,
 
@@ -636,6 +642,9 @@ export const smartAlbumsService = {
     const settingsPatch = {};
     if (patch.comments_enabled !== undefined) {
       settingsPatch.comments_enabled = patch.comments_enabled;
+    }
+    if (patch.replies_enabled !== undefined) {
+      settingsPatch.replies_enabled = patch.replies_enabled;
     }
     if (patch.status !== undefined) {
       settingsPatch.status = patch.status;

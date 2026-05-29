@@ -29,6 +29,7 @@ export default function AlbumPreview({
     );
     const spreadCount = getTotalSpreads(totalPages, { showCover: true });
     const commentsEnabled = album?.comments_enabled !== false;
+    const repliesEnabled = album?.replies_enabled !== false;
 
     const handleBookPageChange = useCallback(
         (idx) => {
@@ -92,6 +93,7 @@ export default function AlbumPreview({
                         spreadIndex={spreadIndex}
                         spreadLabel={spreadLabel}
                         commentsEnabled={commentsEnabled}
+                        repliesEnabled={repliesEnabled}
                         isPhotographer={isPhotographer}
                         photographerName={
                             user?.user_metadata?.full_name || user?.email || 'Photographer'

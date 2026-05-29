@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AppToast, useAppToast } from '../ui/AppToast';
 import {
@@ -26,6 +26,7 @@ export default function AlbumSpreadComments({
     spreadIndex,
     spreadLabel = 'Spread',
     commentsEnabled = true,
+    repliesEnabled = true,
     isPhotographer = false,
     photographerName = 'Photographer',
     clientView = false,
@@ -40,17 +41,19 @@ export default function AlbumSpreadComments({
     const [guestName, setGuestName] = useState('');
     const [guestEmail, setGuestEmail] = useState('');
     const [showGuestFields, setShowGuestFields] = useState(true);
-    const [showGuestPopover, setShowGuestPopover] = useState(false);
     const [threadsOpen, setThreadsOpen] = useState(false);
     const [albumCommentCount, setAlbumCommentCount] = useState(null);
     const [replyBodies, setReplyBodies] = useState({});
     const [replyBusy, setReplyBusy] = useState(null);
-    const inputRef = useRef(null);
+    const [replyOpenId, setReplyOpenId] = useState(null);
+    const [composeOpen, setComposeOpen] = useState(false);
+    const [resolveBusyId, setResolveBusyId] = useState(null);
     const { toast, showToast, clearToast } = useAppToast(2500);
 
     const threads = useMemo(() => groupCommentsByThread(comments), [comments]);
     const commentCount = useMemo(() => commentCountFromThreads(threads), [threads]);
     const showClientCompose = clientView && commentsEnabled && !isPhotographer;
+    const canModerateThreads = isPhotographer;
 
     const loadComments = useCallback(async () => {
         if (!albumId || spreadIndex == null) return;
@@ -119,9 +122,38 @@ export default function AlbumSpreadComments({
         return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
     }, [isFooter, albumId, refreshAlbumCommentCount]);
 
+    const syncComments = useCallback(async () => {
+        if (!albumId || spreadIndex == null) return;
+        try {
+            const rows = await smartAlbumCommentsService.listSpreadComments(albumId, spreadIndex);
+            setComments(rows);
+            if (isFooter) {
+                await refreshAlbumCommentCount();
+            }
+        } catch (e) {
+            console.warn('Comment sync failed', e);
+        }
+    }, [albumId, spreadIndex, isFooter, refreshAlbumCommentCount]);
+
     useEffect(() => {
         setThreadsOpen(false);
+        setReplyOpenId(null);
+        setComposeOpen(false);
     }, [spreadIndex]);
+
+    useEffect(() => {
+        if (!isFooter || !showClientCompose || !albumId) return undefined;
+        syncComments();
+        const intervalId = window.setInterval(syncComments, 8000);
+        const onChanged = (e) => {
+            if (e.detail?.albumId === albumId) syncComments();
+        };
+        window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+        return () => {
+            window.clearInterval(intervalId);
+            window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+        };
+    }, [isFooter, showClientCompose, albumId, syncComments]);
 
     const persistGuestProfile = useCallback(
         (patch) => {
@@ -160,7 +192,6 @@ export default function AlbumSpreadComments({
                     drafts: { ...getGuestProfile(albumId).drafts, [spreadIndex]: saved.id },
                 });
                 setShowGuestFields(false);
-                setShowGuestPopover(false);
                 setSaveState('saved');
                 setComments((prev) => {
                     const next = prev.filter((c) => c.id !== saved.id);
@@ -226,12 +257,26 @@ export default function AlbumSpreadComments({
         if (!guestName.trim()) return;
         persistGuestProfile({ name: guestName.trim(), email: guestEmail.trim() || null });
         setShowGuestFields(false);
-        setShowGuestPopover(false);
-        inputRef.current?.focus();
     };
 
-    const handleInputFocus = () => {
-        if (showGuestFields) setShowGuestPopover(true);
+    const handleFooterCommentSubmit = (e) => {
+        e?.preventDefault();
+        const body = draftBody.trim();
+        if (!body) return;
+        if (showGuestFields && !guestName.trim()) {
+            setComposeOpen(true);
+            return;
+        }
+        submitComment(body);
+    };
+
+    const submitComposeModal = async () => {
+        const body = draftBody.trim();
+        if (!body) return;
+        if (showGuestFields && !guestName.trim()) return;
+        const guest = resolveGuest();
+        await saveDraft(body, guest.name, guest.email);
+        setComposeOpen(false);
     };
 
     const submitComment = useCallback(
@@ -248,36 +293,61 @@ export default function AlbumSpreadComments({
         [draftBody, showClientCompose, resolveGuest, saveDraft, draftId, clearDraftComment]
     );
 
-    const handleCommentSubmit = (e) => {
-        e.preventDefault();
-        const text = e.currentTarget.elements.comment?.value ?? draftBody;
-        submitComment(text);
-    };
-
-    const handleCommentKeyDown = (e) => {
-        if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
-        e.preventDefault();
-        submitComment(e.currentTarget.value);
-    };
-
-    const handleReply = async (parentId) => {
-        const body = (replyBodies[parentId] || '').trim();
+    const handleReply = async (parentId, authorType = 'photographer', bodyOverride) => {
+        const body = (bodyOverride ?? replyBodies[parentId] ?? '').trim();
         if (!body) return;
         setReplyBusy(parentId);
         try {
-            await smartAlbumCommentsService.savePhotographerReply({
+            if (authorType === 'client') {
+                const guest = resolveGuest();
+                await smartAlbumCommentsService.saveClientReply({
+                    albumId,
+                    spreadIndex,
+                    parentId,
+                    body,
+                    authorName: guest.name,
+                    authorEmail: guest.email,
+                });
+            } else {
+                await smartAlbumCommentsService.savePhotographerReply({
+                    albumId,
+                    spreadIndex,
+                    parentId,
+                    body,
+                    authorName: photographerName,
+                });
+            }
+            setReplyBodies((prev) => ({ ...prev, [parentId]: '' }));
+            setReplyOpenId(null);
+            await loadComments();
+            if (isFooter) {
+                showToast('Reply sent', { variant: 'success', duration: 2500 });
+            }
+        } catch (e) {
+            console.error(e);
+            if (isFooter) {
+                showToast('Could not send reply. Try again.', { variant: 'error', duration: 4000 });
+            }
+        } finally {
+            setReplyBusy(null);
+        }
+    };
+
+    const handleToggleResolved = async (root) => {
+        if (!canModerateThreads) return;
+        setResolveBusyId(root.id);
+        try {
+            await smartAlbumCommentsService.setThreadResolved({
                 albumId,
                 spreadIndex,
-                parentId,
-                body,
-                authorName: photographerName,
+                rootId: root.id,
+                resolved: !root.resolved,
             });
-            setReplyBodies((prev) => ({ ...prev, [parentId]: '' }));
             await loadComments();
         } catch (e) {
             console.error(e);
         } finally {
-            setReplyBusy(null);
+            setResolveBusyId(null);
         }
     };
 
@@ -292,15 +362,51 @@ export default function AlbumSpreadComments({
     const renderThreadList = () => (
         <ul className="asc-thread-list">
             {threads.map(({ root, replies }) => (
-                <li key={root.id} className="asc-thread">
+                <li
+                    key={root.id}
+                    className={`asc-thread${root.resolved ? ' asc-thread--resolved' : ''}`}
+                >
                     <div className={`asc-message asc-message--${root.author_type}`}>
                         <div className="asc-message-meta">
-                            <strong>{root.author_name}</strong>
+                            <div className="asc-message-headline">
+                                <strong>{root.author_name}</strong>
+                                <span className="asc-kind-badge">Comment</span>
+                            </div>
                             <time dateTime={root.created_at}>
                                 {new Date(root.updated_at || root.created_at).toLocaleString()}
                             </time>
                         </div>
                         <p>{root.body}</p>
+                        {(isPhotographer || showClientCompose) && commentsEnabled && (
+                            <div className="asc-message-actions">
+                                {repliesEnabled && (
+                                    <button
+                                        type="button"
+                                        className="asc-link-btn asc-link-btn--inline"
+                                        onClick={() => setReplyOpenId(root.id)}
+                                    >
+                                        Reply
+                                    </button>
+                                )}
+                                {canModerateThreads && (
+                                    <button
+                                        type="button"
+                                        className="asc-link-btn asc-link-btn--inline"
+                                        disabled={resolveBusyId === root.id}
+                                        onClick={() => handleToggleResolved(root)}
+                                    >
+                                        {root.resolved ? 'Reopen' : 'Resolve'}
+                                    </button>
+                                )}
+                                <span
+                                    className={`asc-thread-status${
+                                        root.resolved ? ' asc-thread-status--resolved' : ''
+                                    }`}
+                                >
+                                    {root.resolved ? 'Resolved' : 'Open'}
+                                </span>
+                            </div>
+                        )}
                     </div>
                     {replies.map((reply) => (
                         <div
@@ -308,7 +414,10 @@ export default function AlbumSpreadComments({
                             className={`asc-message asc-message--reply asc-message--${reply.author_type}`}
                         >
                             <div className="asc-message-meta">
-                                <strong>{reply.author_name}</strong>
+                                <div className="asc-message-headline">
+                                    <strong>{reply.author_name}</strong>
+                                    <span className="asc-kind-badge asc-kind-badge--reply">Reply</span>
+                                </div>
                                 <time dateTime={reply.created_at}>
                                     {new Date(reply.created_at).toLocaleString()}
                                 </time>
@@ -316,39 +425,162 @@ export default function AlbumSpreadComments({
                             <p>{reply.body}</p>
                         </div>
                     ))}
-                    {isPhotographer && commentsEnabled && (
-                        <div className="asc-reply-box">
-                            <textarea
-                                className="asc-textarea asc-textarea--small"
-                                rows={2}
-                                placeholder="Write a reply to the client…"
-                                value={replyBodies[root.id] || ''}
-                                onChange={(e) =>
-                                    setReplyBodies((prev) => ({
-                                        ...prev,
-                                        [root.id]: e.target.value,
-                                    }))
-                                }
-                            />
-                            <button
-                                type="button"
-                                className="asc-btn asc-btn--primary"
-                                disabled={replyBusy === root.id}
-                                onClick={() => handleReply(root.id)}
-                            >
-                                {replyBusy === root.id ? 'Sending…' : 'Send reply'}
-                            </button>
-                        </div>
-                    )}
                 </li>
             ))}
         </ul>
     );
 
+    const replyTarget = replyOpenId
+        ? threads.find((t) => t.root.id === replyOpenId)?.root || null
+        : null;
+    const canReply =
+        Boolean(replyTarget) &&
+        ((isPhotographer && commentsEnabled) || (showClientCompose && commentsEnabled));
+    const replyBody = replyTarget ? replyBodies[replyTarget.id] || '' : '';
+    const replyModal =
+        canReply &&
+        createPortal(
+            <div
+                className="asc-reply-modal-backdrop"
+                onClick={() => setReplyOpenId(null)}
+                role="presentation"
+            >
+                <div
+                    className="asc-reply-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Reply to comment"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <h5 className="asc-reply-modal-title">Reply to {replyTarget.author_name}</h5>
+                    <textarea
+                        className="asc-textarea asc-textarea--small"
+                        rows={3}
+                        autoFocus
+                        placeholder={
+                            isPhotographer ? 'Write a reply to the client…' : 'Write your reply…'
+                        }
+                        value={replyBody}
+                        onChange={(e) =>
+                            setReplyBodies((prev) => ({
+                                ...prev,
+                                [replyTarget.id]: e.target.value,
+                            }))
+                        }
+                        onKeyDown={(e) => {
+                            if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+                            e.preventDefault();
+                            handleReply(replyTarget.id, isPhotographer ? 'photographer' : 'client');
+                        }}
+                    />
+                    <div className="asc-reply-modal-actions">
+                        <button
+                            type="button"
+                            className="asc-link-btn asc-link-btn--inline"
+                            onClick={() => setReplyOpenId(null)}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            className="asc-btn asc-btn--primary"
+                            disabled={replyBusy === replyTarget.id || !replyBody.trim()}
+                            onClick={() =>
+                                handleReply(replyTarget.id, isPhotographer ? 'photographer' : 'client')
+                            }
+                        >
+                            {replyBusy === replyTarget.id ? 'Sending…' : 'Send reply'}
+                        </button>
+                    </div>
+                </div>
+            </div>,
+            document.body
+        );
+
+    const composeModal =
+        composeOpen &&
+        showClientCompose &&
+        createPortal(
+            <div
+                className="asc-reply-modal-backdrop"
+                onClick={() => setComposeOpen(false)}
+                role="presentation"
+            >
+                <div
+                    className="asc-reply-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Add comment"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <h5 className="asc-reply-modal-title">Add comment · {spreadLabel}</h5>
+                    {showGuestFields ? (
+                        <>
+                            <label className="asc-field">
+                                <span className="asc-field-label">Your name</span>
+                                <input
+                                    type="text"
+                                    className="asc-input"
+                                    placeholder="e.g. Sarah James"
+                                    value={guestName}
+                                    onChange={(e) => setGuestName(e.target.value)}
+                                />
+                            </label>
+                            <label className="asc-field">
+                                <span className="asc-field-label">Email (optional)</span>
+                                <input
+                                    type="email"
+                                    className="asc-input"
+                                    placeholder="you@email.com"
+                                    value={guestEmail}
+                                    onChange={(e) => setGuestEmail(e.target.value)}
+                                />
+                            </label>
+                        </>
+                    ) : (
+                        <p className="asc-reply-modal-quote">Commenting as {guestName}</p>
+                    )}
+                    <textarea
+                        className="asc-textarea asc-textarea--small"
+                        rows={3}
+                        autoFocus={!showGuestFields}
+                        placeholder="Type your comment…"
+                        value={draftBody}
+                        onChange={(e) => handleDraftChange(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
+                            e.preventDefault();
+                            submitComposeModal();
+                        }}
+                    />
+                    <div className="asc-reply-modal-actions">
+                        <button
+                            type="button"
+                            className="asc-link-btn asc-link-btn--inline"
+                            onClick={() => setComposeOpen(false)}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            className="asc-btn asc-btn--primary"
+                            disabled={saveState === 'saving' || !draftBody.trim()}
+                            onClick={submitComposeModal}
+                        >
+                            {saveState === 'saving' ? 'Saving…' : 'Save comment'}
+                        </button>
+                    </div>
+                </div>
+            </div>,
+            document.body
+        );
+
     if (isFooter && showClientCompose) {
+        const displayCount =
+            albumCommentCount != null && !loading ? albumCommentCount : commentCount;
         return (
             <div className="asc-footer-wrap" aria-label={`Comments for ${spreadLabel}`}>
-                {threadsOpen && (
+                {threadsOpen && !replyOpenId && !composeOpen && (
                     <div className="asc-bar-panel">
                         {loading ? (
                             <p className="asc-bar-panel-muted">Loading comments…</p>
@@ -359,34 +591,8 @@ export default function AlbumSpreadComments({
                         )}
                     </div>
                 )}
-
-                {showGuestPopover && showGuestFields && (
-                    <div className="asc-bar-guest-pop">
-                        <p className="asc-bar-guest-title">Your name</p>
-                        <input
-                            type="text"
-                            className="asc-bar-guest-input"
-                            placeholder="e.g. Sarah James"
-                            value={guestName}
-                            onChange={(e) => setGuestName(e.target.value)}
-                        />
-                        <input
-                            type="email"
-                            className="asc-bar-guest-input"
-                            placeholder="Email (optional)"
-                            value={guestEmail}
-                            onChange={(e) => setGuestEmail(e.target.value)}
-                        />
-                        <button
-                            type="button"
-                            className="asc-bar-guest-btn"
-                            disabled={!guestName.trim()}
-                            onClick={handleGuestContinue}
-                        >
-                            Continue
-                        </button>
-                    </div>
-                )}
+                {replyModal}
+                {composeModal}
 
                 <div className="asc-comment-bar">
                     <button
@@ -397,29 +603,20 @@ export default function AlbumSpreadComments({
                     >
                         {loading && albumCommentCount == null
                             ? '…'
-                            : (() => {
-                                  const count =
-                                      albumCommentCount != null ? albumCommentCount : commentCount;
-                                  return `${count} comment${count === 1 ? '' : 's'}`;
-                              })()}
+                            : `${displayCount} comment${displayCount === 1 ? '' : 's'}`}
                     </button>
-                    <form className="asc-comment-bar-form" onSubmit={handleCommentSubmit}>
+                    <form className="asc-comment-bar-form" onSubmit={handleFooterCommentSubmit}>
                         <input
-                            ref={inputRef}
                             type="text"
-                            name="comment"
                             className="asc-comment-bar-input"
-                            placeholder="Type your comment and press Enter to save"
+                            placeholder="Start typing here to add new comment"
                             value={draftBody}
                             onChange={(e) => handleDraftChange(e.target.value)}
-                            onKeyDown={handleCommentKeyDown}
-                            onFocus={handleInputFocus}
-                            spellCheck={false}
-                            autoComplete="off"
-                            aria-label={`Add comment for ${spreadLabel}`}
+                            disabled={saveState === 'saving'}
+                            aria-label="Add a comment"
                         />
-                        <button type="submit" className="asc-comment-bar-submit" tabIndex={-1}>
-                            Post
+                        <button type="submit" className="asc-comment-bar-submit">
+                            Save comment
                         </button>
                     </form>
                     {saveState === 'saving' && (
@@ -572,6 +769,7 @@ export default function AlbumSpreadComments({
                     renderThreadList()
                 )}
             </div>
+            {replyModal}
 
             {isPhotographer && !commentsEnabled && (
                 <p className="asc-muted">Enable comments in the editor (Comments panel) to allow client feedback.</p>

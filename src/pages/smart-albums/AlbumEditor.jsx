@@ -521,7 +521,15 @@ export default function AlbumEditor({
                         ) : null
                     }
                     commentsFeed={
-                        albumId ? <AlbumCommentsFeed albumId={albumId} /> : null
+                        albumId ? (
+                            <AlbumCommentsFeed
+                                albumId={albumId}
+                                repliesEnabled={album?.replies_enabled !== false}
+                                photographerName={
+                                    user?.user_metadata?.full_name || user?.email || 'Photographer'
+                                }
+                            />
+                        ) : null
                     }
                     album={album}
                     totalPages={totalPages}
