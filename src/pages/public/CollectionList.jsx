@@ -1,5 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
 import { galleryService } from '../../services/gallery.service';
 import { useNavigate } from 'react-router-dom';
 import { sortCollections } from '../../utils/sortCollections';
@@ -17,25 +16,16 @@ const CollectionList = ({ slug }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const [layoutMode, setLayoutMode] = useState('grid');
-  const [scrollY, setScrollY] = useState(0);
   const navigate = useNavigate();
-  const containerRef = useRef(null);
 
   useEffect(() => {
-    document.body.style.backgroundColor = '#0a0a0a';
-    document.documentElement.style.backgroundColor = '#0a0a0a';
+    document.body.style.backgroundColor = '#fff';
+    document.documentElement.style.backgroundColor = '#fff';
     window.scrollTo(0, 0);
     return () => {
       document.body.style.backgroundColor = '';
       document.documentElement.style.backgroundColor = '';
     };
-  }, []);
-
-  useEffect(() => {
-    const onScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   useEffect(() => {
@@ -75,36 +65,36 @@ const CollectionList = ({ slug }) => {
   };
 
   if (loading) return (
-    <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'#0a0a0a' }}>
-      <div style={{ width:24, height:24, borderRadius:'50%', border:'2px solid #8BDFDD', borderTopColor:'transparent', animation:'spin 0.8s linear infinite' }} />
+    <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'#fff' }}>
+      <div style={{ width:20, height:20, borderRadius:'50%', border:'2px solid #ccc', borderTopColor:'#333', animation:'spin 0.8s linear infinite' }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 
   if (error || !profile) return (
     <div style={{ display:'flex', height:'100vh', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'#fff' }}>
-      <h1 style={{ fontSize:24, fontWeight:700, marginBottom:12 }}>Portfolio Not Found</h1>
-      <p style={{ color:'#888' }}>This portfolio is unavailable.</p>
+      <h1 style={{ fontSize:24, fontWeight:400, marginBottom:12, fontFamily:'Georgia, serif' }}>Portfolio Not Found</h1>
+      <p style={{ color:'#999', fontFamily:'sans-serif', fontSize:14 }}>This portfolio is unavailable.</p>
     </div>
   );
 
   if (profile.homepage_enabled === false) return (
     <div style={{ display:'flex', height:'100vh', flexDirection:'column', alignItems:'center', justifyContent:'center', background:'#fff' }}>
-      <h1 style={{ fontSize:24, fontWeight:700, marginBottom:12 }}>Coming Soon</h1>
+      <h1 style={{ fontSize:24, fontWeight:400, fontFamily:'Georgia, serif' }}>Coming Soon</h1>
     </div>
   );
 
   if (profile.homepage_password && !isAuthenticated) return (
     <div style={{ display:'flex', height:'100vh', alignItems:'center', justifyContent:'center', background:'#fafafa' }}>
-      <div style={{ background:'#fff', padding:'60px 48px', borderRadius:12, maxWidth:420, width:'100%', textAlign:'center', boxShadow:'0 8px 40px rgba(0,0,0,0.06)' }}>
-        <h2 style={{ fontSize:20, fontWeight:700, marginBottom:8 }}>Password Required</h2>
-        <p style={{ color:'#888', fontSize:14, marginBottom:32 }}>Enter password to view this portfolio.</p>
+      <div style={{ background:'#fff', padding:'60px 48px', maxWidth:400, width:'100%', textAlign:'center' }}>
+        <h2 style={{ fontSize:18, fontWeight:400, marginBottom:8, fontFamily:'Georgia, serif', letterSpacing:'0.05em' }}>Password Required</h2>
+        <p style={{ color:'#999', fontSize:13, marginBottom:28, fontFamily:'sans-serif' }}>Enter password to view this portfolio.</p>
         <form onSubmit={handlePasswordSubmit}>
           <input type="password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)}
             placeholder="Password" autoFocus
-            style={{ width:'100%', padding:'12px 16px', border:`1px solid ${passwordError ? '#f00' : '#e0e0e0'}`, borderRadius:8, fontSize:15, marginBottom:16, boxSizing:'border-box', outline:'none' }} />
-          {passwordError && <p style={{ color:'red', fontSize:13, marginBottom:12 }}>Incorrect password.</p>}
-          <button type="submit" style={{ width:'100%', background:'#111', color:'#fff', border:'none', borderRadius:8, padding:'14px', fontSize:15, cursor:'pointer' }}>Enter Portfolio</button>
+            style={{ width:'100%', padding:'12px 16px', border:`1px solid ${passwordError ? '#e00' : '#ddd'}`, borderRadius:0, fontSize:14, marginBottom:12, boxSizing:'border-box', outline:'none', fontFamily:'sans-serif' }} />
+          {passwordError && <p style={{ color:'#e00', fontSize:12, marginBottom:10, fontFamily:'sans-serif' }}>Incorrect password.</p>}
+          <button type="submit" style={{ width:'100%', background:'#111', color:'#fff', border:'none', borderRadius:0, padding:'14px', fontSize:13, cursor:'pointer', letterSpacing:'0.12em', textTransform:'uppercase', fontFamily:'sans-serif' }}>Enter Portfolio</button>
         </form>
       </div>
     </div>
@@ -121,540 +111,346 @@ const CollectionList = ({ slug }) => {
 
   const goToPage = (page) => setCurrentPage(page);
 
-  // Scroll transition: white panel moves up on scroll
-  const TRANSITION_HEIGHT = typeof window !== 'undefined' ? window.innerHeight : 800;
-  const panelProgress = Math.min(scrollY / TRANSITION_HEIGHT, 1);
-  const whiteY = -panelProgress * 100; // moves from 0 to -100vh
-  const showcaseOpacity = panelProgress;
+  const bioText = profile.show_bio !== false && (profile.biography || profile.bio);
+  const hasWebsite = profile.show_website !== false && profile.website;
+  const hasPhone = profile.show_phone !== false && profile.phone;
+  const hasEmail = profile.show_email !== false && (profile.contact_email || profile.email);
+  const hasAddress = profile.show_address !== false && (profile.address_line_1 || profile.city);
 
-  const highlightCollection = sortedCollections[0];
-  const coverUrl = highlightCollection?.cover_url || highlightCollection?.cover;
-  const coverName = highlightCollection?.name || 'Featured Work';
-  const coverDate = highlightCollection?.event_date ? new Date(highlightCollection.event_date).toLocaleDateString('en-US', { month:'short', year:'numeric' }) : '';
-  const collageImages = sortedCollections
-    .map(c => c.cover_url || c.cover)
-    .filter(Boolean)
-    .slice(0, 3);
+  // Build social links list
+  const socialLinks = [];
+  if (profile.show_social !== false) {
+    if (profile.social_instagram) socialLinks.push({ label: 'Instagram', url: profile.social_instagram.startsWith('http') ? profile.social_instagram : `https://instagram.com/${profile.social_instagram}` });
+    if (profile.social_facebook) socialLinks.push({ label: 'Facebook', url: profile.social_facebook.startsWith('http') ? profile.social_facebook : `https://${profile.social_facebook}` });
+    if (profile.social_x_twitter) socialLinks.push({ label: 'Twitter', url: profile.social_x_twitter.startsWith('http') ? profile.social_x_twitter : `https://${profile.social_x_twitter}` });
+    if (profile.social_pinterest) socialLinks.push({ label: 'Pinterest', url: profile.social_pinterest.startsWith('http') ? profile.social_pinterest : `https://${profile.social_pinterest}` });
+    if (profile.social_tiktok) socialLinks.push({ label: 'TikTok', url: profile.social_tiktok.startsWith('http') ? profile.social_tiktok : `https://${profile.social_tiktok}` });
+    if (profile.social_youtube) socialLinks.push({ label: 'YouTube', url: profile.social_youtube.startsWith('http') ? profile.social_youtube : `https://${profile.social_youtube}` });
+    if (profile.social_vimeo) socialLinks.push({ label: 'Vimeo', url: profile.social_vimeo.startsWith('http') ? profile.social_vimeo : `https://${profile.social_vimeo}` });
+    if (profile.social_linkedin) socialLinks.push({ label: 'LinkedIn', url: profile.social_linkedin.startsWith('http') ? profile.social_linkedin : `https://${profile.social_linkedin}` });
+  }
 
   return (
-    <div ref={containerRef} style={{ background:'#0a0a0a', minHeight:'200vh', fontFamily:"'EB Garamond', Georgia, serif" }}>
+    <div style={{ background:'#fff', minHeight:'100vh', fontFamily:"'Helvetica Neue', Helvetica, Arial, sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&display=swap');
         * { box-sizing: border-box; }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0a0a0a; }
-        ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        body { margin: 0; }
 
-        .coll-card { cursor:pointer; transition: transform 0.5s cubic-bezier(0.16,1,0.3,1); }
-        .coll-card:hover { transform: translateY(-6px); }
-        .coll-card:hover .coll-img { transform: scale(1.04); }
-        .coll-img { width:100%; height:100%; object-fit:cover; transition: transform 1.2s cubic-bezier(0.16,1,0.3,1); }
-        .coll-title { font-size:14px; letter-spacing:0.16em; text-transform:uppercase; color:#fff; margin-top:16px; font-family:'EB Garamond', serif; }
-        .coll-date { font-size:11px; letter-spacing:0.12em; color:#8BDFDD; margin-top:6px; text-transform:uppercase; font-family: sans-serif; }
-        .contact-pill { display:inline-flex; align-items:center; gap:10px; padding:10px 20px; border-radius:40px; border:1px solid rgba(0,0,0,0.08); font-size:13px; letter-spacing:0.05em; color:#333; transition: all 0.3s ease; text-decoration:none; }
-        .contact-pill:hover { border-color:#8BDFDD; color:#111; background:rgba(139,223,221,0.06); }
-        .nav-link { font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:#888; text-decoration:none; transition:color 0.2s; }
-        .nav-link:hover { color:#111; }
-        .showcase-nav-link { font-size:11px; letter-spacing:0.2em; text-transform:uppercase; color:#a3a3a3; text-decoration:none; transition:color 0.2s; }
-        .showcase-nav-link:hover { color:#8BDFDD; }
-        @keyframes bounce { 0%,100% { transform:translateY(0); } 50% { transform:translateY(8px); } }
-        .scroll-indicator { animation: bounce 1.6s ease-in-out infinite; }
-        .page-btn { width:40px; height:40px; border-radius:50%; border:none; cursor:pointer; font-size:13px; font-weight:600; transition:all 0.2s; }
+        .pxn-nav-link {
+          font-size: 11px;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          color: #888;
+          text-decoration: none;
+          font-family: sans-serif;
+          transition: color 0.2s;
+        }
+        .pxn-nav-link:hover { color: #111; }
+
+        .pxn-contact-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 13px;
+          color: #555;
+          font-family: sans-serif;
+          text-decoration: none;
+          transition: color 0.2s;
+          margin: 0 auto;
+          justify-content: center;
+        }
+        .pxn-contact-row:hover { color: #111; }
+
+        .pxn-card {
+          cursor: pointer;
+          transition: opacity 0.25s ease;
+        }
+        .pxn-card:hover { opacity: 0.85; }
+        .pxn-card:hover .pxn-card-img {
+          transform: scale(1.03);
+        }
+        .pxn-card-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          transition: transform 0.6s cubic-bezier(0.16,1,0.3,1);
+          display: block;
+        }
+
+        .pxn-page-btn {
+          width: 34px;
+          height: 34px;
+          border: none;
+          background: transparent;
+          cursor: pointer;
+          font-size: 13px;
+          color: #888;
+          font-family: sans-serif;
+          transition: all 0.2s;
+          letter-spacing: 0.04em;
+        }
+        .pxn-page-btn:hover { color: #111; }
+        .pxn-page-btn.active { color: #111; font-weight: 600; border-bottom: 1px solid #111; }
+
+        .pxn-search-input {
+          background: transparent;
+          border: none;
+          border-bottom: 1px solid #ddd;
+          outline: none;
+          padding: 6px 0;
+          font-size: 13px;
+          font-family: sans-serif;
+          color: #333;
+          width: 220px;
+          letter-spacing: 0.04em;
+        }
+        .pxn-search-input::placeholder { color: #bbb; }
       `}</style>
 
-      {/* ── DARK SHOWCASE (fixed behind) ── */}
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: '#0a0a0a', zIndex: 0,
-        opacity: showcaseOpacity,
-        pointerEvents: panelProgress < 0.5 ? 'none' : 'auto',
-        transition: 'opacity 0.1s linear',
-        overflowY: 'auto',
-        display: 'flex', flexDirection: 'column',
+      {/* ── TOP NAV ── */}
+      <nav style={{
+        position: 'fixed', top: 0, left: 0, right: 0,
+        zIndex: 100,
+        background: '#fff',
+        borderBottom: '1px solid #f0f0f0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        padding: '0 40px',
+        height: 60,
+        gap: 28,
       }}>
-        {/* Dark nav */}
-        <div style={{ padding:'36px 64px 0', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0 }}>
-          <span style={{ fontFamily:"'EB Garamond',serif", fontSize:20, fontWeight:500, letterSpacing:'0.22em', textTransform:'uppercase', color:'#fff' }}>{photographerName}</span>
-          <div style={{ display:'flex', gap:24, alignItems:'center' }}>
-            {profile.show_email !== false && (profile.contact_email || profile.email) && (
-              <a href={`mailto:${profile.contact_email || profile.email}`} className="showcase-nav-link">Email</a>
-            )}
-            {profile.show_phone !== false && profile.phone && (
-              <a href={`tel:${profile.phone}`} className="showcase-nav-link">Call</a>
-            )}
-            {profile.show_website !== false && profile.website && (
-              <a href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`} target="_blank" rel="noreferrer" className="showcase-nav-link">Website</a>
-            )}
-            {profile.show_social !== false && profile.social_instagram && (
-              <a href={profile.social_instagram.startsWith('http') ? profile.social_instagram : `https://${profile.social_instagram}`} target="_blank" rel="noreferrer" className="showcase-nav-link">Instagram</a>
-            )}
-            {profile.show_social !== false && profile.social_facebook && (
-              <a href={profile.social_facebook.startsWith('http') ? profile.social_facebook : `https://${profile.social_facebook}`} target="_blank" rel="noreferrer" className="showcase-nav-link">Facebook</a>
-            )}
-            {profile.show_social !== false && profile.social_x_twitter && (
-              <a href={profile.social_x_twitter.startsWith('http') ? profile.social_x_twitter : `https://${profile.social_x_twitter}`} target="_blank" rel="noreferrer" className="showcase-nav-link">Twitter</a>
-            )}
-            {profile.show_social !== false && profile.social_pinterest && (
-              <a href={profile.social_pinterest.startsWith('http') ? profile.social_pinterest : `https://${profile.social_pinterest}`} target="_blank" rel="noreferrer" className="showcase-nav-link">Pinterest</a>
-            )}
-            {profile.show_social !== false && profile.social_tiktok && (
-              <a href={profile.social_tiktok.startsWith('http') ? profile.social_tiktok : `https://${profile.social_tiktok}`} target="_blank" rel="noreferrer" className="showcase-nav-link">TikTok</a>
-            )}
-            {profile.show_social !== false && profile.social_youtube && (
-              <a href={profile.social_youtube.startsWith('http') ? profile.social_youtube : `https://${profile.social_youtube}`} target="_blank" rel="noreferrer" className="showcase-nav-link">YouTube</a>
-            )}
-            {profile.show_social !== false && profile.social_vimeo && (
-              <a href={profile.social_vimeo.startsWith('http') ? profile.social_vimeo : `https://${profile.social_vimeo}`} target="_blank" rel="noreferrer" className="showcase-nav-link">Vimeo</a>
-            )}
-            {profile.show_social !== false && profile.social_linkedin && (
-              <a href={profile.social_linkedin.startsWith('http') ? profile.social_linkedin : `https://${profile.social_linkedin}`} target="_blank" rel="noreferrer" className="showcase-nav-link">LinkedIn</a>
-            )}
-            <button onClick={() => { setIsSearchOpen(p => !p); if (isSearchOpen) handleSearchChange(''); }}
-              style={{ background:'none', border:'none', cursor:'pointer', color:'#a3a3a3', padding:0, display:'flex', alignItems:'center', transition:'color 0.2s' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#8BDFDD'}
-              onMouseLeave={e => e.currentTarget.style.color = '#a3a3a3'}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </button>
-          </div>
-        </div>
-
-        {/* Search bar */}
-        {isSearchOpen && (
-          <div style={{ padding:'20px 64px 0' }}>
-            <input type="text" value={searchQuery} autoFocus onChange={e => handleSearchChange(e.target.value)}
-              placeholder="Search collections…"
-              style={{ background:'rgba(255,255,255,0.05)', border:'1px solid rgba(255,255,255,0.1)', borderRadius:40, padding:'10px 24px', color:'#fff', fontSize:14, letterSpacing:'0.04em', outline:'none', width:300, fontFamily:"'EB Garamond',serif" }} />
-          </div>
-        )}
-
-        {/* Section label */}
-        <div style={{ padding:'64px 64px 24px', flexShrink:0 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:20 }}>
-            <span style={{ fontSize:9, letterSpacing:'0.35em', textTransform:'uppercase', color:'#8BDFDD', fontFamily:'sans-serif', fontWeight:600 }}>
-              editorial showcase
-            </span>
-            <div style={{ flex:1, height:1, background:'linear-gradient(to right, rgba(139,223,221,0.25), transparent)' }} />
-          </div>
-        </div>
-
-        {/* Collections Grid */}
-        <div style={{ flex:1, overflowY:'auto', padding:'0 64px 80px' }}>
-          {sortedCollections.length === 0 ? (
-            <p style={{ color:'#555', letterSpacing:'0.1em', textTransform:'uppercase', fontSize:13 }}>
-              {collections.length === 0 ? 'No collections yet.' : 'No results found.'}
-            </p>
+        {/* Search toggle */}
+        <button
+          onClick={() => { setIsSearchOpen(p => !p); if (isSearchOpen) handleSearchChange(''); }}
+          style={{ background:'none', border:'none', cursor:'pointer', color:'#888', padding:0, display:'flex', alignItems:'center', transition:'color 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.color='#111'}
+          onMouseLeave={e => e.currentTarget.style.color='#888'}
+        >
+          {isSearchOpen ? (
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           ) : (
-            <div style={{ 
-              display:'grid', 
-              gridTemplateColumns:'repeat(auto-fill, minmax(320px, 1fr))', 
-              gap:'48px 40px',
-              paddingTop:12,
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          )}
+        </button>
+      </nav>
+
+      {/* Search dropdown */}
+      {isSearchOpen && (
+        <div style={{
+          position: 'fixed', top: 60, left: 0, right: 0,
+          background: '#fff', zIndex: 99,
+          borderBottom: '1px solid #f0f0f0',
+          padding: '16px 40px',
+          display: 'flex', alignItems: 'center', gap: 12,
+        }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#bbb" strokeWidth="1.5" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input
+            className="pxn-search-input"
+            type="text"
+            value={searchQuery}
+            autoFocus
+            onChange={e => handleSearchChange(e.target.value)}
+            placeholder="Search galleries…"
+          />
+        </div>
+      )}
+
+      {/* ── MAIN CONTENT ── */}
+      <main style={{ paddingTop: 60 }}>
+
+        {/* ── PROFILE HEADER ── */}
+        <header style={{ textAlign: 'center', padding: '72px 40px 48px' }}>
+          {/* Name */}
+          <h1 style={{
+            fontFamily: "'Cormorant Garamond', 'Georgia', serif",
+            fontSize: 'clamp(28px, 4vw, 42px)',
+            fontWeight: 300,
+            letterSpacing: '0.28em',
+            textTransform: 'uppercase',
+            color: '#111',
+            margin: '0 0 20px',
+          }}>
+            {photographerName}
+          </h1>
+
+          {/* Bio */}
+          {bioText && (
+            <p style={{
+              fontFamily: 'sans-serif',
+              fontSize: 13,
+              color: '#777',
+              lineHeight: 1.7,
+              maxWidth: 480,
+              margin: '0 auto 28px',
+              letterSpacing: '0.02em',
+            }}>
+              {bioText}
+            </p>
+          )}
+
+          {/* Contact info block */}
+          {(hasWebsite || hasPhone || hasEmail || hasAddress || socialLinks.length > 0) && (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+              {hasWebsite && (
+                <a
+                  href={profile.website.startsWith('http') ? profile.website : `https://${profile.website}`}
+                  target="_blank" rel="noreferrer"
+                  className="pxn-contact-row"
+                >
+                  {/* Globe icon */}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  <span>{profile.website.replace(/^https?:\/\//, '')}</span>
+                </a>
+              )}
+              {hasPhone && (
+                <a href={`tel:${profile.phone}`} className="pxn-contact-row">
+                  {/* Phone icon */}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 2.18h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                  <span>{profile.phone}</span>
+                </a>
+              )}
+              {hasEmail && (
+                <a href={`mailto:${profile.contact_email || profile.email}`} className="pxn-contact-row">
+                  {/* Mail icon */}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                  <span>{profile.contact_email || profile.email}</span>
+                </a>
+              )}
+              {hasAddress && (
+                <div className="pxn-contact-row" style={{ cursor:'default' }}>
+                  {/* Map pin icon */}
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.5" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <span>
+                    {[profile.address_line_1, profile.city, profile.state_province].filter(Boolean).join(', ')}
+                  </span>
+                </div>
+              )}
+              {/* Social links row */}
+              {socialLinks.length > 0 && (
+                <div style={{ display:'flex', gap:16, justifyContent:'center', marginTop:4 }}>
+                  {socialLinks.map(s => (
+                    <a key={s.label} href={s.url} target="_blank" rel="noreferrer" className="pxn-nav-link">
+                      {s.label}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </header>
+
+        {/* ── GALLERY GRID ── */}
+        <section style={{ padding: '0 40px 80px', maxWidth: 1200, margin: '0 auto' }}>
+          {sortedCollections.length === 0 ? (
+            <div style={{ textAlign:'center', padding:'60px 0', color:'#aaa', fontFamily:'sans-serif', fontSize:13, letterSpacing:'0.08em', textTransform:'uppercase' }}>
+              {collections.length === 0 ? 'No galleries yet.' : 'No results found.'}
+            </div>
+          ) : (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+              gap: '48px 32px',
             }}>
               {pagedCollections.map((col, idx) => (
-                <motion.div 
-                  key={col.id || idx} 
-                  whileHover="hover"
-                  initial={{ opacity:0, y:30 }}
-                  whileInView={{ opacity:1, y:0 }}
-                  viewport={{ once:true, margin:'-40px' }}
-                  transition={{ duration:0.8, delay: (idx % 3) * 0.15, ease:[0.16,1,0.3,1] }}
-                  className="coll-card"
+                <div
+                  key={col.id || idx}
+                  className="pxn-card"
                   onClick={() => navigate(`/gallery/${col.slug || col.name.toLowerCase().replace(/ /g, '-')}`)}
-                  style={{ 
-                    position:'relative',
-                    marginTop: idx % 2 === 1 ? 24 : 0, // asymmetrical height stagger for editorial vibe
-                  }}
                 >
-                  {/* Passe-Partout Framed Container in Dark Mode */}
-                  <div style={{ 
-                    aspectRatio:'4/3', 
-                    overflow:'hidden', 
-                    borderRadius:4, 
-                    background:'#121212',
-                    border:'1px solid rgba(255,255,255,0.06)',
-                    padding:16, // physical mat board spacing
-                    boxShadow:'0 20px 40px rgba(0,0,0,0.3)',
-                    transition:'all 0.5s cubic-bezier(0.16,1,0.3,1)',
-                  }}>
-                    <div style={{ width:'100%', height:'100%', overflow:'hidden', borderRadius:2, position:'relative' }}>
-                      <img src={col.cover_url || col.cover || 'https://images.unsplash.com/photo-1518173946687-a4c8892bbd9f?w=800&q=60'}
-                        alt={col.name} className="coll-img" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    </div>
+                  {/* Cover image */}
+                  <div style={{ aspectRatio:'4/3', overflow:'hidden', background:'#f5f5f5', position:'relative' }}>
+                    {(col.cover_url || col.cover) ? (
+                      <img
+                        src={col.cover_url || col.cover}
+                        alt={col.name}
+                        className="pxn-card-img"
+                      />
+                    ) : (
+                      <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', background:'#f5f5f5' }}>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1" strokeLinecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Title & Info Block */}
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginTop:18, padding:'0 4px' }}>
-                    <div>
-                      <h4 className="coll-title" style={{ 
-                        margin:0, 
-                        fontSize:18, 
-                        fontWeight:400, 
-                        letterSpacing:'0.04em', 
-                        color:'#fff',
-                        fontFamily:"'EB Garamond',serif",
-                        textTransform:'none',
+                  {/* Card metadata */}
+                  <div style={{ marginTop: 14 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                      {col.homepage_password && (
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2" strokeLinecap="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      )}
+                      <span style={{
+                        fontFamily: 'sans-serif',
+                        fontSize: 13,
+                        fontWeight: 500,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        color: '#222',
                       }}>
                         {col.name}
-                      </h4>
-                      {col.event_date && (
-                        <div className="coll-date" style={{ fontSize:10, letterSpacing:'0.14em', color:'#8BDFDD', marginTop:6, textTransform:'uppercase', fontFamily:'sans-serif' }}>
-                          {new Date(col.event_date).toLocaleDateString('en-US', { month:'short', day:'numeric', year:'numeric' })}
-                        </div>
-                      )}
+                      </span>
                     </div>
-                    
-                    {/* tactual arrow indicator */}
-                    <motion.span 
-                      variants={{ hover: { x: 4, opacity: 1 } }}
-                      initial={{ x: -4, opacity: 0 }}
-                      transition={{ duration: 0.3 }}
-                      style={{ color:'#8BDFDD', fontFamily:"'EB Garamond',serif", fontSize:20, alignSelf:'center' }}
-                    >
-                      →
-                    </motion.span>
+                    {col.event_date && (
+                      <div style={{
+                        fontFamily: 'sans-serif',
+                        fontSize: 11,
+                        letterSpacing: '0.1em',
+                        textTransform: 'uppercase',
+                        color: '#999',
+                        marginTop: 5,
+                      }}>
+                        {new Date(col.event_date).toLocaleDateString('en-US', { month:'long', day:'numeric', year:'numeric' }).toUpperCase()}
+                      </div>
+                    )}
                   </div>
-                </motion.div>
+                </div>
               ))}
             </div>
           )}
 
-          {/* Pagination */}
+          {/* ── PAGINATION ── */}
           {totalPages > 1 && (
-            <div style={{ display:'flex', justifyContent:'center', gap:8, marginTop:60, paddingTop:32, borderTop:'1px solid rgba(255,255,255,0.06)' }}>
-              <button onClick={() => goToPage(safePage - 1)} disabled={safePage === 1}
-                className="page-btn" style={{ background:'transparent', color:'#555', opacity: safePage===1 ? 0.3 : 1 }}>‹</button>
+            <div style={{ display:'flex', justifyContent:'center', gap:4, marginTop:64, paddingTop:32, borderTop:'1px solid #f0f0f0' }}>
+              <button
+                onClick={() => goToPage(safePage - 1)}
+                disabled={safePage === 1}
+                className="pxn-page-btn"
+                style={{ opacity: safePage === 1 ? 0.3 : 1 }}
+              >‹</button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-                <button key={p} onClick={() => goToPage(p)} className="page-btn"
-                  style={{ background: safePage===p ? '#8BDFDD' : 'transparent', color: safePage===p ? '#0a0a0a' : '#555', fontFamily:"'EB Garamond',serif" }}>
+                <button
+                  key={p}
+                  onClick={() => goToPage(p)}
+                  className={`pxn-page-btn${safePage === p ? ' active' : ''}`}
+                >
                   {p}
                 </button>
               ))}
-              <button onClick={() => goToPage(safePage + 1)} disabled={safePage === totalPages}
-                className="page-btn" style={{ background:'transparent', color:'#555', opacity: safePage===totalPages ? 0.3 : 1 }}>›</button>
+              <button
+                onClick={() => goToPage(safePage + 1)}
+                disabled={safePage === totalPages}
+                className="pxn-page-btn"
+                style={{ opacity: safePage === totalPages ? 0.3 : 1 }}
+              >›</button>
             </div>
           )}
-        </div>
-      </div>
+        </section>
 
-      {/* ── WHITE INTRO PANEL (slides up on scroll) ── */}
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, height: '100vh',
-        background: '#fbfaf7', zIndex: 10,
-        transform: `translateY(${whiteY}vh)`,
-        transition: 'none',
-        display: 'flex', flexDirection: 'column',
-        overflow: 'hidden',
-        pointerEvents: panelProgress > 0.95 ? 'none' : 'auto',
-      }}>
-        {/* White nav */}
-        <div style={{ padding:'36px 64px 0', display:'flex', justifyContent:'space-between', alignItems:'center', flexShrink:0, zIndex:10 }}>
-          <span style={{ fontFamily:"'EB Garamond',serif", fontSize:18, fontWeight:500, letterSpacing:'0.28em', textTransform:'uppercase', color:'#111' }}>{photographerName}</span>
-          <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-            <span style={{ fontFamily:'sans-serif', fontSize:10, letterSpacing:'0.2em', textTransform:'uppercase', color:'#bbb' }}>Professional Portfolio</span>
-          </div>
-        </div>
-
-        {/* Main editorial layout */}
-        <div style={{ flex:1, display:'flex', padding:'0 64px 48px', position:'relative', zIndex:1, overflow:'hidden' }}>
-          
-          {/* Subtle grid lines background */}
-          <div style={{ position:'absolute', top:0, left:0, right:0, bottom:0, display:'flex', pointerEvents:'none', opacity:0.4, zIndex:0 }}>
-            <div style={{ flex:1, borderRight:'1px solid rgba(0,0,0,0.03)' }} />
-            <div style={{ flex:1, borderRight:'1px solid rgba(0,0,0,0.03)' }} />
-            <div style={{ flex:1, borderRight:'1px solid rgba(0,0,0,0.03)' }} />
-            <div style={{ flex:1 }} />
-          </div>
-
-          <div style={{ display:'grid', gridTemplateColumns:'1.1fr 1fr', gap:48, width:'100%', position:'relative', zIndex:2 }}>
-            
-            {/* LEFT COLUMN: Texts and info */}
-            <div style={{ display:'flex', flexDirection:'column', justifyContent:'center', zIndex:2, paddingLeft:32 }}>
-              
-              {/* Giant Editorial Greeting */}
-              <motion.div initial={{ opacity:0, y:40 }} animate={{ opacity:1, y:0 }} transition={{ duration:1.3, ease:[0.16,1,0.3,1] }}>
-                <h1 style={{ 
-                  fontFamily:"'EB Garamond',serif", 
-                  fontWeight:400, 
-                  fontSize:'clamp(42px, 5.5vw, 72px)', 
-                  lineHeight:1.05, 
-                  letterSpacing:'-0.03em', 
-                  color:'#111', 
-                  margin:0,
-                  textTransform:'lowercase'
-                }}>
-                  hello,<br />
-                  welcome to the<br />
-                  <span style={{ color:'#333', fontFamily:"'EB Garamond',serif", fontWeight:400 }}>creative showcase</span>
-                </h1>
-              </motion.div>
-
-              {/* Minimal Separator Line with Entrance Width Animation */}
-              <motion.div 
-                initial={{ width: 0 }} 
-                animate={{ width: '100%' }} 
-                transition={{ delay: 0.5, duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
-                style={{ height:1, background: 'linear-gradient(to right, #8BDFDD, transparent)', marginTop:36, marginBottom:36, maxWidth:360 }} 
-              />
-
-              {/* Bio block */}
-              {(() => {
-                const bioText = profile.show_bio !== false && (profile.biography || profile.bio);
-                if (!bioText) return null;
-                return (
-                  <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.5, duration:0.9 }}
-                    style={{ marginBottom:40 }}>
-                    <p style={{ fontFamily:"'EB Garamond',serif", fontSize:20, lineHeight:1.75, color:'#555', maxWidth:520, margin:0, fontWeight:400 }}>
-                      {bioText}
-                    </p>
-                  </motion.div>
-                );
-              })()}
-
-              {/* Stats & Info row — Museum Label Grid */}
-              <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }} transition={{ delay:0.75, duration:0.9 }}
-                style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap:24, width: '100%', maxWidth: 480 }}>
-                {sortedCollections.length > 0 && (
-                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16 }}>
-                    <span style={{ fontFamily:'sans-serif', fontSize:8, letterSpacing:'0.2em', textTransform:'uppercase', color:'#8BDFDD', display:'block', marginBottom:8 }}>01 // exhibits</span>
-                    <div style={{ fontFamily:"'EB Garamond',serif", fontSize:32, fontWeight:400, color:'#111', lineHeight:1 }}>
-                      {sortedCollections.length} <span style={{ fontSize:16, color:'#888' }}>Galleries</span>
-                    </div>
-                  </div>
-                )}
-                {profile.show_address !== false && (profile.address_line_1 || profile.city) && (
-                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16 }}>
-                    <span style={{ fontFamily:'sans-serif', fontSize:8, letterSpacing:'0.2em', textTransform:'uppercase', color:'#8BDFDD', display:'block', marginBottom:8 }}>02 // based in</span>
-                    <div style={{ fontFamily:"'EB Garamond',serif", fontSize:18, fontWeight:400, color:'#333', lineHeight:1.3 }}>
-                      {profile.city || profile.address_line_1}
-                      {profile.state_province && <span style={{ color:'#888', display:'block', fontSize:13 }}>{profile.state_province}</span>}
-                    </div>
-                  </div>
-                )}
-                {profile.show_phone !== false && profile.phone && (
-                  <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16 }}>
-                    <span style={{ fontFamily:'sans-serif', fontSize:8, letterSpacing:'0.2em', textTransform:'uppercase', color:'#8BDFDD', display:'block', marginBottom:8 }}>03 // contact</span>
-                    <div style={{ fontFamily:"'EB Garamond',serif", fontSize:18, fontWeight:400, color:'#333', lineHeight:1 }}>
-                      {profile.phone}
-                    </div>
-                  </div>
-                )}
-              </motion.div>
-
-            </div>
-
-            {/* RIGHT COLUMN: Dynamic Stacked Asymmetrical Shutter-Reveal Collage */}
-            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', position:'relative', height:'100%', zIndex:2, paddingRight: 48 }}>
-              
-              {/* Collage Frame Container */}
-              <div style={{
-                position: 'relative',
-                width: '100%',
-                maxWidth: 440,
-                height: '80vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}>
-
-                {/* --- IMAGE 3 (Back-Right Card, if available) --- */}
-                {collageImages[2] && (
-                  <motion.div
-                    initial={{ opacity:0, scale:0.8, rotate:0 }}
-                    animate={{ opacity:1, scale:1, rotate:8 }}
-                    transition={{ delay:0.7, duration:1.2, ease:[0.16,1,0.3,1] }}
-                    style={{
-                      position: 'absolute',
-                      width: '65%',
-                      height: '48vh',
-                      bottom: '5%',
-                      right: '-10%',
-                      zIndex: 1,
-                      overflow: 'hidden',
-                      borderRadius: 12,
-                      boxShadow: '0 15px 45px rgba(0,0,0,0.1)',
-                      border: '1px solid rgba(0,0,0,0.04)',
-                    }}
-                  >
-                    <img src={collageImages[2]} alt="collage-3" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    {/* Shutter Reveal Blind */}
-                    <motion.div
-                      initial={{ height: '100%' }}
-                      animate={{ height: '0%' }}
-                      transition={{ delay: 0.8, duration: 1.4, ease: [0.76, 0, 0.24, 1] }}
-                      style={{ position: 'absolute', top: 0, left: 0, right: 0, background: '#fbfaf7', zIndex: 3 }}
-                    />
-                  </motion.div>
-                )}
-
-                {/* --- IMAGE 2 (Back-Left Card, if available) --- */}
-                {collageImages[1] && (
-                  <motion.div
-                    initial={{ opacity:0, scale:0.8, rotate:0 }}
-                    animate={{ opacity:1, scale:1, rotate:-6 }}
-                    transition={{ delay:0.5, duration:1.2, ease:[0.16,1,0.3,1] }}
-                    style={{
-                      position: 'absolute',
-                      width: '75%',
-                      height: '52vh',
-                      top: '5%',
-                      left: '-15%',
-                      zIndex: 2,
-                      overflow: 'hidden',
-                      borderRadius: 12,
-                      boxShadow: '0 20px 50px rgba(0,0,0,0.12)',
-                      border: '1px solid rgba(0,0,0,0.04)',
-                    }}
-                  >
-                    <img src={collageImages[1]} alt="collage-2" style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    {/* Shutter Reveal Blind */}
-                    <motion.div
-                      initial={{ height: '100%' }}
-                      animate={{ height: '0%' }}
-                      transition={{ delay: 0.6, duration: 1.4, ease: [0.76, 0, 0.24, 1] }}
-                      style={{ position: 'absolute', top: 0, left: 0, right: 0, background: '#fbfaf7', zIndex: 3 }}
-                    />
-                  </motion.div>
-                )}
-
-                {/* --- IMAGE 1 (Main Foreground Card) --- */}
-                <motion.div 
-                  initial={{ opacity:0, scale:0.9, y:30 }}
-                  animate={{ opacity:1, scale:1, y:0 }}
-                  transition={{ delay:0.2, duration:1.4, ease:[0.16,1,0.3,1] }}
-                  style={{
-                    width: collageImages.length > 1 ? '85%' : '100%',
-                    height: '60vh',
-                    position: 'relative',
-                    zIndex: 3,
-                    overflow: 'hidden',
-                    borderRadius: 12,
-                    boxShadow: '0 30px 80px rgba(0,0,0,0.15), 0 10px 30px rgba(0,0,0,0.05)',
-                    border: '1px solid rgba(0,0,0,0.04)',
-                  }}
-                >
-                  {/* Ken Burns zooming container */}
-                  <motion.div 
-                    animate={{ 
-                      scale: [1, 1.06, 1],
-                      x: [0, -4, 0],
-                      y: [0, -2, 0]
-                    }}
-                    transition={{ 
-                      duration: 20, 
-                      repeat: Infinity, 
-                      repeatType: "reverse",
-                      ease: "easeInOut" 
-                    }}
-                    style={{ width:'100%', height:'100%', background:'#f4f4f4' }}
-                  >
-                    {collageImages[0] ? (
-                      <img src={collageImages[0]} alt={coverName} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                    ) : (
-                      // Camera placeholder
-                      <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap:16, color:'#bbb', background:'#faf9f6' }}>
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
-                          <circle cx="12" cy="13" r="4"/>
-                        </svg>
-                        <span style={{ fontSize:11, letterSpacing:'0.28em', textTransform:'uppercase', color:'#bbb', fontFamily:'sans-serif' }}>Pixnxt Studio</span>
-                      </div>
-                    )}
-                  </motion.div>
-
-                  {/* Shutter Reveal Blind */}
-                  <motion.div
-                    initial={{ width: '100%' }}
-                    animate={{ width: '0%' }}
-                    transition={{ delay: 0.4, duration: 1.5, ease: [0.76, 0, 0.24, 1] }}
-                    style={{
-                      position: 'absolute', top: 0, left: 0, bottom: 0, right: 0,
-                      background: '#fbfaf7', zIndex: 3,
-                    }}
-                  />
-
-                  {/* Glassmorphic Exhibition Tag */}
-                  <div style={{
-                    position:'absolute', bottom:24, left:24, right:24,
-                    background:'rgba(255,255,255,0.85)',
-                    backdropFilter:'blur(12px)',
-                    padding:'16px 20px',
-                    borderRadius:8,
-                    border:'1px solid rgba(255,255,255,0.4)',
-                    zIndex:4,
-                    boxShadow:'0 10px 30px rgba(0,0,0,0.05)',
-                  }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                      <span style={{ fontFamily:'sans-serif', fontSize:8, letterSpacing:'0.24em', textTransform:'uppercase', color:'#8BDFDD', fontWeight:600 }}>
-                        {collageImages[0] ? 'exhibition index' : 'studio index'}
-                      </span>
-                      {coverDate && (
-                        <span style={{ fontFamily:"'EB Garamond',serif", fontSize:11, fontStyle:'italic', color:'#666' }}>
-                          {coverDate}
-                        </span>
-                      )}
-                    </div>
-                    <h3 style={{ 
-                      fontFamily:"'EB Garamond',serif", 
-                      fontSize:18, 
-                      fontWeight:400, 
-                      color:'#111', 
-                      margin:'6px 0 0', 
-                      letterSpacing:'0.04em',
-                      textTransform:'lowercase',
-                    }}>
-                      {coverName}
-                    </h3>
-                  </div>
-
-                </motion.div>
-
-              </div>
-            </div>
-
-          </div>
-        </div>
-
-        {/* Vertical Editorial Indicator (Scroll for Galleries) */}
-        <div style={{
-          position: 'absolute',
-          right: -40,
-          top: '55%',
-          transform: 'translateY(-50%) rotate(90deg)',
-          transformOrigin: 'center center',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16,
-          zIndex: 10,
-          pointerEvents: 'none',
-          userSelect: 'none',
-          opacity: 0.7,
+        {/* ── FOOTER ── */}
+        <footer style={{
+          textAlign: 'center',
+          padding: '32px 40px 48px',
+          borderTop: '1px solid #f0f0f0',
         }}>
-          <span style={{
-            fontFamily: 'sans-serif',
-            fontSize: 9,
-            letterSpacing: '0.24em',
-            textTransform: 'uppercase',
-            color: '#888',
-            fontWeight: 500,
-            whiteSpace: 'nowrap'
-          }}>
-            scroll through galleries
-          </span>
-          <motion.div
-            animate={{ x: [0, 6, 0] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-            style={{
-              width: 32,
-              height: 1,
-              background: '#8BDFDD',
-            }}
-          />
-        </div>
-
-      </div>
-
-      {/* Spacer so page is scrollable */}
-      <div style={{ height:'200vh' }} />
+          <p style={{ fontFamily:'sans-serif', fontSize:12, color:'#bbb', letterSpacing:'0.06em', margin:'0 0 8px' }}>
+            © {photographerName.toUpperCase()}
+          </p>
+          <p style={{ fontFamily:'sans-serif', fontSize:11, color:'#ccc', letterSpacing:'0.04em', margin:0 }}>
+            Powered by <span style={{ color:'#aaa' }}>Pixnxt</span>
+          </p>
+        </footer>
+      </main>
     </div>
   );
 };

@@ -219,6 +219,123 @@ export default function AccountSettings() {
     );
 }
 
+/* ── Inline editable field with Save / Cancel ───────────────── */
+function InlineField({ label, name, value, type = 'text', placeholder = '', hint, rows, maxLength, onSave }) {
+    const [dirty, setDirty] = React.useState(false);
+    const [original, setOriginal] = React.useState(value);
+    const [current, setCurrent] = React.useState(value);
+    const [saving, setSaving] = React.useState(false);
+
+    // Only sync from DB on the very first non-empty load.
+    // Never reset while the user is actively editing.
+    const loadedRef = React.useRef(false);
+    React.useEffect(() => {
+        if (!loadedRef.current && value !== '') {
+            loadedRef.current = true;
+            setCurrent(value);
+            setOriginal(value);
+            setDirty(false);
+        }
+    }, [value]);
+
+    const handleLocalChange = (e) => {
+        const v = e.target.value;
+        setCurrent(v);
+        setDirty(v !== original);
+    };
+
+    const handleSave = async () => {
+        setSaving(true);
+        await onSave(name, current);
+        setOriginal(current);
+        setDirty(false);
+        setSaving(false);
+    };
+
+    const handleCancel = () => {
+        setCurrent(original);
+        setDirty(false);
+    };
+
+    const borderStyle = dirty
+        ? { border: '1px solid #1a9b84', boxShadow: '0 0 0 3px rgba(26,155,132,0.12)', outline: 'none' }
+        : { border: '1px solid #ddd', outline: 'none' };
+
+    const sharedStyle = {
+        width: '100%',
+        padding: '10px 16px',
+        fontSize: 17,
+        color: '#111',
+        fontFamily: 'inherit',
+        background: '#fff',
+        transition: 'border 0.15s, box-shadow 0.15s',
+        boxSizing: 'border-box',
+        ...borderStyle,
+    };
+
+    return (
+        <div>
+            <label className="block text-[17px] font-bold text-[#111] mb-2">{label}</label>
+            <div style={{ display: 'flex', alignItems: rows ? 'flex-start' : 'center', gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                    {rows ? (
+                        <textarea
+                            name={name}
+                            value={current}
+                            onChange={handleLocalChange}
+                            rows={rows}
+                            maxLength={maxLength}
+                            placeholder={placeholder}
+                            style={{ ...sharedStyle, resize: 'vertical' }}
+                        />
+                    ) : (
+                        <input
+                            type={type}
+                            name={name}
+                            value={current}
+                            onChange={handleLocalChange}
+                            placeholder={placeholder}
+                            style={sharedStyle}
+                        />
+                    )}
+                </div>
+
+                {/* Save / Cancel — only visible when dirty */}
+                {dirty && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: rows ? 2 : 0 }}>
+                        <button
+                            onClick={handleCancel}
+                            style={{
+                                background: 'transparent', border: 'none', cursor: 'pointer',
+                                fontSize: 14, color: '#888', fontFamily: 'inherit', padding: '0 4px',
+                                transition: 'color 0.15s', whiteSpace: 'nowrap',
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.color = '#111'}
+                            onMouseLeave={e => e.currentTarget.style.color = '#888'}
+                        >Cancel</button>
+                        <button
+                            onClick={handleSave}
+                            disabled={saving}
+                            style={{
+                                background: saving ? '#aaa' : '#1a9b84',
+                                color: '#fff', border: 'none',
+                                cursor: saving ? 'not-allowed' : 'pointer',
+                                fontSize: 14, fontWeight: 600, padding: '9px 20px',
+                                fontFamily: 'inherit', transition: 'background 0.15s',
+                                whiteSpace: 'nowrap',
+                            }}
+                            onMouseEnter={e => { if (!saving) e.currentTarget.style.background = '#147d6a'; }}
+                            onMouseLeave={e => { if (!saving) e.currentTarget.style.background = '#1a9b84'; }}
+                        >{saving ? 'Saving…' : 'Save'}</button>
+                    </div>
+                )}
+            </div>
+            {maxLength && <div className="w-full text-left text-[14px] text-[#888] mt-1">{current.length} / {maxLength}</div>}
+            {hint && <p className="text-[15px] text-[#888] mt-2">{hint}</p>}
+        </div>
+    );
+}
+
 function ProfileTab({ user, showToast }) {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -291,8 +408,7 @@ function ProfileTab({ user, showToast }) {
             .finally(() => setLoading(false));
     }, [user]);
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
+    const handleChange = (name, value) => {
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
@@ -493,99 +609,72 @@ function ProfileTab({ user, showToast }) {
                         <p className="text-[15px] text-[#888] leading-relaxed">Your profile icon is a center cropped square icon shown on your galleries, homepage<br/>and applicable places. Tip: make your image a square image before uploading.</p>
                     </div>
 
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Business Name</label>
-                        <input 
-                            type="text" 
-                            name="business_name"
-                            value={formData.business_name}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('business_name', e.target.value)}
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                        <p className="text-[15px] text-[#888] mt-2">Your business name is shown on your homepage, collections, email notifications and more.</p>
-                    </div>
+                    <InlineField
+                        label="Business Name"
+                        name="business_name"
+                        value={formData.business_name}
+                        onChange={handleChange}
+                        onSave={handleAutoSave}
+                        hint="Your business name is shown on your homepage, collections, email notifications and more."
+                    />
 
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">First Name</label>
-                        <input 
-                            type="text" 
-                            name="first_name"
-                            value={formData.first_name}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('first_name', e.target.value)}
-                            placeholder="Your first name"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                        <p className="text-[15px] text-[#888] mt-2">Your first name is shown on your Studio Manager documents including contract signatures.</p>
-                    </div>
+                    <InlineField
+                        label="First Name"
+                        name="first_name"
+                        value={formData.first_name}
+                        placeholder="Your first name"
+                        onChange={handleChange}
+                        onSave={handleAutoSave}
+                        hint="Your first name is shown on your Studio Manager documents including contract signatures."
+                    />
 
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Last Name</label>
-                        <input 
-                            type="text" 
-                            name="last_name"
-                            value={formData.last_name}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('last_name', e.target.value)}
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                        <p className="text-[15px] text-[#888] mt-2">Your last name is shown on your Studio Manager documents including contract signatures.</p>
-                    </div>
+                    <InlineField
+                        label="Last Name"
+                        name="last_name"
+                        value={formData.last_name}
+                        onChange={handleChange}
+                        onSave={handleAutoSave}
+                        hint="Your last name is shown on your Studio Manager documents including contract signatures."
+                    />
 
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Contact Email</label>
-                        <input 
-                            type="email" 
-                            name="contact_email"
-                            value={formData.contact_email}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('contact_email', e.target.value)}
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                        <p className="text-[15px] text-[#888] mt-2">This email is shown publicly to your clients. This is not your account login email.</p>
-                    </div>
+                    <InlineField
+                        label="Contact Email"
+                        name="contact_email"
+                        type="email"
+                        value={formData.contact_email}
+                        onChange={handleChange}
+                        onSave={handleAutoSave}
+                        hint="This email is shown publicly to your clients. This is not your account login email."
+                    />
 
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Phone</label>
-                        <input 
-                            type="text" 
-                            name="phone"
-                            value={formData.phone}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('phone', e.target.value)}
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                    </div>
+                    <InlineField
+                        label="Phone"
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        onSave={handleAutoSave}
+                    />
 
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Website</label>
-                        <input 
-                            type="text" 
-                            name="website"
-                            value={formData.website}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('website', e.target.value)}
-                            placeholder="https://"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                        <p className="text-[15px] text-[#888] mt-2">Your client will find links back to your website in many places throughout Pixieset. It is important that you enter a valid website</p>
-                    </div>
+                    <InlineField
+                        label="Website"
+                        name="website"
+                        value={formData.website}
+                        placeholder="https://"
+                        onChange={handleChange}
+                        onSave={handleAutoSave}
+                        hint="Your client will find links back to your website in many places throughout Pixieset. It is important that you enter a valid website."
+                    />
 
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Biography</label>
-                        <textarea 
-                            name="biography"
-                            value={formData.biography}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('biography', e.target.value)}
-                            rows="4"
-                            maxLength="500"
-                            placeholder="Optional. Max 500 characters."
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] resize-y transition-colors"
-                        ></textarea>
-                        <div className="w-full text-left text-[14px] text-[#888] mt-1">{formData.biography.length} / 500</div>
-                    </div>
+                    <InlineField
+                        label="Biography"
+                        name="biography"
+                        value={formData.biography}
+                        placeholder="Optional. Max 500 characters."
+                        rows={4}
+                        maxLength={500}
+                        onChange={handleChange}
+                        onSave={handleAutoSave}
+                    />
                 </div>
             </div>
 
@@ -599,7 +688,7 @@ function ProfileTab({ user, showToast }) {
                         <select 
                             name="business_country"
                             value={formData.business_country}
-                            onChange={(e) => { handleChange(e); handleAutoSave('business_country', e.target.value); }}
+                            onChange={(e) => { handleChange('business_country', e.target.value); handleAutoSave('business_country', e.target.value); }}
                             className="w-full border border-[#ddd] px-3 py-2 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
                         >
                             <option value="">Select a country</option>
@@ -610,66 +699,46 @@ function ProfileTab({ user, showToast }) {
                             <option value="IN">India</option>
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Address Line 1</label>
-                        <input 
-                            type="text" 
-                            name="address_line_1"
-                            value={formData.address_line_1}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('address_line_1', e.target.value)}
-                            placeholder="Street Address"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Address Line 2</label>
-                        <input 
-                            type="text" 
-                            name="address_line_2"
-                            value={formData.address_line_2}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('address_line_2', e.target.value)}
-                            placeholder="Unit / Apartment Number"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">State / Province</label>
-                        <input 
-                            type="text" 
-                            name="state_province"
-                            value={formData.state_province}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('state_province', e.target.value)}
-                            placeholder="State / Province"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">City</label>
-                        <input 
-                            type="text" 
-                            name="city"
-                            value={formData.city}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('city', e.target.value)}
-                            placeholder="City"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Zip / Postal Code</label>
-                        <input 
-                            type="text" 
-                            name="zip_postal_code"
-                            value={formData.zip_postal_code}
-                            onChange={handleChange}
-                            onBlur={(e) => handleAutoSave('zip_postal_code', e.target.value)}
-                            placeholder="Zip / Postal"
-                            className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
-                        />
-                    </div>
+
+                    <InlineField
+                        label="Address Line 1"
+                        name="address_line_1"
+                        value={formData.address_line_1}
+                        placeholder="Street Address"
+                        onSave={handleAutoSave}
+                    />
+
+                    <InlineField
+                        label="Address Line 2"
+                        name="address_line_2"
+                        value={formData.address_line_2}
+                        placeholder="Unit / Apartment Number"
+                        onSave={handleAutoSave}
+                    />
+
+                    <InlineField
+                        label="State / Province"
+                        name="state_province"
+                        value={formData.state_province}
+                        placeholder="State / Province"
+                        onSave={handleAutoSave}
+                    />
+
+                    <InlineField
+                        label="City"
+                        name="city"
+                        value={formData.city}
+                        placeholder="City"
+                        onSave={handleAutoSave}
+                    />
+
+                    <InlineField
+                        label="Zip / Postal Code"
+                        name="zip_postal_code"
+                        value={formData.zip_postal_code}
+                        placeholder="Zip / Postal"
+                        onSave={handleAutoSave}
+                    />
                 </div>
             </div>
 
@@ -683,7 +752,7 @@ function ProfileTab({ user, showToast }) {
                         <select 
                             name="time_zone"
                             value={formData.time_zone}
-                            onChange={(e) => { handleChange(e); handleAutoSave('time_zone', e.target.value); }}
+                            onChange={(e) => { handleChange('time_zone', e.target.value); handleAutoSave('time_zone', e.target.value); }}
                             className="w-full border border-[#ddd] px-3 py-2 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
                         >
                             <option value="(GMT-08:00) Pacific Time (US & Canada)">(GMT-08:00) Pacific Time (US & Canada)</option>
@@ -699,7 +768,7 @@ function ProfileTab({ user, showToast }) {
                         <select 
                             name="preferred_date_format"
                             value={formData.preferred_date_format}
-                            onChange={(e) => { handleChange(e); handleAutoSave('preferred_date_format', e.target.value); }}
+                            onChange={(e) => { handleChange('preferred_date_format', e.target.value); handleAutoSave('preferred_date_format', e.target.value); }}
                             className="w-full border border-[#ddd] px-3 py-2 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
                         >
                             <option value="mm/dd/yyyy">mm/dd/yyyy</option>
