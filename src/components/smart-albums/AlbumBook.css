@@ -169,6 +169,14 @@
   word-break: break-word;
 }
 
+.ab-spread-comments-bar .ab-spread-comment-time {
+  flex: 0 0 100%;
+  margin-top: 2px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #888;
+}
+
 .ab-flipbook-wrap--flipping {
   z-index: 35;
 }

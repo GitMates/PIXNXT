@@ -16,6 +16,20 @@ export function notifyCommentsChanged(albumId) {
     }
 }
 
+/** Date and time for comment cards (editor feed, spread chips). */
+export function formatCommentDateTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
+
 function readLocal() {
     try {
         const raw = localStorage.getItem(LOCAL_KEY);
@@ -250,6 +264,53 @@ export const smartAlbumCommentsService = {
         }
 
         return saveLocal(insertPayload);
+    },
+
+    async savePhotographerComment({ albumId, spreadIndex, body, authorName }) {
+        const payload = {
+            album_id: albumId,
+            spread_index: spreadIndex,
+            author_type: 'photographer',
+            author_name: authorName || 'Photographer',
+            body: body.trim(),
+            updated_at: new Date().toISOString(),
+            created_at: new Date().toISOString(),
+        };
+
+        const saveLocal = () => {
+            const saved = this._saveLocalComment(albumId, spreadIndex, {
+                ...payload,
+                id: crypto.randomUUID(),
+            });
+            notifyCommentsChanged(albumId);
+            return saved;
+        };
+
+        try {
+            const { data, error } = await supabase
+                .from('smart_album_comments')
+                .insert({
+                    album_id: payload.album_id,
+                    spread_index: payload.spread_index,
+                    author_type: payload.author_type,
+                    author_name: payload.author_name,
+                    body: payload.body,
+                    updated_at: payload.updated_at,
+                })
+                .select();
+
+            if (!error && data?.[0]) {
+                notifyCommentsChanged(albumId);
+                return mapRow(data[0]);
+            }
+            if (error && !isMissingTableError(error)) {
+                console.warn('savePhotographerComment insert:', error.message);
+            }
+        } catch (e) {
+            console.warn('savePhotographerComment insert failed:', e);
+        }
+
+        return saveLocal();
     },
 
     async deleteClientComment({ albumId, commentId }) {

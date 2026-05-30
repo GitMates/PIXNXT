@@ -30,7 +30,11 @@ import {
     PROOF_CELL_LABELS,
     getSpreadRightPageIndex,
 } from '../../components/smart-albums/albumSpreadGrid';
-import { getSpreadPages, pageToSpreadIndex } from '../../components/smart-albums/albumSpreadUtils';
+import {
+    getSpreadPages,
+    pageToSpreadIndex,
+    spreadIndexToPage,
+} from '../../components/smart-albums/albumSpreadUtils';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
 import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
@@ -195,6 +199,20 @@ export default function AlbumEditor({
             onPageChange?.(idx);
         },
         [onPageChange, syncSelectionToPage]
+    );
+
+    const handleNavigateToCommentSpread = useCallback(
+        (spreadIndex) => {
+            const page = spreadIndexToPage(spreadIndex, { showCover: true });
+            const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
+            handleBookPageChange(clamped);
+        },
+        [handleBookPageChange, totalPages]
+    );
+
+    const activeCommentSpreadIndex = useMemo(
+        () => pageToSpreadIndex(bookPage, { showCover: true }),
+        [bookPage]
     );
 
     const handleGridEditSetChange = useCallback(
@@ -522,7 +540,11 @@ export default function AlbumEditor({
                     }
                     commentsFeed={
                         albumId ? (
-                            <AlbumCommentsFeed albumId={albumId} />
+                            <AlbumCommentsFeed
+                                albumId={albumId}
+                                onNavigateToSpread={handleNavigateToCommentSpread}
+                                activeSpreadIndex={activeCommentSpreadIndex}
+                            />
                         ) : null
                     }
                     album={album}
@@ -567,7 +589,7 @@ export default function AlbumEditor({
                             key={`${albumId}-edit-${workspaceKey}-${totalPages}`}
                             album={albumForBook}
                             totalPages={totalPages}
-                            initialPage={initialPage}
+                            initialPage={bookPage}
                             onPageChange={handleBookPageChange}
                             editable={!spreadEdit}
                             spreadEdit={spreadEdit}

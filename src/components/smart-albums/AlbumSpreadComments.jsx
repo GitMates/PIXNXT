@@ -40,7 +40,6 @@ export default function AlbumSpreadComments({
     const [albumCommentCount, setAlbumCommentCount] = useState(null);
     const [composeOpen, setComposeOpen] = useState(false);
     const [messagesOpen, setMessagesOpen] = useState(false);
-    const [chatText, setChatText] = useState('');
     const [syncedAt, setSyncedAt] = useState(null);
     const [syncing, setSyncing] = useState(false);
     const [deleteBusyId, setDeleteBusyId] = useState(null);
@@ -137,7 +136,6 @@ export default function AlbumSpreadComments({
         setThreadsOpen(false);
         setComposeOpen(false);
         setMessagesOpen(false);
-        setChatText('');
     }, [spreadIndex]);
 
     useEffect(() => {
@@ -211,6 +209,7 @@ export default function AlbumSpreadComments({
                 } catch (reloadErr) {
                     console.warn('Comment saved; reload failed:', reloadErr);
                 }
+                setSyncedAt(new Date());
             } catch (e) {
                 console.error(e);
                 setSaveState('error');
@@ -256,23 +255,42 @@ export default function AlbumSpreadComments({
         setDraftBody(value);
     };
 
+    const submitComment = useCallback(
+        async (text) => {
+            if (!showClientCompose) return;
+            const body = (text ?? draftBody).trim();
+            if (!body) {
+                if (draftId) await clearDraftComment();
+                return;
+            }
+            if (showGuestFields && !guestName.trim()) {
+                setComposeOpen(true);
+                return;
+            }
+            const guest = resolveGuest();
+            await saveDraft(body, guest.name, guest.email);
+            if (isFooter && messagesEnabled) {
+                setMessagesOpen(true);
+            }
+        },
+        [
+            draftBody,
+            showClientCompose,
+            resolveGuest,
+            saveDraft,
+            draftId,
+            clearDraftComment,
+            showGuestFields,
+            guestName,
+            isFooter,
+            messagesEnabled,
+        ]
+    );
+
     const handleGuestContinue = () => {
         if (!guestName.trim()) return;
         persistGuestProfile({ name: guestName.trim(), email: guestEmail.trim() || null });
         setShowGuestFields(false);
-    };
-
-    const handleChatSend = async () => {
-        const body = chatText.trim();
-        if (!body) return;
-        if (showGuestFields && !guestName.trim()) {
-            showToast('Enter your name to continue.', { variant: 'info', duration: 3000 });
-            return;
-        }
-        const guest = resolveGuest();
-        await saveDraft(body, guest.name, guest.email);
-        setChatText('');
-        setSyncedAt(new Date());
     };
 
     const submitComposeModal = async () => {
@@ -283,20 +301,6 @@ export default function AlbumSpreadComments({
         await saveDraft(body, guest.name, guest.email);
         setComposeOpen(false);
     };
-
-    const submitComment = useCallback(
-        async (text) => {
-            if (!showClientCompose) return;
-            const body = (text ?? draftBody).trim();
-            if (!body) {
-                if (draftId) await clearDraftComment();
-                return;
-            }
-            const guest = resolveGuest();
-            saveDraft(body, guest.name, guest.email);
-        },
-        [draftBody, showClientCompose, resolveGuest, saveDraft, draftId, clearDraftComment]
-    );
 
     const handleToggleResolved = async (root) => {
         if (!canModerateThreads) return;
@@ -460,14 +464,14 @@ export default function AlbumSpreadComments({
             )}
             <AlbumMessageChat
                 threads={threads}
-                loading={loading}
+                loading={loading && threads.length === 0}
                 spreadLabel={spreadLabel}
-                canCompose={showClientCompose && !showGuestFields}
+                canCompose={showClientCompose && !showGuestFields && messagesEnabled}
                 isPhotographer={isPhotographer}
                 guestName={guestName || 'Guest'}
-                composerValue={chatText}
-                onComposerChange={setChatText}
-                onSend={handleChatSend}
+                composerValue={draftBody}
+                onComposerChange={handleDraftChange}
+                onSend={() => submitComment(draftBody)}
                 composerBusy={saveState === 'saving'}
                 syncedAt={syncedAt}
                 syncing={syncing}
@@ -563,11 +567,10 @@ export default function AlbumSpreadComments({
         const handleFooterInputKeyDown = (e) => {
             if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing) return;
             e.preventDefault();
-            if (showGuestFields && !guestName.trim()) {
-                setComposeOpen(true);
-                return;
-            }
             submitComment(e.currentTarget.value);
+        };
+        const handleFooterInputFocus = () => {
+            if (messagesEnabled) setMessagesOpen(true);
         };
         return (
             <div className="asc-footer-wrap" aria-label={`Comments for ${spreadLabel}`}>
@@ -594,10 +597,6 @@ export default function AlbumSpreadComments({
                             className="asc-comment-bar-form"
                             onSubmit={(e) => {
                                 e.preventDefault();
-                                if (showGuestFields && !guestName.trim()) {
-                                    setComposeOpen(true);
-                                    return;
-                                }
                                 submitComment(draftBody);
                             }}
                         >
@@ -607,6 +606,7 @@ export default function AlbumSpreadComments({
                                 placeholder="Start typing here to add new comment"
                                 value={draftBody}
                                 onChange={(e) => handleDraftChange(e.target.value)}
+                                onFocus={handleFooterInputFocus}
                                 onKeyDown={handleFooterInputKeyDown}
                                 disabled={saveState === 'saving'}
                                 aria-label="Add a comment for this spread"

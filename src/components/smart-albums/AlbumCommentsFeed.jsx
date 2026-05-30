@@ -1,109 +1,62 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     COMMENTS_CHANGED_EVENT,
     countMeaningfulComments,
+    formatCommentDateTime,
     groupCommentsBySpread,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
-import AlbumMessageChat from './AlbumMessageChat';
 import './AlbumSpreadComments.css';
 
-const FEED_LAST_SEEN_KEY = 'pixnxt_album_comment_feed_seen_at';
-
-export default function AlbumCommentsFeed({ albumId }) {
+export default function AlbumCommentsFeed({
+    albumId,
+    onNavigateToSpread,
+    activeSpreadIndex = null,
+}) {
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [chatSpread, setChatSpread] = useState(null);
-    const [syncedAt, setSyncedAt] = useState(null);
-    const [syncing, setSyncing] = useState(false);
     const [deleteBusyId, setDeleteBusyId] = useState(null);
-    const [lastSeenAt, setLastSeenAt] = useState(() => {
-        try {
-            const raw = localStorage.getItem(FEED_LAST_SEEN_KEY);
-            const all = raw ? JSON.parse(raw) : {};
-            return all[albumId] || null;
-        } catch {
-            return null;
-        }
-    });
 
-    const markAllRead = useCallback(() => {
-        const ts = new Date().toISOString();
-        setLastSeenAt(ts);
-        try {
-            const raw = localStorage.getItem(FEED_LAST_SEEN_KEY);
-            const all = raw ? JSON.parse(raw) : {};
-            all[albumId] = ts;
-            localStorage.setItem(FEED_LAST_SEEN_KEY, JSON.stringify(all));
-        } catch {
-            /* ignore */
-        }
-    }, [albumId]);
-
-    const load = useCallback(async () => {
-        if (!albumId) return;
-        setLoading(true);
-        try {
-            const rows = await smartAlbumCommentsService.listAlbumComments(albumId);
-            setGroups(groupCommentsBySpread(rows));
-            setSyncedAt(new Date());
-        } catch (e) {
-            console.error(e);
-            setGroups([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [albumId]);
-
-    const syncSpread = useCallback(async () => {
-        if (!albumId) return;
-        setSyncing(true);
-        try {
-            await load();
-        } finally {
-            setSyncing(false);
-        }
-    }, [albumId, load]);
-
-    const openChat = useCallback((spreadIndex, spreadLabel, threads) => {
-        setChatSpread({ spreadIndex, spreadLabel, threads });
-    }, []);
-
-    const closeChat = useCallback(() => {
-        setChatSpread(null);
-    }, []);
+    const load = useCallback(
+        async ({ showLoading = true } = {}) => {
+            if (!albumId) return;
+            if (showLoading) setLoading(true);
+            try {
+                const rows = await smartAlbumCommentsService.listAlbumComments(albumId);
+                setGroups(groupCommentsBySpread(rows));
+            } catch (e) {
+                console.error(e);
+                setGroups([]);
+            } finally {
+                if (showLoading) setLoading(false);
+            }
+        },
+        [albumId]
+    );
 
     const handleDeleteMessage = useCallback(
-        async (msg) => {
+        async (msg, e) => {
+            e.stopPropagation();
             if (!albumId || !msg?.id) return;
             if (!window.confirm('Delete this comment?')) return;
             setDeleteBusyId(msg.id);
             try {
                 await smartAlbumCommentsService.deleteComment({ albumId, commentId: msg.id });
-                await load();
-                if (chatSpread) {
-                    const rows = await smartAlbumCommentsService.listAlbumComments(albumId);
-                    const updated = groupCommentsBySpread(rows).find(
-                        (g) => g.spreadIndex === chatSpread.spreadIndex
-                    );
-                    if (updated?.threads.length) {
-                        setChatSpread({
-                            spreadIndex: chatSpread.spreadIndex,
-                            spreadLabel: chatSpread.spreadLabel,
-                            threads: updated.threads,
-                        });
-                    } else {
-                        closeChat();
-                    }
-                }
-            } catch (e) {
-                console.error(e);
+                await load({ showLoading: false });
+            } catch (err) {
+                console.error(err);
             } finally {
                 setDeleteBusyId(null);
             }
         },
-        [albumId, load, chatSpread, closeChat]
+        [albumId, load]
+    );
+
+    const handleCommentClick = useCallback(
+        (spreadIndex) => {
+            onNavigateToSpread?.(spreadIndex);
+        },
+        [onNavigateToSpread]
     );
 
     useEffect(() => {
@@ -112,99 +65,26 @@ export default function AlbumCommentsFeed({ albumId }) {
 
     useEffect(() => {
         const onChanged = (e) => {
-            if (e.detail?.albumId === albumId) load();
+            if (e.detail?.albumId !== albumId) return;
+            load({ showLoading: false });
         };
         window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
         return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
     }, [albumId, load]);
-
-    useEffect(() => {
-        if (!chatSpread || !albumId) return undefined;
-        syncSpread();
-        const intervalId = window.setInterval(syncSpread, 8000);
-        const onChanged = (e) => {
-            if (e.detail?.albumId === albumId) syncSpread();
-        };
-        window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-        return () => {
-            window.clearInterval(intervalId);
-            window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-        };
-    }, [chatSpread, albumId, syncSpread]);
 
     const total = groups.reduce((n, g) => {
         const rows = g.threads.map((t) => t.root);
         return n + countMeaningfulComments(rows);
     }, 0);
     const spreadWithComments = groups.filter((g) => g.threads.length > 0).length;
-    const openThreads = groups.reduce(
-        (n, g) => n + g.threads.filter((t) => !t.root?.resolved).length,
-        0
-    );
-    const hasNewInSpread = (threads) => {
-        if (!lastSeenAt) return false;
-        const seenTs = new Date(lastSeenAt).getTime();
-        return threads.some(({ root }) => new Date(root.created_at).getTime() > seenTs);
-    };
-
-    const chatModal = useMemo(() => {
-        if (!chatSpread) return null;
-        return createPortal(
-            <div className="asc-reply-modal-backdrop" onClick={closeChat} role="presentation">
-                <div
-                    className="asc-messages-modal"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Spread comments"
-                    onClick={(e) => e.stopPropagation()}
-                >
-                    <AlbumMessageChat
-                        threads={chatSpread.threads}
-                        loading={loading}
-                        spreadLabel={chatSpread.spreadLabel}
-                        canCompose={false}
-                        isPhotographer
-                        syncedAt={syncedAt}
-                        syncing={syncing}
-                        onRefresh={syncSpread}
-                        canDelete={() => true}
-                        onDelete={handleDeleteMessage}
-                        deleteBusyId={deleteBusyId}
-                    />
-                    <button type="button" className="asc-messages-modal-close" onClick={closeChat}>
-                        Close
-                    </button>
-                </div>
-            </div>,
-            document.body
-        );
-    }, [
-        chatSpread,
-        closeChat,
-        loading,
-        syncedAt,
-        syncing,
-        syncSpread,
-        handleDeleteMessage,
-        deleteBusyId,
-    ]);
 
     return (
         <div className="asc-feed">
-            {chatModal}
-
             <div className="asc-feed-head">
                 <h4 className="asc-feed-title">Client feedback</h4>
                 <div className="asc-feed-refresh-row">
-                    <button type="button" className="asc-feed-refresh" onClick={load} disabled={loading}>
+                    <button type="button" className="asc-feed-refresh" onClick={() => load()} disabled={loading}>
                         Refresh
-                    </button>
-                    <button
-                        type="button"
-                        className="asc-feed-refresh asc-feed-refresh--ghost"
-                        onClick={markAllRead}
-                    >
-                        Mark read
                     </button>
                 </div>
             </div>
@@ -220,45 +100,52 @@ export default function AlbumCommentsFeed({ albumId }) {
                     <div className="asc-feed-stats">
                         <span className="asc-feed-stat">{total} comments</span>
                         <span className="asc-feed-stat">{spreadWithComments} spreads</span>
-                        <span className="asc-feed-stat">{openThreads} open</span>
                     </div>
                     <ul className="asc-feed-list">
                         {groups.map(({ spreadIndex, spreadLabel, threads }) =>
                             threads.length === 0 ? null : (
                                 <li key={spreadIndex} className="asc-feed-spread">
-                                    <p className="asc-feed-spread-label">
-                                        {spreadLabel}
-                                        {hasNewInSpread(threads) && <span className="asc-feed-new-dot" />}
-                                    </p>
+                                    <p className="asc-feed-spread-label">{spreadLabel}</p>
                                     <ul className="asc-feed-thread-list">
                                         {threads.map(({ root }) => (
                                             <li key={root.id} className="asc-feed-thread">
-                                                <div className="asc-feed-message">
-                                                    <strong>
-                                                        {root.author_name}
-                                                        {root.resolved ? ' · Resolved' : ' · Open'}
-                                                    </strong>
-                                                    <span>{root.body}</span>
-                                                    <div className="asc-feed-actions">
-                                                        <button
-                                                            type="button"
-                                                            className="asc-feed-btn asc-feed-btn--view"
-                                                            onClick={() =>
-                                                                openChat(spreadIndex, spreadLabel, threads)
-                                                            }
+                                                <button
+                                                    type="button"
+                                                    className={`asc-feed-message asc-feed-message--link${
+                                                        activeSpreadIndex === spreadIndex
+                                                            ? ' asc-feed-message--active'
+                                                            : ''
+                                                    }`}
+                                                    onClick={() => handleCommentClick(spreadIndex)}
+                                                >
+                                                    <div className="asc-feed-message-head">
+                                                        <strong>{root.author_name}</strong>
+                                                        <time
+                                                            className="asc-feed-message-time"
+                                                            dateTime={root.created_at}
                                                         >
-                                                            View
-                                                        </button>
+                                                            {formatCommentDateTime(
+                                                                root.updated_at || root.created_at
+                                                            )}
+                                                        </time>
+                                                    </div>
+                                                    <span className="asc-feed-message-body">{root.body}</span>
+                                                    <div className="asc-feed-actions">
+                                                        <span className="asc-feed-go-hint">
+                                                            View spread
+                                                        </span>
                                                         <button
                                                             type="button"
                                                             className="asc-feed-btn asc-feed-btn--delete"
                                                             disabled={deleteBusyId === root.id}
-                                                            onClick={() => handleDeleteMessage(root)}
+                                                            onClick={(e) => handleDeleteMessage(root, e)}
                                                         >
-                                                            {deleteBusyId === root.id ? 'Deleting…' : 'Delete'}
+                                                            {deleteBusyId === root.id
+                                                                ? 'Deleting…'
+                                                                : 'Delete'}
                                                         </button>
                                                     </div>
-                                                </div>
+                                                </button>
                                             </li>
                                         ))}
                                     </ul>

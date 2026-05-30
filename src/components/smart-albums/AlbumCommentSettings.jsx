@@ -21,10 +21,8 @@ function SettingsSwitch({ id, checked, disabled, busy, onChange, label }) {
 
 export default function AlbumCommentSettings({ album, photographerId, onUpdated }) {
     const commentsOn = album?.comments_enabled !== false;
-    const messagesOn = album?.messages_enabled !== false;
     const published = album?.status === 'published';
     const [commentsBusy, setCommentsBusy] = useState(false);
-    const [messagesBusy, setMessagesBusy] = useState(false);
     const [publishBusy, setPublishBusy] = useState(false);
 
     const handleCommentsToggle = async () => {
@@ -43,25 +41,6 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
             alert('Could not update comment settings.');
         } finally {
             setCommentsBusy(false);
-        }
-    };
-
-    const handleMessagesToggle = async () => {
-        if (!photographerId || !album?.id || messagesBusy || !commentsOn) return;
-        const next = !messagesOn;
-        setMessagesBusy(true);
-        try {
-            const updated = await smartAlbumsService.updateAlbumClientSettings(
-                photographerId,
-                album.id,
-                { messages_enabled: next }
-            );
-            onUpdated?.(updated);
-        } catch (e) {
-            console.error(e);
-            alert('Could not update message settings.');
-        } finally {
-            setMessagesBusy(false);
         }
     };
 
@@ -115,30 +94,11 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
                 </div>
             </div>
 
+            {/* Enable messages — hidden for now
             <div className="asc-settings-row">
-                <div className="asc-settings-row-main">
-                    <span className="asc-settings-row-label">Enable messages</span>
-                    <span className="asc-settings-row-desc">
-                        Show the Messages panel on the preview footer for reading and posting
-                        comments
-                    </span>
-                </div>
-                <div className="asc-settings-row-control">
-                    <span
-                        className={`asc-settings-status${messagesOn ? ' asc-settings-status--on' : ''}`}
-                    >
-                        {messagesBusy ? '…' : messagesOn ? 'On' : 'Off'}
-                    </span>
-                    <SettingsSwitch
-                        id="asc-messages-enabled"
-                        checked={messagesOn}
-                        busy={messagesBusy}
-                        disabled={!photographerId || !commentsOn}
-                        onChange={handleMessagesToggle}
-                        label="Enable messages panel on album preview"
-                    />
-                </div>
+                ...
             </div>
+            */}
 
             <div className="asc-settings-row">
                 <div className="asc-settings-row-main">

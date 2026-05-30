@@ -12,7 +12,7 @@ import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
 import './AlbumBook.css';
 
-export { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
 const FLIP_TIME_MS = 800;
 const BOOK_PAGE_HEIGHT_MIN = 300;
