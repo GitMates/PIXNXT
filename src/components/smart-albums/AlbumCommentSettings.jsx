@@ -21,10 +21,10 @@ function SettingsSwitch({ id, checked, disabled, busy, onChange, label }) {
 
 export default function AlbumCommentSettings({ album, photographerId, onUpdated }) {
     const commentsOn = album?.comments_enabled !== false;
-    const repliesOn = album?.replies_enabled !== false;
+    const messagesOn = album?.messages_enabled !== false;
     const published = album?.status === 'published';
     const [commentsBusy, setCommentsBusy] = useState(false);
-    const [repliesBusy, setRepliesBusy] = useState(false);
+    const [messagesBusy, setMessagesBusy] = useState(false);
     const [publishBusy, setPublishBusy] = useState(false);
 
     const handleCommentsToggle = async () => {
@@ -46,22 +46,22 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
         }
     };
 
-    const handleRepliesToggle = async () => {
-        if (!photographerId || !album?.id || repliesBusy || !commentsOn) return;
-        const next = !repliesOn;
-        setRepliesBusy(true);
+    const handleMessagesToggle = async () => {
+        if (!photographerId || !album?.id || messagesBusy || !commentsOn) return;
+        const next = !messagesOn;
+        setMessagesBusy(true);
         try {
             const updated = await smartAlbumsService.updateAlbumClientSettings(
                 photographerId,
                 album.id,
-                { replies_enabled: next }
+                { messages_enabled: next }
             );
             onUpdated?.(updated);
         } catch (e) {
             console.error(e);
-            alert('Could not update reply settings.');
+            alert('Could not update message settings.');
         } finally {
-            setRepliesBusy(false);
+            setMessagesBusy(false);
         }
     };
 
@@ -117,24 +117,25 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
 
             <div className="asc-settings-row">
                 <div className="asc-settings-row-main">
-                    <span className="asc-settings-row-label">Allow replies</span>
+                    <span className="asc-settings-row-label">Enable messages</span>
                     <span className="asc-settings-row-desc">
-                        Clients and you can reply in a message thread on each spread
+                        Show the Messages panel on the preview footer for reading and posting
+                        comments
                     </span>
                 </div>
                 <div className="asc-settings-row-control">
                     <span
-                        className={`asc-settings-status${repliesOn ? ' asc-settings-status--on' : ''}`}
+                        className={`asc-settings-status${messagesOn ? ' asc-settings-status--on' : ''}`}
                     >
-                        {repliesBusy ? '…' : repliesOn ? 'On' : 'Off'}
+                        {messagesBusy ? '…' : messagesOn ? 'On' : 'Off'}
                     </span>
                     <SettingsSwitch
-                        id="asc-replies-enabled"
-                        checked={repliesOn}
-                        busy={repliesBusy}
+                        id="asc-messages-enabled"
+                        checked={messagesOn}
+                        busy={messagesBusy}
                         disabled={!photographerId || !commentsOn}
-                        onChange={handleRepliesToggle}
-                        label="Allow threaded replies on comments"
+                        onChange={handleMessagesToggle}
+                        label="Enable messages panel on album preview"
                     />
                 </div>
             </div>

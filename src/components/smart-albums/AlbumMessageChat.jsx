@@ -15,15 +15,10 @@ function formatMessageTime(iso) {
 
 function flattenThreadMessages(threads) {
     const items = [];
-    (threads || []).forEach(({ root, replies }) => {
+    (threads || []).forEach(({ root }) => {
         if (hasCommentBody(root)) {
-            items.push({ ...root, messageKind: 'comment' });
+            items.push(root);
         }
-        (replies || []).forEach((reply) => {
-            if (hasCommentBody(reply)) {
-                items.push({ ...reply, messageKind: 'reply' });
-            }
-        });
     });
     return items.sort(
         (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
@@ -34,9 +29,7 @@ export default function AlbumMessageChat({
     threads = [],
     loading = false,
     spreadLabel = 'Spread',
-    repliesEnabled = true,
     canCompose = false,
-    canReply = false,
     isPhotographer = false,
     guestName = 'Guest',
     composerValue = '',
@@ -47,29 +40,20 @@ export default function AlbumMessageChat({
     syncedAt = null,
     syncing = false,
     onRefresh,
-    replyToId = null,
-    onReplyTo,
-    onCancelReply,
+    canDelete,
+    onDelete,
+    deleteBusyId = null,
 }) {
     const scrollRef = useRef(null);
     const messages = useMemo(() => flattenThreadMessages(threads), [threads]);
-    const replyTarget = replyToId
-        ? threads.find((t) => t.root.id === replyToId)?.root
-        : null;
 
     useEffect(() => {
         const el = scrollRef.current;
         if (!el) return;
         el.scrollTop = el.scrollHeight;
-    }, [messages.length, composerValue, replyToId]);
+    }, [messages.length, composerValue]);
 
-    const placeholder =
-        composerPlaceholder ||
-        (replyTarget
-            ? `Reply to ${replyTarget.author_name}…`
-            : canCompose
-              ? 'Write a message…'
-              : 'Messages');
+    const placeholder = composerPlaceholder || (canCompose ? 'Write a comment…' : 'Comments');
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -97,9 +81,9 @@ export default function AlbumMessageChat({
 
             <div className="asc-chat-body" ref={scrollRef}>
                 {loading ? (
-                    <p className="asc-chat-empty">Loading messages…</p>
+                    <p className="asc-chat-empty">Loading comments…</p>
                 ) : messages.length === 0 ? (
-                    <p className="asc-chat-empty">No messages on this spread yet. Start the conversation below.</p>
+                    <p className="asc-chat-empty">No comments on this spread yet.</p>
                 ) : (
                     <ul className="asc-chat-list">
                         {messages.map((msg) => {
@@ -118,25 +102,25 @@ export default function AlbumMessageChat({
                                             isMine ? 'mine' : 'theirs'
                                         }`}
                                     >
-                                        <span className="asc-chat-bubble-author">{msg.author_name}</span>
+                                        <div className="asc-chat-bubble-head">
+                                            <span className="asc-chat-bubble-author">{msg.author_name}</span>
+                                            {canDelete?.(msg) && onDelete && (
+                                                <button
+                                                    type="button"
+                                                    className="asc-chat-delete"
+                                                    disabled={deleteBusyId === msg.id}
+                                                    onClick={() => onDelete(msg)}
+                                                    aria-label={`Delete comment from ${msg.author_name}`}
+                                                >
+                                                    {deleteBusyId === msg.id ? '…' : 'Delete'}
+                                                </button>
+                                            )}
+                                        </div>
                                         <p className="asc-chat-bubble-text">{msg.body}</p>
                                         <time className="asc-chat-bubble-time" dateTime={msg.created_at}>
-                                            {msg.messageKind === 'reply' ? 'Reply · ' : ''}
                                             {formatMessageTime(msg.created_at)}
                                         </time>
                                     </div>
-                                    {canReply &&
-                                        repliesEnabled &&
-                                        msg.messageKind === 'comment' &&
-                                        !isMine && (
-                                            <button
-                                                type="button"
-                                                className="asc-chat-reply-link"
-                                                onClick={() => onReplyTo?.(msg.id)}
-                                            >
-                                                Reply
-                                            </button>
-                                        )}
                                 </li>
                             );
                         })}
@@ -144,18 +128,8 @@ export default function AlbumMessageChat({
                 )}
             </div>
 
-            {(canCompose || (canReply && repliesEnabled)) && (
+            {canCompose && (
                 <footer className="asc-chat-composer">
-                    {replyTarget && (
-                        <div className="asc-chat-replying">
-                            <span>
-                                Replying to <strong>{replyTarget.author_name}</strong>
-                            </span>
-                            <button type="button" className="asc-chat-replying-cancel" onClick={onCancelReply}>
-                                ×
-                            </button>
-                        </div>
-                    )}
                     <form className="asc-chat-composer-form" onSubmit={handleSubmit}>
                         <input
                             type="text"
@@ -164,7 +138,7 @@ export default function AlbumMessageChat({
                             value={composerValue}
                             onChange={(e) => onComposerChange?.(e.target.value)}
                             disabled={composerBusy}
-                            aria-label="Message input"
+                            aria-label="Comment input"
                         />
                         <button
                             type="submit"
@@ -175,7 +149,7 @@ export default function AlbumMessageChat({
                         </button>
                     </form>
                     {!isPhotographer && guestName && (
-                        <p className="asc-chat-composer-hint">Sending as {guestName}</p>
+                        <p className="asc-chat-composer-hint">Commenting as {guestName}</p>
                     )}
                 </footer>
             )}

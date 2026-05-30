@@ -11,19 +11,13 @@ import './AlbumSpreadComments.css';
 
 const FEED_LAST_SEEN_KEY = 'pixnxt_album_comment_feed_seen_at';
 
-export default function AlbumCommentsFeed({
-    albumId,
-    photographerName = 'Photographer',
-    repliesEnabled = true,
-}) {
+export default function AlbumCommentsFeed({ albumId }) {
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [chatSpread, setChatSpread] = useState(null);
-    const [chatText, setChatText] = useState('');
-    const [chatReplyToId, setChatReplyToId] = useState(null);
-    const [chatBusy, setChatBusy] = useState(false);
     const [syncedAt, setSyncedAt] = useState(null);
     const [syncing, setSyncing] = useState(false);
+    const [deleteBusyId, setDeleteBusyId] = useState(null);
     const [lastSeenAt, setLastSeenAt] = useState(() => {
         try {
             const raw = localStorage.getItem(FEED_LAST_SEEN_KEY);
@@ -72,51 +66,45 @@ export default function AlbumCommentsFeed({
         }
     }, [albumId, load]);
 
-    const openChat = useCallback((spreadIndex, spreadLabel, threads, replyToId = null) => {
+    const openChat = useCallback((spreadIndex, spreadLabel, threads) => {
         setChatSpread({ spreadIndex, spreadLabel, threads });
-        setChatReplyToId(replyToId);
-        setChatText('');
     }, []);
 
     const closeChat = useCallback(() => {
         setChatSpread(null);
-        setChatReplyToId(null);
-        setChatText('');
     }, []);
 
-    const handleSend = useCallback(async () => {
-        if (!chatSpread || !albumId || !chatReplyToId) return;
-        const body = chatText.trim();
-        if (!body) return;
-        setChatBusy(true);
-        try {
-            await smartAlbumCommentsService.savePhotographerReply({
-                albumId,
-                spreadIndex: chatSpread.spreadIndex,
-                parentId: chatReplyToId,
-                body,
-                authorName: photographerName,
-            });
-            setChatText('');
-            setChatReplyToId(null);
-            await load();
-            const rows = await smartAlbumCommentsService.listAlbumComments(albumId);
-            const updated = groupCommentsBySpread(rows).find(
-                (g) => g.spreadIndex === chatSpread.spreadIndex
-            );
-            if (updated) {
-                setChatSpread({
-                    spreadIndex: chatSpread.spreadIndex,
-                    spreadLabel: chatSpread.spreadLabel,
-                    threads: updated.threads,
-                });
+    const handleDeleteMessage = useCallback(
+        async (msg) => {
+            if (!albumId || !msg?.id) return;
+            if (!window.confirm('Delete this comment?')) return;
+            setDeleteBusyId(msg.id);
+            try {
+                await smartAlbumCommentsService.deleteComment({ albumId, commentId: msg.id });
+                await load();
+                if (chatSpread) {
+                    const rows = await smartAlbumCommentsService.listAlbumComments(albumId);
+                    const updated = groupCommentsBySpread(rows).find(
+                        (g) => g.spreadIndex === chatSpread.spreadIndex
+                    );
+                    if (updated?.threads.length) {
+                        setChatSpread({
+                            spreadIndex: chatSpread.spreadIndex,
+                            spreadLabel: chatSpread.spreadLabel,
+                            threads: updated.threads,
+                        });
+                    } else {
+                        closeChat();
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            } finally {
+                setDeleteBusyId(null);
             }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setChatBusy(false);
-        }
-    }, [albumId, chatSpread, chatReplyToId, chatText, photographerName, load]);
+        },
+        [albumId, load, chatSpread, closeChat]
+    );
 
     useEffect(() => {
         load();
@@ -145,14 +133,10 @@ export default function AlbumCommentsFeed({
     }, [chatSpread, albumId, syncSpread]);
 
     const total = groups.reduce((n, g) => {
-        const rows = g.threads.flatMap((t) => [t.root, ...t.replies]);
+        const rows = g.threads.map((t) => t.root);
         return n + countMeaningfulComments(rows);
     }, 0);
     const spreadWithComments = groups.filter((g) => g.threads.length > 0).length;
-    const totalReplies = groups.reduce(
-        (n, g) => n + g.threads.reduce((m, t) => m + (t.replies?.length || 0), 0),
-        0
-    );
     const openThreads = groups.reduce(
         (n, g) => n + g.threads.filter((t) => !t.root?.resolved).length,
         0
@@ -160,10 +144,7 @@ export default function AlbumCommentsFeed({
     const hasNewInSpread = (threads) => {
         if (!lastSeenAt) return false;
         const seenTs = new Date(lastSeenAt).getTime();
-        return threads.some(({ root, replies }) => {
-            const rows = [root, ...(replies || [])];
-            return rows.some((r) => new Date(r.created_at).getTime() > seenTs);
-        });
+        return threads.some(({ root }) => new Date(root.created_at).getTime() > seenTs);
     };
 
     const chatModal = useMemo(() => {
@@ -174,28 +155,21 @@ export default function AlbumCommentsFeed({
                     className="asc-messages-modal"
                     role="dialog"
                     aria-modal="true"
-                    aria-label="Spread messages"
+                    aria-label="Spread comments"
                     onClick={(e) => e.stopPropagation()}
                 >
                     <AlbumMessageChat
                         threads={chatSpread.threads}
                         loading={loading}
                         spreadLabel={chatSpread.spreadLabel}
-                        repliesEnabled={repliesEnabled}
                         canCompose={false}
-                        canReply={repliesEnabled}
                         isPhotographer
-                        composerValue={chatText}
-                        onComposerChange={setChatText}
-                        onSend={handleSend}
-                        composerBusy={chatBusy}
-                        composerPlaceholder="Write your reply…"
                         syncedAt={syncedAt}
                         syncing={syncing}
                         onRefresh={syncSpread}
-                        replyToId={chatReplyToId}
-                        onReplyTo={(id) => setChatReplyToId(id)}
-                        onCancelReply={() => setChatReplyToId(null)}
+                        canDelete={() => true}
+                        onDelete={handleDeleteMessage}
+                        deleteBusyId={deleteBusyId}
                     />
                     <button type="button" className="asc-messages-modal-close" onClick={closeChat}>
                         Close
@@ -208,14 +182,11 @@ export default function AlbumCommentsFeed({
         chatSpread,
         closeChat,
         loading,
-        repliesEnabled,
-        chatText,
-        handleSend,
-        chatBusy,
         syncedAt,
         syncing,
         syncSpread,
-        chatReplyToId,
+        handleDeleteMessage,
+        deleteBusyId,
     ]);
 
     return (
@@ -248,7 +219,6 @@ export default function AlbumCommentsFeed({
                 <>
                     <div className="asc-feed-stats">
                         <span className="asc-feed-stat">{total} comments</span>
-                        <span className="asc-feed-stat">{totalReplies} replies</span>
                         <span className="asc-feed-stat">{spreadWithComments} spreads</span>
                         <span className="asc-feed-stat">{openThreads} open</span>
                     </div>
@@ -261,7 +231,7 @@ export default function AlbumCommentsFeed({
                                         {hasNewInSpread(threads) && <span className="asc-feed-new-dot" />}
                                     </p>
                                     <ul className="asc-feed-thread-list">
-                                        {threads.map(({ root, replies }) => (
+                                        {threads.map(({ root }) => (
                                             <li key={root.id} className="asc-feed-thread">
                                                 <div className="asc-feed-message">
                                                     <strong>
@@ -270,42 +240,25 @@ export default function AlbumCommentsFeed({
                                                     </strong>
                                                     <span>{root.body}</span>
                                                     <div className="asc-feed-actions">
-                                                        {repliesEnabled ? (
-                                                            <button
-                                                                type="button"
-                                                                className="asc-link-btn asc-link-btn--inline"
-                                                                onClick={() =>
-                                                                    openChat(
-                                                                        spreadIndex,
-                                                                        spreadLabel,
-                                                                        threads,
-                                                                        root.id
-                                                                    )
-                                                                }
-                                                            >
-                                                                Reply
-                                                            </button>
-                                                        ) : null}
                                                         <button
                                                             type="button"
-                                                            className="asc-link-btn asc-link-btn--inline"
+                                                            className="asc-feed-btn asc-feed-btn--view"
                                                             onClick={() =>
                                                                 openChat(spreadIndex, spreadLabel, threads)
                                                             }
                                                         >
-                                                            Messages
+                                                            View
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="asc-feed-btn asc-feed-btn--delete"
+                                                            disabled={deleteBusyId === root.id}
+                                                            onClick={() => handleDeleteMessage(root)}
+                                                        >
+                                                            {deleteBusyId === root.id ? 'Deleting…' : 'Delete'}
                                                         </button>
                                                     </div>
                                                 </div>
-                                                {replies.map((reply) => (
-                                                    <div
-                                                        key={reply.id}
-                                                        className="asc-feed-message asc-feed-message--reply"
-                                                    >
-                                                        <strong>{reply.author_name} · Reply</strong>
-                                                        <span>{reply.body}</span>
-                                                    </div>
-                                                ))}
                                             </li>
                                         ))}
                                     </ul>

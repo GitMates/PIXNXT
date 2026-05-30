@@ -522,13 +522,7 @@ export default function AlbumEditor({
                     }
                     commentsFeed={
                         albumId ? (
-                            <AlbumCommentsFeed
-                                albumId={albumId}
-                                repliesEnabled={album?.replies_enabled !== false}
-                                photographerName={
-                                    user?.user_metadata?.full_name || user?.email || 'Photographer'
-                                }
-                            />
+                            <AlbumCommentsFeed albumId={albumId} />
                         ) : null
                     }
                     album={album}
