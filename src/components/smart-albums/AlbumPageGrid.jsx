@@ -9,7 +9,6 @@ import { getSpreadPhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import EditableGridPhoto from './EditableGridPhoto';
-import { SMART_ALBUM_COMMENTS_ENABLED } from './smartAlbumCommentsEnabled';
 
 function GridPhoto({
     src,
@@ -207,10 +206,6 @@ export default function AlbumPageGrid({
                         )}
                         {previewMode && !hasPhoto && (
                             <span className="ab-grid-cell-empty" aria-hidden />
-                        )}
-                        {(previewMode || (SMART_ALBUM_COMMENTS_ENABLED && showGridComments)) &&
-                            hasPhoto && (
-                            <span className="ab-badge ab-badge--slot">{cell.id}</span>
                         )}
                     </CellTag>
                 );

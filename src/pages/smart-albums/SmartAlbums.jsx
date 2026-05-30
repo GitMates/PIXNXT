@@ -6,7 +6,6 @@ import StarredAlbumsList from './StarredAlbumsList';
 import CreateAlbum from './CreateAlbum';
 import AlbumViewer from './AlbumViewer';
 import PhotographerAlbumPreview from './PhotographerAlbumPreview';
-import SmartAlbumsSettings from './SmartAlbumsSettings';
 
 function AlbumsShell() {
     return (
@@ -21,7 +20,6 @@ const SmartAlbums = () => (
         <Route element={<AlbumsShell />}>
             <Route index element={<AlbumsList />} />
             <Route path="starred" element={<StarredAlbumsList />} />
-            <Route path="settings" element={<SmartAlbumsSettings />} />
         </Route>
         <Route path="create" element={<CreateAlbum />} />
         <Route path="preview/:albumId" element={<PhotographerAlbumPreview />} />

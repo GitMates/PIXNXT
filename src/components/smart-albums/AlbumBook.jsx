@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
 import {
@@ -10,10 +10,10 @@ import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
-import { SMART_ALBUM_COMMENTS_ENABLED } from './smartAlbumCommentsEnabled';
+import AlbumFocusView from './AlbumFocusView';
 import './AlbumBook.css';
 
-export { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
 const FLIP_TIME_MS = 800;
 const BOOK_PAGE_HEIGHT_MIN = 300;
@@ -77,6 +77,8 @@ const AlbumBook = ({
     transformRevision = 0,
     canAddPages = false,
     onAddPages,
+    canRemovePages = false,
+    onRemovePages,
     pageCountBusy = false,
     overviewReopenToken = 0,
     showGridComments = false,
@@ -91,17 +93,30 @@ const AlbumBook = ({
     const prevNavRef = useRef(null);
     const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
+    const userNavigatedRef = useRef(false);
     const dimsRafRef = useRef(null);
     const [dims, setDims] = useState({ width: 480, height: 480 });
     const [pageIndex, setPageIndex] = useState(initialPage);
+
+    const applyInitialPage = useCallback(() => {
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return false;
+        const target = initialPage;
+        const current = api.getCurrentPageIndex();
+        if (current !== target) {
+            api.turnToPage(target);
+        }
+        const resolved = api.getCurrentPageIndex();
+        setPageIndex(resolved);
+        return true;
+    }, [initialPage]);
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [focusOpen, setFocusOpen] = useState(false);
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
     const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true });
-    const commentsUiEnabled = SMART_ALBUM_COMMENTS_ENABLED && showGridComments;
     const currentSpreadComments =
-        commentsUiEnabled && spreadCommentsBySpread
+        showGridComments && spreadCommentsBySpread
             ? spreadCommentsBySpread[spreadIndex] || null
             : null;
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, {
@@ -119,19 +134,28 @@ const AlbumBook = ({
     }, [leftNum, rightNum, totalPages]);
 
     useEffect(() => {
-        if (isFlippingRef.current) return;
-
-        const api = bookRef.current?.pageFlip?.();
-        if (!api) {
-            setPageIndex(initialPage);
-            return;
-        }
-        const current = api.getCurrentPageIndex();
-        if (current !== initialPage) {
-            api.turnToPage(initialPage);
-        }
-        setPageIndex(initialPage);
+        userNavigatedRef.current = false;
     }, [initialPage, album?.id]);
+
+    useLayoutEffect(() => {
+        if (isFlippingRef.current) return undefined;
+        if (applyInitialPage()) return undefined;
+
+        let attempts = 0;
+        const timer = window.setInterval(() => {
+            attempts += 1;
+            if (applyInitialPage() || attempts >= 24) {
+                window.clearInterval(timer);
+            }
+        }, 50);
+
+        return () => window.clearInterval(timer);
+    }, [applyInitialPage, album?.id, totalPages]);
+
+    useEffect(() => {
+        if (isFlippingRef.current) return;
+        applyInitialPage();
+    }, [applyInitialPage, transformRevision]);
 
     useEffect(() => {
         const stage = stageRef.current;
@@ -175,6 +199,7 @@ const AlbumBook = ({
     const handleFlip = useCallback(
         (e) => {
             const idx = e.data;
+            userNavigatedRef.current = true;
             requestAnimationFrame(() => {
                 setPageIndex(idx);
                 onPageChange?.(idx);
@@ -182,6 +207,13 @@ const AlbumBook = ({
         },
         [onPageChange]
     );
+
+    const handleBookUpdate = useCallback(() => {
+        if (userNavigatedRef.current || isFlippingRef.current) return;
+        requestAnimationFrame(() => {
+            applyInitialPage();
+        });
+    }, [applyInitialPage]);
 
     const handleChangeState = useCallback(
         (e) => {
@@ -234,32 +266,24 @@ const AlbumBook = ({
 
     const closeFocusView = useCallback(() => {
         setFocusOpen(false);
-        if (document.fullscreenElement) {
-            document.exitFullscreen?.().catch(() => {});
-        }
     }, []);
 
     const openFocusView = useCallback(() => {
         setOverviewOpen(false);
         setFocusOpen(true);
-        document.documentElement.requestFullscreen?.().catch(() => {});
     }, []);
 
-    useEffect(() => {
-        if (!focusOpen) return undefined;
-        const onKey = (e) => {
-            if (e.key === 'Escape') closeFocusView();
-        };
-        const onFullscreenChange = () => {
-            if (!document.fullscreenElement) setFocusOpen(false);
-        };
-        window.addEventListener('keydown', onKey);
-        document.addEventListener('fullscreenchange', onFullscreenChange);
-        return () => {
-            window.removeEventListener('keydown', onKey);
-            document.removeEventListener('fullscreenchange', onFullscreenChange);
-        };
-    }, [focusOpen, closeFocusView]);
+    const handleFocusPageChange = useCallback(
+        (idx) => {
+            setPageIndex(idx);
+            onPageChange?.(idx);
+            const api = bookRef.current?.pageFlip?.();
+            if (api?.getFlipController?.() && api.getCurrentPageIndex() !== idx) {
+                api.turnToPage(idx);
+            }
+        },
+        [onPageChange]
+    );
 
     const pages = useMemo(
         () =>
@@ -356,10 +380,14 @@ const AlbumBook = ({
                         clickEventForward={false}
                         onFlip={handleFlip}
                         onChangeState={handleChangeState}
-                        onInit={(e) => {
-                            const idx = e.data?.page ?? 0;
-                            setPageIndex(idx);
+                        onInit={() => {
+                            requestAnimationFrame(() => {
+                                requestAnimationFrame(() => {
+                                    applyInitialPage();
+                                });
+                            });
                         }}
+                        onUpdate={handleBookUpdate}
                     >
                         {pages}
                     </HTMLFlipBook>
@@ -460,7 +488,7 @@ const AlbumBook = ({
                                     : null;
                             const isCurrent = overviewSpreadIndex === spreadIndex;
                             const spreadComments =
-                                commentsUiEnabled && spreadCommentsBySpread
+                                showGridComments && spreadCommentsBySpread
                                     ? spreadCommentsBySpread[overviewSpreadIndex] || null
                                     : null;
                             return (
@@ -542,68 +570,37 @@ const AlbumBook = ({
                                 </span>
                             </button>
                         )}
+                        {canRemovePages && onRemovePages && (
+                            <button
+                                type="button"
+                                className="ab-overview-item ab-overview-item--remove"
+                                disabled={pageCountBusy}
+                                onClick={async () => {
+                                    await onRemovePages();
+                                }}
+                            >
+                                <span className="ab-overview-thumb ab-overview-thumb--remove">
+                                    <span className="ab-overview-add-plus ab-overview-remove-minus">−</span>
+                                </span>
+                                <span className="ab-overview-label">
+                                    {pageCountBusy ? 'Removing...' : 'Remove page'}
+                                </span>
+                            </button>
+                        )}
                     </div>
                 </div>
             )}
 
             {focusOpen && (
-                <div
-                    className="ab-focus-view"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Full screen spread view"
-                    onClick={closeFocusView}
-                >
-                    {(() => {
-                        const spreadSrc =
-                            spreadIndex > 0 ? getSpreadPhotoOverride(album?.id, leftNum) : null;
-                        const leftSrc = getOverviewPageImage(
-                            album,
-                            leftNum,
-                            totalPages,
-                            showSamples
-                        );
-                        const rightSrc =
-                            rightNum !== leftNum
-                                ? getOverviewPageImage(album, rightNum, totalPages, showSamples)
-                                : null;
-                        const backdropSrc = spreadSrc || rightSrc || leftSrc;
-
-                        return (
-                            <>
-                                {backdropSrc && (
-                                    <img
-                                        className="ab-focus-backdrop-img"
-                                        src={backdropSrc}
-                                        alt=""
-                                        aria-hidden="true"
-                                    />
-                                )}
-                                <div
-                                    className={`ab-focus-spread${
-                                        spreadSrc ? ' ab-focus-spread--single-image' : ''
-                                    }`}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    {spreadSrc ? (
-                                        <img src={spreadSrc} alt="" className="ab-focus-image" />
-                                    ) : (
-                                        <>
-                                            <div className="ab-focus-page">
-                                                {leftSrc && <img src={leftSrc} alt="" />}
-                                            </div>
-                                            {rightSrc && (
-                                                <div className="ab-focus-page">
-                                                    <img src={rightSrc} alt="" />
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </>
-                        );
-                    })()}
-                </div>
+                <AlbumFocusView
+                    album={album}
+                    totalPages={totalPages}
+                    startPage={pageIndex}
+                    showSamples={showSamples}
+                    transformRevision={transformRevision}
+                    onPageChange={handleFocusPageChange}
+                    onClose={closeFocusView}
+                />
             )}
         </div>
     );

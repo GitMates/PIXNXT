@@ -63,6 +63,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         onSelectCover,
         onTransformChange,
         transformRevision = 0,
+        showPageBadge = false,
     },
     ref
 ) {
@@ -82,10 +83,20 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const canSelectCover = pageNum === 0 && editable && !spreadEdit;
     const PageWrapTag = canSelectCover ? 'button' : 'div';
 
+    const pageBadge =
+        showPageBadge && pageNum >= 0 ? (
+            <span className="ab-badge ab-badge--focus">{pageNum + 1}</span>
+        ) : null;
+
     if (useLeftGrid) {
         const { cells } = getProofLeftPageGridPercent();
         return (
-            <div className="ab-flip-page ab-flip-page--grid" ref={ref} data-density="hard">
+            <div
+                className="ab-flip-page ab-flip-page--grid ab-flip-page--grid-left"
+                ref={ref}
+                data-density="hard"
+            >
+                {pageBadge}
                 <AlbumPageGrid
                     album={album}
                     albumId={albumId}
@@ -120,7 +131,12 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     if (useRightGrid) {
         const { cells } = getProofRightPageGridPercent();
         return (
-            <div className="ab-flip-page ab-flip-page--grid" ref={ref} data-density="hard">
+            <div
+                className="ab-flip-page ab-flip-page--grid ab-flip-page--grid-right"
+                ref={ref}
+                data-density="hard"
+            >
+                {pageBadge}
                 <AlbumPageGrid
                     album={album}
                     albumId={albumId}
@@ -147,6 +163,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
 
     return (
         <div className="ab-flip-page" ref={ref} data-density="hard">
+            {pageBadge}
             <PageWrapTag
                 type={canSelectCover ? 'button' : undefined}
                 className={`ab-page-photo-wrap${

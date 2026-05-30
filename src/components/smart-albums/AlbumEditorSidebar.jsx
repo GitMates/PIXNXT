@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
-import { SMART_ALBUM_COMMENTS_ENABLED } from './smartAlbumCommentsEnabled';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -19,10 +18,7 @@ const IconComments = () => (
 
 const NAV = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
-    /* Comments tab disabled — see smartAlbumCommentsEnabled.js */
-    ...(SMART_ALBUM_COMMENTS_ENABLED
-        ? [{ id: 'comments', label: 'Comments', icon: IconComments }]
-        : []),
+    { id: 'comments', label: 'Comments', icon: IconComments },
 ];
 
 const GRID_SIZE_LABELS = {
@@ -114,7 +110,7 @@ export default function AlbumEditorSidebar({
             </nav>
 
             <div className="ae-panel">
-                {SMART_ALBUM_COMMENTS_ENABLED && activePanel === 'comments' && (
+                {activePanel === 'comments' && (
                     <>
                         <h3 className="ae-panel-title">Comment settings</h3>
                         {commentSettings || (

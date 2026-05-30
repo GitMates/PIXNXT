@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { categoryTagsToDb } from '../lib/categoryTags';
 import { deleteAlbumCollectionAssets } from '../components/smart-albums/albumCollection';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
@@ -10,6 +11,8 @@ const STORAGE_KEY = 'pixnxt_smart_albums_local';
 const STARRED_OVR_KEY = 'pixnxt_smart_albums_starred';
 
 const SETTINGS_OVR_KEY = 'pixnxt_smart_album_settings_ovr';
+
+const PAGECOUNT_OVR_KEY = 'pixnxt_smart_album_pagecount_ovr';
 
 
 
@@ -172,6 +175,8 @@ function isMissingColumnError(error) {
     msg.includes('expiry_date') ||
 
     msg.includes('comments_enabled') ||
+    msg.includes('replies_enabled') ||
+    msg.includes('messages_enabled') ||
 
     (msg.includes('column') && msg.includes('does not exist'))
 
@@ -224,10 +229,39 @@ function applySettingsOverrides(row, photographerId) {
   if (ovr.comments_enabled !== undefined) {
     merged.comments_enabled = ovr.comments_enabled;
   }
+  if (ovr.replies_enabled !== undefined) {
+    merged.replies_enabled = ovr.replies_enabled;
+  }
+  if (ovr.messages_enabled !== undefined) {
+    merged.messages_enabled = ovr.messages_enabled;
+  }
   if (ovr.status !== undefined) {
     merged.status = ovr.status;
   }
   return merged;
+}
+
+function readPageCountOverrides(photographerId) {
+  try {
+    const raw = localStorage.getItem(PAGECOUNT_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    return all[photographerId] || {};
+  } catch {
+    return {};
+  }
+}
+
+function writePageCountOverride(photographerId, albumId, pageCount) {
+  try {
+    const raw = localStorage.getItem(PAGECOUNT_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const userMap = { ...(all[photographerId] || {}) };
+    userMap[albumId] = Number(pageCount);
+    all[photographerId] = userMap;
+    localStorage.setItem(PAGECOUNT_OVR_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
 }
 
 function mapAlbumRow(row, photographerId) {
@@ -237,18 +271,24 @@ function mapAlbumRow(row, photographerId) {
   const starredFromOverride = overrides[row.id];
 
   const withSettings = applySettingsOverrides(row, photographerId);
+  const pageCountOverrides = photographerId ? readPageCountOverrides(photographerId) : {};
+  const pageCountFromOverride = pageCountOverrides[row.id];
 
   return {
 
     ...withSettings,
 
-    page_count: withSettings.page_count ?? 21,
+    page_count: pageCountFromOverride ?? withSettings.page_count ?? 21,
 
     grid_size: withSettings.grid_size ?? 'square',
 
     grid_layout: withSettings.grid_layout ?? 'two-page',
 
     comments_enabled: withSettings.comments_enabled !== false,
+
+    replies_enabled: withSettings.replies_enabled !== false,
+
+    messages_enabled: withSettings.messages_enabled !== false,
 
     photo_count: withSettings.photo_count ?? 0,
 
@@ -574,6 +614,7 @@ export const smartAlbumsService = {
 
   async updateAlbumPageCount(photographerId, albumId, pageCount) {
     const count = Math.max(1, Math.min(99, Math.floor(Number(pageCount) || 21)));
+    writePageCountOverride(photographerId, albumId, count);
 
     const { data, error } = await supabase
       .from('smart_albums')
@@ -592,6 +633,9 @@ export const smartAlbumsService = {
       if (updated) return updated;
     }
 
+    const localUpdated = updateLocalAlbum(photographerId, albumId, { page_count: count });
+    if (localUpdated) return localUpdated;
+
     const album = await this.getAlbum(photographerId, albumId);
     if (!album) throw new Error('Album not found');
     return { ...album, page_count: count };
@@ -605,6 +649,12 @@ export const smartAlbumsService = {
     const settingsPatch = {};
     if (patch.comments_enabled !== undefined) {
       settingsPatch.comments_enabled = patch.comments_enabled;
+    }
+    if (patch.replies_enabled !== undefined) {
+      settingsPatch.replies_enabled = patch.replies_enabled;
+    }
+    if (patch.messages_enabled !== undefined) {
+      settingsPatch.messages_enabled = patch.messages_enabled;
     }
     if (patch.status !== undefined) {
       settingsPatch.status = patch.status;
@@ -641,6 +691,53 @@ export const smartAlbumsService = {
     }
 
     return { ...album, ...patch };
+  },
+
+  async updateAlbumDetails(photographerId, albumId, patch) {
+    const payload = { updated_at: new Date().toISOString() };
+
+    if (patch.name !== undefined) {
+      payload.name = String(patch.name || '').trim() || 'Untitled';
+    }
+    if (patch.event_date !== undefined) {
+      payload.event_date = patch.event_date || null;
+    }
+    if (patch.status !== undefined) {
+      payload.status = patch.status === 'published' ? 'published' : 'draft';
+      writeSettingsOverride(photographerId, albumId, { status: payload.status });
+    }
+    if (patch.category_tags !== undefined) {
+      payload.category_tags = categoryTagsToDb(patch.category_tags);
+    }
+
+    const { data, error } = await supabase
+      .from('smart_albums')
+      .update(payload)
+      .eq('photographer_id', photographerId)
+      .eq('id', albumId)
+      .select('*')
+      .maybeSingle();
+
+    if (!error && data) {
+      return mapAlbumRow(data, photographerId);
+    }
+
+    if (error && shouldUseLocalStore(error)) {
+      const updated = updateLocalAlbum(photographerId, albumId, payload);
+      if (updated) return updated;
+    }
+
+    const localUpdated = updateLocalAlbum(photographerId, albumId, payload);
+    if (localUpdated) return localUpdated;
+
+    const album = await this.getAlbum(photographerId, albumId);
+    if (!album) throw new Error('Album not found');
+
+    if (error) {
+      console.warn('smart_albums update:', error.message);
+    }
+
+    return { ...album, ...payload };
   },
 
   async updateAlbumStar(photographerId, albumId, isStarred) {

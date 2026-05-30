@@ -178,7 +178,6 @@ const products = [
     links: [
       { label: 'Manage Albums', path: '/smart-albums' },
       { label: 'Create Album', path: '/smart-albums/create' },
-      { label: 'Settings', path: '/smart-albums/settings' },
     ],
   },
 ];
