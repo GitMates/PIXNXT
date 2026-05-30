@@ -44,17 +44,6 @@ export default function PhotographerAlbumPreview() {
         if (albumId) setPhotoRevision(getAlbumPhotoRevision(albumId) || 0);
     }, [albumId, album?.id]);
 
-    useEffect(() => {
-        if (!albumId) return undefined;
-        const onStorage = (e) => {
-            if (e.key === 'pixnxt_album_page_photos') {
-                setPhotoRevision(getAlbumPhotoRevision(albumId) || 0);
-            }
-        };
-        window.addEventListener('storage', onStorage);
-        return () => window.removeEventListener('storage', onStorage);
-    }, [albumId]);
-
     const totalPages = album?.page_count || 21;
     const initialPage = parseUrlPage(searchParams.get('page'), totalPages);
 
