@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumSpreadComments from '../../components/smart-albums/AlbumSpreadComments';
 import { pageToSpreadIndex, getTotalSpreads } from '../../components/smart-albums/albumSpreadUtils';
@@ -20,6 +20,16 @@ export default function AlbumPreview({
 }) {
     const { user } = useAuth();
     const [bookPage, setBookPage] = useState(initialPage);
+
+    useEffect(() => {
+        setBookPage(initialPage);
+    }, [initialPage]);
+
+    const albumForBook = useMemo(
+        () => (album ? { ...album, id: albumId } : null),
+        [album, albumId]
+    );
+
     const isPhotographer = Boolean(
         !clientPreview && user?.id && album?.photographer_id === user.id
     );
@@ -76,13 +86,14 @@ export default function AlbumPreview({
                 <div className="av-preview-book-section">
                     <div className="av-viewer-body av-viewer-body--preview-book">
                         <AlbumBook
-                            key={`${albumId}-preview-${photoRevision}`}
-                            album={{ ...album, id: albumId }}
+                            key={`${albumId}-preview`}
+                            album={albumForBook}
                             totalPages={totalPages}
-                            initialPage={initialPage}
+                            initialPage={bookPage}
                             onPageChange={handleBookPageChange}
                             previewMode
                             showSamples={false}
+                            transformRevision={photoRevision}
                         />
                     </div>
                 </div>

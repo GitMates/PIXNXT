@@ -455,7 +455,7 @@ export default function AlbumEditor({
                     <button
                         type="button"
                         className="ae-btn-secondary"
-                        onClick={() => openSmartAlbumPreview(albumId, initialPage)}
+                        onClick={() => openSmartAlbumPreview(albumId, bookPage)}
                     >
                         Preview
                     </button>

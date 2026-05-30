@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
 import {
@@ -7,8 +7,9 @@ import {
     getSpreadPhotoOverride,
 } from './albumPagePhotos';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
-import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+import { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
+import AlbumPreviewSpread from './AlbumPreviewSpread';
 import SpreadGridComments from './SpreadGridComments';
 import './AlbumBook.css';
 
@@ -92,14 +93,36 @@ const AlbumBook = ({
     const prevNavRef = useRef(null);
     const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
+    const userNavigatedRef = useRef(false);
     const dimsRafRef = useRef(null);
     const [dims, setDims] = useState({ width: 480, height: 480 });
     const [pageIndex, setPageIndex] = useState(initialPage);
+    const activePage = previewMode ? initialPage : pageIndex;
+
+    const applyInitialPage = useCallback(() => {
+        if (previewMode) return true;
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return false;
+        const target = initialPage;
+        const current = api.getCurrentPageIndex();
+        if (current !== target) {
+            api.turnToPage(target);
+        }
+        const resolved = api.getCurrentPageIndex();
+        setPageIndex(resolved);
+        return true;
+    }, [initialPage, previewMode]);
+
+    useEffect(() => {
+        if (previewMode) setPageIndex(initialPage);
+    }, [previewMode, initialPage]);
+
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [focusOpen, setFocusOpen] = useState(false);
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
-    const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true });
+    const spreadIndex = pageToSpreadIndex(activePage, { showCover: true });
+    const isCoverSpread = spreadIndex <= 0;
     const currentSpreadComments =
         showGridComments && spreadCommentsBySpread
             ? spreadCommentsBySpread[spreadIndex] || null
@@ -119,19 +142,29 @@ const AlbumBook = ({
     }, [leftNum, rightNum, totalPages]);
 
     useEffect(() => {
-        if (isFlippingRef.current) return;
-
-        const api = bookRef.current?.pageFlip?.();
-        if (!api) {
-            setPageIndex(initialPage);
-            return;
-        }
-        const current = api.getCurrentPageIndex();
-        if (current !== initialPage) {
-            api.turnToPage(initialPage);
-        }
-        setPageIndex(initialPage);
+        userNavigatedRef.current = false;
     }, [initialPage, album?.id]);
+
+    useLayoutEffect(() => {
+        if (previewMode) return undefined;
+        if (isFlippingRef.current) return undefined;
+        if (applyInitialPage()) return undefined;
+
+        let attempts = 0;
+        const timer = window.setInterval(() => {
+            attempts += 1;
+            if (applyInitialPage() || attempts >= 24) {
+                window.clearInterval(timer);
+            }
+        }, 50);
+
+        return () => window.clearInterval(timer);
+    }, [applyInitialPage, album?.id, totalPages, previewMode]);
+
+    useEffect(() => {
+        if (previewMode || isFlippingRef.current) return;
+        applyInitialPage();
+    }, [applyInitialPage, transformRevision, previewMode]);
 
     useEffect(() => {
         const stage = stageRef.current;
@@ -175,6 +208,7 @@ const AlbumBook = ({
     const handleFlip = useCallback(
         (e) => {
             const idx = e.data;
+            userNavigatedRef.current = true;
             requestAnimationFrame(() => {
                 setPageIndex(idx);
                 onPageChange?.(idx);
@@ -182,6 +216,13 @@ const AlbumBook = ({
         },
         [onPageChange]
     );
+
+    const handleBookUpdate = useCallback(() => {
+        if (userNavigatedRef.current || isFlippingRef.current) return;
+        requestAnimationFrame(() => {
+            applyInitialPage();
+        });
+    }, [applyInitialPage]);
 
     const handleChangeState = useCallback(
         (e) => {
@@ -193,13 +234,31 @@ const AlbumBook = ({
         [setFlippingUi, syncNavDisabled]
     );
 
+    const goToSpreadIndex = useCallback(
+        (nextSpread) => {
+            const clamped = Math.max(0, Math.min(nextSpread, totalSpreads - 1));
+            const page = spreadIndexToPage(clamped, { showCover: true });
+            setPageIndex(page);
+            onPageChange?.(page);
+        },
+        [totalSpreads, onPageChange]
+    );
+
     const flipPrev = useCallback(() => {
+        if (previewMode) {
+            goToSpreadIndex(spreadIndex - 1);
+            return;
+        }
         bookRef.current?.pageFlip?.()?.flipPrev('bottom');
-    }, []);
+    }, [previewMode, goToSpreadIndex, spreadIndex]);
 
     const flipNext = useCallback(() => {
+        if (previewMode) {
+            goToSpreadIndex(spreadIndex + 1);
+            return;
+        }
         bookRef.current?.pageFlip?.()?.flipNext('bottom');
-    }, []);
+    }, [previewMode, goToSpreadIndex, spreadIndex]);
 
     useEffect(() => {
         const onKey = (e) => {
@@ -265,7 +324,7 @@ const AlbumBook = ({
         () =>
             Array.from({ length: totalPages }, (_, pageNum) => (
                 <AlbumFlipPage
-                    key={`page-${pageNum}`}
+                    key={`page-${pageNum}-r${transformRevision}`}
                     album={album}
                     pageNum={pageNum}
                     totalPages={totalPages}
@@ -328,41 +387,59 @@ const AlbumBook = ({
                     style={{ width: dims.width * 2 }}
                 >
                 <div
-                    className="ab-flipbook-wrap"
+                    className={`ab-flipbook-wrap${previewMode ? ' ab-flipbook-wrap--preview-static' : ''}`}
                     ref={wrapRef}
                     style={{ width: dims.width * 2, height: dims.height }}
                 >
-                    <HTMLFlipBook
-                        key={`${album?.id}-${totalPages}`}
-                        ref={bookRef}
-                        className="ab-html-flipbook"
-                        width={dims.width}
-                        height={dims.height}
-                        size="stretch"
-                        minWidth={BOOK_PAGE_HEIGHT_MIN}
-                        maxWidth={Math.max(520, dims.width)}
-                        minHeight={BOOK_PAGE_HEIGHT_MIN}
-                        maxHeight={BOOK_PAGE_HEIGHT_MAX}
-                        drawShadow
-                        maxShadowOpacity={0.5}
-                        flippingTime={FLIP_TIME_MS}
-                        usePortrait={false}
-                        useMouseEvents={clickToFlip}
-                        mobileScrollSupport={false}
-                        showCover
-                        showPageCorners={clickToFlip}
-                        disableFlipByClick
-                        startPage={initialPage}
-                        clickEventForward={false}
-                        onFlip={handleFlip}
-                        onChangeState={handleChangeState}
-                        onInit={(e) => {
-                            const idx = e.data?.page ?? 0;
-                            setPageIndex(idx);
-                        }}
-                    >
-                        {pages}
-                    </HTMLFlipBook>
+                    {previewMode ? (
+                        <AlbumPreviewSpread
+                            album={album}
+                            leftPage={leftNum}
+                            rightPage={rightNum}
+                            totalPages={totalPages}
+                            isCoverSpread={isCoverSpread}
+                            pageWidth={dims.width}
+                            pageHeight={dims.height}
+                            showSamples={showSamples}
+                            transformRevision={transformRevision}
+                        />
+                    ) : (
+                        <HTMLFlipBook
+                            key={`${album?.id}-${totalPages}`}
+                            ref={bookRef}
+                            className="ab-html-flipbook"
+                            width={dims.width}
+                            height={dims.height}
+                            size="stretch"
+                            minWidth={BOOK_PAGE_HEIGHT_MIN}
+                            maxWidth={Math.max(520, dims.width)}
+                            minHeight={BOOK_PAGE_HEIGHT_MIN}
+                            maxHeight={BOOK_PAGE_HEIGHT_MAX}
+                            drawShadow
+                            maxShadowOpacity={0.5}
+                            flippingTime={FLIP_TIME_MS}
+                            usePortrait={false}
+                            useMouseEvents={clickToFlip}
+                            mobileScrollSupport={false}
+                            showCover
+                            showPageCorners={clickToFlip}
+                            disableFlipByClick
+                            startPage={initialPage}
+                            clickEventForward={false}
+                            onFlip={handleFlip}
+                            onChangeState={handleChangeState}
+                            onInit={() => {
+                                requestAnimationFrame(() => {
+                                    requestAnimationFrame(() => {
+                                        applyInitialPage();
+                                    });
+                                });
+                            }}
+                            onUpdate={handleBookUpdate}
+                        >
+                            {pages}
+                        </HTMLFlipBook>
+                    )}
                 </div>
                 {currentSpreadComments?.length > 0 && (
                     <div className="ab-spread-comments-bar">
@@ -471,9 +548,13 @@ const AlbumBook = ({
                                         isCurrent ? ' ab-overview-item--active' : ''
                                     }`}
                                     onClick={() => {
-                                        bookRef.current?.pageFlip?.()?.turnToPage(targetPage);
-                                        setPageIndex(targetPage);
-                                        onPageChange?.(targetPage);
+                                        if (previewMode) {
+                                            goToSpreadIndex(overviewSpreadIndex);
+                                        } else {
+                                            bookRef.current?.pageFlip?.()?.turnToPage(targetPage);
+                                            setPageIndex(targetPage);
+                                            onPageChange?.(targetPage);
+                                        }
                                         setOverviewOpen(false);
                                     }}
                                 >
