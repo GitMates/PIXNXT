@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { openSmartAlbumPreview } from '../../lib/shareSmartAlbum';
+import { openSmartAlbumPreview, getSmartAlbumPreviewShareUrl, openShareByEmail, openWhatsAppShare } from '../../lib/shareSmartAlbum';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { getAlbumListThumbnailUrl } from '../../components/smart-albums/albumPagePhotos';
 import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu';
+import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
+import EditAlbumModal from '../../components/smart-albums/EditAlbumModal';
 import '../ClientGallery.css';
 import './SmartAlbums.css';
 
@@ -131,6 +133,10 @@ const AlbumsList = ({ starredOnly = false }) => {
     const [openFilter, setOpenFilter] = useState(null);
     const [contextMenuId, setContextMenuId] = useState(null);
     const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
+    const [shareLinkAlbum, setShareLinkAlbum] = useState(null);
+    const [shareQrAlbum, setShareQrAlbum] = useState(null);
+    const [editAlbum, setEditAlbum] = useState(null);
+    const [editSaving, setEditSaving] = useState(false);
     const contextRef = useRef(null);
     const filtersRef = useRef(null);
     const pageTitle = starredOnly ? 'Starred' : 'Albums';
@@ -239,6 +245,66 @@ const AlbumsList = ({ starredOnly = false }) => {
         alert('Move to folders for Smart Albums is coming soon.');
     };
 
+    const handleShareByEmail = useCallback(
+        (album) => {
+            if (!album) return;
+            closeContextMenu();
+            openShareByEmail(getSmartAlbumPreviewShareUrl(album), album.name || 'Album');
+        },
+        [closeContextMenu]
+    );
+
+    const handleShareWhatsApp = useCallback(
+        (album) => {
+            if (!album) return;
+            closeContextMenu();
+            openWhatsAppShare(getSmartAlbumPreviewShareUrl(album), album.name || 'Album');
+        },
+        [closeContextMenu]
+    );
+
+    const handleGetDirectLink = useCallback(
+        (album) => {
+            if (!album) return;
+            closeContextMenu();
+            setShareLinkAlbum(album);
+        },
+        [closeContextMenu]
+    );
+
+    const handleGetQrCode = useCallback(
+        (album) => {
+            if (!album) return;
+            closeContextMenu();
+            setShareQrAlbum(album);
+        },
+        [closeContextMenu]
+    );
+
+    const handleQuickEdit = useCallback(
+        (album) => {
+            if (!album) return;
+            closeContextMenu();
+            setEditAlbum(album);
+        },
+        [closeContextMenu]
+    );
+
+    const handleEditSave = async (payload) => {
+        if (!user?.id || !editAlbum) return;
+        setEditSaving(true);
+        try {
+            const updated = await smartAlbumsService.updateAlbumDetails(user.id, editAlbum.id, payload);
+            setAlbums((prev) => prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a)));
+            setEditAlbum(null);
+        } catch (err) {
+            console.error(err);
+            alert('Failed to save changes. Please try again.');
+        } finally {
+            setEditSaving(false);
+        }
+    };
+
     const renderContextMenu = (album) => {
         if (contextMenuId !== album.id) return null;
         return (
@@ -249,9 +315,14 @@ const AlbumsList = ({ starredOnly = false }) => {
                     closeContextMenu();
                     openSmartAlbumPreview(album.id);
                 }}
+                onQuickEdit={() => handleQuickEdit(album)}
                 onMoveTo={handleMoveTo}
                 onDuplicate={() => handleDuplicateAlbum(album)}
                 onDelete={() => handleDeleteAlbum(album)}
+                onShareByEmail={() => handleShareByEmail(album)}
+                onGetDirectLink={() => handleGetDirectLink(album)}
+                onGetQrCode={() => handleGetQrCode(album)}
+                onShareWhatsApp={() => handleShareWhatsApp(album)}
             />
         );
     };
@@ -450,6 +521,25 @@ const AlbumsList = ({ starredOnly = false }) => {
                     </div>
                 )}
             </div>
+
+            <AlbumPreviewLinkModal
+                album={shareLinkAlbum}
+                isOpen={Boolean(shareLinkAlbum)}
+                onClose={() => setShareLinkAlbum(null)}
+            />
+            <AlbumPreviewQrModal
+                album={shareQrAlbum}
+                isOpen={Boolean(shareQrAlbum)}
+                onClose={() => setShareQrAlbum(null)}
+            />
+            <EditAlbumModal
+                album={editAlbum}
+                isOpen={Boolean(editAlbum)}
+                onClose={() => setEditAlbum(null)}
+                onSave={handleEditSave}
+                onAdvanced={(album) => navigate(`/smart-albums/album/${album.id}`)}
+                saving={editSaving}
+            />
         </main>
     );
 };

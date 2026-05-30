@@ -10,6 +10,7 @@ import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
+import AlbumFocusView from './AlbumFocusView';
 import './AlbumBook.css';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
@@ -265,32 +266,24 @@ const AlbumBook = ({
 
     const closeFocusView = useCallback(() => {
         setFocusOpen(false);
-        if (document.fullscreenElement) {
-            document.exitFullscreen?.().catch(() => {});
-        }
     }, []);
 
     const openFocusView = useCallback(() => {
         setOverviewOpen(false);
         setFocusOpen(true);
-        document.documentElement.requestFullscreen?.().catch(() => {});
     }, []);
 
-    useEffect(() => {
-        if (!focusOpen) return undefined;
-        const onKey = (e) => {
-            if (e.key === 'Escape') closeFocusView();
-        };
-        const onFullscreenChange = () => {
-            if (!document.fullscreenElement) setFocusOpen(false);
-        };
-        window.addEventListener('keydown', onKey);
-        document.addEventListener('fullscreenchange', onFullscreenChange);
-        return () => {
-            window.removeEventListener('keydown', onKey);
-            document.removeEventListener('fullscreenchange', onFullscreenChange);
-        };
-    }, [focusOpen, closeFocusView]);
+    const handleFocusPageChange = useCallback(
+        (idx) => {
+            setPageIndex(idx);
+            onPageChange?.(idx);
+            const api = bookRef.current?.pageFlip?.();
+            if (api?.getFlipController?.() && api.getCurrentPageIndex() !== idx) {
+                api.turnToPage(idx);
+            }
+        },
+        [onPageChange]
+    );
 
     const pages = useMemo(
         () =>
@@ -599,63 +592,15 @@ const AlbumBook = ({
             )}
 
             {focusOpen && (
-                <div
-                    className="ab-focus-view"
-                    role="dialog"
-                    aria-modal="true"
-                    aria-label="Full screen spread view"
-                    onClick={closeFocusView}
-                >
-                    {(() => {
-                        const spreadSrc =
-                            spreadIndex > 0 ? getSpreadPhotoOverride(album?.id, leftNum) : null;
-                        const leftSrc = getOverviewPageImage(
-                            album,
-                            leftNum,
-                            totalPages,
-                            showSamples
-                        );
-                        const rightSrc =
-                            rightNum !== leftNum
-                                ? getOverviewPageImage(album, rightNum, totalPages, showSamples)
-                                : null;
-                        const backdropSrc = spreadSrc || rightSrc || leftSrc;
-
-                        return (
-                            <>
-                                {backdropSrc && (
-                                    <img
-                                        className="ab-focus-backdrop-img"
-                                        src={backdropSrc}
-                                        alt=""
-                                        aria-hidden="true"
-                                    />
-                                )}
-                                <div
-                                    className={`ab-focus-spread${
-                                        spreadSrc ? ' ab-focus-spread--single-image' : ''
-                                    }`}
-                                    onClick={(e) => e.stopPropagation()}
-                                >
-                                    {spreadSrc ? (
-                                        <img src={spreadSrc} alt="" className="ab-focus-image" />
-                                    ) : (
-                                        <>
-                                            <div className="ab-focus-page">
-                                                {leftSrc && <img src={leftSrc} alt="" />}
-                                            </div>
-                                            {rightSrc && (
-                                                <div className="ab-focus-page">
-                                                    <img src={rightSrc} alt="" />
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </>
-                        );
-                    })()}
-                </div>
+                <AlbumFocusView
+                    album={album}
+                    totalPages={totalPages}
+                    startPage={pageIndex}
+                    showSamples={showSamples}
+                    transformRevision={transformRevision}
+                    onPageChange={handleFocusPageChange}
+                    onClose={closeFocusView}
+                />
             )}
         </div>
     );

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { categoryTagsToDb } from '../lib/categoryTags';
 import { deleteAlbumCollectionAssets } from '../components/smart-albums/albumCollection';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
@@ -690,6 +691,53 @@ export const smartAlbumsService = {
     }
 
     return { ...album, ...patch };
+  },
+
+  async updateAlbumDetails(photographerId, albumId, patch) {
+    const payload = { updated_at: new Date().toISOString() };
+
+    if (patch.name !== undefined) {
+      payload.name = String(patch.name || '').trim() || 'Untitled';
+    }
+    if (patch.event_date !== undefined) {
+      payload.event_date = patch.event_date || null;
+    }
+    if (patch.status !== undefined) {
+      payload.status = patch.status === 'published' ? 'published' : 'draft';
+      writeSettingsOverride(photographerId, albumId, { status: payload.status });
+    }
+    if (patch.category_tags !== undefined) {
+      payload.category_tags = categoryTagsToDb(patch.category_tags);
+    }
+
+    const { data, error } = await supabase
+      .from('smart_albums')
+      .update(payload)
+      .eq('photographer_id', photographerId)
+      .eq('id', albumId)
+      .select('*')
+      .maybeSingle();
+
+    if (!error && data) {
+      return mapAlbumRow(data, photographerId);
+    }
+
+    if (error && shouldUseLocalStore(error)) {
+      const updated = updateLocalAlbum(photographerId, albumId, payload);
+      if (updated) return updated;
+    }
+
+    const localUpdated = updateLocalAlbum(photographerId, albumId, payload);
+    if (localUpdated) return localUpdated;
+
+    const album = await this.getAlbum(photographerId, albumId);
+    if (!album) throw new Error('Album not found');
+
+    if (error) {
+      console.warn('smart_albums update:', error.message);
+    }
+
+    return { ...album, ...payload };
   },
 
   async updateAlbumStar(photographerId, albumId, isStarred) {

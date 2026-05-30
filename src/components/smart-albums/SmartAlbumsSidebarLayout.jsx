@@ -4,6 +4,9 @@ import { useAuth } from '../../hooks/useAuth';
 import brandPng from '../../assets/icons/client gallery.png';
 import smartAlbumPng from '../../assets/icons/smart album.png';
 import dashboardPng from '../../assets/icons/dashboard.png';
+import helpPng from '../../assets/icons/help.png';
+import notificationPng from '../../assets/icons/notification.png';
+import '../../pages/ClientGallery.css';
 
 const PURPLE = '#9b59b6';
 const PURPLE_DARK = '#8e44ad';
@@ -51,7 +54,6 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
     const userInitial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
     const isAlbumsActive = path === '/smart-albums' || path === '/smart-albums/';
     const isStarredActive = path.startsWith('/smart-albums/starred');
-    const isSettingsActive = path.startsWith('/smart-albums/settings');
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -114,6 +116,8 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
         </div>
     );
 
+    const toggleAppDropdown = () => setShowAppDropdown((open) => !open);
+
     return (
         <div
             className="flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-[#ffffff] md:overflow-hidden"
@@ -137,17 +141,38 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
             )}
 
             <aside
-                className={`${isCollapsed ? 'md:w-[80px]' : 'md:w-[320px]'} ${isMobileMenuOpen ? 'left-0' : '-left-[320px]'} fixed md:static top-0 w-[280px] h-screen bg-[#ffffff] flex flex-col shrink-0 z-[1000] md:z-10 shadow-[4px_0_20px_rgba(0,0,0,0.15)] md:shadow-[1px_0_0_rgba(0,0,0,0.06)] border-r border-[#e0e0e0] transition-[width,left] duration-300 ease overflow-y-auto md:overflow-y-visible`}
+                className={`${isCollapsed ? 'md:w-[80px]' : 'md:w-[320px]'} ${isMobileMenuOpen ? 'left-0' : '-left-[320px]'} ${showAppDropdown ? 'z-[1200] md:z-[1200]' : 'z-[1000] md:z-10'} fixed md:static top-0 w-[280px] h-screen bg-[#ffffff] flex flex-col shrink-0 shadow-[4px_0_20px_rgba(0,0,0,0.15)] md:shadow-[1px_0_0_rgba(0,0,0,0.06)] border-r border-[#e0e0e0] transition-[width,left] duration-300 ease overflow-y-auto md:overflow-y-visible`}
             >
-                <div className={`h-[80px] flex items-center px-6 ${isCollapsed ? 'md:justify-center md:px-0' : 'justify-between'}`}>
-                    <div className="flex items-center gap-2 cursor-pointer relative" ref={appDropdownRef}>
+                <div
+                    className={`sa-sidebar-header h-[80px] flex items-center px-4 shrink-0 overflow-visible ${isCollapsed ? 'md:justify-center md:px-0' : 'justify-between gap-3'}`}
+                >
+                    <div
+                        className={`flex items-center gap-2 cursor-pointer relative sb-logo-container min-w-0 ${isCollapsed && !isMobileMenuOpen ? '' : 'flex-1'}`}
+                        ref={appDropdownRef}
+                        onClick={() => {
+                            if (isCollapsed && !isMobileMenuOpen) return;
+                            toggleAppDropdown();
+                        }}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                toggleAppDropdown();
+                            }
+                        }}
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={showAppDropdown}
+                        aria-haspopup="true"
+                    >
                         <img src={smartAlbumPng} alt="Pixnxt" className="w-[36px] h-[36px] object-contain shrink-0" />
                         {(!isCollapsed || isMobileMenuOpen) && (
-                            <span className="text-[16px] font-bold text-[#444] uppercase tracking-[0.08em]">Smart Albums</span>
+                            <span className="text-[14px] font-bold text-[#444] uppercase tracking-[0.05em] whitespace-nowrap truncate">
+                                Smart Albums
+                            </span>
                         )}
                         {(!isCollapsed || isMobileMenuOpen) && (
                             <svg
-                                className="text-[#999] cursor-pointer"
+                                className="text-[#999] shrink-0"
                                 xmlns="http://www.w3.org/2000/svg"
                                 width="12"
                                 height="12"
@@ -157,38 +182,37 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                                 strokeWidth="2.5"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setShowAppDropdown(!showAppDropdown);
-                                }}
+                                aria-hidden
                             >
                                 <polyline points="6 9 12 15 18 9" />
                             </svg>
                         )}
                         {showAppDropdown && (!isCollapsed || isMobileMenuOpen) && (
-                            <div className="absolute top-[calc(100%+8px)] left-0 md:w-[360px] bg-[#ffffff] rounded-none shadow-[0_12px_48px_rgba(0,0,0,0.15)] z-[500] py-3 animate-[cgFadeIn_0.15s_ease] max-md:fixed max-md:top-[70px] max-md:left-3 max-md:right-3 max-md:w-auto max-md:z-[99999] max-md:max-h-[80vh] max-md:overflow-y-auto">
+                            <div className="sa-app-dropdown absolute top-[calc(100%+8px)] left-0 md:w-[360px] bg-[#ffffff] rounded-none shadow-[0_12px_48px_rgba(0,0,0,0.15)] z-[9999] py-3 animate-[cgFadeIn_0.15s_ease] max-md:fixed max-md:top-[70px] max-md:left-3 max-md:right-3 max-md:w-auto max-md:max-h-[80vh] max-md:overflow-y-auto">
                                 <div
                                     className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         navigate('/client-gallery');
                                         setShowAppDropdown(false);
                                     }}
                                 >
-                                    <img src={brandPng} alt="Client Gallery" className="w-11 h-11 object-contain shrink-0" />
-                                    <div className="flex flex-col gap-0.5">
+                                    <img src={brandPng} alt="Client Gallery" className="w-11 h-11 object-contain shrink-0 mix-blend-multiply" />
+                                    <div className="flex flex-col gap-0.5 min-w-0">
                                         <span className="text-[17px] font-semibold text-[#111]">Client Gallery</span>
                                         <span className="text-xs text-[#888] leading-[1.4]">Better way to share, deliver, proof and sell</span>
                                     </div>
                                 </div>
                                 <div
                                     className="flex items-center gap-4 px-6 py-3.5 cursor-pointer bg-[#f3f4f6]"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         navigate('/smart-albums');
                                         setShowAppDropdown(false);
                                     }}
                                 >
-                                    <img src={smartAlbumPng} alt="Smart Albums" className="w-11 h-11 object-contain shrink-0" />
-                                    <div className="flex flex-col gap-0.5">
+                                    <img src={smartAlbumPng} alt="Smart Albums" className="w-11 h-11 object-contain shrink-0 mix-blend-multiply" />
+                                    <div className="flex flex-col gap-0.5 min-w-0">
                                         <span className="text-[17px] font-semibold text-[#111]">Smart Albums</span>
                                         <span className="text-xs text-[#888] leading-[1.4]">Design and deliver beautiful photo albums</span>
                                     </div>
@@ -196,7 +220,8 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                                 <div className="h-px bg-[#f0f0f0] my-2" />
                                 <div
                                     className="flex items-center gap-[14px] px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                        e.stopPropagation();
                                         navigate('/dashboard');
                                         setShowAppDropdown(false);
                                     }}
@@ -208,11 +233,19 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                         )}
                     </div>
                     {(!isCollapsed || isMobileMenuOpen) && (
-                        <div className="flex items-center gap-3.5 relative" ref={profileDropdownRef}>
+                        <div className="flex items-center gap-2.5 shrink-0 ml-auto relative" ref={profileDropdownRef}>
+                            <div className="text-[#222] cursor-pointer flex items-center hover:text-[#111]" aria-hidden>
+                                <img src={helpPng} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />
+                            </div>
+                            <div className="text-[#222] cursor-pointer flex items-center hover:text-[#111]" aria-hidden>
+                                <img src={notificationPng} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />
+                            </div>
                             <div
                                 className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer max-md:hidden text-[#fff]"
                                 style={{ background: PURPLE }}
                                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                                title={user?.email || 'Account'}
+                                aria-label="Account menu"
                             >
                                 {userInitial}
                             </div>
@@ -250,33 +283,6 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                     >
                         <StarNavIcon className={navIconClass(isStarredActive)} />
                         {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[15px] font-bold">Starred</span>}
-                    </div>
-                    <div
-                        className={navItemClass(isSettingsActive)}
-                        onMouseEnter={(e) => {
-                            if (!isSettingsActive) e.currentTarget.style.background = PURPLE_HOVER;
-                        }}
-                        onMouseLeave={(e) => {
-                            if (!isSettingsActive) e.currentTarget.style.background = '';
-                        }}
-                        onClick={() => navigate('/smart-albums/settings')}
-                    >
-                        <svg
-                            className={navIconClass(isSettingsActive)}
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        >
-                            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                            <circle cx="12" cy="12" r="3" />
-                        </svg>
-                        {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[15px] font-bold">Settings</span>}
                     </div>
                 </div>
 
