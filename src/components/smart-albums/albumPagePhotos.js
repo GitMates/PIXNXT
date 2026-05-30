@@ -1,5 +1,10 @@
 import { expandUploadFilesToImages } from '../../lib/pdfToImages';
 import { getAlbumCollection, getCollectionItem } from './albumCollection';
+import {
+    getRemoteCollectionItem,
+    getRemotePagePhoto,
+    getRemotePreviewData,
+} from './albumPreviewData';
 
 const STORAGE_KEY = 'pixnxt_album_page_photos';
 
@@ -31,7 +36,22 @@ function resolveStoredPhoto(albumId, stored) {
     if (typeof stored === 'string') return stored;
     if (stored.dataUrl) return stored.dataUrl;
     if (stored.collectionItemId) {
-        return getCollectionItem(albumId, stored.collectionItemId)?.dataUrl ?? null;
+        return (
+            getCollectionItem(albumId, stored.collectionItemId)?.dataUrl ??
+            getRemoteCollectionItem(albumId, stored.collectionItemId)?.dataUrl ??
+            null
+        );
+    }
+    return null;
+}
+
+function resolveRemotePagePhoto(albumId, key) {
+    const remote = getRemotePagePhoto(albumId, key);
+    if (!remote) return null;
+    if (typeof remote === 'string') return remote;
+    if (remote.dataUrl) return remote.dataUrl;
+    if (remote.collectionItemId) {
+        return getRemoteCollectionItem(albumId, remote.collectionItemId)?.dataUrl ?? null;
     }
     return null;
 }
@@ -39,13 +59,17 @@ function resolveStoredPhoto(albumId, stored) {
 export function getSpreadPhotoOverride(albumId, leftPage) {
     if (!albumId || leftPage == null) return null;
     const album = readAll()[albumId];
-    return resolveStoredPhoto(albumId, album?.[spreadStorageKey(leftPage)]);
+    const local = resolveStoredPhoto(albumId, album?.[spreadStorageKey(leftPage)]);
+    if (local) return local;
+    return resolveRemotePagePhoto(albumId, spreadStorageKey(leftPage));
 }
 
 export function getPagePhotoOverride(albumId, pageNum) {
     if (!albumId || pageNum == null) return null;
     const album = readAll()[albumId];
-    return resolveStoredPhoto(albumId, album?.[String(pageNum)]);
+    const local = resolveStoredPhoto(albumId, album?.[String(pageNum)]);
+    if (local) return local;
+    return resolveRemotePagePhoto(albumId, String(pageNum));
 }
 
 /** Per-slot image: whole-spread photo (panoramic) or single-page override. */
@@ -66,7 +90,8 @@ export function hasGridSlotPhoto(albumId, pageNum, cellId, spreadLeftPage) {
 
 export function getAlbumPhotoRevision(albumId) {
     const album = readAll()[albumId];
-    return album?.__revision ?? 0;
+    if (album?.__revision != null) return album.__revision;
+    return getRemotePreviewData(albumId)?.revision ?? 0;
 }
 
 /** First available image for album list cards (cover, collection, or placed pages). */

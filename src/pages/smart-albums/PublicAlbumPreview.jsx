@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
+import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache } from '../../components/smart-albums/albumPreviewData';
 import { smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
 import AlbumPreview from './AlbumPreview';
 import { parseUrlPage } from './useAlbumWorkspace';
@@ -37,8 +38,20 @@ export default function PublicAlbumPreview() {
     }, [albumId]);
 
     useEffect(() => {
+        if (album?.preview_data) {
+            hydrateAlbumPreviewData(albumId, album.preview_data);
+        }
+    }, [albumId, album?.preview_data]);
+
+    useEffect(() => {
+        return () => {
+            clearAlbumPreviewDataCache(albumId);
+        };
+    }, [albumId]);
+
+    useEffect(() => {
         if (albumId) setPhotoRevision(getAlbumPhotoRevision(albumId) || 0);
-    }, [albumId, album?.id]);
+    }, [albumId, album?.id, album?.preview_data]);
 
     const totalPages = album?.page_count || 21;
     const initialPage = parseUrlPage(searchParams.get('page'), totalPages);

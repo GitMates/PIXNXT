@@ -1,6 +1,7 @@
 import { storageService } from '../../services/storage.service';
 import { expandUploadFilesToImages } from '../../lib/pdfToImages';
 import { supabase } from '../../lib/supabase/client';
+import { getRemotePreviewData } from './albumPreviewData';
 
 const STORAGE_KEY = 'pixnxt_album_collections';
 const ALBUM_PATH_CACHE = new Map();
@@ -118,7 +119,11 @@ async function uploadCollectionImage({ albumId, photographerId, image, index }) 
 export function getAlbumCollection(albumId) {
     if (!albumId) return [];
     const list = readAll()[albumId];
-    return Array.isArray(list?.items) ? list.items : [];
+    const localItems = Array.isArray(list?.items) ? list.items : [];
+    if (localItems.length > 0) return localItems;
+
+    const remote = getRemotePreviewData(albumId);
+    return Array.isArray(remote?.collection) ? remote.collection : [];
 }
 
 export function getAlbumCollectionRevision(albumId) {

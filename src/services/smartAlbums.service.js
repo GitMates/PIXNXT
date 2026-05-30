@@ -3,6 +3,7 @@ import { categoryTagsToDb } from '../lib/categoryTags';
 import { deleteAlbumCollectionAssets } from '../components/smart-albums/albumCollection';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
+import { buildAlbumPreviewSnapshot } from '../components/smart-albums/albumPreviewData';
 
 
 
@@ -177,6 +178,7 @@ function isMissingColumnError(error) {
     msg.includes('comments_enabled') ||
     msg.includes('replies_enabled') ||
     msg.includes('messages_enabled') ||
+    msg.includes('preview_data') ||
 
     (msg.includes('column') && msg.includes('does not exist'))
 
@@ -401,6 +403,44 @@ async function syncLocalAlbumsToSupabase(photographerId, remoteRows) {
   );
 }
 
+async function syncLocalAlbumSettingsToSupabase(photographerId, remoteRows) {
+  const settingsOvr = readSettingsOverrides(photographerId);
+  if (!Object.keys(settingsOvr).length) return;
+
+  for (const row of remoteRows || []) {
+    const ovr = settingsOvr[row.id];
+    if (!ovr) continue;
+
+    const payload = { updated_at: new Date().toISOString() };
+    if (ovr.status !== undefined && ovr.status !== row.status) {
+      payload.status = ovr.status === 'published' ? 'published' : 'draft';
+    }
+    if (
+      ovr.comments_enabled !== undefined &&
+      ovr.comments_enabled !== row.comments_enabled
+    ) {
+      payload.comments_enabled = ovr.comments_enabled;
+    }
+    if (ovr.replies_enabled !== undefined && ovr.replies_enabled !== row.replies_enabled) {
+      payload.replies_enabled = ovr.replies_enabled;
+    }
+    if (ovr.messages_enabled !== undefined && ovr.messages_enabled !== row.messages_enabled) {
+      payload.messages_enabled = ovr.messages_enabled;
+    }
+    if (Object.keys(payload).length <= 1) continue;
+
+    const { error } = await supabase
+      .from('smart_albums')
+      .update(payload)
+      .eq('photographer_id', photographerId)
+      .eq('id', row.id);
+
+    if (error) {
+      console.warn('Could not sync album settings to Supabase:', row.id, error.message);
+    }
+  }
+}
+
 
 
 async function deleteAlbumAssets(albumId) {
@@ -472,6 +512,7 @@ export const smartAlbumsService = {
     }
 
     const synced = await syncLocalAlbumsToSupabase(photographerId, data || []);
+    await syncLocalAlbumSettingsToSupabase(photographerId, synced);
 
     return mergeAlbumRows(synced, photographerId);
 
@@ -663,13 +704,29 @@ export const smartAlbumsService = {
       writeSettingsOverride(photographerId, albumId, settingsPatch);
     }
 
-    const { data, error } = await supabase
+    if (patch.status === 'published') {
+      const previewData = buildAlbumPreviewSnapshot(albumId);
+      if (previewData) payload.preview_data = previewData;
+    }
+
+    let { data, error } = await supabase
       .from('smart_albums')
       .update(payload)
       .eq('photographer_id', photographerId)
       .eq('id', albumId)
       .select('*')
       .maybeSingle();
+
+    if (!error && !data) {
+      await syncLocalAlbumsToSupabase(photographerId, []);
+      ({ data, error } = await supabase
+        .from('smart_albums')
+        .update(payload)
+        .eq('photographer_id', photographerId)
+        .eq('id', albumId)
+        .select('*')
+        .maybeSingle());
+    }
 
     if (!error && data) {
       return mapAlbumRow(data, photographerId);
@@ -691,6 +748,34 @@ export const smartAlbumsService = {
     }
 
     return { ...album, ...patch };
+  },
+
+  async syncAlbumPreviewData(photographerId, albumId) {
+    const previewData = buildAlbumPreviewSnapshot(albumId);
+    if (!previewData) return null;
+
+    const { data, error } = await supabase
+      .from('smart_albums')
+      .update({
+        preview_data: previewData,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('photographer_id', photographerId)
+      .eq('id', albumId)
+      .select('preview_data')
+      .maybeSingle();
+
+    if (error && shouldUseLocalStore(error)) {
+      console.warn('preview_data column missing; apply latest migration.');
+      return previewData;
+    }
+
+    if (error) {
+      console.warn('syncAlbumPreviewData:', error.message);
+      return previewData;
+    }
+
+    return data?.preview_data ?? previewData;
   },
 
   async updateAlbumDetails(photographerId, albumId, patch) {
