@@ -4,20 +4,14 @@ import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
 import { getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
 import './AlbumBook.css';
+import { parseGridSizeAspect } from './albumGridSize';
 
 const FLIP_TIME_MS = 800;
-
-const GRID_SIZE_ASPECT = {
-    square: 1,
-    portrait: 0.8,
-    landscape: 1.25,
-    wide: 16 / 9,
-};
 
 function getFocusBookDimensions(gridSize = 'square') {
     const w = window.innerWidth;
     const h = window.innerHeight;
-    const aspect = GRID_SIZE_ASPECT[gridSize] || GRID_SIZE_ASPECT.square;
+    const aspect = parseGridSizeAspect(gridSize);
     const spreadWidth = w;
     const maxPageWidth = spreadWidth / 2;
     const pageHeight = Math.floor(Math.min(h, maxPageWidth / aspect));

@@ -30,6 +30,7 @@ import {
 import './AlbumBook.css';
 import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
+import { parseGridSizeAspect } from './albumGridSize';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
@@ -38,18 +39,11 @@ const BOOK_PAGE_HEIGHT_MIN = 300;
 const BOOK_PAGE_HEIGHT_MAX = 520;
 const BOOK_PAGE_HEIGHT_SCALE = 0.93;
 
-const GRID_SIZE_ASPECT = {
-    square: 1,
-    portrait: 0.8,
-    landscape: 1.25,
-    wide: 16 / 9,
-};
-
 function getBookDimensions(stageEl, gridSize = 'square') {
     if (!stageEl) return { width: 480, height: 480 };
     const w = stageEl.clientWidth;
     const h = stageEl.clientHeight;
-    const aspect = GRID_SIZE_ASPECT[gridSize] || GRID_SIZE_ASPECT.square;
+    const aspect = parseGridSizeAspect(gridSize);
     const maxPageWidth = w / 2;
     const maxPageHeight = h * BOOK_PAGE_HEIGHT_SCALE;
     const pageHeight = Math.floor(Math.min(maxPageHeight, maxPageWidth / aspect));
