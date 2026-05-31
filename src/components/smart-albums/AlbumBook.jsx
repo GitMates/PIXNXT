@@ -318,17 +318,47 @@ const AlbumBook = ({
         return () => window.removeEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
     }, [album?.id]);
 
+    const handleActivatePinMode = useCallback(() => {
+        setPinModeActive(true);
+        setPinComposer(null);
+    }, []);
+
+    const exitPinMode = useCallback(() => {
+        setPinModeActive(false);
+        setPinComposer(null);
+    }, []);
+
+    useEffect(() => {
+        if (!pinModeActive || !pinMarkMode) return undefined;
+
+        const onDocClick = (e) => {
+            const target = e.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest('.ab-photo-pin-layer--placing')) return;
+            if (target.closest('.ab-pin-composer')) return;
+            if (target.closest('.ab-proof-tool-btn')) return;
+            if (target.closest('.ab-proof-tools-hover')) return;
+            exitPinMode();
+        };
+
+        const timer = window.setTimeout(() => {
+            document.addEventListener('click', onDocClick);
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timer);
+            document.removeEventListener('click', onDocClick);
+        };
+    }, [pinModeActive, pinMarkMode, exitPinMode]);
+
     useEffect(() => {
         if (!pinModeActive) return undefined;
         const onKey = (e) => {
-            if (e.key === 'Escape') {
-                setPinModeActive(false);
-                setPinComposer(null);
-            }
+            if (e.key === 'Escape') exitPinMode();
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [pinModeActive]);
+    }, [pinModeActive, exitPinMode]);
 
     const handleSwapRequest = useCallback(
         (slot) => {
@@ -370,11 +400,6 @@ const AlbumBook = ({
             }),
         [photoPins, placementMode]
     );
-
-    const handleActivatePinMode = useCallback(() => {
-        setPinModeActive(true);
-        setPinComposer(null);
-    }, []);
 
     const handlePinPlace = useCallback((placement) => {
         setPinComposer(placement);

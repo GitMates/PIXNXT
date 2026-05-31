@@ -326,8 +326,15 @@
   background: #000;
 }
 
+.ab-root--pin-mode .ab-grid-cell-empty,
+.ab-root--pin-mode .ab-grid-cell-placeholder,
+.ab-root--pin-mode .ab-page-cover-placeholder,
+.ab-root--pin-mode .ab-page-placeholder {
+  cursor: pointer;
+}
+
 .ab-root--pin-mode .ab-book-stage {
-  cursor: crosshair;
+  cursor: default;
 }
 
 /* Combined swap + pin hover on grid cells */
