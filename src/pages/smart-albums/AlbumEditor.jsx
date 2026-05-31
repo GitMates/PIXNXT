@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
 import CollectionPickerModal from '../../components/smart-albums/CollectionPickerModal';
-import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
+import { AlbumPreviewLinkModal } from '../../components/smart-albums/AlbumShareModals';
 import {
     getSmartAlbumPreviewShareUrl,
     openShareByEmail,
@@ -118,7 +118,6 @@ export default function AlbumEditor({
     const [overviewReopenToken, setOverviewReopenToken] = useState(0);
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
-    const [shareQrOpen, setShareQrOpen] = useState(false);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const shareRef = useRef(null);
@@ -548,16 +547,6 @@ export default function AlbumEditor({
                                 </button>
                                 <button
                                     type="button"
-                                    className="ae-share-dropdown-item"
-                                    onClick={() => {
-                                        setShowShareMenu(false);
-                                        setShareQrOpen(true);
-                                    }}
-                                >
-                                    Get QR code
-                                </button>
-                                <button
-                                    type="button"
                                     className="ae-share-dropdown-item ae-share-dropdown-item--whatsapp"
                                     onClick={() => {
                                         setShowShareMenu(false);
@@ -680,12 +669,6 @@ export default function AlbumEditor({
                 isOpen={shareLinkOpen}
                 onClose={() => setShareLinkOpen(false)}
             />
-            <AlbumPreviewQrModal
-                album={album}
-                isOpen={shareQrOpen}
-                onClose={() => setShareQrOpen(false)}
-            />
-
             <CollectionPickerModal
                 open={pickerOpen}
                 title={pickerTitle(gridEditSet, gridSelection)}
