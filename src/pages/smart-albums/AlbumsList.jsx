@@ -4,6 +4,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { openSmartAlbumPreview, getSmartAlbumPreviewShareUrl, openShareByEmail, openWhatsAppShare } from '../../lib/shareSmartAlbum';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { getAlbumListThumbnailUrl } from '../../components/smart-albums/albumPagePhotos';
+import {
+    deriveCoverUrlFromSnapshot,
+    hydrateAlbumPreviewData,
+} from '../../components/smart-albums/albumPreviewData';
 import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu';
 import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
 import EditAlbumModal from '../../components/smart-albums/EditAlbumModal';
@@ -12,6 +16,11 @@ import './SmartAlbums.css';
 
 function getAlbumThumbSrc(album) {
     if (album.cover_image_url) return album.cover_image_url;
+    const fromSnapshot = deriveCoverUrlFromSnapshot(album.preview_data);
+    if (fromSnapshot) return fromSnapshot;
+    if (album.preview_data) {
+        hydrateAlbumPreviewData(album.id, album.preview_data);
+    }
     return getAlbumListThumbnailUrl(album.id);
 }
 
@@ -156,7 +165,14 @@ const AlbumsList = ({ starredOnly = false }) => {
                 const data = starredOnly
                     ? await smartAlbumsService.getStarredAlbums(user.id)
                     : await smartAlbumsService.getAlbums(user.id);
-                if (!cancelled) setAlbums(data);
+                if (!cancelled) {
+                    data.forEach((album) => {
+                        if (album.preview_data) {
+                            hydrateAlbumPreviewData(album.id, album.preview_data);
+                        }
+                    });
+                    setAlbums(data);
+                }
             } catch (err) {
                 console.error(err);
                 if (!cancelled) setAlbums([]);

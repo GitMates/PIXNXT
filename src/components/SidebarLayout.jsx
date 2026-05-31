@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
@@ -25,7 +26,8 @@ const SidebarLayout = ({ children }) => {
     const { user, logout } = useAuth();
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
-    const userInitial = user?.email ? user.email.charAt(0).toUpperCase() : 'U';
+    const userInitial = getUserInitial(user);
+    const userDisplayLabel = getUserDisplayLabel(user);
 
     useEffect(() => {
         const handleClickOutside = (e) => {
@@ -48,7 +50,7 @@ const SidebarLayout = ({ children }) => {
                     {userInitial}
                 </div>
                 <div className="flex flex-col">
-                    <div className="text-[17px] font-medium text-[#222] truncate w-[180px]">{user?.email ? user.email.split('@')[0].toUpperCase() : 'POOJA'}</div>
+                    <div className="text-[17px] font-medium text-[#222] truncate w-[180px]">{userDisplayLabel}</div>
                     <div className="text-[15px] text-[#888] truncate w-[180px]">{user?.email || 'poojaelango03@gmail.com'}</div>
                 </div>
             </div>

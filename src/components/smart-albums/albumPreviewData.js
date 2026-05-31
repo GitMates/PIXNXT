@@ -13,6 +13,70 @@ function readLocalPhotos(albumId) {
     }
 }
 
+function resolveStoredUrl(stored, collection) {
+    if (!stored) return null;
+    if (typeof stored === 'string') return stored;
+    if (stored.dataUrl) return stored.dataUrl;
+    if (stored.collectionItemId) {
+        return collection.find((item) => item.id === stored.collectionItemId)?.dataUrl ?? null;
+    }
+    return null;
+}
+
+/** Pick the best list-card image from a cloud snapshot (no localStorage). */
+export function deriveCoverUrlFromSnapshot(snapshot) {
+    if (!snapshot) return null;
+    if (snapshot.cover_url) return snapshot.cover_url;
+
+    const collection = snapshot.collection || [];
+    const pages = snapshot.pages || {};
+
+    const cover = resolveStoredUrl(pages['0'], collection);
+    if (cover) return cover;
+
+    if (collection[0]?.dataUrl) return collection[0].dataUrl;
+
+    const pageNums = Object.keys(pages)
+        .filter((k) => !k.startsWith('spread:'))
+        .map((k) => Number(k))
+        .filter((n) => !Number.isNaN(n) && n > 0)
+        .sort((a, b) => a - b);
+
+    for (const page of pageNums) {
+        const url = resolveStoredUrl(pages[String(page)], collection);
+        if (url) return url;
+    }
+
+    const spreadKeys = Object.keys(pages)
+        .filter((k) => k.startsWith('spread:'))
+        .sort((a, b) => Number(a.replace('spread:', '')) - Number(b.replace('spread:', '')));
+
+    for (const key of spreadKeys) {
+        const url = resolveStoredUrl(pages[key], collection);
+        if (url) return url;
+    }
+
+    return null;
+}
+
+function listAlbumIdsWithLocalAssets() {
+    const ids = new Set();
+    try {
+        const collections = JSON.parse(localStorage.getItem('pixnxt_album_collections') || '{}');
+        Object.keys(collections).forEach((id) => ids.add(id));
+        const photos = JSON.parse(localStorage.getItem(PHOTOS_KEY) || '{}');
+        Object.keys(photos).forEach((id) => ids.add(id));
+    } catch {
+        /* ignore */
+    }
+    return [...ids];
+}
+
+/** Album ids that have collection or page data in this browser. */
+export function getAlbumIdsWithLocalAssets() {
+    return listAlbumIdsWithLocalAssets();
+}
+
 function resolvePageValue(albumId, stored) {
     if (!stored) return null;
     if (typeof stored === 'string') return stored;
@@ -45,13 +109,15 @@ export function buildAlbumPreviewSnapshot(albumId) {
         pages[key] = resolvePageValue(albumId, localPages[key]);
     });
 
-    return {
+    const snapshot = {
         version: 1,
         updated_at: new Date().toISOString(),
         collection,
         pages,
         revision: localPages.__revision ?? 0,
     };
+    snapshot.cover_url = deriveCoverUrlFromSnapshot(snapshot);
+    return snapshot;
 }
 
 export function hydrateAlbumPreviewData(albumId, previewData) {

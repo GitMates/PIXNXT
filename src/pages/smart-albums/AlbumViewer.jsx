@@ -38,11 +38,11 @@ const AlbumViewer = () => {
     }, [albumId, album?.id]);
 
     useEffect(() => {
-        if (!albumId || !user?.id || album?.status !== 'published') return;
+        if (!albumId || !user?.id) return;
         smartAlbumsService.syncAlbumPreviewData(user.id, albumId).catch((e) => {
             console.warn('Could not sync album preview snapshot', e);
         });
-    }, [albumId, user?.id, album?.status, photoRevision]);
+    }, [albumId, user?.id, photoRevision]);
 
     useEffect(() => {
         if (!albumId || !isAlbumPreviewView(searchParams)) return;

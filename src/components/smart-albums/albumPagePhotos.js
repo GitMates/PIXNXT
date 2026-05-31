@@ -4,6 +4,7 @@ import {
     getRemoteCollectionItem,
     getRemotePagePhoto,
     getRemotePreviewData,
+    deriveCoverUrlFromSnapshot,
 } from './albumPreviewData';
 
 const STORAGE_KEY = 'pixnxt_album_page_photos';
@@ -130,7 +131,7 @@ export function getAlbumListThumbnailUrl(albumId) {
         if (src) return src;
     }
 
-    return null;
+    return deriveCoverUrlFromSnapshot(getRemotePreviewData(albumId));
 }
 
 /**

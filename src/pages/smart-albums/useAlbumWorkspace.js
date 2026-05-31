@@ -9,6 +9,7 @@ import {
 import { getTotalSpreads } from '../../components/smart-albums/albumSpreadUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
+import { hydrateAlbumPreviewData } from '../../components/smart-albums/albumPreviewData';
 
 export function parseUrlPage(raw, totalPages) {
     if (raw == null || raw === '') return 0;
@@ -65,7 +66,12 @@ export function useAlbumWorkspace() {
             try {
                 setLoading(true);
                 const data = await smartAlbumsService.getAlbum(user.id, albumId);
-                if (!cancelled) setAlbum(data);
+                if (!cancelled) {
+                    if (data?.preview_data) {
+                        hydrateAlbumPreviewData(albumId, data.preview_data);
+                    }
+                    setAlbum(data);
+                }
             } catch (err) {
                 console.error(err);
                 if (!cancelled) setAlbum(null);
