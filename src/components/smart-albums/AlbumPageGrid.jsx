@@ -228,16 +228,22 @@ export default function AlbumPageGrid({
                             onSwapRequest={() => onSwapRequest?.(buildSwapSlot(photoIndex, cell.id))}
                             onActivatePinMode={pinMarkMode ? onActivatePinMode : undefined}
                             pins={slotPins}
-                            onPlacePin={(xPct, yPct) =>
+                            onPlacePin={(xPct, yPct) => {
+                                let targetPage = photoIndex;
+                                let targetCell = cell.id;
+                                if (wholePlacement) {
+                                    targetPage = cell.id === 2 ? spreadLeft + 1 : spreadLeft;
+                                    targetCell = cell.id;
+                                }
                                 onPinPlace?.({
-                                    pageNum: photoIndex,
-                                    cellId: cell.id,
+                                    pageNum: targetPage,
+                                    cellId: targetCell,
                                     spreadLeft,
                                     xPct,
                                     yPct,
                                     label: buildSwapSlot(photoIndex, cell.id).label,
-                                })
-                            }
+                                });
+                            }}
                             onRemovePin={onPinRemove}
                         >
                             {spreadEdit && hasPhoto ? (

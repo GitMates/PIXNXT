@@ -180,6 +180,9 @@ export function isSlotSwapLocked(
 ) {
     let key = makeSlotKey(pageNum, cellId);
     if (placementMode === 'whole' && spreadLeft != null) {
+        if (!(pageNum === spreadLeft && cellId === 1)) {
+            return isSlotKeyLocked(marks, makeSlotKey(spreadLeft, 1));
+        }
         key = makeSlotKey(spreadLeft, 1);
     }
     return isSlotKeyLocked(marks, key);
@@ -215,6 +218,9 @@ export function getSwapMarkForSlot(
 ) {
     let key = makeSlotKey(pageNum, cellId);
     if (placementMode === 'whole' && spreadLeft != null) {
+        if (!(pageNum === spreadLeft && cellId === 1)) {
+            return null;
+        }
         key = makeSlotKey(spreadLeft, 1);
     }
 
