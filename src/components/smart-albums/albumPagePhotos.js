@@ -212,6 +212,42 @@ export function clearPagePhoto(albumId, pageNum) {
 }
 
 /** Remove all placed photos from album pages (collection is unchanged). */
+function remapPageStoredValue(stored, idMap) {
+    if (stored == null) return stored;
+    if (typeof stored === 'string') return stored;
+    if (typeof stored === 'object' && stored.collectionItemId) {
+        const newId = idMap.get(stored.collectionItemId);
+        return newId ? { collectionItemId: newId } : { collectionItemId: stored.collectionItemId };
+    }
+    if (typeof stored === 'object') return { ...stored };
+    return stored;
+}
+
+/** Copy page / spread placements from one album to another (remaps collection item ids). */
+export function copyAlbumPagePhotos(sourceAlbumId, targetAlbumId, idMap = new Map()) {
+    if (!sourceAlbumId || !targetAlbumId) return;
+
+    const all = readAll();
+    const local = all[sourceAlbumId] || {};
+    const remote = getRemotePreviewData(sourceAlbumId);
+    const keys = new Set([
+        ...Object.keys(local).filter((k) => k !== '__revision'),
+        ...Object.keys(remote?.pages || {}),
+    ]);
+
+    if (keys.size === 0) return;
+
+    const target = { __revision: Date.now() };
+    for (const key of keys) {
+        const stored = local[key] ?? remote?.pages?.[key];
+        if (stored == null) continue;
+        target[key] = remapPageStoredValue(stored, idMap);
+    }
+
+    all[targetAlbumId] = target;
+    writeAll(all);
+}
+
 export function clearAllAlbumPagePhotos(albumId, { totalPages = 21 } = {}) {
     if (!albumId) return 0;
     const all = readAll();

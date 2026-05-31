@@ -3,7 +3,8 @@ import { categoryTagsToDb } from '../lib/categoryTags';
 import { deleteAlbumCollectionAssets } from '../components/smart-albums/albumCollection';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
-import { buildAlbumPreviewSnapshot, getAlbumIdsWithLocalAssets } from '../components/smart-albums/albumPreviewData';
+import { buildAlbumPreviewSnapshot, getAlbumIdsWithLocalAssets, hydrateAlbumPreviewData } from '../components/smart-albums/albumPreviewData';
+import { duplicateAlbumAssets } from '../components/smart-albums/albumDuplicate';
 
 
 
@@ -14,6 +15,8 @@ const STARRED_OVR_KEY = 'pixnxt_smart_albums_starred';
 const SETTINGS_OVR_KEY = 'pixnxt_smart_album_settings_ovr';
 
 const PAGECOUNT_OVR_KEY = 'pixnxt_smart_album_pagecount_ovr';
+
+const GRID_SETTINGS_OVR_KEY = 'pixnxt_smart_album_grid_settings_ovr';
 
 
 
@@ -31,6 +34,14 @@ function generateSlug(name) {
 
   return `${base || 'album'}-${Date.now().toString(36)}`;
 
+}
+
+function normalizeAlbumName(name) {
+  return String(name || '').trim();
+}
+
+function albumNameKey(name) {
+  return normalizeAlbumName(name).toLowerCase();
 }
 
 
@@ -179,6 +190,8 @@ function isMissingColumnError(error) {
     msg.includes('replies_enabled') ||
     msg.includes('messages_enabled') ||
     msg.includes('preview_data') ||
+    msg.includes('grid_size') ||
+    msg.includes('grid_layout') ||
 
     (msg.includes('column') && msg.includes('does not exist'))
 
@@ -418,6 +431,45 @@ function writePageCountOverride(photographerId, albumId, pageCount) {
   }
 }
 
+function readGridSettingsOverrides(photographerId) {
+  try {
+    const raw = localStorage.getItem(GRID_SETTINGS_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    return all[photographerId] || {};
+  } catch {
+    return {};
+  }
+}
+
+function writeGridSettingsOverride(photographerId, albumId, patch) {
+  try {
+    const raw = localStorage.getItem(GRID_SETTINGS_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const userMap = { ...(all[photographerId] || {}) };
+    userMap[albumId] = {
+      ...(userMap[albumId] || {}),
+      ...patch,
+    };
+    all[photographerId] = userMap;
+    localStorage.setItem(GRID_SETTINGS_OVR_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
+function removeGridSettingsOverride(photographerId, albumId) {
+  try {
+    const raw = localStorage.getItem(GRID_SETTINGS_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const userMap = { ...(all[photographerId] || {}) };
+    delete userMap[albumId];
+    all[photographerId] = userMap;
+    localStorage.setItem(GRID_SETTINGS_OVR_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
 function mapAlbumRow(row, photographerId) {
 
   const overrides = photographerId ? readStarredOverrides(photographerId) : {};
@@ -427,6 +479,7 @@ function mapAlbumRow(row, photographerId) {
   const withSettings = applySettingsOverrides(row, photographerId);
   const pageCountOverrides = photographerId ? readPageCountOverrides(photographerId) : {};
   const pageCountFromOverride = pageCountOverrides[row.id];
+  const gridOverrides = photographerId ? readGridSettingsOverrides(photographerId)[row.id] : null;
 
   return {
 
@@ -434,9 +487,9 @@ function mapAlbumRow(row, photographerId) {
 
     page_count: pageCountFromOverride ?? withSettings.page_count ?? 21,
 
-    grid_size: withSettings.grid_size ?? 'square',
+    grid_size: gridOverrides?.grid_size ?? withSettings.grid_size ?? 'square',
 
-    grid_layout: withSettings.grid_layout ?? 'two-page',
+    grid_layout: gridOverrides?.grid_layout ?? withSettings.grid_layout ?? 'two-page',
 
     comments_enabled: withSettings.comments_enabled !== false,
 
@@ -623,6 +676,30 @@ function mergeAlbumRows(remoteRows, photographerId) {
 
 export const smartAlbumsService = {
 
+  async albumNameExists(photographerId, name, excludeAlbumId = null) {
+    const key = albumNameKey(name);
+    if (!key) return false;
+    const albums = await this.getAlbums(photographerId);
+    return albums.some(
+      (album) => album.id !== excludeAlbumId && albumNameKey(album.name) === key
+    );
+  },
+
+  async buildUniqueCopyName(photographerId, baseName) {
+    const normalized = normalizeAlbumName(baseName) || 'Untitled';
+    const albums = await this.getAlbums(photographerId);
+    const taken = new Set(albums.map((album) => albumNameKey(album.name)));
+
+    const first = `${normalized} (Copy)`;
+    if (!taken.has(albumNameKey(first))) return first;
+
+    let copyIndex = 2;
+    while (taken.has(albumNameKey(`${normalized} (Copy ${copyIndex})`))) {
+      copyIndex += 1;
+    }
+    return `${normalized} (Copy ${copyIndex})`;
+  },
+
   async getAlbums(photographerId) {
 
     const { data, error } = await supabase
@@ -731,15 +808,23 @@ export const smartAlbumsService = {
     grid_layout = 'two-page',
   }) {
 
+    const trimmedName = normalizeAlbumName(name);
+    if (!trimmedName) {
+      throw new Error('Album name is required.');
+    }
+    if (await this.albumNameExists(photographer_id, trimmedName)) {
+      throw new Error(`An album named "${trimmedName}" already exists. Choose a different name.`);
+    }
+
     const payload = {
 
       photographer_id,
 
-      name: name.trim(),
+      name: trimmedName,
 
       event_date: event_date || null,
 
-      slug: generateSlug(name),
+      slug: generateSlug(trimmedName),
 
       page_count: Math.max(1, Math.min(99, Math.floor(Number(page_count) || 21))),
 
@@ -758,6 +843,10 @@ export const smartAlbumsService = {
 
 
     if (data) {
+      writeGridSettingsOverride(photographer_id, data.id, {
+        grid_size: payload.grid_size,
+        grid_layout: payload.grid_layout,
+      });
       removeLocalAlbum(photographer_id, data.id);
       return mapAlbumRow(data, photographer_id);
     }
@@ -789,6 +878,10 @@ export const smartAlbumsService = {
         const existing = readLocalAlbums(photographer_id);
 
         writeLocalAlbums(photographer_id, [album, ...existing]);
+        writeGridSettingsOverride(photographer_id, album.id, {
+          grid_size: payload.grid_size,
+          grid_layout: payload.grid_layout,
+        });
 
         return mapAlbumRow(album, photographer_id);
 
@@ -935,7 +1028,11 @@ export const smartAlbumsService = {
     const payload = { updated_at: new Date().toISOString() };
 
     if (patch.name !== undefined) {
-      payload.name = String(patch.name || '').trim() || 'Untitled';
+      const trimmedName = normalizeAlbumName(patch.name) || 'Untitled';
+      if (await this.albumNameExists(photographerId, trimmedName, albumId)) {
+        throw new Error(`An album named "${trimmedName}" already exists. Choose a different name.`);
+      }
+      payload.name = trimmedName;
     }
     if (patch.event_date !== undefined) {
       payload.event_date = patch.event_date || null;
@@ -1031,6 +1128,7 @@ export const smartAlbumsService = {
   async deleteAlbum(photographerId, albumId) {
 
     removeStarredOverride(photographerId, albumId);
+    removeGridSettingsOverride(photographerId, albumId);
 
     await deleteAlbumAssets(albumId);
 
@@ -1074,13 +1172,17 @@ export const smartAlbumsService = {
 
     if (!source) throw new Error('Album not found');
 
+    if (source.preview_data) {
+      hydrateAlbumPreviewData(albumId, source.preview_data);
+    }
 
+    const copyName = await this.buildUniqueCopyName(photographerId, source.name);
 
     const copy = await this.createAlbum({
 
       photographer_id: photographerId,
 
-      name: `${source.name} (Copy)`,
+      name: copyName,
 
       event_date: source.event_date,
 
@@ -1092,15 +1194,35 @@ export const smartAlbumsService = {
 
     });
 
+    writePageCountOverride(photographerId, copy.id, source.page_count);
 
+    writeGridSettingsOverride(photographerId, copy.id, {
+      grid_size: source.grid_size,
+      grid_layout: source.grid_layout,
+    });
+
+    await duplicateAlbumAssets(albumId, copy.id, photographerId);
+
+    await this.updateAlbumClientSettings(photographerId, copy.id, {
+      category_tags: source.category_tags,
+      expiry_date: source.expiry_date ?? null,
+      comments_enabled: source.comments_enabled,
+      replies_enabled: source.replies_enabled,
+      messages_enabled: source.messages_enabled,
+      status: source.status === 'published' ? 'published' : 'draft',
+    });
+
+    await this.syncAlbumPreviewData(photographerId, copy.id);
 
     if (source.is_starred) {
-
-      return this.updateAlbumStar(photographerId, copy.id, true);
-
+      await this.updateAlbumStar(photographerId, copy.id, true);
     }
 
-    return copy;
+    const result = await this.getAlbum(photographerId, copy.id);
+    if (result?.preview_data) {
+      hydrateAlbumPreviewData(copy.id, result.preview_data);
+    }
+    return result || copy;
 
   },
 

@@ -62,6 +62,7 @@
   border-radius: 18px;
   background: #fff;
   box-shadow: 0 10px 26px rgba(46, 30, 62, 0.055);
+  overflow: visible;
 }
 
 .sa-create-card--upload {
@@ -103,6 +104,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
+  overflow: visible;
 }
 
 .sa-create-page .cc-submit-btn {
@@ -139,6 +141,10 @@
 
 .sa-select-wrap {
   position: relative;
+}
+
+.sa-select-wrap--open {
+  z-index: 50;
 }
 
 .sa-select-btn {
@@ -377,7 +383,7 @@
 
 .sa-field-note {
   margin: 8px 0 0;
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.45;
   color: #777;
 }

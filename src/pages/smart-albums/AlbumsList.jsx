@@ -144,6 +144,7 @@ const AlbumsList = ({ starredOnly = false }) => {
     const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
     const [shareLinkAlbum, setShareLinkAlbum] = useState(null);
     const [shareQrAlbum, setShareQrAlbum] = useState(null);
+    const [duplicateBusyId, setDuplicateBusyId] = useState(null);
     const [editAlbum, setEditAlbum] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
     const contextRef = useRef(null);
@@ -246,14 +247,17 @@ const AlbumsList = ({ starredOnly = false }) => {
     };
 
     const handleDuplicateAlbum = async (album) => {
-        if (!user) return;
+        if (!user || duplicateBusyId) return;
         closeContextMenu();
+        setDuplicateBusyId(album.id);
         try {
             const copy = await smartAlbumsService.duplicateAlbum(user.id, album.id);
             setAlbums((prev) => [copy, ...prev]);
         } catch (err) {
             console.error(err);
-            alert('Failed to duplicate album. Please try again.');
+            alert(err?.message || 'Failed to duplicate album. Please try again.');
+        } finally {
+            setDuplicateBusyId(null);
         }
     };
 
@@ -316,7 +320,7 @@ const AlbumsList = ({ starredOnly = false }) => {
             setEditAlbum(null);
         } catch (err) {
             console.error(err);
-            alert('Failed to save changes. Please try again.');
+            alert(err?.message || 'Failed to save changes. Please try again.');
         } finally {
             setEditSaving(false);
         }

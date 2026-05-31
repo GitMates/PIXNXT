@@ -351,6 +351,70 @@ export function removeCollectionItem(albumId, itemId) {
     return true;
 }
 
+/**
+ * Deep-copy collection items into another album (re-uploads R2 objects under the target album path).
+ * @returns {Map<string, string>} old collection item id → new id
+ */
+export async function duplicateAlbumCollection(sourceAlbumId, targetAlbumId, photographerId) {
+    const idMap = new Map();
+    if (!sourceAlbumId || !targetAlbumId || sourceAlbumId === targetAlbumId) {
+        return idMap;
+    }
+
+    await loadAlbumAssetsFromCloud(sourceAlbumId, photographerId);
+    const sourceItems = getAlbumCollection(sourceAlbumId);
+    if (!sourceItems.length) return idMap;
+
+    const newItems = [];
+    for (let i = 0; i < sourceItems.length; i += 1) {
+        const item = sourceItems[i];
+        const newId = nextId();
+        idMap.set(item.id, newId);
+
+        const copied = {
+            id: newId,
+            name: item.name || 'Photo',
+            createdAt: Date.now() + i,
+        };
+        if (item.contentHash) copied.contentHash = item.contentHash;
+
+        const dataUrl =
+            item.dataUrl ||
+            (item.storagePath ? storageService.getPublicUrl(item.storagePath) : null);
+
+        if (dataUrl && photographerId) {
+            try {
+                const uploaded = await uploadCollectionImage({
+                    albumId: targetAlbumId,
+                    photographerId,
+                    image: { dataUrl, name: item.name },
+                    index: i,
+                });
+                copied.dataUrl = uploaded.url;
+                copied.storagePath = uploaded.path;
+            } catch (error) {
+                console.warn(
+                    'Could not re-upload collection item for duplicate:',
+                    error?.message || error
+                );
+                copied.dataUrl = dataUrl;
+            }
+        } else if (dataUrl) {
+            copied.dataUrl = dataUrl;
+        }
+
+        newItems.push(copied);
+    }
+
+    const all = readAll();
+    all[targetAlbumId] = {
+        items: newItems,
+        __revision: Date.now(),
+    };
+    writeAll(all);
+    return idMap;
+}
+
 export async function deleteAlbumCollectionAssets(albumId) {
     if (!albumId) return 0;
 

@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
+import { formatGridSizeLabel } from './albumGridSize';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -39,13 +40,6 @@ const NAV = [
     { id: 'pin', label: 'Pin', icon: IconPin },
     { id: 'comments', label: 'Comments', icon: IconComments },
 ];
-
-const GRID_SIZE_LABELS = {
-    square: 'Square pages (1:1)',
-    portrait: 'Portrait pages (4:5)',
-    landscape: 'Landscape pages (5:4)',
-    wide: 'Wide pages (16:9)',
-};
 
 const GRID_LAYOUT_LABELS = {
     'two-page': 'Two-page grid (left + right)',
@@ -263,7 +257,7 @@ export default function AlbumEditorSidebar({
                         <div className="ae-locked-grid">
                             <div>
                                 <span className="ae-locked-grid-label">Grid size</span>
-                                <strong>{GRID_SIZE_LABELS[album?.grid_size] || GRID_SIZE_LABELS.square}</strong>
+                                <strong>{formatGridSizeLabel(album?.grid_size)}</strong>
                             </div>
                             <div>
                                 <span className="ae-locked-grid-label">Grid layout</span>

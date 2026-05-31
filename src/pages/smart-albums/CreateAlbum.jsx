@@ -8,6 +8,11 @@ import {
 } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
+import {
+    GRID_SIZE_OPTIONS,
+    customGridSizeKey,
+    parseCustomAspectRatioInput,
+} from '../../components/smart-albums/albumGridSize';
 import './CreateAlbum.css';
 
 const SPREAD_COUNT_OPTIONS = [3, 4, 5, 6, 8, 11, 16, 21];
@@ -19,14 +24,6 @@ function spreadsToPageCount(spreads) {
 function pageCountToSpreads(pageCount) {
     return Math.max(1, Math.ceil((pageCount + 1) / 2));
 }
-
-const GRID_SIZE_OPTIONS = [
-    { value: 'square', label: 'Square pages (1:1)' },
-    { value: 'portrait', label: 'Portrait pages (4:5)' },
-    { value: 'landscape', label: 'Landscape pages (5:4)' },
-    { value: 'wide', label: 'Wide pages (16:9)' },
-    { value: 'custom', label: 'Custom' },
-];
 
 const GRID_LAYOUT_OPTIONS = [
     { value: 'two-page', label: 'Two-page grid (left + right)' },
@@ -42,6 +39,11 @@ function normalizeCustomKey(value, fallback = 'custom') {
         .replace(/^-+|-+$/g, '') || fallback;
 }
 
+const GRID_SIZE_SELECT_OPTIONS = [
+    ...GRID_SIZE_OPTIONS,
+    { value: 'custom', label: 'Custom ratio…' },
+];
+
 function CustomSelect({ id, value, options, onChange, placeholder = 'Select' }) {
     const [open, setOpen] = useState(false);
     const rootRef = useRef(null);
@@ -56,7 +58,7 @@ function CustomSelect({ id, value, options, onChange, placeholder = 'Select' }) 
     }, []);
 
     return (
-        <div className="sa-select-wrap" ref={rootRef}>
+        <div className={`sa-select-wrap${open ? ' sa-select-wrap--open' : ''}`} ref={rootRef}>
             <button
                 id={id}
                 type="button"
@@ -174,10 +176,16 @@ const CreateAlbum = () => {
                     ? Number(customSpreadCount) || 11
                     : pageCountToSpreads(pageCount);
             const finalPageCount = spreadsToPageCount(Math.max(1, Math.min(99, spreadValue)));
-            const finalGridSize =
-                gridSize === 'custom'
-                    ? `custom-${normalizeCustomKey(customGridSize)}`
-                    : gridSize;
+            let finalGridSize = gridSize;
+            if (gridSize === 'custom') {
+                const ratio = parseCustomAspectRatioInput(customGridSize);
+                if (!ratio) {
+                    setError('Enter a custom page ratio like 3:2 or 4:5.');
+                    setIsSubmitting(false);
+                    return;
+                }
+                finalGridSize = customGridSizeKey(ratio);
+            }
             const finalGridLayout =
                 gridLayout === 'custom'
                     ? `custom-${normalizeCustomKey(customGridLayout)}`
@@ -206,8 +214,8 @@ const CreateAlbum = () => {
                     album.id,
                     gridItems.map((item) => item.id),
                     {
-                        totalPages: album.page_count || pageCount,
-                        gridLayout,
+                        totalPages: album.page_count || finalPageCount,
+                        gridLayout: finalGridLayout,
                     }
                 );
             }
@@ -339,7 +347,7 @@ const CreateAlbum = () => {
                                     <CustomSelect
                                         id="album-grid-size"
                                         value={gridSize}
-                                        options={GRID_SIZE_OPTIONS}
+                                        options={GRID_SIZE_SELECT_OPTIONS}
                                         onChange={setGridSize}
                                     />
                                     {gridSize === 'custom' && (
@@ -348,7 +356,7 @@ const CreateAlbum = () => {
                                             className="cc-input sa-custom-input"
                                             value={customGridSize}
                                             onChange={(e) => setCustomGridSize(e.target.value)}
-                                            placeholder="Custom size label (e.g. 3:2)"
+                                            placeholder="Page ratio, e.g. 3:2"
                                             required
                                         />
                                     )}
