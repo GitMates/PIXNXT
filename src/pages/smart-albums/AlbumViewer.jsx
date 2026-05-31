@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
 import { openSmartAlbumPreview } from '../../lib/shareSmartAlbum';
+import { useAuth } from '../../hooks/useAuth';
+import { smartAlbumsService } from '../../services/smartAlbums.service';
 import AlbumEditor from './AlbumEditor';
 import { useAlbumWorkspace, isAlbumPreviewView, parseUrlPage } from './useAlbumWorkspace';
 import './AlbumViewer.css';
@@ -12,6 +14,7 @@ import './AlbumViewer.css';
 const AlbumViewer = () => {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const { user } = useAuth();
     const [photoRevision, setPhotoRevision] = useState(0);
     const {
         albumId,
@@ -33,6 +36,13 @@ const AlbumViewer = () => {
             setPhotoRevision(getAlbumPhotoRevision(albumId) || 0);
         }
     }, [albumId, album?.id]);
+
+    useEffect(() => {
+        if (!albumId || !user?.id) return;
+        smartAlbumsService.syncAlbumPreviewData(user.id, albumId).catch((e) => {
+            console.warn('Could not sync album preview snapshot', e);
+        });
+    }, [albumId, user?.id, photoRevision]);
 
     useEffect(() => {
         if (!albumId || !isAlbumPreviewView(searchParams)) return;

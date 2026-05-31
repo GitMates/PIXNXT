@@ -92,7 +92,6 @@ function App() {
     location.pathname === '/collections' ||
     location.pathname.startsWith('/gallery/') ||
     location.pathname.startsWith('/album-preview/') ||
-    location.pathname.startsWith('/p/') ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
   if (activeSlug) {
@@ -148,7 +147,6 @@ function App() {
             }
           />
           <Route path="/collections" element={<CollectionList />} />
-          <Route path="/p/:slug" element={<CollectionListRoute />} />
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
           <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
@@ -160,11 +158,6 @@ function App() {
       </div>
     </UploadQueueProvider>
   );
-}
-
-function CollectionListRoute() {
-  const { slug } = useParams();
-  return <CollectionList slug={slug} />;
 }
 
 function ReferralRedirect() {

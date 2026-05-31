@@ -15,6 +15,7 @@ import {
     getAlbumCollection,
     getAlbumCollectionRevision,
     getCollectionItem,
+    loadAlbumAssetsFromCloud,
 } from '../../components/smart-albums/albumCollection';
 import { isPdfFile } from '../../lib/pdfToImages';
 import {
@@ -138,6 +139,25 @@ export default function AlbumEditor({
     useEffect(() => {
         setCollectionRevision(getAlbumCollectionRevision(albumId));
     }, [albumId]);
+
+    useEffect(() => {
+        if (!albumId || !user?.id) return undefined;
+
+        let cancelled = false;
+        (async () => {
+            const result = await loadAlbumAssetsFromCloud(albumId, user.id);
+            if (cancelled || !result.loaded) return;
+            setCollectionRevision(getAlbumCollectionRevision(albumId));
+            onPhotosUploaded?.();
+            setTransformRevision(getTransformRevision(albumId));
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+        // Load once per album session; avoid re-fetch loops from callback identity changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [albumId, user?.id]);
 
     useEffect(() => {
         if (!showShareMenu) return undefined;

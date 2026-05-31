@@ -1282,17 +1282,47 @@ export const galleryService = {
   async getPhotographerProfileBySlug(slug) {
     if (!slug) return null;
     
-    const { data, error } = await supabase
+    // 1. Try to find by homepage_slug
+    let { data, error } = await supabase
       .from('photographers')
       .select('*')
-      .or(`homepage_slug.ilike.${slug},display_name.ilike.${slug},email.ilike.${slug}@%`)
-      .limit(1);
+      .ilike('homepage_slug', slug)
+      .single();
 
-    if (error) {
+    if (error && error.code !== 'PGRST116') {
       throw error;
     }
 
-    return data?.[0] || null;
+    // 2. Fallback to display_name (default username)
+    if (!data) {
+      const { data: byDisplayName, error: pError } = await supabase
+        .from('photographers')
+        .select('*')
+        .ilike('display_name', slug)
+        .single();
+      
+      if (pError && pError.code !== 'PGRST116') {
+        throw pError;
+      }
+      data = byDisplayName;
+    }
+
+    // 3. Fallback to email prefix (before '@')
+    if (!data) {
+      const { data: byEmail, error: eError } = await supabase
+        .from('photographers')
+        .select('*')
+        .ilike('email', `${slug}@%`)
+        .single();
+
+      if (eError) {
+        if (eError.code === 'PGRST116') return null; // No rows found
+        throw eError;
+      }
+      data = byEmail;
+    }
+
+    return data;
   },
 
   /**

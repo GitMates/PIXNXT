@@ -83,8 +83,7 @@ export function AlbumPreviewQrModal({ album, isOpen, onClose }) {
             <CopyField label="ALBUM PREVIEW URL" value={url} />
             {warning ? <p className="cgm-warning">{warning}</p> : null}
             <p className="cgm-hint">
-                Scan to open the album preview. Recipients need access to your PIXNXT account if the album
-                is not published publicly.
+                Scan to open the album preview. The album must be published first.
             </p>
         </ModalShell>
     );

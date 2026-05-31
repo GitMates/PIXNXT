@@ -1,4 +1,4 @@
-import { PutObjectCommand, DeleteObjectsCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { PutObjectCommand, DeleteObjectsCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { getFileMime } from '../lib/fileMime';
 import { r2Client, R2_BUCKET_NAME, R2_PUBLIC_URL } from '../lib/r2';
@@ -122,5 +122,34 @@ export const storageService = {
     }
     const baseUrl = R2_PUBLIC_URL.endsWith('/') ? R2_PUBLIC_URL : `${R2_PUBLIC_URL}/`;
     return `${baseUrl}${path}`;
+  },
+
+  /** List object keys under a prefix (photographer album folders on R2). */
+  async listByPrefix(prefix, { maxKeys = 1000 } = {}) {
+    if (!R2_BUCKET_NAME) {
+      throw new Error('R2 bucket is not configured (VITE_R2_BUCKET_NAME).');
+    }
+
+    const normalized = String(prefix || '').replace(/^\/+/, '');
+    const keys = [];
+    let continuationToken;
+
+    do {
+      const command = new ListObjectsV2Command({
+        Bucket: R2_BUCKET_NAME,
+        Prefix: normalized,
+        MaxKeys: Math.min(maxKeys - keys.length, 1000),
+        ContinuationToken: continuationToken,
+      });
+      const response = await r2Client.send(command);
+      (response.Contents || []).forEach((entry) => {
+        if (entry.Key && !entry.Key.endsWith('/')) {
+          keys.push(entry.Key);
+        }
+      });
+      continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
+    } while (continuationToken && keys.length < maxKeys);
+
+    return keys;
   },
 };
