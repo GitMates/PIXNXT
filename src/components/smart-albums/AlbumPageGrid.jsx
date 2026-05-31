@@ -9,6 +9,9 @@ import { getSpreadPhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import EditableGridPhoto from './EditableGridPhoto';
+import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
+import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
+import './AlbumPhotoPins.css';
 
 function GridPhoto({
     src,
@@ -83,6 +86,16 @@ export default function AlbumPageGrid({
     onSelectSpread,
     onTransformChange,
     transformRevision = 0,
+    swapMarkMode = false,
+    getSwapMarkInfo,
+    onSwapRequest,
+    pinMarkMode = false,
+    pinModeActive = false,
+    getPinsForSlot,
+    onPinPlace,
+    onPinRemove,
+    onActivatePinMode,
+    proofToolsHover = true,
 }) {
     const albumId = albumIdProp ?? album?.id;
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true });
@@ -92,6 +105,22 @@ export default function AlbumPageGrid({
     const wholePlacement = placementMode === 'whole';
     const useSelectCells = editable && !spreadEdit;
     const CellTag = useSelectCells ? 'button' : 'div';
+
+    const buildSwapSlot = (photoIndex, cellId) => {
+        const spreadNum = Math.floor((spreadLeft - 1) / 2) + 1;
+        if (wholePlacement) {
+            return {
+                pageNum: spreadLeft,
+                cellId: 1,
+                spreadLeft,
+                whole: true,
+                label: `Spread ${spreadNum} · Whole`,
+            };
+        }
+        const label =
+            cellId === 1 ? `Spread ${spreadNum} · Left` : `Spread ${spreadNum} · Right`;
+        return { pageNum: photoIndex, cellId, spreadLeft, label };
+    };
 
     return (
         <div
@@ -135,6 +164,19 @@ export default function AlbumPageGrid({
                 const spreadSrc = spreadPhotoOnly
                     ? getSpreadPhotoOverride(albumId, spreadLeft)
                     : null;
+                const swapMarkInfo =
+                    swapMarkMode && getSwapMarkInfo?.(photoIndex, cell.id, spreadLeft);
+                const canSwap = swapMarkMode && Boolean(src) && !swapMarkInfo;
+                const proofTools = (swapMarkMode || pinMarkMode) && Boolean(src);
+                const slotPins =
+                    pinMarkMode && getPinsForSlot
+                        ? getPinsForSlot(photoIndex, cell.id, spreadLeft)
+                        : [];
+                const markedClass = swapMarkInfo
+                    ? ` ab-grid-cell--swap-marked${
+                          swapMarkInfo.locked !== false ? ' ab-grid-cell--swap-locked' : ''
+                      }`
+                    : '';
 
                 return (
                     <CellTag
@@ -144,7 +186,7 @@ export default function AlbumPageGrid({
                             isSelected ? ' ab-grid-cell--selected' : ''
                         }${useSelectCells ? ' ab-grid-cell--interactive' : ''}${
                             spreadEdit && hasPhoto ? ' ab-grid-cell--editing' : ''
-                        }${wholePlacement && selectWholeSpread ? ' ab-grid-cell--whole-unified' : ''}`}
+                        }${wholePlacement && selectWholeSpread ? ' ab-grid-cell--whole-unified' : ''}${markedClass}`}
                         style={{
                             left: cell.left,
                             top: cell.top,
@@ -172,7 +214,32 @@ export default function AlbumPageGrid({
                                 : undefined
                         }
                     >
-                        <div className="ab-grid-cell-photo-wrap">
+                        <AlbumPhotoPinLayer
+                            className={
+                                proofToolsHover && proofTools && !pinModeActive
+                                    ? ' ab-grid-cell-photo-wrap--swap'
+                                    : ''
+                            }
+                            hasPhoto={Boolean(src)}
+                            pinModeActive={pinModeActive && pinMarkMode}
+                            proofToolsEnabled={proofTools}
+                            proofToolsHover={proofToolsHover}
+                            canSwap={canSwap}
+                            onSwapRequest={() => onSwapRequest?.(buildSwapSlot(photoIndex, cell.id))}
+                            onActivatePinMode={pinMarkMode ? onActivatePinMode : undefined}
+                            pins={slotPins}
+                            onPlacePin={(xPct, yPct) =>
+                                onPinPlace?.({
+                                    pageNum: photoIndex,
+                                    cellId: cell.id,
+                                    spreadLeft,
+                                    xPct,
+                                    yPct,
+                                    label: buildSwapSlot(photoIndex, cell.id).label,
+                                })
+                            }
+                            onRemovePin={onPinRemove}
+                        >
                             {spreadEdit && hasPhoto ? (
                                 <EditableGridPhoto
                                     albumId={albumId}
@@ -197,7 +264,8 @@ export default function AlbumPageGrid({
                                     panoramic={panoramic}
                                 />
                             )}
-                        </div>
+                        </AlbumPhotoPinLayer>
+                        <AlbumSwapMarkBadge markInfo={swapMarkInfo} />
                         {useSelectCells && !hasPhoto && (
                             <span className="ab-grid-cell-add">
                                 <span className="ab-grid-cell-add-icon">+</span>
