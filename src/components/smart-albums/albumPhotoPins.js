@@ -38,10 +38,22 @@ export function getPhotoPins(albumId) {
 }
 
 export function getPinsForSlot(pins, pageNum, cellId = 0, { placementMode = 'single', spreadLeft = null } = {}) {
-    let key = makePinSlotKey(pageNum, cellId);
-    if (placementMode === 'whole' && spreadLeft != null) {
-        key = makePinSlotKey(spreadLeft, 1);
+    if (placementMode === 'whole' && spreadLeft != null && pageNum > 0) {
+        const onLeftPage = pageNum === spreadLeft && cellId === 1;
+        const onRightPage = pageNum === spreadLeft + 1 && cellId === 2;
+        if (!onLeftPage && !onRightPage) return [];
+
+        return (pins || []).filter((pin) => {
+            const pinPage = pin.pageNum;
+            const pinCell = pin.cellId ?? 0;
+            if (onLeftPage) {
+                return pinPage === spreadLeft && pinCell === 1;
+            }
+            return pinPage === spreadLeft + 1 && pinCell === 2;
+        });
     }
+
+    const key = makePinSlotKey(pageNum, cellId);
     return (pins || []).filter((p) => makePinSlotKey(p.pageNum, p.cellId ?? 0) === key);
 }
 
