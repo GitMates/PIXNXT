@@ -9,6 +9,7 @@ import { getSpreadPhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import EditableGridPhoto from './EditableGridPhoto';
+import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 
 function GridPhoto({
     src,
@@ -83,6 +84,9 @@ export default function AlbumPageGrid({
     onSelectSpread,
     onTransformChange,
     transformRevision = 0,
+    swapMarkMode = false,
+    getSwapMarkInfo,
+    onSwapRequest,
 }) {
     const albumId = albumIdProp ?? album?.id;
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true });
@@ -92,6 +96,22 @@ export default function AlbumPageGrid({
     const wholePlacement = placementMode === 'whole';
     const useSelectCells = editable && !spreadEdit;
     const CellTag = useSelectCells ? 'button' : 'div';
+
+    const buildSwapSlot = (photoIndex, cellId) => {
+        const spreadNum = Math.floor((spreadLeft - 1) / 2) + 1;
+        if (wholePlacement) {
+            return {
+                pageNum: spreadLeft,
+                cellId: 1,
+                spreadLeft,
+                whole: true,
+                label: `Spread ${spreadNum} · Whole`,
+            };
+        }
+        const label =
+            cellId === 1 ? `Spread ${spreadNum} · Left` : `Spread ${spreadNum} · Right`;
+        return { pageNum: photoIndex, cellId, spreadLeft, label };
+    };
 
     return (
         <div
@@ -135,6 +155,14 @@ export default function AlbumPageGrid({
                 const spreadSrc = spreadPhotoOnly
                     ? getSpreadPhotoOverride(albumId, spreadLeft)
                     : null;
+                const swapMarkInfo =
+                    swapMarkMode && getSwapMarkInfo?.(photoIndex, cell.id, spreadLeft);
+                const canSwap = swapMarkMode && Boolean(src) && !swapMarkInfo;
+                const markedClass = swapMarkInfo
+                    ? ` ab-grid-cell--swap-marked${
+                          swapMarkInfo.locked !== false ? ' ab-grid-cell--swap-locked' : ''
+                      }`
+                    : '';
 
                 return (
                     <CellTag
@@ -144,7 +172,7 @@ export default function AlbumPageGrid({
                             isSelected ? ' ab-grid-cell--selected' : ''
                         }${useSelectCells ? ' ab-grid-cell--interactive' : ''}${
                             spreadEdit && hasPhoto ? ' ab-grid-cell--editing' : ''
-                        }${wholePlacement && selectWholeSpread ? ' ab-grid-cell--whole-unified' : ''}`}
+                        }${wholePlacement && selectWholeSpread ? ' ab-grid-cell--whole-unified' : ''}${markedClass}`}
                         style={{
                             left: cell.left,
                             top: cell.top,
@@ -172,7 +200,11 @@ export default function AlbumPageGrid({
                                 : undefined
                         }
                     >
-                        <div className="ab-grid-cell-photo-wrap">
+                        <div
+                            className={`ab-grid-cell-photo-wrap${
+                                canSwap ? ' ab-grid-cell-photo-wrap--swap' : ''
+                            }`}
+                        >
                             {spreadEdit && hasPhoto ? (
                                 <EditableGridPhoto
                                     albumId={albumId}
@@ -197,7 +229,26 @@ export default function AlbumPageGrid({
                                     panoramic={panoramic}
                                 />
                             )}
+                            {canSwap && (
+                                <div className="ab-swap-hover">
+                                    <button
+                                        type="button"
+                                        className="ab-swap-hover-btn"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSwapRequest?.(buildSwapSlot(photoIndex, cell.id));
+                                        }}
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                                            <path d="M7 16V4M7 4 3 8M7 4l4 4" />
+                                            <path d="M17 8v12M17 20l4-4M17 20l-4-4" />
+                                        </svg>
+                                        Swap
+                                    </button>
+                                </div>
+                            )}
                         </div>
+                        <AlbumSwapMarkBadge markInfo={swapMarkInfo} />
                         {useSelectCells && !hasPhoto && (
                             <span className="ab-grid-cell-add">
                                 <span className="ab-grid-cell-add-icon">+</span>

@@ -39,6 +39,7 @@ import {
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
 import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
+import { getSwapMarks, SWAP_MARKS_CHANGED_EVENT } from '../../components/smart-albums/albumSwapMarks';
 import {
     COMMENTS_CHANGED_EVENT,
     groupRootCommentsBySpread,
@@ -117,6 +118,7 @@ export default function AlbumEditor({
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
     const [shareQrOpen, setShareQrOpen] = useState(false);
+    const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
     const shareRef = useRef(null);
     const [gridSelection, setGridSelection] = useState(() => {
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
@@ -138,6 +140,19 @@ export default function AlbumEditor({
 
     useEffect(() => {
         setCollectionRevision(getAlbumCollectionRevision(albumId));
+    }, [albumId]);
+
+    useEffect(() => {
+        setSwapMarks(getSwapMarks(albumId));
+    }, [albumId]);
+
+    useEffect(() => {
+        const onSwapMarksChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            setSwapMarks(getSwapMarks(albumId));
+        };
+        window.addEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
+        return () => window.removeEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
     }, [albumId]);
 
     useEffect(() => {
@@ -593,6 +608,8 @@ export default function AlbumEditor({
                     pageCountBusy={pageCountBusy}
                     onAddPages={handleAddPages}
                     onRemovePages={handleRemovePages}
+                    swapMarks={swapMarks}
+                    albumId={albumId}
                 />
 
                 <main className="ae-canvas">
@@ -600,8 +617,8 @@ export default function AlbumEditor({
                         <span className="ae-canvas-label">Spread editor</span>
                         <span className="ae-canvas-hint">
                             {spreadEdit
-                                ? 'Drag photo to move · drag each edge to zoom'
-                                : 'Click a page slot to pick a photo from your collection'}
+                                ? 'Drag photo to move · drag each edge to zoom · hover a photo to mark a swap'
+                                : 'Click a page slot to pick a photo · hover a placed photo to mark a swap'}
                         </span>
                     </div>
                     <div className={`ae-canvas-stage${spreadEdit ? ' ae-canvas-stage--edit' : ''}`}>
@@ -632,6 +649,7 @@ export default function AlbumEditor({
                             transformRevision={transformRevision}
                             showGridComments={showGridComments}
                             spreadCommentsBySpread={spreadCommentsBySpread}
+                            swapMarkMode
                         />
                     </div>
                 </main>

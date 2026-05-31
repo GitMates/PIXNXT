@@ -94,6 +94,10 @@ export default function AlbumPreview({
                             previewMode
                             showSamples={false}
                             transformRevision={photoRevision}
+                            swapMarkMode={clientPreview}
+                            placementMode={
+                                album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
+                            }
                         />
                     </div>
                 </div>

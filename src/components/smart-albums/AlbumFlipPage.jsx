@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { getPagePhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import AlbumPageGrid from './AlbumPageGrid';
+import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import {
     getProofLeftPageGridPercent,
     getProofRightPageGridPercent,
@@ -64,6 +65,9 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         onTransformChange,
         transformRevision = 0,
         showPageBadge = false,
+        swapMarkMode = false,
+        getSwapMarkInfo,
+        onSwapRequest,
     },
     ref
 ) {
@@ -82,6 +86,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const showStar = pageNum === 1 && album.is_starred;
     const canSelectCover = pageNum === 0 && editable && !spreadEdit;
     const PageWrapTag = canSelectCover ? 'button' : 'div';
+    const coverSwapMarkInfo = swapMarkMode && getSwapMarkInfo?.(0, 0);
+    const canCoverSwap = swapMarkMode && pageNum === 0 && Boolean(src) && !coverSwapMarkInfo;
 
     const pageBadge =
         showPageBadge && pageNum >= 0 ? (
@@ -116,6 +122,9 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     onSelectSpread={onSelectSpread}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
+                    swapMarkMode={swapMarkMode}
+                    getSwapMarkInfo={getSwapMarkInfo}
+                    onSwapRequest={onSwapRequest}
                 />
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
@@ -156,6 +165,9 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     onSelectSpread={onSelectSpread}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
+                    swapMarkMode={swapMarkMode}
+                    getSwapMarkInfo={getSwapMarkInfo}
+                    onSwapRequest={onSwapRequest}
                 />
             </div>
         );
@@ -168,6 +180,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 type={canSelectCover ? 'button' : undefined}
                 className={`ab-page-photo-wrap${
                     canSelectCover ? ' ab-page-photo-wrap--interactive' : ''
+                }${canCoverSwap ? ' ab-page-photo-wrap--swap' : ''}${
+                    coverSwapMarkInfo
+                        ? ` ab-page-photo-wrap--swap-marked${
+                              coverSwapMarkInfo.locked !== false
+                                  ? ' ab-page-photo-wrap--swap-locked'
+                                  : ''
+                          }`
+                        : ''
                 }`}
                 onClick={canSelectCover ? () => onSelectCover?.() : undefined}
                 aria-label={canSelectCover ? 'Choose cover photo' : undefined}
@@ -179,6 +199,21 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 ) : (
                     <div className="ab-page-placeholder">Add photos to this spread</div>
                 )}
+                {canCoverSwap && (
+                    <div className="ab-swap-hover">
+                        <button
+                            type="button"
+                            className="ab-swap-hover-btn"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onSwapRequest?.({ pageNum: 0, cellId: 0, label: 'Cover' });
+                            }}
+                        >
+                            Swap
+                        </button>
+                    </div>
+                )}
+                <AlbumSwapMarkBadge markInfo={coverSwapMarkInfo} />
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#f5c518" stroke="#f5c518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

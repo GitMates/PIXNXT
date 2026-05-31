@@ -11,7 +11,16 @@ import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSprea
 import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
 import AlbumFocusView from './AlbumFocusView';
+import AlbumSwapPickerModal from './AlbumSwapPickerModal';
+import {
+    addSwapMark,
+    getSwapMarkForSlot,
+    getSwapMarks,
+    isSlotSwapLocked,
+    SWAP_MARKS_CHANGED_EVENT,
+} from './albumSwapMarks';
 import './AlbumBook.css';
+import './AlbumSwapMarks.css';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
@@ -83,6 +92,7 @@ const AlbumBook = ({
     overviewReopenToken = 0,
     showGridComments = false,
     spreadCommentsBySpread = null,
+    swapMarkMode = false,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -97,6 +107,8 @@ const AlbumBook = ({
     const dimsRafRef = useRef(null);
     const [dims, setDims] = useState({ width: 480, height: 480 });
     const [pageIndex, setPageIndex] = useState(initialPage);
+    const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(album?.id));
+    const [swapPickerOrigin, setSwapPickerOrigin] = useState(null);
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -264,6 +276,52 @@ const AlbumBook = ({
         if (overviewReopenToken) setOverviewOpen(true);
     }, [overviewReopenToken]);
 
+    useEffect(() => {
+        setSwapMarks(getSwapMarks(album?.id));
+    }, [album?.id]);
+
+    useEffect(() => {
+        const onSwapMarksChanged = (e) => {
+            if (!album?.id) return;
+            if (e.detail?.albumId && e.detail.albumId !== album.id) return;
+            setSwapMarks(getSwapMarks(album.id));
+        };
+        window.addEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
+        return () => window.removeEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
+    }, [album?.id]);
+
+    const handleSwapRequest = useCallback(
+        (slot) => {
+            if (!album?.id || !slot) return;
+            const locked = isSlotSwapLocked(swapMarks, slot.pageNum, slot.cellId ?? 0, {
+                placementMode,
+                spreadLeft: slot.spreadLeft ?? slot.pageNum,
+            });
+            if (locked) return;
+            setSwapPickerOrigin(slot);
+        },
+        [album?.id, swapMarks, placementMode]
+    );
+
+    const handleSwapPick = useCallback(
+        (secondSlot) => {
+            if (!album?.id || !swapPickerOrigin) return;
+            addSwapMark(album.id, swapPickerOrigin, secondSlot);
+            setSwapPickerOrigin(null);
+        },
+        [album?.id, swapPickerOrigin]
+    );
+
+    const getSwapMarkInfo = useCallback(
+        (pageNum, cellId, spreadLeft) =>
+            getSwapMarkForSlot(swapMarks, pageNum, cellId, {
+                placementMode,
+                spreadLeft,
+                gridLayout: album?.grid_layout || 'two-page',
+            }),
+        [swapMarks, placementMode, album?.grid_layout]
+    );
+
     const closeFocusView = useCallback(() => {
         setFocusOpen(false);
     }, []);
@@ -307,6 +365,9 @@ const AlbumBook = ({
                     onSelectCover={onSelectCover}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
+                    swapMarkMode={swapMarkMode}
+                    getSwapMarkInfo={getSwapMarkInfo}
+                    onSwapRequest={handleSwapRequest}
                 />
             )),
         [
@@ -326,6 +387,9 @@ const AlbumBook = ({
             onSelectCover,
             onTransformChange,
             transformRevision,
+            swapMarkMode,
+            getSwapMarkInfo,
+            handleSwapRequest,
         ]
     );
 
@@ -602,6 +666,18 @@ const AlbumBook = ({
                     onClose={closeFocusView}
                 />
             )}
+
+            <AlbumSwapPickerModal
+                open={Boolean(swapPickerOrigin)}
+                album={album}
+                albumId={album?.id}
+                totalPages={totalPages}
+                originSlot={swapPickerOrigin}
+                swapMarks={swapMarks}
+                showSamples={showSamples}
+                onSelect={handleSwapPick}
+                onClose={() => setSwapPickerOrigin(null)}
+            />
         </div>
     );
 };

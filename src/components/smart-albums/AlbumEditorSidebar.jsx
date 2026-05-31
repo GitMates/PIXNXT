@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
+import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -16,8 +17,16 @@ const IconComments = () => (
     </svg>
 );
 
+const IconSwap = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M7 16V4M7 4 3 8M7 4l4 4" />
+        <path d="M17 8v12M17 20l4-4M17 20l-4-4" />
+    </svg>
+);
+
 const NAV = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
+    { id: 'swap', label: 'Swap', icon: IconSwap },
     { id: 'comments', label: 'Comments', icon: IconComments },
 ];
 
@@ -76,6 +85,8 @@ export default function AlbumEditorSidebar({
     onRemovePages,
     commentSettings = null,
     commentsFeed = null,
+    swapMarks = [],
+    albumId = null,
 }) {
     const fileRef = useRef(null);
 
@@ -104,7 +115,14 @@ export default function AlbumEditorSidebar({
                         <span className="ae-nav-icon">
                             <Icon />
                         </span>
-                        {label}
+                        <span className="ae-nav-label">
+                            {label}
+                            {id === 'swap' && swapMarks.length > 0 && (
+                                <span className="ae-nav-badge" aria-hidden>
+                                    {swapMarks.length}
+                                </span>
+                            )}
+                        </span>
                     </button>
                 ))}
             </nav>
@@ -119,6 +137,22 @@ export default function AlbumEditorSidebar({
                             </p>
                         )}
                         {commentsFeed}
+                    </>
+                )}
+
+                {activePanel === 'swap' && (
+                    <>
+                        <h3 className="ae-panel-title">Swap</h3>
+                        <p className="ae-panel-text">
+                            Hover a photo on the spread and click Swap to mark two positions. Once
+                            marked, the pair is locked until you unlock it here.
+                        </p>
+                        <AlbumSwapMarksPanel
+                            albumId={albumId}
+                            marks={swapMarks}
+                            gridLayout={album?.grid_layout || 'two-page'}
+                            variant="panel"
+                        />
                     </>
                 )}
 
