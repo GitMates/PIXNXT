@@ -40,6 +40,7 @@ import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
 import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
 import { getSwapMarks, SWAP_MARKS_CHANGED_EVENT } from '../../components/smart-albums/albumSwapMarks';
+import { getPhotoPins, PHOTO_PINS_CHANGED_EVENT } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
     groupRootCommentsBySpread,
@@ -119,6 +120,7 @@ export default function AlbumEditor({
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
     const [shareQrOpen, setShareQrOpen] = useState(false);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
+    const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const shareRef = useRef(null);
     const [gridSelection, setGridSelection] = useState(() => {
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
@@ -153,6 +155,19 @@ export default function AlbumEditor({
         };
         window.addEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
         return () => window.removeEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
+    }, [albumId]);
+
+    useEffect(() => {
+        setPhotoPins(getPhotoPins(albumId));
+    }, [albumId]);
+
+    useEffect(() => {
+        const onPinsChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            setPhotoPins(getPhotoPins(albumId));
+        };
+        window.addEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
+        return () => window.removeEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
     }, [albumId]);
 
     useEffect(() => {
@@ -609,6 +624,7 @@ export default function AlbumEditor({
                     onAddPages={handleAddPages}
                     onRemovePages={handleRemovePages}
                     swapMarks={swapMarks}
+                    photoPins={photoPins}
                     albumId={albumId}
                 />
 
@@ -650,6 +666,8 @@ export default function AlbumEditor({
                             showGridComments={showGridComments}
                             spreadCommentsBySpread={spreadCommentsBySpread}
                             swapMarkMode
+                            pinMarkMode
+                            proofToolsHover={false}
                         />
                     </div>
                 </main>

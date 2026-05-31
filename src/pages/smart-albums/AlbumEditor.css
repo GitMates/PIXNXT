@@ -199,7 +199,7 @@
 
 .ae-nav {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 6px;
   padding: 6px 8px;
   flex-shrink: 0;
@@ -402,6 +402,43 @@
 
 .ae-swap-marks-remove:hover {
   background: #fef3c7;
+}
+
+.ae-nav-badge--pin {
+  background: #fecaca;
+  color: #991b1b;
+}
+
+.ae-nav-btn--active .ae-nav-badge--pin {
+  background: #fff;
+  color: #991b1b;
+}
+
+.ae-photo-pins-item {
+  align-items: flex-start;
+}
+
+.ae-photo-pins-item-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ae-photo-pins-slot {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.ae-photo-pins-message {
+  font-size: 11px;
+  font-weight: 500;
+  color: #374151;
+  line-height: 1.4;
+  word-break: break-word;
 }
 
 .ae-panel-list {

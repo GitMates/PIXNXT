@@ -95,6 +95,7 @@ export default function AlbumPreview({
                             showSamples={false}
                             transformRevision={photoRevision}
                             swapMarkMode={clientPreview}
+                            pinMarkMode={clientPreview}
                             placementMode={
                                 album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
                             }

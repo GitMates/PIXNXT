@@ -12,6 +12,7 @@ import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
 import AlbumFocusView from './AlbumFocusView';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
+import AlbumPinComposer from './AlbumPinComposer';
 import {
     addSwapMark,
     getSwapMarkForSlot,
@@ -19,8 +20,16 @@ import {
     isSlotSwapLocked,
     SWAP_MARKS_CHANGED_EVENT,
 } from './albumSwapMarks';
+import {
+    addPhotoPin,
+    getPhotoPins,
+    getPinsForSlot,
+    PHOTO_PINS_CHANGED_EVENT,
+    removePhotoPin,
+} from './albumPhotoPins';
 import './AlbumBook.css';
 import './AlbumSwapMarks.css';
+import './AlbumPhotoPins.css';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
@@ -93,6 +102,8 @@ const AlbumBook = ({
     showGridComments = false,
     spreadCommentsBySpread = null,
     swapMarkMode = false,
+    pinMarkMode = false,
+    proofToolsHover = true,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -109,6 +120,9 @@ const AlbumBook = ({
     const [pageIndex, setPageIndex] = useState(initialPage);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(album?.id));
     const [swapPickerOrigin, setSwapPickerOrigin] = useState(null);
+    const [photoPins, setPhotoPins] = useState(() => getPhotoPins(album?.id));
+    const [pinModeActive, setPinModeActive] = useState(false);
+    const [pinComposer, setPinComposer] = useState(null);
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -290,6 +304,32 @@ const AlbumBook = ({
         return () => window.removeEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
     }, [album?.id]);
 
+    useEffect(() => {
+        setPhotoPins(getPhotoPins(album?.id));
+    }, [album?.id]);
+
+    useEffect(() => {
+        const onPinsChanged = (e) => {
+            if (!album?.id) return;
+            if (e.detail?.albumId && e.detail.albumId !== album.id) return;
+            setPhotoPins(getPhotoPins(album.id));
+        };
+        window.addEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
+        return () => window.removeEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
+    }, [album?.id]);
+
+    useEffect(() => {
+        if (!pinModeActive) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape') {
+                setPinModeActive(false);
+                setPinComposer(null);
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [pinModeActive]);
+
     const handleSwapRequest = useCallback(
         (slot) => {
             if (!album?.id || !slot) return;
@@ -320,6 +360,41 @@ const AlbumBook = ({
                 gridLayout: album?.grid_layout || 'two-page',
             }),
         [swapMarks, placementMode, album?.grid_layout]
+    );
+
+    const getSlotPins = useCallback(
+        (pageNum, cellId, spreadLeft) =>
+            getPinsForSlot(photoPins, pageNum, cellId, {
+                placementMode,
+                spreadLeft,
+            }),
+        [photoPins, placementMode]
+    );
+
+    const handleActivatePinMode = useCallback(() => {
+        setPinModeActive(true);
+        setPinComposer(null);
+    }, []);
+
+    const handlePinPlace = useCallback((placement) => {
+        setPinComposer(placement);
+    }, []);
+
+    const handlePinSave = useCallback(
+        (message) => {
+            if (!album?.id || !pinComposer) return;
+            addPhotoPin(album.id, { ...pinComposer, message });
+            setPinComposer(null);
+        },
+        [album?.id, pinComposer]
+    );
+
+    const handlePinRemove = useCallback(
+        (pinId) => {
+            if (!album?.id) return;
+            removePhotoPin(album.id, pinId);
+        },
+        [album?.id]
     );
 
     const closeFocusView = useCallback(() => {
@@ -368,6 +443,13 @@ const AlbumBook = ({
                     swapMarkMode={swapMarkMode}
                     getSwapMarkInfo={getSwapMarkInfo}
                     onSwapRequest={handleSwapRequest}
+                    pinMarkMode={pinMarkMode}
+                    pinModeActive={pinModeActive}
+                    getPinsForSlot={getSlotPins}
+                    onPinPlace={handlePinPlace}
+                    onPinRemove={handlePinRemove}
+                    onActivatePinMode={handleActivatePinMode}
+                    proofToolsHover={proofToolsHover}
                 />
             )),
         [
@@ -390,11 +472,23 @@ const AlbumBook = ({
             swapMarkMode,
             getSwapMarkInfo,
             handleSwapRequest,
+            pinMarkMode,
+            pinModeActive,
+            getSlotPins,
+            handlePinPlace,
+            handlePinRemove,
+            handleActivatePinMode,
+            proofToolsHover,
         ]
     );
 
     return (
-        <div className={`ab-root${previewMode ? ' ab-root--preview' : ''}`} ref={rootRef}>
+        <div
+            className={`ab-root${previewMode ? ' ab-root--preview' : ''}${
+                pinModeActive && pinMarkMode ? ' ab-root--pin-mode' : ''
+            }`}
+            ref={rootRef}
+        >
             <button
                 type="button"
                 ref={prevNavRef}
@@ -677,6 +771,13 @@ const AlbumBook = ({
                 showSamples={showSamples}
                 onSelect={handleSwapPick}
                 onClose={() => setSwapPickerOrigin(null)}
+            />
+
+            <AlbumPinComposer
+                open={Boolean(pinComposer)}
+                slotLabel={pinComposer?.label}
+                onSave={handlePinSave}
+                onClose={() => setPinComposer(null)}
             />
         </div>
     );

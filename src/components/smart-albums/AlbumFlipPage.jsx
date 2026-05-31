@@ -3,6 +3,8 @@ import { getPagePhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import AlbumPageGrid from './AlbumPageGrid';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
+import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
+import './AlbumPhotoPins.css';
 import {
     getProofLeftPageGridPercent,
     getProofRightPageGridPercent,
@@ -68,6 +70,13 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         swapMarkMode = false,
         getSwapMarkInfo,
         onSwapRequest,
+        pinMarkMode = false,
+        pinModeActive = false,
+        getPinsForSlot,
+        onPinPlace,
+        onPinRemove,
+        onActivatePinMode,
+        proofToolsHover = true,
     },
     ref
 ) {
@@ -88,6 +97,9 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const PageWrapTag = canSelectCover ? 'button' : 'div';
     const coverSwapMarkInfo = swapMarkMode && getSwapMarkInfo?.(0, 0);
     const canCoverSwap = swapMarkMode && pageNum === 0 && Boolean(src) && !coverSwapMarkInfo;
+    const coverProofTools = (swapMarkMode || pinMarkMode) && pageNum === 0 && Boolean(src);
+    const coverPins =
+        pinMarkMode && getPinsForSlot ? getPinsForSlot(0, 0, 0) : [];
 
     const pageBadge =
         showPageBadge && pageNum >= 0 ? (
@@ -125,6 +137,13 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     swapMarkMode={swapMarkMode}
                     getSwapMarkInfo={getSwapMarkInfo}
                     onSwapRequest={onSwapRequest}
+                    pinMarkMode={pinMarkMode}
+                    pinModeActive={pinModeActive}
+                    getPinsForSlot={getPinsForSlot}
+                    onPinPlace={onPinPlace}
+                    onPinRemove={onPinRemove}
+                    onActivatePinMode={onActivatePinMode}
+                    proofToolsHover={proofToolsHover}
                 />
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
@@ -168,6 +187,13 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     swapMarkMode={swapMarkMode}
                     getSwapMarkInfo={getSwapMarkInfo}
                     onSwapRequest={onSwapRequest}
+                    pinMarkMode={pinMarkMode}
+                    pinModeActive={pinModeActive}
+                    getPinsForSlot={getPinsForSlot}
+                    onPinPlace={onPinPlace}
+                    onPinRemove={onPinRemove}
+                    onActivatePinMode={onActivatePinMode}
+                    proofToolsHover={proofToolsHover}
                 />
             </div>
         );
@@ -180,7 +206,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 type={canSelectCover ? 'button' : undefined}
                 className={`ab-page-photo-wrap${
                     canSelectCover ? ' ab-page-photo-wrap--interactive' : ''
-                }${canCoverSwap ? ' ab-page-photo-wrap--swap' : ''}${
+                }${proofToolsHover && coverProofTools && !pinModeActive ? ' ab-page-photo-wrap--swap' : ''}${
                     coverSwapMarkInfo
                         ? ` ab-page-photo-wrap--swap-marked${
                               coverSwapMarkInfo.locked !== false
@@ -192,27 +218,36 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 onClick={canSelectCover ? () => onSelectCover?.() : undefined}
                 aria-label={canSelectCover ? 'Choose cover photo' : undefined}
             >
-                {src ? (
-                    <PagePhoto src={src} pageNum={pageNum} showSamples={showSamples} />
-                ) : pageNum === 0 ? (
-                    <div className="ab-page-cover-placeholder" />
-                ) : (
-                    <div className="ab-page-placeholder">Add photos to this spread</div>
-                )}
-                {canCoverSwap && (
-                    <div className="ab-swap-hover">
-                        <button
-                            type="button"
-                            className="ab-swap-hover-btn"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onSwapRequest?.({ pageNum: 0, cellId: 0, label: 'Cover' });
-                            }}
-                        >
-                            Swap
-                        </button>
-                    </div>
-                )}
+                <AlbumPhotoPinLayer
+                    hasPhoto={Boolean(src)}
+                    pinModeActive={pinModeActive && pinMarkMode && pageNum === 0}
+                    proofToolsEnabled={coverProofTools}
+                    proofToolsHover={proofToolsHover}
+                    canSwap={canCoverSwap}
+                    onSwapRequest={() =>
+                        onSwapRequest?.({ pageNum: 0, cellId: 0, label: 'Cover' })
+                    }
+                    onActivatePinMode={pinMarkMode ? onActivatePinMode : undefined}
+                    pins={coverPins}
+                    onPlacePin={(xPct, yPct) =>
+                        onPinPlace?.({
+                            pageNum: 0,
+                            cellId: 0,
+                            xPct,
+                            yPct,
+                            label: 'Cover',
+                        })
+                    }
+                    onRemovePin={onPinRemove}
+                >
+                    {src ? (
+                        <PagePhoto src={src} pageNum={pageNum} showSamples={showSamples} />
+                    ) : pageNum === 0 ? (
+                        <div className="ab-page-cover-placeholder" />
+                    ) : (
+                        <div className="ab-page-placeholder">Add photos to this spread</div>
+                    )}
+                </AlbumPhotoPinLayer>
                 <AlbumSwapMarkBadge markInfo={coverSwapMarkInfo} />
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
