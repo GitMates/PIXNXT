@@ -132,7 +132,7 @@ const AlbumStarButton = ({ starred, onClick }) => (
 
 const AlbumsList = ({ starredOnly = false }) => {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, loading: authLoading } = useAuth();
     const [albums, setAlbums] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
@@ -156,7 +156,13 @@ const AlbumsList = ({ starredOnly = false }) => {
     }, []);
 
     useEffect(() => {
-        if (!user) return;
+        if (authLoading) return;
+
+        if (!user) {
+            setAlbums([]);
+            setLoading(false);
+            return;
+        }
 
         let cancelled = false;
         (async () => {
@@ -166,11 +172,6 @@ const AlbumsList = ({ starredOnly = false }) => {
                     ? await smartAlbumsService.getStarredAlbums(user.id)
                     : await smartAlbumsService.getAlbums(user.id);
                 if (!cancelled) {
-                    data.forEach((album) => {
-                        if (album.preview_data) {
-                            hydrateAlbumPreviewData(album.id, album.preview_data);
-                        }
-                    });
                     setAlbums(data);
                 }
             } catch (err) {
@@ -184,7 +185,7 @@ const AlbumsList = ({ starredOnly = false }) => {
         return () => {
             cancelled = true;
         };
-    }, [user, starredOnly]);
+    }, [user, authLoading, starredOnly]);
 
     useEffect(() => {
         const onDocClick = (e) => {

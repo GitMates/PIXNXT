@@ -285,6 +285,46 @@
   gap: 10px;
 }
 
+.asc-guest-modal {
+  position: relative;
+  padding: 22px 24px 24px;
+}
+
+.asc-guest-modal-close {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: #666;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.asc-guest-modal-close:hover {
+  background: #f3f4f6;
+  color: #111;
+}
+
+.asc-guest-modal-lead {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+.asc-guest-modal-continue {
+  margin-top: 8px;
+}
+
+.asc-guest-modal-backdrop {
+  z-index: 4500;
+}
+
 .asc-compose {
   display: flex;
   flex-direction: column;

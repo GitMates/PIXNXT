@@ -39,6 +39,7 @@ export default function AlbumSpreadComments({
     const [threadsOpen, setThreadsOpen] = useState(false);
     const [albumCommentCount, setAlbumCommentCount] = useState(null);
     const [composeOpen, setComposeOpen] = useState(false);
+    const [guestModalOpen, setGuestModalOpen] = useState(false);
     const [messagesOpen, setMessagesOpen] = useState(false);
     const [syncedAt, setSyncedAt] = useState(null);
     const [syncing, setSyncing] = useState(false);
@@ -139,8 +140,18 @@ export default function AlbumSpreadComments({
     }, [spreadIndex]);
 
     useEffect(() => {
-        if (!messagesEnabled) setMessagesOpen(false);
-    }, [messagesEnabled]);
+        if (!showGuestFields) setGuestModalOpen(false);
+    }, [showGuestFields]);
+
+    useEffect(() => {
+        if (isFooter && showGuestFields) setMessagesOpen(false);
+    }, [isFooter, showGuestFields]);
+
+    useEffect(() => {
+        if (!isFooter && showGuestFields && showClientCompose) {
+            setGuestModalOpen(true);
+        }
+    }, [isFooter, showGuestFields, showClientCompose]);
 
     useEffect(() => {
         if (!isFooter || !messagesOpen || !messagesEnabled || !albumId) return undefined;
@@ -264,7 +275,7 @@ export default function AlbumSpreadComments({
                 return;
             }
             if (showGuestFields && !guestName.trim()) {
-                setComposeOpen(true);
+                setGuestModalOpen(true);
                 return;
             }
             const guest = resolveGuest();
@@ -291,7 +302,80 @@ export default function AlbumSpreadComments({
         if (!guestName.trim()) return;
         persistGuestProfile({ name: guestName.trim(), email: guestEmail.trim() || null });
         setShowGuestFields(false);
+        setGuestModalOpen(false);
+        if (isFooter && messagesEnabled) setMessagesOpen(true);
     };
+
+    const renderGuestModal = () =>
+        guestModalOpen &&
+        showGuestFields &&
+        showClientCompose &&
+        createPortal(
+            <div
+                className="asc-reply-modal-backdrop asc-guest-modal-backdrop"
+                onClick={() => setGuestModalOpen(false)}
+                role="presentation"
+            >
+                <div
+                    className="asc-reply-modal asc-guest-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Introduce yourself"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <button
+                        type="button"
+                        className="asc-guest-modal-close"
+                        onClick={() => setGuestModalOpen(false)}
+                        aria-label="Close"
+                    >
+                        ×
+                    </button>
+                    <h5 className="asc-reply-modal-title">Introduce yourself</h5>
+                    <p className="asc-guest-modal-lead">
+                        Add your name once, then leave feedback on any spread in this album.
+                    </p>
+                    <div className="asc-guest-fields asc-guest-fields--stacked">
+                        <label className="asc-field">
+                            <span className="asc-field-label">Your name</span>
+                            <input
+                                type="text"
+                                className="asc-input"
+                                placeholder="e.g. Sarah James"
+                                value={guestName}
+                                autoFocus
+                                onChange={(e) => setGuestName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && guestName.trim()) handleGuestContinue();
+                                }}
+                            />
+                        </label>
+                        <label className="asc-field">
+                            <span className="asc-field-label">Email (optional)</span>
+                            <input
+                                type="email"
+                                className="asc-input"
+                                placeholder="you@email.com"
+                                value={guestEmail}
+                                onChange={(e) => setGuestEmail(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && guestName.trim()) handleGuestContinue();
+                                }}
+                            />
+                        </label>
+                    </div>
+                    <button
+                        type="button"
+                        className="asc-btn asc-btn--primary asc-btn--full asc-guest-modal-continue"
+                        disabled={!guestName.trim()}
+                        onClick={handleGuestContinue}
+                    >
+                        Continue
+                    </button>
+                </div>
+            </div>,
+            document.body
+        );
 
     const submitComposeModal = async () => {
         const body = draftBody.trim();
@@ -428,41 +512,8 @@ export default function AlbumSpreadComments({
         </ul>
     );
 
-    const renderMessagesChat = (compactGuest = false) => (
-        <>
-            {compactGuest && showGuestFields && (
-                <div className="asc-chat-guest-setup">
-                    <label className="asc-field">
-                        <span className="asc-field-label">Your name</span>
-                        <input
-                            type="text"
-                            className="asc-input"
-                            placeholder="e.g. Sarah James"
-                            value={guestName}
-                            onChange={(e) => setGuestName(e.target.value)}
-                        />
-                    </label>
-                    <label className="asc-field">
-                        <span className="asc-field-label">Email (optional)</span>
-                        <input
-                            type="email"
-                            className="asc-input"
-                            placeholder="you@email.com"
-                            value={guestEmail}
-                            onChange={(e) => setGuestEmail(e.target.value)}
-                        />
-                    </label>
-                    <button
-                        type="button"
-                        className="asc-btn asc-btn--primary asc-btn--full"
-                        disabled={!guestName.trim()}
-                        onClick={handleGuestContinue}
-                    >
-                        Continue
-                    </button>
-                </div>
-            )}
-            <AlbumMessageChat
+    const renderMessagesChat = () => (
+        <AlbumMessageChat
                 threads={threads}
                 loading={loading && threads.length === 0}
                 spreadLabel={spreadLabel}
@@ -479,8 +530,7 @@ export default function AlbumSpreadComments({
                 canDelete={canDeleteMessage}
                 onDelete={handleDeleteMessage}
                 deleteBusyId={deleteBusyId}
-            />
-        </>
+        />
     );
 
     const composeModal =
@@ -570,13 +620,18 @@ export default function AlbumSpreadComments({
             submitComment(e.currentTarget.value);
         };
         const handleFooterInputFocus = () => {
+            if (showGuestFields) {
+                setGuestModalOpen(true);
+                return;
+            }
             if (messagesEnabled) setMessagesOpen(true);
         };
         return (
             <div className="asc-footer-wrap" aria-label={`Comments for ${spreadLabel}`}>
-                {messagesEnabled && messagesOpen && (
-                    <div className="asc-messages-sheet">{renderMessagesChat(true)}</div>
+                {messagesEnabled && messagesOpen && !showGuestFields && (
+                    <div className="asc-messages-sheet">{renderMessagesChat()}</div>
                 )}
+                {renderGuestModal()}
                 {composeModal}
 
                 <div className="asc-comment-bar">
@@ -585,6 +640,10 @@ export default function AlbumSpreadComments({
                             type="button"
                             className="asc-comment-bar-count"
                             onClick={() => {
+                                if (showGuestFields) {
+                                    setGuestModalOpen(true);
+                                    return;
+                                }
                                 if (messagesEnabled) setMessagesOpen((v) => !v);
                             }}
                             aria-expanded={messagesEnabled ? messagesOpen : undefined}
@@ -670,88 +729,53 @@ export default function AlbumSpreadComments({
                 </div>
             </header>
 
-            {showClientCompose && (
+            {showClientCompose && !showGuestFields && (
                 <div className="asc-compose asc-compose--primary">
-                    {showGuestFields ? (
-                        <div className="asc-guest-intro">
-                            <p className="asc-guest-intro-text">
-                                Introduce yourself once, then add notes for each spread you review.
-                            </p>
-                            <div className="asc-guest-fields asc-guest-fields--stacked">
-                                <label className="asc-field">
-                                    <span className="asc-field-label">Your name</span>
-                                    <input
-                                        type="text"
-                                        className="asc-input"
-                                        placeholder="e.g. Sarah James"
-                                        value={guestName}
-                                        onChange={(e) => setGuestName(e.target.value)}
-                                    />
-                                </label>
-                                <label className="asc-field">
-                                    <span className="asc-field-label">Email (optional)</span>
-                                    <input
-                                        type="email"
-                                        className="asc-input"
-                                        placeholder="you@email.com"
-                                        value={guestEmail}
-                                        onChange={(e) => setGuestEmail(e.target.value)}
-                                    />
-                                </label>
-                            </div>
-                            <button
-                                type="button"
-                                className="asc-btn asc-btn--primary asc-btn--full"
-                                disabled={!guestName.trim()}
-                                onClick={handleGuestContinue}
-                            >
-                                Continue
-                            </button>
-                        </div>
-                    ) : (
-                        <>
-                            <div className="asc-compose-row">
-                                <span className="asc-compose-as">Commenting as</span>
-                                <strong>{guestName}</strong>
-                                <button
-                                    type="button"
-                                    className="asc-link-btn"
-                                    onClick={() => setShowGuestFields(true)}
-                                >
-                                    Change
-                                </button>
-                            </div>
-                            <label className="asc-field asc-field--full">
-                                <span className="asc-field-label">Message for this spread</span>
-                                <textarea
-                                    className="asc-textarea"
-                                    rows={4}
-                                    placeholder="Share what you like, or what should change on this spread…"
-                                    value={draftBody}
-                                    onChange={(e) => handleDraftChange(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing)
-                                            return;
-                                        e.preventDefault();
-                                        submitComment(e.currentTarget.value);
-                                    }}
-                                />
-                            </label>
-                            <div className="asc-compose-foot">
-                                <span className={`asc-save-status asc-save-status--${saveState}`}>
-                                    {saveState === 'saving' && 'Saving…'}
-                                    {saveState === 'saved' && 'Saved'}
-                                    {saveState === 'error' && 'Could not save — try again'}
-                                    {saveState === 'idle' &&
-                                        (draftBody.trim()
-                                            ? 'Press Enter to save'
-                                            : 'Type to add your feedback')}
-                                </span>
-                            </div>
-                        </>
-                    )}
+                    <div className="asc-compose-row">
+                        <span className="asc-compose-as">Commenting as</span>
+                        <strong>{guestName}</strong>
+                        <button
+                            type="button"
+                            className="asc-link-btn"
+                            onClick={() => {
+                                setShowGuestFields(true);
+                                setGuestModalOpen(true);
+                            }}
+                        >
+                            Change
+                        </button>
+                    </div>
+                    <label className="asc-field asc-field--full">
+                        <span className="asc-field-label">Message for this spread</span>
+                        <textarea
+                            className="asc-textarea"
+                            rows={4}
+                            placeholder="Share what you like, or what should change on this spread…"
+                            value={draftBody}
+                            onChange={(e) => handleDraftChange(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key !== 'Enter' || e.shiftKey || e.nativeEvent.isComposing)
+                                    return;
+                                e.preventDefault();
+                                submitComment(e.currentTarget.value);
+                            }}
+                        />
+                    </label>
+                    <div className="asc-compose-foot">
+                        <span className={`asc-save-status asc-save-status--${saveState}`}>
+                            {saveState === 'saving' && 'Saving…'}
+                            {saveState === 'saved' && 'Saved'}
+                            {saveState === 'error' && 'Could not save — try again'}
+                            {saveState === 'idle' &&
+                                (draftBody.trim()
+                                    ? 'Press Enter to save'
+                                    : 'Type to add your feedback')}
+                        </span>
+                    </div>
                 </div>
             )}
+
+            {renderGuestModal()}
 
             <div className="asc-thread-area">
                 {loading ? (

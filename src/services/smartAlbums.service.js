@@ -217,6 +217,28 @@ const OPTIONAL_ALBUM_INSERT_COLUMNS = [
   'grid_size',
 ];
 
+/** List view only — omit heavy preview_data JSON blobs. */
+const ALBUM_LIST_FIELDS = [
+  'id',
+  'photographer_id',
+  'name',
+  'event_date',
+  'slug',
+  'page_count',
+  'cover_image_url',
+  'status',
+  'grid_size',
+  'grid_layout',
+  'comments_enabled',
+  'replies_enabled',
+  'messages_enabled',
+  'is_starred',
+  'category_tags',
+  'expiry_date',
+  'created_at',
+  'updated_at',
+].join(', ');
+
 function buildAlbumRowFromLocal(local, photographerId) {
   const settingsOvr = readSettingsOverrides(photographerId)[local.id] || {};
   const pageCountOvr = readPageCountOverrides(photographerId)[local.id];
@@ -296,8 +318,11 @@ async function insertAlbumRowResilient(row) {
 async function updateAlbumRowResilient(photographerId, albumId, patch) {
   let payload = { ...patch, updated_at: new Date().toISOString() };
   const droppable = OPTIONAL_ALBUM_INSERT_COLUMNS.filter((col) => col in payload);
+  let attempts = 0;
+  const maxAttempts = droppable.length + 2;
 
-  while (true) {
+  while (attempts < maxAttempts) {
+    attempts += 1;
     const { data, error } = await supabase
       .from('smart_albums')
       .update(payload)
@@ -317,6 +342,8 @@ async function updateAlbumRowResilient(photographerId, albumId, patch) {
     const col = droppable.shift();
     delete payload[col];
   }
+
+  return { data: null, error: new Error('Album update failed after retries') };
 }
 
 
@@ -496,6 +523,8 @@ async function syncLocalAlbumsToSupabase(photographerId, remoteRows) {
 
 async function syncLocalAlbumAssetsToSupabase(photographerId) {
   const albumIds = getAlbumIdsWithLocalAssets();
+  if (!albumIds.length) return;
+
   for (const albumId of albumIds) {
     const previewData = buildAlbumPreviewSnapshot(albumId);
     if (!previewData) continue;
@@ -600,7 +629,7 @@ export const smartAlbumsService = {
 
       .from('smart_albums')
 
-      .select('*')
+      .select(ALBUM_LIST_FIELDS)
 
       .eq('photographer_id', photographerId)
 
@@ -609,6 +638,22 @@ export const smartAlbumsService = {
 
 
     if (error) {
+
+      if (shouldUseLocalStore(error) || isGenericColumnError(error)) {
+        const fallback = await supabase
+          .from('smart_albums')
+          .select('id, photographer_id, name, event_date, slug, page_count, cover_image_url, status, created_at, updated_at')
+          .eq('photographer_id', photographerId)
+          .order('created_at', { ascending: false });
+
+        if (!fallback.error && fallback.data) {
+          const synced = await syncLocalAlbumsToSupabase(photographerId, fallback.data);
+          void syncLocalAlbumAssetsToSupabase(photographerId).catch((e) => {
+            console.warn('Background album asset sync failed:', e?.message || e);
+          });
+          return mergeAlbumRows(synced, photographerId);
+        }
+      }
 
       if (shouldUseLocalStore(error)) {
 
@@ -620,9 +665,22 @@ export const smartAlbumsService = {
 
     }
 
-    const synced = await syncLocalAlbumsToSupabase(photographerId, data || []);
-    await syncLocalAlbumSettingsToSupabase(photographerId, synced);
-    await syncLocalAlbumAssetsToSupabase(photographerId);
+    let synced = data || [];
+    try {
+      synced = await syncLocalAlbumsToSupabase(photographerId, synced);
+    } catch (e) {
+      console.warn('Local album metadata sync failed:', e?.message || e);
+    }
+
+    try {
+      await syncLocalAlbumSettingsToSupabase(photographerId, synced);
+    } catch (e) {
+      console.warn('Local album settings sync failed:', e?.message || e);
+    }
+
+    void syncLocalAlbumAssetsToSupabase(photographerId).catch((e) => {
+      console.warn('Background album asset sync failed:', e?.message || e);
+    });
 
     return mergeAlbumRows(synced, photographerId);
 
