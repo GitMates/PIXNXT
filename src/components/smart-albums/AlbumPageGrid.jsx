@@ -8,7 +8,7 @@ import {
 import { getSpreadPhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
-import { isEndHalfSpreadLeftPage } from './albumSpreadUtils';
+import { isEndHalfSpreadLeftPage, isInsideCoverSpreadLeft } from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
@@ -35,23 +35,16 @@ function GridPhoto({
     const displaySrc = useSampleFallback ? sampleSrc : src;
 
     if (!displaySrc) {
-        return <div className="ab-grid-cell-placeholder" />;
+        return <div className="ab-page-empty" aria-hidden />;
     }
 
-    const panoClass =
-        panoramic === 'left'
-            ? ' ab-grid-cell-photo--spread-left'
-            : panoramic === 'right'
-              ? ' ab-grid-cell-photo--spread-right'
-              : '';
-
-    return (
+    const img = (
         <img
             src={displaySrc}
             alt=""
-            className={`ab-grid-cell-photo${panoClass}`}
+            className="ab-grid-cell-photo"
             draggable={false}
-            style={photoTransformStyle(transform)}
+            style={photoTransformStyle(transform, { panoramic })}
             onError={() => {
                 if (!useSampleFallback && sampleSrc && src !== sampleSrc) {
                     setUseSampleFallback(true);
@@ -59,6 +52,12 @@ function GridPhoto({
             }}
         />
     );
+
+    if (panoramic) {
+        return <span className={`ab-pano-bleed ab-pano-bleed--${panoramic}`}>{img}</span>;
+    }
+
+    return img;
 }
 
 function resolveSlotImage(
@@ -67,9 +66,11 @@ function resolveSlotImage(
     cellId,
     spreadLeft,
     totalPages,
-    { showSamples = true } = {}
+    { showSamples = true, wholeSpread = false } = {}
 ) {
-    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages);
+    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
+        wholeSpread,
+    });
     if (slot.src) return slot;
     const sample = showSamples ? getSampleImageForPage(pageNum) : null;
     return { src: sample, panoramic: null };
@@ -108,10 +109,13 @@ export default function AlbumPageGrid({
     const albumId = albumIdProp ?? album?.id;
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true, totalPages });
     const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages);
+    const insideCoverSpread = isInsideCoverSpreadLeft(spreadLeft, totalPages);
     const inSelectedSpread =
         selectionLeftPage != null && selectionLeftPage === spreadLeft;
     const selectWholeSpread = selectionMode === 'spread' && inSelectedSpread;
-    const wholePlacement = placementMode === 'whole' && !endHalfSpreadLeft;
+    const wholePlacement =
+        placementMode === 'whole' && !endHalfSpreadLeft && !insideCoverSpread;
+    const wholeSpread = wholePlacement;
     const useSelectCells = editable && !spreadEdit;
     const CellTag = useSelectCells ? 'button' : 'div';
 
@@ -164,7 +168,7 @@ export default function AlbumPageGrid({
                     cell.id,
                     spreadLeft,
                     totalPages,
-                    { showSamples }
+                    { showSamples, wholeSpread }
                 );
                 const isSelected =
                     inSelectedSpread &&
@@ -174,7 +178,8 @@ export default function AlbumPageGrid({
                     photoIndex,
                     cell.id,
                     spreadLeft,
-                    totalPages
+                    totalPages,
+                    { wholeSpread }
                 );
                 const spreadPhotoOnly = panoramic != null;
                 const spreadSrc = spreadPhotoOnly
@@ -288,7 +293,7 @@ export default function AlbumPageGrid({
                             )}
                         </AlbumPhotoPinLayer>
                         <AlbumSwapMarkBadge markInfo={swapMarkInfo} />
-                        {useSelectCells && !hasPhoto && (
+                        {useSelectCells && !hasPhoto && showSamples && (
                             <span className="ab-grid-cell-add">
                                 <span className="ab-grid-cell-add-icon">+</span>
                                 <span className="ab-grid-cell-add-label">Add photo</span>

@@ -57,7 +57,6 @@ export function isProofRightGridPage(pageNum, { showCover = true, totalPages } =
 
 export function getSpreadLeftPageIndex(pageNum, { showCover = true, totalPages } = {}) {
     if (pageNum <= 0) return 0;
-    if (showCover && pageNum <= 1) return 0;
     if (totalPages != null && totalPages > 0) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
         if (pageNum >= endLeft) return endLeft;
@@ -65,7 +64,8 @@ export function getSpreadLeftPageIndex(pageNum, { showCover = true, totalPages }
     if (!showCover) {
         return pageNum % 2 === 0 ? pageNum : pageNum - 1;
     }
-    return pageNum % 2 === 0 ? pageNum : pageNum - 1;
+    /* With cover: inner pairs are 1|2, 3|4, … — left page is odd, right is even. */
+    return pageNum % 2 === 1 ? pageNum : pageNum - 1;
 }
 
 /** Photo page index for grid cell 1 (left) or 2 (right). */

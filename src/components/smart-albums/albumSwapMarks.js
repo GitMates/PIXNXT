@@ -195,9 +195,9 @@ export function isSlotSwapMarked(marks, pageNum, cellId = 0) {
 }
 
 /** Human-readable label for a photo slot (cover, left, right, whole). */
-export function getSlotLabel(pageNum, cellId = 0, whole = false) {
+export function getSlotLabel(pageNum, cellId = 0, whole = false, totalPages = 99) {
     if (pageNum === 0) return 'Cover';
-    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true });
+    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true, totalPages });
     const spreadNum = Math.floor((spreadLeft - 1) / 2) + 1;
     if (whole) return `Spread ${spreadNum} · Whole`;
     if (cellId === 1 || pageNum === spreadLeft) return `Spread ${spreadNum} · Left`;

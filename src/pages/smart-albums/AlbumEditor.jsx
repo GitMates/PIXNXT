@@ -22,11 +22,18 @@ import {
     clearAllAlbumPagePhotos,
     getAlbumPhotoRevision,
     migrateEndHalfSpreadToLeftPage,
+    migrateInsideCoverSpreadToPageTwo,
+    migrateMiskeyedInnerSpreadPhotos,
     placeCollectionItemOnPages,
     setPagePhotoFromCollectionItem,
     setSpreadPhotoFromCollectionItem,
 } from '../../components/smart-albums/albumPagePhotos';
-import { clearAlbumTransforms, getTransformRevision } from '../../components/smart-albums/albumPageTransforms';
+import {
+    clearAlbumTransforms,
+    getTransformRevision,
+    migrateInsideCoverSpreadTransform,
+    migrateMiskeyedInnerSpreadTransforms,
+} from '../../components/smart-albums/albumPageTransforms';
 import {
     getProofCellPhotoIndex,
     getSpreadLeftPageIndex,
@@ -34,9 +41,11 @@ import {
     getSpreadRightPageIndex,
 } from '../../components/smart-albums/albumSpreadGrid';
 import {
+    getEndSpreadPageIndices,
     getInnerPageCount,
     isCoverInsidePage,
     isEndHalfSpreadLeftPage,
+    isInsideCoverSpreadLeft,
     pageToSpreadIndex,
     spreadIndexToPage,
 } from '../../components/smart-albums/albumSpreadUtils';
@@ -126,8 +135,14 @@ export default function AlbumEditor({
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const shareRef = useRef(null);
     const [gridSelection, setGridSelection] = useState(() => {
+        if (initialPage === 0) return buildCoverSelection();
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
-        return isProofGridSpread(left, totalPages) ? buildCellSelection(left, 1) : buildCoverSelection();
+        if (isCoverInsidePage(initialPage, totalPages)) {
+            return buildCellSelection(left, 2);
+        }
+        return isProofGridSpread(left, totalPages)
+            ? buildCellSelection(left, 1)
+            : buildCoverSelection();
     });
 
     const albumForBook = useMemo(() => ({ ...album, id: albumId }), [album, albumId]);
@@ -148,9 +163,14 @@ export default function AlbumEditor({
     }, [albumId]);
 
     useEffect(() => {
-        if (migrateEndHalfSpreadToLeftPage(albumId, totalPages)) {
-            bumpWorkspace();
-        }
+        let changed = false;
+        if (migrateEndHalfSpreadToLeftPage(albumId, totalPages)) changed = true;
+        if (migrateMiskeyedInnerSpreadPhotos(albumId, totalPages)) changed = true;
+        if (migrateInsideCoverSpreadToPageTwo(albumId, totalPages)) changed = true;
+        if (migrateInsideCoverSpreadTransform(albumId)) changed = true;
+        const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+        if (migrateMiskeyedInnerSpreadTransforms(albumId, endLeft)) changed = true;
+        if (changed) bumpWorkspace();
     }, [albumId, totalPages, bumpWorkspace]);
 
     useEffect(() => {
@@ -226,13 +246,21 @@ export default function AlbumEditor({
         const maxPage = Math.max(0, totalPages - 1);
         const clampedPage = Math.min(initialPage, maxPage);
         setBookPage(clampedPage);
+        if (clampedPage === 0) {
+            setGridSelection(buildCoverSelection());
+            return;
+        }
         const left = getSpreadLeftForBookPage(clampedPage, totalPages);
+        if (isCoverInsidePage(clampedPage, totalPages)) {
+            setGridSelection(buildCellSelection(left, 2));
+            return;
+        }
         if (isProofGridSpread(left, totalPages)) {
             setGridSelection((prev) =>
                 prev?.leftPage === left ? prev : buildCellSelection(left, prev?.cellId || 1)
             );
         } else {
-            setGridSelection(buildCoverSelection());
+            setGridSelection(buildCellSelection(left, 1));
         }
     }, [initialPage, totalPages]);
 
@@ -245,7 +273,15 @@ export default function AlbumEditor({
 
     const syncSelectionToPage = useCallback(
         (pageIndex) => {
+            if (pageIndex === 0) {
+                setGridSelection(buildCoverSelection());
+                return;
+            }
             const left = getSpreadLeftForBookPage(pageIndex, totalPages);
+            if (isCoverInsidePage(pageIndex, totalPages)) {
+                setGridSelection(buildCellSelection(left, 2));
+                return;
+            }
             if (isProofGridSpread(left, totalPages)) {
                 setGridSelection((prev) => {
                     if (prev?.leftPage === left) return prev;
@@ -257,7 +293,7 @@ export default function AlbumEditor({
                         : buildCellSelection(left, prev?.cellId || 1);
                 });
             } else {
-                setGridSelection(buildCoverSelection());
+                setGridSelection(buildCellSelection(left, 1));
             }
         },
         [totalPages, gridEditSet]
@@ -349,6 +385,7 @@ export default function AlbumEditor({
         const left =
             gridSelection?.leftPage ?? getSpreadLeftForBookPage(bookPage, totalPages);
         if (isEndHalfSpreadLeftPage(left, totalPages)) return 'single';
+        if (isInsideCoverSpreadLeft(left, totalPages)) return 'single';
         return 'whole';
     }, [gridEditSet, gridSelection?.leftPage, bookPage, totalPages]);
 
@@ -367,6 +404,11 @@ export default function AlbumEditor({
             if (gridEditSet === 'whole' || gridSelection.mode === 'spread') {
                 if (endHalfLeft) {
                     return setPagePhotoFromCollectionItem(albumId, left, item.id, {
+                        clearSpreadForLeft: left,
+                    });
+                }
+                if (isInsideCoverSpreadLeft(left, totalPages)) {
+                    return setPagePhotoFromCollectionItem(albumId, 2, item.id, {
                         clearSpreadForLeft: left,
                     });
                 }

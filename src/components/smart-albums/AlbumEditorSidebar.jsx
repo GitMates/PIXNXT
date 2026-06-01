@@ -3,7 +3,7 @@ import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { formatGridSizeLabel } from './albumGridSize';
-import { isEndHalfSpreadLeftPage } from './albumSpreadUtils';
+import { isCoverInsidePage, isEndHalfSpreadLeftPage } from './albumSpreadUtils';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -53,6 +53,13 @@ function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages) {
     }
     if (gridSelection?.mode === 'cover') {
         return 'Cover page';
+    }
+    if (
+        gridSelection?.leftPage != null &&
+        isCoverInsidePage(gridSelection.leftPage, totalPages) &&
+        gridSelection.cellId === 2
+    ) {
+        return 'Inside cover · right page';
     }
     if (
         gridSelection?.leftPage != null &&

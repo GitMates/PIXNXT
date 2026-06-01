@@ -5,6 +5,7 @@ import {
     getGridSlotPhoto,
     getPagePhotoOverride,
     getSpreadPhotoOverride,
+    resolveCoverImageSrc,
 } from './albumPagePhotos';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
@@ -83,14 +84,16 @@ function OverviewFramedPhoto({ src, placeholderClass = '' }) {
 
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const albumId = album?.id;
+    if (pageNum === 0) {
+        return resolveCoverImageSrc(album, { showSamples });
+    }
     const directSrc = getPagePhotoOverride(albumId, pageNum);
     if (directSrc) return directSrc;
-    if (pageNum === 0) {
-        return album?.cover_image_url || (showSamples ? getSampleImageForPage(pageNum) : null);
-    }
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true, totalPages });
     const cellId = pageNum === spreadLeft ? 1 : 2;
-    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages);
+    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
+        wholeSpread: album?.grid_layout === 'whole-spread',
+    });
     return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);
 }
 
@@ -140,6 +143,11 @@ const AlbumBook = ({
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(album?.id));
     const [pinModeActive, setPinModeActive] = useState(false);
     const [pinComposer, setPinComposer] = useState(null);
+    const [initialized, setInitialized] = useState(false);
+
+    useEffect(() => {
+        setInitialized(false);
+    }, [album?.id, totalPages]);
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -182,7 +190,7 @@ const AlbumBook = ({
     }, [initialPage, album?.id]);
 
     useLayoutEffect(() => {
-        if (isFlippingRef.current) return undefined;
+        if (!initialized || isFlippingRef.current) return undefined;
         if (applyInitialPage()) return undefined;
 
         let attempts = 0;
@@ -194,12 +202,12 @@ const AlbumBook = ({
         }, 50);
 
         return () => window.clearInterval(timer);
-    }, [applyInitialPage, album?.id, totalPages]);
+    }, [applyInitialPage, album?.id, totalPages, initialized]);
 
     useEffect(() => {
-        if (isFlippingRef.current) return;
+        if (!initialized || isFlippingRef.current) return;
         applyInitialPage();
-    }, [applyInitialPage, transformRevision]);
+    }, [applyInitialPage, transformRevision, initialized]);
 
     useEffect(() => {
         const stage = stageRef.current;
@@ -601,6 +609,7 @@ const AlbumBook = ({
                         onFlip={handleFlip}
                         onChangeState={handleChangeState}
                         onInit={() => {
+                            setInitialized(true);
                             requestAnimationFrame(() => {
                                 requestAnimationFrame(() => {
                                     applyInitialPage();
@@ -716,9 +725,12 @@ const AlbumBook = ({
                                 overviewSpreadIndex,
                                 totalPages
                             );
-                            const endCoverSrc =
-                                leftSrc || (isEndSpread ? spreadSrc : null);
-                            const isEndHalf = isEndSpread && !rightSrc;
+                            const coverPhotoSrc = isCover
+                                ? resolveCoverImageSrc(album, { showSamples })
+                                : null;
+                            const endCoverSrc = leftSrc || spreadSrc;
+                            const isEndHalf = isEndSpread;
+                            const showSpreadFull = Boolean(spreadSrc && !isCover && !isEndSpread);
                             const isCurrent = overviewSpreadIndex === spreadIndex;
                             const spreadComments =
                                 showGridComments && spreadCommentsBySpread
@@ -739,7 +751,7 @@ const AlbumBook = ({
                                     }}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
-                                        {spreadSrc && !isEndSpread ? (
+                                        {showSpreadFull ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
                                                 <img src={spreadSrc} alt="" loading="lazy" />
                                                 {spreadComments?.length > 0 && (
@@ -756,8 +768,8 @@ const AlbumBook = ({
                                                     aria-hidden
                                                 />
                                                 <span className="ab-overview-page ab-overview-page--cover-right">
-                                                    <OverviewFramedPhoto src={leftSrc} />
-                                                    {spreadComments?.length > 0 && leftSrc && (
+                                                    <OverviewFramedPhoto src={coverPhotoSrc} />
+                                                    {spreadComments?.length > 0 && coverPhotoSrc && (
                                                         <SpreadGridComments
                                                             comments={spreadComments}
                                                             className="ab-grid-comments--overview"

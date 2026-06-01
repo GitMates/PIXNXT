@@ -10,9 +10,15 @@ import {
 import {
     captureEndCoverPlacement,
     mergeRemotePreviewPagesIntoLocal,
+    migrateInsideCoverSpreadToPageTwo,
     migrateEndHalfSpreadToLeftPage,
+    migrateMiskeyedInnerSpreadPhotos,
     restoreEndCoverPlacement,
 } from '../../components/smart-albums/albumPagePhotos';
+import {
+    migrateInsideCoverSpreadTransform,
+    migrateMiskeyedInnerSpreadTransforms,
+} from '../../components/smart-albums/albumPageTransforms';
 import {
     getEndSpreadPageIndices,
     getPageInsertIndex,
@@ -28,9 +34,14 @@ import {
 
 export function parseUrlPage(raw, totalPages) {
     if (raw == null || raw === '') return 0;
-    const n = parseInt(raw, 10);
+    let n = parseInt(raw, 10);
     if (Number.isNaN(n)) return 0;
-    return Math.max(0, Math.min(totalPages - 1, n));
+    n = Math.max(0, Math.min(totalPages - 1, n));
+    if (n === 1) return 2;
+    if (totalPages > 2 && n === totalPages - 1) {
+        return totalPages - 2;
+    }
+    return n;
 }
 
 /** Preview = client-facing album only (final output). */
@@ -85,6 +96,14 @@ export function useAlbumWorkspace() {
                     if (data?.preview_data) {
                         hydrateAlbumPreviewData(albumId, data.preview_data);
                     }
+                    mergeRemotePreviewPagesIntoLocal(albumId);
+                    const pages = data?.page_count || 21;
+                    migrateEndHalfSpreadToLeftPage(albumId, pages);
+                    migrateMiskeyedInnerSpreadPhotos(albumId, pages);
+                    migrateInsideCoverSpreadToPageTwo(albumId, pages);
+                    migrateInsideCoverSpreadTransform(albumId);
+                    const { left: endLeft } = getEndSpreadPageIndices(pages);
+                    migrateMiskeyedInnerSpreadTransforms(albumId, endLeft);
                     setAlbum(data);
                 }
             } catch (err) {

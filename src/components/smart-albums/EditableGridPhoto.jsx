@@ -36,11 +36,18 @@ export default function EditableGridPhoto({
     }, [albumId, pageNum, spreadLeftPage, isSpread]);
 
     const [transform, setTransform] = useState(readTransform);
-    const [transformOrigin, setTransformOrigin] = useState('50% 50%');
+    const spineOrigin =
+        panoramic === 'left' ? '100% 50%' : panoramic === 'right' ? '0% 50%' : '50% 50%';
+    const [transformOrigin, setTransformOrigin] = useState(spineOrigin);
 
     useEffect(() => {
         setTransform(readTransform());
     }, [readTransform, transformRevision]);
+
+    useEffect(() => {
+        if (!isSpread) setTransformOrigin('50% 50%');
+        else setTransformOrigin(spineOrigin);
+    }, [isSpread, spineOrigin]);
 
     const persist = useCallback(
         (next) => {
@@ -129,26 +136,27 @@ export default function EditableGridPhoto({
         return <div className="ab-grid-cell-placeholder" />;
     }
 
-    const panoClass =
-        panoramic === 'left'
-            ? ' ab-grid-cell-photo--spread-left'
-            : panoramic === 'right'
-              ? ' ab-grid-cell-photo--spread-right'
-              : '';
+    const img = (
+        <img
+            src={src}
+            alt=""
+            className="ab-grid-cell-photo ab-grid-cell-photo--editable"
+            draggable={false}
+            style={{
+                ...photoTransformStyle(transform, { panoramic }),
+                transformOrigin: isSpread ? spineOrigin : transformOrigin,
+            }}
+            onPointerDown={startPan}
+        />
+    );
 
     return (
         <div className="ab-grid-editable-wrap ab-grid-editable-wrap--active" ref={wrapRef}>
-            <img
-                src={src}
-                alt=""
-                className={`ab-grid-cell-photo ab-grid-cell-photo--editable${panoClass}`}
-                draggable={false}
-                style={{
-                    ...photoTransformStyle(transform),
-                    transformOrigin,
-                }}
-                onPointerDown={startPan}
-            />
+            {panoramic ? (
+                <span className={`ab-pano-bleed ab-pano-bleed--${panoramic}`}>{img}</span>
+            ) : (
+                img
+            )}
             {['n', 'e', 's', 'w'].map((edge) => (
                 <div
                     key={edge}

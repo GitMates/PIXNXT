@@ -39,10 +39,23 @@ export function usesReservedEndSpread(totalPages, { showCover = true } = {}) {
 
 /** Page 1 — blank inside-cover leaf paired with the front cover (page 0). */
 export function isCoverInsidePage(pageNum, totalPages, { showCover = true } = {}) {
-    if (!showCover || pageNum <= 0 || totalPages == null || totalPages < 2) {
-        return false;
-    }
-    return pageNum === 1;
+    // Disabled special inside-cover handling; treat as normal page.
+    // This forces page 1 to behave like a regular spread without a forced blank left page.
+    return false;
+}
+
+/** First inner spread (pages 1|2): left is inside cover — never panoramic / whole-spread. */
+export function isInsideCoverSpreadLeft(spreadLeftPage, totalPages, { showCover = true } = {}) {
+    return (
+        showCover &&
+        spreadLeftPage === 1 &&
+        isCoverInsidePage(1, totalPages, { showCover })
+    );
+}
+
+/** Page 2 — first photo page beside the blank inside cover (page 1). */
+export function isInsideCoverRightPage(pageNum, totalPages, { showCover = true } = {}) {
+    return showCover && pageNum === 2 && isCoverInsidePage(1, totalPages, { showCover });
 }
 
 export function getSpreadPages(spreadIndex, totalPages, { showCover = true } = {}) {
@@ -83,10 +96,9 @@ export function getTotalSpreads(totalPages, { showCover = true } = {}) {
     return 1 + innerSpreads + 1;
 }
 
-/** Map page-flip page index (left page of spread) → spread index */
+/** Map flipbook page index → spread index (matches page-flip showCover spreads). */
 export function pageToSpreadIndex(pageIndex, { showCover = true, totalPages = 0 } = {}) {
     if (pageIndex <= 0) return 0;
-    if (showCover && pageIndex <= 1) return 0;
     if (usesReservedEndSpread(totalPages, { showCover })) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
         if (pageIndex >= endLeft) {

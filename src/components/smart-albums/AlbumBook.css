@@ -306,36 +306,62 @@
 .ab-half-spread-blank {
   width: 100%;
   height: 100%;
-  background: #e8eaed;
+  background: #fff;
 }
 
 .ab-flip-page--half-blank {
-  background: #e8eaed;
+  background: #fff;
 }
 
-.ab-flip-page--cover-sheet {
-  display: flex;
-  flex-direction: row;
+.ab-flip-page--single-photo {
   width: 100%;
   height: 100%;
-  background: #e8eaed;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ab-single-page-photo {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ab-page-photo--full {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
+
+/* Flipbook showCover: page 0 is a single hard cover (not a two-page spread). */
+.ab-flip-page--front-cover {
+  width: 100%;
+  height: 100%;
+  background: #dfe2e6;
   overflow: hidden;
 }
 
-.ab-flip-page--cover-sheet .ab-half-spread-blank {
-  flex: 0 0 50%;
-  max-width: 50%;
-}
-
-.ab-cover-sheet-photo {
+.ab-front-cover-photo {
   position: relative;
-  flex: 0 0 50%;
-  max-width: 50%;
+  display: block;
+  width: 100%;
   height: 100%;
   padding: 0;
   border: none;
   background: #dfe2e6;
   overflow: hidden;
+}
+
+.ab-flip-page--front-cover .ab-photo-pin-layer {
+  width: 100%;
+  height: 100%;
+}
+
+.ab-flip-page--front-cover .ab-page-cover-placeholder {
+  position: absolute;
+  inset: 0;
 }
 
 .ab-framed-page {
@@ -387,6 +413,16 @@
 
 .ab-framed-page--right {
   background: #dfe2e6;
+}
+
+.ab-framed-page--full {
+  background: #dfe2e6;
+}
+
+.ab-framed-page--full .ab-framed-page-img,
+.ab-framed-page--full .ab-page-photo.ab-framed-page-img {
+  width: 72%;
+  height: 92%;
 }
 
 .ab-flip-page--half-photo-left {
@@ -455,7 +491,7 @@
   position: absolute;
   box-sizing: border-box;
   overflow: hidden;
-  background: #f5f5f5;
+  background: #fff;
 }
 
 .ab-page-grid--editable {
@@ -647,30 +683,45 @@
 }
 
 /* One image across an open spread (left / right page halves) */
-.ab-grid-cell-photo--spread-left {
-  width: 200%;
-  max-width: none;
-  height: 100%;
-  object-fit: cover;
-  object-position: left center;
+.ab-flip-page--grid-left .ab-grid-cell:has(.ab-pano-bleed),
+.ab-flip-page--grid-right .ab-grid-cell:has(.ab-pano-bleed) {
+  overflow: visible;
+  z-index: 2;
 }
 
-.ab-grid-cell-photo--spread-right {
+.ab-flip-page--grid-left:has(.ab-pano-bleed) .ab-page-grid,
+.ab-flip-page--grid-right:has(.ab-pano-bleed) .ab-page-grid {
+  overflow: visible;
+}
+
+.ab-pano-bleed {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ab-pano-bleed--left .ab-grid-cell-photo {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 200%;
   max-width: none;
   height: 100%;
+  margin: 0;
   object-fit: cover;
-  object-position: right center;
+  object-position: center center;
+}
+
+.ab-pano-bleed--right .ab-grid-cell-photo {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  max-width: none;
+  height: 100%;
   margin-left: -100%;
-}
-
-/* Last spread: photo on left page only — never bleed across the spine */
-.ab-flip-page--end-left-grid .ab-grid-cell-photo--spread-left,
-.ab-flip-page--end-left-grid .ab-grid-cell-photo--spread-right {
-  width: 100%;
-  max-width: 100%;
-  margin-left: 0;
-  object-position: center;
+  object-fit: cover;
+  object-position: center center;
 }
 
 .ab-page-grid--whole-target .ab-grid-cell--whole-unified.ab-grid-cell--selected {
@@ -957,11 +1008,23 @@
 
 .ab-overview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, var(--ab-overview-thumb-w));
+  grid-template-columns: repeat(4, var(--ab-overview-thumb-w));
   gap: 28px 24px;
   justify-content: center;
   width: 100%;
   transition: gap 0.28s var(--ab-overview-ease);
+}
+
+@media (max-width: 1180px) {
+  .ab-overview-grid {
+    grid-template-columns: repeat(3, var(--ab-overview-thumb-w));
+  }
+}
+
+@media (max-width: 900px) {
+  .ab-overview-grid {
+    grid-template-columns: repeat(2, var(--ab-overview-thumb-w));
+  }
 }
 
 .ab-overview-grid--transitioning {
@@ -981,8 +1044,10 @@
   justify-content: center;
   gap: 24px;
   width: 100%;
-  padding-top: 4px;
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  max-width: calc(4 * var(--ab-overview-thumb-w) + 3 * 24px);
+  padding-top: 20px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
   transition: opacity 0.22s ease;
 }
 
