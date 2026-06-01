@@ -98,7 +98,8 @@ export function getSlotThumbnail(albumId, slot, { showSamples = false, album, to
         );
     }
 
-    const spreadLeft = slot.spreadLeft ?? getSpreadLeftPageIndex(pageNum, { showCover: true });
+    const spreadLeft =
+        slot.spreadLeft ?? getSpreadLeftPageIndex(pageNum, { showCover: true, totalPages });
     if (slot.whole) {
         const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeft);
         if (spreadSrc) return spreadSrc;

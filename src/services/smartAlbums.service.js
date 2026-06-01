@@ -210,12 +210,26 @@ function shouldUseLocalStore(error) {
 function isGenericColumnError(error) {
   const msg = (error?.message || '').toLowerCase();
   const code = error?.code || '';
+  const status = error?.status ?? error?.statusCode;
   return (
     code === '42703' ||
     code === 'PGRST204' ||
+    status === 400 ||
     (msg.includes('column') &&
       (msg.includes('does not exist') || msg.includes('schema cache')))
   );
+}
+
+const ALBUM_DETAIL_FIELDS_MINIMAL =
+  'id, photographer_id, name, event_date, slug, page_count, cover_image_url, status, created_at, updated_at';
+
+async function selectAlbumRow(photographerId, albumId, fields) {
+  return supabase
+    .from('smart_albums')
+    .select(fields)
+    .eq('photographer_id', photographerId)
+    .eq('id', albumId)
+    .maybeSingle();
 }
 
 const OPTIONAL_ALBUM_INSERT_COLUMNS = [
@@ -766,35 +780,31 @@ export const smartAlbumsService = {
 
 
   async getAlbum(photographerId, albumId) {
+    const fieldSets = [
+      ALBUM_DETAIL_FIELDS_MINIMAL,
+      ALBUM_LIST_FIELDS,
+      `${ALBUM_LIST_FIELDS},preview_data`,
+    ];
 
-    const { data, error } = await supabase
+    let data = null;
+    let lastError = null;
 
-      .from('smart_albums')
+    for (const fields of fieldSets) {
+      const result = await selectAlbumRow(photographerId, albumId, fields);
+      data = result.data;
+      lastError = result.error;
+      if (!lastError && data) break;
+      if (lastError && !isGenericColumnError(lastError)) break;
+    }
 
-      .select('*')
-
-      .eq('photographer_id', photographerId)
-
-      .eq('id', albumId)
-
-      .maybeSingle();
-
-
-
-    if (error) {
-
-      if (shouldUseLocalStore(error)) {
-
+    if (lastError) {
+      if (shouldUseLocalStore(lastError)) {
         return findLocalAlbum(photographerId, albumId);
-
       }
-
-      throw error;
-
+      throw lastError;
     }
 
     return data ? mapAlbumRow(data, photographerId) : findLocalAlbum(photographerId, albumId);
-
   },
 
 

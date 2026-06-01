@@ -1,10 +1,16 @@
 import { expandUploadFilesToImages } from '../../lib/pdfToImages';
+import {
+    getEndSpreadPageIndices,
+    getLastSpreadInfo,
+    isEndHalfSpreadLeftPage,
+} from './albumSpreadUtils';
 import { getAlbumCollection, getCollectionItem } from './albumCollection';
 import {
+    deriveCoverUrlFromSnapshot,
     getRemoteCollectionItem,
     getRemotePagePhoto,
     getRemotePreviewData,
-    deriveCoverUrlFromSnapshot,
+    hydrateAlbumPreviewData,
 } from './albumPreviewData';
 
 const STORAGE_KEY = 'pixnxt_album_page_photos';
@@ -57,6 +63,110 @@ function resolveRemotePagePhoto(albumId, key) {
     return null;
 }
 
+function getStoredPlacement(albumId, key) {
+    const album = readAll()[albumId];
+    if (album?.[key] != null) return album[key];
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.pages?.[key] != null) return remote.pages[key];
+    return null;
+}
+
+/** Copy cloud preview placements into localStorage so page splices stay consistent. */
+export function mergeRemotePreviewPagesIntoLocal(albumId) {
+    const remote = getRemotePreviewData(albumId);
+    if (!remote?.pages) return false;
+
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    let changed = false;
+
+    for (const [key, val] of Object.entries(remote.pages)) {
+        if (val != null && album[key] == null) {
+            album[key] = val;
+            changed = true;
+        }
+    }
+
+    if (!changed) return false;
+    album.__revision = (album.__revision || 0) + 1;
+    all[albumId] = album;
+    return writeAll(all);
+}
+
+/** Snapshot end-cover placement before removing pages (raw storage values). */
+export function captureEndCoverPlacement(albumId, totalPages) {
+    if (!albumId || totalPages == null) return null;
+    const { left, right } = getEndSpreadPageIndices(totalPages);
+    const pageLeft = getStoredPlacement(albumId, String(left));
+    const pageRight = getStoredPlacement(albumId, String(right));
+    const spread = getStoredPlacement(albumId, spreadStorageKey(left));
+    if (pageLeft == null && pageRight == null && spread == null) return null;
+    return { pageLeft, pageRight, spread };
+}
+
+/** Re-apply end-cover photo on the new last spread after a page-count shrink. */
+export function restoreEndCoverPlacement(albumId, totalPages, captured) {
+    if (!albumId || !captured || totalPages == null) return false;
+    const photo = captured.pageLeft ?? captured.spread ?? captured.pageRight;
+    if (photo == null) return false;
+
+    const { left, right } = getEndSpreadPageIndices(totalPages);
+    const spreadKey = spreadStorageKey(left);
+
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    album[String(left)] = photo;
+    delete album[spreadKey];
+    delete album[String(right)];
+    album.__revision = (album.__revision || 0) + 1;
+    all[albumId] = album;
+    writeAll(all);
+
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.pages) {
+        const pages = { ...remote.pages };
+        pages[String(left)] = photo;
+        delete pages[spreadKey];
+        delete pages[String(right)];
+        hydrateAlbumPreviewData(albumId, {
+            ...remote,
+            pages,
+            revision: (remote.revision || 0) + 1,
+        });
+    }
+
+    return true;
+}
+
+/** Move a mistaken whole-spread placement on the last spread to the left page only. */
+export function migrateEndHalfSpreadToLeftPage(albumId, totalPages) {
+    if (!albumId || totalPages == null) return false;
+    const { left } = getLastSpreadInfo(totalPages);
+    if (!isEndHalfSpreadLeftPage(left, totalPages)) return false;
+
+    const all = readAll();
+    const album = all[albumId];
+    if (!album) return false;
+
+    const spreadKey = spreadStorageKey(left);
+    const spreadStored = album[spreadKey];
+    const right = left + 1;
+    const rightStored = right < totalPages ? album[String(right)] : null;
+
+    if (spreadStored == null && rightStored == null) return false;
+
+    const next = { ...album };
+    if (next[String(left)] == null) {
+        next[String(left)] = spreadStored ?? rightStored;
+    }
+    delete next[spreadKey];
+    if (right < totalPages) delete next[String(right)];
+
+    next.__revision = (next.__revision || 0) + 1;
+    all[albumId] = next;
+    return writeAll(all);
+}
+
 export function getSpreadPhotoOverride(albumId, leftPage) {
     if (!albumId || leftPage == null) return null;
     const album = readAll()[albumId];
@@ -74,7 +184,19 @@ export function getPagePhotoOverride(albumId, pageNum) {
 }
 
 /** Per-slot image: whole-spread photo (panoramic) or single-page override. */
-export function getGridSlotPhoto(albumId, pageNum, cellId, spreadLeftPage) {
+export function getGridSlotPhoto(albumId, pageNum, cellId, spreadLeftPage, totalPages) {
+    if (totalPages != null && isEndHalfSpreadLeftPage(spreadLeftPage, totalPages)) {
+        const pageSrc = getPagePhotoOverride(albumId, pageNum);
+        if (pageSrc) return { src: pageSrc, panoramic: null };
+        const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeftPage);
+        if (spreadSrc) return { src: spreadSrc, panoramic: null };
+        const { right } = getEndSpreadPageIndices(totalPages);
+        const rightSrc = getPagePhotoOverride(albumId, right);
+        if (rightSrc && pageNum === spreadLeftPage) {
+            return { src: rightSrc, panoramic: null };
+        }
+        return { src: null, panoramic: null };
+    }
     const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeftPage);
     if (spreadSrc) {
         return { src: spreadSrc, panoramic: cellId === 1 ? 'left' : 'right' };
@@ -84,8 +206,15 @@ export function getGridSlotPhoto(albumId, pageNum, cellId, spreadLeftPage) {
     return { src: null, panoramic: null };
 }
 
-export function hasGridSlotPhoto(albumId, pageNum, cellId, spreadLeftPage) {
-    if (getSpreadPhotoOverride(albumId, spreadLeftPage)) return true;
+export function hasGridSlotPhoto(albumId, pageNum, cellId, spreadLeftPage, totalPages) {
+    if (totalPages != null && isEndHalfSpreadLeftPage(spreadLeftPage, totalPages)) {
+        if (getPagePhotoOverride(albumId, pageNum)) return true;
+        if (getSpreadPhotoOverride(albumId, spreadLeftPage)) return true;
+        const { right } = getEndSpreadPageIndices(totalPages);
+        return Boolean(pageNum === spreadLeftPage && getPagePhotoOverride(albumId, right));
+    }
+    const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeftPage);
+    if (spreadSrc) return true;
     return Boolean(getPagePhotoOverride(albumId, pageNum));
 }
 
@@ -262,8 +391,11 @@ export function clearAllAlbumPagePhotos(albumId, { totalPages = 21 } = {}) {
 }
 
 /** One image across the full spread (left + right pages). */
-export function setSpreadPhoto(albumId, leftPage, dataUrl, rightPage) {
+export function setSpreadPhoto(albumId, leftPage, dataUrl, rightPage, { totalPages } = {}) {
     if (!albumId || leftPage == null || !dataUrl) return false;
+    if (totalPages != null && isEndHalfSpreadLeftPage(leftPage, totalPages)) {
+        return setPagePhotoFromDataUrl(albumId, leftPage, dataUrl, { clearSpreadForLeft: leftPage });
+    }
     const all = readAll();
     const album = { ...(all[albumId] || {}) };
     album[spreadStorageKey(leftPage)] = dataUrl;
@@ -274,8 +406,19 @@ export function setSpreadPhoto(albumId, leftPage, dataUrl, rightPage) {
     return writeAll(all);
 }
 
-export function setSpreadPhotoFromCollectionItem(albumId, leftPage, collectionItemId, rightPage) {
+export function setSpreadPhotoFromCollectionItem(
+    albumId,
+    leftPage,
+    collectionItemId,
+    rightPage,
+    { totalPages } = {}
+) {
     if (!albumId || leftPage == null || !collectionItemId) return false;
+    if (totalPages != null && isEndHalfSpreadLeftPage(leftPage, totalPages)) {
+        return setPagePhotoFromCollectionItem(albumId, leftPage, collectionItemId, {
+            clearSpreadForLeft: leftPage,
+        });
+    }
     const all = readAll();
     const album = { ...(all[albumId] || {}) };
     album[spreadStorageKey(leftPage)] = { collectionItemId };
@@ -325,7 +468,11 @@ export function autoPlaceCollectionItems(albumId, collectionItemIds, { totalPage
             const leftPage = 1 + i * 2;
             if (leftPage >= totalPages) break;
             const rightPage = leftPage + 1 < totalPages ? leftPage + 1 : null;
-            if (setSpreadPhotoFromCollectionItem(albumId, leftPage, collectionItemIds[i], rightPage)) {
+            if (
+                setSpreadPhotoFromCollectionItem(albumId, leftPage, collectionItemIds[i], rightPage, {
+                    totalPages,
+                })
+            ) {
                 placed += 1;
             }
         }

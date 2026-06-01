@@ -7,7 +7,12 @@ import {
     getSpreadPhotoOverride,
 } from './albumPagePhotos';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
-import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+import {
+    getSpreadPages,
+    getTotalSpreads,
+    isEndHalfSpreadIndex,
+    pageToSpreadIndex,
+} from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
 import AlbumFocusView from './AlbumFocusView';
@@ -35,6 +40,7 @@ import { parseGridSizeAspect } from './albumGridSize';
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
 const FLIP_TIME_MS = 800;
+const FLIP_PAGE_SYNC_MS = 320;
 const BOOK_PAGE_HEIGHT_MIN = 300;
 const BOOK_PAGE_HEIGHT_MAX = 520;
 const BOOK_PAGE_HEIGHT_SCALE = 0.93;
@@ -57,6 +63,24 @@ function getBookDimensions(stageEl, gridSize = 'square') {
     };
 }
 
+function OverviewFramedPhoto({ src, placeholderClass = '' }) {
+    if (!src) {
+        return (
+            <span
+                className={`ab-overview-placeholder ab-overview-placeholder--cover${placeholderClass ? ` ${placeholderClass}` : ''}`}
+            />
+        );
+    }
+    return (
+        <span className="ab-overview-cover-stage">
+            <span className="ab-overview-cover-bg" aria-hidden>
+                <img src={src} alt="" loading="lazy" />
+            </span>
+            <img className="ab-overview-cover-frame" src={src} alt="" loading="lazy" />
+        </span>
+    );
+}
+
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const albumId = album?.id;
     const directSrc = getPagePhotoOverride(albumId, pageNum);
@@ -64,9 +88,9 @@ function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     if (pageNum === 0) {
         return album?.cover_image_url || (showSamples ? getSampleImageForPage(pageNum) : null);
     }
-    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true });
+    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true, totalPages });
     const cellId = pageNum === spreadLeft ? 1 : 2;
-    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft);
+    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages);
     return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);
 }
 
@@ -92,7 +116,6 @@ const AlbumBook = ({
     canRemovePages = false,
     onRemovePages,
     pageCountBusy = false,
-    overviewReopenToken = 0,
     showGridComments = false,
     spreadCommentsBySpread = null,
     swapMarkMode = false,
@@ -132,9 +155,10 @@ const AlbumBook = ({
     }, [initialPage]);
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [focusOpen, setFocusOpen] = useState(false);
+    const [flipBookPageCount, setFlipBookPageCount] = useState(totalPages);
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
-    const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true });
+    const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true, totalPages });
     const currentSpreadComments =
         showGridComments && spreadCommentsBySpread
             ? spreadCommentsBySpread[spreadIndex] || null
@@ -281,8 +305,26 @@ const AlbumBook = ({
     }, [overviewOpen]);
 
     useEffect(() => {
-        if (overviewReopenToken) setOverviewOpen(true);
-    }, [overviewReopenToken]);
+        if (!overviewOpen) {
+            setFlipBookPageCount(totalPages);
+            return undefined;
+        }
+        const timer = window.setTimeout(() => {
+            setFlipBookPageCount(totalPages);
+        }, FLIP_PAGE_SYNC_MS);
+        return () => window.clearTimeout(timer);
+    }, [totalPages, overviewOpen]);
+
+    useEffect(() => {
+        const maxPage = Math.max(0, totalPages - 1);
+        if (pageIndex <= maxPage) return;
+        setPageIndex(maxPage);
+        onPageChange?.(maxPage);
+        const api = bookRef.current?.pageFlip?.();
+        if (api?.getFlipController?.()) {
+            api.turnToPage(maxPage);
+        }
+    }, [totalPages, pageIndex, onPageChange]);
 
     useEffect(() => {
         setSwapMarks(getSwapMarks(album?.id));
@@ -439,7 +481,7 @@ const AlbumBook = ({
 
     const pages = useMemo(
         () =>
-            Array.from({ length: totalPages }, (_, pageNum) => (
+            Array.from({ length: flipBookPageCount }, (_, pageNum) => (
                 <AlbumFlipPage
                     key={`page-${pageNum}`}
                     album={album}
@@ -473,6 +515,7 @@ const AlbumBook = ({
             )),
         [
             album,
+            flipBookPageCount,
             totalPages,
             editable,
             spreadEdit,
@@ -534,7 +577,7 @@ const AlbumBook = ({
                     style={{ width: dims.width * 2, height: dims.height }}
                 >
                     <HTMLFlipBook
-                        key={`${album?.id}-${totalPages}`}
+                        key={`${album?.id}-${flipBookPageCount}`}
                         ref={bookRef}
                         className="ab-html-flipbook"
                         width={dims.width}
@@ -627,7 +670,7 @@ const AlbumBook = ({
 
             {overviewOpen && (
                 <div
-                    className="ab-overview"
+                    className={`ab-overview${pageCountBusy ? ' ab-overview--page-busy' : ''}`}
                     role="dialog"
                     aria-modal="true"
                     aria-label="Page overview"
@@ -641,7 +684,12 @@ const AlbumBook = ({
                     >
                         ×
                     </button>
-                    <div className="ab-overview-grid" onClick={(e) => e.stopPropagation()}>
+                    <div className="ab-overview-body" onClick={(e) => e.stopPropagation()}>
+                    <div
+                        className={`ab-overview-grid${
+                            pageCountBusy ? ' ab-overview-grid--transitioning' : ''
+                        }`}
+                    >
                         {Array.from({ length: totalSpreads }, (_, overviewSpreadIndex) => {
                             const { left, right } = getSpreadPages(
                                 overviewSpreadIndex,
@@ -664,6 +712,13 @@ const AlbumBook = ({
                                     ? getSpreadPhotoOverride(album?.id, left)
                                     : null;
                             const isCover = overviewSpreadIndex === 0;
+                            const isEndSpread = isEndHalfSpreadIndex(
+                                overviewSpreadIndex,
+                                totalPages
+                            );
+                            const endCoverSrc =
+                                leftSrc || (isEndSpread ? spreadSrc : null);
+                            const isEndHalf = isEndSpread && !rightSrc;
                             const isCurrent = overviewSpreadIndex === spreadIndex;
                             const spreadComments =
                                 showGridComments && spreadCommentsBySpread
@@ -671,7 +726,7 @@ const AlbumBook = ({
                                     : null;
                             return (
                                 <button
-                                    key={overviewSpreadIndex}
+                                    key={`spread-${overviewSpreadIndex}`}
                                     type="button"
                                     className={`ab-overview-item${
                                         isCover ? ' ab-overview-item--cover' : ''
@@ -684,7 +739,7 @@ const AlbumBook = ({
                                     }}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
-                                        {spreadSrc ? (
+                                        {spreadSrc && !isEndSpread ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
                                                 <img src={spreadSrc} alt="" loading="lazy" />
                                                 {spreadComments?.length > 0 && (
@@ -701,28 +756,7 @@ const AlbumBook = ({
                                                     aria-hidden
                                                 />
                                                 <span className="ab-overview-page ab-overview-page--cover-right">
-                                                    {leftSrc ? (
-                                                        <span className="ab-overview-cover-stage">
-                                                            <span
-                                                                className="ab-overview-cover-bg"
-                                                                aria-hidden
-                                                            >
-                                                                <img
-                                                                    src={leftSrc}
-                                                                    alt=""
-                                                                    loading="lazy"
-                                                                />
-                                                            </span>
-                                                            <img
-                                                                className="ab-overview-cover-frame"
-                                                                src={leftSrc}
-                                                                alt=""
-                                                                loading="lazy"
-                                                            />
-                                                        </span>
-                                                    ) : (
-                                                        <span className="ab-overview-placeholder ab-overview-placeholder--cover" />
-                                                    )}
+                                                    <OverviewFramedPhoto src={leftSrc} />
                                                     {spreadComments?.length > 0 && leftSrc && (
                                                         <SpreadGridComments
                                                             comments={spreadComments}
@@ -730,6 +764,22 @@ const AlbumBook = ({
                                                         />
                                                     )}
                                                 </span>
+                                            </>
+                                        ) : isEndHalf ? (
+                                            <>
+                                                <span className="ab-overview-page ab-overview-page--end-left">
+                                                    <OverviewFramedPhoto src={endCoverSrc} />
+                                                    {spreadComments?.length > 0 && endCoverSrc && (
+                                                        <SpreadGridComments
+                                                            comments={spreadComments}
+                                                            className="ab-grid-comments--overview"
+                                                        />
+                                                    )}
+                                                </span>
+                                                <span
+                                                    className="ab-overview-page ab-overview-page--cover-blank"
+                                                    aria-hidden
+                                                />
                                             </>
                                         ) : (
                                             <>
@@ -769,45 +819,54 @@ const AlbumBook = ({
                                         )}
                                     </span>
                                     <span className="ab-overview-label">
-                                        {isCover ? 'Cover' : overviewSpreadIndex}
+                                        {isCover ? 'Cover' : isEndSpread ? 'End' : overviewSpreadIndex}
                                     </span>
                                 </button>
                             );
                         })}
-                        {canAddPages && onAddPages && (
-                            <button
-                                type="button"
-                                className="ab-overview-item ab-overview-item--add"
-                                disabled={pageCountBusy}
-                                onClick={async () => {
-                                    await onAddPages();
-                                }}
-                            >
-                                <span className="ab-overview-thumb ab-overview-thumb--add">
-                                    <span className="ab-overview-add-plus">+</span>
-                                </span>
-                                <span className="ab-overview-label">
-                                    {pageCountBusy ? 'Adding...' : 'Add page'}
-                                </span>
-                            </button>
-                        )}
-                        {canRemovePages && onRemovePages && (
-                            <button
-                                type="button"
-                                className="ab-overview-item ab-overview-item--remove"
-                                disabled={pageCountBusy}
-                                onClick={async () => {
-                                    await onRemovePages();
-                                }}
-                            >
-                                <span className="ab-overview-thumb ab-overview-thumb--remove">
-                                    <span className="ab-overview-add-plus ab-overview-remove-minus">−</span>
-                                </span>
-                                <span className="ab-overview-label">
-                                    {pageCountBusy ? 'Removing...' : 'Remove page'}
-                                </span>
-                            </button>
-                        )}
+                    </div>
+                    {(canAddPages || canRemovePages) && (
+                        <div className="ab-overview-actions">
+                            {canAddPages && onAddPages && (
+                                <button
+                                    type="button"
+                                    className="ab-overview-item ab-overview-item--add"
+                                    disabled={pageCountBusy}
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        await onAddPages();
+                                    }}
+                                >
+                                    <span className="ab-overview-thumb ab-overview-thumb--add">
+                                        <span className="ab-overview-add-plus">+</span>
+                                    </span>
+                                    <span className="ab-overview-label">
+                                        {pageCountBusy ? 'Adding...' : 'Add page'}
+                                    </span>
+                                </button>
+                            )}
+                            {canRemovePages && onRemovePages && (
+                                <button
+                                    type="button"
+                                    className="ab-overview-item ab-overview-item--remove"
+                                    disabled={pageCountBusy}
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        await onRemovePages();
+                                    }}
+                                >
+                                    <span className="ab-overview-thumb ab-overview-thumb--remove">
+                                        <span className="ab-overview-add-plus ab-overview-remove-minus">
+                                            −
+                                        </span>
+                                    </span>
+                                    <span className="ab-overview-label">
+                                        {pageCountBusy ? 'Removing...' : 'Remove page'}
+                                    </span>
+                                </button>
+                            )}
+                        </div>
+                    )}
                     </div>
                 </div>
             )}

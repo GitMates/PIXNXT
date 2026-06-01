@@ -3,6 +3,8 @@
  * Cell 1 → left page photo index; cell 2 → right page photo index.
  */
 
+import { getEndSpreadPageIndices, isCoverInsidePage } from './albumSpreadUtils';
+
 export const PROOF_SLOT_COUNT = 2;
 
 export const PROOF_VINO_RATIOS = {
@@ -35,29 +37,40 @@ export function calculateProofRightPageGrid(pageWidth, pageHeight) {
 }
 
 /** Left page of an inner spread (pages 1, 3, 5, …) uses slot 1. */
-export function isProofLeftGridPage(pageNum, { showCover = true } = {}) {
+export function isProofLeftGridPage(pageNum, { showCover = true, totalPages } = {}) {
     if (pageNum <= 0) return false;
+    if (showCover && totalPages != null && isCoverInsidePage(pageNum, totalPages, { showCover })) {
+        return false;
+    }
     if (!showCover) return pageNum % 2 === 0;
     return pageNum % 2 === 1;
 }
 
-export function isProofRightGridPage(pageNum, { showCover = true } = {}) {
+export function isProofRightGridPage(pageNum, { showCover = true, totalPages } = {}) {
     if (pageNum <= 0) return false;
+    if (showCover && totalPages != null && isCoverInsidePage(pageNum, totalPages, { showCover })) {
+        return false;
+    }
     if (!showCover) return pageNum % 2 === 1;
     return pageNum % 2 === 0;
 }
 
-export function getSpreadLeftPageIndex(pageNum, { showCover = true } = {}) {
+export function getSpreadLeftPageIndex(pageNum, { showCover = true, totalPages } = {}) {
     if (pageNum <= 0) return 0;
-    if (showCover) {
-        return pageNum % 2 === 1 ? pageNum : pageNum - 1;
+    if (showCover && pageNum <= 1) return 0;
+    if (totalPages != null && totalPages > 0) {
+        const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+        if (pageNum >= endLeft) return endLeft;
+    }
+    if (!showCover) {
+        return pageNum % 2 === 0 ? pageNum : pageNum - 1;
     }
     return pageNum % 2 === 0 ? pageNum : pageNum - 1;
 }
 
 /** Photo page index for grid cell 1 (left) or 2 (right). */
 export function getProofCellPhotoIndex(pageNum, cellId, totalPages, { showCover = true } = {}) {
-    const left = getSpreadLeftPageIndex(pageNum, { showCover });
+    const left = getSpreadLeftPageIndex(pageNum, { showCover, totalPages });
     const idx = left + (cellId - 1);
     const max = Math.max(0, totalPages - 1);
     return Math.min(Math.max(0, idx), max);

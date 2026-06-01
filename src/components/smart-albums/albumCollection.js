@@ -220,12 +220,28 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
     let previewData = null;
 
     try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('smart_albums')
             .select('preview_data, cover_image_url')
             .eq('id', albumId)
             .eq('photographer_id', photographerId)
             .maybeSingle();
+
+        if (error) {
+            const msg = (error.message || '').toLowerCase();
+            const missingPreview =
+                error.status === 400 ||
+                msg.includes('preview_data') ||
+                msg.includes('column');
+            if (missingPreview) {
+                ({ data, error } = await supabase
+                    .from('smart_albums')
+                    .select('cover_image_url')
+                    .eq('id', albumId)
+                    .eq('photographer_id', photographerId)
+                    .maybeSingle());
+            }
+        }
 
         if (!error && data?.preview_data) {
             previewData = data.preview_data;

@@ -3,6 +3,7 @@ import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { formatGridSizeLabel } from './albumGridSize';
+import { isEndHalfSpreadLeftPage } from './albumSpreadUtils';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -46,12 +47,18 @@ const GRID_LAYOUT_LABELS = {
     'whole-spread': 'Whole-spread photo',
 };
 
-function placementHint(gridEditSet, gridSelection, canSelectGrid) {
+function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages) {
     if (!canSelectGrid) {
         return 'Flip to an inner spread (not the cover) to place photos.';
     }
     if (gridSelection?.mode === 'cover') {
         return 'Cover page';
+    }
+    if (
+        gridSelection?.leftPage != null &&
+        isEndHalfSpreadLeftPage(gridSelection.leftPage, totalPages)
+    ) {
+        return 'Last spread · left page only';
     }
     if (gridEditSet === 'whole' || gridSelection?.mode === 'spread') {
         return 'Whole grid · one photo across both pages';
@@ -191,7 +198,7 @@ export default function AlbumEditorSidebar({
                         </p>
                         {canSelectGrid && (
                             <p className="ae-selection-badge" role="status">
-                                {placementHint(gridEditSet, gridSelection, canSelectGrid)}
+                                {placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages)}
                             </p>
                         )}
                         <input

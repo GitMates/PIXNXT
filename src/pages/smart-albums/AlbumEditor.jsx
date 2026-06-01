@@ -21,6 +21,7 @@ import { isPdfFile } from '../../lib/pdfToImages';
 import {
     clearAllAlbumPagePhotos,
     getAlbumPhotoRevision,
+    migrateEndHalfSpreadToLeftPage,
     placeCollectionItemOnPages,
     setPagePhotoFromCollectionItem,
     setSpreadPhotoFromCollectionItem,
@@ -28,11 +29,14 @@ import {
 import { clearAlbumTransforms, getTransformRevision } from '../../components/smart-albums/albumPageTransforms';
 import {
     getProofCellPhotoIndex,
+    getSpreadLeftPageIndex,
     PROOF_CELL_LABELS,
     getSpreadRightPageIndex,
 } from '../../components/smart-albums/albumSpreadGrid';
 import {
-    getSpreadPages,
+    getInnerPageCount,
+    isCoverInsidePage,
+    isEndHalfSpreadLeftPage,
     pageToSpreadIndex,
     spreadIndexToPage,
 } from '../../components/smart-albums/albumSpreadUtils';
@@ -50,12 +54,13 @@ import { useAuth } from '../../hooks/useAuth';
 import './AlbumEditor.css';
 
 function getSpreadLeftForBookPage(bookPageIndex, totalPages) {
-    const spreadIdx = pageToSpreadIndex(bookPageIndex, { showCover: true });
-    return getSpreadPages(spreadIdx, totalPages).left;
+    return getSpreadLeftPageIndex(bookPageIndex, { showCover: true, totalPages });
 }
 
-function isProofGridSpread(leftPage) {
-    return leftPage > 0;
+function isProofGridSpread(leftPage, totalPages) {
+    if (leftPage <= 0) return false;
+    if (totalPages != null && isCoverInsidePage(leftPage, totalPages)) return false;
+    return true;
 }
 
 function buildSpreadSelection(leftPage) {
@@ -115,7 +120,6 @@ export default function AlbumEditor({
     const [transformRevision, setTransformRevision] = useState(0);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pageCountBusy, setPageCountBusy] = useState(false);
-    const [overviewReopenToken, setOverviewReopenToken] = useState(0);
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
@@ -123,7 +127,7 @@ export default function AlbumEditor({
     const shareRef = useRef(null);
     const [gridSelection, setGridSelection] = useState(() => {
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
-        return isProofGridSpread(left) ? buildCellSelection(left, 1) : buildCoverSelection();
+        return isProofGridSpread(left, totalPages) ? buildCellSelection(left, 1) : buildCoverSelection();
     });
 
     const albumForBook = useMemo(() => ({ ...album, id: albumId }), [album, albumId]);
@@ -142,6 +146,12 @@ export default function AlbumEditor({
     useEffect(() => {
         setCollectionRevision(getAlbumCollectionRevision(albumId));
     }, [albumId]);
+
+    useEffect(() => {
+        if (migrateEndHalfSpreadToLeftPage(albumId, totalPages)) {
+            bumpWorkspace();
+        }
+    }, [albumId, totalPages, bumpWorkspace]);
 
     useEffect(() => {
         setSwapMarks(getSwapMarks(albumId));
@@ -203,7 +213,7 @@ export default function AlbumEditor({
         const lockedSet = layoutToPlacementMode(album?.grid_layout);
         setGridEditSet(lockedSet);
         const left = getSpreadLeftForBookPage(bookPage, totalPages);
-        if (isProofGridSpread(left)) {
+        if (isProofGridSpread(left, totalPages)) {
             setGridSelection(
                 lockedSet === 'whole'
                     ? buildSpreadSelection(left)
@@ -213,9 +223,11 @@ export default function AlbumEditor({
     }, [album?.grid_layout, bookPage, totalPages]);
 
     useEffect(() => {
-        setBookPage(initialPage);
-        const left = getSpreadLeftForBookPage(initialPage, totalPages);
-        if (isProofGridSpread(left)) {
+        const maxPage = Math.max(0, totalPages - 1);
+        const clampedPage = Math.min(initialPage, maxPage);
+        setBookPage(clampedPage);
+        const left = getSpreadLeftForBookPage(clampedPage, totalPages);
+        if (isProofGridSpread(left, totalPages)) {
             setGridSelection((prev) =>
                 prev?.leftPage === left ? prev : buildCellSelection(left, prev?.cellId || 1)
             );
@@ -224,12 +236,22 @@ export default function AlbumEditor({
         }
     }, [initialPage, totalPages]);
 
+    useEffect(() => {
+        setBookPage((prev) => {
+            const maxPage = Math.max(0, totalPages - 1);
+            return prev > maxPage ? maxPage : prev;
+        });
+    }, [totalPages]);
+
     const syncSelectionToPage = useCallback(
         (pageIndex) => {
             const left = getSpreadLeftForBookPage(pageIndex, totalPages);
-            if (isProofGridSpread(left)) {
+            if (isProofGridSpread(left, totalPages)) {
                 setGridSelection((prev) => {
                     if (prev?.leftPage === left) return prev;
+                    if (isEndHalfSpreadLeftPage(left, totalPages)) {
+                        return buildCellSelection(left, prev?.cellId || 1);
+                    }
                     return gridEditSet === 'whole'
                         ? buildSpreadSelection(left)
                         : buildCellSelection(left, prev?.cellId || 1);
@@ -252,7 +274,7 @@ export default function AlbumEditor({
 
     const handleNavigateToCommentSpread = useCallback(
         (spreadIndex) => {
-            const page = spreadIndexToPage(spreadIndex, { showCover: true });
+            const page = spreadIndexToPage(spreadIndex, { showCover: true, totalPages });
             const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
             handleBookPageChange(clamped);
         },
@@ -260,8 +282,8 @@ export default function AlbumEditor({
     );
 
     const activeCommentSpreadIndex = useMemo(
-        () => pageToSpreadIndex(bookPage, { showCover: true }),
-        [bookPage]
+        () => pageToSpreadIndex(bookPage, { showCover: true, totalPages }),
+        [bookPage, totalPages]
     );
 
     const handleGridEditSetChange = useCallback(
@@ -271,7 +293,7 @@ export default function AlbumEditor({
             setGridEditSet(set);
             const left =
                 gridSelection?.leftPage ?? getSpreadLeftForBookPage(bookPage, totalPages);
-            if (!isProofGridSpread(left)) return;
+            if (!isProofGridSpread(left, totalPages)) return;
             if (set === 'whole') {
                 setGridSelection(buildSpreadSelection(left));
             } else {
@@ -308,7 +330,7 @@ export default function AlbumEditor({
     }, []);
 
     const placementTargets = useMemo(() => {
-        if (!gridSelection || !isProofGridSpread(gridSelection.leftPage)) return [];
+        if (!gridSelection || !isProofGridSpread(gridSelection.leftPage, totalPages)) return [];
         if (gridEditSet === 'whole' || gridSelection.mode === 'spread') return [];
         if (gridSelection.cellId) {
             return [
@@ -322,6 +344,14 @@ export default function AlbumEditor({
         return [];
     }, [gridSelection, gridEditSet, totalPages]);
 
+    const effectivePlacementMode = useMemo(() => {
+        if (gridEditSet !== 'whole') return 'single';
+        const left =
+            gridSelection?.leftPage ?? getSpreadLeftForBookPage(bookPage, totalPages);
+        if (isEndHalfSpreadLeftPage(left, totalPages)) return 'single';
+        return 'whole';
+    }, [gridEditSet, gridSelection?.leftPage, bookPage, totalPages]);
+
     const placeItemOnSpread = useCallback(
         (itemId) => {
             const item = getCollectionItem(albumId, itemId);
@@ -331,10 +361,19 @@ export default function AlbumEditor({
                 return setPagePhotoFromCollectionItem(albumId, 0, item.id);
             }
 
+            const left = gridSelection.leftPage;
+            const endHalfLeft = isEndHalfSpreadLeftPage(left, totalPages);
+
             if (gridEditSet === 'whole' || gridSelection.mode === 'spread') {
-                const left = gridSelection.leftPage;
+                if (endHalfLeft) {
+                    return setPagePhotoFromCollectionItem(albumId, left, item.id, {
+                        clearSpreadForLeft: left,
+                    });
+                }
                 const right = getSpreadRightPageIndex(left, totalPages);
-                return setSpreadPhotoFromCollectionItem(albumId, left, item.id, right);
+                return setSpreadPhotoFromCollectionItem(albumId, left, item.id, right, {
+                    totalPages,
+                });
             }
 
             const targets = placementTargets;
@@ -405,24 +444,27 @@ export default function AlbumEditor({
     );
 
     const canAddPages = totalPages + pagesPerSpread <= maxPages;
-    const canRemovePages = totalPages - pagesPerSpread >= minPages;
+    const canRemovePages =
+        totalPages - pagesPerSpread >= minPages &&
+        getInnerPageCount(totalPages) >= pagesPerSpread;
 
-    const handleAddPages = useCallback(async () => {
-        if (!canAddPages || !onChangePageCount) return null;
-        setPageCountBusy(true);
-        const result = await onChangePageCount(pagesPerSpread);
-        setPageCountBusy(false);
-        if (result) {
-            bumpWorkspace();
-            showToast(`Added ${pagesPerSpread} pages (${result.next} total).`, { duration: 3500 });
-        }
-        return result;
-    }, [canAddPages, onChangePageCount, pagesPerSpread, bumpWorkspace, showToast]);
+    const handleAddPages = useCallback(
+        async ({ silent = false } = {}) => {
+            if (!canAddPages || !onChangePageCount) return null;
+            setPageCountBusy(true);
+            const result = await onChangePageCount(pagesPerSpread);
+            setPageCountBusy(false);
+            if (result) bumpWorkspace();
+            if (result && !silent) {
+                showToast(`Added ${pagesPerSpread} pages (${result.next} total).`, { duration: 3500 });
+            }
+            return result;
+        },
+        [canAddPages, onChangePageCount, pagesPerSpread, showToast, bumpWorkspace]
+    );
 
     const handleAddPagesFromOverview = useCallback(async () => {
-        const result = await handleAddPages();
-        if (result) setOverviewReopenToken(Date.now());
-        return result;
+        return handleAddPages({ silent: true });
     }, [handleAddPages]);
 
     const handleRemovePages = useCallback(async () => {
@@ -430,15 +472,11 @@ export default function AlbumEditor({
         setPageCountBusy(true);
         const result = await onChangePageCount(-pagesPerSpread);
         setPageCountBusy(false);
-        if (result) {
-            bumpWorkspace();
-            showToast(`Removed ${pagesPerSpread} pages (${result.next} total).`, { duration: 3500 });
-        }
-    }, [canRemovePages, onChangePageCount, pagesPerSpread, bumpWorkspace, showToast]);
+        if (result) bumpWorkspace();
+    }, [canRemovePages, onChangePageCount, pagesPerSpread, bumpWorkspace]);
 
     const handleRemovePagesFromOverview = useCallback(async () => {
         await handleRemovePages();
-        setOverviewReopenToken(Date.now());
     }, [handleRemovePages]);
 
     const handleClearAllPhotos = useCallback(() => {
@@ -450,8 +488,6 @@ export default function AlbumEditor({
 
     const spreadEdit = activePanel === 'edit';
     const showGridComments = activePanel === 'comments';
-    const workspaceKey = `${photoRevision}-${collectionRevision}-${transformRevision}-${getAlbumPhotoRevision(albumId)}`;
-
     const loadSpreadComments = useCallback(async () => {
         if (!albumId) return;
         try {
@@ -601,11 +637,11 @@ export default function AlbumEditor({
                         const left =
                             gridSelection?.leftPage ??
                             getSpreadLeftForBookPage(bookPage, totalPages);
-                        if (isProofGridSpread(left)) handleSelectGridCell(left, cellId);
+                        if (isProofGridSpread(left, totalPages)) handleSelectGridCell(left, cellId);
                     }}
                     canSelectGrid={Boolean(gridSelection)}
                     spreadCount={spreadCount}
-                    innerPageCount={Math.max(0, totalPages - 1)}
+                    innerPageCount={getInnerPageCount(totalPages)}
                     canAddPages={canAddPages}
                     canRemovePages={canRemovePages}
                     pagesPerSpread={pagesPerSpread}
@@ -628,14 +664,14 @@ export default function AlbumEditor({
                     </div>
                     <div className={`ae-canvas-stage${spreadEdit ? ' ae-canvas-stage--edit' : ''}`}>
                         <AlbumBook
-                            key={`${albumId}-edit-${workspaceKey}-${totalPages}`}
+                            key={albumId}
                             album={albumForBook}
                             totalPages={totalPages}
                             initialPage={bookPage}
                             onPageChange={handleBookPageChange}
                             editable={!spreadEdit}
                             spreadEdit={spreadEdit}
-                            placementMode={gridEditSet === 'whole' ? 'whole' : 'single'}
+                            placementMode={effectivePlacementMode === 'whole' ? 'whole' : 'single'}
                             showSamples={false}
                             gridSelection={gridSelection}
                             onSelectGridCell={handleSelectGridCell}
@@ -646,7 +682,6 @@ export default function AlbumEditor({
                             canRemovePages={canRemovePages}
                             onRemovePages={handleRemovePagesFromOverview}
                             pageCountBusy={pageCountBusy}
-                            overviewReopenToken={overviewReopenToken}
                             onTransformChange={() => {
                                 setTransformRevision(getTransformRevision(albumId));
                                 onPhotosUploaded?.();

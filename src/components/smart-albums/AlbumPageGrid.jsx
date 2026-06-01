@@ -8,6 +8,7 @@ import {
 import { getSpreadPhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
+import { isEndHalfSpreadLeftPage } from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
@@ -60,8 +61,15 @@ function GridPhoto({
     );
 }
 
-function resolveSlotImage(albumId, pageNum, cellId, spreadLeft, { showSamples = true } = {}) {
-    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft);
+function resolveSlotImage(
+    albumId,
+    pageNum,
+    cellId,
+    spreadLeft,
+    totalPages,
+    { showSamples = true } = {}
+) {
+    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages);
     if (slot.src) return slot;
     const sample = showSamples ? getSampleImageForPage(pageNum) : null;
     return { src: sample, panoramic: null };
@@ -98,11 +106,12 @@ export default function AlbumPageGrid({
     proofToolsHover = true,
 }) {
     const albumId = albumIdProp ?? album?.id;
-    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true });
+    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true, totalPages });
+    const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages);
     const inSelectedSpread =
         selectionLeftPage != null && selectionLeftPage === spreadLeft;
     const selectWholeSpread = selectionMode === 'spread' && inSelectedSpread;
-    const wholePlacement = placementMode === 'whole';
+    const wholePlacement = placementMode === 'whole' && !endHalfSpreadLeft;
     const useSelectCells = editable && !spreadEdit;
     const CellTag = useSelectCells ? 'button' : 'div';
 
@@ -154,12 +163,19 @@ export default function AlbumPageGrid({
                     photoIndex,
                     cell.id,
                     spreadLeft,
+                    totalPages,
                     { showSamples }
                 );
                 const isSelected =
                     inSelectedSpread &&
                     (selectionMode === 'spread' || selectedCellId === cell.id);
-                const hasPhoto = hasGridSlotPhoto(albumId, photoIndex, cell.id, spreadLeft);
+                const hasPhoto = hasGridSlotPhoto(
+                    albumId,
+                    photoIndex,
+                    cell.id,
+                    spreadLeft,
+                    totalPages
+                );
                 const spreadPhotoOnly = panoramic != null;
                 const spreadSrc = spreadPhotoOnly
                     ? getSpreadPhotoOverride(albumId, spreadLeft)

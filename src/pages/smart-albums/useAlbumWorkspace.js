@@ -4,12 +4,27 @@ import {
     MAX_ALBUM_PAGES,
     MIN_ALBUM_PAGES,
     PAGES_PER_SPREAD,
-    pruneAlbumStorageForPageCount,
+    insertAlbumStoragePages,
+    removeAlbumStoragePages,
 } from '../../components/smart-albums/albumPageStorage';
-import { getTotalSpreads } from '../../components/smart-albums/albumSpreadUtils';
+import {
+    captureEndCoverPlacement,
+    mergeRemotePreviewPagesIntoLocal,
+    migrateEndHalfSpreadToLeftPage,
+    restoreEndCoverPlacement,
+} from '../../components/smart-albums/albumPagePhotos';
+import {
+    getEndSpreadPageIndices,
+    getPageInsertIndex,
+    getPageRemoveIndex,
+    getTotalSpreads,
+} from '../../components/smart-albums/albumSpreadUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import { hydrateAlbumPreviewData } from '../../components/smart-albums/albumPreviewData';
+import {
+    hydrateAlbumPreviewData,
+    shiftAlbumRemotePreviewPages,
+} from '../../components/smart-albums/albumPreviewData';
 
 export function parseUrlPage(raw, totalPages) {
     if (raw == null || raw === '') return 0;
@@ -114,28 +129,53 @@ export function useAlbumWorkspace() {
     );
 
     const changePageCount = useCallback(
-        async (delta) => {
+        async (pageDelta) => {
             if (!user || !albumId || !album) return null;
             const current = album.page_count || 21;
             const next = Math.max(
                 MIN_ALBUM_PAGES,
-                Math.min(MAX_ALBUM_PAGES, current + delta)
+                Math.min(MAX_ALBUM_PAGES, current + pageDelta)
             );
             if (next === current) return null;
 
             try {
+                const countDelta = next - current;
+                mergeRemotePreviewPagesIntoLocal(albumId);
+
+                if (countDelta > 0) {
+                    const insertAt = getPageInsertIndex(current);
+                    insertAlbumStoragePages(albumId, insertAt, countDelta);
+                    shiftAlbumRemotePreviewPages(albumId, insertAt, countDelta);
+                } else if (countDelta < 0) {
+                    const removeCount = -countDelta;
+                    const removeAt = getPageRemoveIndex(current, removeCount);
+                    const endCapture = captureEndCoverPlacement(albumId, current);
+                    removeAlbumStoragePages(albumId, removeAt, removeCount);
+                    shiftAlbumRemotePreviewPages(albumId, removeAt, -removeCount);
+                    restoreEndCoverPlacement(albumId, next, endCapture);
+                    migrateEndHalfSpreadToLeftPage(albumId, next);
+                }
+
                 const updated = await smartAlbumsService.updateAlbumPageCount(
                     user.id,
                     albumId,
                     next
                 );
-                if (next < current) {
-                    pruneAlbumStorageForPageCount(albumId, next);
-                }
                 setAlbum(updated);
 
                 const urlPage = parseUrlPage(searchParams.get('page'), current);
-                const clamped = Math.min(urlPage, next - 1);
+                const { left: endLeft } = getEndSpreadPageIndices(next);
+                const { left: oldEndLeft } = getEndSpreadPageIndices(current);
+                let clamped = Math.min(urlPage, next - 1);
+                if (countDelta < 0) {
+                    const removeAt = getPageRemoveIndex(current, -countDelta);
+                    const removeEnd = removeAt - countDelta;
+                    if (urlPage >= removeAt && urlPage < removeEnd) {
+                        clamped = endLeft;
+                    } else if (urlPage >= oldEndLeft) {
+                        clamped = endLeft;
+                    }
+                }
                 if (clamped !== urlPage) {
                     setSearchParams(
                         (prev) => {

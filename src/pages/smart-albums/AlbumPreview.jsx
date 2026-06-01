@@ -34,8 +34,8 @@ export default function AlbumPreview({
         !clientPreview && user?.id && album?.photographer_id === user.id
     );
     const spreadIndex = useMemo(
-        () => pageToSpreadIndex(bookPage, { showCover: true }),
-        [bookPage]
+        () => pageToSpreadIndex(bookPage, { showCover: true, totalPages }),
+        [bookPage, totalPages]
     );
     const spreadCount = getTotalSpreads(totalPages, { showCover: true });
     const commentsEnabled = album?.comments_enabled !== false;
