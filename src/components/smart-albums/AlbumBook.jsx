@@ -663,6 +663,7 @@ const AlbumBook = ({
                                 overviewSpreadIndex > 0
                                     ? getSpreadPhotoOverride(album?.id, left)
                                     : null;
+                            const isCover = overviewSpreadIndex === 0;
                             const isCurrent = overviewSpreadIndex === spreadIndex;
                             const spreadComments =
                                 showGridComments && spreadCommentsBySpread
@@ -673,8 +674,8 @@ const AlbumBook = ({
                                     key={overviewSpreadIndex}
                                     type="button"
                                     className={`ab-overview-item${
-                                        isCurrent ? ' ab-overview-item--active' : ''
-                                    }`}
+                                        isCover ? ' ab-overview-item--cover' : ''
+                                    }${isCurrent ? ' ab-overview-item--active' : ''}`}
                                     onClick={() => {
                                         bookRef.current?.pageFlip?.()?.turnToPage(targetPage);
                                         setPageIndex(targetPage);
@@ -693,39 +694,82 @@ const AlbumBook = ({
                                                     />
                                                 )}
                                             </span>
+                                        ) : isCover ? (
+                                            <>
+                                                <span
+                                                    className="ab-overview-page ab-overview-page--cover-blank"
+                                                    aria-hidden
+                                                />
+                                                <span className="ab-overview-page ab-overview-page--cover-right">
+                                                    {leftSrc ? (
+                                                        <span className="ab-overview-cover-stage">
+                                                            <span
+                                                                className="ab-overview-cover-bg"
+                                                                aria-hidden
+                                                            >
+                                                                <img
+                                                                    src={leftSrc}
+                                                                    alt=""
+                                                                    loading="lazy"
+                                                                />
+                                                            </span>
+                                                            <img
+                                                                className="ab-overview-cover-frame"
+                                                                src={leftSrc}
+                                                                alt=""
+                                                                loading="lazy"
+                                                            />
+                                                        </span>
+                                                    ) : (
+                                                        <span className="ab-overview-placeholder ab-overview-placeholder--cover" />
+                                                    )}
+                                                    {spreadComments?.length > 0 && leftSrc && (
+                                                        <SpreadGridComments
+                                                            comments={spreadComments}
+                                                            className="ab-grid-comments--overview"
+                                                        />
+                                                    )}
+                                                </span>
+                                            </>
                                         ) : (
-                                            <span className="ab-overview-page">
-                                                {leftSrc ? (
-                                                    <img src={leftSrc} alt="" loading="lazy" />
-                                                ) : (
-                                                    <span className="ab-overview-placeholder" />
+                                            <>
+                                                <span className="ab-overview-page">
+                                                    {leftSrc ? (
+                                                        <img src={leftSrc} alt="" loading="lazy" />
+                                                    ) : (
+                                                        <span className="ab-overview-placeholder" />
+                                                    )}
+                                                    {spreadComments?.length > 0 && leftSrc && (
+                                                        <SpreadGridComments
+                                                            comments={spreadComments}
+                                                            className="ab-grid-comments--overview"
+                                                        />
+                                                    )}
+                                                </span>
+                                                {!spreadSrc && (
+                                                    <span className="ab-overview-page">
+                                                        {rightSrc ? (
+                                                            <img
+                                                                src={rightSrc}
+                                                                alt=""
+                                                                loading="lazy"
+                                                            />
+                                                        ) : (
+                                                            <span className="ab-overview-placeholder" />
+                                                        )}
+                                                        {spreadComments?.length > 0 && rightSrc && (
+                                                            <SpreadGridComments
+                                                                comments={spreadComments}
+                                                                className="ab-grid-comments--overview"
+                                                            />
+                                                        )}
+                                                    </span>
                                                 )}
-                                                {spreadComments?.length > 0 && leftSrc && (
-                                                    <SpreadGridComments
-                                                        comments={spreadComments}
-                                                        className="ab-grid-comments--overview"
-                                                    />
-                                                )}
-                                            </span>
-                                        )}
-                                        {overviewSpreadIndex > 0 && !spreadSrc && (
-                                            <span className="ab-overview-page">
-                                                {rightSrc ? (
-                                                    <img src={rightSrc} alt="" loading="lazy" />
-                                                ) : (
-                                                    <span className="ab-overview-placeholder" />
-                                                )}
-                                                {spreadComments?.length > 0 && rightSrc && (
-                                                    <SpreadGridComments
-                                                        comments={spreadComments}
-                                                        className="ab-grid-comments--overview"
-                                                    />
-                                                )}
-                                            </span>
+                                            </>
                                         )}
                                     </span>
                                     <span className="ab-overview-label">
-                                        {overviewSpreadIndex + 1}
+                                        {isCover ? 'Cover' : overviewSpreadIndex}
                                     </span>
                                 </button>
                             );
