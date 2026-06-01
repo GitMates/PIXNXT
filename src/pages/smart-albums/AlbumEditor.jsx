@@ -366,15 +366,18 @@ export default function AlbumEditor({
     }, []);
 
     const placementTargets = useMemo(() => {
-        if (!gridSelection || !isProofGridSpread(gridSelection.leftPage, totalPages)) return [];
+        if (!gridSelection || gridSelection.mode === 'cover') return [];
+        const left = gridSelection.leftPage;
+        if (left == null) return [];
+        if (isEndHalfSpreadLeftPage(left, totalPages)) {
+            const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+            return [endLeft];
+        }
+        if (!isProofGridSpread(left, totalPages)) return [];
         if (gridEditSet === 'whole' || gridSelection.mode === 'spread') return [];
         if (gridSelection.cellId) {
             return [
-                getProofCellPhotoIndex(
-                    gridSelection.leftPage,
-                    gridSelection.cellId,
-                    totalPages
-                ),
+                getProofCellPhotoIndex(left, gridSelection.cellId, totalPages),
             ];
         }
         return [];
@@ -400,6 +403,13 @@ export default function AlbumEditor({
 
             const left = gridSelection.leftPage;
             const endHalfLeft = isEndHalfSpreadLeftPage(left, totalPages);
+
+            if (endHalfLeft && gridSelection.mode !== 'cover') {
+                const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+                return setPagePhotoFromCollectionItem(albumId, endLeft, item.id, {
+                    clearSpreadForLeft: endLeft,
+                });
+            }
 
             if (gridEditSet === 'whole' || gridSelection.mode === 'spread') {
                 if (endHalfLeft) {

@@ -45,11 +45,13 @@ const FLIP_PAGE_SYNC_MS = 320;
 const BOOK_PAGE_HEIGHT_MIN = 300;
 const BOOK_PAGE_HEIGHT_MAX = 520;
 const BOOK_PAGE_HEIGHT_SCALE = 0.93;
+const BOOK_STAGE_MIN_PX = 80;
 
 function getBookDimensions(stageEl, gridSize = 'square') {
-    if (!stageEl) return { width: 480, height: 480 };
+    if (!stageEl) return null;
     const w = stageEl.clientWidth;
     const h = stageEl.clientHeight;
+    if (w < BOOK_STAGE_MIN_PX || h < BOOK_STAGE_MIN_PX) return null;
     const aspect = parseGridSizeAspect(gridSize);
     const maxPageWidth = w / 2;
     const maxPageHeight = h * BOOK_PAGE_HEIGHT_SCALE;
@@ -136,7 +138,8 @@ const AlbumBook = ({
     const isFlippingRef = useRef(false);
     const userNavigatedRef = useRef(false);
     const dimsRafRef = useRef(null);
-    const [dims, setDims] = useState({ width: 480, height: 480 });
+    const prevDimsRef = useRef(null);
+    const [dims, setDims] = useState(null);
     const [pageIndex, setPageIndex] = useState(initialPage);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(album?.id));
     const [swapPickerOrigin, setSwapPickerOrigin] = useState(null);
@@ -144,10 +147,6 @@ const AlbumBook = ({
     const [pinModeActive, setPinModeActive] = useState(false);
     const [pinComposer, setPinComposer] = useState(null);
     const [initialized, setInitialized] = useState(false);
-
-    useEffect(() => {
-        setInitialized(false);
-    }, [album?.id, totalPages]);
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -164,6 +163,17 @@ const AlbumBook = ({
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [focusOpen, setFocusOpen] = useState(false);
     const [flipBookPageCount, setFlipBookPageCount] = useState(totalPages);
+
+    const flipBookLayoutKey = useMemo(
+        () => `${album?.id ?? 'album'}-${flipBookPageCount}-${album?.grid_size || 'square'}`,
+        [album?.id, album?.grid_size, flipBookPageCount]
+    );
+
+    useEffect(() => {
+        setInitialized(false);
+        setDims(null);
+        prevDimsRef.current = null;
+    }, [album?.id, totalPages, flipBookLayoutKey]);
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
     const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true, totalPages });
@@ -187,6 +197,7 @@ const AlbumBook = ({
 
     useEffect(() => {
         userNavigatedRef.current = false;
+        setPageIndex(initialPage);
     }, [initialPage, album?.id]);
 
     useLayoutEffect(() => {
@@ -209,20 +220,41 @@ const AlbumBook = ({
         applyInitialPage();
     }, [applyInitialPage, transformRevision, initialized]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         const stage = stageRef.current;
         if (!stage) return undefined;
+
+        let measureAttempts = 0;
+        const maxMeasureAttempts = 48;
 
         const update = () => {
             if (isFlippingRef.current) return;
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
             dimsRafRef.current = requestAnimationFrame(() => {
                 dimsRafRef.current = null;
-                setDims(getBookDimensions(stage, album?.grid_size));
+                const next = getBookDimensions(stage, album?.grid_size);
+                if (!next) {
+                    measureAttempts += 1;
+                    if (measureAttempts < maxMeasureAttempts) {
+                        dimsRafRef.current = requestAnimationFrame(update);
+                    }
+                    return;
+                }
+                measureAttempts = 0;
+                setDims((prev) =>
+                    prev &&
+                    prev.width === next.width &&
+                    prev.height === next.height
+                        ? prev
+                        : next
+                );
             });
         };
         update();
-        const ro = new ResizeObserver(update);
+        const ro = new ResizeObserver(() => {
+            measureAttempts = 0;
+            update();
+        });
         ro.observe(stage);
         window.addEventListener('resize', update);
         return () => {
@@ -231,6 +263,20 @@ const AlbumBook = ({
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
         };
     }, [album?.grid_size]);
+
+    useLayoutEffect(() => {
+        if (!dims || !initialized) return;
+        const prev = prevDimsRef.current;
+        prevDimsRef.current = dims;
+        if (prev && prev.width === dims.width && prev.height === dims.height) return;
+
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return;
+        api.update();
+        if (!userNavigatedRef.current) {
+            applyInitialPage();
+        }
+    }, [dims, initialized, applyInitialPage]);
 
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
@@ -577,15 +623,16 @@ const AlbumBook = ({
                 <div className="ab-flip-escape" ref={escapeRef}>
                 <div
                     className="ab-spread-display"
-                    style={{ width: dims.width * 2 }}
+                    style={dims ? { width: dims.width * 2 } : undefined}
                 >
                 <div
                     className="ab-flipbook-wrap"
                     ref={wrapRef}
-                    style={{ width: dims.width * 2, height: dims.height }}
+                    style={dims ? { width: dims.width * 2, height: dims.height } : undefined}
                 >
+                    {dims ? (
                     <HTMLFlipBook
-                        key={`${album?.id}-${flipBookPageCount}`}
+                        key={flipBookLayoutKey}
                         ref={bookRef}
                         className="ab-html-flipbook"
                         width={dims.width}
@@ -620,6 +667,7 @@ const AlbumBook = ({
                     >
                         {pages}
                     </HTMLFlipBook>
+                    ) : null}
                 </div>
                 {currentSpreadComments?.length > 0 && (
                     <div className="ab-spread-comments-bar">

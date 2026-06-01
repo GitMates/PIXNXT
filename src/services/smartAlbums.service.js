@@ -208,20 +208,18 @@ function shouldUseLocalStore(error) {
 }
 
 function isGenericColumnError(error) {
+  if (isMissingColumnError(error)) return true;
   const msg = (error?.message || '').toLowerCase();
-  const code = error?.code || '';
-  const status = error?.status ?? error?.statusCode;
   return (
-    code === '42703' ||
-    code === 'PGRST204' ||
-    status === 400 ||
-    (msg.includes('column') &&
-      (msg.includes('does not exist') || msg.includes('schema cache')))
+    msg.includes('column') &&
+    (msg.includes('does not exist') || msg.includes('schema cache'))
   );
 }
 
 const ALBUM_DETAIL_FIELDS_MINIMAL =
   'id, photographer_id, name, event_date, slug, page_count, cover_image_url, status, created_at, updated_at';
+
+const ALBUM_DETAIL_GRID_FIELDS = `${ALBUM_DETAIL_FIELDS_MINIMAL}, grid_size, grid_layout`;
 
 async function selectAlbumRow(photographerId, albumId, fields) {
   return supabase
@@ -781,6 +779,7 @@ export const smartAlbumsService = {
 
   async getAlbum(photographerId, albumId) {
     const fieldSets = [
+      ALBUM_DETAIL_GRID_FIELDS,
       ALBUM_DETAIL_FIELDS_MINIMAL,
       ALBUM_LIST_FIELDS,
       `${ALBUM_LIST_FIELDS},preview_data`,
@@ -797,14 +796,34 @@ export const smartAlbumsService = {
       if (lastError && !isGenericColumnError(lastError)) break;
     }
 
-    if (lastError) {
-      if (shouldUseLocalStore(lastError)) {
-        return findLocalAlbum(photographerId, albumId);
-      }
-      throw lastError;
+    if (!data && !lastError) {
+      return findLocalAlbum(photographerId, albumId);
     }
 
-    return data ? mapAlbumRow(data, photographerId) : findLocalAlbum(photographerId, albumId);
+    if (!data) {
+      const local = findLocalAlbum(photographerId, albumId);
+      if (local) return local;
+      if (lastError) {
+        if (shouldUseLocalStore(lastError) || isGenericColumnError(lastError)) {
+          return null;
+        }
+        throw lastError;
+      }
+      return null;
+    }
+
+    if (data.grid_size == null && data.grid_layout == null) {
+      const gridResult = await selectAlbumRow(photographerId, albumId, ALBUM_DETAIL_GRID_FIELDS);
+      if (!gridResult.error && gridResult.data) {
+        data = {
+          ...data,
+          grid_size: gridResult.data.grid_size,
+          grid_layout: gridResult.data.grid_layout,
+        };
+      }
+    }
+
+    return mapAlbumRow(data, photographerId);
   },
 
 

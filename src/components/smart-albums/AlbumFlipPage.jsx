@@ -335,6 +335,48 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     if (endSpreadRole === 'half-left') {
+        if (editable || spreadEdit) {
+            const { cells } = getProofLeftPageGridPercent();
+            return (
+                <div
+                    className="ab-flip-page ab-flip-page--grid ab-flip-page--grid-left ab-flip-page--end-left-grid"
+                    ref={ref}
+                    data-density="hard"
+                >
+                    {pageBadge}
+                    <AlbumPageGrid
+                        album={album}
+                        albumId={albumId}
+                        pageNum={pageNum}
+                        totalPages={totalPages}
+                        cells={cells}
+                        editable={editable}
+                        spreadEdit={spreadEdit}
+                        placementMode={placementMode}
+                        showSamples={showSamples}
+                        previewMode={previewMode}
+                        showGridComments={showGridComments}
+                        selectionLeftPage={selectionLeftPage}
+                        selectionMode={selectionMode}
+                        selectedCellId={selectedCellId}
+                        onSelectCell={onSelectCell}
+                        onSelectSpread={onSelectSpread}
+                        onTransformChange={onTransformChange}
+                        transformRevision={transformRevision}
+                        swapMarkMode={swapMarkMode}
+                        getSwapMarkInfo={getSwapMarkInfo}
+                        onSwapRequest={onSwapRequest}
+                        pinMarkMode={pinMarkMode}
+                        pinModeActive={pinModeActive}
+                        getPinsForSlot={getPinsForSlot}
+                        onPinPlace={onPinPlace}
+                        onPinRemove={onPinRemove}
+                        onActivatePinMode={onActivatePinMode}
+                        proofToolsHover={proofToolsHover}
+                    />
+                </div>
+            );
+        }
         return (
             <div className="ab-flip-page ab-flip-page--half-photo-left" ref={ref} data-density="hard">
                 {pageBadge}
