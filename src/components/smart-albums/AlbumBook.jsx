@@ -41,7 +41,6 @@ import { parseGridSizeAspect } from './albumGridSize';
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
 const FLIP_TIME_MS = 800;
-const FLIP_PAGE_SYNC_MS = 320;
 const BOOK_PAGE_HEIGHT_MIN = 300;
 const BOOK_PAGE_HEIGHT_MAX = 520;
 const BOOK_PAGE_HEIGHT_SCALE = 0.93;
@@ -113,9 +112,11 @@ const AlbumBook = ({
     gridSelection = null,
     onSelectGridCell,
     onSelectGridSpread,
+    onSlotActivate,
     onSelectCover,
     onTransformChange,
     transformRevision = 0,
+    photoRevision = 0,
     canAddPages = false,
     onAddPages,
     canRemovePages = false,
@@ -162,18 +163,17 @@ const AlbumBook = ({
     }, [initialPage]);
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [focusOpen, setFocusOpen] = useState(false);
-    const [flipBookPageCount, setFlipBookPageCount] = useState(totalPages);
 
-    const flipBookLayoutKey = useMemo(
-        () => `${album?.id ?? 'album'}-${flipBookPageCount}-${album?.grid_size || 'square'}`,
-        [album?.id, album?.grid_size, flipBookPageCount]
+    const flipBookStructuralKey = useMemo(
+        () => `${album?.id ?? 'album'}-${totalPages}-${album?.grid_size || 'square'}`,
+        [album?.id, album?.grid_size, totalPages]
     );
+
+    const flipBookLayoutKey = `${flipBookStructuralKey}-r${photoRevision}`;
 
     useEffect(() => {
         setInitialized(false);
-        setDims(null);
-        prevDimsRef.current = null;
-    }, [album?.id, totalPages, flipBookLayoutKey]);
+    }, [flipBookStructuralKey]);
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
     const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true, totalPages });
@@ -262,7 +262,7 @@ const AlbumBook = ({
             window.removeEventListener('resize', update);
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
         };
-    }, [album?.grid_size]);
+    }, [album?.grid_size, flipBookLayoutKey]);
 
     useLayoutEffect(() => {
         if (!dims || !initialized) return;
@@ -357,17 +357,6 @@ const AlbumBook = ({
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [overviewOpen]);
-
-    useEffect(() => {
-        if (!overviewOpen) {
-            setFlipBookPageCount(totalPages);
-            return undefined;
-        }
-        const timer = window.setTimeout(() => {
-            setFlipBookPageCount(totalPages);
-        }, FLIP_PAGE_SYNC_MS);
-        return () => window.clearTimeout(timer);
-    }, [totalPages, overviewOpen]);
 
     useEffect(() => {
         const maxPage = Math.max(0, totalPages - 1);
@@ -535,7 +524,7 @@ const AlbumBook = ({
 
     const pages = useMemo(
         () =>
-            Array.from({ length: flipBookPageCount }, (_, pageNum) => (
+            Array.from({ length: totalPages }, (_, pageNum) => (
                 <AlbumFlipPage
                     key={`page-${pageNum}`}
                     album={album}
@@ -552,9 +541,11 @@ const AlbumBook = ({
                     selectedCellId={gridSelection?.cellId ?? null}
                     onSelectCell={onSelectGridCell}
                     onSelectSpread={onSelectGridSpread}
+                    onSlotActivate={onSlotActivate}
                     onSelectCover={onSelectCover}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
+                    photoRevision={photoRevision}
                     swapMarkMode={swapMarkMode}
                     getSwapMarkInfo={getSwapMarkInfo}
                     onSwapRequest={handleSwapRequest}
@@ -569,7 +560,6 @@ const AlbumBook = ({
             )),
         [
             album,
-            flipBookPageCount,
             totalPages,
             editable,
             spreadEdit,
@@ -582,6 +572,7 @@ const AlbumBook = ({
             gridSelection?.cellId,
             onSelectGridCell,
             onSelectGridSpread,
+            onSlotActivate,
             onSelectCover,
             onTransformChange,
             transformRevision,

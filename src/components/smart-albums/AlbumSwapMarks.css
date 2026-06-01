@@ -305,6 +305,22 @@
   display: block;
 }
 
+.ab-swap-modal-item-label {
+  display: block;
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #374151;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.ab-swap-modal-empty {
+  margin: 12px 0 4px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
 .ab-swap-modal-item-empty {
   display: flex;
   align-items: center;

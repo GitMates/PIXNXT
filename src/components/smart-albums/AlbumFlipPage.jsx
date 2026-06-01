@@ -133,9 +133,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         selectedCellId = null,
         onSelectCell,
         onSelectSpread,
+        onSlotActivate,
         onSelectCover,
         onTransformChange,
         transformRevision = 0,
+        photoRevision = 0,
         showPageBadge = false,
         swapMarkMode = false,
         getSwapMarkInfo,
@@ -159,6 +161,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     const albumId = albumIdProp ?? album?.id;
+    void photoRevision;
+    void transformRevision;
     const { right: lastSpreadRight } = getLastSpreadInfo(totalPages);
     const wholeSpread = placementMode === 'whole';
     const rightPageHasPhoto = pageHasVisiblePhoto(
@@ -207,7 +211,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         const transform = albumId
             ? getPagePhotoTransform(albumId, 2)
             : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
-        void transformRevision;
         return (
             <div
                 className="ab-flip-page ab-flip-page--single-photo"
@@ -267,8 +270,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     selectedCellId={selectedCellId}
                     onSelectCell={onSelectCell}
                     onSelectSpread={onSelectSpread}
+                    onSlotActivate={onSlotActivate}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
+                    photoRevision={photoRevision}
                     swapMarkMode={swapMarkMode}
                     getSwapMarkInfo={getSwapMarkInfo}
                     onSwapRequest={onSwapRequest}
@@ -317,8 +322,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     selectedCellId={selectedCellId}
                     onSelectCell={onSelectCell}
                     onSelectSpread={onSelectSpread}
+                    onSlotActivate={onSlotActivate}
                     onTransformChange={onTransformChange}
                     transformRevision={transformRevision}
+                    photoRevision={photoRevision}
                     swapMarkMode={swapMarkMode}
                     getSwapMarkInfo={getSwapMarkInfo}
                     onSwapRequest={onSwapRequest}
@@ -361,8 +368,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         selectedCellId={selectedCellId}
                         onSelectCell={onSelectCell}
                         onSelectSpread={onSelectSpread}
+                        onSlotActivate={onSlotActivate}
                         onTransformChange={onTransformChange}
                         transformRevision={transformRevision}
+                        photoRevision={photoRevision}
                         swapMarkMode={swapMarkMode}
                         getSwapMarkInfo={getSwapMarkInfo}
                         onSwapRequest={onSwapRequest}
@@ -407,7 +416,28 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                               }`
                             : ''
                     }`}
-                    onClick={canSelectCover ? () => onSelectCover?.() : undefined}
+                    onClick={
+                        canSelectCover
+                            ? (e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  if (onSlotActivate) {
+                                      onSlotActivate(
+                                          {
+                                              pageNum: 0,
+                                              cellId: 0,
+                                              spreadLeft: 0,
+                                              whole: false,
+                                              hasPhoto: Boolean(src),
+                                              label: 'Cover',
+                                          },
+                                          rect
+                                      );
+                                      return;
+                                  }
+                                  onSelectCover?.();
+                              }
+                            : undefined
+                    }
                     aria-label={canSelectCover ? 'Choose cover photo' : undefined}
                 >
                     <AlbumPhotoPinLayer

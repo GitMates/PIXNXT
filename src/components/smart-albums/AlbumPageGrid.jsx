@@ -93,8 +93,10 @@ export default function AlbumPageGrid({
     selectedCellId = null,
     onSelectCell,
     onSelectSpread,
+    onSlotActivate,
     onTransformChange,
     transformRevision = 0,
+    photoRevision = 0,
     swapMarkMode = false,
     getSwapMarkInfo,
     onSwapRequest,
@@ -107,6 +109,8 @@ export default function AlbumPageGrid({
     proofToolsHover = true,
 }) {
     const albumId = albumIdProp ?? album?.id;
+    void photoRevision;
+    void transformRevision;
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true, totalPages });
     const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages);
     const insideCoverSpread = isInsideCoverSpreadLeft(spreadLeft, totalPages);
@@ -206,8 +210,10 @@ export default function AlbumPageGrid({
                         className={`ab-grid-cell${cell.framed ? ' ab-grid-cell--framed' : ''}${
                             isSelected ? ' ab-grid-cell--selected' : ''
                         }${useSelectCells ? ' ab-grid-cell--interactive' : ''}${
-                            spreadEdit && hasPhoto ? ' ab-grid-cell--editing' : ''
-                        }${wholePlacement && selectWholeSpread ? ' ab-grid-cell--whole-unified' : ''}${markedClass}`}
+                            useSelectCells && hasPhoto ? ' ab-grid-cell--has-photo' : ''
+                        }${spreadEdit && hasPhoto ? ' ab-grid-cell--editing' : ''}${
+                            wholePlacement && selectWholeSpread ? ' ab-grid-cell--whole-unified' : ''
+                        }${markedClass}`}
                         style={{
                             left: cell.left,
                             top: cell.top,
@@ -226,6 +232,22 @@ export default function AlbumPageGrid({
                             useSelectCells
                                 ? (e) => {
                                       e.stopPropagation();
+                                      const slot = buildSwapSlot(photoIndex, cell.id);
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      if (onSlotActivate) {
+                                          onSlotActivate(
+                                              {
+                                                  pageNum: slot.pageNum,
+                                                  cellId: slot.cellId,
+                                                  spreadLeft: slot.spreadLeft,
+                                                  whole: Boolean(slot.whole),
+                                                  hasPhoto,
+                                                  label: slot.label,
+                                              },
+                                              rect
+                                          );
+                                          return;
+                                      }
                                       if (wholePlacement) {
                                           onSelectSpread?.(spreadLeft);
                                       } else {
@@ -293,7 +315,7 @@ export default function AlbumPageGrid({
                             )}
                         </AlbumPhotoPinLayer>
                         <AlbumSwapMarkBadge markInfo={swapMarkInfo} />
-                        {useSelectCells && !hasPhoto && showSamples && (
+                        {useSelectCells && !hasPhoto && (
                             <span className="ab-grid-cell-add">
                                 <span className="ab-grid-cell-add-icon">+</span>
                                 <span className="ab-grid-cell-add-label">Add photo</span>

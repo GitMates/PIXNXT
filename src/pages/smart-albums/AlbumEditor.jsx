@@ -26,8 +26,17 @@ import {
     migrateMiskeyedInnerSpreadPhotos,
     placeCollectionItemOnPages,
     setPagePhotoFromCollectionItem,
+    setPagePhotoFromDataUrl,
+    setSpreadPhoto,
     setSpreadPhotoFromCollectionItem,
 } from '../../components/smart-albums/albumPagePhotos';
+import {
+    clearSpreadPhotos,
+    swapPhotoSlots,
+} from '../../components/smart-albums/albumSlotActions';
+import AlbumSpreadSlotMenu from '../../components/smart-albums/AlbumSpreadSlotMenu';
+import AlbumSwapExecuteModal from '../../components/smart-albums/AlbumSwapExecuteModal';
+import { expandUploadFilesToImages } from '../../lib/pdfToImages';
 import {
     clearAlbumTransforms,
     getTransformRevision,
@@ -44,6 +53,7 @@ import {
     getEndSpreadPageIndices,
     getInnerPageCount,
     isCoverInsidePage,
+    isEndHalfSpreadIndex,
     isEndHalfSpreadLeftPage,
     isInsideCoverSpreadLeft,
     pageToSpreadIndex,
@@ -52,7 +62,7 @@ import {
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
 import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
-import { getSwapMarks, SWAP_MARKS_CHANGED_EVENT } from '../../components/smart-albums/albumSwapMarks';
+import { getSwapMarks, isWholeGridSwapSlot, SWAP_MARKS_CHANGED_EVENT } from '../../components/smart-albums/albumSwapMarks';
 import { getPhotoPins, PHOTO_PINS_CHANGED_EVENT } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
@@ -127,6 +137,7 @@ export default function AlbumEditor({
     );
     const [collectionRevision, setCollectionRevision] = useState(0);
     const [transformRevision, setTransformRevision] = useState(0);
+    const [photoLayoutRev, setPhotoLayoutRev] = useState(0);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
@@ -134,6 +145,10 @@ export default function AlbumEditor({
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const shareRef = useRef(null);
+    const replaceFileRef = useRef(null);
+    const pendingReplaceSlotRef = useRef(null);
+    const [slotMenu, setSlotMenu] = useState(null);
+    const [swapExecuteOrigin, setSwapExecuteOrigin] = useState(null);
     const [gridSelection, setGridSelection] = useState(() => {
         if (initialPage === 0) return buildCoverSelection();
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
@@ -156,7 +171,17 @@ export default function AlbumEditor({
         onPhotosUploaded?.();
         setTransformRevision(getTransformRevision(albumId));
         setCollectionRevision(getAlbumCollectionRevision(albumId));
+        setPhotoLayoutRev(getAlbumPhotoRevision(albumId) || Date.now());
     }, [albumId, onPhotosUploaded]);
+
+    /** Defer refresh so portaled menus unmount before the flipbook updates (avoids React DOM conflicts). */
+    const scheduleWorkspaceRefresh = useCallback(() => {
+        requestAnimationFrame(() => {
+            bumpWorkspace();
+        });
+    }, [bumpWorkspace]);
+
+    const layoutRevision = photoRevision || photoLayoutRev || transformRevision;
 
     useEffect(() => {
         setCollectionRevision(getAlbumCollectionRevision(albumId));
@@ -350,20 +375,145 @@ export default function AlbumEditor({
     const handleSelectCover = useCallback(() => {
         setGridEditSet('single');
         setGridSelection(buildCoverSelection());
-        setPickerOpen(true);
     }, []);
 
     const handleSelectGridCell = useCallback((leftPage, cellId) => {
         setGridEditSet('single');
         setGridSelection(buildCellSelection(leftPage, cellId));
-        setPickerOpen(true);
     }, []);
 
     const handleSelectGridSpread = useCallback((leftPage) => {
         setGridEditSet('whole');
         setGridSelection(buildSpreadSelection(leftPage));
-        setPickerOpen(true);
     }, []);
+
+    const placeDataUrlOnSlot = useCallback(
+        async (slot, dataUrl) => {
+            if (!slot || !dataUrl) return false;
+            if (slot.pageNum === 0) {
+                return setPagePhotoFromDataUrl(albumId, 0, dataUrl);
+            }
+            const left =
+                slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages);
+            if (slot.whole) {
+                const right = getSpreadRightPageIndex(left, totalPages);
+                return setSpreadPhoto(albumId, left, dataUrl, right, { totalPages });
+            }
+            if (isEndHalfSpreadLeftPage(left, totalPages)) {
+                return setPagePhotoFromDataUrl(albumId, left, dataUrl, {
+                    clearSpreadForLeft: left,
+                });
+            }
+            const photoIndex = getProofCellPhotoIndex(
+                slot.pageNum,
+                slot.cellId || 1,
+                totalPages
+            );
+            return setPagePhotoFromDataUrl(albumId, photoIndex, dataUrl, {
+                clearSpreadForLeft: left,
+            });
+        },
+        [albumId, totalPages]
+    );
+
+    const handleSlotActivate = useCallback(
+        (slot, anchorRect) => {
+            if (activePanel === 'edit') return;
+            if (slot.pageNum === 0) {
+                setGridEditSet('single');
+                setGridSelection(buildCoverSelection());
+            } else if (slot.whole) {
+                setGridEditSet('whole');
+                setGridSelection(buildSpreadSelection(slot.spreadLeft));
+            } else {
+                setGridEditSet('single');
+                setGridSelection(buildCellSelection(slot.spreadLeft, slot.cellId || 1));
+            }
+            setSlotMenu({ slot, anchorRect, label: slot.label });
+        },
+        [activePanel]
+    );
+
+    const closeSlotMenu = useCallback(() => setSlotMenu(null), []);
+
+    const handleReplaceFromMenu = useCallback(() => {
+        pendingReplaceSlotRef.current = slotMenu?.slot ?? null;
+        closeSlotMenu();
+        replaceFileRef.current?.click();
+    }, [slotMenu, closeSlotMenu]);
+
+    const handleChooseFromCollectionMenu = useCallback(() => {
+        closeSlotMenu();
+        requestAnimationFrame(() => {
+            setPickerOpen(true);
+        });
+    }, [closeSlotMenu]);
+
+    const handleReplaceFiles = useCallback(
+        async (e) => {
+            const files = e.target.files;
+            e.target.value = '';
+            const slot = pendingReplaceSlotRef.current;
+            pendingReplaceSlotRef.current = null;
+            if (!slot || !files?.length) return;
+            try {
+                const images = await expandUploadFilesToImages(files);
+                if (!images[0]?.dataUrl) {
+                    showToast('No supported images in that file.', { variant: 'error', duration: 4000 });
+                    return;
+                }
+                if (await placeDataUrlOnSlot(slot, images[0].dataUrl)) {
+                    scheduleWorkspaceRefresh();
+                    showToast('Photo updated.', { duration: 3500 });
+                } else {
+                    showToast('Could not place photo.', { variant: 'error', duration: 4000 });
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Upload failed. Try again.', { variant: 'error', duration: 4000 });
+            }
+        },
+        [placeDataUrlOnSlot, scheduleWorkspaceRefresh, showToast]
+    );
+
+    const handleRemoveSpreadPhotos = useCallback(() => {
+        const slot = slotMenu?.slot;
+        if (!slot) return;
+        const left = slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages);
+        const scope = slot.whole ? 'whole' : slot.cellId === 2 ? 'right' : 'left';
+        closeSlotMenu();
+        requestAnimationFrame(() => {
+            if (clearSpreadPhotos(albumId, left, totalPages, scope)) {
+                scheduleWorkspaceRefresh();
+                showToast('Photos removed from spread.', { duration: 3500 });
+            }
+        });
+    }, [slotMenu, closeSlotMenu, albumId, totalPages, scheduleWorkspaceRefresh, showToast]);
+
+    const handleOpenSwapModal = useCallback(() => {
+        if (slotMenu?.slot) setSwapExecuteOrigin(slotMenu.slot);
+        closeSlotMenu();
+    }, [slotMenu, closeSlotMenu]);
+
+    const handleExecuteSwap = useCallback(
+        (targetSlot) => {
+            if (!swapExecuteOrigin || !targetSlot) return;
+            const origin = swapExecuteOrigin;
+            setSwapExecuteOrigin(null);
+            requestAnimationFrame(() => {
+                if (swapPhotoSlots(albumId, origin, targetSlot, totalPages)) {
+                    scheduleWorkspaceRefresh();
+                    showToast('Photos swapped.', { duration: 3500 });
+                } else {
+                    showToast('Could not swap — one or both slots may be empty.', {
+                        variant: 'error',
+                        duration: 4000,
+                    });
+                }
+            });
+        },
+        [swapExecuteOrigin, albumId, totalPages, scheduleWorkspaceRefresh, showToast]
+    );
 
     const placementTargets = useMemo(() => {
         if (!gridSelection || gridSelection.mode === 'cover') return [];
@@ -477,7 +627,7 @@ export default function AlbumEditor({
     const handlePlaceCollectionItem = useCallback(
         (itemId) => {
             if (placeItemOnSpread(itemId)) {
-                bumpWorkspace();
+                scheduleWorkspaceRefresh();
                 setPickerOpen(false);
                 showToast(
                     gridSelection?.mode === 'cover'
@@ -492,13 +642,34 @@ export default function AlbumEditor({
                 });
             }
         },
-        [placeItemOnSpread, bumpWorkspace, showToast, gridSelection?.mode]
+        [placeItemOnSpread, scheduleWorkspaceRefresh, showToast, gridSelection?.mode]
     );
 
     const canAddPages = totalPages + pagesPerSpread <= maxPages;
     const canRemovePages =
         totalPages - pagesPerSpread >= minPages &&
         getInnerPageCount(totalPages) >= pagesPerSpread;
+
+    const slotMenuSpreadIndex = useMemo(() => {
+        if (!slotMenu?.slot) return -1;
+        return pageToSpreadIndex(slotMenu.slot.pageNum, { showCover: true, totalPages });
+    }, [slotMenu, totalPages]);
+
+    const canDeleteSpreadFromMenu =
+        Boolean(slotMenu) &&
+        canRemovePages &&
+        slotMenuSpreadIndex > 0 &&
+        !isEndHalfSpreadIndex(slotMenuSpreadIndex, totalPages);
+
+    const slotMenuSwapHint = useMemo(() => {
+        if (!slotMenu?.slot) return 'Any left or right photo';
+        if (slotMenu.slot.pageNum === 0) return 'Cover only';
+        const gridLayout = album?.grid_layout || 'two-page';
+        if (isWholeGridSwapSlot(albumId, slotMenu.slot, totalPages, gridLayout)) {
+            return 'Other whole spreads only';
+        }
+        return 'Any left or right photo';
+    }, [slotMenu, albumId, album?.grid_layout, totalPages]);
 
     const handleAddPages = useCallback(
         async ({ silent = false } = {}) => {
@@ -530,6 +701,25 @@ export default function AlbumEditor({
     const handleRemovePagesFromOverview = useCallback(async () => {
         await handleRemovePages();
     }, [handleRemovePages]);
+
+    const handleDeleteSpreadFromMenu = useCallback(() => {
+        if (!canRemovePages || !onChangePageCount) return;
+        const ok = window.confirm(
+            'Delete this spread? Two pages will be removed from the album.'
+        );
+        if (!ok) return;
+        closeSlotMenu();
+        requestAnimationFrame(async () => {
+            await handleRemovePages();
+            scheduleWorkspaceRefresh();
+        });
+    }, [
+        closeSlotMenu,
+        canRemovePages,
+        onChangePageCount,
+        handleRemovePages,
+        scheduleWorkspaceRefresh,
+    ]);
 
     const handleClearAllPhotos = useCallback(() => {
         clearAllAlbumPagePhotos(albumId, { totalPages });
@@ -711,7 +901,7 @@ export default function AlbumEditor({
                         <span className="ae-canvas-hint">
                             {spreadEdit
                                 ? 'Drag photo to move · drag each edge to zoom · hover a photo to mark a swap'
-                                : 'Click a page slot to pick a photo · hover a placed photo to mark a swap'}
+                                : 'Click a photo or slot for options · use Collections to upload'}
                         </span>
                     </div>
                     <div className={`ae-canvas-stage${spreadEdit ? ' ae-canvas-stage--edit' : ''}`}>
@@ -728,6 +918,7 @@ export default function AlbumEditor({
                             gridSelection={gridSelection}
                             onSelectGridCell={handleSelectGridCell}
                             onSelectGridSpread={handleSelectGridSpread}
+                            onSlotActivate={handleSlotActivate}
                             onSelectCover={handleSelectCover}
                             canAddPages={canAddPages}
                             onAddPages={handleAddPagesFromOverview}
@@ -739,6 +930,7 @@ export default function AlbumEditor({
                                 onPhotosUploaded?.();
                             }}
                             transformRevision={transformRevision}
+                            photoRevision={layoutRevision}
                             showGridComments={showGridComments}
                             spreadCommentsBySpread={spreadCommentsBySpread}
                             swapMarkMode
@@ -765,6 +957,43 @@ export default function AlbumEditor({
                 onClose={() => setPickerOpen(false)}
                 onSelectItem={handlePlaceCollectionItem}
                 onUploadFiles={handleUploadToCollection}
+            />
+
+            <input
+                ref={replaceFileRef}
+                type="file"
+                accept="image/*,application/pdf,.pdf"
+                className="ae-file-input"
+                aria-hidden
+                tabIndex={-1}
+                onChange={handleReplaceFiles}
+            />
+
+            <AlbumSpreadSlotMenu
+                open={Boolean(slotMenu)}
+                anchorRect={slotMenu?.anchorRect}
+                slotLabel={slotMenu?.label}
+                hasPhoto={Boolean(slotMenu?.slot?.hasPhoto)}
+                canSwap={Boolean(slotMenu?.slot?.hasPhoto)}
+                swapHint={slotMenuSwapHint}
+                canRemoveSpread={Boolean(slotMenu?.slot?.hasPhoto)}
+                canDeleteSpread={canDeleteSpreadFromMenu}
+                onReplace={handleReplaceFromMenu}
+                onChooseFromCollection={handleChooseFromCollectionMenu}
+                onRemovePhotos={handleRemoveSpreadPhotos}
+                onDeleteSpread={handleDeleteSpreadFromMenu}
+                onSwap={handleOpenSwapModal}
+                onClose={closeSlotMenu}
+            />
+
+            <AlbumSwapExecuteModal
+                open={Boolean(swapExecuteOrigin)}
+                album={album}
+                albumId={albumId}
+                totalPages={totalPages}
+                originSlot={swapExecuteOrigin}
+                onSwap={handleExecuteSwap}
+                onClose={() => setSwapExecuteOrigin(null)}
             />
         </div>
     );

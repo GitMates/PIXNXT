@@ -186,7 +186,10 @@ export function useAlbumWorkspace() {
                 const { left: endLeft } = getEndSpreadPageIndices(next);
                 const { left: oldEndLeft } = getEndSpreadPageIndices(current);
                 let clamped = Math.min(urlPage, next - 1);
-                if (countDelta < 0) {
+                if (countDelta > 0) {
+                    const insertAt = getPageInsertIndex(current);
+                    clamped = parseUrlPage(insertAt, next);
+                } else if (countDelta < 0) {
                     const removeAt = getPageRemoveIndex(current, -countDelta);
                     const removeEnd = removeAt - countDelta;
                     if (urlPage >= removeAt && urlPage < removeEnd) {
