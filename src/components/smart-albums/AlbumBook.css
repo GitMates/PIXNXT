@@ -89,6 +89,38 @@
   overflow: visible;
 }
 
+.ab-flipbook-wrap--static {
+  overflow: hidden;
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.14),
+    0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.ab-static-spread {
+  display: flex;
+  flex-direction: row;
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+
+.ab-static-spread-page {
+  flex: 0 0 50%;
+  width: 50%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.ab-static-spread-page > .ab-flip-page {
+  width: 100%;
+  height: 100%;
+}
+
+.ab-static-spread--cover .ab-static-spread-page:first-child {
+  background: #fff;
+}
+
 .ab-spread-display {
   display: flex;
   flex-direction: column;
@@ -185,6 +217,11 @@
   margin: 0 auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
   overflow: visible !important;
+}
+
+.ab-html-flipbook--fixed {
+  flex-shrink: 0;
+  max-width: none !important;
 }
 
 .ab-html-flipbook.stf__parent {

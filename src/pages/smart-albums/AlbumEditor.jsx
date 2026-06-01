@@ -195,7 +195,11 @@ export default function AlbumEditor({
         if (migrateInsideCoverSpreadTransform(albumId)) changed = true;
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
         if (migrateMiskeyedInnerSpreadTransforms(albumId, endLeft)) changed = true;
-        if (changed) bumpWorkspace();
+        if (!changed) return undefined;
+        const timer = window.setTimeout(() => {
+            bumpWorkspace();
+        }, 0);
+        return () => window.clearTimeout(timer);
     }, [albumId, totalPages, bumpWorkspace]);
 
     useEffect(() => {

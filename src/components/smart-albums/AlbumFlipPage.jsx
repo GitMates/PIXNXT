@@ -11,6 +11,7 @@ import AlbumPageGrid from './AlbumPageGrid';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
 import './AlbumPhotoPins.css';
+import { useAlbumBookPageContext } from './AlbumBookPageContext';
 import {
     getProofLeftPageGridPercent,
     getProofRightPageGridPercent,
@@ -152,6 +153,29 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     },
     ref
 ) {
+    const ctx = useAlbumBookPageContext();
+    const liveSelectionLeftPage = ctx.selectionLeftPage ?? selectionLeftPage;
+    const liveSelectionMode = ctx.selectionMode ?? selectionMode;
+    const liveSelectedCellId = ctx.selectedCellId ?? selectedCellId;
+    const liveOnSelectCell = ctx.onSelectCell ?? onSelectCell;
+    const liveOnSelectSpread = ctx.onSelectSpread ?? onSelectSpread;
+    const liveOnSlotActivate = ctx.onSlotActivate ?? onSlotActivate;
+    const liveOnSelectCover = ctx.onSelectCover ?? onSelectCover;
+    const liveOnTransformChange = ctx.onTransformChange ?? onTransformChange;
+    const liveTransformRevision = ctx.transformRevision ?? transformRevision;
+    const livePhotoRevision = ctx.photoRevision ?? photoRevision;
+    const liveSwapMarkMode = ctx.swapMarkMode ?? swapMarkMode;
+    const liveGetSwapMarkInfo = ctx.getSwapMarkInfo ?? getSwapMarkInfo;
+    const liveOnSwapRequest = ctx.onSwapRequest ?? onSwapRequest;
+    const livePinMarkMode = ctx.pinMarkMode ?? pinMarkMode;
+    const livePinModeActive = ctx.pinModeActive ?? pinModeActive;
+    const liveGetPinsForSlot = ctx.getPinsForSlot ?? getPinsForSlot;
+    const liveOnPinPlace = ctx.onPinPlace ?? onPinPlace;
+    const liveOnPinRemove = ctx.onPinRemove ?? onPinRemove;
+    const liveOnActivatePinMode = ctx.onActivatePinMode ?? onActivatePinMode;
+    const liveProofToolsHover = ctx.proofToolsHover ?? proofToolsHover;
+    const liveShowGridComments = ctx.showGridComments ?? showGridComments;
+
     if (pageNum < 0 || pageNum >= totalPages) {
         return (
             <div className="ab-flip-page ab-flip-page--empty" ref={ref} data-density="hard">
@@ -161,8 +185,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     const albumId = albumIdProp ?? album?.id;
-    void photoRevision;
-    void transformRevision;
+    void livePhotoRevision;
+    void liveTransformRevision;
     const { right: lastSpreadRight } = getLastSpreadInfo(totalPages);
     const wholeSpread = placementMode === 'whole';
     const rightPageHasPhoto = pageHasVisiblePhoto(
@@ -238,11 +262,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const showStar = pageNum === 1 && album?.is_starred;
     const canSelectCover = pageNum === 0 && editable && !spreadEdit;
     const PageWrapTag = canSelectCover ? 'button' : 'div';
-    const coverSwapMarkInfo = swapMarkMode && getSwapMarkInfo?.(0, 0);
-    const canCoverSwap = swapMarkMode && pageNum === 0 && Boolean(src) && !coverSwapMarkInfo;
-    const coverProofTools = (swapMarkMode || pinMarkMode) && pageNum === 0 && Boolean(src);
+    const coverSwapMarkInfo = liveSwapMarkMode && liveGetSwapMarkInfo?.(0, 0);
+    const canCoverSwap = liveSwapMarkMode && pageNum === 0 && Boolean(src) && !coverSwapMarkInfo;
+    const coverProofTools = (liveSwapMarkMode || livePinMarkMode) && pageNum === 0 && Boolean(src);
     const coverPins =
-        pinMarkMode && getPinsForSlot ? getPinsForSlot(0, 0, 0) : [];
+        livePinMarkMode && liveGetPinsForSlot ? liveGetPinsForSlot(0, 0, 0) : [];
 
     if (useLeftGrid) {
         const { cells } = getProofLeftPageGridPercent();
@@ -264,26 +288,26 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     placementMode={placementMode}
                     showSamples={showSamples}
                     previewMode={previewMode}
-                    showGridComments={showGridComments}
-                    selectionLeftPage={selectionLeftPage}
-                    selectionMode={selectionMode}
-                    selectedCellId={selectedCellId}
-                    onSelectCell={onSelectCell}
-                    onSelectSpread={onSelectSpread}
-                    onSlotActivate={onSlotActivate}
-                    onTransformChange={onTransformChange}
-                    transformRevision={transformRevision}
-                    photoRevision={photoRevision}
-                    swapMarkMode={swapMarkMode}
-                    getSwapMarkInfo={getSwapMarkInfo}
-                    onSwapRequest={onSwapRequest}
-                    pinMarkMode={pinMarkMode}
-                    pinModeActive={pinModeActive}
-                    getPinsForSlot={getPinsForSlot}
-                    onPinPlace={onPinPlace}
-                    onPinRemove={onPinRemove}
-                    onActivatePinMode={onActivatePinMode}
-                    proofToolsHover={proofToolsHover}
+                    showGridComments={liveShowGridComments}
+                    selectionLeftPage={liveSelectionLeftPage}
+                    selectionMode={liveSelectionMode}
+                    selectedCellId={liveSelectedCellId}
+                    onSelectCell={liveOnSelectCell}
+                    onSelectSpread={liveOnSelectSpread}
+                    onSlotActivate={liveOnSlotActivate}
+                    onTransformChange={liveOnTransformChange}
+                    transformRevision={liveTransformRevision}
+                    photoRevision={livePhotoRevision}
+                    swapMarkMode={liveSwapMarkMode}
+                    getSwapMarkInfo={liveGetSwapMarkInfo}
+                    onSwapRequest={liveOnSwapRequest}
+                    pinMarkMode={livePinMarkMode}
+                    pinModeActive={livePinModeActive}
+                    getPinsForSlot={liveGetPinsForSlot}
+                    onPinPlace={liveOnPinPlace}
+                    onPinRemove={liveOnPinRemove}
+                    onActivatePinMode={liveOnActivatePinMode}
+                    proofToolsHover={liveProofToolsHover}
                 />
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
@@ -316,26 +340,26 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     placementMode={placementMode}
                     showSamples={showSamples}
                     previewMode={previewMode}
-                    showGridComments={showGridComments}
-                    selectionLeftPage={selectionLeftPage}
-                    selectionMode={selectionMode}
-                    selectedCellId={selectedCellId}
-                    onSelectCell={onSelectCell}
-                    onSelectSpread={onSelectSpread}
-                    onSlotActivate={onSlotActivate}
-                    onTransformChange={onTransformChange}
-                    transformRevision={transformRevision}
-                    photoRevision={photoRevision}
-                    swapMarkMode={swapMarkMode}
-                    getSwapMarkInfo={getSwapMarkInfo}
-                    onSwapRequest={onSwapRequest}
-                    pinMarkMode={pinMarkMode}
-                    pinModeActive={pinModeActive}
-                    getPinsForSlot={getPinsForSlot}
-                    onPinPlace={onPinPlace}
-                    onPinRemove={onPinRemove}
-                    onActivatePinMode={onActivatePinMode}
-                    proofToolsHover={proofToolsHover}
+                    showGridComments={liveShowGridComments}
+                    selectionLeftPage={liveSelectionLeftPage}
+                    selectionMode={liveSelectionMode}
+                    selectedCellId={liveSelectedCellId}
+                    onSelectCell={liveOnSelectCell}
+                    onSelectSpread={liveOnSelectSpread}
+                    onSlotActivate={liveOnSlotActivate}
+                    onTransformChange={liveOnTransformChange}
+                    transformRevision={liveTransformRevision}
+                    photoRevision={livePhotoRevision}
+                    swapMarkMode={liveSwapMarkMode}
+                    getSwapMarkInfo={liveGetSwapMarkInfo}
+                    onSwapRequest={liveOnSwapRequest}
+                    pinMarkMode={livePinMarkMode}
+                    pinModeActive={livePinModeActive}
+                    getPinsForSlot={liveGetPinsForSlot}
+                    onPinPlace={liveOnPinPlace}
+                    onPinRemove={liveOnPinRemove}
+                    onActivatePinMode={liveOnActivatePinMode}
+                    proofToolsHover={liveProofToolsHover}
                 />
             </div>
         );
@@ -362,26 +386,26 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         placementMode={placementMode}
                         showSamples={showSamples}
                         previewMode={previewMode}
-                        showGridComments={showGridComments}
-                        selectionLeftPage={selectionLeftPage}
-                        selectionMode={selectionMode}
-                        selectedCellId={selectedCellId}
-                        onSelectCell={onSelectCell}
-                        onSelectSpread={onSelectSpread}
-                        onSlotActivate={onSlotActivate}
-                        onTransformChange={onTransformChange}
-                        transformRevision={transformRevision}
-                        photoRevision={photoRevision}
-                        swapMarkMode={swapMarkMode}
-                        getSwapMarkInfo={getSwapMarkInfo}
-                        onSwapRequest={onSwapRequest}
-                        pinMarkMode={pinMarkMode}
-                        pinModeActive={pinModeActive}
-                        getPinsForSlot={getPinsForSlot}
-                        onPinPlace={onPinPlace}
-                        onPinRemove={onPinRemove}
-                        onActivatePinMode={onActivatePinMode}
-                        proofToolsHover={proofToolsHover}
+                        showGridComments={liveShowGridComments}
+                        selectionLeftPage={liveSelectionLeftPage}
+                        selectionMode={liveSelectionMode}
+                        selectedCellId={liveSelectedCellId}
+                        onSelectCell={liveOnSelectCell}
+                        onSelectSpread={liveOnSelectSpread}
+                        onSlotActivate={liveOnSlotActivate}
+                        onTransformChange={liveOnTransformChange}
+                        transformRevision={liveTransformRevision}
+                        photoRevision={livePhotoRevision}
+                        swapMarkMode={liveSwapMarkMode}
+                        getSwapMarkInfo={liveGetSwapMarkInfo}
+                        onSwapRequest={liveOnSwapRequest}
+                        pinMarkMode={livePinMarkMode}
+                        pinModeActive={livePinModeActive}
+                        getPinsForSlot={liveGetPinsForSlot}
+                        onPinPlace={liveOnPinPlace}
+                        onPinRemove={liveOnPinRemove}
+                        onActivatePinMode={liveOnActivatePinMode}
+                        proofToolsHover={liveProofToolsHover}
                     />
                 </div>
             );
@@ -407,7 +431,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     type={canSelectCover ? 'button' : undefined}
                     className={`ab-front-cover-photo${
                         canSelectCover ? ' ab-page-photo-wrap--interactive' : ''
-                    }${proofToolsHover && coverProofTools && !pinModeActive ? ' ab-page-photo-wrap--swap' : ''}${
+                    }${liveProofToolsHover && coverProofTools && !livePinModeActive ? ' ab-page-photo-wrap--swap' : ''}${
                         coverSwapMarkInfo
                             ? ` ab-page-photo-wrap--swap-marked${
                                   coverSwapMarkInfo.locked !== false
@@ -420,8 +444,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         canSelectCover
                             ? (e) => {
                                   const rect = e.currentTarget.getBoundingClientRect();
-                                  if (onSlotActivate) {
-                                      onSlotActivate(
+                                  if (liveOnSlotActivate) {
+                                      liveOnSlotActivate(
                                           {
                                               pageNum: 0,
                                               cellId: 0,
@@ -434,7 +458,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                       );
                                       return;
                                   }
-                                  onSelectCover?.();
+                                  liveOnSelectCover?.();
                               }
                             : undefined
                     }
@@ -442,17 +466,17 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 >
                     <AlbumPhotoPinLayer
                         hasPhoto={Boolean(src)}
-                        pinModeActive={pinModeActive && pinMarkMode}
+                        pinModeActive={livePinModeActive && livePinMarkMode}
                         proofToolsEnabled={coverProofTools}
-                        proofToolsHover={proofToolsHover}
+                        proofToolsHover={liveProofToolsHover}
                         canSwap={canCoverSwap}
                         onSwapRequest={() =>
-                            onSwapRequest?.({ pageNum: 0, cellId: 0, label: 'Cover' })
+                            liveOnSwapRequest?.({ pageNum: 0, cellId: 0, label: 'Cover' })
                         }
-                        onActivatePinMode={pinMarkMode ? onActivatePinMode : undefined}
+                        onActivatePinMode={livePinMarkMode ? liveOnActivatePinMode : undefined}
                         pins={coverPins}
                         onPlacePin={(xPct, yPct) =>
-                            onPinPlace?.({
+                            liveOnPinPlace?.({
                                 pageNum: 0,
                                 cellId: 0,
                                 xPct,
@@ -460,7 +484,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 label: 'Cover',
                             })
                         }
-                        onRemovePin={onPinRemove}
+                        onRemovePin={liveOnPinRemove}
                     >
                         {src ? (
                             <FramedSpreadPhoto
@@ -486,7 +510,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 type={canSelectCover ? 'button' : undefined}
                 className={`ab-page-photo-wrap${
                     canSelectCover ? ' ab-page-photo-wrap--interactive' : ''
-                }${proofToolsHover && coverProofTools && !pinModeActive ? ' ab-page-photo-wrap--swap' : ''}${
+                }${liveProofToolsHover && coverProofTools && !livePinModeActive ? ' ab-page-photo-wrap--swap' : ''}${
                     coverSwapMarkInfo
                         ? ` ab-page-photo-wrap--swap-marked${
                               coverSwapMarkInfo.locked !== false
@@ -495,22 +519,22 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                           }`
                         : ''
                 }`}
-                onClick={canSelectCover ? () => onSelectCover?.() : undefined}
+                onClick={canSelectCover ? () => liveOnSelectCover?.() : undefined}
                 aria-label={canSelectCover ? 'Choose cover photo' : undefined}
             >
                 <AlbumPhotoPinLayer
                     hasPhoto={Boolean(src)}
-                    pinModeActive={pinModeActive && pinMarkMode && pageNum === 0}
+                    pinModeActive={livePinModeActive && livePinMarkMode && pageNum === 0}
                     proofToolsEnabled={coverProofTools}
-                    proofToolsHover={proofToolsHover}
+                    proofToolsHover={liveProofToolsHover}
                     canSwap={canCoverSwap}
                     onSwapRequest={() =>
-                        onSwapRequest?.({ pageNum: 0, cellId: 0, label: 'Cover' })
+                        liveOnSwapRequest?.({ pageNum: 0, cellId: 0, label: 'Cover' })
                     }
-                    onActivatePinMode={pinMarkMode ? onActivatePinMode : undefined}
+                    onActivatePinMode={livePinMarkMode ? liveOnActivatePinMode : undefined}
                     pins={coverPins}
                     onPlacePin={(xPct, yPct) =>
-                        onPinPlace?.({
+                        liveOnPinPlace?.({
                             pageNum: 0,
                             cellId: 0,
                             xPct,
