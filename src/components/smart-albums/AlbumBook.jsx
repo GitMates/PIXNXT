@@ -100,9 +100,6 @@ function OverviewFramedPhoto({ src, placeholderClass = '' }) {
     }
     return (
         <span className="ab-overview-cover-stage">
-            <span className="ab-overview-cover-bg" aria-hidden>
-                <img src={src} alt="" loading="lazy" />
-            </span>
             <img className="ab-overview-cover-frame" src={src} alt="" loading="lazy" />
         </span>
     );

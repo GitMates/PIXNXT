@@ -36,7 +36,6 @@ import {
 } from '../../components/smart-albums/albumSlotActions';
 import AlbumSpreadSlotMenu from '../../components/smart-albums/AlbumSpreadSlotMenu';
 import AlbumSwapExecuteModal from '../../components/smart-albums/AlbumSwapExecuteModal';
-import { expandUploadFilesToImages } from '../../lib/pdfToImages';
 import {
     clearAlbumTransforms,
     getTransformRevision,
@@ -474,6 +473,36 @@ export default function AlbumEditor({
         [albumId, totalPages]
     );
 
+    const placeCollectionItemOnSlot = useCallback(
+        (slot, itemId) => {
+            if (!slot || !itemId) return false;
+            if (slot.pageNum === 0) {
+                return setPagePhotoFromCollectionItem(albumId, 0, itemId);
+            }
+            const left = slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages);
+            if (slot.whole) {
+                const right = getSpreadRightPageIndex(left, totalPages);
+                return setSpreadPhotoFromCollectionItem(albumId, left, itemId, right, {
+                    totalPages,
+                });
+            }
+            if (isEndHalfSpreadLeftPage(left, totalPages)) {
+                return setPagePhotoFromCollectionItem(albumId, left, itemId, {
+                    clearSpreadForLeft: left,
+                });
+            }
+            const photoIndex = getProofCellPhotoIndex(
+                slot.pageNum,
+                slot.cellId || 1,
+                totalPages
+            );
+            return setPagePhotoFromCollectionItem(albumId, photoIndex, itemId, {
+                clearSpreadForLeft: left,
+            });
+        },
+        [albumId, totalPages]
+    );
+
     const handleSlotActivate = useCallback(
         (slot, anchorRect) => {
             if (activePanel === 'edit') return;
@@ -517,12 +546,16 @@ export default function AlbumEditor({
             setUploading(true);
             showToast('Uploading photo…', { variant: 'info', duration: 0 });
             try {
-                const images = await expandUploadFilesToImages(files);
-                if (!images[0]?.dataUrl) {
+                const added = await addFilesToAlbumCollection(albumId, files, {
+                    photographerId: user?.id,
+                    skipDuplicateCheck: true,
+                });
+                const replacementItem = added[0] || added.duplicateItems?.[0];
+                if (!replacementItem?.id) {
                     showToast('No supported images in that file.', { variant: 'error', duration: 4000 });
                     return;
                 }
-                if (await placeDataUrlOnSlot(slot, images[0].dataUrl)) {
+                if (placeCollectionItemOnSlot(slot, replacementItem.id)) {
                     scheduleWorkspaceRefresh();
                     showToast('Photo updated.', { variant: 'success', duration: 3500 });
                 } else {
@@ -535,7 +568,13 @@ export default function AlbumEditor({
                 setUploading(false);
             }
         },
-        [placeDataUrlOnSlot, scheduleWorkspaceRefresh, showToast]
+        [
+            albumId,
+            user?.id,
+            placeCollectionItemOnSlot,
+            scheduleWorkspaceRefresh,
+            showToast,
+        ]
     );
 
     const handleRemoveSpreadPhotos = useCallback(() => {

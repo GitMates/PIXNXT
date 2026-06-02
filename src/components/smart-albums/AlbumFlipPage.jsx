@@ -83,32 +83,16 @@ function PagePhoto({ src, pageNum, showSamples, className = '' }) {
     );
 }
 
-/** Cover / end spread: blurred bleed + centered framed photo (side = which half of the spread). */
+/** Cover / end spread: centered framed photo on plain background (side = which half of the spread). */
 function FramedSpreadPhoto({ src, pageNum, showSamples, side = 'right' }) {
-    const [useSampleFallback, setUseSampleFallback] = useState(false);
-    const sampleSrc = showSamples ? getSampleImageForPage(pageNum) : null;
-    const displaySrc = useSampleFallback ? sampleSrc : src;
-
-    if (!displaySrc) {
+    if (!src && !showSamples) {
         return <div className="ab-page-empty" aria-hidden />;
     }
 
     return (
         <div className={`ab-framed-page ab-framed-page--${side}`}>
-            <span className="ab-framed-page-bg" aria-hidden>
-                <img
-                    src={displaySrc}
-                    alt=""
-                    draggable={false}
-                    onError={() => {
-                        if (!useSampleFallback && sampleSrc && src !== sampleSrc) {
-                            setUseSampleFallback(true);
-                        }
-                    }}
-                />
-            </span>
             <PagePhoto
-                src={displaySrc}
+                src={src}
                 pageNum={pageNum}
                 showSamples={showSamples}
                 className="ab-framed-page-img"
