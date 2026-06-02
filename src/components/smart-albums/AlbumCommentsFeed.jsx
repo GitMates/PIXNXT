@@ -1,10 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
     COMMENTS_CHANGED_EVENT,
+    COMMENTS_SEEN_CHANGED_EVENT,
     countMeaningfulComments,
     formatCommentDateTime,
     groupCommentsBySpread,
+    isCommentUnseen,
+    markCommentsSeen,
     smartAlbumCommentsService,
+    truncateCommentPreview,
 } from '../../services/smartAlbumComments.service';
 import './AlbumSpreadComments.css';
 
@@ -16,6 +20,7 @@ export default function AlbumCommentsFeed({
     const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
     const [deleteBusyId, setDeleteBusyId] = useState(null);
+    const [seenTick, setSeenTick] = useState(0);
 
     const load = useCallback(
         async ({ showLoading = true } = {}) => {
@@ -53,10 +58,11 @@ export default function AlbumCommentsFeed({
     );
 
     const handleCommentClick = useCallback(
-        (spreadIndex) => {
+        (spreadIndex, root) => {
+            if (albumId && root) markCommentsSeen(albumId, [root]);
             onNavigateToSpread?.(spreadIndex);
         },
-        [onNavigateToSpread]
+        [albumId, onNavigateToSpread]
     );
 
     useEffect(() => {
@@ -68,8 +74,16 @@ export default function AlbumCommentsFeed({
             if (e.detail?.albumId !== albumId) return;
             load({ showLoading: false });
         };
+        const onSeen = (e) => {
+            if (e.detail?.albumId !== albumId) return;
+            setSeenTick((tick) => tick + 1);
+        };
         window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-        return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+        window.addEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
+        return () => {
+            window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+            window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
+        };
     }, [albumId, load]);
 
     const total = groups.reduce((n, g) => {
@@ -105,21 +119,35 @@ export default function AlbumCommentsFeed({
                         {groups.map(({ spreadIndex, spreadLabel, threads }) =>
                             threads.length === 0 ? null : (
                                 <li key={spreadIndex} className="asc-feed-spread">
-                                    <p className="asc-feed-spread-label">{spreadLabel}</p>
+                                    <p className="asc-feed-spread-label">
+                                        {spreadLabel}
+                                        {threads.some(({ root }) => isCommentUnseen(albumId, root)) && (
+                                            <span className="asc-feed-new-dot" aria-label="New comment" />
+                                        )}
+                                    </p>
                                     <ul className="asc-feed-thread-list">
-                                        {threads.map(({ root }) => (
+                                        {threads.map(({ root }) => {
+                                            const unseen = isCommentUnseen(albumId, root);
+                                            return (
                                             <li key={root.id} className="asc-feed-thread">
                                                 <button
                                                     type="button"
                                                     className={`asc-feed-message asc-feed-message--link${
+                                                        unseen ? ' asc-feed-message--unseen' : ''
+                                                    }${
                                                         activeSpreadIndex === spreadIndex
                                                             ? ' asc-feed-message--active'
                                                             : ''
                                                     }`}
-                                                    onClick={() => handleCommentClick(spreadIndex)}
+                                                    onClick={() => handleCommentClick(spreadIndex, root)}
                                                 >
                                                     <div className="asc-feed-message-head">
-                                                        <strong>{root.author_name}</strong>
+                                                        <strong>
+                                                            {root.author_name}
+                                                            {unseen && (
+                                                                <span className="asc-feed-new-badge">New</span>
+                                                            )}
+                                                        </strong>
                                                         <time
                                                             className="asc-feed-message-time"
                                                             dateTime={root.created_at}
@@ -129,7 +157,12 @@ export default function AlbumCommentsFeed({
                                                             )}
                                                         </time>
                                                     </div>
-                                                    <span className="asc-feed-message-body">{root.body}</span>
+                                                    <span
+                                                        className="asc-feed-message-body"
+                                                        title={root.body}
+                                                    >
+                                                        {truncateCommentPreview(root.body)}
+                                                    </span>
                                                     <div className="asc-feed-actions">
                                                         <span className="asc-feed-go-hint">
                                                             View spread
@@ -147,7 +180,8 @@ export default function AlbumCommentsFeed({
                                                     </div>
                                                 </button>
                                             </li>
-                                        ))}
+                                            );
+                                        })}
                                     </ul>
                                 </li>
                             )

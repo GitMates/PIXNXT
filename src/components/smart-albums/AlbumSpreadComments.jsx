@@ -7,7 +7,9 @@ import {
     findGuestSpreadRootComment,
     getGuestProfile,
     groupCommentsByThread,
+    getCommentsSubmittedAt,
     hasCommentBody,
+    markCommentsSubmitted,
     saveGuestProfile,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
@@ -44,6 +46,9 @@ export default function AlbumSpreadComments({
     const [syncing, setSyncing] = useState(false);
     const [deleteBusyId, setDeleteBusyId] = useState(null);
     const [resolveBusyId, setResolveBusyId] = useState(null);
+    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+    const [confirmSending, setConfirmSending] = useState(false);
+    const [commentsSubmittedAt, setCommentsSubmittedAt] = useState(null);
     const { toast, showToast, clearToast } = useAppToast(2500);
     const loadSeqRef = useRef(0);
 
@@ -186,6 +191,11 @@ export default function AlbumSpreadComments({
     }, [isFooter, messagesEnabled, albumId, spreadIndex, syncComments, showClientCompose]);
 
     useEffect(() => {
+        if (!isFooter || !albumId) return;
+        setCommentsSubmittedAt(getCommentsSubmittedAt(albumId));
+    }, [isFooter, albumId]);
+
+    useEffect(() => {
         if (!showGuestFields) setGuestModalOpen(false);
     }, [showGuestFields]);
 
@@ -322,6 +332,139 @@ export default function AlbumSpreadComments({
         setShowGuestFields(false);
         setGuestModalOpen(false);
     };
+
+    const openConfirmModal = useCallback(async () => {
+        if (showGuestFields && !guestName.trim()) {
+            setGuestModalOpen(true);
+            return;
+        }
+        const count =
+            albumCommentCount != null && !loading
+                ? albumCommentCount
+                : commentCount;
+        if (draftBody.trim()) {
+            await submitComment(draftBody);
+        }
+        const all = await smartAlbumCommentsService.listAlbumComments(albumId);
+        const roots = all.filter((c) => !c.parent_id && hasCommentBody(c));
+        if (!roots.length) {
+            showToast('Add at least one comment before confirming.', {
+                variant: 'info',
+                duration: 3500,
+            });
+            return;
+        }
+        void count;
+        setConfirmModalOpen(true);
+    }, [
+        albumId,
+        albumCommentCount,
+        commentCount,
+        draftBody,
+        guestName,
+        loading,
+        showGuestFields,
+        showToast,
+        submitComment,
+    ]);
+
+    const handleConfirmComments = useCallback(async () => {
+        if (!albumId || confirmSending) return;
+        if (showGuestFields && !guestName.trim()) {
+            setGuestModalOpen(true);
+            return;
+        }
+        setConfirmSending(true);
+        try {
+            if (draftBody.trim()) {
+                await submitComment(draftBody);
+            }
+            const guest = resolveGuest();
+            const all = await smartAlbumCommentsService.listAlbumComments(albumId);
+            const roots = all.filter((c) => !c.parent_id && hasCommentBody(c));
+            if (!roots.length) {
+                showToast('Add at least one comment before confirming.', {
+                    variant: 'info',
+                    duration: 3500,
+                });
+                return;
+            }
+            await smartAlbumCommentsService.notifyPhotographerAlbumComments({
+                albumId,
+                guestName: guest.name,
+                guestEmail: guest.email,
+                siteOrigin: window.location.origin,
+                comments: roots,
+            });
+            markCommentsSubmitted(albumId);
+            setCommentsSubmittedAt(new Date().toISOString());
+            setConfirmModalOpen(false);
+            showToast('Comments sent to your photographer', {
+                variant: 'success',
+                duration: 4000,
+            });
+        } catch (e) {
+            console.error(e);
+            showToast(e?.message || 'Could not send comments. Try again.', {
+                variant: 'error',
+                duration: 4500,
+            });
+        } finally {
+            setConfirmSending(false);
+        }
+    }, [
+        albumId,
+        confirmSending,
+        draftBody,
+        guestName,
+        resolveGuest,
+        showGuestFields,
+        showToast,
+        submitComment,
+    ]);
+
+    const renderConfirmModal = () =>
+        confirmModalOpen &&
+        createPortal(
+            <div
+                className="asc-reply-modal-backdrop asc-confirm-modal-backdrop"
+                onClick={() => !confirmSending && setConfirmModalOpen(false)}
+                role="presentation"
+            >
+                <div
+                    className="asc-reply-modal asc-confirm-modal"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Confirm comments"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <h5 className="asc-reply-modal-title">Confirm your comments?</h5>
+                    <p className="asc-confirm-modal-lead">
+                        We&apos;ll email your photographer with all comments you&apos;ve left on
+                        this album. Make sure your feedback is complete before sending.
+                    </p>
+                    <div className="asc-reply-modal-actions asc-confirm-modal-actions">
+                        <button
+                            type="button"
+                            className="asc-link-btn asc-link-btn--inline"
+                            disabled={confirmSending}
+                            onClick={() => setConfirmModalOpen(false)}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="button"
+                            className="asc-btn asc-btn--primary"
+                            disabled={confirmSending}
+                            onClick={handleConfirmComments}
+                        >
+                            {confirmSending ? 'Sending…' : 'Confirm & send'}
+                        </button>
+                    </div>
+                </div>
+            </div>,
+            document.body
+        );
 
     const renderGuestModal = () =>
         guestModalOpen &&
@@ -622,6 +765,7 @@ export default function AlbumSpreadComments({
         return (
             <div className="asc-footer-wrap" aria-label={`Comments for ${spreadLabel}`}>
                 {renderGuestModal()}
+                {renderConfirmModal()}
                 {composeModal}
 
                 <div className="asc-comment-bar">
@@ -661,6 +805,16 @@ export default function AlbumSpreadComments({
                                 Save comment
                             </button>
                         </form>
+                        <button
+                            type="button"
+                            className={`asc-comment-bar-confirm${
+                                commentsSubmittedAt ? ' asc-comment-bar-confirm--sent' : ''
+                            }`}
+                            disabled={confirmSending || Boolean(commentsSubmittedAt)}
+                            onClick={openConfirmModal}
+                        >
+                            {commentsSubmittedAt ? 'Comments sent' : 'Confirm comments'}
+                        </button>
                         {saveState === 'saving' && (
                             <span className="asc-comment-bar-saving">Saving…</span>
                         )}

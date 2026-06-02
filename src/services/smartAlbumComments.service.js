@@ -2,9 +2,12 @@ import { supabase } from '../lib/supabase/client';
 import { smartAlbumsService } from './smartAlbums.service';
 
 const LOCAL_KEY = 'pixnxt_smart_album_comments_local';
+const SEEN_KEY = 'pixnxt_smart_album_comments_seen';
+const SUBMITTED_KEY = 'pixnxt_smart_album_comments_submitted';
 const GUEST_KEY_PREFIX = 'pixnxt_album_guest_';
 
 export const COMMENTS_CHANGED_EVENT = 'pixnxt-album-comments-changed';
+export const COMMENTS_SEEN_CHANGED_EVENT = 'pixnxt-album-comments-seen-changed';
 
 export function notifyCommentsChanged(albumId) {
     try {
@@ -14,6 +17,94 @@ export function notifyCommentsChanged(albumId) {
     } catch {
         /* ignore */
     }
+}
+
+export function notifyCommentsSeenChanged(albumId) {
+    try {
+        window.dispatchEvent(
+            new CustomEvent(COMMENTS_SEEN_CHANGED_EVENT, { detail: { albumId } })
+        );
+    } catch {
+        /* ignore */
+    }
+}
+
+function readSeen() {
+    try {
+        const raw = localStorage.getItem(SEEN_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeSeen(data) {
+    try {
+        localStorage.setItem(SEEN_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+/** True when the photographer has not viewed this comment since its last update. */
+export function isCommentUnseen(albumId, comment) {
+    if (!albumId || !comment?.id) return false;
+    const seenAt = readSeen()[albumId]?.[comment.id];
+    if (!seenAt) return true;
+    const stamp = comment.updated_at || comment.created_at;
+    if (!stamp) return false;
+    return new Date(stamp).getTime() > new Date(seenAt).getTime();
+}
+
+export function markCommentsSeen(albumId, comments) {
+    if (!albumId || !comments?.length) return;
+    const all = readSeen();
+    const bucket = { ...(all[albumId] || {}) };
+    const now = new Date().toISOString();
+    comments.forEach((comment) => {
+        if (comment?.id) bucket[comment.id] = now;
+    });
+    all[albumId] = bucket;
+    writeSeen(all);
+    notifyCommentsSeenChanged(albumId);
+}
+
+function readSubmitted() {
+    try {
+        const raw = localStorage.getItem(SUBMITTED_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeSubmitted(data) {
+    try {
+        localStorage.setItem(SUBMITTED_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+export function getCommentsSubmittedAt(albumId) {
+    if (!albumId) return null;
+    return readSubmitted()[albumId] || null;
+}
+
+export function markCommentsSubmitted(albumId) {
+    if (!albumId) return;
+    const all = readSubmitted();
+    all[albumId] = new Date().toISOString();
+    writeSubmitted(all);
+}
+
+/** Short preview for sidebar comment cards (first N words). */
+export function truncateCommentPreview(text, maxWords = 6, ellipsis = '....') {
+    if (!text || typeof text !== 'string') return '';
+    const trimmed = text.trim();
+    const words = trimmed.split(/\s+/).filter(Boolean);
+    if (words.length <= maxWords) return trimmed;
+    return `${words.slice(0, maxWords).join(' ')}${ellipsis}`;
 }
 
 /** Date and time for comment cards (editor feed, spread chips). */
@@ -632,6 +723,43 @@ export const smartAlbumCommentsService = {
             .maybeSingle();
 
         if (error) throw error;
+        return data;
+    },
+
+    async notifyPhotographerAlbumComments({
+        albumId,
+        guestName,
+        guestEmail,
+        siteOrigin,
+        comments,
+    }) {
+        const payload = {
+            albumId,
+            guestName: guestName?.trim() || null,
+            guestEmail: guestEmail?.trim() || null,
+            siteOrigin:
+                siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+            comments: (comments || [])
+                .filter((c) => !c.parent_id && hasCommentBody(c))
+                .map((c) => ({
+                    spread_index: c.spread_index,
+                    author_name: c.author_name,
+                    body: c.body,
+                    created_at: c.created_at,
+                    updated_at: c.updated_at,
+                })),
+        };
+
+        const { data, error } = await supabase.functions.invoke('send-album-comments-email', {
+            body: payload,
+        });
+
+        if (error) {
+            throw new Error(error.message || 'Could not send notification email');
+        }
+        if (data?.error) {
+            throw new Error(data.error);
+        }
         return data;
     },
 };

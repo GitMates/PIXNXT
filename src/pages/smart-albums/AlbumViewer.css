@@ -112,6 +112,8 @@
 
 .av-page--preview {
   background: #fff;
+  overflow: hidden;
+  scrollbar-gutter: auto;
 }
 
 .av-page--preview .av-viewer-body {
@@ -196,8 +198,7 @@
   padding: 16px 24px 8px;
   box-sizing: border-box;
   background: #f3f3f3;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   gap: 12px;
 }
 
@@ -239,6 +240,7 @@
   flex-direction: column;
   justify-content: center;
   padding: 0;
+  overflow: hidden;
 }
 
 /* Shrink flipbook so footer stays on screen (override AlbumBook preview viewport sizing) */
@@ -251,7 +253,9 @@
 
 .av-page--preview.av-page--with-comments .ab-root--preview {
   height: 100%;
-  padding: 4px 48px 32px;
+  min-height: 0;
+  overflow: hidden;
+  padding: 4px 48px 8px;
   box-sizing: border-box;
 }
 

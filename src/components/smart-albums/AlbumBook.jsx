@@ -17,6 +17,9 @@ import {
 } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
+import {
+    COMMENTS_SEEN_CHANGED_EVENT,
+} from '../../services/smartAlbumComments.service';
 import AlbumFocusView from './AlbumFocusView';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
 import AlbumPinComposer from './AlbumPinComposer';
@@ -169,6 +172,7 @@ const AlbumBook = ({
     const [pinModeActive, setPinModeActive] = useState(false);
     const [pinComposer, setPinComposer] = useState(null);
     const [initialized, setInitialized] = useState(false);
+    const [commentsSeenTick, setCommentsSeenTick] = useState(0);
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -227,6 +231,16 @@ const AlbumBook = ({
         showGridComments && spreadCommentsBySpread
             ? spreadCommentsBySpread[spreadIndex] || null
             : null;
+
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onSeen = (e) => {
+            if (e.detail?.albumId !== album.id) return;
+            setCommentsSeenTick((tick) => tick + 1);
+        };
+        window.addEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
+        return () => window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
+    }, [album?.id]);
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, {
         showCover: true,
     });
@@ -728,7 +742,7 @@ const AlbumBook = ({
                 disabled={atStart}
                 aria-label="Previous page"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="15 18 9 12 15 6" />
                 </svg>
             </button>
@@ -739,6 +753,14 @@ const AlbumBook = ({
                 <div
                     className="ab-spread-display"
                     style={bookDims ? { width: bookDims.width * 2 } : undefined}
+                >
+                <div
+                    className="ab-spread-book-block"
+                    style={
+                        bookDims
+                            ? { width: bookDims.width * 2 }
+                            : undefined
+                    }
                 >
                 <div
                     className="ab-flipbook-wrap"
@@ -797,17 +819,6 @@ const AlbumBook = ({
                     </AlbumBookPageContext.Provider>
                     ) : null}
                 </div>
-                {currentSpreadComments?.length > 0 && (
-                    <div className="ab-spread-comments-bar">
-                        <SpreadGridComments
-                            comments={currentSpreadComments}
-                            variant="spreadBar"
-                        />
-                    </div>
-                )}
-                </div>
-                </div>
-
                 <div className="ab-spread-controls">
                     <button
                         type="button"
@@ -838,6 +849,20 @@ const AlbumBook = ({
                         {counterLabel}
                     </span>
                 </div>
+                </div>
+                {currentSpreadComments?.length > 0 && (
+                    <div className="ab-spread-comments-bar">
+                        <SpreadGridComments
+                            comments={currentSpreadComments}
+                            variant="spreadBar"
+                            albumId={album?.id}
+                            seenTick={commentsSeenTick}
+                        />
+                    </div>
+                )}
+                </div>
+                </div>
+
             </div>
 
             <button
@@ -848,7 +873,7 @@ const AlbumBook = ({
                 disabled={atEnd}
                 aria-label="Next page"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="9 18 15 12 9 6" />
                 </svg>
             </button>
