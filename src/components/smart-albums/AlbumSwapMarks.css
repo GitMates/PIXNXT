@@ -29,7 +29,8 @@
 
 .ab-swap-mark-badge {
   position: absolute;
-  top: -40px;
+  top: auto;
+  bottom: -40px;
   right: 8px;
   z-index: 5;
   display: inline-flex;
@@ -48,6 +49,14 @@
   box-shadow:
     0 8px 24px rgba(0, 0, 0, 0.1),
     0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Cover + full-page photos clip overflow; keep badge inside the photo. */
+.ab-page-photo-wrap .ab-swap-mark-badge,
+.ab-front-cover-photo .ab-swap-mark-badge {
+  top: 12px;
+  bottom: auto;
+  right: 12px;
 }
 
 .ab-swap-mark-badge--locked {

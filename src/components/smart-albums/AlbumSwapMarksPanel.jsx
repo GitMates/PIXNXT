@@ -7,26 +7,23 @@ import {
     resolveSlotLabel,
 } from './albumSwapMarks';
 
-function IconLock() {
-    return (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-    );
-}
-
 export default function AlbumSwapMarksPanel({
     albumId,
     marks = [],
     gridLayout = 'two-page',
     variant = 'embedded',
     seenTick = 0,
+    onNavigateToSlotKey,
 }) {
     const isPanel = variant === 'panel';
     void seenTick;
 
     const unseenCount = countUnseenSwapMarks(albumId, marks);
+
+    const handleOpenSlot = (mark, slotKey) => {
+        markSwapMarksSeen(albumId, [mark]);
+        onNavigateToSlotKey?.(slotKey);
+    };
 
     if (!marks.length) {
         if (!isPanel) return null;
@@ -66,25 +63,33 @@ export default function AlbumSwapMarksPanel({
                 {marks.map((mark) => {
                     const labelA = mark.labelA || resolveSlotLabel(mark.a, gridLayout);
                     const labelB = mark.labelB || resolveSlotLabel(mark.b, gridLayout);
-                    const locked = mark.locked !== false;
                     const unseen = isSwapMarkUnseen(albumId, mark);
                     return (
                         <li
                             key={mark.id}
                             className={`ae-swap-marks-item${
-                                locked ? ' ae-swap-marks-item--locked' : ''
-                            }${unseen ? ' ae-proof-item--unseen' : ''}`}
+                                unseen ? ' ae-proof-item--unseen' : ''
+                            }`}
                         >
-                            <span className="ae-swap-marks-pair">
-                                {locked && (
-                                    <span className="ae-swap-marks-lock" aria-hidden>
-                                        <IconLock />
-                                    </span>
-                                )}
-                                {labelA} ↔ {labelB}
-                                {unseen && (
-                                    <span className="ae-proof-new-badge">New</span>
-                                )}
+                            <span className="ae-swap-marks-pair" aria-label={`Swap ${labelA} with ${labelB}`}>
+                                <button
+                                    type="button"
+                                    className="ae-swap-marks-chip"
+                                    onClick={() => handleOpenSlot(mark, mark.a)}
+                                >
+                                    {labelA}
+                                </button>
+                                <span className="ae-swap-marks-arrow" aria-hidden>
+                                    ↔
+                                </span>
+                                <button
+                                    type="button"
+                                    className="ae-swap-marks-chip"
+                                    onClick={() => handleOpenSlot(mark, mark.b)}
+                                >
+                                    {labelB}
+                                </button>
+                                {unseen && <span className="ae-proof-new-badge">New</span>}
                             </span>
                             <button
                                 type="button"

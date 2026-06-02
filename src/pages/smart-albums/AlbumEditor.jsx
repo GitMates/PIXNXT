@@ -66,6 +66,7 @@ import {
     getSwapMarks,
     isWholeGridSwapSlot,
     markSwapMarksSeen,
+    parseSlotKey,
     SWAP_MARKS_CHANGED_EVENT,
     SWAP_MARKS_SEEN_CHANGED_EVENT,
 } from '../../components/smart-albums/albumSwapMarks';
@@ -254,17 +255,11 @@ export default function AlbumEditor({
         };
     }, [albumId]);
 
-    useEffect(() => {
-        if (!albumId || activePanel !== 'pin') return;
-        const pins = getPhotoPins(albumId);
-        if (pins.length) markPhotoPinsSeen(albumId, pins);
-    }, [albumId, activePanel]);
+    // NOTE: comments should stay "unseen" until the user opens a specific comment row.
+    // Marking all seen on tab open prevents the highlight from ever appearing.
 
-    useEffect(() => {
-        if (!albumId || activePanel !== 'swap') return;
-        const marks = getSwapMarks(albumId);
-        if (marks.length) markSwapMarksSeen(albumId, marks);
-    }, [albumId, activePanel]);
+    // NOTE: swaps should stay "unseen" until the user opens a specific swap row.
+    // Marking all seen on tab open prevents the highlight from ever appearing.
 
     useEffect(() => {
         if (!albumId || !user?.id) return undefined;
@@ -387,6 +382,17 @@ export default function AlbumEditor({
         (pin) => {
             if (!pin) return;
             const spreadIdx = pageToSpreadIndex(pin.pageNum, { showCover: true, totalPages });
+            const page = spreadIndexToPage(spreadIdx, { showCover: true, totalPages });
+            const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
+            handleBookPageChange(clamped);
+        },
+        [handleBookPageChange, totalPages]
+    );
+    const handleNavigateToSwapSlotKey = useCallback(
+        (slotKey) => {
+            if (!slotKey) return;
+            const { pageNum } = parseSlotKey(slotKey);
+            const spreadIdx = pageToSpreadIndex(pageNum, { showCover: true, totalPages });
             const page = spreadIndexToPage(spreadIdx, { showCover: true, totalPages });
             const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
             handleBookPageChange(clamped);
@@ -991,6 +997,7 @@ export default function AlbumEditor({
                     photoPins={photoPins}
                     albumId={albumId}
                     onNavigateToPin={handleNavigateToPin}
+                    onNavigateToSwapSlotKey={handleNavigateToSwapSlotKey}
                     proofSeenTick={proofSeenTick}
                 />
             </div>

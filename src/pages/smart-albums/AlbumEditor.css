@@ -380,13 +380,25 @@
   line-height: 1.35;
 }
 
-.ae-swap-marks-lock {
-  display: inline-flex;
-  color: #b45309;
+.ae-swap-marks-arrow {
+  color: #9ca3af;
+  font-weight: 700;
 }
 
-.ae-swap-marks-item--locked {
-  border-color: rgba(251, 191, 36, 0.45);
+.ae-swap-marks-chip {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ae-swap-marks-chip:hover {
+  color: #92400e;
+  text-decoration: underline;
 }
 
 .ae-swap-marks-remove {
@@ -458,17 +470,14 @@
   background: #7c3aed;
 }
 
-.ae-proof-item--unseen {
-  background: #eef2ff !important;
-  border-color: #c7d2fe !important;
-  box-shadow: inset 3px 0 0 #7c3aed;
-}
-
+/* Unseen highlight should appear only inside the swap/pin list rows. */
 .ae-swap-marks--panel .ae-swap-marks-item.ae-proof-item--unseen:not(.ae-photo-pins-item) {
   background: #eff6ff !important;
   border-color: #bfdbfe !important;
   box-shadow: inset 3px 0 0 #2563eb;
 }
+
+/* (Row-level highlight handled on .ae-swap-marks-item) */
 
 .ae-swap-marks--panel .ae-swap-marks-item.ae-proof-item--unseen:not(.ae-photo-pins-item) .ae-proof-new-badge {
   background: #2563eb;
@@ -476,6 +485,14 @@
 
 .ae-swap-marks--panel .ae-swap-marks-count--unseen .ae-proof-new-pill {
   background: #2563eb;
+}
+
+.ae-photo-pins-item.ae-proof-item--unseen .ae-photo-pins-link {
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  background: #eef2ff;
+  box-shadow: inset 3px 0 0 #7c3aed;
 }
 
 .ae-photo-pins-item {

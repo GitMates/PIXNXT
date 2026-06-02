@@ -274,7 +274,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const showStar = pageNum === 1 && album?.is_starred;
     const canSelectCover = pageNum === 0 && editable && !spreadEdit;
     const PageWrapTag = canSelectCover ? 'button' : 'div';
-    const coverSwapMarkInfo = liveSwapMarkMode && liveGetSwapMarkInfo?.(0, 0);
+    const coverSwapMarkInfo = liveGetSwapMarkInfo?.(0, 0);
     const coverSwapMarkInfos =
         liveSwapMarkMode && liveGetSwapMarkInfos ? liveGetSwapMarkInfos(0, 0, 0) : [];
     const canCoverSwap = liveSwapMarkMode && pageNum === 0 && Boolean(src);
@@ -283,9 +283,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         livePinMarkMode && liveGetPinsForSlot ? liveGetPinsForSlot(0, 0, 0) : [];
     const isEndCoverPage = endSpreadRole === 'half-left' && !editable && !spreadEdit;
     const endCoverSwapMarkInfo =
-        isEndCoverPage && liveSwapMarkMode
-            ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage)
-            : null;
+        isEndCoverPage ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage) : null;
     const endCoverSwapMarkInfos =
         isEndCoverPage && liveSwapMarkMode && liveGetSwapMarkInfos
             ? liveGetSwapMarkInfos(pageNum, 1, spreadLeftForPage)

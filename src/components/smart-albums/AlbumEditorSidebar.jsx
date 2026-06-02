@@ -109,6 +109,7 @@ export default function AlbumEditorSidebar({
     photoPins = [],
     albumId = null,
     onNavigateToPin = null,
+    onNavigateToSwapSlotKey = null,
     proofSeenTick = 0,
 }) {
     const fileRef = useRef(null);
@@ -193,6 +194,7 @@ export default function AlbumEditorSidebar({
                             gridLayout={album?.grid_layout || 'two-page'}
                             variant="panel"
                             seenTick={proofSeenTick}
+                            onNavigateToSlotKey={onNavigateToSwapSlotKey}
                         />
                     </>
                 )}

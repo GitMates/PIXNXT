@@ -196,8 +196,7 @@ export default function AlbumPageGrid({
                 const spreadSrc = spreadPhotoOnly
                     ? getSpreadPhotoOverride(albumId, spreadLeft)
                     : null;
-                const swapMarkInfo =
-                    swapMarkMode && getSwapMarkInfo?.(photoIndex, cell.id, spreadLeft);
+                const swapMarkInfo = getSwapMarkInfo?.(photoIndex, cell.id, spreadLeft);
                 const swapMarkInfos =
                     swapMarkMode && getSwapMarkInfos
                         ? getSwapMarkInfos(photoIndex, cell.id, spreadLeft)
