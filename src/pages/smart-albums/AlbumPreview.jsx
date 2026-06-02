@@ -82,6 +82,12 @@ export default function AlbumPreview({
     const [editingPinMessage, setEditingPinMessage] = useState('');
     const [swapMarks, setSwapMarks] = useState([]);
 
+    useEffect(() => {
+        if (!messagesEnabled && sidebarTab === 'swap') {
+            setSidebarTab('comments');
+        }
+    }, [messagesEnabled, sidebarTab]);
+
     const loadSpreadComments = useCallback(async () => {
         if (!albumId || !commentsEnabled) return;
         try {
@@ -219,7 +225,7 @@ export default function AlbumPreview({
         [onPageChange, totalPages]
     );
     const activeProofTab =
-        sidebarTab === 'swap'
+        messagesEnabled && sidebarTab === 'swap'
             ? 'swap'
             : sidebarTab === 'comments'
               ? 'comments'
@@ -254,7 +260,11 @@ export default function AlbumPreview({
             </header>
 
             <div className="av-preview-shell">
-                <div className="av-preview-main">
+                <div
+                    className={`av-preview-main${
+                        sidebarExpanded ? ' av-preview-main--sidebar-expanded' : ''
+                    }`}
+                >
                 <div className="av-preview-book-section">
                     <div className="av-viewer-body av-viewer-body--preview-book">
                         <AlbumBook
@@ -266,15 +276,15 @@ export default function AlbumPreview({
                             previewMode
                             showSamples={false}
                             transformRevision={photoRevision}
-                                swapMarkMode={activeProofTab === 'swap'}
-                                pinMarkMode={activeProofTab === 'comments'}
-                                proofToolsHover={activeProofTab == null}
+                            swapMarkMode={messagesEnabled && activeProofTab === 'swap'}
+                            pinMarkMode={commentsEnabled && activeProofTab === 'comments'}
+                            proofToolsHover={activeProofTab == null}
                             placementMode={
                                 album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
                             }
-                                spreadCommentsBySpread={
-                                    commentsEnabled ? spreadCommentsBySpread : null
-                                }
+                            spreadCommentsBySpread={
+                                commentsEnabled ? spreadCommentsBySpread : null
+                            }
                         />
                     </div>
                 </div>
@@ -485,6 +495,8 @@ export default function AlbumPreview({
                                 }`}
                                 onClick={() => handleSidebarToggle('swap')}
                                 aria-label="Toggle swap panel"
+                                    disabled={!messagesEnabled}
+                                    title={!messagesEnabled ? 'Enable swaps in Settings' : undefined}
                             >
                                 <span aria-hidden>⇅</span>
                                 <span className="av-preview-sidebar-btn-label">Swap</span>

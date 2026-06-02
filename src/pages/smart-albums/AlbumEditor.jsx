@@ -509,11 +509,13 @@ export default function AlbumEditor({
 
     const handleReplaceFiles = useCallback(
         async (e) => {
-            const files = e.target.files;
+            const files = Array.from(e.target.files || []);
             e.target.value = '';
             const slot = pendingReplaceSlotRef.current;
             pendingReplaceSlotRef.current = null;
-            if (!slot || !files?.length) return;
+            if (!slot || files.length === 0) return;
+            setUploading(true);
+            showToast('Uploading photo…', { variant: 'info', duration: 0 });
             try {
                 const images = await expandUploadFilesToImages(files);
                 if (!images[0]?.dataUrl) {
@@ -522,13 +524,15 @@ export default function AlbumEditor({
                 }
                 if (await placeDataUrlOnSlot(slot, images[0].dataUrl)) {
                     scheduleWorkspaceRefresh();
-                    showToast('Photo updated.', { duration: 3500 });
+                    showToast('Photo updated.', { variant: 'success', duration: 3500 });
                 } else {
                     showToast('Could not place photo.', { variant: 'error', duration: 4000 });
                 }
             } catch (err) {
                 console.error(err);
                 showToast('Upload failed. Try again.', { variant: 'error', duration: 4000 });
+            } finally {
+                setUploading(false);
             }
         },
         [placeDataUrlOnSlot, scheduleWorkspaceRefresh, showToast]

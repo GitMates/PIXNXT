@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
 import {
@@ -506,6 +507,18 @@ const AlbumBook = ({
     }, [overviewOpen]);
 
     useEffect(() => {
+        if (!overviewOpen) return undefined;
+        const prevHtmlOverflow = document.documentElement.style.overflow;
+        const prevBodyOverflow = document.body.style.overflow;
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.documentElement.style.overflow = prevHtmlOverflow;
+            document.body.style.overflow = prevBodyOverflow;
+        };
+    }, [overviewOpen]);
+
+    useEffect(() => {
         const maxPage = Math.max(0, totalPages - 1);
         if (pageIndex <= maxPage) return;
         goToPage(maxPage);
@@ -963,6 +976,7 @@ const AlbumBook = ({
                     </AlbumBookPageContext.Provider>
                     ) : null}
                 </div>
+                </div>
                 <div className="ab-spread-controls">
                     <button
                         type="button"
@@ -993,7 +1007,6 @@ const AlbumBook = ({
                         {counterLabel}
                     </span>
                 </div>
-                </div>
                 {currentSpreadComments?.length > 0 && (
                     <div className="ab-spread-comments-bar">
                         <SpreadGridComments
@@ -1022,9 +1035,12 @@ const AlbumBook = ({
                 </svg>
             </button>
 
-            {overviewOpen && (
+            {overviewOpen &&
+                createPortal(
                 <div
-                    className={`ab-overview${pageCountBusy ? ' ab-overview--page-busy' : ''}`}
+                    className={`ab-overview${
+                        previewMode ? ' ab-overview--gallery-proof' : ''
+                    }${pageCountBusy ? ' ab-overview--page-busy' : ''}`}
                     role="dialog"
                     aria-modal="true"
                     aria-label="Page overview"
@@ -1036,7 +1052,21 @@ const AlbumBook = ({
                         aria-label="Close page overview"
                         onClick={() => setOverviewOpen(false)}
                     >
-                        ×
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
                     </button>
                     <div className="ab-overview-body" onClick={(e) => e.stopPropagation()}>
                     <div
@@ -1198,7 +1228,8 @@ const AlbumBook = ({
                         </div>
                     )}
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {focusOpen && (

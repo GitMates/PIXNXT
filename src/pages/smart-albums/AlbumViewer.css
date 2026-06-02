@@ -435,6 +435,10 @@
   right: 78px;
 }
 
+.av-preview-main.av-preview-main--sidebar-expanded .ab-root--preview .ab-nav--next {
+  right: 360px;
+}
+
 .av-preview-footer {
   flex-shrink: 0;
   width: 100%;

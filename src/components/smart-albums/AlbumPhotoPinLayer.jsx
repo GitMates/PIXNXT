@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 function CommentIcon({ className }) {
     return (
@@ -120,6 +121,7 @@ export default function AlbumPhotoPinLayer({
 }) {
     const [openPinId, setOpenPinId] = useState(null);
     const layerRef = React.useRef(null);
+    const [hintPosition, setHintPosition] = useState(null);
 
     const showTools =
         proofToolsHover &&
@@ -144,6 +146,42 @@ export default function AlbumPhotoPinLayer({
         if (pinModeActive) onPlacePin?.(xPct, yPct);
     };
 
+    const placementHint = swapPinModeActive && hasPhoto
+        ? (swapPinTargetStep
+            ? 'Click target spot to complete swap'
+            : 'Click source spot to start swap')
+        : pinModeActive && hasPhoto
+            ? 'Click to place comment'
+            : '';
+
+    useLayoutEffect(() => {
+        if (!placementHint || !layerRef.current) {
+            setHintPosition(null);
+            return undefined;
+        }
+
+        const updateHintPosition = () => {
+            const rect = layerRef.current?.getBoundingClientRect();
+            if (!rect || !rect.width || !rect.height) return;
+            setHintPosition({
+                left: rect.left + rect.width / 2,
+                top: rect.bottom + 12,
+            });
+        };
+
+        updateHintPosition();
+        window.addEventListener('resize', updateHintPosition);
+        window.addEventListener('scroll', updateHintPosition, true);
+        return () => {
+            window.removeEventListener('resize', updateHintPosition);
+            window.removeEventListener('scroll', updateHintPosition, true);
+        };
+    }, [placementHint]);
+
+    useEffect(() => {
+        if (!placementHint) setHintPosition(null);
+    }, [placementHint]);
+
     return (
         <div
             ref={layerRef}
@@ -165,19 +203,20 @@ export default function AlbumPhotoPinLayer({
             }
         >
             {children}
-            {swapPinModeActive && hasPhoto && (
-                <div className="ab-pin-placement-overlay ab-pin-placement-overlay--swap" aria-hidden>
-                    <span className="ab-pin-placement-hint">
-                        {swapPinTargetStep
-                            ? 'Click target spot to complete swap'
-                            : 'Click source spot to start swap'}
-                    </span>
-                </div>
-            )}
-            {pinModeActive && hasPhoto && (
-                <div className="ab-pin-placement-overlay" aria-hidden>
-                    <span className="ab-pin-placement-hint">Click to place comment</span>
-                </div>
+            {placementHint && hintPosition && createPortal(
+                <div
+                    className={`ab-pin-placement-floating${
+                        swapPinModeActive ? ' ab-pin-placement-floating--swap' : ''
+                    }`}
+                    style={{
+                        left: `${hintPosition.left}px`,
+                        top: `${hintPosition.top}px`,
+                    }}
+                    aria-hidden
+                >
+                    <span className="ab-pin-placement-hint">{placementHint}</span>
+                </div>,
+                document.body
             )}
             {showTools && (
                 <div className="ab-proof-tools-hover ab-proof-tools-hover--with-swap">
