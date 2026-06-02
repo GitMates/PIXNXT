@@ -27,7 +27,8 @@ import {
     addSwapMark,
     getSwapMarkForSlot,
     getSwapMarks,
-    isSlotSwapLocked,
+    makeSlotKey,
+    slotsMatch,
     SWAP_MARKS_CHANGED_EVENT,
 } from './albumSwapMarks';
 import {
@@ -168,6 +169,7 @@ const AlbumBook = ({
     const [pageIndex, setPageIndex] = useState(initialPage);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(album?.id));
     const [swapPickerOrigin, setSwapPickerOrigin] = useState(null);
+    const [swapPinFlow, setSwapPinFlow] = useState(null);
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(album?.id));
     const [pinModeActive, setPinModeActive] = useState(false);
     const [pinComposer, setPinComposer] = useState(null);
@@ -576,17 +578,64 @@ const AlbumBook = ({
         return () => window.removeEventListener('keydown', onKey);
     }, [pinModeActive, exitPinMode]);
 
+    useEffect(() => {
+        if (!swapPinFlow) return undefined;
+
+        const onDocClick = (e) => {
+            const target = e.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest('.ab-photo-pin-layer--placing-swap')) return;
+            if (target.closest('.ab-proof-tool-btn')) return;
+            if (target.closest('.ab-proof-tools-hover')) return;
+            setSwapPinFlow(null);
+        };
+
+        const timer = window.setTimeout(() => {
+            document.addEventListener('click', onDocClick);
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timer);
+            document.removeEventListener('click', onDocClick);
+        };
+    }, [swapPinFlow]);
+
+    useEffect(() => {
+        if (!previewMode) return;
+        if (pinMarkMode) {
+            setPinModeActive(true);
+            setSwapPinFlow(null);
+            return;
+        }
+        setPinModeActive(false);
+        setPinComposer(null);
+    }, [previewMode, pinMarkMode]);
+
+    useEffect(() => {
+        if (!previewMode) return;
+        if (!swapMarkMode) {
+            setSwapPinFlow(null);
+        }
+    }, [previewMode, swapMarkMode]);
+
+    useEffect(() => {
+        if (!swapPinFlow) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape') setSwapPinFlow(null);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [swapPinFlow]);
+
     const handleSwapRequest = useCallback(
         (slot) => {
             if (!album?.id || !slot) return;
-            const locked = isSlotSwapLocked(swapMarks, slot.pageNum, slot.cellId ?? 0, {
-                placementMode,
-                spreadLeft: slot.spreadLeft ?? slot.pageNum,
+            setSwapPinFlow({
+                originSlot: slot,
+                originPoint: null,
             });
-            if (locked) return;
-            setSwapPickerOrigin(slot);
         },
-        [album?.id, swapMarks, placementMode]
+        [album?.id]
     );
 
     const handleSwapPick = useCallback(
@@ -596,6 +645,61 @@ const AlbumBook = ({
             setSwapPickerOrigin(null);
         },
         [album?.id, swapPickerOrigin]
+    );
+
+    const handleSwapPinPlace = useCallback(
+        (placement) => {
+            if (!album?.id || !placement) return;
+            const placementPoint = {
+                xPct: placement.xPct,
+                yPct: placement.yPct,
+                pageNum: placement.pageNum,
+                cellId: placement.cellId ?? 0,
+            };
+            if (!swapPinFlow) {
+                if (!swapMarkMode) return;
+                setSwapPinFlow({
+                    originSlot: placement,
+                    originPoint: placementPoint,
+                });
+                return;
+            }
+            const originSlot = swapPinFlow.originSlot;
+
+            if (!swapPinFlow.originPoint) {
+                if (slotsMatch(originSlot, placement)) {
+                    setSwapPinFlow((prev) =>
+                        prev
+                            ? {
+                                  ...prev,
+                                  originPoint: placementPoint,
+                              }
+                            : prev
+                    );
+                    return;
+                }
+                addSwapMark(album.id, originSlot, placement, {
+                    pointA: {
+                        xPct: 50,
+                        yPct: 50,
+                        pageNum: originSlot.pageNum,
+                        cellId: originSlot.cellId ?? 0,
+                    },
+                    pointB: placementPoint,
+                });
+                setSwapPinFlow(null);
+                return;
+            }
+
+            if (slotsMatch(originSlot, placement)) return;
+
+            addSwapMark(album.id, originSlot, placement, {
+                pointA: swapPinFlow.originPoint,
+                pointB: placementPoint,
+            });
+            setSwapPinFlow(null);
+        },
+        [album?.id, swapPinFlow, swapMarkMode]
     );
 
     const getSwapMarkInfo = useCallback(
@@ -675,6 +779,16 @@ const AlbumBook = ({
             swapMarkMode,
             getSwapMarkInfo,
             onSwapRequest: handleSwapRequest,
+            swapPinModeActive: previewMode ? swapMarkMode : Boolean(swapPinFlow),
+            swapPinOriginKey: swapPinFlow
+                ? makeSlotKey(
+                      swapPinFlow.originSlot.pageNum,
+                      swapPinFlow.originSlot.cellId ?? 0
+                  )
+                : null,
+            swapPinTargetStep: Boolean(swapPinFlow?.originPoint),
+            swapPinOriginPoint: swapPinFlow?.originPoint || null,
+            onPlaceSwapPin: handleSwapPinPlace,
             pinMarkMode,
             pinModeActive,
             getPinsForSlot: getSlotPins,
@@ -700,6 +814,9 @@ const AlbumBook = ({
             pinModeActive,
             proofToolsHover,
             handleSwapRequest,
+            swapPinFlow,
+            handleSwapPinPlace,
+            previewMode,
             getSwapMarkInfo,
             getSlotPins,
             handlePinPlace,

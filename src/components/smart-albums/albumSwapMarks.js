@@ -123,7 +123,7 @@ export function getSwapMarks(albumId) {
     return readAll()[albumId] || [];
 }
 
-export function addSwapMark(albumId, slotA, slotB) {
+export function addSwapMark(albumId, slotA, slotB, options = {}) {
     if (!albumId || !slotA || !slotB) return null;
     const keyA = makeSlotKey(slotA.pageNum, slotA.cellId);
     const keyB = makeSlotKey(slotB.pageNum, slotB.cellId);
@@ -131,7 +131,10 @@ export function addSwapMark(albumId, slotA, slotB) {
 
     const all = readAll();
     const list = [...(all[albumId] || [])];
-    const filtered = list.filter((m) => m.a !== keyA && m.b !== keyA && m.a !== keyB && m.b !== keyB);
+    const alreadyExists = list.some(
+        (m) => (m.a === keyA && m.b === keyB) || (m.a === keyB && m.b === keyA)
+    );
+    if (alreadyExists) return null;
     const mark = {
         id: `swap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         a: keyA,
@@ -139,10 +142,12 @@ export function addSwapMark(albumId, slotA, slotB) {
         labelA: slotA.label || getSlotLabel(slotA.pageNum, slotA.cellId, slotA.whole),
         labelB: slotB.label || getSlotLabel(slotB.pageNum, slotB.cellId, slotB.whole),
         locked: true,
+        pointA: options?.pointA || null,
+        pointB: options?.pointB || null,
         createdAt: new Date().toISOString(),
     };
-    filtered.push(mark);
-    all[albumId] = filtered;
+    list.push(mark);
+    all[albumId] = list;
     writeAll(all);
     notify(albumId);
     return mark;
@@ -262,7 +267,7 @@ export function getSwapMarkForSlot(
         key = makeSlotKey(spreadLeft, 1);
     }
 
-    const mark = (marks || []).find((m) => m.a === key || m.b === key);
+    const mark = [...(marks || [])].reverse().find((m) => m.a === key || m.b === key);
     if (!mark) return null;
 
     const isA = mark.a === key;
@@ -272,6 +277,8 @@ export function getSwapMarkForSlot(
     const partnerLabel =
         (isA ? mark.labelB : mark.labelA) ||
         resolveSlotLabel(isA ? mark.b : mark.a, gridLayout);
+    const point = isA ? mark.pointA : mark.pointB;
+    const pinLabel = isA ? 'A' : 'B';
 
     return {
         slotLabel,
@@ -280,6 +287,8 @@ export function getSwapMarkForSlot(
         subtitle: `with ${partnerLabel}`,
         locked: mark.locked !== false,
         markId: mark.id,
+        point,
+        pinLabel,
     };
 }
 

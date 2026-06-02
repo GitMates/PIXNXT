@@ -38,8 +38,8 @@ const IconPin = () => (
 const NAV = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
     { id: 'swap', label: 'Swap', icon: IconSwap },
-    { id: 'pin', label: 'Pin', icon: IconPin },
-    { id: 'comments', label: 'Comments', icon: IconComments },
+    { id: 'pin', label: 'Comment', icon: IconPin },
+    { id: 'comments', label: 'Setting', icon: IconComments },
 ];
 
 const GRID_LAYOUT_LABELS = {
@@ -154,7 +154,7 @@ export default function AlbumEditorSidebar({
             <div className="ae-panel">
                 {activePanel === 'comments' && (
                     <>
-                        <h3 className="ae-panel-title">Comment settings</h3>
+                        <h3 className="ae-panel-title">Settings</h3>
                         {commentSettings || (
                             <p className="ae-panel-text ae-panel-text--muted">
                                 Sign in to manage client comments and publishing.
@@ -182,7 +182,7 @@ export default function AlbumEditorSidebar({
 
                 {activePanel === 'pin' && (
                     <>
-                        <h3 className="ae-panel-title">Pin</h3>
+                        <h3 className="ae-panel-title">Comment</h3>
                         <p className="ae-panel-text">
                             Client pin notes appear here. To add pins, use the album preview — hover a
                             photo and click Pin.

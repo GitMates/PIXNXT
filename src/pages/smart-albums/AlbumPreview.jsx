@@ -6,7 +6,12 @@ import {
     spreadIndexToPage,
     getTotalSpreads,
 } from '../../components/smart-albums/albumSpreadUtils';
-import { getSwapMarks } from '../../components/smart-albums/albumSwapMarks';
+import {
+    getSwapMarks,
+    parseSlotKey,
+    removeSwapMark,
+    SWAP_MARKS_CHANGED_EVENT,
+} from '../../components/smart-albums/albumSwapMarks';
 import {
     PHOTO_PINS_CHANGED_EVENT,
     getPhotoPins,
@@ -76,6 +81,7 @@ export default function AlbumPreview({
     const [sidebarExpanded, setSidebarExpanded] = useState(false);
     const [editingPinId, setEditingPinId] = useState(null);
     const [editingPinMessage, setEditingPinMessage] = useState('');
+    const [swapMarks, setSwapMarks] = useState([]);
 
     const loadSpreadComments = useCallback(async () => {
         if (!albumId || !commentsEnabled) return;
@@ -101,6 +107,18 @@ export default function AlbumPreview({
         };
         window.addEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
         return () => window.removeEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
+    }, [albumId]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const loadMarks = () => setSwapMarks(getSwapMarks(albumId));
+        loadMarks();
+        const onSwapChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            loadMarks();
+        };
+        window.addEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapChanged);
+        return () => window.removeEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapChanged);
     }, [albumId]);
 
     useEffect(() => {
@@ -153,7 +171,36 @@ export default function AlbumPreview({
             ),
         [spreadCommentsBySpread]
     );
-    const swapMarksCount = useMemo(() => getSwapMarks(albumId).length, [albumId, photoRevision]);
+    const swapMarksCount = swapMarks.length;
+    const swapItems = useMemo(
+        () =>
+            (swapMarks || [])
+                .map((mark) => {
+                    const slotA = parseSlotKey(mark.a);
+                    const slotB = parseSlotKey(mark.b);
+                    const spreadA = pageToSpreadIndex(slotA.pageNum, { showCover: true, totalPages });
+                    const spreadB = pageToSpreadIndex(slotB.pageNum, { showCover: true, totalPages });
+                    return {
+                        ...mark,
+                        spreadA,
+                        spreadB,
+                        spreadLabelA:
+                            spreadA <= 0
+                                ? 'Cover'
+                                : `Spread ${spreadA}`,
+                        spreadLabelB:
+                            spreadB <= 0
+                                ? 'Cover'
+                                : `Spread ${spreadB}`,
+                    };
+                })
+                .sort(
+                    (a, b) =>
+                        new Date(b.createdAt || 0).getTime() -
+                        new Date(a.createdAt || 0).getTime()
+                ),
+        [swapMarks, totalPages]
+    );
 
     const handleSidebarToggle = useCallback((tab) => {
         setSidebarTab(tab);
@@ -171,6 +218,13 @@ export default function AlbumPreview({
         },
         [onPageChange, totalPages]
     );
+    const activeProofTab = clientPreview
+        ? sidebarTab === 'swap'
+            ? 'swap'
+            : sidebarTab === 'comments'
+              ? 'comments'
+              : null
+        : null;
 
     return (
         <div className="av-page av-page--preview av-page--gallery-proof av-page--with-comments">
@@ -213,8 +267,9 @@ export default function AlbumPreview({
                                 previewMode
                                 showSamples={false}
                                 transformRevision={photoRevision}
-                                swapMarkMode={clientPreview}
-                                pinMarkMode={clientPreview}
+                                swapMarkMode={activeProofTab === 'swap'}
+                                pinMarkMode={activeProofTab === 'comments'}
+                                proofToolsHover={activeProofTab == null}
                                 placementMode={
                                     album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
                                 }
@@ -345,9 +400,57 @@ export default function AlbumPreview({
                                                 ? `${swapMarksCount} locked swap request${swapMarksCount === 1 ? '' : 's'}`
                                                 : 'No swap requests yet'}
                                         </p>
-                                        <p className="av-preview-sidebar-text">
-                                            Swap actions are managed in the editor. This panel shows current status.
-                                        </p>
+                                        <div className="av-preview-sidebar-comments">
+                                            {swapItems.length === 0 ? (
+                                                <p className="av-preview-sidebar-text">
+                                                    No swap requests yet.
+                                                </p>
+                                            ) : (
+                                                <>
+                                                    {swapItems.map((item) => (
+                                                        <article
+                                                            key={item.id}
+                                                            className="av-preview-sidebar-comment av-preview-sidebar-comment--swap"
+                                                        >
+                                                            <p className="av-preview-sidebar-comment-author">
+                                                                Swap request
+                                                            </p>
+                                                            <div className="av-preview-sidebar-swap-route">
+                                                                <span className="av-preview-sidebar-swap-chip">
+                                                                    {item.labelA || item.spreadLabelA}
+                                                                </span>
+                                                                <span className="av-preview-sidebar-swap-arrow">
+                                                                    ↔
+                                                                </span>
+                                                                <span className="av-preview-sidebar-swap-chip">
+                                                                    {item.labelB || item.spreadLabelB}
+                                                                </span>
+                                                            </div>
+                                                            <div className="av-preview-sidebar-comment-actions">
+                                                                <button
+                                                                    type="button"
+                                                                    className="av-preview-sidebar-comment-action"
+                                                                    onClick={() =>
+                                                                        jumpToSpread(item.spreadA)
+                                                                    }
+                                                                >
+                                                                    Go to {item.spreadLabelA}
+                                                                </button>
+                                                                <button
+                                                                    type="button"
+                                                                    className="av-preview-sidebar-comment-delete"
+                                                                    onClick={() =>
+                                                                        removeSwapMark(albumId, item.id)
+                                                                    }
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        </article>
+                                                    ))}
+                                                </>
+                                            )}
+                                        </div>
                                     </>
                                 ) : (
                                     <>

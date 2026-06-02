@@ -287,6 +287,39 @@
   background: #faf7ff;
 }
 
+.av-preview-sidebar-comment--swap {
+  border-color: #dbeafe;
+  background: #f8fbff;
+  padding: 10px;
+}
+
+.av-preview-sidebar-swap-route {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.av-preview-sidebar-swap-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #312e81;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.av-preview-sidebar-swap-arrow {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4f46e5;
+}
+
 .av-preview-sidebar-comment-link {
   display: block;
   width: 100%;

@@ -22,7 +22,7 @@ export default function AlbumSwapMarksPanel({
         if (!isPanel) return null;
         return (
             <p className="ae-panel-text ae-panel-text--muted ae-swap-marks-empty">
-                No swap marks yet. Hover a placed photo on the spread and click Swap to mark a pair.
+                No swap requests yet. Hover a placed photo on the spread and click Swap to mark a pair.
             </p>
         );
     }
@@ -31,15 +31,15 @@ export default function AlbumSwapMarksPanel({
         <div className={`ae-swap-marks${isPanel ? ' ae-swap-marks--panel' : ''}`}>
             {!isPanel && (
                 <>
-                    <h4 className="ae-swap-marks-title">Swap marks ({marks.length})</h4>
+                    <h4 className="ae-swap-marks-title">Swap requests ({marks.length})</h4>
                     <p className="ae-swap-marks-lead">
-                        Locked swap requests — photos stay in place until you apply them.
+                        Swap pairs currently requested in this album.
                     </p>
                 </>
             )}
             {isPanel && (
                 <p className="ae-swap-marks-count" role="status">
-                    {marks.length} locked mark{marks.length === 1 ? '' : 's'}
+                    {marks.length} swap request{marks.length === 1 ? '' : 's'}
                 </p>
             )}
             <ul className="ae-swap-marks-list">
@@ -64,9 +64,9 @@ export default function AlbumSwapMarksPanel({
                                 type="button"
                                 className="ae-swap-marks-remove"
                                 onClick={() => removeSwapMark(albumId, mark.id)}
-                                aria-label={`Unlock swap mark ${labelA} with ${labelB}`}
+                                aria-label={`Delete swap request ${labelA} with ${labelB}`}
                             >
-                                Unlock
+                                Delete
                             </button>
                         </li>
                     );

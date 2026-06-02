@@ -13,6 +13,7 @@ import EditableGridPhoto from './EditableGridPhoto';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
 import './AlbumPhotoPins.css';
+import { makeSlotKey } from './albumSwapMarks';
 
 function GridPhoto({
     src,
@@ -100,6 +101,11 @@ export default function AlbumPageGrid({
     swapMarkMode = false,
     getSwapMarkInfo,
     onSwapRequest,
+    swapPinModeActive = false,
+    swapPinOriginKey = null,
+    swapPinTargetStep = false,
+    swapPinOriginPoint = null,
+    onPlaceSwapPin,
     pinMarkMode = false,
     pinModeActive = false,
     getPinsForSlot,
@@ -191,7 +197,7 @@ export default function AlbumPageGrid({
                     : null;
                 const swapMarkInfo =
                     swapMarkMode && getSwapMarkInfo?.(photoIndex, cell.id, spreadLeft);
-                const canSwap = swapMarkMode && Boolean(src) && !swapMarkInfo;
+                const canSwap = swapMarkMode && Boolean(src);
                 const proofTools = (swapMarkMode || pinMarkMode) && Boolean(src);
                 const slotPins =
                     pinMarkMode && getPinsForSlot
@@ -202,6 +208,33 @@ export default function AlbumPageGrid({
                           swapMarkInfo.locked !== false ? ' ab-grid-cell--swap-locked' : ''
                       }`
                     : '';
+                const swapPins = [];
+                if (swapMarkInfo?.point) {
+                    swapPins.push({
+                        id: `swap-pin-${swapMarkInfo.markId}-${photoIndex}-${cell.id}`,
+                        xPct: swapMarkInfo.point.xPct,
+                        yPct: swapMarkInfo.point.yPct,
+                        pinLabel: swapMarkInfo.pinLabel || 'S',
+                        message: `${swapMarkInfo.slotLabel} ↔ ${swapMarkInfo.partnerLabel}`,
+                    });
+                }
+                const slotKey = makeSlotKey(photoIndex, cell.id);
+                const isOriginSlot =
+                    Boolean(swapPinModeActive) && Boolean(swapPinOriginKey) && slotKey === swapPinOriginKey;
+                if (
+                    isOriginSlot &&
+                    swapPinTargetStep &&
+                    swapPinOriginPoint?.xPct != null &&
+                    swapPinOriginPoint?.yPct != null
+                ) {
+                    swapPins.push({
+                        id: `swap-pin-live-${slotKey}`,
+                        xPct: swapPinOriginPoint.xPct,
+                        yPct: swapPinOriginPoint.yPct,
+                        pinLabel: 'A',
+                        message: 'Source spot selected. Click target spot.',
+                    });
+                }
 
                 return (
                     <CellTag
@@ -269,6 +302,19 @@ export default function AlbumPageGrid({
                             proofToolsHover={proofToolsHover}
                             canSwap={canSwap}
                             onSwapRequest={() => onSwapRequest?.(buildSwapSlot(photoIndex, cell.id))}
+                            onActivateSwapPinMode={
+                                canSwap ? () => onSwapRequest?.(buildSwapSlot(photoIndex, cell.id)) : undefined
+                            }
+                            swapPinModeActive={swapPinModeActive}
+                            swapPinTargetStep={swapPinTargetStep}
+                            onPlaceSwapPin={(xPct, yPct) =>
+                                onPlaceSwapPin?.({
+                                    ...buildSwapSlot(photoIndex, cell.id),
+                                    xPct,
+                                    yPct,
+                                })
+                            }
+                            swapPins={swapPins}
                             onActivatePinMode={pinMarkMode ? onActivatePinMode : undefined}
                             pins={slotPins}
                             onPlacePin={(xPct, yPct) => {
@@ -314,7 +360,7 @@ export default function AlbumPageGrid({
                                 />
                             )}
                         </AlbumPhotoPinLayer>
-                        <AlbumSwapMarkBadge markInfo={swapMarkInfo} />
+                        {!previewMode && <AlbumSwapMarkBadge markInfo={swapMarkInfo} />}
                         {useSelectCells && !hasPhoto && (
                             <span className="ab-grid-cell-add">
                                 <span className="ab-grid-cell-add-icon">+</span>

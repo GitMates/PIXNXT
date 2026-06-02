@@ -8,6 +8,10 @@
   cursor: crosshair;
 }
 
+.ab-photo-pin-layer--placing-swap {
+  cursor: crosshair;
+}
+
 .ab-photo-pin-layer--tools:hover .ab-proof-tools-hover {
   opacity: 1;
   pointer-events: auto;
@@ -67,6 +71,10 @@
   pointer-events: none;
 }
 
+.ab-pin-placement-overlay--swap {
+  background: rgba(37, 99, 235, 0.2);
+}
+
 .ab-pin-placement-hint {
   padding: 6px 12px;
   border-radius: 999px;
@@ -121,6 +129,30 @@
   box-shadow:
     0 2px 12px rgba(0, 0, 0, 0.18),
     0 0 0 3px rgba(239, 68, 68, 0.22);
+}
+
+.ab-photo-pin--swap .ab-photo-pin-marker-body {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.ab-photo-pin--swap .ab-photo-pin-marker-tail {
+  border-top-color: #eff6ff;
+}
+
+.ab-photo-pin-swap-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.ab-photo-pin-swap-icon {
+  display: block;
 }
 
 .ab-photo-pin-marker-icon {
