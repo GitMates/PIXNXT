@@ -1,16 +1,16 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AppToast, useAppToast } from '../ui/AppToast';
 import {
     COMMENTS_CHANGED_EVENT,
     countMeaningfulComments,
+    findGuestSpreadRootComment,
     getGuestProfile,
     groupCommentsByThread,
     hasCommentBody,
     saveGuestProfile,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
-import AlbumMessageChat from './AlbumMessageChat';
 import './AlbumSpreadComments.css';
 
 function commentCountFromThreads(threads) {
@@ -40,12 +40,12 @@ export default function AlbumSpreadComments({
     const [albumCommentCount, setAlbumCommentCount] = useState(null);
     const [composeOpen, setComposeOpen] = useState(false);
     const [guestModalOpen, setGuestModalOpen] = useState(false);
-    const [messagesOpen, setMessagesOpen] = useState(false);
     const [syncedAt, setSyncedAt] = useState(null);
     const [syncing, setSyncing] = useState(false);
     const [deleteBusyId, setDeleteBusyId] = useState(null);
     const [resolveBusyId, setResolveBusyId] = useState(null);
     const { toast, showToast, clearToast } = useAppToast(2500);
+    const loadSeqRef = useRef(0);
 
     const threads = useMemo(() => groupCommentsByThread(comments), [comments]);
     const commentCount = useMemo(() => commentCountFromThreads(threads), [threads]);
@@ -54,56 +54,89 @@ export default function AlbumSpreadComments({
 
     const loadComments = useCallback(async () => {
         if (!albumId || spreadIndex == null) return;
+        const seq = ++loadSeqRef.current;
         setLoading(true);
         try {
             const rows = await smartAlbumCommentsService.listSpreadComments(albumId, spreadIndex);
-            setComments(rows);
+            if (seq !== loadSeqRef.current) return;
+
             const profile = getGuestProfile(albumId);
             const name = profile.name || '';
             const email = profile.email || '';
+            const authorForLookup = name.trim() || 'Guest';
+            let displayRows = rows;
+            const existing = findGuestSpreadRootComment(rows, authorForLookup);
+            if (existing && clientView && !isPhotographer) {
+                await smartAlbumCommentsService.consolidateClientSpreadComments(
+                    albumId,
+                    spreadIndex,
+                    authorForLookup,
+                    existing.id
+                );
+                displayRows = await smartAlbumCommentsService.listSpreadComments(
+                    albumId,
+                    spreadIndex
+                );
+                if (seq !== loadSeqRef.current) return;
+            }
+
+            setComments(displayRows);
             setGuestName(name);
             setGuestEmail(email);
             setShowGuestFields(!name.trim());
 
-            const draftCommentId = profile.drafts?.[spreadIndex];
-            if (draftCommentId) {
-                const draft = rows.find((c) => c.id === draftCommentId && c.author_type === 'client');
-                if (draft && hasCommentBody(draft)) {
-                    setDraftId(draft.id);
-                    setDraftBody(draft.body);
-                } else {
-                    if (draft && !hasCommentBody(draft)) {
-                        smartAlbumCommentsService
-                            .deleteClientComment({ albumId, commentId: draft.id })
-                            .catch(() => {});
+            const active = findGuestSpreadRootComment(displayRows, authorForLookup);
+            if (active) {
+                setDraftId(active.id);
+                setDraftBody(active.body);
+            } else {
+                const draftCommentId = profile.drafts?.[spreadIndex];
+                if (draftCommentId) {
+                    const draft = displayRows.find(
+                        (c) =>
+                            c.id === draftCommentId &&
+                            c.author_type === 'client' &&
+                            c.spread_index === spreadIndex
+                    );
+                    if (draft && hasCommentBody(draft)) {
+                        setDraftId(draft.id);
+                        setDraftBody(draft.body);
+                    } else {
+                        setDraftId(null);
+                        setDraftBody('');
                     }
+                } else {
                     setDraftId(null);
                     setDraftBody('');
                 }
-            } else {
-                setDraftId(null);
-                setDraftBody('');
             }
         } catch (e) {
             console.error(e);
         } finally {
-            setLoading(false);
+            if (seq === loadSeqRef.current) {
+                setLoading(false);
+                setSyncedAt(new Date());
+            }
         }
-    }, [albumId, spreadIndex]);
+    }, [albumId, spreadIndex, clientView, isPhotographer]);
 
     const syncComments = useCallback(async () => {
         if (!albumId || spreadIndex == null) return;
+        const seq = loadSeqRef.current;
         setSyncing(true);
         try {
             const rows = await smartAlbumCommentsService.listSpreadComments(albumId, spreadIndex);
+            if (seq !== loadSeqRef.current) return;
             setComments(rows);
             setSyncedAt(new Date());
         } catch (e) {
             console.warn('Comment sync failed', e);
         } finally {
-            setSyncing(false);
+            if (seq === loadSeqRef.current) {
+                setSyncing(false);
+            }
         }
-    }, [albumId, spreadIndex]);
+    }, [albumId, spreadIndex, clientView, isPhotographer]);
 
     const refreshAlbumCommentCount = useCallback(async () => {
         if (!albumId) return;
@@ -116,8 +149,13 @@ export default function AlbumSpreadComments({
     }, [albumId]);
 
     useEffect(() => {
+        setComposeOpen(false);
+        setDraftId(null);
+        setDraftBody('');
+        setComments([]);
+        setLoading(true);
         loadComments();
-    }, [loadComments]);
+    }, [spreadIndex, loadComments]);
 
     useEffect(() => {
         if (!isFooter) return;
@@ -134,27 +172,7 @@ export default function AlbumSpreadComments({
     }, [isFooter, albumId, refreshAlbumCommentCount]);
 
     useEffect(() => {
-        setThreadsOpen(false);
-        setComposeOpen(false);
-        setMessagesOpen(false);
-    }, [spreadIndex]);
-
-    useEffect(() => {
-        if (!showGuestFields) setGuestModalOpen(false);
-    }, [showGuestFields]);
-
-    useEffect(() => {
-        if (isFooter && showGuestFields) setMessagesOpen(false);
-    }, [isFooter, showGuestFields]);
-
-    useEffect(() => {
-        if (!isFooter && showGuestFields && showClientCompose) {
-            setGuestModalOpen(true);
-        }
-    }, [isFooter, showGuestFields, showClientCompose]);
-
-    useEffect(() => {
-        if (!isFooter || !messagesOpen || !messagesEnabled || !albumId) return undefined;
+        if (!isFooter || !messagesEnabled || !albumId || !showClientCompose) return undefined;
         syncComments();
         const intervalId = window.setInterval(syncComments, 8000);
         const onChanged = (e) => {
@@ -165,7 +183,17 @@ export default function AlbumSpreadComments({
             window.clearInterval(intervalId);
             window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
         };
-    }, [isFooter, messagesOpen, messagesEnabled, albumId, syncComments]);
+    }, [isFooter, messagesEnabled, albumId, spreadIndex, syncComments, showClientCompose]);
+
+    useEffect(() => {
+        if (!showGuestFields) setGuestModalOpen(false);
+    }, [showGuestFields]);
+
+    useEffect(() => {
+        if (!isFooter && showGuestFields && showClientCompose) {
+            setGuestModalOpen(true);
+        }
+    }, [isFooter, showGuestFields, showClientCompose]);
 
     const persistGuestProfile = useCallback(
         (patch) => {
@@ -186,17 +214,17 @@ export default function AlbumSpreadComments({
         async (body, name, email) => {
             if (!albumId || spreadIndex == null || !body.trim()) return;
             const authorName = name || 'Guest';
+            const trimmed = body.trim();
             setSaveState('saving');
             try {
-                const saved = await smartAlbumCommentsService.saveClientComment({
+                const saved = await smartAlbumCommentsService.saveClientCommentAndConsolidate({
                     albumId,
                     spreadIndex,
                     commentId: draftId,
-                    body,
+                    body: trimmed,
                     authorName,
                     authorEmail: email || null,
                 });
-                setDraftId(saved.id);
                 setGuestName(authorName);
                 persistGuestProfile({
                     name: authorName,
@@ -205,13 +233,8 @@ export default function AlbumSpreadComments({
                 });
                 setShowGuestFields(false);
                 setSaveState('saved');
-                setComments((prev) => {
-                    const next = prev.filter((c) => c.id !== saved.id);
-                    return [...next, saved].sort(
-                        (a, b) =>
-                            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-                    );
-                });
+                setDraftId(saved.id);
+                setDraftBody(trimmed);
                 if (isFooter) {
                     refreshAlbumCommentCount();
                 }
@@ -280,9 +303,6 @@ export default function AlbumSpreadComments({
             }
             const guest = resolveGuest();
             await saveDraft(body, guest.name, guest.email);
-            if (isFooter && messagesEnabled) {
-                setMessagesOpen(true);
-            }
         },
         [
             draftBody,
@@ -293,8 +313,6 @@ export default function AlbumSpreadComments({
             clearDraftComment,
             showGuestFields,
             guestName,
-            isFooter,
-            messagesEnabled,
         ]
     );
 
@@ -303,7 +321,6 @@ export default function AlbumSpreadComments({
         persistGuestProfile({ name: guestName.trim(), email: guestEmail.trim() || null });
         setShowGuestFields(false);
         setGuestModalOpen(false);
-        if (isFooter && messagesEnabled) setMessagesOpen(true);
     };
 
     const renderGuestModal = () =>
@@ -417,7 +434,6 @@ export default function AlbumSpreadComments({
 
     const handleDeleteMessage = async (msg) => {
         if (!albumId || !msg?.id || !canDeleteMessage(msg)) return;
-        if (!window.confirm('Delete this comment?')) return;
         setDeleteBusyId(msg.id);
         try {
             if (isPhotographer) {
@@ -512,27 +528,6 @@ export default function AlbumSpreadComments({
         </ul>
     );
 
-    const renderMessagesChat = () => (
-        <AlbumMessageChat
-                threads={threads}
-                loading={loading && threads.length === 0}
-                spreadLabel={spreadLabel}
-                canCompose={showClientCompose && !showGuestFields && messagesEnabled}
-                isPhotographer={isPhotographer}
-                guestName={guestName || 'Guest'}
-                composerValue={draftBody}
-                onComposerChange={handleDraftChange}
-                onSend={() => submitComment(draftBody)}
-                composerBusy={saveState === 'saving'}
-                syncedAt={syncedAt}
-                syncing={syncing}
-                onRefresh={syncComments}
-                canDelete={canDeleteMessage}
-                onDelete={handleDeleteMessage}
-                deleteBusyId={deleteBusyId}
-        />
-    );
-
     const composeModal =
         composeOpen &&
         showClientCompose &&
@@ -622,15 +617,10 @@ export default function AlbumSpreadComments({
         const handleFooterInputFocus = () => {
             if (showGuestFields) {
                 setGuestModalOpen(true);
-                return;
             }
-            if (messagesEnabled) setMessagesOpen(true);
         };
         return (
             <div className="asc-footer-wrap" aria-label={`Comments for ${spreadLabel}`}>
-                {messagesEnabled && messagesOpen && !showGuestFields && (
-                    <div className="asc-messages-sheet">{renderMessagesChat()}</div>
-                )}
                 {renderGuestModal()}
                 {composeModal}
 
@@ -642,11 +632,8 @@ export default function AlbumSpreadComments({
                             onClick={() => {
                                 if (showGuestFields) {
                                     setGuestModalOpen(true);
-                                    return;
                                 }
-                                if (messagesEnabled) setMessagesOpen((v) => !v);
                             }}
-                            aria-expanded={messagesEnabled ? messagesOpen : undefined}
                         >
                             {loading && albumCommentCount == null
                                 ? '…'

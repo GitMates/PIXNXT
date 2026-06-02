@@ -39,7 +39,6 @@ import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';
 import { AlbumBookPageContext } from './AlbumBookPageContext';
-import AlbumStaticSpread from './AlbumStaticSpread';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
@@ -147,7 +146,6 @@ const AlbumBook = ({
     pinMarkMode = false,
     proofToolsHover = true,
 }) => {
-    const useStaticSpread = !previewMode && !clickToFlip;
     const bookRef = useRef(null);
     const stageRef = useRef(null);
     const rootRef = useRef(null);
@@ -203,18 +201,12 @@ const AlbumBook = ({
     );
 
     useEffect(() => {
-        if (useStaticSpread) {
-            userNavigatedRef.current = false;
-            const target = Math.max(0, Math.min(totalPages - 1, initialPage));
-            setPageIndex(target);
-            return;
-        }
         setInitialized(false);
         setStableDims(null);
         setDims(null);
         userNavigatedRef.current = false;
         syncingPageRef.current = true;
-    }, [flipBookStructuralKey, useStaticSpread, initialPage, totalPages]);
+    }, [flipBookStructuralKey]);
 
     const flipBookMountKey = useMemo(
         () =>
@@ -225,16 +217,9 @@ const AlbumBook = ({
     );
 
     useEffect(() => {
-        if (useStaticSpread) return;
         setInitialized(false);
         syncingPageRef.current = true;
-    }, [flipBookMountKey, useStaticSpread]);
-
-    useEffect(() => {
-        if (!useStaticSpread || userNavigatedRef.current) return;
-        const target = Math.max(0, Math.min(totalPages - 1, initialPage));
-        setPageIndex(target);
-    }, [initialPage, totalPages, album?.id, useStaticSpread]);
+    }, [flipBookMountKey]);
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
     const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true, totalPages });
@@ -257,10 +242,9 @@ const AlbumBook = ({
     }, [leftNum, rightNum, totalPages]);
 
     useEffect(() => {
-        if (useStaticSpread) return;
         userNavigatedRef.current = false;
         syncingPageRef.current = true;
-    }, [initialPage, album?.id, useStaticSpread]);
+    }, [initialPage, album?.id]);
 
     const syncFlipbookToUrlPage = useCallback(() => {
         if (userNavigatedRef.current || isFlippingRef.current) return false;
@@ -276,7 +260,6 @@ const AlbumBook = ({
     }, [applyInitialPage, initialPage, totalPages]);
 
     useLayoutEffect(() => {
-        if (useStaticSpread) return undefined;
         if (!initialized || !stableDims) return undefined;
         if (syncFlipbookToUrlPage()) return undefined;
 
@@ -301,7 +284,6 @@ const AlbumBook = ({
         spreadEdit,
         editable,
         flipBookMountKey,
-        useStaticSpread,
     ]);
 
     useLayoutEffect(() => {
@@ -319,7 +301,7 @@ const AlbumBook = ({
                 pendingDimsCommitRef.current = requestAnimationFrame(() => {
                     pendingDimsCommitRef.current = null;
                     const measureTarget = stageOuterRef.current ?? stageRef.current;
-                    const verified = getBookDimensions(measureTarget, album?.grid_size);
+                    const verified = getBookDimensions(measureTarget, album?.grid_size) ?? next;
                     if (!verified) return;
                     setDims((prev) =>
                         prev &&
@@ -380,7 +362,6 @@ const AlbumBook = ({
     }, [album?.grid_size, flipBookStructuralKey]);
 
     useLayoutEffect(() => {
-        if (useStaticSpread) return;
         if (!stableDims || !initialized) return;
         const prev = prevDimsRef.current;
         prevDimsRef.current = stableDims;
@@ -392,35 +373,27 @@ const AlbumBook = ({
         if (!userNavigatedRef.current) {
             syncFlipbookToUrlPage();
         }
-    }, [stableDims, initialized, syncFlipbookToUrlPage, useStaticSpread]);
+    }, [stableDims, initialized, syncFlipbookToUrlPage]);
 
     const bookDims = stableDims ?? dims;
 
     const goToPage = useCallback(
         (pageNum) => {
             const clamped = Math.max(0, Math.min(totalPages - 1, pageNum));
-            if (useStaticSpread) {
-                userNavigatedRef.current = true;
-                setPageIndex(clamped);
-                onPageChange?.(clamped);
-                return;
-            }
+            syncingPageRef.current = true;
             const api = bookRef.current?.pageFlip?.();
             if (api?.getFlipController?.()) {
                 api.turnToPage(clamped);
             }
             setPageIndex(clamped);
             onPageChange?.(clamped);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    syncingPageRef.current = false;
+                });
+            });
         },
-        [useStaticSpread, totalPages, onPageChange]
-    );
-
-    const goToSpread = useCallback(
-        (targetSpreadIndex) => {
-            const spread = Math.max(0, Math.min(totalSpreads - 1, targetSpreadIndex));
-            goToPage(spreadIndexToPage(spread, { showCover: true, totalPages }));
-        },
-        [goToPage, totalSpreads, totalPages]
+        [totalPages, onPageChange]
     );
 
     const atStart = spreadIndex <= 0;
@@ -441,8 +414,10 @@ const AlbumBook = ({
 
     const handleFlip = useCallback(
         (e) => {
-            if (syncingPageRef.current) return;
+            // Ignore programmatic sync flips, but accept user-driven page turns.
+            if (syncingPageRef.current && !isFlippingRef.current) return;
             const idx = e.data;
+            syncingPageRef.current = false;
             userNavigatedRef.current = true;
             requestAnimationFrame(() => {
                 setPageIndex(idx);
@@ -470,20 +445,12 @@ const AlbumBook = ({
     );
 
     const flipPrev = useCallback(() => {
-        if (useStaticSpread) {
-            goToSpread(spreadIndex - 1);
-            return;
-        }
         bookRef.current?.pageFlip?.()?.flipPrev('bottom');
-    }, [useStaticSpread, spreadIndex, goToSpread]);
+    }, []);
 
     const flipNext = useCallback(() => {
-        if (useStaticSpread) {
-            goToSpread(spreadIndex + 1);
-            return;
-        }
         bookRef.current?.pageFlip?.()?.flipNext('bottom');
-    }, [useStaticSpread, spreadIndex, goToSpread]);
+    }, []);
 
     useEffect(() => {
         const onKey = (e) => {
@@ -774,7 +741,7 @@ const AlbumBook = ({
                     style={bookDims ? { width: bookDims.width * 2 } : undefined}
                 >
                 <div
-                    className={`ab-flipbook-wrap${useStaticSpread ? ' ab-flipbook-wrap--static' : ''}`}
+                    className="ab-flipbook-wrap"
                     ref={wrapRef}
                     style={
                         bookDims
@@ -784,20 +751,6 @@ const AlbumBook = ({
                 >
                     {bookDims ? (
                     <AlbumBookPageContext.Provider value={pageContextValue}>
-                    {useStaticSpread ? (
-                        <AlbumStaticSpread
-                            spreadIndex={spreadIndex}
-                            totalPages={totalPages}
-                            album={album}
-                            pageWidth={bookDims.width}
-                            pageHeight={bookDims.height}
-                            editable={editable}
-                            spreadEdit={spreadEdit}
-                            placementMode={placementMode}
-                            showSamples={showSamples}
-                            previewMode={previewMode}
-                        />
-                    ) : (
                     <HTMLFlipBook
                         key={flipBookMountKey}
                         ref={bookRef}
@@ -841,7 +794,6 @@ const AlbumBook = ({
                     >
                         {pages}
                     </HTMLFlipBook>
-                    )}
                     </AlbumBookPageContext.Provider>
                     ) : null}
                 </div>
@@ -956,17 +908,16 @@ const AlbumBook = ({
                             const isEndHalf = isEndSpread;
                             const showSpreadFull = Boolean(spreadSrc && !isCover && !isEndSpread);
                             const isCurrent = overviewSpreadIndex === spreadIndex;
-                            const spreadComments =
-                                showGridComments && spreadCommentsBySpread
-                                    ? spreadCommentsBySpread[overviewSpreadIndex] || null
-                                    : null;
+                            const spreadComments = spreadCommentsBySpread?.[overviewSpreadIndex] ?? null;
                             return (
                                 <button
                                     key={`spread-${overviewSpreadIndex}`}
                                     type="button"
                                     className={`ab-overview-item${
                                         isCover ? ' ab-overview-item--cover' : ''
-                                    }${isCurrent ? ' ab-overview-item--active' : ''}`}
+                                    }${isCurrent ? ' ab-overview-item--active' : ''}${
+                                        spreadComments?.length ? ' ab-overview-item--has-comments' : ''
+                                    }`}
                                     onClick={() => {
                                         goToPage(targetPage);
                                         setOverviewOpen(false);
@@ -976,12 +927,6 @@ const AlbumBook = ({
                                         {showSpreadFull ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
                                                 <img src={spreadSrc} alt="" loading="lazy" />
-                                                {spreadComments?.length > 0 && (
-                                                    <SpreadGridComments
-                                                        comments={spreadComments}
-                                                        className="ab-grid-comments--overview"
-                                                    />
-                                                )}
                                             </span>
                                         ) : isCover ? (
                                             <>
@@ -991,24 +936,12 @@ const AlbumBook = ({
                                                 />
                                                 <span className="ab-overview-page ab-overview-page--cover-right">
                                                     <OverviewFramedPhoto src={coverPhotoSrc} />
-                                                    {spreadComments?.length > 0 && coverPhotoSrc && (
-                                                        <SpreadGridComments
-                                                            comments={spreadComments}
-                                                            className="ab-grid-comments--overview"
-                                                        />
-                                                    )}
                                                 </span>
                                             </>
                                         ) : isEndHalf ? (
                                             <>
                                                 <span className="ab-overview-page ab-overview-page--end-left">
                                                     <OverviewFramedPhoto src={endCoverSrc} />
-                                                    {spreadComments?.length > 0 && endCoverSrc && (
-                                                        <SpreadGridComments
-                                                            comments={spreadComments}
-                                                            className="ab-grid-comments--overview"
-                                                        />
-                                                    )}
                                                 </span>
                                                 <span
                                                     className="ab-overview-page ab-overview-page--cover-blank"
@@ -1023,12 +956,6 @@ const AlbumBook = ({
                                                     ) : (
                                                         <span className="ab-overview-placeholder" />
                                                     )}
-                                                    {spreadComments?.length > 0 && leftSrc && (
-                                                        <SpreadGridComments
-                                                            comments={spreadComments}
-                                                            className="ab-grid-comments--overview"
-                                                        />
-                                                    )}
                                                 </span>
                                                 {!spreadSrc && (
                                                     <span className="ab-overview-page">
@@ -1041,17 +968,17 @@ const AlbumBook = ({
                                                         ) : (
                                                             <span className="ab-overview-placeholder" />
                                                         )}
-                                                        {spreadComments?.length > 0 && rightSrc && (
-                                                            <SpreadGridComments
-                                                                comments={spreadComments}
-                                                                className="ab-grid-comments--overview"
-                                                            />
-                                                        )}
                                                     </span>
                                                 )}
                                             </>
                                         )}
                                     </span>
+                                    {spreadComments?.length > 0 && (
+                                        <SpreadGridComments
+                                            comments={spreadComments}
+                                            variant="overview"
+                                        />
+                                    )}
                                     <span className="ab-overview-label">
                                         {isCover ? 'Cover' : isEndSpread ? 'End' : overviewSpreadIndex}
                                     </span>

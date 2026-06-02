@@ -26,6 +26,32 @@ export default function SpreadGridComments({ comments, className = '', variant =
             </div>
         );
     }
+
+    if (variant === 'overview') {
+        return (
+            <div
+                className={`ab-overview-comments${className ? ` ${className}` : ''}`}
+                aria-label="Comments for this spread"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {comments.map((comment) => (
+                    <article key={comment.id} className="ab-overview-comment">
+                        <header className="ab-overview-comment-head">
+                            <span className="ab-overview-comment-author">{comment.author_name}</span>
+                            <time
+                                className="ab-overview-comment-time"
+                                dateTime={comment.created_at}
+                            >
+                                {formatCommentDateTime(comment.updated_at || comment.created_at)}
+                            </time>
+                        </header>
+                        <p className="ab-overview-comment-body">{comment.body}</p>
+                    </article>
+                ))}
+            </div>
+        );
+    }
+
     return (
         <div className={`ab-grid-comments${className ? ` ${className}` : ''}`} aria-label="Client comments">
             {comments.map((comment) => (

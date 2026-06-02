@@ -63,6 +63,30 @@ export function hasCommentBody(comment) {
     return Boolean((comment?.body || '').trim());
 }
 
+export function normalizeCommentAuthorName(name) {
+    return (name || 'Guest').trim().toLowerCase();
+}
+
+/** Client's single root comment on a spread (newest if duplicates exist). */
+export function findGuestSpreadRootComment(comments, authorName) {
+    const norm = normalizeCommentAuthorName(authorName);
+    return (
+        (comments || [])
+            .filter(
+                (c) =>
+                    !c.parent_id &&
+                    c.author_type === 'client' &&
+                    hasCommentBody(c) &&
+                    normalizeCommentAuthorName(c.author_name) === norm
+            )
+            .sort(
+                (a, b) =>
+                    new Date(b.updated_at || b.created_at).getTime() -
+                    new Date(a.updated_at || a.created_at).getTime()
+            )[0] || null
+    );
+}
+
 export function countMeaningfulComments(comments) {
     return (comments || []).filter(hasCommentBody).length;
 }
@@ -153,18 +177,20 @@ export const smartAlbumCommentsService = {
 
         if (error) {
             if (isMissingTableError(error)) {
-                return local;
+                return local.filter((c) => c.spread_index === spreadIndex);
             }
             console.warn('listSpreadComments:', error.message);
-            return local;
+            return local.filter((c) => c.spread_index === spreadIndex);
         }
         const remote = (data || []).map(mapRow);
         const merged = new Map();
         local.forEach((c) => merged.set(c.id, c));
         remote.forEach((c) => merged.set(c.id, c));
-        return [...merged.values()].sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
+        return [...merged.values()]
+            .filter((c) => c.spread_index === spreadIndex)
+            .sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
     },
 
     async listAlbumComments(albumId) {
@@ -195,6 +221,27 @@ export const smartAlbumCommentsService = {
     },
 
     async saveClientComment({ albumId, spreadIndex, commentId, body, authorName, authorEmail }) {
+        let resolvedCommentId = commentId || null;
+        if (resolvedCommentId) {
+            const onSpread = listLocalAlbumComments(albumId, spreadIndex).some(
+                (c) => c.id === resolvedCommentId
+            );
+            if (!onSpread) {
+                const foreign = listLocalAlbumComments(albumId).find(
+                    (c) => c.id === resolvedCommentId && c.spread_index !== spreadIndex
+                );
+                if (foreign) resolvedCommentId = null;
+            }
+        }
+
+        if (!resolvedCommentId && authorName) {
+            const existing = findGuestSpreadRootComment(
+                listLocalAlbumComments(albumId, spreadIndex),
+                authorName
+            );
+            if (existing) resolvedCommentId = existing.id;
+        }
+
         const payload = {
             album_id: albumId,
             spread_index: spreadIndex,
@@ -211,12 +258,17 @@ export const smartAlbumCommentsService = {
             return saved;
         };
 
-        if (commentId) {
+        if (resolvedCommentId) {
             try {
                 const { data, error } = await supabase
                     .from('smart_album_comments')
-                    .update({ body: payload.body, updated_at: payload.updated_at })
-                    .eq('id', commentId)
+                    .update({
+                        body: payload.body,
+                        spread_index: spreadIndex,
+                        updated_at: payload.updated_at,
+                    })
+                    .eq('id', resolvedCommentId)
+                    .eq('spread_index', spreadIndex)
                     .select();
 
                 if (!error && data?.[0]) {
@@ -229,7 +281,17 @@ export const smartAlbumCommentsService = {
             } catch (e) {
                 console.warn('saveClientComment update failed:', e);
             }
-            return saveLocal({ ...payload, id: commentId, created_at: new Date().toISOString() });
+            const localRow = listLocalAlbumComments(albumId, spreadIndex).find(
+                (c) => c.id === resolvedCommentId
+            );
+            if (localRow) {
+                return saveLocal({
+                    ...payload,
+                    id: resolvedCommentId,
+                    created_at: localRow.created_at,
+                });
+            }
+            resolvedCommentId = null;
         }
 
         const insertPayload = {
@@ -264,6 +326,36 @@ export const smartAlbumCommentsService = {
         }
 
         return saveLocal(insertPayload);
+    },
+
+    async consolidateClientSpreadComments(albumId, spreadIndex, authorName, keepCommentId) {
+        if (!albumId || spreadIndex == null || !keepCommentId || !authorName) return;
+        const rows = await this.listSpreadComments(albumId, spreadIndex);
+        const norm = normalizeCommentAuthorName(authorName);
+        const extras = rows.filter(
+            (c) =>
+                !c.parent_id &&
+                c.author_type === 'client' &&
+                hasCommentBody(c) &&
+                normalizeCommentAuthorName(c.author_name) === norm &&
+                c.id !== keepCommentId
+        );
+        for (const extra of extras) {
+            await this.deleteClientComment({ albumId, commentId: extra.id });
+        }
+    },
+
+    async saveClientCommentAndConsolidate(params) {
+        const saved = await this.saveClientComment(params);
+        if (saved?.id) {
+            await this.consolidateClientSpreadComments(
+                params.albumId,
+                params.spreadIndex,
+                params.authorName,
+                saved.id
+            );
+        }
+        return saved;
     },
 
     async savePhotographerComment({ albumId, spreadIndex, body, authorName }) {
@@ -379,18 +471,20 @@ export const smartAlbumCommentsService = {
     _saveLocalComment(albumId, spreadIndex, row) {
         const all = readLocal();
         const bucket = { ...(all[albumId] || {}) };
-        const list = [...(bucket[spreadIndex] || [])];
+        const normalizedSpread = Number(spreadIndex);
+        const list = [...(bucket[normalizedSpread] || [])];
         const idx = list.findIndex((c) => c.id === row.id);
         const base = idx >= 0 ? list[idx] : {};
         const entry = {
             ...base,
             ...row,
+            spread_index: normalizedSpread,
             parent_id: row.parent_id ?? base.parent_id ?? null,
-            created_at: row.created_at || new Date().toISOString(),
+            created_at: row.created_at || base.created_at || new Date().toISOString(),
         };
         if (idx >= 0) list[idx] = entry;
         else list.push(entry);
-        bucket[spreadIndex] = list;
+        bucket[normalizedSpread] = list;
         all[albumId] = bucket;
         writeLocal(all);
         return mapRow(entry);

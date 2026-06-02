@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumSpreadComments from '../../components/smart-albums/AlbumSpreadComments';
 import { pageToSpreadIndex, getTotalSpreads } from '../../components/smart-albums/albumSpreadUtils';
+import {
+    COMMENTS_CHANGED_EVENT,
+    groupRootCommentsBySpread,
+    smartAlbumCommentsService,
+} from '../../services/smartAlbumComments.service';
 import { useAuth } from '../../hooks/useAuth';
 import './AlbumViewer.css';
 
@@ -40,6 +45,30 @@ export default function AlbumPreview({
     const spreadCount = getTotalSpreads(totalPages, { showCover: true });
     const commentsEnabled = album?.comments_enabled !== false;
     const messagesEnabled = album?.messages_enabled !== false;
+    const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
+
+    const loadSpreadComments = useCallback(async () => {
+        if (!albumId || !commentsEnabled) return;
+        try {
+            const rows = await smartAlbumCommentsService.listAlbumComments(albumId);
+            setSpreadCommentsBySpread(groupRootCommentsBySpread(rows));
+        } catch (e) {
+            console.warn('Could not load spread comments for overview', e);
+        }
+    }, [albumId, commentsEnabled]);
+
+    useEffect(() => {
+        loadSpreadComments();
+    }, [loadSpreadComments]);
+
+    useEffect(() => {
+        if (!albumId || !commentsEnabled) return undefined;
+        const onChanged = (e) => {
+            if (e.detail?.albumId === albumId) loadSpreadComments();
+        };
+        window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+        return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
+    }, [albumId, commentsEnabled, loadSpreadComments]);
 
     const handleBookPageChange = useCallback(
         (idx) => {
@@ -99,12 +128,16 @@ export default function AlbumPreview({
                             placementMode={
                                 album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
                             }
+                            spreadCommentsBySpread={
+                                commentsEnabled ? spreadCommentsBySpread : null
+                            }
                         />
                     </div>
                 </div>
 
                 <footer className="av-preview-footer av-preview-footer--bar">
                     <AlbumSpreadComments
+                        key={`${albumId}-spread-${spreadIndex}`}
                         albumId={albumId}
                         spreadIndex={spreadIndex}
                         spreadLabel={spreadLabel}
