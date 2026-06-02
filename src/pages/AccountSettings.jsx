@@ -905,27 +905,63 @@ function AccountTab({ user, showToast }) {
             .then(data => {
                 if (data) {
                     let sessions = data.active_sessions || [];
-                    if (sessions.length === 0) {
-                        const userAgent = navigator.userAgent;
-                        let browser = "Chrome 148";
-                        let os = "Windows 10";
-                        if (userAgent.includes("Safari") && !userAgent.includes("Chrome")) browser = "Safari";
-                        else if (userAgent.includes("Firefox")) browser = "Firefox";
-                        else if (userAgent.includes("Edg")) browser = "Edge";
-                        
-                        if (userAgent.includes("Macintosh") || userAgent.includes("Mac OS")) os = "macOS";
-                        else if (userAgent.includes("iPhone") || userAgent.includes("iPad")) os = "iOS";
-                        else if (userAgent.includes("Android")) os = "Android";
-                        else if (userAgent.includes("Linux")) os = "Linux";
+                    const needsRedetect = sessions.length === 0 ||
+                        (sessions.length > 0 && sessions[0].device === 'Windows 10, Chrome 148');
+
+                    if (needsRedetect) {
+                        // Detect browser name + version
+                        const getBrowserInfo = () => {
+                            const ua = navigator.userAgent;
+                            let name = 'Browser';
+                            let version = '';
+                            if (ua.includes('Edg/')) {
+                                name = 'Edge';
+                                version = ua.match(/Edg\/([\d]+)/)?.[1] || '';
+                            } else if (ua.includes('Chrome/')) {
+                                name = 'Chrome';
+                                version = ua.match(/Chrome\/([\d]+)/)?.[1] || '';
+                            } else if (ua.includes('Firefox/')) {
+                                name = 'Firefox';
+                                version = ua.match(/Firefox\/([\d]+)/)?.[1] || '';
+                            } else if (ua.includes('Safari/') && !ua.includes('Chrome')) {
+                                name = 'Safari';
+                                version = ua.match(/Version\/([\d]+)/)?.[1] || '';
+                            }
+                            return version ? `${name} ${version}` : name;
+                        };
+
+                        // Detect OS — use high-entropy hints for Windows 11 vs 10
+                        const getOSName = async () => {
+                            const ua = navigator.userAgent;
+                            if (ua.includes('iPhone') || ua.includes('iPad')) return 'iOS';
+                            if (ua.includes('Android')) return 'Android';
+                            if (ua.includes('Macintosh') || ua.includes('Mac OS X')) return 'macOS';
+                            if (ua.includes('Linux')) return 'Linux';
+
+                            // Windows: UA always reports "Windows NT 10.0" for both Win10 and Win11
+                            // Use userAgentData high-entropy hints (Chrome/Edge 90+)
+                            if (navigator.userAgentData?.getHighEntropyValues) {
+                                try {
+                                    const hints = await navigator.userAgentData.getHighEntropyValues(['platformVersion']);
+                                    const major = parseInt(hints.platformVersion?.split('.')?.[0] || '0', 10);
+                                    if (major >= 13) return 'Windows 11';
+                                    if (major > 0) return 'Windows 10';
+                                } catch (_) { /* fallback */ }
+                            }
+                            return 'Windows';
+                        };
+
+                        const browser = getBrowserInfo();
+                        const os = await getOSName();
 
                         sessions = [{
-                            id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2),
+                            id: sessions[0]?.id || (crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2)),
                             device: `${os}, ${browser}`,
                             lastActive: 'Current session',
-                            ip: '2409:408d:3c0a:e5c:a02c:1ea4:258f:68e'
+                            ip: sessions[0]?.ip || '—'
                         }];
                         galleryService.updatePhotographerProfile(user.id, { active_sessions: sessions })
-                            .catch(err => console.error("Error setting initial session:", err));
+                            .catch(err => console.error("Error updating session:", err));
                     }
 
                     setFormData(prev => ({
