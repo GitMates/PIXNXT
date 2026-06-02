@@ -218,13 +218,12 @@ export default function AlbumPreview({
         },
         [onPageChange, totalPages]
     );
-    const activeProofTab = clientPreview
-        ? sidebarTab === 'swap'
+    const activeProofTab =
+        sidebarTab === 'swap'
             ? 'swap'
             : sidebarTab === 'comments'
               ? 'comments'
-              : null
-        : null;
+              : null;
 
     return (
         <div className="av-page av-page--preview av-page--gallery-proof av-page--with-comments">

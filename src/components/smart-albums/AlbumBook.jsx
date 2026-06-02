@@ -548,6 +548,7 @@ const AlbumBook = ({
 
     useEffect(() => {
         if (!pinModeActive || !pinMarkMode) return undefined;
+        if (previewMode) return undefined;
 
         const onDocClick = (e) => {
             const target = e.target;
@@ -567,7 +568,7 @@ const AlbumBook = ({
             window.clearTimeout(timer);
             document.removeEventListener('click', onDocClick);
         };
-    }, [pinModeActive, pinMarkMode, exitPinMode]);
+    }, [pinModeActive, pinMarkMode, exitPinMode, previewMode]);
 
     useEffect(() => {
         if (!pinModeActive) return undefined;
