@@ -459,11 +459,18 @@ const AlbumBook = ({
     );
 
     const flipPrev = useCallback(() => {
-        bookRef.current?.pageFlip?.()?.flipPrev('bottom');
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return;
+        // Some builds of pageflip are picky about flipPrev(direction).
+        if (typeof api.flipPrev === 'function') api.flipPrev();
+        else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
     }, []);
 
     const flipNext = useCallback(() => {
-        bookRef.current?.pageFlip?.()?.flipNext('bottom');
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return;
+        if (typeof api.flipNext === 'function') api.flipNext();
+        else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
     }, []);
 
     useEffect(() => {

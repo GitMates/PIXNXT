@@ -160,12 +160,12 @@
 
 /* Sidebar */
 .ae-sidebar {
-  width: 280px;
+  width: 320px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-right: 1px solid #e4e6ea;
+  border-left: 1px solid #e4e6ea;
   overflow: hidden;
 }
 
@@ -851,7 +851,7 @@
 
 @media (max-width: 900px) {
   .ae-sidebar {
-    width: 240px;
+    width: 272px;
   }
 
   .ae-btn-secondary {

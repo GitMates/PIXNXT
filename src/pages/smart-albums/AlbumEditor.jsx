@@ -847,6 +847,51 @@ export default function AlbumEditor({
             </header>
 
             <div className="ae-body">
+                <main className="ae-canvas">
+                    <div className="ae-canvas-chrome">
+                        <span className="ae-canvas-label">Spread editor</span>
+                        <span className="ae-canvas-hint">
+                            {spreadEdit
+                                ? 'Drag photo to move · drag each edge to zoom · hover a photo to mark a swap'
+                                : 'Click a photo or slot for options · use Collections to upload'}
+                        </span>
+                    </div>
+                    <div className={`ae-canvas-stage${spreadEdit ? ' ae-canvas-stage--edit' : ''}`}>
+                        <AlbumBook
+                            key={albumId}
+                            album={albumForBook}
+                            totalPages={totalPages}
+                            initialPage={bookPage}
+                            onPageChange={handleBookPageChange}
+                            editable={!spreadEdit}
+                            spreadEdit={spreadEdit}
+                            placementMode={effectivePlacementMode === 'whole' ? 'whole' : 'single'}
+                            showSamples={false}
+                            gridSelection={gridSelection}
+                            onSelectGridCell={handleSelectGridCell}
+                            onSelectGridSpread={handleSelectGridSpread}
+                            onSlotActivate={handleSlotActivate}
+                            onSelectCover={handleSelectCover}
+                            canAddPages={canAddPages}
+                            onAddPages={handleAddPagesFromOverview}
+                            canRemovePages={canRemovePages}
+                            onRemovePages={handleRemovePagesFromOverview}
+                            pageCountBusy={pageCountBusy}
+                            onTransformChange={() => {
+                                setTransformRevision(getTransformRevision(albumId));
+                                onPhotosUploaded?.();
+                            }}
+                            transformRevision={transformRevision}
+                            photoRevision={layoutRevision}
+                            showGridComments={showGridComments}
+                            spreadCommentsBySpread={spreadCommentsBySpread}
+                            swapMarkMode
+                            pinMarkMode
+                            proofToolsHover={false}
+                        />
+                    </div>
+                </main>
+
                 <AlbumEditorSidebar
                     activePanel={activePanel}
                     onPanelChange={setActivePanel}
@@ -898,51 +943,6 @@ export default function AlbumEditor({
                     photoPins={photoPins}
                     albumId={albumId}
                 />
-
-                <main className="ae-canvas">
-                    <div className="ae-canvas-chrome">
-                        <span className="ae-canvas-label">Spread editor</span>
-                        <span className="ae-canvas-hint">
-                            {spreadEdit
-                                ? 'Drag photo to move · drag each edge to zoom · hover a photo to mark a swap'
-                                : 'Click a photo or slot for options · use Collections to upload'}
-                        </span>
-                    </div>
-                    <div className={`ae-canvas-stage${spreadEdit ? ' ae-canvas-stage--edit' : ''}`}>
-                        <AlbumBook
-                            key={albumId}
-                            album={albumForBook}
-                            totalPages={totalPages}
-                            initialPage={bookPage}
-                            onPageChange={handleBookPageChange}
-                            editable={!spreadEdit}
-                            spreadEdit={spreadEdit}
-                            placementMode={effectivePlacementMode === 'whole' ? 'whole' : 'single'}
-                            showSamples={false}
-                            gridSelection={gridSelection}
-                            onSelectGridCell={handleSelectGridCell}
-                            onSelectGridSpread={handleSelectGridSpread}
-                            onSlotActivate={handleSlotActivate}
-                            onSelectCover={handleSelectCover}
-                            canAddPages={canAddPages}
-                            onAddPages={handleAddPagesFromOverview}
-                            canRemovePages={canRemovePages}
-                            onRemovePages={handleRemovePagesFromOverview}
-                            pageCountBusy={pageCountBusy}
-                            onTransformChange={() => {
-                                setTransformRevision(getTransformRevision(albumId));
-                                onPhotosUploaded?.();
-                            }}
-                            transformRevision={transformRevision}
-                            photoRevision={layoutRevision}
-                            showGridComments={showGridComments}
-                            spreadCommentsBySpread={spreadCommentsBySpread}
-                            swapMarkMode
-                            pinMarkMode
-                            proofToolsHover={false}
-                        />
-                    </div>
-                </main>
             </div>
 
             <AppToast toast={toast} onDismiss={clearToast} />

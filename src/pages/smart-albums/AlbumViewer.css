@@ -187,6 +187,19 @@
   overflow: hidden;
 }
 
+.av-preview-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  --av-sidebar-rail-width: 66px;
+  --av-sidebar-panel-width: 0px;
+}
+
+.av-preview-main--sidebar-expanded {
+  --av-sidebar-panel-width: 292px;
+}
+
 .av-preview-book-section {
   flex: 1;
   min-height: 0;
@@ -204,6 +217,159 @@
 
 .av-page--gallery-proof .av-preview-book-section {
   background: #efefef;
+}
+
+.av-preview-sidebar {
+  flex: 0 0 auto;
+  width: auto;
+  display: flex;
+  align-items: stretch;
+  border-left: 1px solid #d8dde4;
+  background: linear-gradient(180deg, #f8f9fb 0%, #f3f5f8 100%);
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.65);
+}
+
+.av-preview-sidebar-panel {
+  width: var(--av-sidebar-panel-width);
+  padding: 16px 14px 18px;
+  overflow-y: auto;
+  border-right: 1px solid #e3e7ed;
+}
+
+.av-preview-sidebar-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+
+.av-preview-sidebar-lead {
+  margin: 8px 0 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.av-preview-sidebar-text {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #6b7280;
+}
+
+.av-preview-sidebar-comments {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.av-preview-sidebar-comment {
+  margin: 0;
+  padding: 10px 11px;
+  border-radius: 10px;
+  border: 1px solid #e7eaf0;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.av-preview-sidebar-comment-author {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: #374151;
+}
+
+.av-preview-sidebar-comment-body {
+  margin: 6px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #4b5563;
+  word-break: break-word;
+}
+
+.av-preview-sidebar-rail {
+  width: var(--av-sidebar-rail-width);
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  background: #f1f4f8;
+}
+
+.av-preview-sidebar-btn {
+  position: relative;
+  width: 46px;
+  min-height: 58px;
+  padding: 8px 5px;
+  border: 1px solid #d8dee8;
+  border-radius: 12px;
+  background: #fff;
+  color: #6b7280;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  transition:
+    border-color 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.15s ease;
+}
+
+.av-preview-sidebar-btn:hover {
+  background: #f8fafc;
+  border-color: #cfd8e3;
+  color: #374151;
+  transform: translateY(-1px);
+}
+
+.av-preview-sidebar-btn.is-active {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+  color: #312e81;
+}
+
+.av-preview-sidebar-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.av-preview-sidebar-btn-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #f59e0b;
+  color: #111827;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  border: 1px solid #fff;
+}
+
+.av-preview-sidebar-btn-label {
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
+
+/* Keep navigation arrows clickable and clear of the right sidebar. */
+.av-preview-main .ab-root--preview .ab-nav--next {
+  right: calc(
+    var(--av-sidebar-rail-width) + var(--av-sidebar-panel-width) + 18px
+  ) !important;
 }
 
 .av-preview-footer {

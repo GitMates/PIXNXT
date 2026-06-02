@@ -2,8 +2,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumSpreadComments from '../../components/smart-albums/AlbumSpreadComments';
 import { pageToSpreadIndex, getTotalSpreads } from '../../components/smart-albums/albumSpreadUtils';
+import { getSwapMarks } from '../../components/smart-albums/albumSwapMarks';
 import {
     COMMENTS_CHANGED_EVENT,
+    countMeaningfulComments,
     groupRootCommentsBySpread,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
@@ -59,6 +61,8 @@ export default function AlbumPreview({
     const commentsEnabled = album?.comments_enabled !== false;
     const messagesEnabled = album?.messages_enabled !== false;
     const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
+    const [sidebarTab, setSidebarTab] = useState('comments');
+    const [sidebarExpanded, setSidebarExpanded] = useState(false);
 
     const loadSpreadComments = useCallback(async () => {
         if (!albumId || !commentsEnabled) return;
@@ -95,6 +99,20 @@ export default function AlbumPreview({
         spreadIndex <= 0
             ? 'Cover'
             : `Spread ${spreadIndex} of ${Math.max(0, spreadCount - 1)}`;
+    const spreadComments = spreadCommentsBySpread?.[spreadIndex] || [];
+    const albumCommentCount = useMemo(
+        () =>
+            countMeaningfulComments(
+                Object.values(spreadCommentsBySpread || {}).flat()
+            ),
+        [spreadCommentsBySpread]
+    );
+    const swapMarksCount = useMemo(() => getSwapMarks(albumId).length, [albumId, photoRevision]);
+
+    const handleSidebarToggle = useCallback((tab) => {
+        setSidebarTab(tab);
+        setSidebarExpanded((prev) => (tab === sidebarTab ? !prev : true));
+    }, [sidebarTab]);
 
     return (
         <div className="av-page av-page--preview av-page--gallery-proof av-page--with-comments">
@@ -125,30 +143,134 @@ export default function AlbumPreview({
             </header>
 
             <div className="av-preview-shell">
-                <div className="av-preview-book-section">
-                    <div className="av-viewer-body av-viewer-body--preview-book">
-                        <AlbumBook
-                            key={`${albumId}-preview`}
-                            album={albumForBook}
-                            totalPages={totalPages}
-                            initialPage={bookPage}
-                            onPageChange={handleBookPageChange}
-                            previewMode
-                            showSamples={false}
-                            transformRevision={photoRevision}
-                            swapMarkMode={clientPreview}
-                            pinMarkMode={clientPreview}
-                            placementMode={
-                                album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
-                            }
-                            spreadCommentsBySpread={
-                                commentsEnabled ? spreadCommentsBySpread : null
-                            }
-                        />
+                <div
+                    className={`av-preview-main${
+                        sidebarExpanded ? ' av-preview-main--sidebar-expanded' : ''
+                    }`}
+                >
+                    <div className="av-preview-book-section">
+                        <div className="av-viewer-body av-viewer-body--preview-book">
+                            <AlbumBook
+                                key={`${albumId}-preview`}
+                                album={albumForBook}
+                                totalPages={totalPages}
+                                initialPage={bookPage}
+                                onPageChange={handleBookPageChange}
+                                previewMode
+                                showSamples={false}
+                                transformRevision={photoRevision}
+                                swapMarkMode={clientPreview}
+                                pinMarkMode={clientPreview}
+                                placementMode={
+                                    album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
+                                }
+                                spreadCommentsBySpread={
+                                    commentsEnabled ? spreadCommentsBySpread : null
+                                }
+                            />
+                        </div>
                     </div>
-                </div>
 
-                <footer className="av-preview-footer av-preview-footer--bar">
+                    <aside className="av-preview-sidebar" aria-label="Preview tools">
+                        {sidebarExpanded && (
+                            <div className="av-preview-sidebar-panel">
+                                {sidebarTab === 'swap' ? (
+                                    <>
+                                        <h3 className="av-preview-sidebar-title">Swap</h3>
+                                        <p className="av-preview-sidebar-lead">
+                                            {swapMarksCount > 0
+                                                ? `${swapMarksCount} locked swap request${swapMarksCount === 1 ? '' : 's'}`
+                                                : 'No swap requests yet'}
+                                        </p>
+                                        <p className="av-preview-sidebar-text">
+                                            Swap actions are managed in the editor. This panel shows current status.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h3 className="av-preview-sidebar-title">Comments</h3>
+                                        <p className="av-preview-sidebar-lead">
+                                            {albumCommentCount} comment{albumCommentCount === 1 ? '' : 's'} in album
+                                        </p>
+                                        <div className="av-preview-sidebar-comments">
+                                            {spreadComments.length === 0 ? (
+                                                <p className="av-preview-sidebar-text">
+                                                    No comments on this spread yet.
+                                                </p>
+                                            ) : (
+                                                spreadComments.map((comment) => (
+                                                    <article key={comment.id} className="av-preview-sidebar-comment">
+                                                        <p className="av-preview-sidebar-comment-author">
+                                                            {comment.author_name}
+                                                        </p>
+                                                        <p className="av-preview-sidebar-comment-body">
+                                                            {comment.body}
+                                                        </p>
+                                                    </article>
+                                                ))
+                                            )}
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="av-preview-sidebar-rail">
+                            <button
+                                type="button"
+                                className={`av-preview-sidebar-btn${
+                                    sidebarTab === 'swap' ? ' is-active' : ''
+                                }`}
+                                onClick={() => handleSidebarToggle('swap')}
+                                aria-label="Toggle swap panel"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden>
+                                    <path
+                                        d="M8 6h8M8 12h8M8 18h8M6 4l-2 2 2 2M18 4l2 2-2 2M6 16l-2 2 2 2M18 16l2 2-2 2"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.6"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+                                </svg>
+                                <span className="av-preview-sidebar-btn-label">Swap</span>
+                                {swapMarksCount > 0 && (
+                                    <span className="av-preview-sidebar-btn-badge">
+                                        {swapMarksCount}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                type="button"
+                                className={`av-preview-sidebar-btn${
+                                    sidebarTab === 'comments' ? ' is-active' : ''
+                                }`}
+                                onClick={() => handleSidebarToggle('comments')}
+                                aria-label="Toggle comments panel"
+                            >
+                                <svg viewBox="0 0 24 24" aria-hidden>
+                                    <path
+                                        d="M4 5h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        strokeWidth="1.6"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+                                </svg>
+                                <span className="av-preview-sidebar-btn-label">Comments</span>
+                                {albumCommentCount > 0 && (
+                                    <span className="av-preview-sidebar-btn-badge">
+                                        {albumCommentCount}
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+            <footer className="av-preview-footer av-preview-footer--bar">
                     <AlbumSpreadComments
                         key={`${albumId}-spread-${spreadIndex}`}
                         albumId={albumId}
@@ -160,8 +282,7 @@ export default function AlbumPreview({
                         clientView={clientPreview || minimalChrome}
                         variant="footer"
                     />
-                </footer>
-            </div>
+            </footer>
         </div>
     );
 }
