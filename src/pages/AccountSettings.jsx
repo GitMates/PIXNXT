@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { galleryService } from '../services/gallery.service';
 import { useAuth } from '../hooks/useAuth';
+import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { storageService } from '../services/storage.service';
 import { supabase } from '../lib/supabase/client';
 
@@ -37,8 +38,8 @@ export default function AccountSettings() {
         setTimeout(() => setToastMessage(''), 3000);
     };
 
-    const userInitial = user?.email ? user.email.charAt(0).toUpperCase() : 'P';
-    const businessName = user?.email ? user.email.split('@')[0].toUpperCase() : 'POOJA';
+    const userInitial = getUserInitial(user);
+    const businessName = getUserDisplayLabel(user);
 
     useEffect(() => {
         function handleClickOutside(event) {

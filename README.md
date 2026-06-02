@@ -11,20 +11,21 @@
 
 1. [Project Overview](#1-project-overview)
 2. [Platform Architecture Summary](#2-platform-architecture-summary)
-3. [Module 1 — Client Gallery](#3-module-1--client-gallery)
+3. [Module 1 — Client Gallery (Enhanced)](#3-module-1--client-gallery)
 4. [Module 2 — Studio Manager (CRM)](#4-module-2--studio-manager-crm)
 5. [Module 3 — Website Builder](#5-module-3--website-builder)
 6. [Module 4 — Store (Print & Digital Commerce)](#6-module-4--store-print--digital-commerce)
 7. [Module 5 — Mobile Gallery App](#7-module-5--mobile-gallery-app)
-8. [Cross-Module Features](#8-cross-module-features)
-9. [User Roles & Permissions](#9-user-roles--permissions)
-10. [Pricing & Subscription Plans](#10-pricing--subscription-plans)
-11. [Supabase Data Architecture](#11-supabase-data-architecture)
-12. [React Application Structure](#12-react-application-structure)
-13. [Third-Party Integrations](#13-third-party-integrations)
-14. [UI/UX Design Principles](#14-uiux-design-principles)
-15. [Key User Journeys](#15-key-user-journeys)
-16. [Development Phases & Priorities](#16-development-phases--priorities)
+8. [Module 6 — Smart Albums (Book & Layout Builder)](#8-module-6--smart-albums-book--layout-builder)
+9. [Cross-Module Features (Enhanced)](#9-cross-module-features)
+10. [User Roles & Permissions](#10-user-roles--permissions)
+11. [Pricing & Subscription Plans](#11-pricing--subscription-plans)
+12. [Supabase Data Architecture (Updated)](#12-supabase-data-architecture)
+13. [React Application Structure (Updated)](#13-react-application-structure)
+14. [Third-Party Integrations](#14-third-party-integrations)
+15. [UI/UX Design Principles](#15-uiux-design-principles)
+16. [Key User Journeys](#16-key-user-journeys)
+17. [Development Phases & Priorities (Updated)](#17-development-phases--priorities)
 
 ---
 
@@ -54,7 +55,7 @@ PIXNXT removes the need for photographers to juggle separate tools for:
 
 ## 2. Platform Architecture Summary
 
-### Five Core Modules
+### Six Core Modules
 
 | Module | Purpose | Supabase Services Used |
 |---|---|---|
@@ -63,6 +64,7 @@ PIXNXT removes the need for photographers to juggle separate tools for:
 | **Website Builder** | Drag-and-drop photography portfolio website | DB, Storage |
 | **Store** | Sell prints, digital downloads, and packages from galleries | DB, Edge Functions, Storage |
 | **Mobile Gallery App** | White-labeled mobile experience for clients to view galleries | Storage, Auth |
+| **Smart Albums** | Design layout photo albums & flip-books for client proofing | DB, Storage, (Fallback LocalStorage) |
 
 ### High-Level Tech Decisions
 
@@ -70,13 +72,14 @@ PIXNXT removes the need for photographers to juggle separate tools for:
 - **Supabase** for PostgreSQL database, file storage (photos, documents), authentication, and edge functions
 - **Supabase Storage** buckets for gallery photos, website assets, and document uploads
 - **Supabase Auth** with Row Level Security (RLS) for multi-tenant isolation (each photographer's data is private)
-- **Supabase Edge Functions** (Deno) for server-side logic: payment processing webhooks, email notifications, PDF generation
+- **Supabase Edge Functions** (Deno) for server-side logic: payment processing webhooks, email notifications, PDF generation, favorites locking notifications
+- **Local Storage Caching / Sync**: Hybrid engine for Smart Albums to allow offline work or cache retrieval if Supabase caches refresh
 - **Stripe** for payment processing (invoices, store checkout, subscription billing)
-- **Resend / SendGrid** for transactional email (gallery delivery, contract signing, payment receipts)
+- **Resend / SendGrid** for transactional email (gallery delivery, contract signing, payment receipts, favorites confirmations)
 
 ---
 
-## 3. Module 1 — Client Gallery
+## 3. Module 1 — Client Gallery (Enhanced)
 
 ### Overview
 
@@ -84,24 +87,24 @@ The Client Gallery is the flagship feature of PIXNXT. It allows photographers to
 
 ### Sub-Features
 
-#### 3.1 Gallery Creation & Upload
+#### 3.1 Gallery Creation & Upload (Enhanced)
 
-- Photographers create a **Collection** (a gallery) with a name, event date, category tag (e.g., Wedding, Portrait, Newborn), and cover photo.
+- Photographers create a **Collection** (a gallery) with a name, event date, category tags (e.g., Wedding, Portrait, Newborn), and cover photo.
 - Bulk photo and video upload (4K video support).
-- **Upload-in-background:** Photographers can continue editing gallery settings while photos upload.
+- **Background Upload Queue Engine:** Integrated with a global upload context (`UploadQueueContext`) and a minimizable overlay widget (`GlobalUploadShell`). Photographers can continue navigating the dashboard, editing settings, or creating folders while large batches upload in the background in parallel.
 - Drag-and-drop photo reordering within a collection.
 - Bulk actions: delete, move, download, apply watermark to selected photos.
 - **Starred photos** feature: photographer can star/highlight their best images within a gallery.
 
-#### 3.2 Gallery Organization
+#### 3.2 Gallery Organization & Folders (Implemented)
 
 - **Collections** = individual galleries (one shoot = one collection).
-- **Folders** = containers that group multiple collections (useful for event photographers, e.g., "Smith Family 2024" folder with multiple shoot collections inside).
-- Sharing a folder gives clients one link to access all grouped collections.
+- **Folders** = containers that group multiple collections under a single client access link. Full CRUD support in the database (`folders` table) and frontend (`CreateFolder`, `FolderView`).
+- Collages & cover preview: Folders dynamically render a 4-photo cover collage from child collections.
 - Collection Filters in the dashboard: filter by Status (Active, Expired, Hidden), Category Tag, and Event Date.
-- **Bulk Edit:** update settings across multiple collections at once (e.g., apply the same expiry date or watermark).
+- **Bulk Edit:** update settings across multiple collections at once.
 
-#### 3.3 Gallery Settings & Customization
+#### 3.3 Gallery Settings & Customization (Enhanced)
 
 Each collection has the following configurable settings:
 
@@ -110,28 +113,30 @@ Each collection has the following configurable settings:
 | **Password Protection** | Optional PIN/password gate for clients to access gallery |
 | **Download Permissions** | Enable/disable downloads; set download limit (number of photos client can download) |
 | **Watermark** | Apply photographer's logo watermark to previewed photos |
-| **Expiry Date** | Set a date when the gallery automatically deactivates |
-| **Cover Style** | Select gallery layout (grid, slideshow, masonry) |
-| **Custom Branding** | Apply photographer's brand colors and logo to the gallery page |
-| **Store Assignment** | Attach a price sheet to allow clients to order prints directly from the gallery |
+| **Expiry Date & Reminders** | Set a date when the gallery deactivates. Triggers automated queue notifications (via email and WhatsApp). |
+| **Cover Style & Focal Crop** | Select gallery layout (grid, slideshow, masonry) and adjust focal offsets (`cover_focal_x`, `cover_focal_y`) so the hero subject stays centered. |
+| **Custom Branding** | Apply photographer's brand colors and logo to the gallery page. |
+| **Client Exclusive Access** | Restrict client viewing to authorized emails and allow clients to mark photos as private (`is_private`). |
+| **Store Assignment** | Attach a price sheet to allow clients to order prints directly from the gallery. |
 
-#### 3.4 Client Gallery Viewing Experience
+#### 3.4 Client Gallery Viewing Experience (Enhanced)
 
-The gallery link opens a **public-facing, client-optimized page** (no PIXNXT branding on upgraded plans). The client experience includes:
+The gallery link opens a **public-facing, client-optimized page** (no PIXNXT branding on upgraded plans). Custom subdomain routing (`username.pixnxt.com` or custom domains) dynamically renders the portfolio list or gallery view without platform headers/footers. The client experience includes:
 
 - Clean, distraction-free photo viewer.
 - Click to expand individual photos in a lightbox.
-- **Favorites:** clients can heart/favorite specific photos (photographer sees which were favorited in the dashboard).
-- **Download button** (if enabled): single photo download or full-gallery download ZIP (triggers email with download link).
-- **Download limit gate:** if photographer set a download limit, client can select which photos to download up to the allowed count.
+- **Favorites & Proofing Hub:** Clients can create multiple favorite lists, view selection limits (`max_selection`), and lock/submit their final proofing choices with custom notes back to the photographer.
+- **Download button** (if enabled): single photo download or full-gallery download ZIP.
+- **Download limit gate:** limits downloads to the photographer-defined allowed count.
 - **Share options:** client can share the gallery link with family/friends.
-- **Quick Share:** photographer can generate a dedicated share page with a curated subset of photos — useful for sharing sneak peeks with vendors while keeping the full gallery private.
+- **Quick Share:** photographer can generate a dedicated share page with a curated subset of photos.
 - **QR Code:** photographer can generate a QR code for any gallery to use in print materials.
 
-#### 3.5 Gallery Sharing & Notifications
+#### 3.5 Gallery Sharing, Notifications & Automation (Enhanced)
 
 - **Email Delivery:** photographer sends a personalized email to clients with the gallery link directly from PIXNXT dashboard.
-- **Automatic notifications:** photographer receives alerts when client views the gallery for the first time, favorites photos, or places a store order.
+- **Automatic reminders (cron scheduled):** runs automated background checks to send upcoming expiry reminders via both email and WhatsApp messages.
+- **Instant notifications:** photographer receives alerts when client views the gallery, favorites/submits proofing selections, or places a store order.
 - **Scheduled delivery:** set a future date/time for the gallery to automatically become accessible to clients.
 
 #### 3.6 Quick Share Links
@@ -140,7 +145,6 @@ A sub-feature of Gallery Sharing:
 - Select specific photos from a collection.
 - Generate a dedicated Quick Share page accessible via a unique link.
 - Manage all Quick Share links (enable/disable download per link, deactivate links).
-- Used for: sneak peeks, vendor sharing, workshop showcases.
 
 #### 3.7 Gallery Dashboard (Photographer-Side)
 
@@ -396,34 +400,56 @@ The Mobile Gallery App provides clients with a native-app-like experience to vie
 
 > **Implementation Note:** In the React + Supabase stack, this module is best implemented as a **PWA (Progressive Web App)** with a separate React route/subdomain serving the client gallery experience. Native iOS/Android apps can be considered in a later phase using React Native or Capacitor.
 
+## 8. Module 6 — Smart Albums (Book & Layout Builder)
+
+### Overview
+
+The Smart Albums module is a professional layout builder for physical photo books and client album proofing. It allows photographers to compile high-resolution spreads, layout custom multi-photo templates, star/tag albums, and preview final books with seamless page-flipping book simulations (powered by `react-pageflip`).
+
+### Sub-Features
+
+#### 8.1 Album Workspace & Layout Builder (Implemented)
+- Photographers can create a **Smart Album** with a set page count (default 21 pages), custom name, and event date.
+- **Spread & Grid Canvas editor:** An editor workspace allowing photographers to lay out masonry or uniform layouts on spreads, select grids, and customize photo distributions.
+- Context menu tools: Easily star, delete, duplicate, or open previews from the albums grid.
+- **Starring & Category Filtering:** Mark albums as favorites to display on a dedicated Starred tab, and filter albums using category tags.
+
+#### 8.2 Page-Flip Animation Viewer (Implemented)
+- Clean responsive viewer mode for client/photographer preview.
+- Smooth page-flip book simulation that visualizes the physical book layout on screens.
+
+#### 8.3 Hybrid Storage Engine
+- Synchronizes database-backed records with a robust `localStorage` cache (`pixnxt_smart_albums_local` fallback).
+- Guarantees seamless editing workspace availability even if backend schema updates are running or connection drops.
+
 ---
 
-## 8. Cross-Module Features
+## 9. Cross-Module Features (Enhanced)
 
 These features span multiple modules and should be treated as shared infrastructure in the React application.
 
-### 8.1 Unified Dashboard
+### 9.1 Unified Dashboard
 
 - Single login for all modules.
-- Left sidebar navigation with top-level sections: Gallery, Studio Manager, Website, Store, Settings.
+- Left sidebar navigation with top-level sections: Gallery, Studio Manager, Website, Store, Settings, Smart Albums.
 - Notification bell showing alerts across all modules (client viewed gallery, contract signed, invoice paid, new booking, etc.).
 - Inbox accessible from all dashboard views.
 - Mobile-responsive dashboard for on-the-go management.
 
-### 8.2 Custom Branding
+### 9.2 Custom Branding
 
 - On paid plans, photographers can upload their logo and set brand colors.
 - Branding is applied globally to: gallery pages, booking site, invoice/contract documents, questionnaires, email notifications.
 - PIXNXT branding removed from all client-facing surfaces on paid plans.
 
-### 8.3 Referral Program
+### 9.3 Referral Program
 
 - Each photographer gets a unique referral link.
 - New signups through the link receive $20 off their first paid plan.
 - Referring photographer earns $20 account credit.
 - Managed in Account Settings > Referrals.
 
-### 8.4 Notifications & Automation
+### 9.4 Notifications & Automation
 
 - **Automatic Reminders (triggered by PIXNXT):**
   - Unsigned contract reminder (X days after sending)
@@ -439,7 +465,7 @@ These features span multiple modules and should be treated as shared infrastruct
   - New booking confirmed
   - New inquiry received via contact form
 
-### 8.5 Account & Billing
+### 9.5 Account & Billing
 
 - Subscription plan management (upgrade, downgrade, cancel).
 - Annual billing with discount vs. monthly billing.
@@ -449,42 +475,42 @@ These features span multiple modules and should be treated as shared infrastruct
 
 ---
 
-## 9. User Roles & Permissions
+## 10. User Roles & Permissions
 
-### 9.1 Photographer (Account Owner)
+### 10.1 Photographer (Account Owner)
 
 - Full access to all modules and settings.
-- Creates and manages all content (galleries, documents, bookings, store products, website).
+- Creates and manages all content (galleries, documents, bookings, store products, website, smart albums).
 - Manages billing and subscription.
 
-### 9.2 Studio Team Members (Multi-User / Studio Plans)
+### 10.2 Studio Team Members (Multi-User / Studio Plans)
 
 - Additional team member logins on Studio-tier plans.
 - Configurable role-based access per team member.
 - Multiple simultaneous logins supported.
 - Use cases: second shooter, studio coordinator, sales staff.
 
-### 9.3 Client (Gallery Viewer)
+### 10.3 Client (Gallery Viewer / Album Proofing)
 
 - No PIXNXT account required.
-- Accesses gallery via a shared link (with optional password).
-- Can: view photos, favorite photos, download photos (if enabled), place store orders, complete questionnaires, sign contracts, pay invoices.
-- Client identity tracked via email (entered at first access).
+- Accesses gallery via a shared link (with optional password or client exclusive access email check).
+- Can: view photos/albums, favorite photos, select/submit favorite list proofing, download media (if permitted), place store orders, complete questionnaires, sign contracts, pay invoices.
+- Client identity tracked via email (entered at first access / client sessions).
 
 ---
 
-## 10. Pricing & Subscription Plans
+## 11. Pricing & Subscription Plans
 
-### 10.1 Plan Structure
+### 11.1 Plan Structure
 
 PIXNXT offers **individual product plans** or a bundled **Suite plan**. All products have a free tier to get started.
 
-#### Client Gallery Plans
+#### Client Gallery & Smart Albums Plans
 
 | Plan | Monthly Price | Storage | Key Features |
 |---|---|---|---|
-| **Free** | $0 | 3 GB | Basic gallery, 15% store commission |
-| **Basic** | ~$8/mo | 15 GB | Custom domain, 0% commission, video upload |
+| **Free** | $0 | 3 GB | Basic gallery, local fallback albums, 15% store commission |
+| **Basic** | ~$8/mo | 15 GB | Custom domain, 0% commission, video upload, Smart Albums |
 | **Plus** | ~$16/mo | 100 GB | All Basic + |
 | **Pro** | ~$24/mo | 1 TB | All Plus + RAW file delivery |
 | **Ultimate** | ~$40/mo | Unlimited | All Pro + unlimited storage |
@@ -508,7 +534,7 @@ PIXNXT offers **individual product plans** or a bundled **Suite plan**. All prod
 
 > **Recommendation:** Encourage users toward Suite plans for maximum value. Implement plan comparison UI prominently in onboarding.
 
-### 10.2 Free Tier Limitations (Important for UX)
+### 11.2 Free Tier Limitations (Important for UX)
 
 - 3 GB storage
 - 15% commission on store sales
@@ -516,7 +542,7 @@ PIXNXT offers **individual product plans** or a bundled **Suite plan**. All prod
 - PIXNXT branding visible on all client-facing pages
 - Limited number of contracts/questionnaires/session types in Studio Manager
 
-### 10.3 Upgrade Triggers (In-App)
+### 11.3 Upgrade Triggers (In-App)
 
 Design UX prompts to encourage upgrades when users hit:
 - Storage limit
@@ -527,18 +553,18 @@ Design UX prompts to encourage upgrades when users hit:
 
 ---
 
-## 11. Supabase Data Architecture
+## 12. Supabase Data Architecture (Updated)
 
-### 11.1 Authentication
+### 12.1 Authentication
 
 - Use **Supabase Auth** for photographer account sign-up/login (email+password, Google OAuth).
-- Client access to galleries is **passwordless / link-based** — not a full Supabase Auth account. Track client identity via `gallery_visitors` table storing email + gallery_id.
-- Row Level Security (RLS) policies on all tables: users can only read/write their own data.
+- Client access to galleries is **passwordless / link-based** (does not require a Supabase Auth account). Tracks client identity via `client_sessions` and `favorite_lists` using the visitor's email address.
+- Row Level Security (RLS) policies on all tables: photographers can only read/write their own collections, folders, and albums.
 
-### 11.2 Core Database Tables
+### 12.2 Core Database Tables
 
 ```
-users                        -- Photographer accounts (linked to Supabase auth.users)
+photographers                -- Photographer accounts (linked to Supabase auth.users)
   id, email, name, plan_id, brand_logo_url, brand_color, subdomain, custom_domain, created_at
 
 subscriptions                -- Active plan details per photographer
@@ -546,31 +572,45 @@ subscriptions                -- Active plan details per photographer
 
 -- GALLERY MODULE
 collections                  -- Individual galleries
-  id, user_id, title, slug, event_date, category, cover_photo_id, 
-  password_hash, download_enabled, download_limit, watermark_enabled,
-  expiry_date, status, store_price_sheet_id, created_at
+  id, photographer_id, folder_id, name, slug, event_date, cover_photo_id, cover_url, 
+  cover_focal_x, cover_focal_y, password_hash, downloads_enabled, download_limit_gallery, 
+  watermark_enabled, expiry_date, status, is_starred, client_exclusive_enabled, 
+  allow_clients_mark_private, client_only_highlights, created_at
 
 photos                       -- Photos within a collection
-  id, collection_id, user_id, storage_path, filename, sort_order, 
-  is_starred, width, height, file_size, created_at
+  id, collection_id, set_id, photographer_id, filename, full_url, web_url, thumbnail_url,
+  original_storage_path, size_bytes, width, height, media_type, position, status,
+  is_starred, is_private, exif_taken_at, created_at
+
+sets                         -- Folder subdivisions inside collections
+  id, collection_id, photographer_id, name, description, position, photo_count, is_private, created_at
 
 folders                      -- Groups of collections
-  id, user_id, name, slug, created_at
+  id, photographer_id, name, slug, cover_url, position, event_date, show_on_homepage, 
+  guest_password_hash, created_at
 
-folder_collections           -- Join table: folders <-> collections
-  folder_id, collection_id
+client_sessions              -- Active proofing sessions per gallery
+  id, collection_id, visitor_email, created_at
 
-gallery_visitors             -- Tracks client access per gallery
-  id, collection_id, email, first_viewed_at, download_count
+favorite_lists               -- Client favorite/proofing selections
+  id, session_id, collection_id, name, description, max_selection, submitted_at, created_at
 
-photo_favorites              -- Client-favorited photos
-  id, photo_id, collection_id, visitor_email, created_at
+favorite_items               -- Photos favorited within a specific list
+  id, list_id, photo_id, created_at
+
+activity_log                 -- Logs client views, proofing confirmations, etc.
+  id, collection_id, photographer_id, event_type, visitor_email, session_id, metadata, created_at
 
 quick_share_links            -- Curated sub-selections of photos
   id, collection_id, user_id, slug, download_enabled, is_active, created_at
 
 quick_share_photos           -- Photos included in a quick share
   quick_share_id, photo_id
+
+-- SMART ALBUMS MODULE
+smart_albums                 -- Photography album layout projects
+  id, photographer_id, name, event_date, slug, page_count, cover_image_url, status, 
+  is_starred, category_tags, expiry_date, created_at, updated_at
 
 -- STUDIO MANAGER MODULE
 contacts                     -- Clients/leads
@@ -659,7 +699,7 @@ website_blocks               -- Page content blocks
   id, page_id, type, content_json, sort_order
 ```
 
-### 11.3 Supabase Storage Buckets
+### 12.3 Supabase Storage Buckets
 
 ```
 gallery-photos               -- Photographer-uploaded photos (private, access via signed URLs)
@@ -668,10 +708,11 @@ website-assets               -- Website images and assets
 document-assets              -- Brand logos, document attachments
 ```
 
-### 11.4 Supabase Edge Functions
+### 12.4 Supabase Edge Functions
 
 ```
 /send-gallery-email          -- Email gallery link to client
+/send-favorite-submit-email  -- Notify photographer when client submits/locks a favorite list
 /process-store-order         -- Handle Stripe webhook for completed orders
 /send-invoice-reminder       -- Cron-triggered automated invoice reminders
 /send-contract-reminder      -- Cron-triggered contract reminder emails
@@ -682,112 +723,86 @@ document-assets              -- Brand logos, document attachments
 
 ---
 
-## 12. React Application Structure
+## 13. React Application Structure (Updated)
 
 ```
 src/
 ├── main.jsx
-├── App.jsx                          # Root with React Router setup
+├── App.jsx                            # Root with React Router setup and subdomain parsing
 │
 ├── pages/
 │   ├── auth/
-│   │   ├── LoginPage.jsx
-│   │   ├── SignupPage.jsx
+│   │   ├── AuthPage.jsx               # Login & Sign-up unified page
 │   │   └── ForgotPasswordPage.jsx
 │   │
 │   ├── dashboard/
-│   │   └── DashboardHomePage.jsx    # Overview/stats
+│   │   ├── Dashboard.jsx              # Main dashboard wrapper
+│   │   ├── Starred.jsx                # Starred galleries and collections
+│   │   └── AccountSettings.jsx        # Photographer preferences
 │   │
 │   ├── gallery/
-│   │   ├── GalleryListPage.jsx      # All collections
-│   │   ├── GalleryDetailPage.jsx    # Edit a collection
-│   │   ├── GalleryUploadPage.jsx    # Photo upload
-│   │   └── FoldersPage.jsx
+│   │   ├── CollectionDashboard.jsx    # Photo list, drag-and-drop workspace, sets management
+│   │   ├── CreateCollection.jsx       # Collection parameters (focal crop, watermarks)
+│   │   ├── CreateFolder.jsx           # Folders CRUD
+│   │   ├── FolderView.jsx             # Grouped collection manager
+│   │   └── PhotoLibrary.jsx           # All media overview
 │   │
-│   ├── studio/
-│   │   ├── ContactsPage.jsx
-│   │   ├── ProjectBoardPage.jsx
-│   │   ├── InvoicesPage.jsx
-│   │   ├── InvoiceDetailPage.jsx
-│   │   ├── ContractsPage.jsx
-│   │   ├── QuestionnairesPage.jsx
-│   │   ├── QuotesPage.jsx
-│   │   ├── BookingsPage.jsx
-│   │   ├── CalendarPage.jsx
-│   │   ├── InboxPage.jsx
-│   │   └── TemplatesPage.jsx
+│   ├── smart-albums/                  # Smart Albums workspace (new)
+│   │   ├── index.js                   # Entry router
+│   │   ├── AlbumsList.jsx             # Project gallery view
+│   │   ├── StarredAlbumsList.jsx      # Starred/favorite layout projects
+│   │   ├── CreateAlbum.jsx            # Setup parameters (page counts, event metadata)
+│   │   ├── AlbumEditor.jsx            # Spread visual builder
+│   │   ├── AlbumPreview.jsx           # Interactive flip simulation workspace
+│   │   ├── AlbumViewer.jsx            # Public/photographer book simulation page
+│   │   └── SmartAlbumsSettings.jsx    # Expiration, status & configuration settings
 │   │
-│   ├── website/
-│   │   ├── WebsiteEditorPage.jsx    # Flex editor
-│   │   └── WebsiteSettingsPage.jsx
-│   │
-│   ├── store/
-│   │   ├── PriceSheetsPage.jsx
-│   │   ├── PriceSheetDetailPage.jsx
-│   │   └── OrdersPage.jsx
-│   │
-│   └── settings/
-│       ├── AccountSettingsPage.jsx
-│       ├── BrandingSettingsPage.jsx
-│       ├── BillingPage.jsx
-│       └── ReferralPage.jsx
-│
-├── client-facing/                   # Separate route tree for public/client pages
-│   ├── GalleryViewPage.jsx          # Client gallery viewer
-│   ├── GalleryPasswordPage.jsx      # Password gate
-│   ├── QuickSharePage.jsx
-│   ├── BookingPage.jsx              # Public booking site
-│   ├── InvoicePayPage.jsx           # Client invoice payment
-│   ├── ContractSignPage.jsx         # Client contract signing
-│   └── QuestionnaireFormPage.jsx    # Client questionnaire
+│   └── public/                        # Client-facing portals
+│       ├── GalleryView.jsx            # Client online gallery viewer
+│       ├── GalleryFavoritesHub.jsx    # Proofing selection and lists submit dashboard
+│       └── CollectionList.jsx         # Custom subdomain photographer portfolio landing
 │
 ├── components/
 │   ├── layout/
-│   │   ├── Sidebar.jsx
-│   │   ├── TopBar.jsx
-│   │   └── NotificationBell.jsx
-│   ├── gallery/
-│   │   ├── PhotoGrid.jsx
-│   │   ├── PhotoLightbox.jsx
-│   │   ├── UploadDropzone.jsx
-│   │   └── CollectionCard.jsx
-│   ├── studio/
-│   │   ├── KanbanBoard.jsx
-│   │   ├── KanbanCard.jsx
-│   │   ├── InvoiceBuilder.jsx
-│   │   ├── ContractEditor.jsx
-│   │   └── QuestionnaireBuilder.jsx
-│   ├── website/
-│   │   ├── FlexEditor.jsx
-│   │   ├── BlockRenderer.jsx
-│   │   └── ThemePicker.jsx
-│   └── shared/
-│       ├── Button.jsx
-│       ├── Modal.jsx
-│       ├── FileUpload.jsx
-│       ├── RichTextEditor.jsx
-│       └── PlanGate.jsx             # Shows upgrade prompt if feature requires higher plan
+│   │   ├── SidebarLayout.jsx          # Dashboard left sidebar & header
+│   │   └── GlobalUploadShell.jsx      # Background Upload Queue floating widget
+│   │
+│   ├── smart-albums/                  # Album components
+│   │   ├── AlbumBook.jsx              # 3D page-flipping book component
+│   │   ├── AlbumSpreadPage.jsx        # Dual-page spread layout node
+│   │   ├── AlbumPageGrid.jsx          # Editable grid alignment builder
+│   │   ├── AlbumContextMenu.jsx       # Context options (star, delete, duplicate)
+│   │   └── useAlbumPageFlip.js        # React Pageflip bridge bindings
+│   │
+│   ├── ui/                            # Shared premium UI primitives
+│   │   ├── Button/                    # Premium sleek theme buttons
+│   │   ├── Lightbox/                  # Lightbox image viewer
+│   │   ├── MasonryGrid/               # Responsive gallery grid
+│   │   └── SmoothMediaImage/          # Focal crop and loader overlay
+│   │
+│   └── features/                      # Domain-specific components
+│       ├── ClientGallery/
+│       └── ClientExclusiveAccess/
 │
-├── hooks/
-│   ├── useAuth.js
-│   ├── useGallery.js
-│   ├── useStudio.js
-│   ├── useStore.js
-│   └── useSubscription.js
+├── contexts/
+│   └── UploadQueueContext.jsx         # Global state for parallel background file uploads
 │
-├── lib/
-│   ├── supabase.js                  # Supabase client initialization
-│   ├── stripe.js                   # Stripe client
-│   └── utils.js
+├── context/
+│   └── AuthContext.jsx                # Supabase session state hooks
 │
-└── store/                           # Global state (Zustand or Context)
-    ├── authStore.js
-    └── notificationStore.js
+├── services/                          # Supabase API services
+│   ├── gallery.service.js             # Handles photo CRUD, focal points, sets, and favorite list locks
+│   └── smartAlbums.service.js         # Smart Albums CRUD, stars, categories, with LocalStorage fallback
+│
+└── lib/
+    ├── supabase/
+    │   └── client.js                  # Initialized Supabase client instance
+    └── utils/
 ```
 
 ---
 
-## 13. Third-Party Integrations
+## 14. Third-Party Integrations
 
 | Service | Purpose | Integration Method |
 |---|---|---|
@@ -795,7 +810,7 @@ src/
 | **Google Calendar** | Sync photographer availability for bookings | OAuth2 via Google API |
 | **Google Meet** | Video consultation scheduling | Google Meet API |
 | **Zoom** | Video consultation scheduling | Zoom OAuth |
-| **Resend / SendGrid** | Transactional emails (gallery links, reminders, receipts) | API via Supabase Edge Functions |
+| **Resend / SendGrid / WhatsApp** | Transactional alerts (gallery links, reminders, receipts, expiration alerts) | API via Supabase Edge Functions / automated hooks |
 | **Print Lab APIs** | Automatic print order fulfillment | Lab-specific REST APIs (e.g., WHCC, Bay Photo) |
 | **Instagram API** | Live Instagram feed block in website builder | Instagram Basic Display API |
 | **Google Analytics** | Website traffic analytics | GA4 tracking code injection |
@@ -804,7 +819,7 @@ src/
 
 ---
 
-## 14. UI/UX Design Principles
+## 15. UI/UX Design Principles
 
 PIXNXT follows Pixieset's core design philosophy which is central to its success:
 
@@ -825,7 +840,7 @@ PIXNXT follows Pixieset's core design philosophy which is central to its success
 
 ---
 
-## 15. Key User Journeys
+## 16. Key User Journeys
 
 ### Journey 1: Photographer Onboards and Delivers First Gallery
 

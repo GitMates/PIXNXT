@@ -62,6 +62,7 @@
   border-radius: 18px;
   background: #fff;
   box-shadow: 0 10px 26px rgba(46, 30, 62, 0.055);
+  overflow: visible;
 }
 
 .sa-create-card--upload {
@@ -103,6 +104,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 16px;
+  overflow: visible;
 }
 
 .sa-create-page .cc-submit-btn {
@@ -137,9 +139,80 @@
   height: 52px;
 }
 
-.sa-select {
-  appearance: auto;
+.sa-select-wrap {
+  position: relative;
+}
+
+.sa-select-wrap--open {
+  z-index: 50;
+}
+
+.sa-select-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   cursor: pointer;
+  text-align: left;
+  border: 1px solid #dfd5e8;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.sa-select-btn:hover {
+  border-color: #cdb6df;
+}
+
+.sa-select-btn--open {
+  border-color: #9b59b6 !important;
+  box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.12);
+}
+
+.sa-select-btn svg {
+  color: #8e44ad;
+  flex-shrink: 0;
+}
+
+.sa-select-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  border: 1px solid #dfd5e8;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 16px 28px rgba(30, 20, 42, 0.12);
+  padding: 6px;
+  max-height: 240px;
+  overflow: auto;
+}
+
+.sa-select-option {
+  width: 100%;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #2d2238;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+
+.sa-select-option:hover {
+  background: #f7f1fc;
+}
+
+.sa-select-option--active {
+  background: #8e44ad;
+  color: #fff;
+}
+
+.sa-custom-input {
+  margin-top: 10px;
 }
 
 .sa-file-input-native {
@@ -310,7 +383,7 @@
 
 .sa-field-note {
   margin: 8px 0 0;
-  font-size: 8px;
+  font-size: 12px;
   line-height: 1.45;
   color: #777;
 }

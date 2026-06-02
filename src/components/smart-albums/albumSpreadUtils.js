@@ -19,3 +19,10 @@ export function pageToSpreadIndex(pageIndex, { showCover = true } = {}) {
     if (!showCover) return Math.max(0, Math.floor(pageIndex / 2));
     return Math.floor((pageIndex + 1) / 2);
 }
+
+/** Map spread index → book page index (left page of spread in flipbook) */
+export function spreadIndexToPage(spreadIndex, { showCover = true } = {}) {
+    if (showCover && spreadIndex <= 0) return 0;
+    if (!showCover) return Math.max(0, spreadIndex * 2);
+    return Math.max(0, spreadIndex * 2 - 1);
+}

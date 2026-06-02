@@ -95,6 +95,18 @@ export function getTransformRevision(albumId) {
     return readAll()[albumId]?.__revision ?? 0;
 }
 
+export function copyAlbumTransforms(sourceAlbumId, targetAlbumId) {
+    if (!sourceAlbumId || !targetAlbumId) return;
+    const all = readAll();
+    const source = all[sourceAlbumId];
+    if (!source) return;
+    all[targetAlbumId] = {
+        ...source,
+        __revision: (source.__revision || 0) + 1,
+    };
+    writeAll(all);
+}
+
 export function clearAlbumTransforms(albumId) {
     const all = readAll();
     if (!all[albumId]) return;

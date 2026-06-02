@@ -1,7 +1,10 @@
 import { supabase } from '../lib/supabase/client';
+import { categoryTagsToDb } from '../lib/categoryTags';
 import { deleteAlbumCollectionAssets } from '../components/smart-albums/albumCollection';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
+import { buildAlbumPreviewSnapshot, getAlbumIdsWithLocalAssets, hydrateAlbumPreviewData } from '../components/smart-albums/albumPreviewData';
+import { duplicateAlbumAssets } from '../components/smart-albums/albumDuplicate';
 
 
 
@@ -10,6 +13,10 @@ const STORAGE_KEY = 'pixnxt_smart_albums_local';
 const STARRED_OVR_KEY = 'pixnxt_smart_albums_starred';
 
 const SETTINGS_OVR_KEY = 'pixnxt_smart_album_settings_ovr';
+
+const PAGECOUNT_OVR_KEY = 'pixnxt_smart_album_pagecount_ovr';
+
+const GRID_SETTINGS_OVR_KEY = 'pixnxt_smart_album_grid_settings_ovr';
 
 
 
@@ -27,6 +34,14 @@ function generateSlug(name) {
 
   return `${base || 'album'}-${Date.now().toString(36)}`;
 
+}
+
+function normalizeAlbumName(name) {
+  return String(name || '').trim();
+}
+
+function albumNameKey(name) {
+  return normalizeAlbumName(name).toLowerCase();
 }
 
 
@@ -172,6 +187,11 @@ function isMissingColumnError(error) {
     msg.includes('expiry_date') ||
 
     msg.includes('comments_enabled') ||
+    msg.includes('replies_enabled') ||
+    msg.includes('messages_enabled') ||
+    msg.includes('preview_data') ||
+    msg.includes('grid_size') ||
+    msg.includes('grid_layout') ||
 
     (msg.includes('column') && msg.includes('does not exist'))
 
@@ -183,8 +203,160 @@ function isMissingColumnError(error) {
 
 function shouldUseLocalStore(error) {
 
-  return isMissingTableError(error) || isMissingColumnError(error);
+  return isMissingTableError(error);
 
+}
+
+function isGenericColumnError(error) {
+  const msg = (error?.message || '').toLowerCase();
+  const code = error?.code || '';
+  return (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    (msg.includes('column') &&
+      (msg.includes('does not exist') || msg.includes('schema cache')))
+  );
+}
+
+const OPTIONAL_ALBUM_INSERT_COLUMNS = [
+  'preview_data',
+  'messages_enabled',
+  'replies_enabled',
+  'comments_enabled',
+  'expiry_date',
+  'category_tags',
+  'is_starred',
+  'grid_layout',
+  'grid_size',
+];
+
+/** List view only — omit heavy preview_data JSON blobs. */
+const ALBUM_LIST_FIELDS = [
+  'id',
+  'photographer_id',
+  'name',
+  'event_date',
+  'slug',
+  'page_count',
+  'cover_image_url',
+  'status',
+  'grid_size',
+  'grid_layout',
+  'comments_enabled',
+  'replies_enabled',
+  'messages_enabled',
+  'is_starred',
+  'category_tags',
+  'expiry_date',
+  'created_at',
+  'updated_at',
+].join(', ');
+
+function buildAlbumRowFromLocal(local, photographerId) {
+  const settingsOvr = readSettingsOverrides(photographerId)[local.id] || {};
+  const pageCountOvr = readPageCountOverrides(photographerId)[local.id];
+  const starredOvr = readStarredOverrides(photographerId)[local.id];
+
+  const row = {
+    id: local.id,
+    photographer_id: photographerId,
+    name: (local.name || 'Untitled').trim(),
+    event_date: local.event_date || null,
+    slug: local.slug || generateSlug(local.name),
+    page_count: pageCountOvr ?? local.page_count ?? 21,
+    grid_size: local.grid_size ?? 'square',
+    grid_layout: local.grid_layout ?? 'two-page',
+    status:
+      settingsOvr.status === 'published' || local.status === 'published'
+        ? 'published'
+        : 'draft',
+    cover_image_url: local.cover_image_url || null,
+    is_starred:
+      starredOvr !== undefined ? Boolean(starredOvr) : Boolean(local.is_starred),
+    category_tags: Array.isArray(local.category_tags) ? local.category_tags : [],
+    expiry_date: local.expiry_date || null,
+  };
+
+  if (settingsOvr.comments_enabled !== undefined) {
+    row.comments_enabled = settingsOvr.comments_enabled;
+  }
+  if (settingsOvr.replies_enabled !== undefined) {
+    row.replies_enabled = settingsOvr.replies_enabled;
+  }
+  if (settingsOvr.messages_enabled !== undefined) {
+    row.messages_enabled = settingsOvr.messages_enabled;
+  }
+
+  return row;
+}
+
+async function insertAlbumRowResilient(row) {
+  let payload = { ...row, updated_at: new Date().toISOString() };
+  const droppable = OPTIONAL_ALBUM_INSERT_COLUMNS.filter((col) => col in payload);
+
+  while (true) {
+    const { data, error } = await supabase
+      .from('smart_albums')
+      .insert(payload)
+      .select('*')
+      .single();
+
+    if (!error && data) {
+      return { data, error: null };
+    }
+
+    const duplicate =
+      error?.code === '23505' ||
+      String(error?.message || '')
+        .toLowerCase()
+        .includes('duplicate');
+    if (duplicate && payload.id) {
+      const { data: existing } = await supabase
+        .from('smart_albums')
+        .select('*')
+        .eq('id', payload.id)
+        .maybeSingle();
+      return { data: existing, error: existing ? null : error };
+    }
+
+    if (!isGenericColumnError(error) || droppable.length === 0) {
+      return { data: null, error };
+    }
+
+    const col = droppable.shift();
+    delete payload[col];
+  }
+}
+
+async function updateAlbumRowResilient(photographerId, albumId, patch) {
+  let payload = { ...patch, updated_at: new Date().toISOString() };
+  const droppable = OPTIONAL_ALBUM_INSERT_COLUMNS.filter((col) => col in payload);
+  let attempts = 0;
+  const maxAttempts = droppable.length + 2;
+
+  while (attempts < maxAttempts) {
+    attempts += 1;
+    const { data, error } = await supabase
+      .from('smart_albums')
+      .update(payload)
+      .eq('photographer_id', photographerId)
+      .eq('id', albumId)
+      .select('*')
+      .maybeSingle();
+
+    if (!error && data) {
+      return { data, error: null };
+    }
+
+    if (!isGenericColumnError(error) || droppable.length === 0) {
+      return { data: null, error };
+    }
+
+    const col = droppable.shift();
+    delete payload[col];
+  }
+
+  return { data: null, error: new Error('Album update failed after retries') };
 }
 
 
@@ -224,10 +396,78 @@ function applySettingsOverrides(row, photographerId) {
   if (ovr.comments_enabled !== undefined) {
     merged.comments_enabled = ovr.comments_enabled;
   }
+  if (ovr.replies_enabled !== undefined) {
+    merged.replies_enabled = ovr.replies_enabled;
+  }
+  if (ovr.messages_enabled !== undefined) {
+    merged.messages_enabled = ovr.messages_enabled;
+  }
   if (ovr.status !== undefined) {
     merged.status = ovr.status;
   }
   return merged;
+}
+
+function readPageCountOverrides(photographerId) {
+  try {
+    const raw = localStorage.getItem(PAGECOUNT_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    return all[photographerId] || {};
+  } catch {
+    return {};
+  }
+}
+
+function writePageCountOverride(photographerId, albumId, pageCount) {
+  try {
+    const raw = localStorage.getItem(PAGECOUNT_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const userMap = { ...(all[photographerId] || {}) };
+    userMap[albumId] = Number(pageCount);
+    all[photographerId] = userMap;
+    localStorage.setItem(PAGECOUNT_OVR_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
+function readGridSettingsOverrides(photographerId) {
+  try {
+    const raw = localStorage.getItem(GRID_SETTINGS_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    return all[photographerId] || {};
+  } catch {
+    return {};
+  }
+}
+
+function writeGridSettingsOverride(photographerId, albumId, patch) {
+  try {
+    const raw = localStorage.getItem(GRID_SETTINGS_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const userMap = { ...(all[photographerId] || {}) };
+    userMap[albumId] = {
+      ...(userMap[albumId] || {}),
+      ...patch,
+    };
+    all[photographerId] = userMap;
+    localStorage.setItem(GRID_SETTINGS_OVR_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
+}
+
+function removeGridSettingsOverride(photographerId, albumId) {
+  try {
+    const raw = localStorage.getItem(GRID_SETTINGS_OVR_KEY);
+    const all = raw ? JSON.parse(raw) : {};
+    const userMap = { ...(all[photographerId] || {}) };
+    delete userMap[albumId];
+    all[photographerId] = userMap;
+    localStorage.setItem(GRID_SETTINGS_OVR_KEY, JSON.stringify(all));
+  } catch {
+    /* ignore */
+  }
 }
 
 function mapAlbumRow(row, photographerId) {
@@ -237,18 +477,25 @@ function mapAlbumRow(row, photographerId) {
   const starredFromOverride = overrides[row.id];
 
   const withSettings = applySettingsOverrides(row, photographerId);
+  const pageCountOverrides = photographerId ? readPageCountOverrides(photographerId) : {};
+  const pageCountFromOverride = pageCountOverrides[row.id];
+  const gridOverrides = photographerId ? readGridSettingsOverrides(photographerId)[row.id] : null;
 
   return {
 
     ...withSettings,
 
-    page_count: withSettings.page_count ?? 21,
+    page_count: pageCountFromOverride ?? withSettings.page_count ?? 21,
 
-    grid_size: withSettings.grid_size ?? 'square',
+    grid_size: gridOverrides?.grid_size ?? withSettings.grid_size ?? 'square',
 
-    grid_layout: withSettings.grid_layout ?? 'two-page',
+    grid_layout: gridOverrides?.grid_layout ?? withSettings.grid_layout ?? 'two-page',
 
     comments_enabled: withSettings.comments_enabled !== false,
+
+    replies_enabled: withSettings.replies_enabled !== false,
+
+    messages_enabled: withSettings.messages_enabled !== false,
 
     photo_count: withSettings.photo_count ?? 0,
 
@@ -309,46 +556,12 @@ async function syncLocalAlbumsToSupabase(photographerId, remoteRows) {
   const localOnly = readLocalAlbums(photographerId).filter((a) => !remoteIds.has(a.id));
 
   for (const local of localOnly) {
-    const row = {
-      id: local.id,
-      photographer_id: photographerId,
-      name: (local.name || 'Untitled').trim(),
-      event_date: local.event_date || null,
-      slug: local.slug || generateSlug(local.name),
-      page_count: local.page_count ?? 21,
-      grid_size: local.grid_size ?? 'square',
-      grid_layout: local.grid_layout ?? 'two-page',
-      status: local.status === 'published' ? 'published' : 'draft',
-      cover_image_url: local.cover_image_url || null,
-      is_starred: Boolean(local.is_starred),
-      category_tags: Array.isArray(local.category_tags) ? local.category_tags : [],
-      expiry_date: local.expiry_date || null,
-    };
+    const row = buildAlbumRowFromLocal(local, photographerId);
+    const { data, error } = await insertAlbumRowResilient(row);
 
-    const { data, error } = await supabase.from('smart_albums').insert(row).select().single();
-
-    if (!error && data) {
+    if (data) {
       remote.push(data);
       remoteIds.add(data.id);
-      removeLocalAlbum(photographerId, local.id);
-      continue;
-    }
-
-    const dup =
-      error?.code === '23505' ||
-      String(error?.message || '')
-        .toLowerCase()
-        .includes('duplicate');
-    if (dup) {
-      const { data: existing } = await supabase
-        .from('smart_albums')
-        .select('*')
-        .eq('id', local.id)
-        .maybeSingle();
-      if (existing) {
-        remote.push(existing);
-        remoteIds.add(existing.id);
-      }
       removeLocalAlbum(photographerId, local.id);
       continue;
     }
@@ -359,6 +572,64 @@ async function syncLocalAlbumsToSupabase(photographerId, remoteRows) {
   return remote.sort(
     (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
   );
+}
+
+async function syncLocalAlbumAssetsToSupabase(photographerId) {
+  const albumIds = getAlbumIdsWithLocalAssets();
+  if (!albumIds.length) return;
+
+  for (const albumId of albumIds) {
+    const previewData = buildAlbumPreviewSnapshot(albumId);
+    if (!previewData) continue;
+    const hasAssets =
+      previewData.cover_url ||
+      (previewData.collection?.length ?? 0) > 0 ||
+      Object.keys(previewData.pages || {}).length > 0;
+    if (!hasAssets) continue;
+
+    const { error } = await updateAlbumRowResilient(photographerId, albumId, {
+      preview_data: previewData,
+      cover_image_url: previewData.cover_url || null,
+    });
+
+    if (error) {
+      console.warn('Could not sync album assets to Supabase:', albumId, error.message);
+    }
+  }
+}
+
+async function syncLocalAlbumSettingsToSupabase(photographerId, remoteRows) {
+  const settingsOvr = readSettingsOverrides(photographerId);
+  if (!Object.keys(settingsOvr).length) return;
+
+  for (const row of remoteRows || []) {
+    const ovr = settingsOvr[row.id];
+    if (!ovr) continue;
+
+    const payload = { updated_at: new Date().toISOString() };
+    if (ovr.status !== undefined && ovr.status !== row.status) {
+      payload.status = ovr.status === 'published' ? 'published' : 'draft';
+    }
+    if (
+      ovr.comments_enabled !== undefined &&
+      ovr.comments_enabled !== row.comments_enabled
+    ) {
+      payload.comments_enabled = ovr.comments_enabled;
+    }
+    if (ovr.replies_enabled !== undefined && ovr.replies_enabled !== row.replies_enabled) {
+      payload.replies_enabled = ovr.replies_enabled;
+    }
+    if (ovr.messages_enabled !== undefined && ovr.messages_enabled !== row.messages_enabled) {
+      payload.messages_enabled = ovr.messages_enabled;
+    }
+    if (Object.keys(payload).length <= 1) continue;
+
+    const { error } = await updateAlbumRowResilient(photographerId, row.id, payload);
+
+    if (error) {
+      console.warn('Could not sync album settings to Supabase:', row.id, error.message);
+    }
+  }
 }
 
 
@@ -405,13 +676,37 @@ function mergeAlbumRows(remoteRows, photographerId) {
 
 export const smartAlbumsService = {
 
+  async albumNameExists(photographerId, name, excludeAlbumId = null) {
+    const key = albumNameKey(name);
+    if (!key) return false;
+    const albums = await this.getAlbums(photographerId);
+    return albums.some(
+      (album) => album.id !== excludeAlbumId && albumNameKey(album.name) === key
+    );
+  },
+
+  async buildUniqueCopyName(photographerId, baseName) {
+    const normalized = normalizeAlbumName(baseName) || 'Untitled';
+    const albums = await this.getAlbums(photographerId);
+    const taken = new Set(albums.map((album) => albumNameKey(album.name)));
+
+    const first = `${normalized} (Copy)`;
+    if (!taken.has(albumNameKey(first))) return first;
+
+    let copyIndex = 2;
+    while (taken.has(albumNameKey(`${normalized} (Copy ${copyIndex})`))) {
+      copyIndex += 1;
+    }
+    return `${normalized} (Copy ${copyIndex})`;
+  },
+
   async getAlbums(photographerId) {
 
     const { data, error } = await supabase
 
       .from('smart_albums')
 
-      .select('*')
+      .select(ALBUM_LIST_FIELDS)
 
       .eq('photographer_id', photographerId)
 
@@ -420,6 +715,22 @@ export const smartAlbumsService = {
 
 
     if (error) {
+
+      if (shouldUseLocalStore(error) || isGenericColumnError(error)) {
+        const fallback = await supabase
+          .from('smart_albums')
+          .select('id, photographer_id, name, event_date, slug, page_count, cover_image_url, status, created_at, updated_at')
+          .eq('photographer_id', photographerId)
+          .order('created_at', { ascending: false });
+
+        if (!fallback.error && fallback.data) {
+          const synced = await syncLocalAlbumsToSupabase(photographerId, fallback.data);
+          void syncLocalAlbumAssetsToSupabase(photographerId).catch((e) => {
+            console.warn('Background album asset sync failed:', e?.message || e);
+          });
+          return mergeAlbumRows(synced, photographerId);
+        }
+      }
 
       if (shouldUseLocalStore(error)) {
 
@@ -431,7 +742,22 @@ export const smartAlbumsService = {
 
     }
 
-    const synced = await syncLocalAlbumsToSupabase(photographerId, data || []);
+    let synced = data || [];
+    try {
+      synced = await syncLocalAlbumsToSupabase(photographerId, synced);
+    } catch (e) {
+      console.warn('Local album metadata sync failed:', e?.message || e);
+    }
+
+    try {
+      await syncLocalAlbumSettingsToSupabase(photographerId, synced);
+    } catch (e) {
+      console.warn('Local album settings sync failed:', e?.message || e);
+    }
+
+    void syncLocalAlbumAssetsToSupabase(photographerId).catch((e) => {
+      console.warn('Background album asset sync failed:', e?.message || e);
+    });
 
     return mergeAlbumRows(synced, photographerId);
 
@@ -482,15 +808,23 @@ export const smartAlbumsService = {
     grid_layout = 'two-page',
   }) {
 
+    const trimmedName = normalizeAlbumName(name);
+    if (!trimmedName) {
+      throw new Error('Album name is required.');
+    }
+    if (await this.albumNameExists(photographer_id, trimmedName)) {
+      throw new Error(`An album named "${trimmedName}" already exists. Choose a different name.`);
+    }
+
     const payload = {
 
       photographer_id,
 
-      name: name.trim(),
+      name: trimmedName,
 
       event_date: event_date || null,
 
-      slug: generateSlug(name),
+      slug: generateSlug(trimmedName),
 
       page_count: Math.max(1, Math.min(99, Math.floor(Number(page_count) || 21))),
 
@@ -504,21 +838,20 @@ export const smartAlbumsService = {
 
 
 
-    const { data, error } = await supabase
-
-      .from('smart_albums')
-
-      .insert(payload)
-
-      .select()
-
-      .single();
+    const { data, error } = await insertAlbumRowResilient(payload);
 
 
 
-    if (error) {
+    if (data) {
+      writeGridSettingsOverride(photographer_id, data.id, {
+        grid_size: payload.grid_size,
+        grid_layout: payload.grid_layout,
+      });
+      removeLocalAlbum(photographer_id, data.id);
+      return mapAlbumRow(data, photographer_id);
+    }
 
-      if (shouldUseLocalStore(error)) {
+    if (error && shouldUseLocalStore(error)) {
 
         const album = {
 
@@ -545,19 +878,16 @@ export const smartAlbumsService = {
         const existing = readLocalAlbums(photographer_id);
 
         writeLocalAlbums(photographer_id, [album, ...existing]);
+        writeGridSettingsOverride(photographer_id, album.id, {
+          grid_size: payload.grid_size,
+          grid_layout: payload.grid_layout,
+        });
 
         return mapAlbumRow(album, photographer_id);
 
-      }
-
-      throw error;
-
     }
 
-    removeLocalAlbum(photographer_id, data.id);
-
-    return mapAlbumRow(data, photographer_id);
-
+    throw error || new Error('Could not create album');
   },
 
 
@@ -574,6 +904,7 @@ export const smartAlbumsService = {
 
   async updateAlbumPageCount(photographerId, albumId, pageCount) {
     const count = Math.max(1, Math.min(99, Math.floor(Number(pageCount) || 21)));
+    writePageCountOverride(photographerId, albumId, count);
 
     const { data, error } = await supabase
       .from('smart_albums')
@@ -592,6 +923,9 @@ export const smartAlbumsService = {
       if (updated) return updated;
     }
 
+    const localUpdated = updateLocalAlbum(photographerId, albumId, { page_count: count });
+    if (localUpdated) return localUpdated;
+
     const album = await this.getAlbum(photographerId, albumId);
     if (!album) throw new Error('Album not found');
     return { ...album, page_count: count };
@@ -606,6 +940,12 @@ export const smartAlbumsService = {
     if (patch.comments_enabled !== undefined) {
       settingsPatch.comments_enabled = patch.comments_enabled;
     }
+    if (patch.replies_enabled !== undefined) {
+      settingsPatch.replies_enabled = patch.replies_enabled;
+    }
+    if (patch.messages_enabled !== undefined) {
+      settingsPatch.messages_enabled = patch.messages_enabled;
+    }
     if (patch.status !== undefined) {
       settingsPatch.status = patch.status;
     }
@@ -613,13 +953,32 @@ export const smartAlbumsService = {
       writeSettingsOverride(photographerId, albumId, settingsPatch);
     }
 
-    const { data, error } = await supabase
+    if (patch.status === 'published') {
+      const previewData = buildAlbumPreviewSnapshot(albumId);
+      if (previewData) {
+        payload.preview_data = previewData;
+        payload.cover_image_url = previewData.cover_url || null;
+      }
+    }
+
+    let { data, error } = await supabase
       .from('smart_albums')
       .update(payload)
       .eq('photographer_id', photographerId)
       .eq('id', albumId)
       .select('*')
       .maybeSingle();
+
+    if (!error && !data) {
+      await syncLocalAlbumsToSupabase(photographerId, []);
+      ({ data, error } = await supabase
+        .from('smart_albums')
+        .update(payload)
+        .eq('photographer_id', photographerId)
+        .eq('id', albumId)
+        .select('*')
+        .maybeSingle());
+    }
 
     if (!error && data) {
       return mapAlbumRow(data, photographerId);
@@ -641,6 +1000,79 @@ export const smartAlbumsService = {
     }
 
     return { ...album, ...patch };
+  },
+
+  async syncAlbumPreviewData(photographerId, albumId) {
+    const previewData = buildAlbumPreviewSnapshot(albumId);
+    if (!previewData) return null;
+
+    const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
+      preview_data: previewData,
+      cover_image_url: previewData.cover_url || null,
+    });
+
+    if (error && shouldUseLocalStore(error)) {
+      console.warn('preview_data column missing; apply latest migration.');
+      return previewData;
+    }
+
+    if (error) {
+      console.warn('syncAlbumPreviewData:', error.message);
+      return previewData;
+    }
+
+    return data?.preview_data ?? previewData;
+  },
+
+  async updateAlbumDetails(photographerId, albumId, patch) {
+    const payload = { updated_at: new Date().toISOString() };
+
+    if (patch.name !== undefined) {
+      const trimmedName = normalizeAlbumName(patch.name) || 'Untitled';
+      if (await this.albumNameExists(photographerId, trimmedName, albumId)) {
+        throw new Error(`An album named "${trimmedName}" already exists. Choose a different name.`);
+      }
+      payload.name = trimmedName;
+    }
+    if (patch.event_date !== undefined) {
+      payload.event_date = patch.event_date || null;
+    }
+    if (patch.status !== undefined) {
+      payload.status = patch.status === 'published' ? 'published' : 'draft';
+      writeSettingsOverride(photographerId, albumId, { status: payload.status });
+    }
+    if (patch.category_tags !== undefined) {
+      payload.category_tags = categoryTagsToDb(patch.category_tags);
+    }
+
+    const { data, error } = await supabase
+      .from('smart_albums')
+      .update(payload)
+      .eq('photographer_id', photographerId)
+      .eq('id', albumId)
+      .select('*')
+      .maybeSingle();
+
+    if (!error && data) {
+      return mapAlbumRow(data, photographerId);
+    }
+
+    if (error && shouldUseLocalStore(error)) {
+      const updated = updateLocalAlbum(photographerId, albumId, payload);
+      if (updated) return updated;
+    }
+
+    const localUpdated = updateLocalAlbum(photographerId, albumId, payload);
+    if (localUpdated) return localUpdated;
+
+    const album = await this.getAlbum(photographerId, albumId);
+    if (!album) throw new Error('Album not found');
+
+    if (error) {
+      console.warn('smart_albums update:', error.message);
+    }
+
+    return { ...album, ...payload };
   },
 
   async updateAlbumStar(photographerId, albumId, isStarred) {
@@ -696,6 +1128,7 @@ export const smartAlbumsService = {
   async deleteAlbum(photographerId, albumId) {
 
     removeStarredOverride(photographerId, albumId);
+    removeGridSettingsOverride(photographerId, albumId);
 
     await deleteAlbumAssets(albumId);
 
@@ -739,13 +1172,17 @@ export const smartAlbumsService = {
 
     if (!source) throw new Error('Album not found');
 
+    if (source.preview_data) {
+      hydrateAlbumPreviewData(albumId, source.preview_data);
+    }
 
+    const copyName = await this.buildUniqueCopyName(photographerId, source.name);
 
     const copy = await this.createAlbum({
 
       photographer_id: photographerId,
 
-      name: `${source.name} (Copy)`,
+      name: copyName,
 
       event_date: source.event_date,
 
@@ -757,15 +1194,35 @@ export const smartAlbumsService = {
 
     });
 
+    writePageCountOverride(photographerId, copy.id, source.page_count);
 
+    writeGridSettingsOverride(photographerId, copy.id, {
+      grid_size: source.grid_size,
+      grid_layout: source.grid_layout,
+    });
+
+    await duplicateAlbumAssets(albumId, copy.id, photographerId);
+
+    await this.updateAlbumClientSettings(photographerId, copy.id, {
+      category_tags: source.category_tags,
+      expiry_date: source.expiry_date ?? null,
+      comments_enabled: source.comments_enabled,
+      replies_enabled: source.replies_enabled,
+      messages_enabled: source.messages_enabled,
+      status: source.status === 'published' ? 'published' : 'draft',
+    });
+
+    await this.syncAlbumPreviewData(photographerId, copy.id);
 
     if (source.is_starred) {
-
-      return this.updateAlbumStar(photographerId, copy.id, true);
-
+      await this.updateAlbumStar(photographerId, copy.id, true);
     }
 
-    return copy;
+    const result = await this.getAlbum(photographerId, copy.id);
+    if (result?.preview_data) {
+      hydrateAlbumPreviewData(copy.id, result.preview_data);
+    }
+    return result || copy;
 
   },
 

@@ -1,22 +1,21 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
 import CollectionPickerModal from '../../components/smart-albums/CollectionPickerModal';
-/* Share disabled — uncomment to restore
-import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
+import { AlbumPreviewLinkModal } from '../../components/smart-albums/AlbumShareModals';
 import {
     getSmartAlbumPreviewShareUrl,
     openShareByEmail,
+    openSmartAlbumPreview,
     openWhatsAppShare,
 } from '../../lib/shareSmartAlbum';
-*/
-import { openSmartAlbumPreview } from '../../lib/shareSmartAlbum';
 import {
     addFilesToAlbumCollection,
     getAlbumCollection,
     getAlbumCollectionRevision,
     getCollectionItem,
+    loadAlbumAssetsFromCloud,
 } from '../../components/smart-albums/albumCollection';
 import { isPdfFile } from '../../lib/pdfToImages';
 import {
@@ -32,18 +31,21 @@ import {
     PROOF_CELL_LABELS,
     getSpreadRightPageIndex,
 } from '../../components/smart-albums/albumSpreadGrid';
-import { getSpreadPages, pageToSpreadIndex } from '../../components/smart-albums/albumSpreadUtils';
+import {
+    getSpreadPages,
+    pageToSpreadIndex,
+    spreadIndexToPage,
+} from '../../components/smart-albums/albumSpreadUtils';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
-/* Smart album comments — disabled (see smartAlbumCommentsEnabled.js)
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
 import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
+import { getSwapMarks, SWAP_MARKS_CHANGED_EVENT } from '../../components/smart-albums/albumSwapMarks';
+import { getPhotoPins, PHOTO_PINS_CHANGED_EVENT } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
     groupRootCommentsBySpread,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
-*/
-import { SMART_ALBUM_COMMENTS_ENABLED } from '../../components/smart-albums/smartAlbumCommentsEnabled';
 import { useAuth } from '../../hooks/useAuth';
 import './AlbumEditor.css';
 
@@ -102,14 +104,8 @@ export default function AlbumEditor({
     const navigate = useNavigate();
     const { user } = useAuth();
     const [activePanel, setActivePanel] = useState('collections');
-
-    useEffect(() => {
-        if (!SMART_ALBUM_COMMENTS_ENABLED && activePanel === 'comments') {
-            setActivePanel('collections');
-        }
-    }, [activePanel]);
     const { toast, showToast, clearToast } = useAppToast(4000);
-    // const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
+    const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
     const [uploading, setUploading] = useState(false);
     const [bookPage, setBookPage] = useState(initialPage);
     const [gridEditSet, setGridEditSet] = useState(() =>
@@ -120,12 +116,11 @@ export default function AlbumEditor({
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [overviewReopenToken, setOverviewReopenToken] = useState(0);
-    /* Share disabled
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
-    const [shareQrOpen, setShareQrOpen] = useState(false);
+    const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
+    const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const shareRef = useRef(null);
-    */
     const [gridSelection, setGridSelection] = useState(() => {
         const left = getSpreadLeftForBookPage(initialPage, totalPages);
         return isProofGridSpread(left) ? buildCellSelection(left, 1) : buildCoverSelection();
@@ -148,7 +143,51 @@ export default function AlbumEditor({
         setCollectionRevision(getAlbumCollectionRevision(albumId));
     }, [albumId]);
 
-    /* Share disabled
+    useEffect(() => {
+        setSwapMarks(getSwapMarks(albumId));
+    }, [albumId]);
+
+    useEffect(() => {
+        const onSwapMarksChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            setSwapMarks(getSwapMarks(albumId));
+        };
+        window.addEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
+        return () => window.removeEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapMarksChanged);
+    }, [albumId]);
+
+    useEffect(() => {
+        setPhotoPins(getPhotoPins(albumId));
+    }, [albumId]);
+
+    useEffect(() => {
+        const onPinsChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            setPhotoPins(getPhotoPins(albumId));
+        };
+        window.addEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
+        return () => window.removeEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
+    }, [albumId]);
+
+    useEffect(() => {
+        if (!albumId || !user?.id) return undefined;
+
+        let cancelled = false;
+        (async () => {
+            const result = await loadAlbumAssetsFromCloud(albumId, user.id);
+            if (cancelled || !result.loaded) return;
+            setCollectionRevision(getAlbumCollectionRevision(albumId));
+            onPhotosUploaded?.();
+            setTransformRevision(getTransformRevision(albumId));
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+        // Load once per album session; avoid re-fetch loops from callback identity changes.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [albumId, user?.id]);
+
     useEffect(() => {
         if (!showShareMenu) return undefined;
         const onDocClick = (e) => {
@@ -159,7 +198,6 @@ export default function AlbumEditor({
         document.addEventListener('mousedown', onDocClick);
         return () => document.removeEventListener('mousedown', onDocClick);
     }, [showShareMenu]);
-    */
 
     useEffect(() => {
         const lockedSet = layoutToPlacementMode(album?.grid_layout);
@@ -210,6 +248,20 @@ export default function AlbumEditor({
             onPageChange?.(idx);
         },
         [onPageChange, syncSelectionToPage]
+    );
+
+    const handleNavigateToCommentSpread = useCallback(
+        (spreadIndex) => {
+            const page = spreadIndexToPage(spreadIndex, { showCover: true });
+            const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
+            handleBookPageChange(clamped);
+        },
+        [handleBookPageChange, totalPages]
+    );
+
+    const activeCommentSpreadIndex = useMemo(
+        () => pageToSpreadIndex(bookPage, { showCover: true }),
+        [bookPage]
     );
 
     const handleGridEditSetChange = useCallback(
@@ -384,6 +436,11 @@ export default function AlbumEditor({
         }
     }, [canRemovePages, onChangePageCount, pagesPerSpread, bumpWorkspace, showToast]);
 
+    const handleRemovePagesFromOverview = useCallback(async () => {
+        await handleRemovePages();
+        setOverviewReopenToken(Date.now());
+    }, [handleRemovePages]);
+
     const handleClearAllPhotos = useCallback(() => {
         clearAllAlbumPagePhotos(albumId, { totalPages });
         clearAlbumTransforms(albumId);
@@ -392,10 +449,9 @@ export default function AlbumEditor({
     }, [albumId, totalPages, bumpWorkspace, showToast]);
 
     const spreadEdit = activePanel === 'edit';
-    const showGridComments = SMART_ALBUM_COMMENTS_ENABLED && activePanel === 'comments';
+    const showGridComments = activePanel === 'comments';
     const workspaceKey = `${photoRevision}-${collectionRevision}-${transformRevision}-${getAlbumPhotoRevision(albumId)}`;
 
-    /*
     const loadSpreadComments = useCallback(async () => {
         if (!albumId) return;
         try {
@@ -419,7 +475,6 @@ export default function AlbumEditor({
         window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
         return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
     }, [showGridComments, albumId, loadSpreadComments]);
-    */
 
     const pickerSubtitle =
         collectionItems.length > 0
@@ -449,15 +504,63 @@ export default function AlbumEditor({
                     <button
                         type="button"
                         className="ae-btn-secondary"
-                        onClick={() => openSmartAlbumPreview(albumId, initialPage)}
+                        onClick={() => openSmartAlbumPreview(albumId, bookPage)}
                     >
                         Preview
                     </button>
-                    {/* Share disabled — uncomment ae-share-wrap block and related imports/state/modals
                     <div className="ae-share-wrap" ref={shareRef}>
-                        ...
+                        <button
+                            type="button"
+                            className="ae-btn-primary ae-btn-share"
+                            onClick={() => setShowShareMenu((v) => !v)}
+                            aria-expanded={showShareMenu}
+                        >
+                            Share
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </button>
+                        {showShareMenu && (
+                            <div className="ae-share-dropdown" role="menu">
+                                <button
+                                    type="button"
+                                    className="ae-share-dropdown-item"
+                                    onClick={() => {
+                                        setShowShareMenu(false);
+                                        openShareByEmail(
+                                            getSmartAlbumPreviewShareUrl(album),
+                                            album.name || 'Album preview'
+                                        );
+                                    }}
+                                >
+                                    Share by email
+                                </button>
+                                <button
+                                    type="button"
+                                    className="ae-share-dropdown-item"
+                                    onClick={() => {
+                                        setShowShareMenu(false);
+                                        setShareLinkOpen(true);
+                                    }}
+                                >
+                                    Get direct link
+                                </button>
+                                <button
+                                    type="button"
+                                    className="ae-share-dropdown-item ae-share-dropdown-item--whatsapp"
+                                    onClick={() => {
+                                        setShowShareMenu(false);
+                                        openWhatsAppShare(
+                                            getSmartAlbumPreviewShareUrl(album),
+                                            album.name || 'Album preview'
+                                        );
+                                    }}
+                                >
+                                    Share on WhatsApp
+                                </button>
+                            </div>
+                        )}
                     </div>
-                    */}
                 </div>
             </header>
 
@@ -465,8 +568,24 @@ export default function AlbumEditor({
                 <AlbumEditorSidebar
                     activePanel={activePanel}
                     onPanelChange={setActivePanel}
-                    commentSettings={null}
-                    commentsFeed={null}
+                    commentSettings={
+                        user?.id ? (
+                            <AlbumCommentSettings
+                                album={album}
+                                photographerId={user.id}
+                                onUpdated={onAlbumUpdate}
+                            />
+                        ) : null
+                    }
+                    commentsFeed={
+                        albumId ? (
+                            <AlbumCommentsFeed
+                                albumId={albumId}
+                                onNavigateToSpread={handleNavigateToCommentSpread}
+                                activeSpreadIndex={activeCommentSpreadIndex}
+                            />
+                        ) : null
+                    }
                     album={album}
                     totalPages={totalPages}
                     collectionItems={collectionItems}
@@ -493,6 +612,9 @@ export default function AlbumEditor({
                     pageCountBusy={pageCountBusy}
                     onAddPages={handleAddPages}
                     onRemovePages={handleRemovePages}
+                    swapMarks={swapMarks}
+                    photoPins={photoPins}
+                    albumId={albumId}
                 />
 
                 <main className="ae-canvas">
@@ -500,8 +622,8 @@ export default function AlbumEditor({
                         <span className="ae-canvas-label">Spread editor</span>
                         <span className="ae-canvas-hint">
                             {spreadEdit
-                                ? 'Drag photo to move · drag each edge to zoom'
-                                : 'Click a page slot to pick a photo from your collection'}
+                                ? 'Drag photo to move · drag each edge to zoom · hover a photo to mark a swap'
+                                : 'Click a page slot to pick a photo · hover a placed photo to mark a swap'}
                         </span>
                     </div>
                     <div className={`ae-canvas-stage${spreadEdit ? ' ae-canvas-stage--edit' : ''}`}>
@@ -509,7 +631,7 @@ export default function AlbumEditor({
                             key={`${albumId}-edit-${workspaceKey}-${totalPages}`}
                             album={albumForBook}
                             totalPages={totalPages}
-                            initialPage={initialPage}
+                            initialPage={bookPage}
                             onPageChange={handleBookPageChange}
                             editable={!spreadEdit}
                             spreadEdit={spreadEdit}
@@ -521,6 +643,8 @@ export default function AlbumEditor({
                             onSelectCover={handleSelectCover}
                             canAddPages={canAddPages}
                             onAddPages={handleAddPagesFromOverview}
+                            canRemovePages={canRemovePages}
+                            onRemovePages={handleRemovePagesFromOverview}
                             pageCountBusy={pageCountBusy}
                             overviewReopenToken={overviewReopenToken}
                             onTransformChange={() => {
@@ -529,7 +653,10 @@ export default function AlbumEditor({
                             }}
                             transformRevision={transformRevision}
                             showGridComments={showGridComments}
-                            spreadCommentsBySpread={null}
+                            spreadCommentsBySpread={spreadCommentsBySpread}
+                            swapMarkMode
+                            pinMarkMode
+                            proofToolsHover={false}
                         />
                     </div>
                 </main>
@@ -537,19 +664,11 @@ export default function AlbumEditor({
 
             <AppToast toast={toast} onDismiss={clearToast} />
 
-            {/* Share disabled
             <AlbumPreviewLinkModal
                 album={album}
                 isOpen={shareLinkOpen}
                 onClose={() => setShareLinkOpen(false)}
             />
-            <AlbumPreviewQrModal
-                album={album}
-                isOpen={shareQrOpen}
-                onClose={() => setShareQrOpen(false)}
-            />
-            */}
-
             <CollectionPickerModal
                 open={pickerOpen}
                 title={pickerTitle(gridEditSet, gridSelection)}

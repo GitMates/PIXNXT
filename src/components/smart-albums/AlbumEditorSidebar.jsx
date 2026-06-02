@@ -1,6 +1,8 @@
 import React, { useRef } from 'react';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
-import { SMART_ALBUM_COMMENTS_ENABLED } from './smartAlbumCommentsEnabled';
+import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
+import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
+import { formatGridSizeLabel } from './albumGridSize';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -17,20 +19,27 @@ const IconComments = () => (
     </svg>
 );
 
+const IconSwap = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M7 16V4M7 4 3 8M7 4l4 4" />
+        <path d="M17 8v12M17 20l4-4M17 20l-4-4" />
+    </svg>
+);
+
+const IconPin = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12 2v8" />
+        <path d="m8 10 4 12 4-12" />
+        <circle cx="12" cy="6" r="3" />
+    </svg>
+);
+
 const NAV = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
-    /* Comments tab disabled — see smartAlbumCommentsEnabled.js */
-    ...(SMART_ALBUM_COMMENTS_ENABLED
-        ? [{ id: 'comments', label: 'Comments', icon: IconComments }]
-        : []),
+    { id: 'swap', label: 'Swap', icon: IconSwap },
+    { id: 'pin', label: 'Pin', icon: IconPin },
+    { id: 'comments', label: 'Comments', icon: IconComments },
 ];
-
-const GRID_SIZE_LABELS = {
-    square: 'Square pages (1:1)',
-    portrait: 'Portrait pages (4:5)',
-    landscape: 'Landscape pages (5:4)',
-    wide: 'Wide pages (16:9)',
-};
 
 const GRID_LAYOUT_LABELS = {
     'two-page': 'Two-page grid (left + right)',
@@ -80,6 +89,9 @@ export default function AlbumEditorSidebar({
     onRemovePages,
     commentSettings = null,
     commentsFeed = null,
+    swapMarks = [],
+    photoPins = [],
+    albumId = null,
 }) {
     const fileRef = useRef(null);
 
@@ -108,13 +120,25 @@ export default function AlbumEditorSidebar({
                         <span className="ae-nav-icon">
                             <Icon />
                         </span>
-                        {label}
+                        <span className="ae-nav-label">
+                            {label}
+                            {id === 'swap' && swapMarks.length > 0 && (
+                                <span className="ae-nav-badge" aria-hidden>
+                                    {swapMarks.length}
+                                </span>
+                            )}
+                            {id === 'pin' && photoPins.length > 0 && (
+                                <span className="ae-nav-badge ae-nav-badge--pin" aria-hidden>
+                                    {photoPins.length}
+                                </span>
+                            )}
+                        </span>
                     </button>
                 ))}
             </nav>
 
             <div className="ae-panel">
-                {SMART_ALBUM_COMMENTS_ENABLED && activePanel === 'comments' && (
+                {activePanel === 'comments' && (
                     <>
                         <h3 className="ae-panel-title">Comment settings</h3>
                         {commentSettings || (
@@ -123,6 +147,38 @@ export default function AlbumEditorSidebar({
                             </p>
                         )}
                         {commentsFeed}
+                    </>
+                )}
+
+                {activePanel === 'swap' && (
+                    <>
+                        <h3 className="ae-panel-title">Swap</h3>
+                        <p className="ae-panel-text">
+                            Hover a photo on the spread and click Swap to mark two positions. Once
+                            marked, the pair is locked until you unlock it here.
+                        </p>
+                        <AlbumSwapMarksPanel
+                            albumId={albumId}
+                            marks={swapMarks}
+                            gridLayout={album?.grid_layout || 'two-page'}
+                            variant="panel"
+                        />
+                    </>
+                )}
+
+                {activePanel === 'pin' && (
+                    <>
+                        <h3 className="ae-panel-title">Pin</h3>
+                        <p className="ae-panel-text">
+                            Client pin notes appear here. To add pins, use the album preview — hover a
+                            photo and click Pin.
+                        </p>
+                        <AlbumPhotoPinsPanel
+                            albumId={albumId}
+                            pins={photoPins}
+                            gridLayout={album?.grid_layout || 'two-page'}
+                            variant="panel"
+                        />
                     </>
                 )}
 
@@ -201,7 +257,7 @@ export default function AlbumEditorSidebar({
                         <div className="ae-locked-grid">
                             <div>
                                 <span className="ae-locked-grid-label">Grid size</span>
-                                <strong>{GRID_SIZE_LABELS[album?.grid_size] || GRID_SIZE_LABELS.square}</strong>
+                                <strong>{formatGridSizeLabel(album?.grid_size)}</strong>
                             </div>
                             <div>
                                 <span className="ae-locked-grid-label">Grid layout</span>
