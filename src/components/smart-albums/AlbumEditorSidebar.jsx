@@ -1,5 +1,7 @@
 import React, { useRef } from 'react';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
+import { countUnseenPhotoPins } from './albumPhotoPins';
+import { countUnseenSwapMarks } from './albumSwapMarks';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { formatGridSizeLabel } from './albumGridSize';
@@ -106,8 +108,13 @@ export default function AlbumEditorSidebar({
     swapMarks = [],
     photoPins = [],
     albumId = null,
+    onNavigateToPin = null,
+    proofSeenTick = 0,
 }) {
     const fileRef = useRef(null);
+    void proofSeenTick;
+    const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
+    const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
 
     const handleFiles = (e) => {
         const files = Array.from(e.target.files || []);
@@ -137,13 +144,23 @@ export default function AlbumEditorSidebar({
                         <span className="ae-nav-label">
                             {label}
                             {id === 'swap' && swapMarks.length > 0 && (
-                                <span className="ae-nav-badge" aria-hidden>
-                                    {swapMarks.length}
+                                <span
+                                    className={`ae-nav-badge${
+                                        unseenSwapCount > 0 ? ' ae-nav-badge--unseen' : ''
+                                    }`}
+                                    aria-hidden
+                                >
+                                    {unseenSwapCount > 0 ? unseenSwapCount : swapMarks.length}
                                 </span>
                             )}
                             {id === 'pin' && photoPins.length > 0 && (
-                                <span className="ae-nav-badge ae-nav-badge--pin" aria-hidden>
-                                    {photoPins.length}
+                                <span
+                                    className={`ae-nav-badge ae-nav-badge--pin${
+                                        unseenPinCount > 0 ? ' ae-nav-badge--unseen' : ''
+                                    }`}
+                                    aria-hidden
+                                >
+                                    {unseenPinCount > 0 ? unseenPinCount : photoPins.length}
                                 </span>
                             )}
                         </span>
@@ -160,7 +177,6 @@ export default function AlbumEditorSidebar({
                                 Sign in to manage client comments and publishing.
                             </p>
                         )}
-                        {commentsFeed}
                     </>
                 )}
 
@@ -176,6 +192,7 @@ export default function AlbumEditorSidebar({
                             marks={swapMarks}
                             gridLayout={album?.grid_layout || 'two-page'}
                             variant="panel"
+                            seenTick={proofSeenTick}
                         />
                     </>
                 )}
@@ -184,14 +201,16 @@ export default function AlbumEditorSidebar({
                     <>
                         <h3 className="ae-panel-title">Comment</h3>
                         <p className="ae-panel-text">
-                            Client pin notes appear here. To add pins, use the album preview — hover a
-                            photo and click Pin.
+                            Client photo comments appear here. To add comments, use the album preview
+                            — open the Comment tab, then click a photo.
                         </p>
                         <AlbumPhotoPinsPanel
                             albumId={albumId}
                             pins={photoPins}
                             gridLayout={album?.grid_layout || 'two-page'}
                             variant="panel"
+                            onNavigateToPin={onNavigateToPin}
+                            seenTick={proofSeenTick}
                         />
                     </>
                 )}

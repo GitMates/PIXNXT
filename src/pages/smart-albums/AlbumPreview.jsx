@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
-import AlbumSpreadComments from '../../components/smart-albums/AlbumSpreadComments';
 import {
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -171,6 +170,7 @@ export default function AlbumPreview({
             ),
         [spreadCommentsBySpread]
     );
+    const visibleCommentCount = albumCommentCount + photoCommentItems.length;
     const swapMarksCount = swapMarks.length;
     const swapItems = useMemo(
         () =>
@@ -255,29 +255,29 @@ export default function AlbumPreview({
 
             <div className="av-preview-shell">
                 <div className="av-preview-main">
-                    <div className="av-preview-book-section">
-                        <div className="av-viewer-body av-viewer-body--preview-book">
-                            <AlbumBook
-                                key={`${albumId}-preview`}
-                                album={albumForBook}
-                                totalPages={totalPages}
-                                initialPage={bookPage}
-                                onPageChange={handleBookPageChange}
-                                previewMode
-                                showSamples={false}
-                                transformRevision={photoRevision}
+                <div className="av-preview-book-section">
+                    <div className="av-viewer-body av-viewer-body--preview-book">
+                        <AlbumBook
+                            key={`${albumId}-preview`}
+                            album={albumForBook}
+                            totalPages={totalPages}
+                            initialPage={bookPage}
+                            onPageChange={handleBookPageChange}
+                            previewMode
+                            showSamples={false}
+                            transformRevision={photoRevision}
                                 swapMarkMode={activeProofTab === 'swap'}
                                 pinMarkMode={activeProofTab === 'comments'}
                                 proofToolsHover={activeProofTab == null}
-                                placementMode={
-                                    album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
-                                }
+                            placementMode={
+                                album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
+                            }
                                 spreadCommentsBySpread={
                                     commentsEnabled ? spreadCommentsBySpread : null
                                 }
-                            />
-                        </div>
+                        />
                     </div>
+                </div>
 
                     <aside className="av-preview-sidebar" aria-label="Preview tools">
                         {sidebarExpanded && (
@@ -286,7 +286,8 @@ export default function AlbumPreview({
                                     <>
                                         <h3 className="av-preview-sidebar-title">Comments</h3>
                                         <p className="av-preview-sidebar-lead">
-                                            {albumCommentCount} comment{albumCommentCount === 1 ? '' : 's'} in album
+                                            {visibleCommentCount} comment
+                                            {visibleCommentCount === 1 ? '' : 's'} in album
                                         </p>
                                         <div className="av-preview-sidebar-comments">
                                             {photoCommentItems.length === 0 ? (
@@ -503,19 +504,6 @@ export default function AlbumPreview({
                     </aside>
                 </div>
             </div>
-            <footer className="av-preview-footer av-preview-footer--bar">
-                    <AlbumSpreadComments
-                        key={`${albumId}-spread-${spreadIndex}`}
-                        albumId={albumId}
-                        spreadIndex={spreadIndex}
-                        spreadLabel={spreadLabel}
-                        commentsEnabled={commentsEnabled}
-                        messagesEnabled={messagesEnabled}
-                        isPhotographer={isPhotographer}
-                        clientView={clientPreview || minimalChrome}
-                        variant="footer"
-                    />
-            </footer>
         </div>
     );
 }

@@ -37,9 +37,13 @@ function SwapIcon({ className }) {
 
 function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
     const isSwap = pin?.type === 'swap';
+    const swapGroup = isSwap ? String(pin?.swapGroup || '') : '';
+    const swapToneIndex = isSwap && swapGroup
+        ? Array.from(swapGroup).reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 6
+        : null;
     return (
         <div
-            className={`ab-photo-pin${open ? ' ab-photo-pin--open' : ''}${isSwap ? ' ab-photo-pin--swap' : ''}`}
+            className={`ab-photo-pin${open ? ' ab-photo-pin--open' : ''}${isSwap ? ' ab-photo-pin--swap' : ''}${isSwap && swapToneIndex != null ? ` ab-photo-pin--swap-group-${swapToneIndex}` : ''}`}
             style={{ left: `${pin.xPct}%`, top: `${pin.yPct}%` }}
         >
             <button

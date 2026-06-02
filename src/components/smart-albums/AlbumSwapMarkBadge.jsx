@@ -28,13 +28,11 @@ export default function AlbumSwapMarkBadge({ markInfo }) {
             className="ab-swap-mark-badge"
             aria-label={`Swap: ${markInfo.slotLabel} with ${markInfo.partnerLabel}`}
         >
-            <span className="ab-swap-mark-badge-header">
-                <span className="ab-swap-mark-badge-icon">
-                    <IconSwap />
-                </span>
-                <span className="ab-swap-mark-badge-kicker">Swap</span>
+            <span className="ab-swap-mark-badge-icon">
+                <IconSwap />
             </span>
             <span className="ab-swap-mark-badge-row">
+                <span className="ab-swap-mark-badge-kicker">Swap</span>
                 <span className="ab-swap-mark-badge-slot">{markInfo.slotLabel}</span>
                 <span className="ab-swap-mark-badge-arrow" aria-hidden>
                     ↔

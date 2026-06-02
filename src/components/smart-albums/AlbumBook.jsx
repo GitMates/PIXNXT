@@ -25,6 +25,7 @@ import AlbumSwapPickerModal from './AlbumSwapPickerModal';
 import AlbumPinComposer from './AlbumPinComposer';
 import {
     addSwapMark,
+    getSwapMarksForSlot,
     getSwapMarkForSlot,
     getSwapMarks,
     makeSlotKey,
@@ -53,6 +54,7 @@ const BOOK_PAGE_HEIGHT_SCALE = 0.93;
 const BOOK_STAGE_MIN_PX = 80;
 /** Stage must be tall enough for real page height — avoids mounting while flex layout is still 0px. */
 const BOOK_STAGE_READY_MIN_PX = 300;
+const SAME_POINT_EPSILON = 0.2;
 
 function computeBookDimensions(w, h, gridSize = 'square') {
     if (w < BOOK_STAGE_MIN_PX || h < BOOK_STAGE_MIN_PX) return null;
@@ -175,6 +177,7 @@ const AlbumBook = ({
     const [pinComposer, setPinComposer] = useState(null);
     const [initialized, setInitialized] = useState(false);
     const [commentsSeenTick, setCommentsSeenTick] = useState(0);
+    const isPinModeOn = previewMode ? pinMarkMode : pinModeActive;
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -692,7 +695,11 @@ const AlbumBook = ({
                 return;
             }
 
-            if (slotsMatch(originSlot, placement)) return;
+            if (slotsMatch(originSlot, placement)) {
+                const dx = Math.abs((swapPinFlow.originPoint?.xPct ?? 0) - placementPoint.xPct);
+                const dy = Math.abs((swapPinFlow.originPoint?.yPct ?? 0) - placementPoint.yPct);
+                if (dx < SAME_POINT_EPSILON && dy < SAME_POINT_EPSILON) return;
+            }
 
             addSwapMark(album.id, originSlot, placement, {
                 pointA: swapPinFlow.originPoint,
@@ -706,6 +713,16 @@ const AlbumBook = ({
     const getSwapMarkInfo = useCallback(
         (pageNum, cellId, spreadLeft) =>
             getSwapMarkForSlot(swapMarks, pageNum, cellId, {
+                placementMode,
+                spreadLeft,
+                gridLayout: album?.grid_layout || 'two-page',
+            }),
+        [swapMarks, placementMode, album?.grid_layout]
+    );
+
+    const getSwapMarkInfos = useCallback(
+        (pageNum, cellId, spreadLeft) =>
+            getSwapMarksForSlot(swapMarks, pageNum, cellId, {
                 placementMode,
                 spreadLeft,
                 gridLayout: album?.grid_layout || 'two-page',
@@ -779,6 +796,7 @@ const AlbumBook = ({
             onTransformChange,
             swapMarkMode,
             getSwapMarkInfo,
+            getSwapMarkInfos,
             onSwapRequest: handleSwapRequest,
             swapPinModeActive: previewMode ? swapMarkMode : Boolean(swapPinFlow),
             swapPinOriginKey: swapPinFlow
@@ -791,7 +809,7 @@ const AlbumBook = ({
             swapPinOriginPoint: swapPinFlow?.originPoint || null,
             onPlaceSwapPin: handleSwapPinPlace,
             pinMarkMode,
-            pinModeActive,
+            pinModeActive: isPinModeOn,
             getPinsForSlot: getSlotPins,
             onPinPlace: handlePinPlace,
             onPinRemove: handlePinRemove,
@@ -812,13 +830,14 @@ const AlbumBook = ({
             onTransformChange,
             swapMarkMode,
             pinMarkMode,
-            pinModeActive,
+            isPinModeOn,
             proofToolsHover,
             handleSwapRequest,
             swapPinFlow,
             handleSwapPinPlace,
             previewMode,
             getSwapMarkInfo,
+            getSwapMarkInfos,
             getSlotPins,
             handlePinPlace,
             handlePinRemove,
@@ -855,7 +874,7 @@ const AlbumBook = ({
     return (
         <div
             className={`ab-root${previewMode ? ' ab-root--preview' : ''}${
-                pinModeActive && pinMarkMode ? ' ab-root--pin-mode' : ''
+                isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''
             }`}
             ref={rootRef}
         >

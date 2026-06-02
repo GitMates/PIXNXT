@@ -4,8 +4,10 @@ import { isEndHalfSpreadLeftPage } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
 
 const STORAGE_KEY = 'pixnxt_album_swap_marks';
+const SEEN_KEY = 'pixnxt_album_swap_marks_seen';
 
 export const SWAP_MARKS_CHANGED_EVENT = 'pixnxt-album-swap-marks-changed';
+export const SWAP_MARKS_SEEN_CHANGED_EVENT = 'pixnxt-album-swap-marks-seen-changed';
 
 export function makeSlotKey(pageNum, cellId = 0) {
     return `${pageNum}:${cellId}`;
@@ -46,6 +48,59 @@ function notify(albumId) {
     } catch {
         /* ignore */
     }
+}
+
+function readSeen() {
+    try {
+        const raw = localStorage.getItem(SEEN_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeSeen(data) {
+    try {
+        localStorage.setItem(SEEN_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+export function notifySwapMarksSeenChanged(albumId) {
+    try {
+        window.dispatchEvent(
+            new CustomEvent(SWAP_MARKS_SEEN_CHANGED_EVENT, { detail: { albumId } })
+        );
+    } catch {
+        /* ignore */
+    }
+}
+
+export function isSwapMarkUnseen(albumId, mark) {
+    if (!albumId || !mark?.id) return false;
+    const seenAt = readSeen()[albumId]?.[mark.id];
+    if (!seenAt) return true;
+    const stamp = mark.createdAt;
+    if (!stamp) return false;
+    return new Date(stamp).getTime() > new Date(seenAt).getTime();
+}
+
+export function countUnseenSwapMarks(albumId, marks) {
+    return (marks || []).filter((mark) => isSwapMarkUnseen(albumId, mark)).length;
+}
+
+export function markSwapMarksSeen(albumId, marks) {
+    if (!albumId || !marks?.length) return;
+    const all = readSeen();
+    const bucket = { ...(all[albumId] || {}) };
+    const now = new Date().toISOString();
+    marks.forEach((mark) => {
+        if (mark?.id) bucket[mark.id] = now;
+    });
+    all[albumId] = bucket;
+    writeSeen(all);
+    notifySwapMarksSeenChanged(albumId);
 }
 
 /** All swappable photo slots for the album layout. */
@@ -127,13 +182,29 @@ export function addSwapMark(albumId, slotA, slotB, options = {}) {
     if (!albumId || !slotA || !slotB) return null;
     const keyA = makeSlotKey(slotA.pageNum, slotA.cellId);
     const keyB = makeSlotKey(slotB.pageNum, slotB.cellId);
-    if (keyA === keyB) return null;
+    const sameSlot = keyA === keyB;
+    const pointA = options?.pointA || null;
+    const pointB = options?.pointB || null;
+    if (sameSlot && (!pointA || !pointB)) return null;
 
     const all = readAll();
     const list = [...(all[albumId] || [])];
-    const alreadyExists = list.some(
-        (m) => (m.a === keyA && m.b === keyB) || (m.a === keyB && m.b === keyA)
-    );
+    const pointKey = (pt) =>
+        pt && Number.isFinite(pt.xPct) && Number.isFinite(pt.yPct)
+            ? `${pt.pageNum ?? ''}:${pt.cellId ?? ''}:${pt.xPct.toFixed(2)}:${pt.yPct.toFixed(2)}`
+            : null;
+    const nextPointAKey = pointKey(pointA);
+    const nextPointBKey = pointKey(pointB);
+    const alreadyExists = list.some((m) => {
+        const pairMatches = (m.a === keyA && m.b === keyB) || (m.a === keyB && m.b === keyA);
+        if (!pairMatches) return false;
+        if (!sameSlot) return true;
+        const existingAKey = pointKey(m.pointA);
+        const existingBKey = pointKey(m.pointB);
+        const sameDirection = existingAKey === nextPointAKey && existingBKey === nextPointBKey;
+        const reverseDirection = existingAKey === nextPointBKey && existingBKey === nextPointAKey;
+        return sameDirection || reverseDirection;
+    });
     if (alreadyExists) return null;
     const mark = {
         id: `swap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -142,8 +213,8 @@ export function addSwapMark(albumId, slotA, slotB, options = {}) {
         labelA: slotA.label || getSlotLabel(slotA.pageNum, slotA.cellId, slotA.whole),
         labelB: slotB.label || getSlotLabel(slotB.pageNum, slotB.cellId, slotB.whole),
         locked: true,
-        pointA: options?.pointA || null,
-        pointB: options?.pointB || null,
+        pointA,
+        pointB,
         createdAt: new Date().toISOString(),
     };
     list.push(mark);
@@ -290,6 +361,55 @@ export function getSwapMarkForSlot(
         point,
         pinLabel,
     };
+}
+
+/** All swap mark details for a slot (oldest -> newest). */
+export function getSwapMarksForSlot(
+    marks,
+    pageNum,
+    cellId = 0,
+    { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page' } = {}
+) {
+    let key = makeSlotKey(pageNum, cellId);
+    if (placementMode === 'whole' && spreadLeft != null) {
+        if (!(pageNum === spreadLeft && cellId === 1)) {
+            return [];
+        }
+        key = makeSlotKey(spreadLeft, 1);
+    }
+
+    return (marks || []).flatMap((mark) => {
+        const isA = mark.a === key;
+        const isB = mark.b === key;
+        if (!isA && !isB) return [];
+
+        const mapEndpoint = (endpointLabel) => {
+            const endpointIsA = endpointLabel === 'A';
+            const slotLabel =
+                (endpointIsA ? mark.labelA : mark.labelB) ||
+                resolveSlotLabel(key, gridLayout);
+            const partnerLabel =
+                (endpointIsA ? mark.labelB : mark.labelA) ||
+                resolveSlotLabel(endpointIsA ? mark.b : mark.a, gridLayout);
+            const point = endpointIsA ? mark.pointA : mark.pointB;
+            return {
+                slotLabel,
+                partnerLabel,
+                title: `Swap · ${slotLabel}`,
+                subtitle: `with ${partnerLabel}`,
+                locked: mark.locked !== false,
+                markId: mark.id,
+                point,
+                pinLabel: endpointLabel,
+                pinKey: `${mark.id}-${endpointLabel}`,
+            };
+        };
+
+        if (isA && isB) {
+            return [mapEndpoint('A'), mapEndpoint('B')];
+        }
+        return [mapEndpoint(isA ? 'A' : 'B')];
+    });
 }
 
 export function slotsMatch(a, b) {

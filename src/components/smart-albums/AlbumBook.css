@@ -547,7 +547,7 @@
 .ab-grid-cell {
   position: absolute;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
   background: #fff;
 }
 

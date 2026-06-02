@@ -62,8 +62,19 @@ import {
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
 import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
-import { getSwapMarks, isWholeGridSwapSlot, SWAP_MARKS_CHANGED_EVENT } from '../../components/smart-albums/albumSwapMarks';
-import { getPhotoPins, PHOTO_PINS_CHANGED_EVENT } from '../../components/smart-albums/albumPhotoPins';
+import {
+    getSwapMarks,
+    isWholeGridSwapSlot,
+    markSwapMarksSeen,
+    SWAP_MARKS_CHANGED_EVENT,
+    SWAP_MARKS_SEEN_CHANGED_EVENT,
+} from '../../components/smart-albums/albumSwapMarks';
+import {
+    getPhotoPins,
+    markPhotoPinsSeen,
+    PHOTO_PINS_CHANGED_EVENT,
+    PHOTO_PINS_SEEN_CHANGED_EVENT,
+} from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
     groupRootCommentsBySpread,
@@ -144,6 +155,7 @@ export default function AlbumEditor({
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
+    const [proofSeenTick, setProofSeenTick] = useState(0);
     const shareRef = useRef(null);
     const replaceFileRef = useRef(null);
     const pendingReplaceSlotRef = useRef(null);
@@ -227,6 +239,32 @@ export default function AlbumEditor({
         window.addEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
         return () => window.removeEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
     }, [albumId]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const bumpSeen = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            setProofSeenTick((tick) => tick + 1);
+        };
+        window.addEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, bumpSeen);
+        window.addEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, bumpSeen);
+        return () => {
+            window.removeEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, bumpSeen);
+            window.removeEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, bumpSeen);
+        };
+    }, [albumId]);
+
+    useEffect(() => {
+        if (!albumId || activePanel !== 'pin') return;
+        const pins = getPhotoPins(albumId);
+        if (pins.length) markPhotoPinsSeen(albumId, pins);
+    }, [albumId, activePanel]);
+
+    useEffect(() => {
+        if (!albumId || activePanel !== 'swap') return;
+        const marks = getSwapMarks(albumId);
+        if (marks.length) markSwapMarksSeen(albumId, marks);
+    }, [albumId, activePanel]);
 
     useEffect(() => {
         if (!albumId || !user?.id) return undefined;
@@ -340,6 +378,16 @@ export default function AlbumEditor({
     const handleNavigateToCommentSpread = useCallback(
         (spreadIndex) => {
             const page = spreadIndexToPage(spreadIndex, { showCover: true, totalPages });
+            const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
+            handleBookPageChange(clamped);
+        },
+        [handleBookPageChange, totalPages]
+    );
+    const handleNavigateToPin = useCallback(
+        (pin) => {
+            if (!pin) return;
+            const spreadIdx = pageToSpreadIndex(pin.pageNum, { showCover: true, totalPages });
+            const page = spreadIndexToPage(spreadIdx, { showCover: true, totalPages });
             const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
             handleBookPageChange(clamped);
         },
@@ -942,6 +990,8 @@ export default function AlbumEditor({
                     swapMarks={swapMarks}
                     photoPins={photoPins}
                     albumId={albumId}
+                    onNavigateToPin={handleNavigateToPin}
+                    proofSeenTick={proofSeenTick}
                 />
             </div>
 

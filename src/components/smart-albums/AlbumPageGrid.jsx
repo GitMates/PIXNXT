@@ -100,6 +100,7 @@ export default function AlbumPageGrid({
     photoRevision = 0,
     swapMarkMode = false,
     getSwapMarkInfo,
+    getSwapMarkInfos,
     onSwapRequest,
     swapPinModeActive = false,
     swapPinOriginKey = null,
@@ -197,6 +198,12 @@ export default function AlbumPageGrid({
                     : null;
                 const swapMarkInfo =
                     swapMarkMode && getSwapMarkInfo?.(photoIndex, cell.id, spreadLeft);
+                const swapMarkInfos =
+                    swapMarkMode && getSwapMarkInfos
+                        ? getSwapMarkInfos(photoIndex, cell.id, spreadLeft)
+                        : swapMarkInfo
+                          ? [swapMarkInfo]
+                          : [];
                 const canSwap = swapMarkMode && Boolean(src);
                 const proofTools = (swapMarkMode || pinMarkMode) && Boolean(src);
                 const slotPins =
@@ -208,16 +215,16 @@ export default function AlbumPageGrid({
                           swapMarkInfo.locked !== false ? ' ab-grid-cell--swap-locked' : ''
                       }`
                     : '';
-                const swapPins = [];
-                if (swapMarkInfo?.point) {
-                    swapPins.push({
-                        id: `swap-pin-${swapMarkInfo.markId}-${photoIndex}-${cell.id}`,
-                        xPct: swapMarkInfo.point.xPct,
-                        yPct: swapMarkInfo.point.yPct,
-                        pinLabel: swapMarkInfo.pinLabel || 'S',
-                        message: `${swapMarkInfo.slotLabel} ↔ ${swapMarkInfo.partnerLabel}`,
-                    });
-                }
+                const swapPins = swapMarkInfos
+                    .filter((info) => info?.point)
+                    .map((info) => ({
+                        id: `swap-pin-${info.pinKey || info.markId}-${photoIndex}-${cell.id}`,
+                        xPct: info.point.xPct,
+                        yPct: info.point.yPct,
+                        pinLabel: info.pinLabel || 'S',
+                        swapGroup: info.markId,
+                        message: `${info.slotLabel} ↔ ${info.partnerLabel}`,
+                    }));
                 const slotKey = makeSlotKey(photoIndex, cell.id);
                 const isOriginSlot =
                     Boolean(swapPinModeActive) && Boolean(swapPinOriginKey) && slotKey === swapPinOriginKey;

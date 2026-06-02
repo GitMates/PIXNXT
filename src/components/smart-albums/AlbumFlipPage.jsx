@@ -142,6 +142,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         showPageBadge = false,
         swapMarkMode = false,
         getSwapMarkInfo,
+        getSwapMarkInfos,
         onSwapRequest,
         swapPinModeActive = false,
         swapPinOriginKey = null,
@@ -171,6 +172,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const livePhotoRevision = ctx.photoRevision ?? photoRevision;
     const liveSwapMarkMode = ctx.swapMarkMode ?? swapMarkMode;
     const liveGetSwapMarkInfo = ctx.getSwapMarkInfo ?? getSwapMarkInfo;
+    const liveGetSwapMarkInfos = ctx.getSwapMarkInfos ?? getSwapMarkInfos;
     const liveOnSwapRequest = ctx.onSwapRequest ?? onSwapRequest;
     const liveSwapPinModeActive = ctx.swapPinModeActive ?? swapPinModeActive;
     const liveSwapPinOriginKey = ctx.swapPinOriginKey ?? swapPinOriginKey;
@@ -273,10 +275,27 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const canSelectCover = pageNum === 0 && editable && !spreadEdit;
     const PageWrapTag = canSelectCover ? 'button' : 'div';
     const coverSwapMarkInfo = liveSwapMarkMode && liveGetSwapMarkInfo?.(0, 0);
+    const coverSwapMarkInfos =
+        liveSwapMarkMode && liveGetSwapMarkInfos ? liveGetSwapMarkInfos(0, 0, 0) : [];
     const canCoverSwap = liveSwapMarkMode && pageNum === 0 && Boolean(src);
     const coverProofTools = (liveSwapMarkMode || livePinMarkMode) && pageNum === 0 && Boolean(src);
     const coverPins =
         livePinMarkMode && liveGetPinsForSlot ? liveGetPinsForSlot(0, 0, 0) : [];
+    const isEndCoverPage = endSpreadRole === 'half-left' && !editable && !spreadEdit;
+    const endCoverSwapMarkInfo =
+        isEndCoverPage && liveSwapMarkMode
+            ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage)
+            : null;
+    const endCoverSwapMarkInfos =
+        isEndCoverPage && liveSwapMarkMode && liveGetSwapMarkInfos
+            ? liveGetSwapMarkInfos(pageNum, 1, spreadLeftForPage)
+            : [];
+    const canEndCoverSwap = isEndCoverPage && liveSwapMarkMode && Boolean(src);
+    const endCoverProofTools = isEndCoverPage && (liveSwapMarkMode || livePinMarkMode) && Boolean(src);
+    const endCoverPins =
+        isEndCoverPage && livePinMarkMode && liveGetPinsForSlot
+            ? liveGetPinsForSlot(pageNum, 1, spreadLeftForPage)
+            : [];
 
     if (useLeftGrid) {
         const { cells } = getProofLeftPageGridPercent();
@@ -310,6 +329,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     photoRevision={livePhotoRevision}
                     swapMarkMode={liveSwapMarkMode}
                     getSwapMarkInfo={liveGetSwapMarkInfo}
+                    getSwapMarkInfos={liveGetSwapMarkInfos}
                     onSwapRequest={liveOnSwapRequest}
                     swapPinModeActive={liveSwapPinModeActive}
                     swapPinOriginKey={liveSwapPinOriginKey}
@@ -367,6 +387,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     photoRevision={livePhotoRevision}
                     swapMarkMode={liveSwapMarkMode}
                     getSwapMarkInfo={liveGetSwapMarkInfo}
+                    getSwapMarkInfos={liveGetSwapMarkInfos}
                     onSwapRequest={liveOnSwapRequest}
                     swapPinModeActive={liveSwapPinModeActive}
                     swapPinOriginKey={liveSwapPinOriginKey}
@@ -418,6 +439,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         photoRevision={livePhotoRevision}
                         swapMarkMode={liveSwapMarkMode}
                         getSwapMarkInfo={liveGetSwapMarkInfo}
+                        getSwapMarkInfos={liveGetSwapMarkInfos}
                         onSwapRequest={liveOnSwapRequest}
                         swapPinModeActive={liveSwapPinModeActive}
                         swapPinOriginKey={liveSwapPinOriginKey}
@@ -438,12 +460,108 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         return (
             <div className="ab-flip-page ab-flip-page--half-photo-left" ref={ref} data-density="hard">
                 {pageBadge}
-                <FramedSpreadPhoto
-                    src={src}
-                    pageNum={pageNum}
-                    showSamples={showSamples}
-                    side="left"
-                />
+                <div
+                    className={`ab-page-photo-wrap${
+                        liveProofToolsHover && endCoverProofTools && !livePinModeActive
+                            ? ' ab-page-photo-wrap--swap'
+                            : ''
+                    }${
+                        endCoverSwapMarkInfo
+                            ? ` ab-page-photo-wrap--swap-marked${
+                                  endCoverSwapMarkInfo.locked !== false
+                                      ? ' ab-page-photo-wrap--swap-locked'
+                                      : ''
+                              }`
+                            : ''
+                    }`}
+                >
+                    <AlbumPhotoPinLayer
+                        hasPhoto={Boolean(src)}
+                        pinModeActive={livePinModeActive && livePinMarkMode}
+                        swapPinModeActive={liveSwapPinModeActive}
+                        swapPinTargetStep={liveSwapPinTargetStep}
+                        proofToolsEnabled={endCoverProofTools}
+                        proofToolsHover={liveProofToolsHover}
+                        canSwap={canEndCoverSwap}
+                        onSwapRequest={() =>
+                            liveOnSwapRequest?.({
+                                pageNum,
+                                cellId: 1,
+                                spreadLeft: spreadLeftForPage,
+                                label: 'End cover',
+                            })
+                        }
+                        onActivatePinMode={livePinMarkMode ? liveOnActivatePinMode : undefined}
+                        onActivateSwapPinMode={
+                            canEndCoverSwap
+                                ? () =>
+                                      liveOnSwapRequest?.({
+                                          pageNum,
+                                          cellId: 1,
+                                          spreadLeft: spreadLeftForPage,
+                                          label: 'End cover',
+                                      })
+                                : undefined
+                        }
+                        onPlaceSwapPin={(xPct, yPct) =>
+                            liveOnPlaceSwapPin?.({
+                                pageNum,
+                                cellId: 1,
+                                spreadLeft: spreadLeftForPage,
+                                label: 'End cover',
+                                xPct,
+                                yPct,
+                            })
+                        }
+                        swapPins={[
+                            ...endCoverSwapMarkInfos
+                                .filter((info) => info?.point)
+                                .map((info) => ({
+                                    id: `swap-pin-end-${info.pinKey || info.markId}`,
+                                    xPct: info.point.xPct,
+                                    yPct: info.point.yPct,
+                                    pinLabel: info.pinLabel || 'S',
+                                    swapGroup: info.markId,
+                                    message: `${info.slotLabel} ↔ ${info.partnerLabel}`,
+                                })),
+                            ...(liveSwapPinModeActive &&
+                            liveSwapPinTargetStep &&
+                            liveSwapPinOriginKey === `${pageNum}:1` &&
+                            liveSwapPinOriginPoint?.xPct != null &&
+                            liveSwapPinOriginPoint?.yPct != null
+                                ? [
+                                      {
+                                          id: `swap-pin-live-end-${pageNum}`,
+                                          xPct: liveSwapPinOriginPoint.xPct,
+                                          yPct: liveSwapPinOriginPoint.yPct,
+                                          pinLabel: 'A',
+                                          message: 'Source spot selected. Click target spot.',
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                        pins={endCoverPins}
+                        onPlacePin={(xPct, yPct) =>
+                            liveOnPinPlace?.({
+                                pageNum,
+                                cellId: 1,
+                                spreadLeft: spreadLeftForPage,
+                                xPct,
+                                yPct,
+                                label: 'End cover',
+                            })
+                        }
+                        onRemovePin={liveOnPinRemove}
+                    >
+                        <FramedSpreadPhoto
+                            src={src}
+                            pageNum={pageNum}
+                            showSamples={showSamples}
+                            side="left"
+                        />
+                    </AlbumPhotoPinLayer>
+                    {!previewMode && <AlbumSwapMarkBadge markInfo={endCoverSwapMarkInfo} />}
+                </div>
             </div>
         );
     }
@@ -522,17 +640,16 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         }
                         swapPins={
                             [
-                                ...(coverSwapMarkInfo?.point
-                                    ? [
-                                          {
-                                              id: `swap-pin-${coverSwapMarkInfo.markId}-cover`,
-                                              xPct: coverSwapMarkInfo.point.xPct,
-                                              yPct: coverSwapMarkInfo.point.yPct,
-                                              pinLabel: coverSwapMarkInfo.pinLabel || 'S',
-                                              message: `${coverSwapMarkInfo.slotLabel} ↔ ${coverSwapMarkInfo.partnerLabel}`,
-                                          },
-                                      ]
-                                    : []),
+                                ...coverSwapMarkInfos
+                                    .filter((info) => info?.point)
+                                    .map((info) => ({
+                                        id: `swap-pin-cover-${info.pinKey || info.markId}`,
+                                        xPct: info.point.xPct,
+                                        yPct: info.point.yPct,
+                                        pinLabel: info.pinLabel || 'S',
+                                        swapGroup: info.markId,
+                                        message: `${info.slotLabel} ↔ ${info.partnerLabel}`,
+                                    })),
                                 ...(liveSwapPinModeActive &&
                                 liveSwapPinTargetStep &&
                                 liveSwapPinOriginKey === '0:0' &&
@@ -631,17 +748,16 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     }
                     swapPins={
                         [
-                            ...(coverSwapMarkInfo?.point
-                                ? [
-                                      {
-                                          id: `swap-pin-${coverSwapMarkInfo.markId}-cover`,
-                                          xPct: coverSwapMarkInfo.point.xPct,
-                                          yPct: coverSwapMarkInfo.point.yPct,
-                                          pinLabel: coverSwapMarkInfo.pinLabel || 'S',
-                                          message: `${coverSwapMarkInfo.slotLabel} ↔ ${coverSwapMarkInfo.partnerLabel}`,
-                                      },
-                                  ]
-                                : []),
+                            ...coverSwapMarkInfos
+                                .filter((info) => info?.point)
+                                .map((info) => ({
+                                    id: `swap-pin-cover-single-${info.pinKey || info.markId}`,
+                                    xPct: info.point.xPct,
+                                    yPct: info.point.yPct,
+                                    pinLabel: info.pinLabel || 'S',
+                                    swapGroup: info.markId,
+                                    message: `${info.slotLabel} ↔ ${info.partnerLabel}`,
+                                })),
                             ...(liveSwapPinModeActive &&
                             liveSwapPinTargetStep &&
                             liveSwapPinOriginKey === '0:0' &&

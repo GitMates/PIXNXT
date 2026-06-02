@@ -1,5 +1,11 @@
 import React from 'react';
-import { removeSwapMark, resolveSlotLabel } from './albumSwapMarks';
+import {
+    countUnseenSwapMarks,
+    isSwapMarkUnseen,
+    markSwapMarksSeen,
+    removeSwapMark,
+    resolveSlotLabel,
+} from './albumSwapMarks';
 
 function IconLock() {
     return (
@@ -15,8 +21,12 @@ export default function AlbumSwapMarksPanel({
     marks = [],
     gridLayout = 'two-page',
     variant = 'embedded',
+    seenTick = 0,
 }) {
     const isPanel = variant === 'panel';
+    void seenTick;
+
+    const unseenCount = countUnseenSwapMarks(albumId, marks);
 
     if (!marks.length) {
         if (!isPanel) return null;
@@ -38,8 +48,18 @@ export default function AlbumSwapMarksPanel({
                 </>
             )}
             {isPanel && (
-                <p className="ae-swap-marks-count" role="status">
+                <p
+                    className={`ae-swap-marks-count${
+                        unseenCount > 0 ? ' ae-swap-marks-count--unseen' : ''
+                    }`}
+                    role="status"
+                >
                     {marks.length} swap request{marks.length === 1 ? '' : 's'}
+                    {unseenCount > 0 && (
+                        <span className="ae-proof-new-pill">
+                            {unseenCount} new
+                        </span>
+                    )}
                 </p>
             )}
             <ul className="ae-swap-marks-list">
@@ -47,10 +67,13 @@ export default function AlbumSwapMarksPanel({
                     const labelA = mark.labelA || resolveSlotLabel(mark.a, gridLayout);
                     const labelB = mark.labelB || resolveSlotLabel(mark.b, gridLayout);
                     const locked = mark.locked !== false;
+                    const unseen = isSwapMarkUnseen(albumId, mark);
                     return (
                         <li
                             key={mark.id}
-                            className={`ae-swap-marks-item${locked ? ' ae-swap-marks-item--locked' : ''}`}
+                            className={`ae-swap-marks-item${
+                                locked ? ' ae-swap-marks-item--locked' : ''
+                            }${unseen ? ' ae-proof-item--unseen' : ''}`}
                         >
                             <span className="ae-swap-marks-pair">
                                 {locked && (
@@ -59,11 +82,17 @@ export default function AlbumSwapMarksPanel({
                                     </span>
                                 )}
                                 {labelA} ↔ {labelB}
+                                {unseen && (
+                                    <span className="ae-proof-new-badge">New</span>
+                                )}
                             </span>
                             <button
                                 type="button"
                                 className="ae-swap-marks-remove"
-                                onClick={() => removeSwapMark(albumId, mark.id)}
+                                onClick={() => {
+                                    markSwapMarksSeen(albumId, [mark]);
+                                    removeSwapMark(albumId, mark.id);
+                                }}
                                 aria-label={`Delete swap request ${labelA} with ${labelB}`}
                             >
                                 Delete
