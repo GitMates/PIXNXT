@@ -375,6 +375,68 @@
   cursor: pointer;
 }
 
+.sa-create-progress {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid #e7dbf2;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fbf7ff 0%, #fff 100%);
+  box-shadow: 0 8px 22px rgba(142, 68, 173, 0.08);
+}
+
+.sa-create-progress-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.sa-create-progress-spinner {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+  border: 2px solid #e7dbf2;
+  border-top-color: #8e44ad;
+  border-radius: 50%;
+  animation: sa-create-spin 0.75s linear infinite;
+}
+
+@keyframes sa-create-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sa-create-progress-label {
+  margin: 0;
+  color: #2d2238;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.sa-create-progress-detail {
+  margin: 4px 0 0;
+  color: #6f6478;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.sa-create-progress-track {
+  margin-top: 12px;
+  height: 6px;
+  border-radius: 999px;
+  background: #efe2f8;
+  overflow: hidden;
+}
+
+.sa-create-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #9b59b6, #8e44ad);
+  transition: width 0.2s ease;
+}
+
 .sa-create-actions {
   grid-column: 1 / -1;
   margin-top: 2px;
