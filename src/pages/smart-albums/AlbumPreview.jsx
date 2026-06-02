@@ -143,11 +143,7 @@ export default function AlbumPreview({
             </header>
 
             <div className="av-preview-shell">
-                <div
-                    className={`av-preview-main${
-                        sidebarExpanded ? ' av-preview-main--sidebar-expanded' : ''
-                    }`}
-                >
+                <div className="av-preview-main">
                     <div className="av-preview-book-section">
                         <div className="av-viewer-body av-viewer-body--preview-book">
                             <AlbumBook
@@ -174,19 +170,7 @@ export default function AlbumPreview({
                     <aside className="av-preview-sidebar" aria-label="Preview tools">
                         {sidebarExpanded && (
                             <div className="av-preview-sidebar-panel">
-                                {sidebarTab === 'swap' ? (
-                                    <>
-                                        <h3 className="av-preview-sidebar-title">Swap</h3>
-                                        <p className="av-preview-sidebar-lead">
-                                            {swapMarksCount > 0
-                                                ? `${swapMarksCount} locked swap request${swapMarksCount === 1 ? '' : 's'}`
-                                                : 'No swap requests yet'}
-                                        </p>
-                                        <p className="av-preview-sidebar-text">
-                                            Swap actions are managed in the editor. This panel shows current status.
-                                        </p>
-                                    </>
-                                ) : (
+                                {sidebarTab === 'comments' ? (
                                     <>
                                         <h3 className="av-preview-sidebar-title">Comments</h3>
                                         <p className="av-preview-sidebar-lead">
@@ -211,6 +195,28 @@ export default function AlbumPreview({
                                             )}
                                         </div>
                                     </>
+                                ) : sidebarTab === 'swap' ? (
+                                    <>
+                                        <h3 className="av-preview-sidebar-title">Swap</h3>
+                                        <p className="av-preview-sidebar-lead">
+                                            {swapMarksCount > 0
+                                                ? `${swapMarksCount} locked swap request${swapMarksCount === 1 ? '' : 's'}`
+                                                : 'No swap requests yet'}
+                                        </p>
+                                        <p className="av-preview-sidebar-text">
+                                            Swap actions are managed in the editor. This panel shows current status.
+                                        </p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h3 className="av-preview-sidebar-title">Collections</h3>
+                                        <p className="av-preview-sidebar-lead">
+                                            Manage photos from the editor
+                                        </p>
+                                        <p className="av-preview-sidebar-text">
+                                            Collection tools are available in Album Studio. Use this preview for proofing.
+                                        </p>
+                                    </>
                                 )}
                             </div>
                         )}
@@ -219,52 +225,35 @@ export default function AlbumPreview({
                             <button
                                 type="button"
                                 className={`av-preview-sidebar-btn${
-                                    sidebarTab === 'swap' ? ' is-active' : ''
-                                }`}
-                                onClick={() => handleSidebarToggle('swap')}
-                                aria-label="Toggle swap panel"
-                            >
-                                <svg viewBox="0 0 24 24" aria-hidden>
-                                    <path
-                                        d="M8 6h8M8 12h8M8 18h8M6 4l-2 2 2 2M18 4l2 2-2 2M6 16l-2 2 2 2M18 16l2 2-2 2"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.6"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    />
-                                </svg>
-                                <span className="av-preview-sidebar-btn-label">Swap</span>
-                                {swapMarksCount > 0 && (
-                                    <span className="av-preview-sidebar-btn-badge">
-                                        {swapMarksCount}
-                                    </span>
-                                )}
-                            </button>
-                            <button
-                                type="button"
-                                className={`av-preview-sidebar-btn${
                                     sidebarTab === 'comments' ? ' is-active' : ''
                                 }`}
                                 onClick={() => handleSidebarToggle('comments')}
                                 aria-label="Toggle comments panel"
                             >
-                                <svg viewBox="0 0 24 24" aria-hidden>
-                                    <path
-                                        d="M4 5h16a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H9l-5 3v-3H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.6"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    />
-                                </svg>
+                                <span aria-hidden>💬</span>
                                 <span className="av-preview-sidebar-btn-label">Comments</span>
-                                {albumCommentCount > 0 && (
-                                    <span className="av-preview-sidebar-btn-badge">
-                                        {albumCommentCount}
-                                    </span>
-                                )}
+                            </button>
+                            <button
+                                type="button"
+                                className={`av-preview-sidebar-btn${
+                                    sidebarTab === 'swap' ? ' is-active' : ''
+                                }`}
+                                onClick={() => handleSidebarToggle('swap')}
+                                aria-label="Toggle swap panel"
+                            >
+                                <span aria-hidden>⇅</span>
+                                <span className="av-preview-sidebar-btn-label">Swap</span>
+                            </button>
+                            <button
+                                type="button"
+                                className={`av-preview-sidebar-btn${
+                                    sidebarTab === 'collections' ? ' is-active' : ''
+                                }`}
+                                onClick={() => handleSidebarToggle('collections')}
+                                aria-label="Toggle collections panel"
+                            >
+                                <span aria-hidden>▦</span>
+                                <span className="av-preview-sidebar-btn-label">Collections</span>
                             </button>
                         </div>
                     </aside>
