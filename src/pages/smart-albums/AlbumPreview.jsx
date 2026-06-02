@@ -1,8 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumSpreadComments from '../../components/smart-albums/AlbumSpreadComments';
-import { pageToSpreadIndex, getTotalSpreads } from '../../components/smart-albums/albumSpreadUtils';
+import {
+    pageToSpreadIndex,
+    spreadIndexToPage,
+    getTotalSpreads,
+} from '../../components/smart-albums/albumSpreadUtils';
 import { getSwapMarks } from '../../components/smart-albums/albumSwapMarks';
+import {
+    PHOTO_PINS_CHANGED_EVENT,
+    getPhotoPins,
+    removePhotoPin,
+    updatePhotoPin,
+} from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
     countMeaningfulComments,
@@ -61,8 +71,11 @@ export default function AlbumPreview({
     const commentsEnabled = album?.comments_enabled !== false;
     const messagesEnabled = album?.messages_enabled !== false;
     const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
+    const [photoPins, setPhotoPins] = useState([]);
     const [sidebarTab, setSidebarTab] = useState('comments');
     const [sidebarExpanded, setSidebarExpanded] = useState(false);
+    const [editingPinId, setEditingPinId] = useState(null);
+    const [editingPinMessage, setEditingPinMessage] = useState('');
 
     const loadSpreadComments = useCallback(async () => {
         if (!albumId || !commentsEnabled) return;
@@ -77,6 +90,18 @@ export default function AlbumPreview({
     useEffect(() => {
         loadSpreadComments();
     }, [loadSpreadComments]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const loadPins = () => setPhotoPins(getPhotoPins(albumId));
+        loadPins();
+        const onPinsChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            loadPins();
+        };
+        window.addEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
+        return () => window.removeEventListener(PHOTO_PINS_CHANGED_EVENT, onPinsChanged);
+    }, [albumId]);
 
     useEffect(() => {
         if (!albumId || !commentsEnabled) return undefined;
@@ -99,7 +124,28 @@ export default function AlbumPreview({
         spreadIndex <= 0
             ? 'Cover'
             : `Spread ${spreadIndex} of ${Math.max(0, spreadCount - 1)}`;
-    const spreadComments = spreadCommentsBySpread?.[spreadIndex] || [];
+    const photoCommentItems = useMemo(
+        () =>
+            (photoPins || [])
+                .map((pin) => {
+                    const pinSpreadIndex = pageToSpreadIndex(pin.pageNum, {
+                        showCover: true,
+                        totalPages,
+                    });
+                    const pinSpreadLabel = pinSpreadIndex <= 0 ? 'Cover' : `Spread ${pinSpreadIndex}`;
+                    return {
+                        ...pin,
+                        spreadIndex: pinSpreadIndex,
+                        spreadLabel: pinSpreadLabel,
+                    };
+                })
+                .sort(
+                    (a, b) =>
+                        new Date(b.createdAt || 0).getTime() -
+                        new Date(a.createdAt || 0).getTime()
+                ),
+        [photoPins, totalPages]
+    );
     const albumCommentCount = useMemo(
         () =>
             countMeaningfulComments(
@@ -113,6 +159,18 @@ export default function AlbumPreview({
         setSidebarTab(tab);
         setSidebarExpanded((prev) => (tab === sidebarTab ? !prev : true));
     }, [sidebarTab]);
+
+    const jumpToSpread = useCallback(
+        (targetSpreadIndex) => {
+            const targetPage = spreadIndexToPage(targetSpreadIndex, {
+                showCover: true,
+                totalPages,
+            });
+            setBookPage(targetPage);
+            onPageChange?.(targetPage);
+        },
+        [onPageChange, totalPages]
+    );
 
     return (
         <div className="av-page av-page--preview av-page--gallery-proof av-page--with-comments">
@@ -177,21 +235,105 @@ export default function AlbumPreview({
                                             {albumCommentCount} comment{albumCommentCount === 1 ? '' : 's'} in album
                                         </p>
                                         <div className="av-preview-sidebar-comments">
-                                            {spreadComments.length === 0 ? (
+                                            {photoCommentItems.length === 0 ? (
                                                 <p className="av-preview-sidebar-text">
-                                                    No comments on this spread yet.
+                                                    No photo comments yet.
                                                 </p>
                                             ) : (
-                                                spreadComments.map((comment) => (
-                                                    <article key={comment.id} className="av-preview-sidebar-comment">
-                                                        <p className="av-preview-sidebar-comment-author">
-                                                            {comment.author_name}
-                                                        </p>
-                                                        <p className="av-preview-sidebar-comment-body">
-                                                            {comment.body}
-                                                        </p>
-                                                    </article>
-                                                ))
+                                                <>
+                                                    {photoCommentItems.map((pin) => (
+                                                        <article
+                                                            key={pin.id}
+                                                            className="av-preview-sidebar-comment av-preview-sidebar-comment--pin"
+                                                        >
+                                                            {editingPinId === pin.id ? (
+                                                                <div className="av-preview-sidebar-comment-edit">
+                                                                    <p className="av-preview-sidebar-comment-author">
+                                                                        Photo comment · {pin.spreadLabel}
+                                                                    </p>
+                                                                    <textarea
+                                                                        className="av-preview-sidebar-comment-input"
+                                                                        rows={3}
+                                                                        value={editingPinMessage}
+                                                                        onChange={(e) =>
+                                                                            setEditingPinMessage(e.target.value)
+                                                                        }
+                                                                    />
+                                                                    <div className="av-preview-sidebar-comment-actions">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="av-preview-sidebar-comment-action"
+                                                                            onClick={() => {
+                                                                                setEditingPinId(null);
+                                                                                setEditingPinMessage('');
+                                                                            }}
+                                                                        >
+                                                                            Cancel
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="av-preview-sidebar-comment-action av-preview-sidebar-comment-action--primary"
+                                                                            onClick={() => {
+                                                                                const updated = updatePhotoPin(
+                                                                                    albumId,
+                                                                                    pin.id,
+                                                                                    {
+                                                                                        message:
+                                                                                            editingPinMessage,
+                                                                                    }
+                                                                                );
+                                                                                if (updated) {
+                                                                                    setEditingPinId(null);
+                                                                                    setEditingPinMessage('');
+                                                                                }
+                                                                            }}
+                                                                        >
+                                                                            Save
+                                                                        </button>
+                                                                    </div>
+                                                                </div>
+                                                            ) : (
+                                                                <>
+                                                                    <button
+                                                                        type="button"
+                                                                        className="av-preview-sidebar-comment-link"
+                                                                        onClick={() => jumpToSpread(pin.spreadIndex)}
+                                                                    >
+                                                                        <p className="av-preview-sidebar-comment-author">
+                                                                            Photo comment · {pin.spreadLabel}
+                                                                        </p>
+                                                                        <p className="av-preview-sidebar-comment-body">
+                                                                            {pin.message}
+                                                                        </p>
+                                                                    </button>
+                                                                    <div className="av-preview-sidebar-comment-actions">
+                                                                        <button
+                                                                            type="button"
+                                                                            className="av-preview-sidebar-comment-action"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                setEditingPinId(pin.id);
+                                                                                setEditingPinMessage(pin.message);
+                                                                            }}
+                                                                        >
+                                                                            Edit
+                                                                        </button>
+                                                                        <button
+                                                                            type="button"
+                                                                            className="av-preview-sidebar-comment-delete"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                removePhotoPin(albumId, pin.id);
+                                                                            }}
+                                                                        >
+                                                                            Delete
+                                                                        </button>
+                                                                    </div>
+                                                                </>
+                                                            )}
+                                                        </article>
+                                                    ))}
+                                                </>
                                             )}
                                         </div>
                                     </>

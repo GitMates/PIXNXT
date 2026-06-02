@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-function PinIcon({ className }) {
+function CommentIcon({ className }) {
     return (
         <svg
             className={className}
@@ -24,7 +24,7 @@ function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
             <button
                 type="button"
                 className="ab-photo-pin-marker"
-                aria-label="View pin note"
+                aria-label="View comment"
                 aria-expanded={open}
                 onClick={(e) => {
                     e.stopPropagation();
@@ -32,7 +32,7 @@ function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
                 }}
             >
                 <span className="ab-photo-pin-marker-body">
-                    <PinIcon className="ab-photo-pin-marker-icon" />
+                    <CommentIcon className="ab-photo-pin-marker-icon" />
                 </span>
                 <span className="ab-photo-pin-marker-tail" aria-hidden />
             </button>
@@ -41,9 +41,9 @@ function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
                     className="ab-photo-pin-popover"
                     onClick={(e) => e.stopPropagation()}
                     role="dialog"
-                    aria-label="Pin note"
+                    aria-label="Comment"
                 >
-                    <span className="ab-photo-pin-popover-label">Note</span>
+                    <span className="ab-photo-pin-popover-label">Comment</span>
                     <p className="ab-photo-pin-message">{pin.message}</p>
                     {allowRemove && (
                         <button
@@ -109,12 +109,12 @@ export default function AlbumPhotoPinLayer({
             onKeyDown={undefined}
             role={pinModeActive && hasPhoto ? 'button' : undefined}
             tabIndex={pinModeActive && hasPhoto ? 0 : undefined}
-            aria-label={pinModeActive && hasPhoto ? 'Click to place a pin' : undefined}
+            aria-label={pinModeActive && hasPhoto ? 'Click to place a comment' : undefined}
         >
             {children}
             {pinModeActive && hasPhoto && (
                 <div className="ab-pin-placement-overlay" aria-hidden>
-                    <span className="ab-pin-placement-hint">Click to place pin</span>
+                    <span className="ab-pin-placement-hint">Click to place comment</span>
                 </div>
             )}
             {showTools && (
@@ -144,8 +144,8 @@ export default function AlbumPhotoPinLayer({
                                 onActivatePinMode();
                             }}
                         >
-                            <PinIcon className="ab-proof-tool-pin-icon" />
-                            Pin
+                            <CommentIcon className="ab-proof-tool-pin-icon" />
+                            Comment
                         </button>
                     )}
                 </div>

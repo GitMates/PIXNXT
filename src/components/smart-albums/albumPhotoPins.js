@@ -92,6 +92,29 @@ export function removePhotoPin(albumId, pinId) {
     notify(albumId);
 }
 
+export function updatePhotoPin(albumId, pinId, patch = {}) {
+    if (!albumId || !pinId) return null;
+    const all = readAll();
+    const list = all[albumId] || [];
+    const idx = list.findIndex((p) => p.id === pinId);
+    if (idx < 0) return null;
+    const nextPin = {
+        ...list[idx],
+        ...patch,
+        message:
+            patch.message != null
+                ? String(patch.message).trim()
+                : list[idx].message,
+    };
+    if (!nextPin.message) return null;
+    const nextList = [...list];
+    nextList[idx] = nextPin;
+    all[albumId] = nextList;
+    writeAll(all);
+    notify(albumId);
+    return nextPin;
+}
+
 export function slotsMatch(a, b) {
     if (!a || !b) return false;
     return a.pageNum === b.pageNum && (a.cellId ?? 0) === (b.cellId ?? 0);
