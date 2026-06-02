@@ -903,7 +903,7 @@ function AccountTab({ user, showToast }) {
         if (!user?.id) return;
         
         galleryService.getPhotographerProfile(user.id)
-            .then(data => {
+            .then(async data => {
                 if (data) {
                     let sessions = data.active_sessions || [];
                     const needsRedetect = sessions.length === 0 ||
