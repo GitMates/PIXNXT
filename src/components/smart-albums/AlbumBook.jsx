@@ -709,9 +709,11 @@ const AlbumBook = ({
             }
 
             if (slotsMatch(originSlot, placement)) {
-                setSwapPinFlow((prev) =>
-                    prev ? { ...prev, originPoint: placementPoint } : prev
-                );
+                const mark = addSwapMark(album.id, originSlot, placement, {
+                    pointA: swapPinFlow.originPoint,
+                    pointB: placementPoint,
+                });
+                if (mark) setSwapPinFlow(null);
                 return;
             }
 
@@ -719,7 +721,9 @@ const AlbumBook = ({
                 pointA: swapPinFlow.originPoint,
                 pointB: placementPoint,
             });
-            if (mark) setSwapPinFlow(null);
+            if (mark) {
+                setSwapPinFlow(null);
+            }
         },
         [album?.id, swapPinFlow, swapMarkMode]
     );
@@ -859,6 +863,46 @@ const AlbumBook = ({
         ]
     );
 
+    const [placementHintPos, setPlacementHintPos] = useState(null);
+
+    const bookPlacementHint = useMemo(() => {
+        if (isPinModeOn && pinMarkMode) {
+            return { text: 'Click to place comment', swap: false };
+        }
+        const swapActive = previewMode ? swapMarkMode : Boolean(swapPinFlow);
+        if (!swapActive) return null;
+        if (swapPinFlow?.originPoint) {
+            return { text: 'Click target spot to complete swap', swap: true };
+        }
+        return { text: 'Click source spot to start swap', swap: true };
+    }, [isPinModeOn, pinMarkMode, previewMode, swapMarkMode, swapPinFlow]);
+
+    useLayoutEffect(() => {
+        if (!bookPlacementHint) {
+            setPlacementHintPos(null);
+            return undefined;
+        }
+
+        const updatePosition = () => {
+            const el = wrapRef.current;
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            if (!rect.width) return;
+            setPlacementHintPos({
+                left: rect.left + rect.width / 2,
+                top: rect.bottom + 12,
+            });
+        };
+
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+        };
+    }, [bookPlacementHint, pageIndex, bookDims]);
+
     const pages = useMemo(
         () =>
             Array.from({ length: totalPages }, (_, pageNum) => (
@@ -889,9 +933,25 @@ const AlbumBook = ({
         <div
             className={`ab-root${previewMode ? ' ab-root--preview' : ''}${
                 isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''
-            }`}
+            }${previewMode && swapMarkMode ? ' ab-root--swap-mode' : ''}`}
             ref={rootRef}
         >
+            {bookPlacementHint && placementHintPos &&
+                createPortal(
+                    <div
+                        className={`ab-pin-placement-floating${
+                            bookPlacementHint.swap ? ' ab-pin-placement-floating--swap' : ''
+                        }`}
+                        style={{
+                            left: `${placementHintPos.left}px`,
+                            top: `${placementHintPos.top}px`,
+                        }}
+                        aria-live="polite"
+                    >
+                        <span className="ab-pin-placement-hint">{bookPlacementHint.text}</span>
+                    </div>,
+                    document.body
+                )}
             <button
                 type="button"
                 ref={prevNavRef}

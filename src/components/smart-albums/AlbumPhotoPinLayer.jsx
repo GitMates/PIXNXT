@@ -102,6 +102,7 @@ function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
 export default function AlbumPhotoPinLayer({
     className = '',
     hasPhoto = false,
+    swapPinPlacementEnabled = null,
     pinModeActive = false,
     proofToolsEnabled = false,
     proofToolsHover = true,
@@ -111,6 +112,7 @@ export default function AlbumPhotoPinLayer({
     swapPinModeActive = false,
     swapPinTargetStep = false,
     swapPinHint = '',
+    renderPlacementHint = false,
     onPlaceSwapPin,
     swapPins = [],
     onActivatePinMode,
@@ -124,6 +126,11 @@ export default function AlbumPhotoPinLayer({
     const layerRef = React.useRef(null);
     const [hintPosition, setHintPosition] = useState(null);
 
+    const canPlaceSwapPin =
+        swapPinPlacementEnabled != null
+            ? swapPinPlacementEnabled
+            : swapPinModeActive && hasPhoto;
+
     const showTools =
         proofToolsHover &&
         proofToolsEnabled &&
@@ -133,7 +140,13 @@ export default function AlbumPhotoPinLayer({
         (canSwap || onActivatePinMode || onActivateSwapPinMode);
 
     const handlePlaceClick = (e) => {
-        if (!hasPhoto || !layerRef.current) return;
+        if (
+            (!hasPhoto && !canPlaceSwapPin) ||
+            (pinModeActive && !hasPhoto) ||
+            !layerRef.current
+        ) {
+            return;
+        }
         e.stopPropagation();
         e.preventDefault();
         const rect = layerRef.current.getBoundingClientRect();
@@ -147,14 +160,16 @@ export default function AlbumPhotoPinLayer({
         if (pinModeActive) onPlacePin?.(xPct, yPct);
     };
 
-    const placementHint = swapPinHint
-        || (swapPinModeActive && hasPhoto
-            ? swapPinTargetStep
-                ? 'Click target spot to complete swap'
-                : 'Click source spot to start swap'
-            : pinModeActive && hasPhoto
-              ? 'Click to place comment'
-              : '');
+    const placementHint = renderPlacementHint
+        ? swapPinHint ||
+          (swapPinModeActive && canPlaceSwapPin
+              ? swapPinTargetStep
+                  ? 'Click target spot to complete swap'
+                  : 'Click source spot to start swap'
+              : pinModeActive && hasPhoto
+                ? 'Click to place comment'
+                : '')
+        : '';
 
     useLayoutEffect(() => {
         if (!placementHint || !layerRef.current) {
@@ -190,14 +205,24 @@ export default function AlbumPhotoPinLayer({
             className={`ab-photo-pin-layer${
                 pinModeActive && hasPhoto ? ' ab-photo-pin-layer--placing' : ''
             }${
-                swapPinModeActive && hasPhoto ? ' ab-photo-pin-layer--placing-swap' : ''
+                swapPinModeActive && canPlaceSwapPin ? ' ab-photo-pin-layer--placing-swap' : ''
             }${showTools ? ' ab-photo-pin-layer--tools' : ''}${className ? ` ${className}` : ''}`}
-            onClick={(pinModeActive || swapPinModeActive) && hasPhoto ? handlePlaceClick : undefined}
+            onClick={
+                (pinModeActive && hasPhoto) || (swapPinModeActive && canPlaceSwapPin)
+                    ? handlePlaceClick
+                    : undefined
+            }
             onKeyDown={undefined}
-            role={(pinModeActive || swapPinModeActive) && hasPhoto ? 'button' : undefined}
-            tabIndex={(pinModeActive || swapPinModeActive) && hasPhoto ? 0 : undefined}
+            role={
+                (pinModeActive && hasPhoto) || (swapPinModeActive && canPlaceSwapPin)
+                    ? 'button'
+                    : undefined
+            }
+            tabIndex={
+                (pinModeActive && hasPhoto) || (swapPinModeActive && canPlaceSwapPin) ? 0 : undefined
+            }
             aria-label={
-                swapPinModeActive && hasPhoto
+                swapPinModeActive && canPlaceSwapPin
                     ? 'Click to place a swap pin'
                     : pinModeActive && hasPhoto
                       ? 'Click to place a comment'
