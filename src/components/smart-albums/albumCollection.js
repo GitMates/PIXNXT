@@ -1,6 +1,7 @@
 import { storageService } from '../../services/storage.service';
 import { expandUploadFilesToImages, isImageFile, isPdfFile } from '../../lib/pdfToImages';
 import { compressImageForUpload } from '../../lib/prepareUploadFile';
+import { moveFileInOrder } from '../../lib/uploadFileOrder';
 import { supabase } from '../../lib/supabase/client';
 import {
     getRemotePreviewData,
@@ -138,8 +139,15 @@ async function getPhotographerPathFolder(photographerId) {
     }
 }
 
-async function uploadCollectionImage({ albumId, photographerId, image, index, pathContext }) {
-    const file = await dataUrlToFile(image.dataUrl, image.name || `photo-${index + 1}`);
+async function uploadCollectionImage({
+    albumId,
+    photographerId,
+    image,
+    sortIndex,
+    batchUploadTs,
+    pathContext,
+}) {
+    const file = await dataUrlToFile(image.dataUrl, image.name || `photo-${sortIndex + 1}`);
     const resolvedPathContext =
         pathContext ||
         (await Promise.all([
@@ -151,36 +159,95 @@ async function uploadCollectionImage({ albumId, photographerId, image, index, pa
         })));
     return uploadCollectionFile({
         file,
-        index,
+        sortIndex,
+        batchUploadTs,
         pathContext: resolvedPathContext,
     });
 }
 
-async function uploadCollectionFile({ file, index, pathContext }) {
+async function uploadCollectionFile({ file, sortIndex, batchUploadTs, pathContext }) {
     const { photographerFolder, albumFolder } = pathContext;
     const path = [
         'users',
         photographerFolder,
         'smart-album',
         albumFolder,
-        `${Date.now()}-${index + 1}-${safeSegment(file.name)}`,
+        `${batchUploadTs}-${sortIndex + 1}-${safeSegment(file.name)}`,
     ].join('/');
     return storageService.upload(path, file);
 }
 
+function readSortOrder(item, fallbackIndex = 0) {
+    if (typeof item?.sortOrder === 'number' && Number.isFinite(item.sortOrder)) {
+        return item.sortOrder;
+    }
+    const parsed = Number(item?.sortOrder);
+    if (Number.isFinite(parsed)) return parsed;
+    const fromPath = storagePathSortKey(item?.storagePath);
+    if (fromPath) return fromPath[0] * 100000 + fromPath[1];
+    if (typeof item?.createdAt === 'number' && Number.isFinite(item.createdAt)) {
+        return item.createdAt;
+    }
+    return fallbackIndex;
+}
+
+function sortCollectionItems(items) {
+    if (!items?.length) return [];
+    return [...items]
+        .map((item, index) => ({
+            ...item,
+            sortOrder: readSortOrder(item, index),
+        }))
+        .sort((a, b) => {
+            const ao = a.sortOrder;
+            const bo = b.sortOrder;
+            if (ao !== bo) return ao - bo;
+            return String(a.id || '').localeCompare(String(b.id || ''));
+        });
+}
+
+function persistCollectionBucket(all, albumId, bucket) {
+    const nextBucket = {
+        ...bucket,
+        items: sortCollectionItems(bucket.items || []),
+        __revision: (bucket.__revision || 0) + 1,
+    };
+    all[albumId] = nextBucket;
+    writeAll(all);
+    return nextBucket;
+}
+
+function nextCollectionSortOrder(items) {
+    let max = -1;
+    for (const item of items || []) {
+        if (typeof item.sortOrder === 'number') max = Math.max(max, item.sortOrder);
+        else if (typeof item.createdAt === 'number') max = Math.max(max, item.createdAt);
+    }
+    return max + 1;
+}
+
+function storagePathSortKey(key) {
+    const base = String(key || '').split('/').pop() || '';
+    const match = base.match(/^(\d+)-(\d+)-/);
+    if (!match) return null;
+    return [Number(match[1]), Number(match[2])];
+}
+
 async function buildCollectionWorkItems(files) {
     const batches = await Promise.all(
-        (files || []).map(async (file) => {
+        (files || []).map(async (file, fileIndex) => {
             try {
                 if (isImageFile(file)) {
-                    return [{ kind: 'file', file, name: file.name || 'Photo' }];
+                    return [{ kind: 'file', file, name: file.name || 'Photo', fileIndex }];
                 }
                 if (isPdfFile(file)) {
                     const pages = await expandUploadFilesToImages([file]);
-                    return pages.map((page) => ({
+                    return pages.map((page, pageIndex) => ({
                         kind: 'dataUrl',
                         name: page.name,
                         dataUrl: page.dataUrl,
+                        fileIndex,
+                        pageIndex,
                     }));
                 }
                 return [];
@@ -190,17 +257,17 @@ async function buildCollectionWorkItems(files) {
             }
         })
     );
-    return batches.flat();
+    return batches.flat().map((item, sortIndex) => ({ ...item, sortIndex }));
 }
 
 export function getAlbumCollection(albumId) {
     if (!albumId) return [];
     const list = readAll()[albumId];
     const localItems = Array.isArray(list?.items) ? list.items : [];
-    if (localItems.length > 0) return localItems;
+    if (localItems.length > 0) return sortCollectionItems(localItems);
 
     const remote = getRemotePreviewData(albumId);
-    return Array.isArray(remote?.collection) ? remote.collection : [];
+    return sortCollectionItems(Array.isArray(remote?.collection) ? remote.collection : []);
 }
 
 export function getAlbumCollectionRevision(albumId) {
@@ -222,12 +289,15 @@ function displayNameFromStoragePath(storagePath) {
 }
 
 function collectionItemFromR2Key(key, index) {
+    const sortKey = storagePathSortKey(key);
+    const sortOrder = sortKey ? sortKey[0] * 100000 + sortKey[1] : index;
     return {
         id: stableItemIdFromPath(key),
         name: displayNameFromStoragePath(key),
         dataUrl: storageService.getPublicUrl(key),
         storagePath: key,
-        createdAt: Date.now() + index,
+        sortOrder,
+        createdAt: sortOrder,
     };
 }
 
@@ -258,9 +328,10 @@ function mergeCloudCollectionToLocal(albumId, cloudItems, revision = 0) {
         return false;
     }
 
-    bucket.__revision = Math.max(bucket.__revision || 0, revision || 0, Date.now());
-    all[albumId] = bucket;
-    writeAll(all);
+    persistCollectionBucket(all, albumId, {
+        ...bucket,
+        __revision: Math.max(bucket.__revision || 0, revision || 0, Date.now()),
+    });
     return true;
 }
 
@@ -274,7 +345,16 @@ async function listR2CollectionItems(albumId, photographerId) {
         const keys = await storageService.listByPrefix(prefix);
         return keys
             .filter((key) => /\.(jpe?g|png|webp|gif)$/i.test(key))
-            .sort()
+            .sort((a, b) => {
+                const ka = storagePathSortKey(a);
+                const kb = storagePathSortKey(b);
+                if (ka && kb) {
+                    const byBatch = ka[0] - kb[0];
+                    if (byBatch !== 0) return byBatch;
+                    return ka[1] - kb[1];
+                }
+                return a.localeCompare(b);
+            })
             .map((key, index) => collectionItemFromR2Key(key, index));
     } catch (error) {
         console.warn('Could not list R2 album collection:', error?.message || error);
@@ -388,6 +468,8 @@ export async function addFilesToAlbumCollection(
     ]);
 
     const added = [];
+    const batchUploadTs = Date.now();
+    const baseSortOrder = nextCollectionSortOrder(bucket.items);
     let skippedDuplicates = 0;
     const duplicateItems = [];
     const knownHashes = skipDuplicateCheck
@@ -426,7 +508,7 @@ export async function addFilesToAlbumCollection(
                 name: item.name,
                 file,
                 contentHash,
-                index,
+                sortIndex: item.sortIndex,
             };
         }
 
@@ -436,7 +518,7 @@ export async function addFilesToAlbumCollection(
             name: item.name,
             dataUrl: item.dataUrl,
             contentHash,
-            index,
+            sortIndex: item.sortIndex,
         };
     });
 
@@ -473,18 +555,21 @@ export async function addFilesToAlbumCollection(
         uploadQueue,
         UPLOAD_CONCURRENCY,
         async (entry) => {
+            const sortOrder = baseSortOrder + entry.sortIndex;
             const upload =
                 entry.kind === 'file'
                     ? await uploadCollectionFile({
                           file: entry.file,
-                          index: entry.index,
+                          sortIndex: entry.sortIndex,
+                          batchUploadTs,
                           pathContext,
                       })
                     : await uploadCollectionImage({
                           albumId,
                           photographerId,
                           image: { name: entry.name, dataUrl: entry.dataUrl },
-                          index: entry.index,
+                          sortIndex: entry.sortIndex,
+                          batchUploadTs,
                           pathContext,
                       });
             uploadCompleted += 1;
@@ -501,12 +586,17 @@ export async function addFilesToAlbumCollection(
                 storagePath: upload.path,
                 contentHash: entry.contentHash,
                 nameKey: entry.nameKey,
-                createdAt: Date.now(),
+                sortOrder,
+                createdAt: batchUploadTs + entry.sortIndex,
             };
         }
     );
 
-    for (const item of uploadedItems) {
+    const sortedUploads = uploadedItems
+        .filter(Boolean)
+        .sort((a, b) => readSortOrder(a) - readSortOrder(b));
+
+    for (const item of sortedUploads) {
         const { nameKey, ...stored } = item;
         bucket.items.push(stored);
         added.push(stored);
@@ -518,11 +608,30 @@ export async function addFilesToAlbumCollection(
     added.duplicateItems = duplicateItems;
 
     if (added.length > 0 || skippedDuplicates > 0) {
-        bucket.__revision = (bucket.__revision || 0) + 1;
-        all[albumId] = bucket;
-        writeAll(all);
+        persistCollectionBucket(all, albumId, bucket);
     }
     return added;
+}
+
+/** Reorder collection thumbnails (updates sortOrder for grid + auto-place). */
+export function reorderCollectionItems(albumId, fromIndex, toIndex) {
+    if (!albumId) return false;
+    const all = readAll();
+    const bucket = all[albumId];
+    if (!bucket?.items?.length) return false;
+
+    const sorted = sortCollectionItems(bucket.items);
+    const reordered = moveFileInOrder(sorted, fromIndex, toIndex);
+    if (reordered === sorted) return false;
+
+    persistCollectionBucket(all, albumId, {
+        ...bucket,
+        items: reordered.map((item, index) => ({
+            ...item,
+            sortOrder: index,
+        })),
+    });
+    return true;
 }
 
 export function getCollectionItem(albumId, itemId) {
@@ -535,8 +644,7 @@ export function removeCollectionItem(albumId, itemId) {
     if (!bucket?.items) return false;
     const next = bucket.items.filter((i) => i.id !== itemId);
     if (next.length === bucket.items.length) return false;
-    all[albumId] = { ...bucket, items: next, __revision: (bucket.__revision || 0) + 1 };
-    writeAll(all);
+    persistCollectionBucket(all, albumId, { ...bucket, items: next });
     return true;
 }
 
@@ -555,6 +663,7 @@ export async function duplicateAlbumCollection(sourceAlbumId, targetAlbumId, pho
     if (!sourceItems.length) return idMap;
 
     const newItems = [];
+    const batchUploadTs = Date.now();
     for (let i = 0; i < sourceItems.length; i += 1) {
         const item = sourceItems[i];
         const newId = nextId();
@@ -563,7 +672,8 @@ export async function duplicateAlbumCollection(sourceAlbumId, targetAlbumId, pho
         const copied = {
             id: newId,
             name: item.name || 'Photo',
-            createdAt: Date.now() + i,
+            sortOrder: typeof item.sortOrder === 'number' ? item.sortOrder : i,
+            createdAt: typeof item.createdAt === 'number' ? item.createdAt : Date.now() + i,
         };
         if (item.contentHash) copied.contentHash = item.contentHash;
 
@@ -577,7 +687,8 @@ export async function duplicateAlbumCollection(sourceAlbumId, targetAlbumId, pho
                     albumId: targetAlbumId,
                     photographerId,
                     image: { dataUrl, name: item.name },
-                    index: i,
+                    sortIndex: i,
+                    batchUploadTs,
                 });
                 copied.dataUrl = uploaded.url;
                 copied.storagePath = uploaded.path;
@@ -596,11 +707,10 @@ export async function duplicateAlbumCollection(sourceAlbumId, targetAlbumId, pho
     }
 
     const all = readAll();
-    all[targetAlbumId] = {
+    persistCollectionBucket(all, targetAlbumId, {
         items: newItems,
         __revision: Date.now(),
-    };
-    writeAll(all);
+    });
     return idMap;
 }
 

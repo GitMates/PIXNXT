@@ -33,12 +33,19 @@ function spreadStorageKey(leftPage) {
     return `spread:${leftPage}`;
 }
 
+function normalizeSpreadOpts(spreadOpts, totalPages) {
+    if (spreadOpts?.hasCovers != null || spreadOpts?.showCover != null) {
+        return { ...spreadOpts, totalPages: spreadOpts.totalPages ?? totalPages };
+    }
+    return { showCover: true, hasCovers: true, totalPages };
+}
+
 /** Primary storage key used by a slot (page index string or spread:left). */
-export function getSlotStorageDescriptor(albumId, slot, totalPages) {
+export function getSlotStorageDescriptor(albumId, slot, totalPages, spreadOpts) {
     if (!slot) return null;
+    const opts = normalizeSpreadOpts(spreadOpts, totalPages);
     const spreadLeft =
-        slot.spreadLeft ??
-        getSpreadLeftPageIndex(slot.pageNum, { showCover: true, totalPages });
+        slot.spreadLeft ?? getSpreadLeftPageIndex(slot.pageNum, opts);
 
     if (slot.pageNum === 0) {
         return { kind: 'page', key: '0', pageNum: 0, spreadLeft: 0 };
@@ -57,7 +64,7 @@ export function getSlotStorageDescriptor(albumId, slot, totalPages) {
         slot.pageNum,
         slot.cellId || 1,
         totalPages,
-        { showCover: true }
+        opts
     );
     const spreadKey = spreadStorageKey(spreadLeft);
 
@@ -78,14 +85,14 @@ export function getSlotStorageDescriptor(albumId, slot, totalPages) {
     return { kind: 'page', key: String(photoIndex), pageNum: photoIndex, spreadLeft };
 }
 
-export function slotHasPhoto(albumId, slot, totalPages) {
+export function slotHasPhoto(albumId, slot, totalPages, spreadOpts) {
     if (!albumId || !slot) return false;
     if (slot.pageNum === 0) {
         return Boolean(getPagePhotoOverride(albumId, 0) || getSpreadPhotoOverride(albumId, 0));
     }
+    const opts = normalizeSpreadOpts(spreadOpts, totalPages);
     const spreadLeft =
-        slot.spreadLeft ??
-        getSpreadLeftPageIndex(slot.pageNum, { showCover: true, totalPages });
+        slot.spreadLeft ?? getSpreadLeftPageIndex(slot.pageNum, opts);
     if (slot.whole) {
         return Boolean(getSpreadPhotoOverride(albumId, spreadLeft));
     }
@@ -93,7 +100,7 @@ export function slotHasPhoto(albumId, slot, totalPages) {
         slot.pageNum,
         slot.cellId || 1,
         totalPages,
-        { showCover: true }
+        opts
     );
     return Boolean(
         getPagePhotoOverride(albumId, photoIndex) ||
@@ -209,11 +216,11 @@ function writeTransformPair(albumId, albumT, allT, keyA, keyB, valA, valB) {
 }
 
 /** Swap placed photos (and pan/zoom) between two slots. */
-export function swapPhotoSlots(albumId, slotA, slotB, totalPages) {
+export function swapPhotoSlots(albumId, slotA, slotB, totalPages, spreadOpts) {
     if (!albumId || !slotA || !slotB) return false;
 
-    const descA = getSlotStorageDescriptor(albumId, slotA, totalPages);
-    const descB = getSlotStorageDescriptor(albumId, slotB, totalPages);
+    const descA = getSlotStorageDescriptor(albumId, slotA, totalPages, spreadOpts);
+    const descB = getSlotStorageDescriptor(albumId, slotB, totalPages, spreadOpts);
     if (!descA || !descB) return false;
 
     const all = readAll();

@@ -1,5 +1,8 @@
 import { expandUploadFilesToImages } from '../../lib/pdfToImages';
+import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
+    enumerateAutoPlacePageTargets,
+    getAlbumSpreadOptions,
     getEndSpreadPageIndices,
     getLastSpreadInfo,
     isCoverInsidePage,
@@ -591,20 +594,47 @@ export function placeCollectionItemOnPages(
     return placed;
 }
 
+/** Fill spreads from collection order (1st upload → first slot, etc.). */
+export function applyCollectionOrderToPages(albumId, album) {
+    if (!albumId || !album) return 0;
+    const spreadOpts = getAlbumSpreadOptions(album);
+    const items = getAlbumCollection(albumId);
+    if (!items.length) return 0;
+
+    return autoPlaceCollectionItems(
+        albumId,
+        items.map((item) => item.id),
+        {
+            totalPages: album.page_count ?? 21,
+            gridLayout: album.grid_layout || 'two-page',
+            showCover: spreadOpts.showCover,
+            hasCovers: spreadOpts.hasCovers,
+        }
+    );
+}
+
 export function autoPlaceCollectionItems(
     albumId,
     collectionItemIds,
-    { totalPages = 21, gridLayout, showCover = true } = {}
+    { totalPages = 21, gridLayout, showCover = true, hasCovers } = {}
 ) {
     if (!albumId || !collectionItemIds?.length) return 0;
 
-    const startPage = showCover ? 1 : 0;
+    const spreadOpts = {
+        showCover,
+        hasCovers: hasCovers ?? showCover,
+        totalPages,
+    };
 
-    if (gridLayout === 'whole-spread') {
+    if (gridLayout === 'whole-spread' || String(gridLayout || '').startsWith('whole-spread')) {
+        const targets = enumerateAutoPlacePageTargets(totalPages, {
+            showCover,
+            hasCovers: spreadOpts.hasCovers,
+            gridLayout: 'whole-spread',
+        });
         let placed = 0;
-        for (let i = 0; i < collectionItemIds.length; i += 1) {
-            const leftPage = startPage + i * 2;
-            if (leftPage >= totalPages) break;
+        for (let i = 0; i < Math.min(collectionItemIds.length, targets.length); i += 1) {
+            const leftPage = targets[i];
             const rightPage = leftPage + 1 < totalPages ? leftPage + 1 : null;
             if (
                 setSpreadPhotoFromCollectionItem(albumId, leftPage, collectionItemIds[i], rightPage, {
@@ -617,11 +647,16 @@ export function autoPlaceCollectionItems(
         return placed;
     }
 
+    const pageTargets = enumerateAutoPlacePageTargets(totalPages, {
+        showCover,
+        hasCovers: spreadOpts.hasCovers,
+        gridLayout: 'two-page',
+    });
+
     let placed = 0;
-    const slotCount = Math.max(0, totalPages - startPage);
-    for (let i = 0; i < Math.min(collectionItemIds.length, slotCount); i += 1) {
-        const page = startPage + i;
-        const spreadLeftPage = page % 2 === 1 ? page : page - 1;
+    for (let i = 0; i < Math.min(collectionItemIds.length, pageTargets.length); i += 1) {
+        const page = pageTargets[i];
+        const spreadLeftPage = getSpreadLeftPageIndex(page, spreadOpts);
         if (
             setPagePhotoFromCollectionItem(albumId, page, collectionItemIds[i], {
                 clearSpreadForLeft: spreadLeftPage,

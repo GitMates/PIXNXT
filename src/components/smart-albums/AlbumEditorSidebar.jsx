@@ -1,4 +1,5 @@
-import React, { useRef } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
+import { filesFromInput } from '../../lib/uploadFileOrder';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
 import { countUnseenPhotoPins } from './albumPhotoPins';
 import { countUnseenSwapMarks } from './albumSwapMarks';
@@ -112,18 +113,46 @@ export default function AlbumEditorSidebar({
     albumId = null,
     onNavigateToPin = null,
     onNavigateToSwapSlotKey = null,
+    onReorderCollectionItem = null,
+    onApplyCollectionOrder = null,
     proofSeenTick = 0,
 }) {
     const fileRef = useRef(null);
+    const collectionDragFromRef = useRef(null);
+    const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
     void proofSeenTick;
     const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
     const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
 
     const handleFiles = (e) => {
-        const files = Array.from(e.target.files || []);
+        const files = filesFromInput(e.target.files);
         if (files.length) onUploadToCollection?.(files);
         e.target.value = '';
     };
+
+    const handleCollectionDragStart = useCallback((index) => {
+        collectionDragFromRef.current = index;
+    }, []);
+
+    const handleCollectionDragOver = useCallback((index) => {
+        setCollectionDragOverIndex(index);
+    }, []);
+
+    const handleCollectionDrop = useCallback(
+        (toIndex) => {
+            const fromIndex = collectionDragFromRef.current;
+            collectionDragFromRef.current = null;
+            setCollectionDragOverIndex(null);
+            if (fromIndex == null || fromIndex === toIndex) return;
+            onReorderCollectionItem?.(fromIndex, toIndex);
+        },
+        [onReorderCollectionItem]
+    );
+
+    const handleCollectionDragEnd = useCallback(() => {
+        collectionDragFromRef.current = null;
+        setCollectionDragOverIndex(null);
+    }, []);
 
     return (
         <aside className="ae-sidebar">
@@ -271,21 +300,57 @@ export default function AlbumEditorSidebar({
                             <>
                                 <p className="ae-collection-count">
                                     {collectionItems.length} photo
-                                    {collectionItems.length === 1 ? '' : 's'} ready
+                                    {collectionItems.length === 1 ? '' : 's'} ready · order 1–
+                                    {collectionItems.length}
                                 </p>
                                 <div className="ae-collection-grid" role="list">
-                                    {collectionItems.map((item) => (
+                                    {collectionItems.map((item, index) => (
                                         <button
                                             key={item.id}
                                             type="button"
-                                            className="ae-collection-thumb"
+                                            className={`ae-collection-thumb${
+                                                collectionDragOverIndex === index
+                                                    ? ' ae-collection-thumb--drag-over'
+                                                    : ''
+                                            }`}
+                                            draggable
                                             onClick={() => onPlaceCollectionItem?.(item.id)}
-                                            title={item.name}
+                                            onDragStart={(e) => {
+                                                e.stopPropagation();
+                                                e.dataTransfer.effectAllowed = 'move';
+                                                handleCollectionDragStart(index);
+                                            }}
+                                            onDragOver={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleCollectionDragOver(index);
+                                            }}
+                                            onDrop={(e) => {
+                                                e.preventDefault();
+                                                e.stopPropagation();
+                                                handleCollectionDrop(index);
+                                            }}
+                                            onDragEnd={handleCollectionDragEnd}
+                                            title={`${index + 1}. ${item.name || 'Photo'}`}
                                         >
-                                            <img src={item.dataUrl} alt="" loading="lazy" />
+                                            <span className="ae-collection-order" aria-hidden>
+                                                {index + 1}
+                                            </span>
+                                            <img src={item.dataUrl} alt="" loading="lazy" draggable={false} />
                                         </button>
                                     ))}
                                 </div>
+                                <p className="ae-collection-order-note">
+                                    Order 1 is your first upload — it fills the first spread slot.
+                                    Drag thumbnails to reorder; spreads update automatically.
+                                </p>
+                                <button
+                                    type="button"
+                                    className="ae-btn-apply-order"
+                                    onClick={() => onApplyCollectionOrder?.()}
+                                >
+                                    Apply collection order to spreads
+                                </button>
                             </>
                         )}
                     </>

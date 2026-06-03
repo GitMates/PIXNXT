@@ -63,7 +63,10 @@ export function computePageCountFromPhotoCount(
         if (whole) {
             pages = n === 1 ? MIN_ALBUM_PAGES : Math.max(MIN_ALBUM_PAGES, 2 * n + 1);
         } else {
-            pages = Math.max(MIN_ALBUM_PAGES, n);
+            // Cover spread (2 pages) + inner pairs for remaining photos + end-cover spread (2 pages).
+            const innerPhotoSlots = Math.max(0, n - 1);
+            const innerSpreadPages = 2 * Math.ceil(innerPhotoSlots / 2);
+            pages = Math.max(MIN_ALBUM_PAGES, 2 + innerSpreadPages + 2);
         }
     } else if (whole) {
         pages = Math.max(2, n * 2);

@@ -2,10 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback, memo } from '
 import { useNavigate } from 'react-router-dom';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { addFilesToAlbumCollection } from '../../components/smart-albums/albumCollection';
-import {
-    autoPlaceCollectionItems,
-    setPagePhotoFromCollectionItem,
-} from '../../components/smart-albums/albumPagePhotos';
+import { autoPlaceCollectionItems } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
@@ -17,6 +14,11 @@ import {
     countExpandedUploadPhotos,
 } from './createAlbumLayout';
 import { buildPreviewThumbUrls } from './createAlbumPreviewThumbs';
+import {
+    filesFromDataTransfer,
+    filesFromInput,
+    moveFileInOrder,
+} from '../../lib/uploadFileOrder';
 import './CreateAlbum.css';
 
 const COVER_OPTIONS = [
@@ -99,7 +101,17 @@ function formatFileSize(bytes) {
     return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-const UploadPreviewCard = memo(function UploadPreviewCard({ preview, index, onRemove, animateIn }) {
+const UploadPreviewCard = memo(function UploadPreviewCard({
+    preview,
+    index,
+    onRemove,
+    animateIn,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
+    isDragOver,
+}) {
     const imgRef = useRef(null);
     const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -121,9 +133,28 @@ const UploadPreviewCard = memo(function UploadPreviewCard({ preview, index, onRe
         <figure
             className={`sa-preview-card${showSkeleton ? '' : ' sa-preview-card--ready'}${
                 animateIn ? ' sa-preview-card--animate-in' : ''
-            }`}
+            }${isDragOver ? ' sa-preview-card--drag-over' : ''}`}
             style={animateIn ? { animationDelay: `${Math.min(index, 8) * 35}ms` } : undefined}
+            draggable
+            onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(preview.index));
+                onDragStart?.(preview.index);
+            }}
+            onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                onDragOver?.(preview.index);
+            }}
+            onDrop={(e) => {
+                e.preventDefault();
+                onDrop?.(preview.index);
+            }}
+            onDragEnd={() => onDragEnd?.()}
         >
+            <span className="sa-preview-order" aria-hidden>
+                {index + 1}
+            </span>
             <button
                 type="button"
                 className="sa-preview-remove"
@@ -196,6 +227,9 @@ const CreateAlbum = () => {
 
     const [photoFiles, setPhotoFiles] = useState([]);
     const [photoPreviews, setPhotoPreviews] = useState([]);
+    const [dragOverIndex, setDragOverIndex] = useState(null);
+    const [uploadDropActive, setUploadDropActive] = useState(false);
+    const dragFromIndexRef = useRef(null);
     const [expandedPhotoCount, setExpandedPhotoCount] = useState(0);
     const [photoCountBusy, setPhotoCountBusy] = useState(false);
     const [gridSizeBusy, setGridSizeBusy] = useState(false);
@@ -225,7 +259,7 @@ const CreateAlbum = () => {
         const abort = new AbortController();
         const previews = photoFiles.map((file, index) => ({
             index,
-            id: `${file.name}-${file.lastModified}-${file.size}-${index}`,
+            id: `${file.name}-${file.lastModified}-${file.size}`,
             name: file.name,
             size: file.size,
             isPdf:
@@ -308,10 +342,45 @@ const CreateAlbum = () => {
     const analyzingUploads = photoCountBusy || gridSizeBusy;
     const animatePreviewCards = photoPreviews.length <= 12;
 
+    const applyPhotoFiles = useCallback((files) => {
+        if (files?.length) setPhotoFiles(files);
+    }, []);
+
     const handlePhotoChange = (e) => {
-        setPhotoFiles(Array.from(e.target.files || []));
+        applyPhotoFiles(filesFromInput(e.target.files));
         e.target.value = '';
     };
+
+    const handleUploadDrop = useCallback(
+        (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setUploadDropActive(false);
+            applyPhotoFiles(filesFromDataTransfer(e.dataTransfer));
+        },
+        [applyPhotoFiles]
+    );
+
+    const handlePreviewDragStart = useCallback((fromIndex) => {
+        dragFromIndexRef.current = fromIndex;
+    }, []);
+
+    const handlePreviewDragOver = useCallback((overIndex) => {
+        setDragOverIndex(overIndex);
+    }, []);
+
+    const handlePreviewDrop = useCallback((toIndex) => {
+        const fromIndex = dragFromIndexRef.current;
+        dragFromIndexRef.current = null;
+        setDragOverIndex(null);
+        if (fromIndex == null || fromIndex === toIndex) return;
+        setPhotoFiles((prev) => moveFileInOrder(prev, fromIndex, toIndex));
+    }, []);
+
+    const handlePreviewDragEnd = useCallback(() => {
+        dragFromIndexRef.current = null;
+        setDragOverIndex(null);
+    }, []);
 
     const handleRemovePhoto = (indexToRemove) => {
         setPhotoFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
@@ -413,28 +482,16 @@ const CreateAlbum = () => {
                 });
 
                 const items = added.filter(Boolean);
-                if (includeCovers && items.length > 0) {
-                    setPagePhotoFromCollectionItem(album.id, 0, items[0].id);
-                    autoPlaceCollectionItems(
-                        album.id,
-                        items.slice(1).map((item) => item.id),
-                        {
-                            totalPages: album.page_count || finalPageCount,
-                            gridLayout: finalGridLayout,
-                            showCover: true,
-                        }
-                    );
-                } else {
-                    autoPlaceCollectionItems(
-                        album.id,
-                        items.map((item) => item.id),
-                        {
-                            totalPages: album.page_count || finalPageCount,
-                            gridLayout: finalGridLayout,
-                            showCover: false,
-                        }
-                    );
-                }
+                autoPlaceCollectionItems(
+                    album.id,
+                    items.map((item) => item.id),
+                    {
+                        totalPages: album.page_count || finalPageCount,
+                        gridLayout: finalGridLayout,
+                        showCover: includeCovers,
+                        hasCovers: includeCovers,
+                    }
+                );
             }
 
             setProgress({
@@ -446,7 +503,9 @@ const CreateAlbum = () => {
 
             void smartAlbumsService.syncAlbumPreviewData(user.id, album.id);
 
-            navigate(`/smart-albums/album/${album.id}`);
+            navigate(`/smart-albums/album/${album.id}`, {
+                state: { syncCollectionOrder: true },
+            });
         } catch (err) {
             console.error('Error creating album:', err);
             setError(err.message || 'Failed to create album. Please try again.');
@@ -539,7 +598,18 @@ const CreateAlbum = () => {
                                 multiple
                                 onChange={handlePhotoChange}
                             />
-                            <label className="sa-upload-card" htmlFor="album-photos">
+                            <label
+                                className={`sa-upload-card${
+                                    uploadDropActive ? ' sa-upload-card--drop-active' : ''
+                                }`}
+                                htmlFor="album-photos"
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    setUploadDropActive(true);
+                                }}
+                                onDragLeave={() => setUploadDropActive(false)}
+                                onDrop={handleUploadDrop}
+                            >
                                 <span className="sa-upload-icon">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -548,7 +618,9 @@ const CreateAlbum = () => {
                                     </svg>
                                 </span>
                                 <strong>Choose photos or PDF</strong>
-                                <small>JPG, PNG, WEBP, or PDF pages</small>
+                                <small>
+                                    JPG, PNG, WEBP, or PDF · drag from folder to keep pick order
+                                </small>
                             </label>
 
                             {photoPreviews.length > 0 ? (
@@ -614,9 +686,20 @@ const CreateAlbum = () => {
                                                 index={index}
                                                 onRemove={handleRemovePhoto}
                                                 animateIn={animatePreviewCards}
+                                                onDragStart={handlePreviewDragStart}
+                                                onDragOver={handlePreviewDragOver}
+                                                onDrop={handlePreviewDrop}
+                                                onDragEnd={handlePreviewDragEnd}
+                                                isDragOver={dragOverIndex === index}
                                             />
                                         ))}
                                     </div>
+                                    <p className="sa-upload-order-note">
+                                        {includeCovers
+                                            ? 'Order 1 → cover, 2 → spread 1 left, 3 → spread 1 right, then on.'
+                                            : 'Order 1 → spread 1 left, 2 → spread 1 right, 3 → spread 2 left, then on.'}{' '}
+                                        Drag thumbnails if the picker order is wrong.
+                                    </p>
                                 </div>
                             ) : (
                                 <p className="sa-field-note">

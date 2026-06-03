@@ -178,7 +178,12 @@ export default function AlbumPageGrid({
             }
         >
             {cells.map((cell) => {
-                const photoIndex = getProofCellPhotoIndex(pageNum, cell.id, totalPages);
+                const photoIndex = getProofCellPhotoIndex(
+                    pageNum,
+                    cell.id,
+                    totalPages,
+                    spreadCtx
+                );
                 const { src, panoramic } = resolveSlotImage(
                     albumId,
                     photoIndex,

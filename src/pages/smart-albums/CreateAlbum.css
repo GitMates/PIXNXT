@@ -246,6 +246,12 @@
   transform: translateY(-1px);
 }
 
+.sa-upload-card--drop-active {
+  border-color: #8e44ad;
+  background: #f3e8ff;
+  transform: translateY(-1px);
+}
+
 .sa-upload-icon {
   width: 46px;
   height: 46px;
@@ -439,6 +445,43 @@
   content-visibility: auto;
   contain-intrinsic-size: 168px 168px;
   contain: layout paint style;
+  cursor: grab;
+}
+
+.sa-preview-card:active {
+  cursor: grabbing;
+}
+
+.sa-preview-card--drag-over {
+  outline: 2px solid #8e44ad;
+  outline-offset: -2px;
+}
+
+.sa-preview-order {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 4;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(22, 16, 29, 0.78);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.sa-upload-order-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #6b6474;
 }
 
 .sa-preview-card--animate-in {

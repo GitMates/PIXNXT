@@ -96,11 +96,15 @@ function resolvePageValue(albumId, stored) {
 export function buildAlbumPreviewSnapshot(albumId) {
     if (!albumId) return null;
 
-    const collection = getAlbumCollection(albumId).map((item) => ({
+    const collection = getAlbumCollection(albumId).map((item, index) => ({
         id: item.id,
         name: item.name || 'Photo',
         dataUrl: item.dataUrl || null,
         storagePath: item.storagePath || null,
+        sortOrder:
+            typeof item.sortOrder === 'number' && Number.isFinite(item.sortOrder)
+                ? item.sortOrder
+                : index,
     }));
 
     const localPages = readLocalPhotos(albumId) || {};

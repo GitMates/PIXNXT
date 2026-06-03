@@ -7,6 +7,19 @@ export function getAlbumSpreadOptions(album) {
     return { showCover: hasCovers, hasCovers };
 }
 
+/** Spread layout flags plus page count (for grid / slot index helpers). */
+export function getSpreadContext(album, totalPages) {
+    return { ...getAlbumSpreadOptions(album), totalPages };
+}
+
+/** 1-based spread number for UI labels from a spread's left page index. */
+export function spreadNumberFromLeftPage(leftPage, opts = {}) {
+    const { hasCovers } = normalizeSpreadOpts(opts);
+    if (leftPage <= 0 && !hasCovers) return 1;
+    if (!hasCovers) return Math.floor(leftPage / 2) + 1;
+    return Math.floor((leftPage - 1) / 2) + 1;
+}
+
 export function normalizeSpreadOpts(opts = {}) {
     const hasCovers = opts.hasCovers ?? opts.showCover ?? true;
     return { showCover: hasCovers, hasCovers };
@@ -208,4 +221,68 @@ export function isEndHalfSpreadLeftPage(leftPage, totalPages, opts = {}) {
     if (!isEndHalfSpreadIndex(spreadIdx, totalPages, spreadOpts)) return false;
     const { left } = getSpreadPages(spreadIdx, totalPages, spreadOpts);
     return leftPage === left;
+}
+
+function isWholeSpreadLayout(gridLayout) {
+    return gridLayout === 'whole-spread' || String(gridLayout || '').startsWith('whole-spread');
+}
+
+/** Whether a page index can hold a user photo (skips end-cover blank right leaf). */
+export function isAutoPlacePhotoPage(pageNum, totalPages, opts = {}) {
+    if (pageNum < 0 || pageNum >= totalPages) return false;
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (!spreadOpts.hasCovers) return true;
+    const role = getEndSpreadPageRole(pageNum, totalPages, spreadOpts);
+    return role !== 'half-blank';
+}
+
+/**
+ * Page indices in spread order for auto-fill (cover → inner spreads → end cover).
+ * Matches what the flipbook shows so photo 1, 2, 3… align with collection order.
+ */
+export function enumerateAutoPlacePageTargets(
+    totalPages,
+    { showCover = true, hasCovers, gridLayout = 'two-page' } = {}
+) {
+    const spreadOpts = normalizeSpreadOpts({
+        showCover,
+        hasCovers: hasCovers ?? showCover,
+    });
+    const targets = [];
+    const seen = new Set();
+
+    const pushPage = (page) => {
+        if (seen.has(page) || !isAutoPlacePhotoPage(page, totalPages, spreadOpts)) return;
+        seen.add(page);
+        targets.push(page);
+    };
+
+    if (isWholeSpreadLayout(gridLayout)) {
+        const start = spreadOpts.showCover && spreadOpts.hasCovers ? 1 : 0;
+        for (let left = start; left < totalPages; left += 2) {
+            if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
+                pushPage(left);
+                break;
+            }
+            pushPage(left);
+        }
+        return targets;
+    }
+
+    const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
+    for (let spreadIndex = 0; spreadIndex < totalSpreads; spreadIndex += 1) {
+        const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
+
+        if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) {
+            pushPage(left);
+            continue;
+        }
+
+        pushPage(left);
+        if (right > left) {
+            pushPage(right);
+        }
+    }
+
+    return targets;
 }
