@@ -103,24 +103,6 @@ function PagePhoto({ src, pageNum, showSamples, className = '' }) {
     );
 }
 
-/** Cover / end spread: centered framed photo on plain background (side = which half of the spread). */
-function FramedSpreadPhoto({ src, pageNum, showSamples, side = 'right' }) {
-    if (!src && !showSamples) {
-        return <div className="ab-page-empty" aria-hidden />;
-    }
-
-    return (
-        <div className={`ab-framed-page ab-framed-page--${side}`}>
-            <PagePhoto
-                src={src}
-                pageNum={pageNum}
-                showSamples={showSamples}
-                className="ab-framed-page-img"
-            />
-        </div>
-    );
-}
-
 const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     {
         album,
@@ -560,12 +542,16 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         }
                         onRemovePin={liveOnPinRemove}
                     >
-                        <FramedSpreadPhoto
-                            src={src}
-                            pageNum={pageNum}
-                            showSamples={showSamples}
-                            side="left"
-                        />
+                        {src ? (
+                            <PagePhoto
+                                src={src}
+                                pageNum={pageNum}
+                                showSamples={showSamples}
+                                className="ab-page-photo ab-page-photo--full"
+                            />
+                        ) : (
+                            <div className="ab-page-empty" aria-hidden />
+                        )}
                     </AlbumPhotoPinLayer>
                     {!previewMode && <AlbumSwapMarkBadge markInfo={endCoverSwapMarkInfo} />}
                 </div>
@@ -687,11 +673,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         onRemovePin={liveOnPinRemove}
                     >
                         {src ? (
-                            <FramedSpreadPhoto
+                            <PagePhoto
                                 src={src}
                                 pageNum={pageNum}
                                 showSamples={showSamples}
-                                side="full"
+                                className="ab-page-photo ab-page-photo--full"
                             />
                         ) : (
                             <div className="ab-page-empty" aria-hidden />

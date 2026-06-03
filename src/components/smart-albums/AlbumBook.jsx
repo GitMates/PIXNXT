@@ -90,7 +90,7 @@ function getFallbackBookDimensions(rootEl, gridSize = 'square') {
     return computeBookDimensions(w, h, gridSize);
 }
 
-function OverviewFramedPhoto({ src, placeholderClass = '' }) {
+function OverviewCoverPhoto({ src, placeholderClass = '' }) {
     if (!src) {
         return (
             <span
@@ -98,11 +98,7 @@ function OverviewFramedPhoto({ src, placeholderClass = '' }) {
             />
         );
     }
-    return (
-        <span className="ab-overview-cover-stage">
-            <img className="ab-overview-cover-frame" src={src} alt="" loading="lazy" />
-        </span>
-    );
+    return <img src={src} alt="" loading="lazy" />;
 }
 
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
@@ -1202,13 +1198,13 @@ const AlbumBook = ({
                                                     aria-hidden
                                                 />
                                                 <span className="ab-overview-page ab-overview-page--cover-right">
-                                                    <OverviewFramedPhoto src={coverPhotoSrc} />
+                                                    <OverviewCoverPhoto src={coverPhotoSrc} />
                                                 </span>
                                             </>
                                         ) : isEndHalf ? (
                                             <>
                                                 <span className="ab-overview-page ab-overview-page--end-left">
-                                                    <OverviewFramedPhoto src={endCoverSrc} />
+                                                    <OverviewCoverPhoto src={endCoverSrc} />
                                                 </span>
                                                 <span
                                                     className="ab-overview-page ab-overview-page--cover-blank"
