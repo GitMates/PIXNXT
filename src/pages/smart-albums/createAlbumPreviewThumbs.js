@@ -1,4 +1,6 @@
-import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
+import { isImageFile, isPdfFile, MAX_PDF_PAGES } from '../../lib/pdfToImages';
+
+export { MAX_PDF_PAGES };
 
 const THUMB_MAX_EDGE = 240;
 const THUMB_JPEG_QUALITY = 0.72;
@@ -89,15 +91,29 @@ export async function createImagePreviewThumbUrl(file) {
     });
 }
 
-/** First PDF page as a small JPEG preview. */
-export async function createPdfPreviewThumbUrl(file) {
-    if (!isPdfFile(file)) return null;
+/** Number of pages in a PDF (capped at MAX_PDF_PAGES). */
+export async function getPdfPageCount(file) {
+    if (!isPdfFile(file)) return 0;
+    try {
+        const pdfjs = await getPdfjs();
+        const data = await file.arrayBuffer();
+        const pdf = await pdfjs.getDocument({ data }).promise;
+        return Math.min(pdf.numPages, MAX_PDF_PAGES);
+    } catch (e) {
+        console.warn('Could not read PDF page count', file?.name, e);
+        return 0;
+    }
+}
+
+/** One PDF page as a small JPEG preview (pageNumber is 1-based). */
+export async function createPdfPagePreviewThumbUrl(file, pageNumber) {
+    if (!isPdfFile(file) || pageNumber < 1) return null;
 
     try {
         const pdfjs = await getPdfjs();
         const data = await file.arrayBuffer();
         const pdf = await pdfjs.getDocument({ data }).promise;
-        const page = await pdf.getPage(1);
+        const page = await pdf.getPage(pageNumber);
         const baseViewport = page.getViewport({ scale: 1 });
         const scale =
             (Math.min(
@@ -120,10 +136,46 @@ export async function createPdfPreviewThumbUrl(file) {
     }
 }
 
+/** @deprecated Use createPdfPagePreviewThumbUrl(file, 1) */
+export async function createPdfPreviewThumbUrl(file) {
+    return createPdfPagePreviewThumbUrl(file, 1);
+}
+
 async function createPreviewThumbUrl(file) {
     if (isImageFile(file)) return createImagePreviewThumbUrl(file);
-    if (isPdfFile(file)) return createPdfPreviewThumbUrl(file);
+    if (isPdfFile(file)) return createPdfPagePreviewThumbUrl(file, 1);
     return null;
+}
+
+/**
+ * Map collection items (upload order) to preview slot display order.
+ * `slots` is the user-ordered flat list (images + PDF pages).
+ */
+export function collectionItemIdsForPreviewSlots(photoFiles, addedItems, slots) {
+    if (!slots?.length || !addedItems?.length) return [];
+
+    let cursor = 0;
+    const fileRanges = (photoFiles || []).map((file, fileIndex) => {
+        const start = cursor;
+        let count = 1;
+        if (isPdfFile(file)) {
+            const fileSlots = slots.filter((s) => s.fileIndex === fileIndex);
+            count = fileSlots.length
+                ? Math.max(...fileSlots.map((s) => (s.pageIndex ?? 0) + 1))
+                : 0;
+        }
+        cursor += count;
+        return { start, count };
+    });
+
+    return slots
+        .map((slot) => {
+            const range = fileRanges[slot.fileIndex];
+            if (!range) return null;
+            const pageIdx = slot.pageIndex ?? 0;
+            return addedItems[range.start + pageIdx]?.id ?? null;
+        })
+        .filter(Boolean);
 }
 
 /**

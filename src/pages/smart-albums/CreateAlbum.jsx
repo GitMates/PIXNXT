@@ -14,13 +14,19 @@ import {
     countExpandedUploadPhotos,
     describeAlbumLayout,
 } from './createAlbumLayout';
-import { buildPreviewThumbUrls } from './createAlbumPreviewThumbs';
-import { isImageFile } from '../../lib/pdfToImages';
+import {
+    collectionItemIdsForPreviewSlots,
+    createPdfPagePreviewThumbUrl,
+    getPdfPageCount,
+} from './createAlbumPreviewThumbs';
+import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
 import {
     filesFromDataTransfer,
     filesFromInput,
     moveFileInOrder,
+    moveItemInOrder,
 } from '../../lib/uploadFileOrder';
+import CreateAlbumSpreadViz from './CreateAlbumSpreadViz.jsx';
 import './CreateAlbum.css';
 
 const COVER_OPTIONS = [
@@ -160,7 +166,7 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
             <button
                 type="button"
                 className="sa-preview-remove"
-                onClick={() => onRemove(preview.index)}
+                onClick={() => onRemove(preview)}
                 aria-label={`Remove ${preview.name}`}
             >
                 x
@@ -183,24 +189,20 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
                 ) : !preview.thumbReady ? (
                     <div
                         className={`sa-preview-loading${
-                            preview.isPdf ? ' sa-preview-loading--pdf' : ''
+                            preview.isPdfPage ? ' sa-preview-loading--pdf' : ''
                         }`}
                         aria-busy="true"
                     >
                         <div
                             className={`sa-preview-skeleton${
-                                preview.isPdf ? '' : ' sa-preview-skeleton--fill'
+                                preview.isPdfPage ? '' : ' sa-preview-skeleton--fill'
                             }`}
                             aria-hidden
                         />
                         <span className="sa-preview-loading-spinner" aria-hidden />
                         <span className="sa-preview-loading-label">
-                            {preview.isPdf ? 'Loading PDF…' : 'Loading…'}
+                            {preview.isPdfPage ? 'Loading page…' : 'Loading…'}
                         </span>
-                    </div>
-                ) : preview.isPdf ? (
-                    <div className="sa-preview-pdf-badge" aria-hidden>
-                        PDF
                     </div>
                 ) : (
                     <div className="sa-preview-loading" aria-busy="true">
@@ -229,7 +231,7 @@ const CreateAlbum = () => {
     const [detectedSpreadGridSize, setDetectedSpreadGridSize] = useState(null);
 
     const [photoFiles, setPhotoFiles] = useState([]);
-    const [photoPreviews, setPhotoPreviews] = useState([]);
+    const [previewSlots, setPreviewSlots] = useState([]);
     const [dragOverIndex, setDragOverIndex] = useState(null);
     const [uploadDropActive, setUploadDropActive] = useState(false);
     const dragFromIndexRef = useRef(null);
@@ -254,17 +256,20 @@ const CreateAlbum = () => {
         return gridLayout;
     }, [gridLayout, resolvedGridLayout]);
 
+    const displayPhotoCount =
+        previewSlots.length > 0 ? previewSlots.length : expandedPhotoCount;
+
     const layoutPreview = useMemo(() => {
-        if (!expandedPhotoCount) return null;
-        const pageCount = computePageCountFromPhotoCount(expandedPhotoCount, {
+        if (!displayPhotoCount) return null;
+        const pageCount = computePageCountFromPhotoCount(displayPhotoCount, {
             includeCovers,
             gridLayout: resolvedGridLayout,
         });
-        return describeAlbumLayout(expandedPhotoCount, pageCount, {
+        return describeAlbumLayout(displayPhotoCount, pageCount, {
             includeCovers,
             gridLayout: resolvedGridLayout,
         });
-    }, [expandedPhotoCount, includeCovers, resolvedGridLayout]);
+    }, [displayPhotoCount, includeCovers, resolvedGridLayout]);
 
     const setProgress = (next) => {
         setCreateProgress(next);
@@ -272,51 +277,83 @@ const CreateAlbum = () => {
 
     useEffect(() => {
         if (!photoFiles.length) {
-            setPhotoPreviews([]);
+            setPreviewSlots([]);
             return undefined;
         }
 
         const abort = new AbortController();
         const blobUrls = [];
 
-        const previews = photoFiles.map((file, index) => {
-            const isPdf =
-                file.type === 'application/pdf' ||
-                file.name.toLowerCase().endsWith('.pdf');
-            let url = null;
-            let thumbReady = false;
-            if (!isPdf && isImageFile(file)) {
-                url = URL.createObjectURL(file);
-                blobUrls.push(url);
-                thumbReady = true;
+        const buildSlots = async () => {
+            const slots = [];
+
+            for (let fileIndex = 0; fileIndex < photoFiles.length; fileIndex += 1) {
+                if (abort.signal.aborted) return;
+                const file = photoFiles[fileIndex];
+                const fileKey = `${file.name}-${file.lastModified}-${file.size}`;
+
+                if (isImageFile(file)) {
+                    const url = URL.createObjectURL(file);
+                    blobUrls.push(url);
+                    slots.push({
+                        id: `${fileKey}-img`,
+                        fileIndex,
+                        pageIndex: null,
+                        name: file.name,
+                        size: file.size,
+                        url,
+                        thumbReady: true,
+                        isPdfPage: false,
+                    });
+                    continue;
+                }
+
+                if (isPdfFile(file)) {
+                    const pageCount = await getPdfPageCount(file);
+                    const baseName = (file.name || 'document.pdf').replace(/\.pdf$/i, '');
+                    for (let page = 0; page < pageCount; page += 1) {
+                        slots.push({
+                            id: `${fileKey}-p${page}`,
+                            fileIndex,
+                            pageIndex: page,
+                            name:
+                                pageCount > 1
+                                    ? `${baseName} · page ${page + 1}`
+                                    : baseName,
+                            size: file.size,
+                            url: null,
+                            thumbReady: false,
+                            isPdfPage: true,
+                        });
+                    }
+                }
             }
-            return {
-                index,
-                id: `${file.name}-${file.lastModified}-${file.size}`,
-                name: file.name,
-                size: file.size,
-                isPdf,
-                url,
-                thumbReady,
-            };
-        });
 
-        setPhotoPreviews(previews);
+            if (abort.signal.aborted) return;
+            setPreviewSlots(slots);
 
-        const hasPdf = previews.some((p) => p.isPdf);
-        if (hasPdf) {
-            void buildPreviewThumbUrls(photoFiles, {
-                signal: abort.signal,
-                onThumb: (fileIndex, url) => {
-                    if (!previews[fileIndex]?.isPdf) return;
-                    setPhotoPreviews((prev) =>
-                        prev.map((item, i) =>
-                            i === fileIndex ? { ...item, url: url || null, thumbReady: true } : item
-                        )
-                    );
-                },
-            });
-        }
+            for (const slot of slots) {
+                if (abort.signal.aborted) return;
+                if (slot.pageIndex == null) continue;
+                const file = photoFiles[slot.fileIndex];
+                let url = null;
+                try {
+                    url = await createPdfPagePreviewThumbUrl(file, slot.pageIndex + 1);
+                } catch {
+                    url = null;
+                }
+                if (abort.signal.aborted) return;
+                setPreviewSlots((prev) =>
+                    prev.map((item) =>
+                        item.id === slot.id
+                            ? { ...item, url: url || null, thumbReady: true }
+                            : item
+                    )
+                );
+            }
+        };
+
+        void buildSlots();
 
         return () => {
             abort.abort();
@@ -381,7 +418,20 @@ const CreateAlbum = () => {
     }, [photoFiles, gridLayoutForDetection]);
 
     const analyzingUploads = photoCountBusy || gridSizeBusy;
-    const animatePreviewCards = photoPreviews.length <= 12;
+    const animatePreviewCards = previewSlots.length <= 12;
+
+    const detectedGridLabel = useMemo(() => {
+        if (!displayPhotoCount || analyzingUploads) return '';
+        return formatGridSizeLabelForLayout(detectedGridSize, gridLayoutForDetection, {
+            spreadGridSize: detectedSpreadGridSize,
+        });
+    }, [
+        displayPhotoCount,
+        analyzingUploads,
+        detectedGridSize,
+        gridLayoutForDetection,
+        detectedSpreadGridSize,
+    ]);
 
     const applyPhotoFiles = useCallback((files) => {
         if (files?.length) setPhotoFiles(files);
@@ -415,7 +465,7 @@ const CreateAlbum = () => {
         dragFromIndexRef.current = null;
         setDragOverIndex(null);
         if (fromIndex == null || fromIndex === toIndex) return;
-        setPhotoFiles((prev) => moveFileInOrder(prev, fromIndex, toIndex));
+        setPreviewSlots((prev) => moveItemInOrder(prev, fromIndex, toIndex));
     }, []);
 
     const handlePreviewDragEnd = useCallback(() => {
@@ -423,9 +473,10 @@ const CreateAlbum = () => {
         setDragOverIndex(null);
     }, []);
 
-    const handleRemovePhoto = (indexToRemove) => {
-        setPhotoFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
-    };
+    const handleRemovePreview = useCallback((slot) => {
+        if (!slot) return;
+        setPhotoFiles((prev) => prev.filter((_, index) => index !== slot.fileIndex));
+    }, []);
 
     const handleCreate = async (e) => {
         e.preventDefault();
@@ -450,14 +501,18 @@ const CreateAlbum = () => {
                     ? `custom-${normalizeCustomKey(customGridLayout)}`
                     : gridLayout;
 
-            let photoCount = expandedPhotoCount;
+            let photoCount = displayPhotoCount || expandedPhotoCount;
             let finalGridSize = detectedGridSize;
             let finalSpreadGridSize = detectedSpreadGridSize;
             if (photoFiles.length > 0) {
                 const expanded = await countExpandedUploadPhotos(photoFiles).catch(
                     () => photoFiles.length
                 );
-                photoCount = Math.max(expanded, photoFiles.length);
+                photoCount = Math.max(
+                    previewSlots.length,
+                    expanded,
+                    photoFiles.length
+                );
                 const gridSizes = await detectGridSizesFromFiles(photoFiles, {
                     gridLayout: finalGridLayout,
                 });
@@ -532,10 +587,16 @@ const CreateAlbum = () => {
                 });
 
                 const uploadedCount = added.filter((item) => item?.id).length;
+                const orderedItemIds = collectionItemIdsForPreviewSlots(
+                    photoFiles,
+                    added,
+                    previewSlots
+                );
                 const effectivePhotoCount = Math.max(
                     photoCount,
+                    orderedItemIds.length,
                     uploadedCount,
-                    photoFiles.length
+                    displayPhotoCount
                 );
                 const requiredPageCount = computePageCountFromPhotoCount(effectivePhotoCount, {
                     includeCovers,
@@ -559,7 +620,12 @@ const CreateAlbum = () => {
                         grid_layout: finalGridLayout,
                         page_count: requiredPageCount,
                     },
-                    { itemIds: added.filter((item) => item?.id).map((item) => item.id) }
+                    {
+                        itemIds:
+                            orderedItemIds.length > 0
+                                ? orderedItemIds
+                                : added.filter((item) => item?.id).map((item) => item.id),
+                    }
                 );
 
                 if (placed < uploadedCount) {
@@ -698,7 +764,7 @@ const CreateAlbum = () => {
                                 </small>
                             </label>
 
-                            {photoPreviews.length > 0 ? (
+                            {previewSlots.length > 0 ? (
                                 <div
                                     className={`sa-upload-preview${
                                         analyzingUploads ? ' sa-upload-preview--analyzing' : ''
@@ -717,13 +783,13 @@ const CreateAlbum = () => {
                                                 </span>
                                             ) : (
                                                 <span className="sa-upload-count sa-upload-count--revealed">
-                                                    {expandedPhotoCount} photo
-                                                    {expandedPhotoCount === 1 ? '' : 's'} (
-                                                    {photoPreviews.length} file
-                                                    {photoPreviews.length === 1 ? '' : 's'})
+                                                    {displayPhotoCount} photo
+                                                    {displayPhotoCount === 1 ? '' : 's'} (
+                                                    {photoFiles.length} file
+                                                    {photoFiles.length === 1 ? '' : 's'})
                                                 </span>
                                             )}
-                                            {!analyzingUploads && expandedPhotoCount > 0 && layoutPreview && (
+                                            {!analyzingUploads && displayPhotoCount > 0 && layoutPreview && (
                                                 <>
                                                     <span className="sa-upload-detected-size sa-upload-detected-size--revealed">
                                                         Page count: {layoutPreview.pageCount} pages
@@ -766,15 +832,15 @@ const CreateAlbum = () => {
                                     <div
                                         className="sa-preview-grid"
                                         style={{
-                                            '--sa-preview-count': photoPreviews.length,
+                                            '--sa-preview-count': previewSlots.length,
                                         }}
                                     >
-                                        {photoPreviews.map((preview, index) => (
+                                        {previewSlots.map((preview, index) => (
                                             <UploadPreviewCard
                                                 key={preview.id}
-                                                preview={preview}
+                                                preview={{ ...preview, index }}
                                                 index={index}
-                                                onRemove={handleRemovePhoto}
+                                                onRemove={handleRemovePreview}
                                                 animateIn={animatePreviewCards}
                                                 onDragStart={handlePreviewDragStart}
                                                 onDragOver={handlePreviewDragOver}
@@ -794,6 +860,16 @@ const CreateAlbum = () => {
                                               : 'Order 1 → spread 1 left, 2 → spread 1 right, 3 → spread 2 left, then on.'}{' '}
                                         Drag thumbnails if the picker order is wrong.
                                     </p>
+
+                                    {!analyzingUploads && previewSlots.length > 0 ? (
+                                        <CreateAlbumSpreadViz
+                                            previewSlots={previewSlots}
+                                            includeCovers={includeCovers}
+                                            gridLayout={resolvedGridLayout}
+                                            pageGridSize={detectedGridSize}
+                                            gridSizeLabel={detectedGridLabel}
+                                        />
+                                    ) : null}
                                 </div>
                             ) : (
                                 <p className="sa-field-note">
@@ -889,7 +965,7 @@ const CreateAlbum = () => {
 
                             <p className="sa-field-note">
                                 Layout and cover mode are locked after the album is created.
-                                {expandedPhotoCount > 0 && !analyzingUploads ? (
+                                    {displayPhotoCount > 0 && !analyzingUploads ? (
                                     <>
                                         {' '}
                                         Detected grid:{' '}

@@ -28,15 +28,20 @@ export function filesFromDataTransfer(dataTransfer) {
 
     return filesFromInput(dataTransfer.files);
 }
-/** Move one entry in an ordered file list. */
-export function moveFileInOrder(files, fromIndex, toIndex) {
-    if (!files?.length || fromIndex === toIndex) return files || [];
-    if (fromIndex < 0 || fromIndex >= files.length) return files;
-    const clampedTo = Math.max(0, Math.min(toIndex, files.length - 1));
-    if (fromIndex === clampedTo) return files;
+/** Move one entry in an ordered list (files, preview slots, etc.). */
+export function moveItemInOrder(list, fromIndex, toIndex) {
+    if (!list?.length || fromIndex === toIndex) return list || [];
+    if (fromIndex < 0 || fromIndex >= list.length) return list;
+    const clampedTo = Math.max(0, Math.min(toIndex, list.length - 1));
+    if (fromIndex === clampedTo) return list;
 
-    const next = files.slice();
+    const next = list.slice();
     const [moved] = next.splice(fromIndex, 1);
     next.splice(clampedTo, 0, moved);
     return next;
+}
+
+/** Move one entry in an ordered file list. */
+export function moveFileInOrder(files, fromIndex, toIndex) {
+    return moveItemInOrder(files, fromIndex, toIndex);
 }

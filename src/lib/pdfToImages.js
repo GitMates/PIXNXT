@@ -15,7 +15,7 @@ function ensurePdfWorker() {
 
 const MAX_CANVAS_EDGE = 2000;
 const JPEG_QUALITY = 0.88;
-const MAX_PDF_PAGES = 40;
+export const MAX_PDF_PAGES = 40;
 const RENDER_SCALE = 1.5;
 
 export function isPdfFile(file) {
