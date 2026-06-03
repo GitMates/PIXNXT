@@ -11,6 +11,7 @@ import {
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getAlbumSpreadOptions,
+    getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
     isEndHalfSpreadIndex,
@@ -106,7 +107,7 @@ function OverviewFramedPhoto({ src, placeholderClass = '' }) {
 
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const albumId = album?.id;
-    const spreadOpts = getAlbumSpreadOptions(album);
+    const spreadOpts = getSpreadContext(album, totalPages);
     if (pageNum === 0 && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples });
     }
@@ -114,8 +115,10 @@ function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     if (directSrc) return directSrc;
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
     const cellId = pageNum === spreadLeft ? 1 : 2;
+    const spreadCtx = getSpreadContext(album, totalPages);
     const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
         wholeSpread: album?.grid_layout === 'whole-spread',
+        spreadOpts: spreadCtx,
     });
     return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);
 }
@@ -176,7 +179,10 @@ const AlbumBook = ({
     const [initialized, setInitialized] = useState(false);
     const [commentsSeenTick, setCommentsSeenTick] = useState(0);
     const isPinModeOn = previewMode ? pinMarkMode : pinModeActive;
-    const spreadOpts = useMemo(() => getAlbumSpreadOptions(album), [album?.has_covers]);
+    const spreadOpts = useMemo(
+        () => getSpreadContext(album, totalPages),
+        [album?.has_covers, album?.id, album?.page_count, totalPages]
+    );
     const spreadCtx = useMemo(
         () => ({ ...spreadOpts, totalPages }),
         [spreadOpts, totalPages]

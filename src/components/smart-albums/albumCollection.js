@@ -551,44 +551,51 @@ export async function addFilesToAlbumCollection(
         });
     }
 
+    const uploadFailures = [];
     const uploadedItems = await runWithConcurrency(
         uploadQueue,
         UPLOAD_CONCURRENCY,
         async (entry) => {
-            const sortOrder = baseSortOrder + entry.sortIndex;
-            const upload =
-                entry.kind === 'file'
-                    ? await uploadCollectionFile({
-                          file: entry.file,
-                          sortIndex: entry.sortIndex,
-                          batchUploadTs,
-                          pathContext,
-                      })
-                    : await uploadCollectionImage({
-                          albumId,
-                          photographerId,
-                          image: { name: entry.name, dataUrl: entry.dataUrl },
-                          sortIndex: entry.sortIndex,
-                          batchUploadTs,
-                          pathContext,
-                      });
-            uploadCompleted += 1;
-            onProgress?.({
-                phase: 'uploading',
-                message: `Uploading photo ${uploadCompleted} of ${uploadTotal}…`,
-                current: uploadCompleted,
-                total: uploadTotal,
-            });
-            return {
-                id: nextId(),
-                name: entry.name || 'Photo',
-                dataUrl: upload.url,
-                storagePath: upload.path,
-                contentHash: entry.contentHash,
-                nameKey: entry.nameKey,
-                sortOrder,
-                createdAt: batchUploadTs + entry.sortIndex,
-            };
+            try {
+                const sortOrder = baseSortOrder + entry.sortIndex;
+                const upload =
+                    entry.kind === 'file'
+                        ? await uploadCollectionFile({
+                              file: entry.file,
+                              sortIndex: entry.sortIndex,
+                              batchUploadTs,
+                              pathContext,
+                          })
+                        : await uploadCollectionImage({
+                              albumId,
+                              photographerId,
+                              image: { name: entry.name, dataUrl: entry.dataUrl },
+                              sortIndex: entry.sortIndex,
+                              batchUploadTs,
+                              pathContext,
+                          });
+                uploadCompleted += 1;
+                onProgress?.({
+                    phase: 'uploading',
+                    message: `Uploading photo ${uploadCompleted} of ${uploadTotal}…`,
+                    current: uploadCompleted,
+                    total: uploadTotal,
+                });
+                return {
+                    id: nextId(),
+                    name: entry.name || 'Photo',
+                    dataUrl: upload.url,
+                    storagePath: upload.path,
+                    contentHash: entry.contentHash,
+                    nameKey: entry.nameKey,
+                    sortOrder,
+                    createdAt: batchUploadTs + entry.sortIndex,
+                };
+            } catch (err) {
+                console.warn('Collection upload failed:', entry.name, err);
+                uploadFailures.push(entry.name || 'Photo');
+                return null;
+            }
         }
     );
 
@@ -606,10 +613,23 @@ export async function addFilesToAlbumCollection(
 
     added.skippedDuplicates = skippedDuplicates;
     added.duplicateItems = duplicateItems;
+    added.uploadFailures = uploadFailures;
+    added.expectedCount = workItems.length;
 
     if (added.length > 0 || skippedDuplicates > 0) {
         persistCollectionBucket(all, albumId, bucket);
     }
+
+    if (uploadFailures.length > 0) {
+        const err = new Error(
+            `Could not upload ${uploadFailures.length} of ${workItems.length} photo${
+                workItems.length === 1 ? '' : 's'
+            } (${uploadFailures.join(', ')}). Check your connection and try again.`
+        );
+        err.uploadFailures = uploadFailures;
+        throw err;
+    }
+
     return added;
 }
 
@@ -636,6 +656,15 @@ export function reorderCollectionItems(albumId, fromIndex, toIndex) {
 
 export function getCollectionItem(albumId, itemId) {
     return getAlbumCollection(albumId).find((i) => i.id === itemId) ?? null;
+}
+
+/** Best URL for thumbnails and placement previews (prefers R2 public URL over stale dataUrl). */
+export function getCollectionItemDisplayUrl(item) {
+    if (!item) return null;
+    if (item.storagePath) {
+        return storageService.getPublicUrl(item.storagePath);
+    }
+    return item.dataUrl ?? null;
 }
 
 export function removeCollectionItem(albumId, itemId) {

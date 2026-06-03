@@ -5,6 +5,7 @@ import { countUnseenPhotoPins } from './albumPhotoPins';
 import { countUnseenSwapMarks } from './albumSwapMarks';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
+import { getCollectionItemDisplayUrl } from './albumCollection';
 import { formatGridSizeLabel } from './albumGridSize';
 import { isCoverInsidePage, isEndHalfSpreadLeftPage } from './albumSpreadUtils';
 
@@ -336,7 +337,12 @@ export default function AlbumEditorSidebar({
                                             <span className="ae-collection-order" aria-hidden>
                                                 {index + 1}
                                             </span>
-                                            <img src={item.dataUrl} alt="" loading="lazy" draggable={false} />
+                                            <img
+                                                src={getCollectionItemDisplayUrl(item) || undefined}
+                                                alt=""
+                                                loading="lazy"
+                                                draggable={false}
+                                            />
                                         </button>
                                     ))}
                                 </div>

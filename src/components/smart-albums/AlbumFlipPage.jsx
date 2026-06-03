@@ -19,6 +19,7 @@ import {
     isProofLeftGridPage,
     isProofRightGridPage,
 } from './albumSpreadGrid';
+import { getAlbumCollection } from './albumCollection';
 import {
     getAlbumSpreadOptions,
     getEndSpreadPageRole,
@@ -61,11 +62,17 @@ function pageHasVisiblePhoto(
     const spreadLeft = getSpreadLeftPageIndex(pageNum, opts);
     const slotOpts = { wholeSpread };
     if (isProofLeftGridPage(pageNum, opts)) {
-        const slot = getGridSlotPhoto(albumId, pageNum, 1, spreadLeft, totalPages, slotOpts);
+        const slot = getGridSlotPhoto(albumId, pageNum, 1, spreadLeft, totalPages, {
+            ...slotOpts,
+            spreadOpts: opts,
+        });
         if (slot?.src) return true;
     }
     if (isProofRightGridPage(pageNum, opts)) {
-        const slot = getGridSlotPhoto(albumId, pageNum, 2, spreadLeft, totalPages, slotOpts);
+        const slot = getGridSlotPhoto(albumId, pageNum, 2, spreadLeft, totalPages, {
+            ...slotOpts,
+            spreadOpts: opts,
+        });
         if (slot?.src) return true;
     }
     return Boolean(showSamples && getSampleImageForPage(pageNum));
@@ -196,7 +203,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const albumId = albumIdProp ?? album?.id;
     void livePhotoRevision;
     void liveTransformRevision;
-    const spreadOpts = getAlbumSpreadOptions(album);
+    const collectionCount = albumId ? getAlbumCollection(albumId).length : 0;
+    const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
     const gridOpts = { ...spreadOpts, totalPages };
     const { right: lastSpreadRight } = getLastSpreadInfo(totalPages, spreadOpts);
     const wholeSpread = placementMode === 'whole';

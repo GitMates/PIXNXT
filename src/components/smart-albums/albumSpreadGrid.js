@@ -3,7 +3,11 @@
  * Cell 1 → left page photo index; cell 2 → right page photo index.
  */
 
-import { getEndSpreadPageIndices, isCoverInsidePage } from './albumSpreadUtils';
+import {
+    getEndSpreadPageIndices,
+    isCoverInsidePage,
+    normalizeSpreadOpts,
+} from './albumSpreadUtils';
 
 export const PROOF_SLOT_COUNT = 2;
 
@@ -73,18 +77,34 @@ export function getSpreadLeftPageIndex(pageNum, opts = {}) {
     return pageNum % 2 === 1 ? pageNum : pageNum - 1;
 }
 
-/** Photo page index for grid cell 1 (left) or 2 (right). */
-export function getProofCellPhotoIndex(pageNum, cellId, totalPages, { showCover = true } = {}) {
-    const left = getSpreadLeftPageIndex(pageNum, { showCover, totalPages });
-    const idx = left + (cellId - 1);
-    const max = Math.max(0, totalPages - 1);
-    return Math.min(Math.max(0, idx), max);
+/**
+ * Storage page index for a flipbook leaf / slot.
+ * Auto-place stores photos at physical page keys (0, 1, 2, …) — display must use the same index.
+ */
+export function getProofCellPhotoIndex(pageNum, cellId, totalPages, opts = {}) {
+    void cellId;
+    const pages = opts.totalPages ?? totalPages ?? 1;
+    return Math.min(Math.max(0, pageNum), Math.max(0, pages - 1));
 }
 
-export function getProofSpreadSlotPageIndices(leftPage, totalPages, options) {
-    return Array.from({ length: PROOF_SLOT_COUNT }, (_, i) =>
-        getProofCellPhotoIndex(leftPage, i + 1, totalPages, options)
-    );
+export function getProofSpreadSlotPageIndices(leftPage, totalPages, options = {}) {
+    const spreadOpts = normalizeSpreadOpts({
+        ...options,
+        totalPages: options.totalPages ?? totalPages,
+    });
+    const pages = spreadOpts.totalPages ?? totalPages ?? 1;
+    const max = Math.max(0, pages - 1);
+    const left = Math.min(Math.max(0, leftPage), max);
+
+    if (!spreadOpts.hasCovers) {
+        return [left, Math.min(left + 1, max)];
+    }
+
+    return Array.from({ length: PROOF_SLOT_COUNT }, (_, i) => {
+        const cellId = i + 1;
+        const spreadLeft = getSpreadLeftPageIndex(left, { ...spreadOpts, totalPages: pages });
+        return Math.min(spreadLeft + (cellId - 1), max);
+    });
 }
 
 /** Right page index for a spread starting at `leftPage`. */

@@ -1,15 +1,41 @@
+import { getAlbumCollection } from './albumCollection';
+
 /** Pages reserved for the back cover spread (left = photo, right = blank). */
 export const RESERVED_END_PAGES = 2;
 
+/** Minimum pages when using front/end cover spreads (matches createAlbumLayout). */
+function minPageCountForCovers(photoCount, gridLayout = 'two-page') {
+    const n = Math.max(0, Math.floor(Number(photoCount) || 0));
+    if (n === 0) return 5;
+    const innerPhotoSlots = Math.max(0, n - 1);
+    const innerSpreadPages = 2 * Math.ceil(innerPhotoSlots / 2);
+    return Math.max(5, 2 + innerSpreadPages + 2);
+}
+
 /** Spread layout flags from album settings (defaults to cover spreads for legacy albums). */
-export function getAlbumSpreadOptions(album) {
-    const hasCovers = album?.has_covers !== false;
+export function getAlbumSpreadOptions(album, { collectionCount = 0 } = {}) {
+    let hasCovers = album?.has_covers !== false;
+    const pageCount = album?.page_count ?? 21;
+    const n = Math.max(0, Math.floor(Number(collectionCount) || 0));
+    const gridLayout = album?.grid_layout;
+
+    const photoCountForMin = n > 0 ? n : pageCount;
+    const minPages = minPageCountForCovers(photoCountForMin, gridLayout);
+
+    // Album saved with too few pages for cover spreads (e.g. 6 pages / 6 photos) — use linear layout.
+    if (hasCovers && pageCount < minPages) {
+        hasCovers = false;
+    }
+
     return { showCover: hasCovers, hasCovers };
 }
 
 /** Spread layout flags plus page count (for grid / slot index helpers). */
-export function getSpreadContext(album, totalPages) {
-    return { ...getAlbumSpreadOptions(album), totalPages };
+export function getSpreadContext(album, totalPages, { collectionCount } = {}) {
+    const count =
+        collectionCount ??
+        (album?.id ? getAlbumCollection(album.id).length : 0);
+    return { ...getAlbumSpreadOptions(album, { collectionCount: count }), totalPages };
 }
 
 /** 1-based spread number for UI labels from a spread's left page index. */
@@ -281,6 +307,70 @@ export function enumerateAutoPlacePageTargets(
         pushPage(left);
         if (right > left) {
             pushPage(right);
+        }
+    }
+
+    return targets;
+}
+
+/**
+ * Page indices for placing N collection photos in display order.
+ * No covers: photo 1 → page 0, 2 → page 1, … (one photo per page, left then right per spread).
+ * With covers: photo 1 → cover (page 0), then inner spreads L/R, last photo → end-cover left.
+ */
+export function enumerateCollectionPlacementPages(
+    photoCount,
+    totalPages,
+    { showCover = true, hasCovers, gridLayout = 'two-page' } = {}
+) {
+    const n = Math.max(0, Math.floor(Number(photoCount) || 0));
+    if (n === 0 || totalPages <= 0) return [];
+
+    const spreadOpts = normalizeSpreadOpts({
+        showCover,
+        hasCovers: hasCovers ?? showCover,
+    });
+
+    if (isWholeSpreadLayout(gridLayout)) {
+        return enumerateAutoPlacePageTargets(totalPages, {
+            showCover,
+            hasCovers: spreadOpts.hasCovers,
+            gridLayout: 'whole-spread',
+        }).slice(0, n);
+    }
+
+    if (!spreadOpts.hasCovers) {
+        return Array.from({ length: Math.min(n, totalPages) }, (_, i) => i);
+    }
+
+    const targets = [];
+    const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
+
+    const tryPush = (page) => {
+        if (targets.length >= n) return;
+        if (page < 0 || page >= totalPages) return;
+        if (!isAutoPlacePhotoPage(page, totalPages, spreadOpts)) return;
+        if (targets.includes(page)) return;
+        targets.push(page);
+    };
+
+    for (let spreadIndex = 0; spreadIndex < totalSpreads && targets.length < n; spreadIndex += 1) {
+        const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
+        const isEnd = isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
+
+        if (spreadOpts.showCover && spreadIndex === 0) {
+            tryPush(0);
+            continue;
+        }
+
+        if (isEnd) {
+            tryPush(left);
+            continue;
+        }
+
+        tryPush(left);
+        if (right > left) {
+            tryPush(right);
         }
     }
 

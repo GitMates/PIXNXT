@@ -55,7 +55,7 @@ export function getSlotStorageDescriptor(albumId, slot, totalPages, spreadOpts) 
         return { kind: 'spread', key: spreadStorageKey(spreadLeft), pageNum: spreadLeft, spreadLeft };
     }
 
-    if (totalPages != null && isEndHalfSpreadLeftPage(spreadLeft, totalPages)) {
+    if (totalPages != null && isEndHalfSpreadLeftPage(spreadLeft, totalPages, opts)) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
         return { kind: 'page', key: String(endLeft), pageNum: endLeft, spreadLeft: endLeft };
     }

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, useCallback, memo } from '
 import { useNavigate } from 'react-router-dom';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { addFilesToAlbumCollection } from '../../components/smart-albums/albumCollection';
-import { autoPlaceCollectionItems } from '../../components/smart-albums/albumPagePhotos';
+import { applyCollectionOrderToPages } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
@@ -412,7 +412,10 @@ const CreateAlbum = () => {
             let photoCount = expandedPhotoCount;
             let finalGridSize = detectedGridSize;
             if (photoFiles.length > 0) {
-                photoCount = await countExpandedUploadPhotos(photoFiles);
+                const expanded = await countExpandedUploadPhotos(photoFiles).catch(
+                    () => photoFiles.length
+                );
+                photoCount = Math.max(expanded, photoFiles.length);
                 finalGridSize = await detectGridSizeFromFiles(photoFiles);
             }
 
@@ -481,17 +484,38 @@ const CreateAlbum = () => {
                     total: 0,
                 });
 
-                const items = added.filter(Boolean);
-                autoPlaceCollectionItems(
-                    album.id,
-                    items.map((item) => item.id),
-                    {
-                        totalPages: album.page_count || finalPageCount,
-                        gridLayout: finalGridLayout,
-                        showCover: includeCovers,
-                        hasCovers: includeCovers,
-                    }
+                const uploadedCount = added.filter((item) => item?.id).length;
+                const effectivePhotoCount = Math.max(
+                    photoCount,
+                    uploadedCount,
+                    photoFiles.length
                 );
+                const requiredPageCount = computePageCountFromPhotoCount(effectivePhotoCount, {
+                    includeCovers,
+                    gridLayout: finalGridLayout,
+                });
+
+                let albumForPlace = album;
+                if (requiredPageCount !== (album.page_count || 0)) {
+                    albumForPlace = await smartAlbumsService.updateAlbumPageCount(
+                        user.id,
+                        album.id,
+                        requiredPageCount
+                    );
+                }
+
+                const placed = applyCollectionOrderToPages(album.id, {
+                    ...albumForPlace,
+                    has_covers: includeCovers,
+                    grid_layout: finalGridLayout,
+                    page_count: requiredPageCount,
+                });
+
+                if (placed < uploadedCount) {
+                    console.warn(
+                        `Placed ${placed} of ${uploadedCount} photos — check album page count (${requiredPageCount} pages).`
+                    );
+                }
             }
 
             setProgress({
@@ -501,7 +525,7 @@ const CreateAlbum = () => {
                 total: 0,
             });
 
-            void smartAlbumsService.syncAlbumPreviewData(user.id, album.id);
+            await smartAlbumsService.syncAlbumPreviewData(user.id, album.id);
 
             navigate(`/smart-albums/album/${album.id}`, {
                 state: { syncCollectionOrder: true },

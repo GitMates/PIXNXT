@@ -85,6 +85,8 @@ import {
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import { useAuth } from '../../hooks/useAuth';
+import { computePageCountFromPhotoCount } from './createAlbumLayout';
+import { smartAlbumsService } from '../../services/smartAlbums.service';
 import './AlbumEditor.css';
 
 function getSpreadLeftForBookPage(bookPageIndex, totalPages, spreadOpts) {
@@ -168,7 +170,19 @@ export default function AlbumEditor({
     const collectionSyncRef = useRef(false);
     const [slotMenu, setSlotMenu] = useState(null);
     const [swapExecuteOrigin, setSwapExecuteOrigin] = useState(null);
-    const spreadOpts = useMemo(() => getAlbumSpreadOptions(album), [album?.has_covers, album?.id]);
+
+    const collectionItems = useMemo(
+        () => getAlbumCollection(albumId),
+        [albumId, collectionRevision]
+    );
+
+    const spreadOpts = useMemo(
+        () =>
+            getAlbumSpreadOptions(album, {
+                collectionCount: collectionItems.length,
+            }),
+        [album?.has_covers, album?.id, album?.page_count, collectionItems.length]
+    );
     const spreadCtx = useMemo(
         () => ({ ...spreadOpts, totalPages }),
         [spreadOpts, totalPages]
@@ -189,11 +203,6 @@ export default function AlbumEditor({
     });
 
     const albumForBook = useMemo(() => ({ ...album, id: albumId }), [album, albumId]);
-
-    const collectionItems = useMemo(
-        () => getAlbumCollection(albumId),
-        [albumId, collectionRevision]
-    );
 
     const bumpWorkspace = useCallback(() => {
         onPhotosUploaded?.();
@@ -219,54 +228,40 @@ export default function AlbumEditor({
         collectionSyncRef.current = false;
     }, [albumId]);
 
-    const syncCollectionOrderToSpreads = useCallback(() => {
-        if (!albumId || !album) return 0;
-        if (!getAlbumCollection(albumId).length) return 0;
-        return applyCollectionOrderToPages(albumId, album);
-    }, [albumId, album]);
+    const syncCollectionOrderToSpreads = useCallback(async () => {
+        if (!albumId || !album || !user?.id) return 0;
+        const items = getAlbumCollection(albumId);
+        if (!items.length) return 0;
 
-    /** Align spread slots with collection order (1st upload → first slot). Runs once per album + after create. */
-    useEffect(() => {
-        if (!albumId || !album || collectionSyncRef.current) return;
+        const spreadOpts = getAlbumSpreadOptions(album, {
+            collectionCount: items.length,
+        });
+        const requiredPages = computePageCountFromPhotoCount(items.length, {
+            includeCovers: spreadOpts.hasCovers,
+            gridLayout: album.grid_layout || 'two-page',
+        });
 
-        const fromCreate = location.state?.syncCollectionOrder === true;
-        const onceKey = `pixnxt_collection_order_sync_${albumId}`;
-        let needsOnce = false;
-        try {
-            needsOnce = !localStorage.getItem(onceKey);
-        } catch {
-            needsOnce = false;
+        let albumForPlace = album;
+        if (requiredPages !== (album.page_count || 0)) {
+            albumForPlace = await smartAlbumsService.updateAlbumPageCount(
+                user.id,
+                albumId,
+                requiredPages
+            );
+            onAlbumUpdate?.(albumForPlace);
         }
 
-        if (!fromCreate && !needsOnce) return;
-
-        collectionSyncRef.current = true;
-        const placed = syncCollectionOrderToSpreads();
-        if (placed > 0) scheduleWorkspaceRefresh();
-        try {
-            localStorage.setItem(onceKey, String(Date.now()));
-        } catch {
-            /* ignore */
-        }
-
-        if (fromCreate) {
-            const path = `${location.pathname}${location.search}`;
-            navigate(path, { replace: true, state: {} });
-        }
-    }, [
-        albumId,
-        album,
-        location.state,
-        location.pathname,
-        location.search,
-        navigate,
-        syncCollectionOrderToSpreads,
-        scheduleWorkspaceRefresh,
-    ]);
+        return applyCollectionOrderToPages(albumId, {
+            ...albumForPlace,
+            has_covers: spreadOpts.hasCovers,
+            grid_layout: album.grid_layout || 'two-page',
+            page_count: requiredPages,
+        });
+    }, [albumId, album, user?.id, onAlbumUpdate]);
 
     useEffect(() => {
         let changed = false;
-        if (migrateEndHalfSpreadToLeftPage(albumId, totalPages)) changed = true;
+        if (migrateEndHalfSpreadToLeftPage(albumId, totalPages, album)) changed = true;
         if (migrateMiskeyedInnerSpreadPhotos(albumId, totalPages)) changed = true;
         if (spreadOpts.hasCovers) {
             if (migrateInsideCoverSpreadToPageTwo(albumId, totalPages)) changed = true;
@@ -280,6 +275,50 @@ export default function AlbumEditor({
         }, 0);
         return () => window.clearTimeout(timer);
     }, [albumId, totalPages, spreadOpts.hasCovers, bumpWorkspace]);
+
+    /** Align spread slots with collection order (1st upload → first slot). Runs once per album + after create. */
+    useEffect(() => {
+        if (!albumId || !album || collectionSyncRef.current) return;
+
+        const fromCreate = location.state?.syncCollectionOrder === true;
+        const onceKey = `pixnxt_collection_order_sync_v5_${albumId}`;
+        let needsOnce = false;
+        try {
+            needsOnce = !localStorage.getItem(onceKey);
+        } catch {
+            needsOnce = false;
+        }
+
+        if (!fromCreate && !needsOnce) return;
+
+        collectionSyncRef.current = true;
+        let cancelled = false;
+        void syncCollectionOrderToSpreads().then((placed) => {
+            if (cancelled) return;
+            if (placed > 0) scheduleWorkspaceRefresh();
+            try {
+                localStorage.setItem(onceKey, String(Date.now()));
+            } catch {
+                /* ignore */
+            }
+            if (fromCreate) {
+                const path = `${location.pathname}${location.search}`;
+                navigate(path, { replace: true, state: {} });
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        albumId,
+        album,
+        location.state,
+        location.pathname,
+        location.search,
+        navigate,
+        syncCollectionOrderToSpreads,
+        scheduleWorkspaceRefresh,
+    ]);
 
     useEffect(() => {
         setSwapMarks(getSwapMarks(albumId));
@@ -523,7 +562,7 @@ export default function AlbumEditor({
                 const right = getSpreadRightPageIndex(left, totalPages);
                 return setSpreadPhoto(albumId, left, dataUrl, right, { totalPages });
             }
-            if (isEndHalfSpreadLeftPage(left, totalPages)) {
+            if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
                 return setPagePhotoFromDataUrl(albumId, left, dataUrl, {
                     clearSpreadForLeft: left,
                 });
@@ -538,7 +577,7 @@ export default function AlbumEditor({
                 clearSpreadForLeft: left,
             });
         },
-        [albumId, totalPages, spreadCtx]
+        [albumId, totalPages, spreadCtx, spreadOpts]
     );
 
     const placeCollectionItemOnSlot = useCallback(
@@ -554,7 +593,7 @@ export default function AlbumEditor({
                     totalPages,
                 });
             }
-            if (isEndHalfSpreadLeftPage(left, totalPages)) {
+            if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
                 return setPagePhotoFromCollectionItem(albumId, left, itemId, {
                     clearSpreadForLeft: left,
                 });
@@ -715,14 +754,14 @@ export default function AlbumEditor({
     const placeItemOnSpread = useCallback(
         (itemId) => {
             const item = getCollectionItem(albumId, itemId);
-            if (!item?.dataUrl || !gridSelection) return false;
+            if (!item || (!item.dataUrl && !item.storagePath) || !gridSelection) return false;
 
             if (spreadOpts.hasCovers && gridSelection.mode === 'cover') {
                 return setPagePhotoFromCollectionItem(albumId, 0, item.id);
             }
 
             const left = gridSelection.leftPage;
-            const endHalfLeft = isEndHalfSpreadLeftPage(left, totalPages);
+            const endHalfLeft = isEndHalfSpreadLeftPage(left, totalPages, spreadOpts);
 
             if (endHalfLeft && gridSelection.mode !== 'cover') {
                 const { left: endLeft } = getEndSpreadPageIndices(totalPages);
@@ -756,7 +795,7 @@ export default function AlbumEditor({
                 }) > 0
             );
         },
-        [albumId, gridSelection, gridEditSet, placementTargets, totalPages]
+        [albumId, gridSelection, gridEditSet, placementTargets, totalPages, spreadOpts]
     );
 
     const handleUploadToCollection = async (files) => {
@@ -818,24 +857,26 @@ export default function AlbumEditor({
     const handleReorderCollectionItem = useCallback(
         (fromIndex, toIndex) => {
             if (!reorderCollectionItems(albumId, fromIndex, toIndex)) return;
-            syncCollectionOrderToSpreads();
-            scheduleWorkspaceRefresh();
+            void syncCollectionOrderToSpreads().then((placed) => {
+                if (placed > 0) scheduleWorkspaceRefresh();
+            });
         },
         [albumId, syncCollectionOrderToSpreads, scheduleWorkspaceRefresh]
     );
 
     const handleApplyCollectionOrder = useCallback(() => {
-        const placed = applyCollectionOrderToPages(albumId, album);
-        if (placed > 0) {
-            scheduleWorkspaceRefresh();
-            showToast(
-                `Placed ${placed} photo${placed === 1 ? '' : 's'} on spreads in collection order (1, 2, 3…).`,
-                { variant: 'success', duration: 4500 }
-            );
-        } else {
-            showToast('No photos in the collection to place.', { variant: 'info', duration: 3500 });
-        }
-    }, [albumId, album, scheduleWorkspaceRefresh, showToast]);
+        void syncCollectionOrderToSpreads().then((placed) => {
+            if (placed > 0) {
+                scheduleWorkspaceRefresh();
+                showToast(
+                    `Placed ${placed} photo${placed === 1 ? '' : 's'} on spreads in collection order (1, 2, 3…).`,
+                    { variant: 'success', duration: 4500 }
+                );
+            } else {
+                showToast('No photos in the collection to place.', { variant: 'info', duration: 3500 });
+            }
+        });
+    }, [syncCollectionOrderToSpreads, scheduleWorkspaceRefresh, showToast]);
 
     const canAddPages = totalPages + pagesPerSpread <= maxPages;
     const canRemovePages =

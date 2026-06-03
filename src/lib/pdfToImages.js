@@ -1,4 +1,6 @@
 import * as pdfjs from 'pdfjs-dist';
+import { getFileMime, isImageMime } from './fileMime';
+import { isRawImageFile } from './rawImageFormats';
 
 let workerReady = false;
 
@@ -24,7 +26,10 @@ export function isPdfFile(file) {
 }
 
 export function isImageFile(file) {
-    return Boolean(file?.type?.startsWith('image/'));
+    if (!file) return false;
+    if (isRawImageFile(file)) return true;
+    if (isImageMime(getFileMime(file))) return true;
+    return /\.(jpe?g|png|webp|gif|heic|heif|bmp|tiff?)$/i.test(file.name || '');
 }
 
 function readFileAsDataUrl(file) {
