@@ -10,6 +10,7 @@ import {
 } from './albumPagePhotos';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
+    getAlbumSpreadOptions,
     getSpreadPages,
     getTotalSpreads,
     isEndHalfSpreadIndex,
@@ -55,8 +56,6 @@ const BOOK_PAGE_HEIGHT_SCALE = 0.93;
 const BOOK_STAGE_MIN_PX = 80;
 /** Stage must be tall enough for real page height — avoids mounting while flex layout is still 0px. */
 const BOOK_STAGE_READY_MIN_PX = 300;
-const SAME_POINT_EPSILON = 0.2;
-
 function computeBookDimensions(w, h, gridSize = 'square') {
     if (w < BOOK_STAGE_MIN_PX || h < BOOK_STAGE_MIN_PX) return null;
     const aspect = parseGridSizeAspect(gridSize);
@@ -107,12 +106,13 @@ function OverviewFramedPhoto({ src, placeholderClass = '' }) {
 
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const albumId = album?.id;
-    if (pageNum === 0) {
+    const spreadOpts = getAlbumSpreadOptions(album);
+    if (pageNum === 0 && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples });
     }
     const directSrc = getPagePhotoOverride(albumId, pageNum);
     if (directSrc) return directSrc;
-    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true, totalPages });
+    const spreadLeft = getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
     const cellId = pageNum === spreadLeft ? 1 : 2;
     const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
         wholeSpread: album?.grid_layout === 'whole-spread',
@@ -176,6 +176,11 @@ const AlbumBook = ({
     const [initialized, setInitialized] = useState(false);
     const [commentsSeenTick, setCommentsSeenTick] = useState(0);
     const isPinModeOn = previewMode ? pinMarkMode : pinModeActive;
+    const spreadOpts = useMemo(() => getAlbumSpreadOptions(album), [album?.has_covers]);
+    const spreadCtx = useMemo(
+        () => ({ ...spreadOpts, totalPages }),
+        [spreadOpts, totalPages]
+    );
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -228,8 +233,8 @@ const AlbumBook = ({
         syncingPageRef.current = true;
     }, [flipBookMountKey]);
 
-    const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
-    const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true, totalPages });
+    const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
+    const spreadIndex = pageToSpreadIndex(pageIndex, spreadCtx);
     const currentSpreadComments =
         showGridComments && spreadCommentsBySpread
             ? spreadCommentsBySpread[spreadIndex] || null
@@ -244,9 +249,7 @@ const AlbumBook = ({
         window.addEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
         return () => window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
     }, [album?.id]);
-    const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, {
-        showCover: true,
-    });
+    const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
     const counterLabel = useMemo(() => {
         const spreadNum = spreadIndex + 1;
@@ -692,7 +695,7 @@ const AlbumBook = ({
                     );
                     return;
                 }
-                addSwapMark(album.id, originSlot, placement, {
+                const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: {
                         xPct: 50,
                         yPct: 50,
@@ -701,21 +704,22 @@ const AlbumBook = ({
                     },
                     pointB: placementPoint,
                 });
-                setSwapPinFlow(null);
+                if (mark) setSwapPinFlow(null);
                 return;
             }
 
             if (slotsMatch(originSlot, placement)) {
-                const dx = Math.abs((swapPinFlow.originPoint?.xPct ?? 0) - placementPoint.xPct);
-                const dy = Math.abs((swapPinFlow.originPoint?.yPct ?? 0) - placementPoint.yPct);
-                if (dx < SAME_POINT_EPSILON && dy < SAME_POINT_EPSILON) return;
+                setSwapPinFlow((prev) =>
+                    prev ? { ...prev, originPoint: placementPoint } : prev
+                );
+                return;
             }
 
-            addSwapMark(album.id, originSlot, placement, {
+            const mark = addSwapMark(album.id, originSlot, placement, {
                 pointA: swapPinFlow.originPoint,
                 pointB: placementPoint,
             });
-            setSwapPinFlow(null);
+            if (mark) setSwapPinFlow(null);
         },
         [album?.id, swapPinFlow, swapMarkMode]
     );
@@ -950,7 +954,7 @@ const AlbumBook = ({
                         usePortrait={false}
                         useMouseEvents={clickToFlip}
                         mobileScrollSupport={false}
-                        showCover
+                        showCover={spreadOpts.showCover}
                         showPageCorners={clickToFlip}
                         disableFlipByClick
                         startPage={initialPage}
@@ -1075,9 +1079,9 @@ const AlbumBook = ({
                             const { left, right } = getSpreadPages(
                                 overviewSpreadIndex,
                                 totalPages,
-                                { showCover: true }
+                                spreadOpts
                             );
-                            const targetPage = overviewSpreadIndex === 0 ? 0 : left;
+                            const targetPage = spreadIndexToPage(overviewSpreadIndex, spreadCtx);
                             const leftSrc = getOverviewPageImage(
                                 album,
                                 left,
@@ -1088,15 +1092,16 @@ const AlbumBook = ({
                                 right !== left
                                     ? getOverviewPageImage(album, right, totalPages, showSamples)
                                     : null;
-                            const spreadSrc =
-                                overviewSpreadIndex > 0
-                                    ? getSpreadPhotoOverride(album?.id, left)
-                                    : null;
-                            const isCover = overviewSpreadIndex === 0;
+                            const isCover =
+                                spreadOpts.hasCovers && overviewSpreadIndex === 0;
                             const isEndSpread = isEndHalfSpreadIndex(
                                 overviewSpreadIndex,
-                                totalPages
+                                totalPages,
+                                spreadOpts
                             );
+                            const spreadSrc = !isCover
+                                ? getSpreadPhotoOverride(album?.id, left)
+                                : null;
                             const coverPhotoSrc = isCover
                                 ? resolveCoverImageSrc(album, { showSamples })
                                 : null;
@@ -1176,7 +1181,13 @@ const AlbumBook = ({
                                         />
                                     )}
                                     <span className="ab-overview-label">
-                                        {isCover ? 'Cover' : isEndSpread ? 'End' : overviewSpreadIndex}
+                                        {isCover
+                                            ? 'Cover'
+                                            : isEndSpread
+                                              ? 'End'
+                                              : spreadOpts.hasCovers
+                                                ? overviewSpreadIndex
+                                                : overviewSpreadIndex + 1}
                                     </span>
                                 </button>
                             );

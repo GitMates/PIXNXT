@@ -503,6 +503,8 @@ function mapAlbumRow(row, photographerId) {
 
     grid_layout: gridOverrides?.grid_layout ?? withSettings.grid_layout ?? 'two-page',
 
+    has_covers: gridOverrides?.has_covers ?? withSettings.has_covers ?? true,
+
     comments_enabled: withSettings.comments_enabled !== false,
 
     replies_enabled: withSettings.replies_enabled !== false,
@@ -835,6 +837,7 @@ export const smartAlbumsService = {
     page_count = 21,
     grid_size = 'square',
     grid_layout = 'two-page',
+    has_covers = true,
   }) {
 
     const trimmedName = normalizeAlbumName(name);
@@ -875,6 +878,7 @@ export const smartAlbumsService = {
       writeGridSettingsOverride(photographer_id, data.id, {
         grid_size: payload.grid_size,
         grid_layout: payload.grid_layout,
+        has_covers: has_covers !== false,
       });
       removeLocalAlbum(photographer_id, data.id);
       return mapAlbumRow(data, photographer_id);
@@ -910,6 +914,7 @@ export const smartAlbumsService = {
         writeGridSettingsOverride(photographer_id, album.id, {
           grid_size: payload.grid_size,
           grid_layout: payload.grid_layout,
+          has_covers: has_covers !== false,
         });
 
         return mapAlbumRow(album, photographer_id);
@@ -1228,6 +1233,7 @@ export const smartAlbumsService = {
     writeGridSettingsOverride(photographerId, copy.id, {
       grid_size: source.grid_size,
       grid_layout: source.grid_layout,
+      has_covers: source.has_covers !== false,
     });
 
     await duplicateAlbumAssets(albumId, copy.id, photographerId);

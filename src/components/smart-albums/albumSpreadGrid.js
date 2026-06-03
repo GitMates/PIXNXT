@@ -55,9 +55,14 @@ export function isProofRightGridPage(pageNum, { showCover = true, totalPages } =
     return pageNum % 2 === 0;
 }
 
-export function getSpreadLeftPageIndex(pageNum, { showCover = true, totalPages } = {}) {
+export function getSpreadLeftPageIndex(pageNum, opts = {}) {
+    const { showCover, hasCovers } =
+        opts.hasCovers != null
+            ? { showCover: opts.hasCovers !== false, hasCovers: opts.hasCovers !== false }
+            : { showCover: opts.showCover !== false, hasCovers: opts.showCover !== false };
+    const totalPages = opts.totalPages;
     if (pageNum <= 0) return 0;
-    if (totalPages != null && totalPages > 0) {
+    if (hasCovers && totalPages != null && totalPages > 0) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
         if (pageNum >= endLeft) return endLeft;
     }

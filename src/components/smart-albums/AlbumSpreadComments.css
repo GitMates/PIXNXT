@@ -535,6 +535,37 @@
   background: transparent;
 }
 
+.asc-settings-layout {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid #e4ddf5;
+  border-radius: 10px;
+  background: #faf8ff;
+}
+
+.asc-settings-layout .asc-settings-row--info {
+  padding: 10px 0;
+}
+
+.asc-settings-layout .asc-settings-row--info:first-child {
+  padding-top: 0;
+}
+
+.asc-settings-layout .asc-settings-row--info:last-child {
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.asc-settings-value {
+  flex-shrink: 0;
+  max-width: 46%;
+  font-size: 12px;
+  font-weight: 700;
+  color: #5b2d82;
+  text-align: right;
+  line-height: 1.35;
+}
+
 .asc-settings-row {
   display: flex;
   align-items: flex-start;

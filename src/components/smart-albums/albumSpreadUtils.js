@@ -1,9 +1,22 @@
 /** Pages reserved for the back cover spread (left = photo, right = blank). */
 export const RESERVED_END_PAGES = 2;
 
+/** Spread layout flags from album settings (defaults to cover spreads for legacy albums). */
+export function getAlbumSpreadOptions(album) {
+    const hasCovers = album?.has_covers !== false;
+    return { showCover: hasCovers, hasCovers };
+}
+
+export function normalizeSpreadOpts(opts = {}) {
+    const hasCovers = opts.hasCovers ?? opts.showCover ?? true;
+    return { showCover: hasCovers, hasCovers };
+}
+
 /** Pages are 0-based. With showCover: spread 0 = cover [0|1], inner pairs, then end [n-2|n-1]. */
-export function getInnerPageCount(totalPages, { showCover = true } = {}) {
+export function getInnerPageCount(totalPages, opts = {}) {
+    const { hasCovers, showCover } = normalizeSpreadOpts(opts);
     if (totalPages <= 0) return 0;
+    if (!hasCovers) return totalPages;
     if (!showCover) return Math.max(0, totalPages - RESERVED_END_PAGES);
     return Math.max(0, totalPages - 2 - RESERVED_END_PAGES);
 }
@@ -19,7 +32,9 @@ export function getEndSpreadPageIndices(totalPages) {
 }
 
 /** Index where new pages are inserted (before the end-cover spread). */
-export function getPageInsertIndex(totalPages) {
+export function getPageInsertIndex(totalPages, opts = {}) {
+    const { hasCovers } = normalizeSpreadOpts(opts);
+    if (!hasCovers) return Math.max(0, totalPages);
     return Math.max(1, totalPages - RESERVED_END_PAGES);
 }
 
@@ -27,12 +42,16 @@ export function getPageInsertIndex(totalPages) {
  * Index where pages are removed when shrinking — the inner spread immediately
  * before the reserved end cover (never removes end-cover pages).
  */
-export function getPageRemoveIndex(totalPages, removeCount = RESERVED_END_PAGES) {
+export function getPageRemoveIndex(totalPages, removeCount = RESERVED_END_PAGES, opts = {}) {
+    const { hasCovers } = normalizeSpreadOpts(opts);
+    if (!hasCovers) return Math.max(0, totalPages - removeCount);
     const { left: endLeft } = getEndSpreadPageIndices(totalPages);
     return Math.max(1, endLeft - removeCount);
 }
 
-export function usesReservedEndSpread(totalPages, { showCover = true } = {}) {
+export function usesReservedEndSpread(totalPages, opts = {}) {
+    const { hasCovers, showCover } = normalizeSpreadOpts(opts);
+    if (!hasCovers) return false;
     if (!showCover) return totalPages >= RESERVED_END_PAGES;
     return totalPages >= 1 + RESERVED_END_PAGES;
 }
@@ -58,51 +77,63 @@ export function isInsideCoverRightPage(pageNum, totalPages, { showCover = true }
     return showCover && pageNum === 2 && isCoverInsidePage(1, totalPages, { showCover });
 }
 
-export function getSpreadPages(spreadIndex, totalPages, { showCover = true } = {}) {
+export function getSpreadPages(spreadIndex, totalPages, opts = {}) {
+    const { hasCovers, showCover } = normalizeSpreadOpts(opts);
     if (totalPages <= 0) {
         return { left: 0, right: 0 };
     }
 
-    const totalSpreads = getTotalSpreads(totalPages, { showCover });
+    const spreadOpts = { showCover, hasCovers };
+    const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
     const lastIdx = totalSpreads - 1;
 
-    if (showCover && spreadIndex <= 0) {
+    if (hasCovers && showCover && spreadIndex <= 0) {
         return { left: 0, right: Math.min(1, totalPages - 1) };
     }
 
-    if (usesReservedEndSpread(totalPages, { showCover }) && spreadIndex === lastIdx) {
+    if (usesReservedEndSpread(totalPages, spreadOpts) && spreadIndex === lastIdx) {
         return getEndSpreadPageIndices(totalPages);
     }
 
-    const left = showCover ? spreadIndex * 2 - 1 : spreadIndex * 2;
-    const maxInnerRight = usesReservedEndSpread(totalPages, { showCover })
+    const left = hasCovers && showCover ? spreadIndex * 2 - 1 : spreadIndex * 2;
+    const maxInnerRight = usesReservedEndSpread(totalPages, spreadOpts)
         ? totalPages - RESERVED_END_PAGES - 1
         : totalPages - 1;
 
     return { left, right: Math.min(left + 1, maxInnerRight) };
 }
 
-export function getTotalSpreads(totalPages, { showCover = true } = {}) {
+export function getTotalSpreads(totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const { hasCovers, showCover } = spreadOpts;
     if (totalPages <= 0) return 1;
+    if (!hasCovers) {
+        return Math.max(1, Math.ceil(totalPages / 2));
+    }
     if (!showCover) {
         const inner = Math.max(0, totalPages - RESERVED_END_PAGES);
         const innerSpreads = Math.max(0, Math.ceil(inner / 2));
         return Math.max(1, innerSpreads + (totalPages >= RESERVED_END_PAGES ? 1 : 0));
     }
-    if (!usesReservedEndSpread(totalPages, { showCover })) {
+    if (!usesReservedEndSpread(totalPages, spreadOpts)) {
         return 1;
     }
-    const innerSpreads = Math.ceil(getInnerPageCount(totalPages, { showCover }) / 2);
+    const innerSpreads = Math.ceil(getInnerPageCount(totalPages, spreadOpts) / 2);
     return 1 + innerSpreads + 1;
 }
 
 /** Map flipbook page index → spread index (matches page-flip showCover spreads). */
-export function pageToSpreadIndex(pageIndex, { showCover = true, totalPages = 0 } = {}) {
+export function pageToSpreadIndex(pageIndex, opts = {}) {
+    const { hasCovers, showCover } = normalizeSpreadOpts(opts);
+    const totalPages = opts.totalPages ?? 0;
+    const spreadOpts = { showCover, hasCovers };
+
+    if (!hasCovers) return Math.max(0, Math.floor(pageIndex / 2));
     if (pageIndex <= 0) return 0;
-    if (usesReservedEndSpread(totalPages, { showCover })) {
+    if (usesReservedEndSpread(totalPages, spreadOpts)) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
         if (pageIndex >= endLeft) {
-            return getTotalSpreads(totalPages, { showCover }) - 1;
+            return getTotalSpreads(totalPages, spreadOpts) - 1;
         }
     }
     if (!showCover) return Math.max(0, Math.floor(pageIndex / 2));
@@ -110,21 +141,26 @@ export function pageToSpreadIndex(pageIndex, { showCover = true, totalPages = 0 
 }
 
 /** Map spread index → book page index (left page of spread in flipbook) */
-export function spreadIndexToPage(spreadIndex, { showCover = true, totalPages = 0 } = {}) {
-    if (showCover && spreadIndex <= 0) return 0;
-    const lastIdx = getTotalSpreads(totalPages, { showCover }) - 1;
-    if (usesReservedEndSpread(totalPages, { showCover }) && spreadIndex === lastIdx) {
+export function spreadIndexToPage(spreadIndex, opts = {}) {
+    const { hasCovers, showCover } = normalizeSpreadOpts(opts);
+    const totalPages = opts.totalPages ?? 0;
+    const spreadOpts = { showCover, hasCovers };
+
+    if (hasCovers && showCover && spreadIndex <= 0) return 0;
+    const lastIdx = getTotalSpreads(totalPages, spreadOpts) - 1;
+    if (usesReservedEndSpread(totalPages, spreadOpts) && spreadIndex === lastIdx) {
         return getEndSpreadPageIndices(totalPages).left;
     }
-    if (!showCover) return Math.max(0, spreadIndex * 2);
+    if (!hasCovers || !showCover) return Math.max(0, spreadIndex * 2);
     return Math.max(0, spreadIndex * 2 - 1);
 }
 
 /** Last spread indices — always the reserved end-cover spread when enabled. */
-export function getLastSpreadInfo(totalPages, { showCover = true } = {}) {
-    const spreadIndex = Math.max(0, getTotalSpreads(totalPages, { showCover }) - 1);
-    const { left, right } = getSpreadPages(spreadIndex, totalPages, { showCover });
-    const orphanInnerPage = usesReservedEndSpread(totalPages, { showCover });
+export function getLastSpreadInfo(totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const spreadIndex = Math.max(0, getTotalSpreads(totalPages, spreadOpts) - 1);
+    const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
+    const orphanInnerPage = usesReservedEndSpread(totalPages, spreadOpts);
     return { spreadIndex, left, right, orphanInnerPage };
 }
 
@@ -135,13 +171,15 @@ export function getLastSpreadInfo(totalPages, { showCover = true } = {}) {
 export function getEndSpreadPageRole(
     pageNum,
     totalPages,
-    { showCover = true, rightPageHasPhoto = false } = {}
+    { showCover = true, hasCovers, rightPageHasPhoto = false } = {}
 ) {
+    const spreadOpts = normalizeSpreadOpts({ showCover, hasCovers });
+    if (!spreadOpts.hasCovers) return null;
     if (pageNum <= 0 || totalPages <= 1) return null;
-    const { spreadIndex, left, right } = getLastSpreadInfo(totalPages, { showCover });
+    const { spreadIndex, left, right } = getLastSpreadInfo(totalPages, spreadOpts);
     if (spreadIndex <= 0) return null;
 
-    if (!usesReservedEndSpread(totalPages, { showCover })) {
+    if (!usesReservedEndSpread(totalPages, spreadOpts)) {
         if (right <= left) return null;
         if (pageNum === right && !rightPageHasPhoto) return 'half-blank';
         if (pageNum === left && !rightPageHasPhoto) return 'half-left';
@@ -154,17 +192,20 @@ export function getEndSpreadPageRole(
 }
 
 /** Whether a spread index is the last spread with a half-blank layout. */
-export function isEndHalfSpreadIndex(spreadIndex, totalPages, { showCover = true } = {}) {
-    const info = getLastSpreadInfo(totalPages, { showCover });
+export function isEndHalfSpreadIndex(spreadIndex, totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const info = getLastSpreadInfo(totalPages, spreadOpts);
     if (spreadIndex !== info.spreadIndex || spreadIndex <= 0) return false;
-    return usesReservedEndSpread(totalPages, { showCover }) || info.orphanInnerPage;
+    return usesReservedEndSpread(totalPages, spreadOpts) || info.orphanInnerPage;
 }
 
 /** Last spread with photo on the left page only (not a full two-page placement). */
-export function isEndHalfSpreadLeftPage(leftPage, totalPages, { showCover = true } = {}) {
+export function isEndHalfSpreadLeftPage(leftPage, totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (!spreadOpts.hasCovers) return false;
     if (leftPage <= 0 || totalPages <= 1) return false;
-    const spreadIdx = pageToSpreadIndex(leftPage, { showCover, totalPages });
-    if (!isEndHalfSpreadIndex(spreadIdx, totalPages, { showCover })) return false;
-    const { left } = getSpreadPages(spreadIdx, totalPages, { showCover });
+    const spreadIdx = pageToSpreadIndex(leftPage, { ...spreadOpts, totalPages });
+    if (!isEndHalfSpreadIndex(spreadIdx, totalPages, spreadOpts)) return false;
+    const { left } = getSpreadPages(spreadIdx, totalPages, spreadOpts);
     return leftPage === left;
 }

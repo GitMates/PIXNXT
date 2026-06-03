@@ -20,6 +20,7 @@ import {
     isProofRightGridPage,
 } from './albumSpreadGrid';
 import {
+    getAlbumSpreadOptions,
     getEndSpreadPageRole,
     getLastSpreadInfo,
     isCoverInsidePage,
@@ -27,8 +28,9 @@ import {
     isInsideCoverRightPage,
 } from './albumSpreadUtils';
 
-function getPageImageSrc(album, pageNum, showSamples) {
-    if (pageNum === 0) {
+function getPageImageSrc(album, pageNum, showSamples, spreadOpts) {
+    const opts = spreadOpts ?? getAlbumSpreadOptions(album);
+    if (pageNum === 0 && opts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples });
     }
     const albumId = album?.id;
@@ -39,20 +41,31 @@ function getPageImageSrc(album, pageNum, showSamples) {
     return showSamples ? getSampleImageForPage(pageNum) : null;
 }
 
-function pageHasVisiblePhoto(album, albumId, pageNum, totalPages, showSamples, wholeSpread = false) {
-    if (pageNum === 0 && resolveCoverImageSrc(album, { showSamples })) return true;
-    if (isInsideCoverRightPage(pageNum, totalPages)) {
+function pageHasVisiblePhoto(
+    album,
+    albumId,
+    pageNum,
+    totalPages,
+    showSamples,
+    wholeSpread = false,
+    spreadOpts
+) {
+    const opts = { ...(spreadOpts ?? getAlbumSpreadOptions(album)), totalPages };
+    if (pageNum === 0 && opts.hasCovers && resolveCoverImageSrc(album, { showSamples })) {
+        return true;
+    }
+    if (isInsideCoverRightPage(pageNum, totalPages, opts)) {
         return Boolean(getInsideCoverRightPhotoSrc(albumId, { showSamples }));
     }
     if (getPagePhotoOverride(albumId, pageNum)) return true;
-    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true, totalPages });
-    const gridOpts = { wholeSpread };
-    if (isProofLeftGridPage(pageNum, { showCover: true, totalPages })) {
-        const slot = getGridSlotPhoto(albumId, pageNum, 1, spreadLeft, totalPages, gridOpts);
+    const spreadLeft = getSpreadLeftPageIndex(pageNum, opts);
+    const slotOpts = { wholeSpread };
+    if (isProofLeftGridPage(pageNum, opts)) {
+        const slot = getGridSlotPhoto(albumId, pageNum, 1, spreadLeft, totalPages, slotOpts);
         if (slot?.src) return true;
     }
-    if (isProofRightGridPage(pageNum, { showCover: true, totalPages })) {
-        const slot = getGridSlotPhoto(albumId, pageNum, 2, spreadLeft, totalPages, gridOpts);
+    if (isProofRightGridPage(pageNum, opts)) {
+        const slot = getGridSlotPhoto(albumId, pageNum, 2, spreadLeft, totalPages, slotOpts);
         if (slot?.src) return true;
     }
     return Boolean(showSamples && getSampleImageForPage(pageNum));
@@ -183,7 +196,9 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const albumId = albumIdProp ?? album?.id;
     void livePhotoRevision;
     void liveTransformRevision;
-    const { right: lastSpreadRight } = getLastSpreadInfo(totalPages);
+    const spreadOpts = getAlbumSpreadOptions(album);
+    const gridOpts = { ...spreadOpts, totalPages };
+    const { right: lastSpreadRight } = getLastSpreadInfo(totalPages, spreadOpts);
     const wholeSpread = placementMode === 'whole';
     const rightPageHasPhoto = pageHasVisiblePhoto(
         album,
@@ -191,19 +206,21 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         lastSpreadRight,
         totalPages,
         showSamples,
-        wholeSpread
+        wholeSpread,
+        spreadOpts
     );
     const endSpreadRole = getEndSpreadPageRole(pageNum, totalPages, {
+        ...spreadOpts,
         rightPageHasPhoto,
     });
-    const gridOpts = { showCover: true, totalPages };
     const spreadLeftForPage = getSpreadLeftPageIndex(pageNum, gridOpts);
-    const endHalfLeftPage = isEndHalfSpreadLeftPage(spreadLeftForPage, totalPages);
+    const endHalfLeftPage = isEndHalfSpreadLeftPage(spreadLeftForPage, totalPages, spreadOpts);
     const useLeftGrid = isProofLeftGridPage(pageNum, gridOpts) && !endHalfLeftPage;
     const useRightGrid = isProofRightGridPage(pageNum, gridOpts);
-    const src = getPageImageSrc(album, pageNum, showSamples);
-    /** Flipbook `showCover` renders page 0 as a single page — full cover, not a 50/50 spread. */
-    const isFrontCoverPage = pageNum === 0 && !useLeftGrid && !useRightGrid;
+    const src = getPageImageSrc(album, pageNum, showSamples, spreadOpts);
+    /** With covers, flipbook `showCover` renders page 0 alone — not a 50/50 spread. */
+    const isFrontCoverPage =
+        spreadOpts.hasCovers && pageNum === 0 && !useLeftGrid && !useRightGrid;
 
     if (endSpreadRole === 'half-blank') {
         return (
@@ -226,7 +243,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         );
     }
 
-    if (isInsideCoverRightPage(pageNum, totalPages)) {
+    if (isInsideCoverRightPage(pageNum, totalPages, spreadOpts)) {
         const photoSrc = getInsideCoverRightPhotoSrc(albumId, { showSamples });
         const transform = albumId
             ? getPagePhotoTransform(albumId, 2)
@@ -256,7 +273,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     const showStar = pageNum === 1 && album?.is_starred;
-    const canSelectCover = pageNum === 0 && editable && !spreadEdit;
+    const canSelectCover = spreadOpts.hasCovers && pageNum === 0 && editable && !spreadEdit;
     const PageWrapTag = canSelectCover ? 'button' : 'div';
     const coverSwapMarkInfo = liveGetSwapMarkInfo?.(0, 0);
     const coverSwapMarkInfos =

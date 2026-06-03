@@ -48,11 +48,14 @@ const GRID_LAYOUT_LABELS = {
     'whole-spread': 'Whole-spread photo',
 };
 
-function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages) {
+function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, spreadOpts) {
+    const hasCovers = spreadOpts?.hasCovers !== false;
     if (!canSelectGrid) {
-        return 'Flip to an inner spread (not the cover) to place photos.';
+        return hasCovers
+            ? 'Flip to an inner spread (not the cover) to place photos.'
+            : 'Select a spread to place photos.';
     }
-    if (gridSelection?.mode === 'cover') {
+    if (hasCovers && gridSelection?.mode === 'cover') {
         return 'Cover page';
     }
     if (
@@ -64,7 +67,7 @@ function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages) {
     }
     if (
         gridSelection?.leftPage != null &&
-        isEndHalfSpreadLeftPage(gridSelection.leftPage, totalPages)
+        isEndHalfSpreadLeftPage(gridSelection.leftPage, totalPages, spreadOpts)
     ) {
         return 'Last spread · left page only';
     }
@@ -225,7 +228,13 @@ export default function AlbumEditorSidebar({
                         </p>
                         {canSelectGrid && (
                             <p className="ae-selection-badge" role="status">
-                                {placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages)}
+                                {placementHint(
+                                    gridEditSet,
+                                    gridSelection,
+                                    canSelectGrid,
+                                    totalPages,
+                                    { hasCovers: album?.has_covers !== false }
+                                )}
                             </p>
                         )}
                         <input

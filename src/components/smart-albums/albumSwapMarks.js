@@ -178,6 +178,18 @@ export function getSwapMarks(albumId) {
     return readAll()[albumId] || [];
 }
 
+function findSwapMarkPairIndex(list, keyA, keyB) {
+    return list.findIndex(
+        (m) => (m.a === keyA && m.b === keyB) || (m.a === keyB && m.b === keyA)
+    );
+}
+
+function swapMarkPointKey(pt) {
+    return pt && Number.isFinite(pt.xPct) && Number.isFinite(pt.yPct)
+        ? `${pt.pageNum ?? ''}:${pt.cellId ?? ''}:${pt.xPct.toFixed(2)}:${pt.yPct.toFixed(2)}`
+        : null;
+}
+
 export function addSwapMark(albumId, slotA, slotB, options = {}) {
     if (!albumId || !slotA || !slotB) return null;
     const keyA = makeSlotKey(slotA.pageNum, slotA.cellId);
@@ -189,23 +201,38 @@ export function addSwapMark(albumId, slotA, slotB, options = {}) {
 
     const all = readAll();
     const list = [...(all[albumId] || [])];
-    const pointKey = (pt) =>
-        pt && Number.isFinite(pt.xPct) && Number.isFinite(pt.yPct)
-            ? `${pt.pageNum ?? ''}:${pt.cellId ?? ''}:${pt.xPct.toFixed(2)}:${pt.yPct.toFixed(2)}`
-            : null;
-    const nextPointAKey = pointKey(pointA);
-    const nextPointBKey = pointKey(pointB);
-    const alreadyExists = list.some((m) => {
-        const pairMatches = (m.a === keyA && m.b === keyB) || (m.a === keyB && m.b === keyA);
-        if (!pairMatches) return false;
-        if (!sameSlot) return true;
-        const existingAKey = pointKey(m.pointA);
-        const existingBKey = pointKey(m.pointB);
-        const sameDirection = existingAKey === nextPointAKey && existingBKey === nextPointBKey;
-        const reverseDirection = existingAKey === nextPointBKey && existingBKey === nextPointAKey;
-        return sameDirection || reverseDirection;
-    });
-    if (alreadyExists) return null;
+    const nextPointAKey = swapMarkPointKey(pointA);
+    const nextPointBKey = swapMarkPointKey(pointB);
+    const existingIdx = findSwapMarkPairIndex(list, keyA, keyB);
+
+    if (existingIdx >= 0) {
+        const existing = list[existingIdx];
+        if (sameSlot) {
+            const existingAKey = swapMarkPointKey(existing.pointA);
+            const existingBKey = swapMarkPointKey(existing.pointB);
+            const sameDirection =
+                existingAKey === nextPointAKey && existingBKey === nextPointBKey;
+            const reverseDirection =
+                existingAKey === nextPointBKey && existingBKey === nextPointAKey;
+            if (sameDirection || reverseDirection) return existing;
+        }
+        const forward = existing.a === keyA && existing.b === keyB;
+        const updated = {
+            ...existing,
+            labelA: slotA.label || existing.labelA,
+            labelB: slotB.label || existing.labelB,
+            pointA: forward ? pointA || existing.pointA : pointB || existing.pointB,
+            pointB: forward ? pointB || existing.pointB : pointA || existing.pointA,
+            locked: existing.locked !== false,
+            createdAt: new Date().toISOString(),
+        };
+        list[existingIdx] = updated;
+        all[albumId] = list;
+        writeAll(all);
+        notify(albumId);
+        return updated;
+    }
+
     const mark = {
         id: `swap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         a: keyA,

@@ -591,13 +591,19 @@ export function placeCollectionItemOnPages(
     return placed;
 }
 
-export function autoPlaceCollectionItems(albumId, collectionItemIds, { totalPages = 21, gridLayout } = {}) {
+export function autoPlaceCollectionItems(
+    albumId,
+    collectionItemIds,
+    { totalPages = 21, gridLayout, showCover = true } = {}
+) {
     if (!albumId || !collectionItemIds?.length) return 0;
+
+    const startPage = showCover ? 1 : 0;
 
     if (gridLayout === 'whole-spread') {
         let placed = 0;
         for (let i = 0; i < collectionItemIds.length; i += 1) {
-            const leftPage = 1 + i * 2;
+            const leftPage = startPage + i * 2;
             if (leftPage >= totalPages) break;
             const rightPage = leftPage + 1 < totalPages ? leftPage + 1 : null;
             if (
@@ -612,9 +618,9 @@ export function autoPlaceCollectionItems(albumId, collectionItemIds, { totalPage
     }
 
     let placed = 0;
-    const slotCount = Math.max(0, totalPages - 1);
+    const slotCount = Math.max(0, totalPages - startPage);
     for (let i = 0; i < Math.min(collectionItemIds.length, slotCount); i += 1) {
-        const page = i + 1;
+        const page = startPage + i;
         const spreadLeftPage = page % 2 === 1 ? page : page - 1;
         if (
             setPagePhotoFromCollectionItem(albumId, page, collectionItemIds[i], {

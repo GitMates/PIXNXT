@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
+import { formatGridLayoutLabel, formatGridSizeLabel } from './albumGridSize';
 import './AlbumSpreadComments.css';
 
 function SettingsSwitch({ id, checked, disabled, busy, onChange, label }) {
@@ -87,6 +88,37 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
 
     return (
         <div className="asc-settings asc-settings--panel">
+            <div className="asc-settings-layout">
+                <div className="asc-settings-row asc-settings-row--info">
+                    <div className="asc-settings-row-main">
+                        <span className="asc-settings-row-label">Grid size</span>
+                        <span className="asc-settings-row-desc">
+                            Detected from all uploaded images and PDF pages when the album was
+                            created
+                        </span>
+                    </div>
+                    <span className="asc-settings-value">{formatGridSizeLabel(album?.grid_size)}</span>
+                </div>
+                <div className="asc-settings-row asc-settings-row--info">
+                    <div className="asc-settings-row-main">
+                        <span className="asc-settings-row-label">Covers</span>
+                        <span className="asc-settings-row-desc">Set when the album was created</span>
+                    </div>
+                    <span className="asc-settings-value">
+                        {album?.has_covers !== false ? 'Front & end cover' : 'No covers'}
+                    </span>
+                </div>
+                <div className="asc-settings-row asc-settings-row--info">
+                    <div className="asc-settings-row-main">
+                        <span className="asc-settings-row-label">Grid layout</span>
+                        <span className="asc-settings-row-desc">Locked at creation</span>
+                    </div>
+                    <span className="asc-settings-value">
+                        {formatGridLayoutLabel(album?.grid_layout)}
+                    </span>
+                </div>
+            </div>
+
             <p className="asc-settings-note asc-settings-note--lead">
                 Control client proofing on the shared preview link. Comments are saved per spread.
             </p>

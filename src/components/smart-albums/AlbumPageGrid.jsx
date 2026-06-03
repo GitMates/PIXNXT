@@ -8,7 +8,11 @@ import {
 import { getSpreadPhotoOverride } from './albumPagePhotos';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
-import { isEndHalfSpreadLeftPage, isInsideCoverSpreadLeft } from './albumSpreadUtils';
+import {
+    getAlbumSpreadOptions,
+    isEndHalfSpreadLeftPage,
+    isInsideCoverSpreadLeft,
+} from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
@@ -118,9 +122,11 @@ export default function AlbumPageGrid({
     const albumId = albumIdProp ?? album?.id;
     void photoRevision;
     void transformRevision;
-    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true, totalPages });
-    const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages);
-    const insideCoverSpread = isInsideCoverSpreadLeft(spreadLeft, totalPages);
+    const spreadOpts = getAlbumSpreadOptions(album);
+    const spreadCtx = { ...spreadOpts, totalPages };
+    const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);
+    const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
+    const insideCoverSpread = isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts);
     const inSelectedSpread =
         selectionLeftPage != null && selectionLeftPage === spreadLeft;
     const selectWholeSpread = selectionMode === 'spread' && inSelectedSpread;
@@ -313,6 +319,15 @@ export default function AlbumPageGrid({
                             }
                             swapPinModeActive={swapPinModeActive}
                             swapPinTargetStep={swapPinTargetStep}
+                            swapPinHint={
+                                swapPinModeActive && hasPhoto
+                                    ? swapPinTargetStep
+                                        ? isOriginSlot
+                                            ? 'Source spot selected — pick target photo'
+                                            : 'Click target spot to complete swap'
+                                        : 'Click source spot to start swap'
+                                    : ''
+                            }
                             onPlaceSwapPin={(xPct, yPct) =>
                                 onPlaceSwapPin?.({
                                     ...buildSwapSlot(photoIndex, cell.id),

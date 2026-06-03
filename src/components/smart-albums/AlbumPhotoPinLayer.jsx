@@ -110,6 +110,7 @@ export default function AlbumPhotoPinLayer({
     onActivateSwapPinMode,
     swapPinModeActive = false,
     swapPinTargetStep = false,
+    swapPinHint = '',
     onPlaceSwapPin,
     swapPins = [],
     onActivatePinMode,
@@ -146,13 +147,14 @@ export default function AlbumPhotoPinLayer({
         if (pinModeActive) onPlacePin?.(xPct, yPct);
     };
 
-    const placementHint = swapPinModeActive && hasPhoto
-        ? (swapPinTargetStep
-            ? 'Click target spot to complete swap'
-            : 'Click source spot to start swap')
-        : pinModeActive && hasPhoto
-            ? 'Click to place comment'
-            : '';
+    const placementHint = swapPinHint
+        || (swapPinModeActive && hasPhoto
+            ? swapPinTargetStep
+                ? 'Click target spot to complete swap'
+                : 'Click source spot to start swap'
+            : pinModeActive && hasPhoto
+              ? 'Click to place comment'
+              : '');
 
     useLayoutEffect(() => {
         if (!placementHint || !layerRef.current) {
