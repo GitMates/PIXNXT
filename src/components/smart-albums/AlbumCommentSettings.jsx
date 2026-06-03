@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import { formatGridLayoutLabel, formatGridSizeLabel } from './albumGridSize';
+import { formatAlbumGridSizeDisplay, formatGridLayoutLabel } from './albumGridSize';
 import './AlbumSpreadComments.css';
 
 function SettingsSwitch({ id, checked, disabled, busy, onChange, label }) {
@@ -89,7 +89,7 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
     return (
         <div className="asc-settings asc-settings--panel">
             <div className="asc-settings-layout">
-                <div className="asc-settings-row asc-settings-row--info">
+                <div className="asc-settings-row asc-settings-row--info asc-settings-row--grid-size">
                     <div className="asc-settings-row-main">
                         <span className="asc-settings-row-label">Grid size</span>
                         <span className="asc-settings-row-desc">
@@ -97,7 +97,7 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
                             created
                         </span>
                     </div>
-                    <span className="asc-settings-value">{formatGridSizeLabel(album?.grid_size)}</span>
+                    <span className="asc-settings-value">{formatAlbumGridSizeDisplay(album)}</span>
                 </div>
                 <div className="asc-settings-row asc-settings-row--info">
                     <div className="asc-settings-row-main">

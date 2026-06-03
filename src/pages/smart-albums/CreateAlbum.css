@@ -402,8 +402,8 @@
   color: #7d3c98;
 }
 
-.sa-upload-detected-size--revealed {
-  animation-delay: 0.06s;
+.sa-upload-detected-size--revealed + .sa-upload-detected-size--revealed {
+  animation-delay: 0.1s;
 }
 
 .sa-upload-clear {

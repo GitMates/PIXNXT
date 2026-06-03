@@ -162,18 +162,55 @@ async function collectAllUploadDimensions(files) {
  * Detect grid size from all uploaded images and every PDF page.
  * Whole-spread: one photo spans two pages — use half-width per page (2:1 upload → square pages).
  */
-export async function detectGridSizeFromFiles(files, { gridLayout } = {}) {
-    if (!files?.length) return 'square';
+export async function detectGridSizesFromFiles(files, { gridLayout } = {}) {
+    if (!files?.length) {
+        return { pageGridSize: 'square', spreadGridSize: null };
+    }
     const dimensions = await collectAllUploadDimensions(files);
     const wholeSpread = isWholeSpreadLayout(gridLayout);
-    return gridSizeFromAllDimensions(dimensions, { wholeSpread });
+    const pageGridSize = gridSizeFromAllDimensions(dimensions, { wholeSpread });
+    const spreadGridSize = wholeSpread
+        ? gridSizeFromAllDimensions(dimensions, { wholeSpread: false })
+        : null;
+    return { pageGridSize, spreadGridSize };
 }
 
-export function formatGridSizeLabelForLayout(gridSize, gridLayout) {
-    const base = formatGridSizeLabel(gridSize);
-    if (!isWholeSpreadLayout(gridLayout)) return base;
-    const pageLabel = base.replace(/^Custom pages/, 'Custom page');
+/** @deprecated Use detectGridSizesFromFiles */
+export async function detectGridSizeFromFiles(files, { gridLayout } = {}) {
+    const { pageGridSize } = await detectGridSizesFromFiles(files, { gridLayout });
+    return pageGridSize;
+}
+
+function shortGridSizeLabel(gridSize) {
+    return formatGridSizeLabel(gridSize).replace(/ pages /g, ' ');
+}
+
+export function formatGridSizeLabelForLayout(pageGridSize, gridLayout, { spreadGridSize } = {}) {
+    const pageLabel = shortGridSizeLabel(pageGridSize);
+    if (!isWholeSpreadLayout(gridLayout)) {
+        return `${pageLabel} · two-page spreads (left + right)`;
+    }
+    const spreadLabel = spreadGridSize ? shortGridSizeLabel(spreadGridSize) : null;
+    if (spreadLabel) {
+        return `${pageLabel} per page · spread ${spreadLabel} (full upload width)`;
+    }
     return `${pageLabel} per page · spread fits your upload width`;
+}
+
+/** Derive full-upload spread ratio from stored per-page grid (whole-spread albums). */
+export function spreadGridSizeFromPageGrid(pageGridSize, gridLayout) {
+    if (!isWholeSpreadLayout(gridLayout) || !pageGridSize) return null;
+    const pageAspect = parseGridSizeAspect(pageGridSize);
+    if (!(pageAspect > 0)) return null;
+    return gridSizeFromAspect(pageAspect * 2);
+}
+
+/** Grid size line for album settings (matches create-page detection). */
+export function formatAlbumGridSizeDisplay(album) {
+    if (!album?.grid_size) return formatGridSizeLabel('square');
+    const spreadGridSize =
+        album.spread_grid_size ?? spreadGridSizeFromPageGrid(album.grid_size, album.grid_layout);
+    return formatGridSizeLabelForLayout(album.grid_size, album.grid_layout, { spreadGridSize });
 }
 
 export function formatGridLayoutLabel(gridLayout) {

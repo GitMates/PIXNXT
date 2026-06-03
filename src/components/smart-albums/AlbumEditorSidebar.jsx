@@ -6,7 +6,10 @@ import { countUnseenSwapMarks } from './albumSwapMarks';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { getCollectionItemDisplayUrl } from './albumCollection';
-import { formatGridSizeLabel } from './albumGridSize';
+import {
+    formatAlbumGridSizeDisplay,
+    formatGridLayoutLabel,
+} from './albumGridSize';
 import { isCoverInsidePage, isEndHalfSpreadLeftPage } from './albumSpreadUtils';
 
 const IconCollection = () => (
@@ -160,7 +163,9 @@ export default function AlbumEditorSidebar({
             <div className="ae-sidebar-head">
                 <p className="ae-sidebar-label">Album studio</p>
                 <h2 className="ae-sidebar-title">{album?.name || 'Album'}</h2>
-                <p className="ae-sidebar-meta">{totalPages} pages · 2-page spreads</p>
+                <p className="ae-sidebar-meta">
+                    {totalPages} pages · {formatGridLayoutLabel(album?.grid_layout)}
+                </p>
             </div>
 
             <nav className="ae-nav" aria-label="Editor tools">
@@ -373,7 +378,7 @@ export default function AlbumEditorSidebar({
                         <div className="ae-locked-grid">
                             <div>
                                 <span className="ae-locked-grid-label">Grid size</span>
-                                <strong>{formatGridSizeLabel(album?.grid_size)}</strong>
+                                <strong>{formatAlbumGridSizeDisplay(album)}</strong>
                             </div>
                             <div>
                                 <span className="ae-locked-grid-label">Grid layout</span>

@@ -6,12 +6,13 @@ import { applyCollectionOrderToPages } from '../../components/smart-albums/album
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
-    detectGridSizeFromFiles,
+    detectGridSizesFromFiles,
     formatGridSizeLabelForLayout,
 } from '../../components/smart-albums/albumGridSize';
 import {
     computePageCountFromPhotoCount,
     countExpandedUploadPhotos,
+    describeAlbumLayout,
 } from './createAlbumLayout';
 import { buildPreviewThumbUrls } from './createAlbumPreviewThumbs';
 import { isImageFile } from '../../lib/pdfToImages';
@@ -225,6 +226,7 @@ const CreateAlbum = () => {
     const [gridLayout, setGridLayout] = useState('two-page');
     const [customGridLayout, setCustomGridLayout] = useState('');
     const [detectedGridSize, setDetectedGridSize] = useState('square');
+    const [detectedSpreadGridSize, setDetectedSpreadGridSize] = useState(null);
 
     const [photoFiles, setPhotoFiles] = useState([]);
     const [photoPreviews, setPhotoPreviews] = useState([]);
@@ -251,6 +253,18 @@ const CreateAlbum = () => {
         if (gridLayout === 'custom') return resolvedGridLayout;
         return gridLayout;
     }, [gridLayout, resolvedGridLayout]);
+
+    const layoutPreview = useMemo(() => {
+        if (!expandedPhotoCount) return null;
+        const pageCount = computePageCountFromPhotoCount(expandedPhotoCount, {
+            includeCovers,
+            gridLayout: resolvedGridLayout,
+        });
+        return describeAlbumLayout(expandedPhotoCount, pageCount, {
+            includeCovers,
+            gridLayout: resolvedGridLayout,
+        });
+    }, [expandedPhotoCount, includeCovers, resolvedGridLayout]);
 
     const setProgress = (next) => {
         setCreateProgress(next);
@@ -314,6 +328,7 @@ const CreateAlbum = () => {
         if (!photoFiles.length) {
             setExpandedPhotoCount(0);
             setDetectedGridSize('square');
+            setDetectedSpreadGridSize(null);
             setPhotoCountBusy(false);
             setGridSizeBusy(false);
             return undefined;
@@ -327,14 +342,15 @@ const CreateAlbum = () => {
             if (cancelled) return;
             Promise.all([
                 countExpandedUploadPhotos(photoFiles).catch(() => photoFiles.length),
-                detectGridSizeFromFiles(photoFiles, {
+                detectGridSizesFromFiles(photoFiles, {
                     gridLayout: gridLayoutForDetection,
-                }).catch(() => 'square'),
+                }).catch(() => ({ pageGridSize: 'square', spreadGridSize: null })),
             ])
-                .then(([count, gridSize]) => {
+                .then(([count, gridSizes]) => {
                     if (cancelled) return;
                     setExpandedPhotoCount(count);
-                    setDetectedGridSize(gridSize);
+                    setDetectedGridSize(gridSizes.pageGridSize);
+                    setDetectedSpreadGridSize(gridSizes.spreadGridSize);
                 })
                 .finally(() => {
                     if (!cancelled) {
@@ -436,14 +452,17 @@ const CreateAlbum = () => {
 
             let photoCount = expandedPhotoCount;
             let finalGridSize = detectedGridSize;
+            let finalSpreadGridSize = detectedSpreadGridSize;
             if (photoFiles.length > 0) {
                 const expanded = await countExpandedUploadPhotos(photoFiles).catch(
                     () => photoFiles.length
                 );
                 photoCount = Math.max(expanded, photoFiles.length);
-                finalGridSize = await detectGridSizeFromFiles(photoFiles, {
+                const gridSizes = await detectGridSizesFromFiles(photoFiles, {
                     gridLayout: finalGridLayout,
                 });
+                finalGridSize = gridSizes.pageGridSize;
+                finalSpreadGridSize = gridSizes.spreadGridSize;
             }
 
             const finalPageCount = computePageCountFromPhotoCount(photoCount, {
@@ -464,6 +483,7 @@ const CreateAlbum = () => {
                 event_date: date || null,
                 page_count: finalPageCount,
                 grid_size: finalGridSize,
+                spread_grid_size: finalSpreadGridSize,
                 grid_layout: finalGridLayout,
                 has_covers: includeCovers,
             });
@@ -703,14 +723,25 @@ const CreateAlbum = () => {
                                                     {photoPreviews.length === 1 ? '' : 's'})
                                                 </span>
                                             )}
-                                            {!analyzingUploads && expandedPhotoCount > 0 && (
-                                                <span className="sa-upload-detected-size sa-upload-detected-size--revealed">
-                                                    Grid:{' '}
-                                                    {formatGridSizeLabelForLayout(
-                                                        detectedGridSize,
-                                                        gridLayoutForDetection
-                                                    )}
-                                                </span>
+                                            {!analyzingUploads && expandedPhotoCount > 0 && layoutPreview && (
+                                                <>
+                                                    <span className="sa-upload-detected-size sa-upload-detected-size--revealed">
+                                                        Page count: {layoutPreview.pageCount} pages
+                                                        · {layoutPreview.totalSpreads} spread
+                                                        {layoutPreview.totalSpreads === 1 ? '' : 's'}
+                                                    </span>
+                                                    <span className="sa-upload-detected-size sa-upload-detected-size--revealed">
+                                                        Grid:{' '}
+                                                        {formatGridSizeLabelForLayout(
+                                                            detectedGridSize,
+                                                            gridLayoutForDetection,
+                                                            {
+                                                                spreadGridSize:
+                                                                    detectedSpreadGridSize,
+                                                            }
+                                                        )}
+                                                    </span>
+                                                </>
                                             )}
                                         </div>
                                         {analyzingUploads && (
@@ -857,8 +888,21 @@ const CreateAlbum = () => {
                             </div>
 
                             <p className="sa-field-note">
-                                Layout and cover mode are locked after the album is created. Grid size
-                                is detected from your uploads.
+                                Layout and cover mode are locked after the album is created.
+                                {expandedPhotoCount > 0 && !analyzingUploads ? (
+                                    <>
+                                        {' '}
+                                        Detected grid:{' '}
+                                        {formatGridSizeLabelForLayout(
+                                            detectedGridSize,
+                                            gridLayoutForDetection,
+                                            { spreadGridSize: detectedSpreadGridSize }
+                                        )}
+                                        .
+                                    </>
+                                ) : (
+                                    <> Grid size is detected from your uploads.</>
+                                )}
                             </p>
                         </section>
 

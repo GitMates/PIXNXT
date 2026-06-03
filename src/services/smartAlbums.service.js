@@ -503,6 +503,8 @@ function mapAlbumRow(row, photographerId) {
 
     grid_layout: gridOverrides?.grid_layout ?? withSettings.grid_layout ?? 'two-page',
 
+    spread_grid_size: gridOverrides?.spread_grid_size ?? withSettings.spread_grid_size ?? null,
+
     has_covers: (() => {
         if (
             gridOverrides != null &&
@@ -846,6 +848,7 @@ export const smartAlbumsService = {
     event_date,
     page_count = 21,
     grid_size = 'square',
+    spread_grid_size = null,
     grid_layout = 'two-page',
     has_covers = true,
   }) {
@@ -889,6 +892,7 @@ export const smartAlbumsService = {
         grid_size: payload.grid_size,
         grid_layout: payload.grid_layout,
         has_covers: has_covers === true,
+        spread_grid_size: spread_grid_size || null,
       });
       removeLocalAlbum(photographer_id, data.id);
       return mapAlbumRow(data, photographer_id);
@@ -925,9 +929,13 @@ export const smartAlbumsService = {
           grid_size: payload.grid_size,
           grid_layout: payload.grid_layout,
           has_covers: has_covers === true,
+          spread_grid_size: spread_grid_size || null,
         });
 
-        return mapAlbumRow({ ...album, has_covers: has_covers === true }, photographer_id);
+        return mapAlbumRow(
+            { ...album, has_covers: has_covers === true, spread_grid_size: spread_grid_size || null },
+            photographer_id
+        );
 
     }
 
