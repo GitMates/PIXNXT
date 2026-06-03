@@ -256,7 +256,7 @@ export default function AlbumEditor({
 
         return applyCollectionOrderToPages(albumId, {
             ...albumForPlace,
-            has_covers: spreadOpts.hasCovers,
+            has_covers: album?.has_covers === true,
             grid_layout: album.grid_layout || 'two-page',
             page_count: requiredPages,
         });

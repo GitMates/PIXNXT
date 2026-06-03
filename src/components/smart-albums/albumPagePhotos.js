@@ -728,13 +728,17 @@ export function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
     const items = itemIds?.length
         ? itemIds.map((id) => getCollectionItem(albumId, id)).filter(Boolean)
         : getAlbumCollection(albumId);
-    const spreadOpts = getAlbumSpreadOptions(album, { collectionCount: items.length });
+    const includeCovers = album?.has_covers === true;
+    const spreadOpts = getAlbumSpreadOptions(
+        { ...album, has_covers: includeCovers },
+        { collectionCount: items.length }
+    );
     if (!items.length) return 0;
 
     const gridLayout = album.grid_layout || 'two-page';
     const wholeSpread = isWholeSpreadLayout(gridLayout);
     const requiredPages = computePageCountFromPhotoCount(items.length, {
-        includeCovers: spreadOpts.hasCovers,
+        includeCovers,
         gridLayout,
     });
     const totalPages = Math.max(album.page_count ?? 21, requiredPages);
@@ -769,9 +773,10 @@ export function autoPlaceCollectionItems(
 ) {
     if (!albumId || !collectionItemIds?.length) return 0;
 
+    const useCovers = hasCovers === true;
     const spreadOpts = {
-        showCover,
-        hasCovers: hasCovers ?? showCover,
+        showCover: useCovers,
+        hasCovers: useCovers,
         totalPages,
     };
 

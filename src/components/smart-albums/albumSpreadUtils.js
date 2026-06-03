@@ -15,9 +15,14 @@ function minPageCountForCovers(photoCount, gridLayout = 'two-page') {
     return Math.max(4, 4 + 2 * Math.ceil(innerCount / 2));
 }
 
-/** Spread layout flags from album settings (defaults to cover spreads for legacy albums). */
+/** True only when the album was created with "Front & end cover" (not "No covers"). */
+export function albumHasCoverSpreads(album) {
+    return album?.has_covers === true;
+}
+
+/** Spread layout flags from album settings. */
 export function getAlbumSpreadOptions(album, { collectionCount = 0 } = {}) {
-    let hasCovers = album?.has_covers !== false;
+    let hasCovers = albumHasCoverSpreads(album);
     const pageCount = album?.page_count ?? 21;
     const n = Math.max(0, Math.floor(Number(collectionCount) || 0));
     const gridLayout = album?.grid_layout;
@@ -50,8 +55,13 @@ export function spreadNumberFromLeftPage(leftPage, opts = {}) {
 }
 
 export function normalizeSpreadOpts(opts = {}) {
-    const hasCovers = opts.hasCovers ?? opts.showCover ?? true;
-    return { showCover: hasCovers, hasCovers };
+    if (typeof opts.hasCovers === 'boolean') {
+        return { showCover: opts.hasCovers, hasCovers: opts.hasCovers };
+    }
+    if (typeof opts.showCover === 'boolean') {
+        return { showCover: opts.showCover, hasCovers: opts.showCover };
+    }
+    return { showCover: false, hasCovers: false };
 }
 
 /** Pages are 0-based. With showCover: spread 0 = cover [0|1], inner pairs, then end [n-2|n-1]. */
@@ -98,10 +108,9 @@ export function usesReservedEndSpread(totalPages, opts = {}) {
     return totalPages >= 1 + RESERVED_END_PAGES;
 }
 
-/** Front cover: page 0 is the blank left leaf (photo 1 goes on page 1). */
-export function isCoverInsidePage(pageNum, totalPages, { showCover = true, hasCovers } = {}) {
-    const covers = hasCovers ?? showCover;
-    return covers && pageNum === 0;
+/** Front cover: page 0 is the blank left leaf (photo 1 goes on page 1). Only with cover spreads. */
+export function isCoverInsidePage(pageNum, _totalPages, { hasCovers } = {}) {
+    return hasCovers === true && pageNum === 0;
 }
 
 /** First inner spread (pages 1|2): left is inside cover — never panoramic / whole-spread. */

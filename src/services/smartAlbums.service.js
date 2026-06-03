@@ -503,7 +503,17 @@ function mapAlbumRow(row, photographerId) {
 
     grid_layout: gridOverrides?.grid_layout ?? withSettings.grid_layout ?? 'two-page',
 
-    has_covers: gridOverrides?.has_covers ?? withSettings.has_covers ?? true,
+    has_covers: (() => {
+        if (
+            gridOverrides != null &&
+            Object.prototype.hasOwnProperty.call(gridOverrides, 'has_covers')
+        ) {
+            return gridOverrides.has_covers === true;
+        }
+        if (withSettings.has_covers === false) return false;
+        if (withSettings.has_covers === true) return true;
+        return true;
+    })(),
 
     comments_enabled: withSettings.comments_enabled !== false,
 
@@ -878,7 +888,7 @@ export const smartAlbumsService = {
       writeGridSettingsOverride(photographer_id, data.id, {
         grid_size: payload.grid_size,
         grid_layout: payload.grid_layout,
-        has_covers: has_covers !== false,
+        has_covers: has_covers === true,
       });
       removeLocalAlbum(photographer_id, data.id);
       return mapAlbumRow(data, photographer_id);
@@ -914,10 +924,10 @@ export const smartAlbumsService = {
         writeGridSettingsOverride(photographer_id, album.id, {
           grid_size: payload.grid_size,
           grid_layout: payload.grid_layout,
-          has_covers: has_covers !== false,
+          has_covers: has_covers === true,
         });
 
-        return mapAlbumRow(album, photographer_id);
+        return mapAlbumRow({ ...album, has_covers: has_covers === true }, photographer_id);
 
     }
 
@@ -1226,6 +1236,8 @@ export const smartAlbumsService = {
 
       grid_layout: source.grid_layout,
 
+      has_covers: source.has_covers === true,
+
     });
 
     writePageCountOverride(photographerId, copy.id, source.page_count);
@@ -1233,7 +1245,7 @@ export const smartAlbumsService = {
     writeGridSettingsOverride(photographerId, copy.id, {
       grid_size: source.grid_size,
       grid_layout: source.grid_layout,
-      has_covers: source.has_covers !== false,
+      has_covers: source.has_covers === true,
     });
 
     await duplicateAlbumAssets(albumId, copy.id, photographerId);

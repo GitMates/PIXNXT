@@ -51,7 +51,7 @@ const GRID_LAYOUT_LABELS = {
 };
 
 function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, spreadOpts) {
-    const hasCovers = spreadOpts?.hasCovers !== false;
+    const hasCovers = spreadOpts?.hasCovers === true;
     if (!canSelectGrid) {
         return hasCovers
             ? 'Flip to an inner spread (not the cover) to place photos.'
@@ -263,7 +263,7 @@ export default function AlbumEditorSidebar({
                                     gridSelection,
                                     canSelectGrid,
                                     totalPages,
-                                    { hasCovers: album?.has_covers !== false }
+                                    { hasCovers: album?.has_covers === true }
                                 )}
                             </p>
                         )}
@@ -347,7 +347,9 @@ export default function AlbumEditorSidebar({
                                     ))}
                                 </div>
                                 <p className="ae-collection-order-note">
-                                    Order 1 is your first upload — it fills the first spread slot.
+                                    {album?.has_covers === true
+                                        ? 'Order 1 → front cover (right page). Last order number → end cover (left page). Middle photos fill inner pages.'
+                                        : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
                                     Drag thumbnails to reorder; spreads update automatically.
                                 </p>
                                 <button
