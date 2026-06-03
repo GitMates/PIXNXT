@@ -24,6 +24,7 @@ import {
     clearAllAlbumPagePhotos,
     getAlbumPhotoRevision,
     migrateEndHalfSpreadToLeftPage,
+    migrateFrontCoverSpreadToPageOne,
     migrateInsideCoverSpreadToPageTwo,
     applyCollectionOrderToPages,
     migrateMiskeyedInnerSpreadPhotos,
@@ -266,8 +267,13 @@ export default function AlbumEditor({
         if (migrateEndHalfSpreadToLeftPage(albumId, totalPages, album)) changed = true;
         if (migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, album)) changed = true;
         if (migrateWholeSpreadPhotoOffRightPage(albumId, album)) changed = true;
-        if (migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, album)) changed = true;
+        if (!spreadOpts.hasCovers) {
+            if (migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, album)) {
+                changed = true;
+            }
+        }
         if (spreadOpts.hasCovers) {
+            if (migrateFrontCoverSpreadToPageOne(albumId)) changed = true;
             if (migrateInsideCoverSpreadToPageTwo(albumId, totalPages)) changed = true;
             if (migrateInsideCoverSpreadTransform(albumId)) changed = true;
             const { left: endLeft } = getEndSpreadPageIndices(totalPages);
@@ -285,7 +291,7 @@ export default function AlbumEditor({
         if (!albumId || !album || collectionSyncRef.current) return;
 
         const fromCreate = location.state?.syncCollectionOrder === true;
-        const onceKey = `pixnxt_collection_order_sync_v7_${albumId}`;
+        const onceKey = `pixnxt_collection_order_sync_v10_${albumId}`;
         let needsOnce = false;
         try {
             needsOnce = !localStorage.getItem(onceKey);
@@ -561,6 +567,9 @@ export default function AlbumEditor({
     const placeDataUrlOnSlot = useCallback(
         async (slot, dataUrl) => {
             if (!slot || !dataUrl) return false;
+            if (spreadOpts.hasCovers && (slot.pageNum === 0 || slot.pageNum === 1)) {
+                return setPagePhotoFromDataUrl(albumId, 1, dataUrl, { clearSpreadForLeft: 0 });
+            }
             if (slot.pageNum === 0) {
                 return setPagePhotoFromDataUrl(albumId, 0, dataUrl);
             }
@@ -591,6 +600,11 @@ export default function AlbumEditor({
     const placeCollectionItemOnSlot = useCallback(
         (slot, itemId) => {
             if (!slot || !itemId) return false;
+            if (spreadOpts.hasCovers && (slot.pageNum === 0 || slot.pageNum === 1)) {
+                return setPagePhotoFromCollectionItem(albumId, 1, itemId, {
+                    clearSpreadForLeft: 0,
+                });
+            }
             if (slot.pageNum === 0) {
                 return setPagePhotoFromCollectionItem(albumId, 0, itemId);
             }
@@ -616,13 +630,13 @@ export default function AlbumEditor({
                 clearSpreadForLeft: left,
             });
         },
-        [albumId, totalPages, spreadCtx]
+        [albumId, totalPages, spreadCtx, spreadOpts]
     );
 
     const handleSlotActivate = useCallback(
         (slot, anchorRect) => {
             if (activePanel === 'edit') return;
-            if (slot.pageNum === 0) {
+            if (spreadOpts.hasCovers && slot.pageNum === 1) {
                 setGridEditSet('single');
                 setGridSelection(buildCoverSelection());
             } else if (slot.whole) {
@@ -634,7 +648,7 @@ export default function AlbumEditor({
             }
             setSlotMenu({ slot, anchorRect, label: slot.label });
         },
-        [activePanel]
+        [activePanel, spreadOpts.hasCovers]
     );
 
     const closeSlotMenu = useCallback(() => setSlotMenu(null), []);
@@ -765,7 +779,9 @@ export default function AlbumEditor({
             if (!item || (!item.dataUrl && !item.storagePath) || !gridSelection) return false;
 
             if (spreadOpts.hasCovers && gridSelection.mode === 'cover') {
-                return setPagePhotoFromCollectionItem(albumId, 0, item.id);
+                return setPagePhotoFromCollectionItem(albumId, 1, item.id, {
+                    clearSpreadForLeft: 0,
+                });
             }
 
             const left = gridSelection.leftPage;

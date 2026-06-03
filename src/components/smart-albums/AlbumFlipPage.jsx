@@ -31,7 +31,7 @@ import {
 
 function getPageImageSrc(album, pageNum, showSamples, spreadOpts) {
     const opts = spreadOpts ?? getAlbumSpreadOptions(album);
-    if (pageNum === 0 && opts.hasCovers) {
+    if (pageNum === 1 && opts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples });
     }
     const albumId = album?.id;
@@ -52,7 +52,7 @@ function pageHasVisiblePhoto(
     spreadOpts
 ) {
     const opts = { ...(spreadOpts ?? getAlbumSpreadOptions(album)), totalPages };
-    if (pageNum === 0 && opts.hasCovers && resolveCoverImageSrc(album, { showSamples })) {
+    if (pageNum === 1 && opts.hasCovers && resolveCoverImageSrc(album, { showSamples })) {
         return true;
     }
     if (isInsideCoverRightPage(pageNum, totalPages, opts)) {
@@ -208,9 +208,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const useLeftGrid = isProofLeftGridPage(pageNum, gridOpts) && !endHalfLeftPage;
     const useRightGrid = isProofRightGridPage(pageNum, gridOpts);
     const src = getPageImageSrc(album, pageNum, showSamples, spreadOpts);
-    /** With covers, flipbook `showCover` renders page 0 alone — not a 50/50 spread. */
-    const isFrontCoverPage =
-        spreadOpts.hasCovers && pageNum === 0 && !useLeftGrid && !useRightGrid;
+    const isFrontCoverPage = false;
 
     if (endSpreadRole === 'half-blank') {
         return (
@@ -263,15 +261,15 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     const showStar = pageNum === 1 && album?.is_starred;
-    const canSelectCover = spreadOpts.hasCovers && pageNum === 0 && editable && !spreadEdit;
+    const canSelectCover = spreadOpts.hasCovers && pageNum === 1 && editable && !spreadEdit;
     const PageWrapTag = canSelectCover ? 'button' : 'div';
     const coverSwapMarkInfo = liveGetSwapMarkInfo?.(0, 0);
     const coverSwapMarkInfos =
         liveSwapMarkMode && liveGetSwapMarkInfos ? liveGetSwapMarkInfos(0, 0, 0) : [];
-    const canCoverSwap = liveSwapMarkMode && pageNum === 0 && Boolean(src);
-    const coverProofTools = (liveSwapMarkMode || livePinMarkMode) && pageNum === 0 && Boolean(src);
+    const canCoverSwap = liveSwapMarkMode && pageNum === 1 && Boolean(src);
+    const coverProofTools = (liveSwapMarkMode || livePinMarkMode) && pageNum === 1 && Boolean(src);
     const coverPins =
-        livePinMarkMode && liveGetPinsForSlot ? liveGetPinsForSlot(0, 0, 0) : [];
+        livePinMarkMode && liveGetPinsForSlot ? liveGetPinsForSlot(1, 0, 0) : [];
     const isEndCoverPage = endSpreadRole === 'half-left' && !editable && !spreadEdit;
     const endCoverSwapMarkInfo =
         isEndCoverPage ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage) : null;

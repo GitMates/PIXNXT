@@ -12,6 +12,7 @@ import {
     mergeRemotePreviewPagesIntoLocal,
     migrateInsideCoverSpreadToPageTwo,
     migrateEndHalfSpreadToLeftPage,
+    migrateFrontCoverSpreadToPageOne,
     migrateMiskeyedInnerSpreadPhotos,
     migrateWholeSpreadPagePhotosToSpreadKeys,
     migrateWholeSpreadPhotoOffRightPage,
@@ -35,18 +36,11 @@ import {
     shiftAlbumRemotePreviewPages,
 } from '../../components/smart-albums/albumPreviewData';
 
-export function parseUrlPage(raw, totalPages, spreadOpts) {
-    const hasCovers = spreadOpts?.hasCovers !== false;
+export function parseUrlPage(raw, totalPages, _spreadOpts) {
     if (raw == null || raw === '') return 0;
     let n = parseInt(raw, 10);
     if (Number.isNaN(n)) return 0;
-    n = Math.max(0, Math.min(totalPages - 1, n));
-    if (!hasCovers) return n;
-    if (n === 1) return 2;
-    if (totalPages > 2 && n === totalPages - 1) {
-        return totalPages - 2;
-    }
-    return n;
+    return Math.max(0, Math.min(totalPages - 1, n));
 }
 
 /** Preview = client-facing album only (final output). */
@@ -108,8 +102,11 @@ export function useAlbumWorkspace() {
                     migrateEndHalfSpreadToLeftPage(albumId, pages, data);
                     migrateMiskeyedInnerSpreadPhotos(albumId, pages, data);
                     migrateWholeSpreadPhotoOffRightPage(albumId, data);
-                    migrateWholeSpreadPagePhotosToSpreadKeys(albumId, pages, data);
+                    if (!albumSpreadOpts.hasCovers) {
+                        migrateWholeSpreadPagePhotosToSpreadKeys(albumId, pages, data);
+                    }
                     if (albumSpreadOpts.hasCovers) {
+                        migrateFrontCoverSpreadToPageOne(albumId);
                         migrateInsideCoverSpreadToPageTwo(albumId, pages);
                         migrateInsideCoverSpreadTransform(albumId);
                     }

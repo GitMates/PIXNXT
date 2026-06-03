@@ -531,12 +531,16 @@ const CreateAlbum = () => {
                     );
                 }
 
-                const placed = applyCollectionOrderToPages(album.id, {
-                    ...albumForPlace,
-                    has_covers: includeCovers,
-                    grid_layout: finalGridLayout,
-                    page_count: requiredPageCount,
-                });
+                const placed = applyCollectionOrderToPages(
+                    album.id,
+                    {
+                        ...albumForPlace,
+                        has_covers: includeCovers,
+                        grid_layout: finalGridLayout,
+                        page_count: requiredPageCount,
+                    },
+                    { itemIds: added.filter((item) => item?.id).map((item) => item.id) }
+                );
 
                 if (placed < uploadedCount) {
                     console.warn(
@@ -755,7 +759,7 @@ const CreateAlbum = () => {
                                                 ? 'Order 1 → cover, 2 → spread 1 (full width), 3 → spread 2, then on.'
                                                 : 'Order 1 → spread 1 (full width), 2 → spread 2, then on.'
                                             : includeCovers
-                                              ? 'Order 1 → cover, 2 → spread 1 left, 3 → spread 1 right, then on.'
+                                              ? 'Order 1 → front cover right page, 2…n−1 → inner pages, last → end cover left page.'
                                               : 'Order 1 → spread 1 left, 2 → spread 1 right, 3 → spread 2 left, then on.'}{' '}
                                         Drag thumbnails if the picker order is wrong.
                                     </p>
@@ -825,7 +829,7 @@ const CreateAlbum = () => {
                                 />
                                 <p className="sa-field-note">
                                     {includeCovers
-                                        ? 'First photo becomes the front cover; last spread is reserved for the end cover.'
+                                        ? 'First photo on the front cover right page (left blank); last photo on the end cover left page (right blank). Middle photos fill inner pages.'
                                         : 'All uploaded photos fill pages in order — no dedicated cover spreads.'}
                                 </p>
                             </div>

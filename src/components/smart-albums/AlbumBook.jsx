@@ -1016,7 +1016,7 @@ const AlbumBook = ({
                         usePortrait={false}
                         useMouseEvents={clickToFlip}
                         mobileScrollSupport={false}
-                        showCover={spreadOpts.showCover}
+                        showCover={false}
                         showPageCorners={clickToFlip}
                         disableFlipByClick
                         startPage={initialPage}

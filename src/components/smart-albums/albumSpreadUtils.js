@@ -7,9 +7,12 @@ export const RESERVED_END_PAGES = 2;
 function minPageCountForCovers(photoCount, gridLayout = 'two-page') {
     const n = Math.max(0, Math.floor(Number(photoCount) || 0));
     if (n === 0) return 5;
-    const innerPhotoSlots = Math.max(0, n - 1);
-    const innerSpreadPages = 2 * Math.ceil(innerPhotoSlots / 2);
-    return Math.max(5, 2 + innerSpreadPages + 2);
+    if (isWholeSpreadLayout(gridLayout)) {
+        return Math.max(4, 2 * n);
+    }
+    if (n === 1) return 2;
+    const innerCount = Math.max(0, n - 2);
+    return Math.max(4, 4 + 2 * Math.ceil(innerCount / 2));
 }
 
 /** Spread layout flags from album settings (defaults to cover spreads for legacy albums). */
@@ -95,11 +98,10 @@ export function usesReservedEndSpread(totalPages, opts = {}) {
     return totalPages >= 1 + RESERVED_END_PAGES;
 }
 
-/** Page 1 — blank inside-cover leaf paired with the front cover (page 0). */
-export function isCoverInsidePage(pageNum, totalPages, { showCover = true } = {}) {
-    // Disabled special inside-cover handling; treat as normal page.
-    // This forces page 1 to behave like a regular spread without a forced blank left page.
-    return false;
+/** Front cover: page 0 is the blank left leaf (photo 1 goes on page 1). */
+export function isCoverInsidePage(pageNum, totalPages, { showCover = true, hasCovers } = {}) {
+    const covers = hasCovers ?? showCover;
+    return covers && pageNum === 0;
 }
 
 /** First inner spread (pages 1|2): left is inside cover — never panoramic / whole-spread. */
@@ -134,7 +136,8 @@ export function getSpreadPages(spreadIndex, totalPages, opts = {}) {
         return getEndSpreadPageIndices(totalPages);
     }
 
-    const left = hasCovers && showCover ? spreadIndex * 2 - 1 : spreadIndex * 2;
+    // Inner spreads: 2|3, 4|5, … (spread 0 = front cover 0|1).
+    const left = hasCovers && showCover ? spreadIndex * 2 : spreadIndex * 2;
     const maxInnerRight = usesReservedEndSpread(totalPages, spreadOpts)
         ? totalPages - RESERVED_END_PAGES - 1
         : totalPages - 1;
@@ -168,7 +171,7 @@ export function pageToSpreadIndex(pageIndex, opts = {}) {
     const spreadOpts = { showCover, hasCovers };
 
     if (!hasCovers) return Math.max(0, Math.floor(pageIndex / 2));
-    if (pageIndex <= 0) return 0;
+    if (showCover && pageIndex <= 1) return 0;
     if (usesReservedEndSpread(totalPages, spreadOpts)) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
         if (pageIndex >= endLeft) {
@@ -176,7 +179,7 @@ export function pageToSpreadIndex(pageIndex, opts = {}) {
         }
     }
     if (!showCover) return Math.max(0, Math.floor(pageIndex / 2));
-    return Math.floor((pageIndex + 1) / 2);
+    return Math.floor((pageIndex - 2) / 2) + 1;
 }
 
 /** Map spread index → book page index (left page of spread in flipbook) */
@@ -191,7 +194,7 @@ export function spreadIndexToPage(spreadIndex, opts = {}) {
         return getEndSpreadPageIndices(totalPages).left;
     }
     if (!hasCovers || !showCover) return Math.max(0, spreadIndex * 2);
-    return Math.max(0, spreadIndex * 2 - 1);
+    return Math.max(0, spreadIndex * 2);
 }
 
 /** Last spread indices — always the reserved end-cover spread when enabled. */
@@ -238,7 +241,7 @@ export function isEndHalfSpreadIndex(spreadIndex, totalPages, opts = {}) {
     return usesReservedEndSpread(totalPages, spreadOpts) || info.orphanInnerPage;
 }
 
-/** Last spread with photo on the left page only (not a full two-page placement). */
+/** End cover spread: photo on the left page only, right page blank. */
 export function isEndHalfSpreadLeftPage(leftPage, totalPages, opts = {}) {
     const spreadOpts = normalizeSpreadOpts(opts);
     if (!spreadOpts.hasCovers) return false;
@@ -284,8 +287,7 @@ export function enumerateAutoPlacePageTargets(
     };
 
     if (isWholeSpreadLayout(gridLayout)) {
-        const start = spreadOpts.showCover && spreadOpts.hasCovers ? 1 : 0;
-        for (let left = start; left < totalPages; left += 2) {
+        for (let left = 0; left < totalPages; left += 2) {
             if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
                 pushPage(left);
                 break;
@@ -298,6 +300,11 @@ export function enumerateAutoPlacePageTargets(
     const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
     for (let spreadIndex = 0; spreadIndex < totalSpreads; spreadIndex += 1) {
         const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
+
+        if (spreadOpts.hasCovers && spreadOpts.showCover && spreadIndex === 0) {
+            pushPage(Math.min(1, totalPages - 1));
+            continue;
+        }
 
         if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) {
             pushPage(left);
@@ -314,9 +321,60 @@ export function enumerateAutoPlacePageTargets(
 }
 
 /**
+ * Placement slots for cover albums: photo 1 → front spread, 2…n−1 → inner pages, photo n → end spread.
+ * @returns {Array<{ type: 'spread', leftPage: number, rightPage: number } | { type: 'page', pageNum: number }>}
+ */
+export function enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayout = 'two-page' } = {}) {
+    const n = Math.max(0, Math.floor(Number(photoCount) || 0));
+    if (n === 0 || totalPages <= 0) return [];
+
+    const spreadOpts = { showCover: true, hasCovers: true, totalPages };
+    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+    const endRight = Math.min(endLeft + 1, totalPages - 1);
+    const slots = [];
+
+    if (isWholeSpreadLayout(gridLayout)) {
+        for (let i = 0; i < n; i += 1) {
+            if (i === 0) {
+                slots.push({ type: 'page', pageNum: Math.min(1, totalPages - 1) });
+                continue;
+            }
+            if (i === n - 1 && n >= 2) {
+                slots.push({ type: 'page', pageNum: endLeft });
+                continue;
+            }
+            const leftPage = spreadIndexToPage(i, spreadOpts);
+            slots.push({
+                type: 'spread',
+                leftPage,
+                rightPage: Math.min(leftPage + 1, totalPages - 1),
+            });
+        }
+        return slots;
+    }
+
+    if (n >= 1) {
+        slots.push({ type: 'page', pageNum: Math.min(1, totalPages - 1) });
+    }
+
+    const innerCount = Math.max(0, n - 2);
+    let page = 2;
+    for (let i = 0; i < innerCount && page < endLeft; i += 1) {
+        slots.push({ type: 'page', pageNum: page });
+        page += 1;
+    }
+
+    if (n >= 2) {
+        slots.push({ type: 'page', pageNum: endLeft });
+    }
+
+    return slots;
+}
+
+/**
  * Page indices for placing N collection photos in display order.
  * No covers: photo 1 → page 0, 2 → page 1, … (one photo per page, left then right per spread).
- * With covers: photo 1 → cover (page 0), then inner spreads L/R, last photo → end-cover left.
+ * With covers: photo 1 → front spread, inner balance, photo n → end spread.
  */
 export function enumerateCollectionPlacementPages(
     photoCount,
@@ -343,36 +401,12 @@ export function enumerateCollectionPlacementPages(
         return Array.from({ length: Math.min(n, totalPages) }, (_, i) => i);
     }
 
-    const targets = [];
-    const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
+    return enumerateCoverAlbumPlacements(n, totalPages, { gridLayout })
+        .filter((slot) => slot.type === 'page')
+        .map((slot) => slot.pageNum);
+}
 
-    const tryPush = (page) => {
-        if (targets.length >= n) return;
-        if (page < 0 || page >= totalPages) return;
-        if (!isAutoPlacePhotoPage(page, totalPages, spreadOpts)) return;
-        if (targets.includes(page)) return;
-        targets.push(page);
-    };
-
-    for (let spreadIndex = 0; spreadIndex < totalSpreads && targets.length < n; spreadIndex += 1) {
-        const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
-        const isEnd = isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
-
-        if (spreadOpts.showCover && spreadIndex === 0) {
-            tryPush(0);
-            continue;
-        }
-
-        if (isEnd) {
-            tryPush(left);
-            continue;
-        }
-
-        tryPush(left);
-        if (right > left) {
-            tryPush(right);
-        }
-    }
-
-    return targets;
+/** Cover placement slots (spread or page) in collection order — use in autoPlace. */
+export function enumerateCoverCollectionPlacements(photoCount, totalPages, { gridLayout = 'two-page' } = {}) {
+    return enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayout });
 }

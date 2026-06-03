@@ -7,6 +7,7 @@ import {
     getEndSpreadPageIndices,
     isCoverInsidePage,
     normalizeSpreadOpts,
+    usesReservedEndSpread,
 } from './albumSpreadUtils';
 
 export const PROOF_SLOT_COUNT = 2;
@@ -42,29 +43,31 @@ export function calculateProofRightPageGrid(pageWidth, pageHeight) {
 
 /**
  * Left page of a spread uses slot 1.
- * No covers: pages 0|2|4… (page 0 is the first spread left, not a cover leaf).
- * With covers: inner spreads 1|3|5… — page 0 is the front cover, not a grid page.
+ * No covers: pages 0|2|4…
+ * With covers: front cover page 0, inner 2|4|…, end-cover left page.
  */
 export function isProofLeftGridPage(pageNum, { showCover = true, hasCovers, totalPages } = {}) {
     if (pageNum < 0) return false;
     const covers = hasCovers ?? showCover;
     if (!covers) return pageNum % 2 === 0;
-    if (pageNum <= 0) return false;
-    if (totalPages != null && isCoverInsidePage(pageNum, totalPages, { showCover: covers })) {
-        return false;
+    if (pageNum === 0) return false;
+    if (totalPages != null && usesReservedEndSpread(totalPages, { hasCovers: covers, showCover: covers })) {
+        const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+        if (pageNum === endLeft) return true;
     }
-    return pageNum % 2 === 1;
+    return pageNum >= 2 && pageNum % 2 === 0;
 }
 
 export function isProofRightGridPage(pageNum, { showCover = true, hasCovers, totalPages } = {}) {
     if (pageNum < 0) return false;
     const covers = hasCovers ?? showCover;
     if (!covers) return pageNum % 2 === 1;
-    if (pageNum <= 0) return false;
-    if (totalPages != null && isCoverInsidePage(pageNum, totalPages, { showCover: covers })) {
-        return false;
+    if (pageNum === 1) return true;
+    if (totalPages != null && usesReservedEndSpread(totalPages, { hasCovers: covers, showCover: covers })) {
+        const { right } = getEndSpreadPageIndices(totalPages);
+        if (pageNum === right) return true;
     }
-    return pageNum % 2 === 0;
+    return pageNum >= 3 && pageNum % 2 === 1;
 }
 
 export function getSpreadLeftPageIndex(pageNum, opts = {}) {
@@ -77,12 +80,13 @@ export function getSpreadLeftPageIndex(pageNum, opts = {}) {
     if (hasCovers && totalPages != null && totalPages > 0) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
         if (pageNum >= endLeft) return endLeft;
+        if (showCover && pageNum <= 1) return 0;
+        return pageNum % 2 === 0 ? pageNum : pageNum - 1;
     }
     if (!showCover) {
         return pageNum % 2 === 0 ? pageNum : pageNum - 1;
     }
-    /* With cover: inner pairs are 1|2, 3|4, … — left page is odd, right is even. */
-    return pageNum % 2 === 1 ? pageNum : pageNum - 1;
+    return pageNum % 2 === 0 ? pageNum : pageNum - 1;
 }
 
 /**
