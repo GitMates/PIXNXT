@@ -1,28 +1,35 @@
 import React from 'react';
-import { removeSwapMark, resolveSlotLabel } from './albumSwapMarks';
-
-function IconLock() {
-    return (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-    );
-}
+import {
+    countUnseenSwapMarks,
+    isSwapMarkUnseen,
+    markSwapMarksSeen,
+    removeSwapMark,
+    resolveSlotLabel,
+} from './albumSwapMarks';
 
 export default function AlbumSwapMarksPanel({
     albumId,
     marks = [],
     gridLayout = 'two-page',
     variant = 'embedded',
+    seenTick = 0,
+    onNavigateToSlotKey,
 }) {
     const isPanel = variant === 'panel';
+    void seenTick;
+
+    const unseenCount = countUnseenSwapMarks(albumId, marks);
+
+    const handleOpenSlot = (mark, slotKey) => {
+        markSwapMarksSeen(albumId, [mark]);
+        onNavigateToSlotKey?.(slotKey);
+    };
 
     if (!marks.length) {
         if (!isPanel) return null;
         return (
             <p className="ae-panel-text ae-panel-text--muted ae-swap-marks-empty">
-                No swap marks yet. Hover a placed photo on the spread and click Swap to mark a pair.
+                No swap requests yet. Hover a placed photo on the spread and click Swap to mark a pair.
             </p>
         );
     }
@@ -31,42 +38,69 @@ export default function AlbumSwapMarksPanel({
         <div className={`ae-swap-marks${isPanel ? ' ae-swap-marks--panel' : ''}`}>
             {!isPanel && (
                 <>
-                    <h4 className="ae-swap-marks-title">Swap marks ({marks.length})</h4>
+                    <h4 className="ae-swap-marks-title">Swap requests ({marks.length})</h4>
                     <p className="ae-swap-marks-lead">
-                        Locked swap requests — photos stay in place until you apply them.
+                        Swap pairs currently requested in this album.
                     </p>
                 </>
             )}
             {isPanel && (
-                <p className="ae-swap-marks-count" role="status">
-                    {marks.length} locked mark{marks.length === 1 ? '' : 's'}
+                <p
+                    className={`ae-swap-marks-count${
+                        unseenCount > 0 ? ' ae-swap-marks-count--unseen' : ''
+                    }`}
+                    role="status"
+                >
+                    {marks.length} swap request{marks.length === 1 ? '' : 's'}
+                    {unseenCount > 0 && (
+                        <span className="ae-proof-new-pill">
+                            {unseenCount} new
+                        </span>
+                    )}
                 </p>
             )}
             <ul className="ae-swap-marks-list">
                 {marks.map((mark) => {
                     const labelA = mark.labelA || resolveSlotLabel(mark.a, gridLayout);
                     const labelB = mark.labelB || resolveSlotLabel(mark.b, gridLayout);
-                    const locked = mark.locked !== false;
+                    const unseen = isSwapMarkUnseen(albumId, mark);
                     return (
                         <li
                             key={mark.id}
-                            className={`ae-swap-marks-item${locked ? ' ae-swap-marks-item--locked' : ''}`}
+                            className={`ae-swap-marks-item${
+                                unseen ? ' ae-proof-item--unseen' : ''
+                            }`}
                         >
-                            <span className="ae-swap-marks-pair">
-                                {locked && (
-                                    <span className="ae-swap-marks-lock" aria-hidden>
-                                        <IconLock />
-                                    </span>
-                                )}
-                                {labelA} ↔ {labelB}
+                            <span className="ae-swap-marks-pair" aria-label={`Swap ${labelA} with ${labelB}`}>
+                                <button
+                                    type="button"
+                                    className="ae-swap-marks-chip"
+                                    onClick={() => handleOpenSlot(mark, mark.a)}
+                                >
+                                    {labelA}
+                                </button>
+                                <span className="ae-swap-marks-arrow" aria-hidden>
+                                    ↔
+                                </span>
+                                <button
+                                    type="button"
+                                    className="ae-swap-marks-chip"
+                                    onClick={() => handleOpenSlot(mark, mark.b)}
+                                >
+                                    {labelB}
+                                </button>
+                                {unseen && <span className="ae-proof-new-badge">New</span>}
                             </span>
                             <button
                                 type="button"
                                 className="ae-swap-marks-remove"
-                                onClick={() => removeSwapMark(albumId, mark.id)}
-                                aria-label={`Unlock swap mark ${labelA} with ${labelB}`}
+                                onClick={() => {
+                                    markSwapMarksSeen(albumId, [mark]);
+                                    removeSwapMark(albumId, mark.id);
+                                }}
+                                aria-label={`Delete swap request ${labelA} with ${labelB}`}
                             >
-                                Unlock
+                                Delete
                             </button>
                         </li>
                     );

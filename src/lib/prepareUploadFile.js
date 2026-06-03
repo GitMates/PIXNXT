@@ -24,7 +24,7 @@ function compressSettings(fileSize) {
   return { maxEdge: 3200, quality: 0.86 };
 }
 
-async function compressImage(file) {
+export async function compressImageForUpload(file) {
   const mime = getFileMime(file);
   if (isRawImageFile(file) || !isImageMime(mime) || mime === 'image/gif' || file.size < COMPRESS_MIN_BYTES) {
     return file;
@@ -83,7 +83,7 @@ async function compressImage(file) {
 export function prepareUploadFile(file, onProgress) {
   return enqueueCompress(async () => {
     onProgress?.(5);
-    const result = await compressImage(file);
+    const result = await compressImageForUpload(file);
     onProgress?.(100);
     return result;
   });

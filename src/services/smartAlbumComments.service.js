@@ -2,9 +2,12 @@ import { supabase } from '../lib/supabase/client';
 import { smartAlbumsService } from './smartAlbums.service';
 
 const LOCAL_KEY = 'pixnxt_smart_album_comments_local';
+const SEEN_KEY = 'pixnxt_smart_album_comments_seen';
+const SUBMITTED_KEY = 'pixnxt_smart_album_comments_submitted';
 const GUEST_KEY_PREFIX = 'pixnxt_album_guest_';
 
 export const COMMENTS_CHANGED_EVENT = 'pixnxt-album-comments-changed';
+export const COMMENTS_SEEN_CHANGED_EVENT = 'pixnxt-album-comments-seen-changed';
 
 export function notifyCommentsChanged(albumId) {
     try {
@@ -14,6 +17,94 @@ export function notifyCommentsChanged(albumId) {
     } catch {
         /* ignore */
     }
+}
+
+export function notifyCommentsSeenChanged(albumId) {
+    try {
+        window.dispatchEvent(
+            new CustomEvent(COMMENTS_SEEN_CHANGED_EVENT, { detail: { albumId } })
+        );
+    } catch {
+        /* ignore */
+    }
+}
+
+function readSeen() {
+    try {
+        const raw = localStorage.getItem(SEEN_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeSeen(data) {
+    try {
+        localStorage.setItem(SEEN_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+/** True when the photographer has not viewed this comment since its last update. */
+export function isCommentUnseen(albumId, comment) {
+    if (!albumId || !comment?.id) return false;
+    const seenAt = readSeen()[albumId]?.[comment.id];
+    if (!seenAt) return true;
+    const stamp = comment.updated_at || comment.created_at;
+    if (!stamp) return false;
+    return new Date(stamp).getTime() > new Date(seenAt).getTime();
+}
+
+export function markCommentsSeen(albumId, comments) {
+    if (!albumId || !comments?.length) return;
+    const all = readSeen();
+    const bucket = { ...(all[albumId] || {}) };
+    const now = new Date().toISOString();
+    comments.forEach((comment) => {
+        if (comment?.id) bucket[comment.id] = now;
+    });
+    all[albumId] = bucket;
+    writeSeen(all);
+    notifyCommentsSeenChanged(albumId);
+}
+
+function readSubmitted() {
+    try {
+        const raw = localStorage.getItem(SUBMITTED_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeSubmitted(data) {
+    try {
+        localStorage.setItem(SUBMITTED_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+export function getCommentsSubmittedAt(albumId) {
+    if (!albumId) return null;
+    return readSubmitted()[albumId] || null;
+}
+
+export function markCommentsSubmitted(albumId) {
+    if (!albumId) return;
+    const all = readSubmitted();
+    all[albumId] = new Date().toISOString();
+    writeSubmitted(all);
+}
+
+/** Short preview for sidebar comment cards (first N words). */
+export function truncateCommentPreview(text, maxWords = 6, ellipsis = '....') {
+    if (!text || typeof text !== 'string') return '';
+    const trimmed = text.trim();
+    const words = trimmed.split(/\s+/).filter(Boolean);
+    if (words.length <= maxWords) return trimmed;
+    return `${words.slice(0, maxWords).join(' ')}${ellipsis}`;
 }
 
 /** Date and time for comment cards (editor feed, spread chips). */
@@ -61,6 +152,30 @@ function isNoRowsError(error) {
 
 export function hasCommentBody(comment) {
     return Boolean((comment?.body || '').trim());
+}
+
+export function normalizeCommentAuthorName(name) {
+    return (name || 'Guest').trim().toLowerCase();
+}
+
+/** Client's single root comment on a spread (newest if duplicates exist). */
+export function findGuestSpreadRootComment(comments, authorName) {
+    const norm = normalizeCommentAuthorName(authorName);
+    return (
+        (comments || [])
+            .filter(
+                (c) =>
+                    !c.parent_id &&
+                    c.author_type === 'client' &&
+                    hasCommentBody(c) &&
+                    normalizeCommentAuthorName(c.author_name) === norm
+            )
+            .sort(
+                (a, b) =>
+                    new Date(b.updated_at || b.created_at).getTime() -
+                    new Date(a.updated_at || a.created_at).getTime()
+            )[0] || null
+    );
 }
 
 export function countMeaningfulComments(comments) {
@@ -153,18 +268,20 @@ export const smartAlbumCommentsService = {
 
         if (error) {
             if (isMissingTableError(error)) {
-                return local;
+                return local.filter((c) => c.spread_index === spreadIndex);
             }
             console.warn('listSpreadComments:', error.message);
-            return local;
+            return local.filter((c) => c.spread_index === spreadIndex);
         }
         const remote = (data || []).map(mapRow);
         const merged = new Map();
         local.forEach((c) => merged.set(c.id, c));
         remote.forEach((c) => merged.set(c.id, c));
-        return [...merged.values()].sort(
-            (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-        );
+        return [...merged.values()]
+            .filter((c) => c.spread_index === spreadIndex)
+            .sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+            );
     },
 
     async listAlbumComments(albumId) {
@@ -195,6 +312,27 @@ export const smartAlbumCommentsService = {
     },
 
     async saveClientComment({ albumId, spreadIndex, commentId, body, authorName, authorEmail }) {
+        let resolvedCommentId = commentId || null;
+        if (resolvedCommentId) {
+            const onSpread = listLocalAlbumComments(albumId, spreadIndex).some(
+                (c) => c.id === resolvedCommentId
+            );
+            if (!onSpread) {
+                const foreign = listLocalAlbumComments(albumId).find(
+                    (c) => c.id === resolvedCommentId && c.spread_index !== spreadIndex
+                );
+                if (foreign) resolvedCommentId = null;
+            }
+        }
+
+        if (!resolvedCommentId && authorName) {
+            const existing = findGuestSpreadRootComment(
+                listLocalAlbumComments(albumId, spreadIndex),
+                authorName
+            );
+            if (existing) resolvedCommentId = existing.id;
+        }
+
         const payload = {
             album_id: albumId,
             spread_index: spreadIndex,
@@ -211,12 +349,17 @@ export const smartAlbumCommentsService = {
             return saved;
         };
 
-        if (commentId) {
+        if (resolvedCommentId) {
             try {
                 const { data, error } = await supabase
                     .from('smart_album_comments')
-                    .update({ body: payload.body, updated_at: payload.updated_at })
-                    .eq('id', commentId)
+                    .update({
+                        body: payload.body,
+                        spread_index: spreadIndex,
+                        updated_at: payload.updated_at,
+                    })
+                    .eq('id', resolvedCommentId)
+                    .eq('spread_index', spreadIndex)
                     .select();
 
                 if (!error && data?.[0]) {
@@ -229,7 +372,17 @@ export const smartAlbumCommentsService = {
             } catch (e) {
                 console.warn('saveClientComment update failed:', e);
             }
-            return saveLocal({ ...payload, id: commentId, created_at: new Date().toISOString() });
+            const localRow = listLocalAlbumComments(albumId, spreadIndex).find(
+                (c) => c.id === resolvedCommentId
+            );
+            if (localRow) {
+                return saveLocal({
+                    ...payload,
+                    id: resolvedCommentId,
+                    created_at: localRow.created_at,
+                });
+            }
+            resolvedCommentId = null;
         }
 
         const insertPayload = {
@@ -264,6 +417,36 @@ export const smartAlbumCommentsService = {
         }
 
         return saveLocal(insertPayload);
+    },
+
+    async consolidateClientSpreadComments(albumId, spreadIndex, authorName, keepCommentId) {
+        if (!albumId || spreadIndex == null || !keepCommentId || !authorName) return;
+        const rows = await this.listSpreadComments(albumId, spreadIndex);
+        const norm = normalizeCommentAuthorName(authorName);
+        const extras = rows.filter(
+            (c) =>
+                !c.parent_id &&
+                c.author_type === 'client' &&
+                hasCommentBody(c) &&
+                normalizeCommentAuthorName(c.author_name) === norm &&
+                c.id !== keepCommentId
+        );
+        for (const extra of extras) {
+            await this.deleteClientComment({ albumId, commentId: extra.id });
+        }
+    },
+
+    async saveClientCommentAndConsolidate(params) {
+        const saved = await this.saveClientComment(params);
+        if (saved?.id) {
+            await this.consolidateClientSpreadComments(
+                params.albumId,
+                params.spreadIndex,
+                params.authorName,
+                saved.id
+            );
+        }
+        return saved;
     },
 
     async savePhotographerComment({ albumId, spreadIndex, body, authorName }) {
@@ -379,18 +562,20 @@ export const smartAlbumCommentsService = {
     _saveLocalComment(albumId, spreadIndex, row) {
         const all = readLocal();
         const bucket = { ...(all[albumId] || {}) };
-        const list = [...(bucket[spreadIndex] || [])];
+        const normalizedSpread = Number(spreadIndex);
+        const list = [...(bucket[normalizedSpread] || [])];
         const idx = list.findIndex((c) => c.id === row.id);
         const base = idx >= 0 ? list[idx] : {};
         const entry = {
             ...base,
             ...row,
+            spread_index: normalizedSpread,
             parent_id: row.parent_id ?? base.parent_id ?? null,
-            created_at: row.created_at || new Date().toISOString(),
+            created_at: row.created_at || base.created_at || new Date().toISOString(),
         };
         if (idx >= 0) list[idx] = entry;
         else list.push(entry);
-        bucket[spreadIndex] = list;
+        bucket[normalizedSpread] = list;
         all[albumId] = bucket;
         writeLocal(all);
         return mapRow(entry);
@@ -538,6 +723,43 @@ export const smartAlbumCommentsService = {
             .maybeSingle();
 
         if (error) throw error;
+        return data;
+    },
+
+    async notifyPhotographerAlbumComments({
+        albumId,
+        guestName,
+        guestEmail,
+        siteOrigin,
+        comments,
+    }) {
+        const payload = {
+            albumId,
+            guestName: guestName?.trim() || null,
+            guestEmail: guestEmail?.trim() || null,
+            siteOrigin:
+                siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+            comments: (comments || [])
+                .filter((c) => !c.parent_id && hasCommentBody(c))
+                .map((c) => ({
+                    spread_index: c.spread_index,
+                    author_name: c.author_name,
+                    body: c.body,
+                    created_at: c.created_at,
+                    updated_at: c.updated_at,
+                })),
+        };
+
+        const { data, error } = await supabase.functions.invoke('send-album-comments-email', {
+            body: payload,
+        });
+
+        if (error) {
+            throw new Error(error.message || 'Could not send notification email');
+        }
+        if (data?.error) {
+            throw new Error(data.error);
+        }
         return data;
     },
 };

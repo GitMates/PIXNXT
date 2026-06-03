@@ -1,6 +1,8 @@
 const STORAGE_KEY = 'pixnxt_album_photo_pins';
+const SEEN_KEY = 'pixnxt_album_photo_pins_seen';
 
 export const PHOTO_PINS_CHANGED_EVENT = 'pixnxt-album-photo-pins-changed';
+export const PHOTO_PINS_SEEN_CHANGED_EVENT = 'pixnxt-album-photo-pins-seen-changed';
 
 export function makePinSlotKey(pageNum, cellId = 0) {
     return `${pageNum}:${cellId}`;
@@ -30,6 +32,59 @@ function notify(albumId) {
     } catch {
         /* ignore */
     }
+}
+
+function readSeen() {
+    try {
+        const raw = localStorage.getItem(SEEN_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeSeen(data) {
+    try {
+        localStorage.setItem(SEEN_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+export function notifyPhotoPinsSeenChanged(albumId) {
+    try {
+        window.dispatchEvent(
+            new CustomEvent(PHOTO_PINS_SEEN_CHANGED_EVENT, { detail: { albumId } })
+        );
+    } catch {
+        /* ignore */
+    }
+}
+
+export function isPhotoPinUnseen(albumId, pin) {
+    if (!albumId || !pin?.id) return false;
+    const seenAt = readSeen()[albumId]?.[pin.id];
+    if (!seenAt) return true;
+    const stamp = pin.updatedAt || pin.createdAt;
+    if (!stamp) return false;
+    return new Date(stamp).getTime() > new Date(seenAt).getTime();
+}
+
+export function countUnseenPhotoPins(albumId, pins) {
+    return (pins || []).filter((pin) => isPhotoPinUnseen(albumId, pin)).length;
+}
+
+export function markPhotoPinsSeen(albumId, pins) {
+    if (!albumId || !pins?.length) return;
+    const all = readSeen();
+    const bucket = { ...(all[albumId] || {}) };
+    const now = new Date().toISOString();
+    pins.forEach((pin) => {
+        if (pin?.id) bucket[pin.id] = now;
+    });
+    all[albumId] = bucket;
+    writeSeen(all);
+    notifyPhotoPinsSeenChanged(albumId);
 }
 
 export function getPhotoPins(albumId) {
@@ -90,6 +145,30 @@ export function removePhotoPin(albumId, pinId) {
     all[albumId] = next;
     writeAll(all);
     notify(albumId);
+}
+
+export function updatePhotoPin(albumId, pinId, patch = {}) {
+    if (!albumId || !pinId) return null;
+    const all = readAll();
+    const list = all[albumId] || [];
+    const idx = list.findIndex((p) => p.id === pinId);
+    if (idx < 0) return null;
+    const nextPin = {
+        ...list[idx],
+        ...patch,
+        message:
+            patch.message != null
+                ? String(patch.message).trim()
+                : list[idx].message,
+        updatedAt: new Date().toISOString(),
+    };
+    if (!nextPin.message) return null;
+    const nextList = [...list];
+    nextList[idx] = nextPin;
+    all[albumId] = nextList;
+    writeAll(all);
+    notify(albumId);
+    return nextPin;
 }
 
 export function slotsMatch(a, b) {

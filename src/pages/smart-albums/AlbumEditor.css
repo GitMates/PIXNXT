@@ -160,12 +160,12 @@
 
 /* Sidebar */
 .ae-sidebar {
-  width: 280px;
+  width: 320px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background: #fff;
-  border-right: 1px solid #e4e6ea;
+  border-left: 1px solid #e4e6ea;
   overflow: hidden;
 }
 
@@ -216,7 +216,7 @@
   border-radius: 6px;
   background: transparent;
   color: #444;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 500;
   line-height: 1.2;
   text-align: left;
@@ -287,21 +287,21 @@
 
 .ae-panel-title {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   color: #1a1a1a;
 }
 
 .ae-panel-text {
   margin: 0 0 12px;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.55;
   color: #555;
 }
 
 .ae-panel-text--muted {
   color: #888;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .ae-swap-marks {
@@ -326,7 +326,7 @@
 
 .ae-swap-marks-count {
   margin: 0 0 10px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #92400e;
 }
@@ -372,20 +372,33 @@
 .ae-swap-marks-pair {
   display: inline-flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 6px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #78350f;
   line-height: 1.35;
 }
 
-.ae-swap-marks-lock {
-  display: inline-flex;
-  color: #b45309;
+.ae-swap-marks-arrow {
+  color: #9ca3af;
+  font-weight: 700;
 }
 
-.ae-swap-marks-item--locked {
-  border-color: rgba(251, 191, 36, 0.45);
+.ae-swap-marks-chip {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ae-swap-marks-chip:hover {
+  color: #92400e;
+  text-decoration: underline;
 }
 
 .ae-swap-marks-remove {
@@ -395,7 +408,7 @@
   border-radius: 4px;
   background: transparent;
   color: #92400e;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -414,8 +427,91 @@
   color: #991b1b;
 }
 
+.ae-nav-badge--unseen {
+  background: #7c3aed;
+  color: #fff;
+}
+
+.ae-nav-btn--active .ae-nav-badge--unseen {
+  background: #6d28d9;
+  color: #fff;
+}
+
+.ae-swap-marks-count--unseen {
+  color: #5b21b6;
+}
+
+.ae-proof-new-pill {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #fff;
+  background: #7c3aed;
+}
+
+.ae-proof-new-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  color: #fff;
+  background: #7c3aed;
+}
+
+/* Unseen highlight should appear only inside the swap/pin list rows. */
+.ae-swap-marks--panel .ae-swap-marks-item.ae-proof-item--unseen:not(.ae-photo-pins-item) {
+  background: #eff6ff !important;
+  border-color: #bfdbfe !important;
+  box-shadow: inset 3px 0 0 #2563eb;
+}
+
+/* (Row-level highlight handled on .ae-swap-marks-item) */
+
+.ae-swap-marks--panel .ae-swap-marks-item.ae-proof-item--unseen:not(.ae-photo-pins-item) .ae-proof-new-badge {
+  background: #2563eb;
+}
+
+.ae-swap-marks--panel .ae-swap-marks-count--unseen .ae-proof-new-pill {
+  background: #2563eb;
+}
+
+.ae-photo-pins-item.ae-proof-item--unseen .ae-photo-pins-link {
+  border-radius: 8px;
+  padding: 6px 8px;
+  margin: -6px -8px;
+  background: #eef2ff;
+  box-shadow: inset 3px 0 0 #7c3aed;
+}
+
 .ae-photo-pins-item {
   align-items: flex-start;
+}
+
+.ae-photo-pins-link {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ae-photo-pins-link:hover .ae-photo-pins-slot {
+  color: #374151;
 }
 
 .ae-photo-pins-item-body {
@@ -426,7 +522,11 @@
 }
 
 .ae-photo-pins-slot {
-  font-size: 10px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -434,11 +534,18 @@
 }
 
 .ae-photo-pins-message {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
   color: #374151;
-  line-height: 1.4;
+  line-height: 1.45;
   word-break: break-word;
+}
+
+.ae-photo-pins-time {
+  margin-top: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #9ca3af;
 }
 
 .ae-panel-list {
@@ -762,21 +869,27 @@
 
 .ae-collection-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin-top: 12px;
   max-height: min(50vh, 420px);
   overflow-y: auto;
+  align-items: start;
 }
 
 .ae-collection-thumb {
-  aspect-ratio: 1;
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0;
   padding: 0;
   border: 2px solid transparent;
   border-radius: 6px;
   overflow: hidden;
   cursor: pointer;
-  background: #fff;
+  background: #f0f0f2;
+  line-height: 0;
+  font: 0/0 a;
 }
 
 .ae-collection-thumb:hover {
@@ -784,10 +897,13 @@
 }
 
 .ae-collection-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
   display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  height: auto;
+  max-height: none;
+  object-fit: cover;
+  object-position: center;
 }
 
 .ae-upload-zone--compact {
@@ -851,7 +967,7 @@
 
 @media (max-width: 900px) {
   .ae-sidebar {
-    width: 240px;
+    width: 272px;
   }
 
   .ae-btn-secondary {

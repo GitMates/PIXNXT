@@ -86,21 +86,26 @@ export async function pdfFileToImageDataUrls(file, { maxPages = MAX_PDF_PAGES } 
  * Turn uploaded Files into { name, dataUrl }[] — images as-is, PDFs as one image per page.
  */
 export async function expandUploadFilesToImages(files) {
-    const out = [];
-    for (const file of files) {
-        try {
-            if (isImageFile(file)) {
-                out.push({
-                    name: file.name || 'Photo',
-                    dataUrl: await readFileAsDataUrl(file),
-                });
-            } else if (isPdfFile(file)) {
-                const pages = await pdfFileToImageDataUrls(file);
-                out.push(...pages);
+    const batches = await Promise.all(
+        (files || []).map(async (file) => {
+            try {
+                if (isImageFile(file)) {
+                    return [
+                        {
+                            name: file.name || 'Photo',
+                            dataUrl: await readFileAsDataUrl(file),
+                        },
+                    ];
+                }
+                if (isPdfFile(file)) {
+                    return pdfFileToImageDataUrls(file);
+                }
+                return [];
+            } catch (e) {
+                console.warn('Could not import file', file.name, e);
+                return [];
             }
-        } catch (e) {
-            console.warn('Could not import file', file.name, e);
-        }
-    }
-    return out;
+        })
+    );
+    return batches.flat();
 }

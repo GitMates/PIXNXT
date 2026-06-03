@@ -1,0 +1,116 @@
+.ab-slot-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+}
+
+.ab-slot-menu {
+  position: fixed;
+  z-index: 1201;
+  padding: 10px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow:
+    0 18px 48px rgba(0, 0, 0, 0.14),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+  animation: ab-slot-menu-in 0.16s ease-out;
+}
+
+@keyframes ab-slot-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.ab-slot-menu-eyebrow {
+  margin: 0 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #8a8f98;
+}
+
+.ab-slot-menu-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ab-slot-menu-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.ab-slot-menu-item:hover {
+  background: #f4f5f7;
+}
+
+.ab-slot-menu-item--primary:hover {
+  background: #eef4ff;
+}
+
+.ab-slot-menu-item--danger:hover {
+  background: #fff0f0;
+}
+
+.ab-slot-menu-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: #f0f2f5;
+  color: #333;
+}
+
+.ab-slot-menu-item--primary .ab-slot-menu-icon {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.ab-slot-menu-item--danger .ab-slot-menu-icon {
+  background: #fde8e8;
+  color: #b42318;
+}
+
+.ab-slot-menu-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ab-slot-menu-text strong {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.3;
+}
+
+.ab-slot-menu-text small {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.35;
+}
+
+.ab-slot-menu-item--danger .ab-slot-menu-text strong {
+  color: #b42318;
+}
