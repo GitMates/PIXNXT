@@ -181,6 +181,18 @@ export default function AlbumPageGrid({
             }
         >
             {cells.map((cell) => {
+                if (wholePlacement && pageNum !== spreadLeft) {
+                    const spreadOnly = getGridSlotPhoto(
+                        albumId,
+                        pageNum,
+                        cell.id,
+                        spreadLeft,
+                        totalPages,
+                        { wholeSpread: true, spreadOpts: spreadCtx }
+                    );
+                    if (!spreadOnly.src) return null;
+                }
+
                 const photoIndex = getProofCellPhotoIndex(
                     pageNum,
                     cell.id,

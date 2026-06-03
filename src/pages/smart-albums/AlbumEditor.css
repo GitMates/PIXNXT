@@ -958,11 +958,12 @@
 .ae-collection-thumb img {
   display: block;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  aspect-ratio: auto;
   height: auto;
-  max-height: none;
-  object-fit: cover;
+  max-height: 120px;
+  object-fit: contain;
   object-position: center;
+  background: #f5f2f8;
 }
 
 .ae-upload-zone--compact {

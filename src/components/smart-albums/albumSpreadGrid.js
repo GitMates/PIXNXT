@@ -40,22 +40,30 @@ export function calculateProofRightPageGrid(pageWidth, pageHeight) {
     };
 }
 
-/** Left page of an inner spread (pages 1, 3, 5, …) uses slot 1. */
-export function isProofLeftGridPage(pageNum, { showCover = true, totalPages } = {}) {
+/**
+ * Left page of a spread uses slot 1.
+ * No covers: pages 0|2|4… (page 0 is the first spread left, not a cover leaf).
+ * With covers: inner spreads 1|3|5… — page 0 is the front cover, not a grid page.
+ */
+export function isProofLeftGridPage(pageNum, { showCover = true, hasCovers, totalPages } = {}) {
+    if (pageNum < 0) return false;
+    const covers = hasCovers ?? showCover;
+    if (!covers) return pageNum % 2 === 0;
     if (pageNum <= 0) return false;
-    if (showCover && totalPages != null && isCoverInsidePage(pageNum, totalPages, { showCover })) {
+    if (totalPages != null && isCoverInsidePage(pageNum, totalPages, { showCover: covers })) {
         return false;
     }
-    if (!showCover) return pageNum % 2 === 0;
     return pageNum % 2 === 1;
 }
 
-export function isProofRightGridPage(pageNum, { showCover = true, totalPages } = {}) {
+export function isProofRightGridPage(pageNum, { showCover = true, hasCovers, totalPages } = {}) {
+    if (pageNum < 0) return false;
+    const covers = hasCovers ?? showCover;
+    if (!covers) return pageNum % 2 === 1;
     if (pageNum <= 0) return false;
-    if (showCover && totalPages != null && isCoverInsidePage(pageNum, totalPages, { showCover })) {
+    if (totalPages != null && isCoverInsidePage(pageNum, totalPages, { showCover: covers })) {
         return false;
     }
-    if (!showCover) return pageNum % 2 === 1;
     return pageNum % 2 === 0;
 }
 

@@ -10,6 +10,7 @@ import {
     isCoverInsidePage,
     isEndHalfSpreadLeftPage,
     isInsideCoverSpreadLeft,
+    isWholeSpreadLayout,
     normalizeSpreadOpts,
 } from './albumSpreadUtils';
 import { computePageCountFromPhotoCount } from '../../pages/smart-albums/createAlbumLayout';
@@ -193,11 +194,19 @@ export function migrateEndHalfSpreadToLeftPage(albumId, totalPages, albumMeta = 
 }
 
 /**
- * Whole-spread photos saved under even spread:* keys (bug: spread left used even pages).
- * Move them to the correct odd left-page key (1, 3, 5, …) before the end spread.
+ * With cover spreads, inner photos belong on odd left-page keys (1, 3, 5, …).
+ * Legacy data sometimes used even keys (2, 4, …) — move those up by one.
+ * Skipped for no-cover albums (correct keys are 0, 2, 4, …) and whole-spread layout.
  */
-export function migrateMiskeyedInnerSpreadPhotos(albumId, totalPages) {
+export function migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null || totalPages < 4) return false;
+
+    const collectionCount = getAlbumCollection(albumId).length;
+    const spreadOpts = albumMeta
+        ? getAlbumSpreadOptions(albumMeta, { collectionCount })
+        : getAlbumSpreadOptions({ has_covers: true, page_count: totalPages }, { collectionCount });
+    if (!spreadOpts.hasCovers) return false;
+    if (isWholeSpreadLayout(albumMeta?.grid_layout)) return false;
 
     const { left: endLeft } = getEndSpreadPageIndices(totalPages);
     const all = readAll();
@@ -216,6 +225,59 @@ export function migrateMiskeyedInnerSpreadPhotos(albumId, totalPages) {
             next[correctKey] = next[wrongKey];
         }
         delete next[wrongKey];
+        changed = true;
+    }
+
+    if (!changed) return false;
+    next.__revision = (next.__revision || 0) + 1;
+    all[albumId] = next;
+    return writeAll(all);
+}
+
+/** First spread photo stored on page 1 only — move to spread:0 for whole-spread display. */
+export function migrateWholeSpreadPhotoOffRightPage(albumId, albumMeta = null) {
+    if (!albumId || !isWholeSpreadLayout(albumMeta?.grid_layout)) return false;
+    if (getSpreadPhotoOverride(albumId, 0)) return false;
+    const onRight = getPagePhotoOverride(albumId, 1);
+    if (!onRight) return false;
+
+    const all = readAll();
+    const album = all[albumId];
+    if (!album) return false;
+
+    const next = { ...album };
+    next[spreadStorageKey(0)] = next['1'];
+    delete next['1'];
+    next.__revision = (next.__revision || 0) + 1;
+    all[albumId] = next;
+    return writeAll(all);
+}
+
+/** Move single-page placements onto spread:* keys for whole-spread albums. */
+export function migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, albumMeta = null) {
+    if (!albumId || totalPages == null || totalPages < 2) return false;
+    if (!isWholeSpreadLayout(albumMeta?.grid_layout)) return false;
+
+    const all = readAll();
+    const album = all[albumId];
+    if (!album) return false;
+
+    const next = { ...album };
+    let changed = false;
+
+    for (let left = 0; left < totalPages; left += 2) {
+        const spreadKey = spreadStorageKey(left);
+        if (next[spreadKey] != null) continue;
+
+        const right = left + 1;
+        const leftStored = next[String(left)];
+        const rightStored = right < totalPages ? next[String(right)] : null;
+        const photo = leftStored ?? rightStored;
+        if (photo == null) continue;
+
+        next[spreadKey] = photo;
+        delete next[String(left)];
+        if (right < totalPages) delete next[String(right)];
         changed = true;
     }
 
@@ -638,6 +700,7 @@ export function applyCollectionOrderToPages(albumId, album) {
     if (!items.length) return 0;
 
     const gridLayout = album.grid_layout || 'two-page';
+    const wholeSpread = isWholeSpreadLayout(gridLayout);
     const requiredPages = computePageCountFromPhotoCount(items.length, {
         includeCovers: spreadOpts.hasCovers,
         gridLayout,
@@ -646,7 +709,7 @@ export function applyCollectionOrderToPages(albumId, album) {
 
     clearAllAlbumPagePhotos(albumId, { totalPages });
 
-    return autoPlaceCollectionItems(
+    const placed = autoPlaceCollectionItems(
         albumId,
         items.map((item) => item.id),
         {
@@ -656,6 +719,12 @@ export function applyCollectionOrderToPages(albumId, album) {
             hasCovers: spreadOpts.hasCovers,
         }
     );
+
+    if (wholeSpread) {
+        migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, album);
+    }
+
+    return placed;
 }
 
 export function autoPlaceCollectionItems(
@@ -671,7 +740,7 @@ export function autoPlaceCollectionItems(
         totalPages,
     };
 
-    if (gridLayout === 'whole-spread' || String(gridLayout || '').startsWith('whole-spread')) {
+    if (isWholeSpreadLayout(gridLayout)) {
         const targets = enumerateAutoPlacePageTargets(totalPages, {
             showCover,
             hasCovers: spreadOpts.hasCovers,
@@ -684,6 +753,7 @@ export function autoPlaceCollectionItems(
             if (
                 setSpreadPhotoFromCollectionItem(albumId, leftPage, collectionItemIds[i], rightPage, {
                     totalPages,
+                    spreadOpts,
                 })
             ) {
                 placed += 1;

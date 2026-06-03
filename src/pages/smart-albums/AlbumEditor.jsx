@@ -27,6 +27,8 @@ import {
     migrateInsideCoverSpreadToPageTwo,
     applyCollectionOrderToPages,
     migrateMiskeyedInnerSpreadPhotos,
+    migrateWholeSpreadPagePhotosToSpreadKeys,
+    migrateWholeSpreadPhotoOffRightPage,
     placeCollectionItemOnPages,
     setPagePhotoFromCollectionItem,
     setPagePhotoFromDataUrl,
@@ -262,7 +264,9 @@ export default function AlbumEditor({
     useEffect(() => {
         let changed = false;
         if (migrateEndHalfSpreadToLeftPage(albumId, totalPages, album)) changed = true;
-        if (migrateMiskeyedInnerSpreadPhotos(albumId, totalPages)) changed = true;
+        if (migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, album)) changed = true;
+        if (migrateWholeSpreadPhotoOffRightPage(albumId, album)) changed = true;
+        if (migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, album)) changed = true;
         if (spreadOpts.hasCovers) {
             if (migrateInsideCoverSpreadToPageTwo(albumId, totalPages)) changed = true;
             if (migrateInsideCoverSpreadTransform(albumId)) changed = true;
@@ -281,7 +285,7 @@ export default function AlbumEditor({
         if (!albumId || !album || collectionSyncRef.current) return;
 
         const fromCreate = location.state?.syncCollectionOrder === true;
-        const onceKey = `pixnxt_collection_order_sync_v5_${albumId}`;
+        const onceKey = `pixnxt_collection_order_sync_v7_${albumId}`;
         let needsOnce = false;
         try {
             needsOnce = !localStorage.getItem(onceKey);
@@ -407,7 +411,7 @@ export default function AlbumEditor({
                     : buildCellSelection(left, 1)
             );
         }
-    }, [album?.grid_layout, bookPage, totalPages]);
+    }, [album?.grid_layout, bookPage, totalPages, spreadOpts]);
 
     useEffect(() => {
         const maxPage = Math.max(0, totalPages - 1);
@@ -422,14 +426,18 @@ export default function AlbumEditor({
             setGridSelection(buildCellSelection(left, 2));
             return;
         }
+        const lockedSet = layoutToPlacementMode(album?.grid_layout);
         if (isProofGridSpread(left, totalPages, spreadOpts)) {
-            setGridSelection((prev) =>
-                prev?.leftPage === left ? prev : buildCellSelection(left, prev?.cellId || 1)
-            );
+            setGridSelection((prev) => {
+                if (prev?.leftPage === left) return prev;
+                return lockedSet === 'whole'
+                    ? buildSpreadSelection(left)
+                    : buildCellSelection(left, prev?.cellId || 1);
+            });
         } else {
             setGridSelection(buildCellSelection(left, 1));
         }
-    }, [initialPage, totalPages, spreadOpts]);
+    }, [initialPage, totalPages, spreadOpts, album?.grid_layout]);
 
     useEffect(() => {
         setBookPage((prev) => {

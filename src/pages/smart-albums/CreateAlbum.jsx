@@ -7,13 +7,14 @@ import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
     detectGridSizeFromFiles,
-    formatGridSizeLabel,
+    formatGridSizeLabelForLayout,
 } from '../../components/smart-albums/albumGridSize';
 import {
     computePageCountFromPhotoCount,
     countExpandedUploadPhotos,
 } from './createAlbumLayout';
 import { buildPreviewThumbUrls } from './createAlbumPreviewThumbs';
+import { isImageFile } from '../../lib/pdfToImages';
 import {
     filesFromDataTransfer,
     filesFromInput,
@@ -246,6 +247,11 @@ const CreateAlbum = () => {
         return gridLayout;
     }, [gridLayout, customGridLayout]);
 
+    const gridLayoutForDetection = useMemo(() => {
+        if (gridLayout === 'custom') return resolvedGridLayout;
+        return gridLayout;
+    }, [gridLayout, resolvedGridLayout]);
+
     const setProgress = (next) => {
         setCreateProgress(next);
     };
@@ -257,33 +263,50 @@ const CreateAlbum = () => {
         }
 
         const abort = new AbortController();
-        const previews = photoFiles.map((file, index) => ({
-            index,
-            id: `${file.name}-${file.lastModified}-${file.size}`,
-            name: file.name,
-            size: file.size,
-            isPdf:
+        const blobUrls = [];
+
+        const previews = photoFiles.map((file, index) => {
+            const isPdf =
                 file.type === 'application/pdf' ||
-                file.name.toLowerCase().endsWith('.pdf'),
-            url: null,
-            thumbReady: false,
-        }));
+                file.name.toLowerCase().endsWith('.pdf');
+            let url = null;
+            let thumbReady = false;
+            if (!isPdf && isImageFile(file)) {
+                url = URL.createObjectURL(file);
+                blobUrls.push(url);
+                thumbReady = true;
+            }
+            return {
+                index,
+                id: `${file.name}-${file.lastModified}-${file.size}`,
+                name: file.name,
+                size: file.size,
+                isPdf,
+                url,
+                thumbReady,
+            };
+        });
 
         setPhotoPreviews(previews);
 
-        void buildPreviewThumbUrls(photoFiles, {
-            signal: abort.signal,
-            onThumb: (fileIndex, url) => {
-                setPhotoPreviews((prev) =>
-                    prev.map((item, i) =>
-                        i === fileIndex ? { ...item, url: url || null, thumbReady: true } : item
-                    )
-                );
-            },
-        });
+        const hasPdf = previews.some((p) => p.isPdf);
+        if (hasPdf) {
+            void buildPreviewThumbUrls(photoFiles, {
+                signal: abort.signal,
+                onThumb: (fileIndex, url) => {
+                    if (!previews[fileIndex]?.isPdf) return;
+                    setPhotoPreviews((prev) =>
+                        prev.map((item, i) =>
+                            i === fileIndex ? { ...item, url: url || null, thumbReady: true } : item
+                        )
+                    );
+                },
+            });
+        }
 
         return () => {
             abort.abort();
+            blobUrls.forEach((u) => URL.revokeObjectURL(u));
         };
     }, [photoFiles]);
 
@@ -304,7 +327,9 @@ const CreateAlbum = () => {
             if (cancelled) return;
             Promise.all([
                 countExpandedUploadPhotos(photoFiles).catch(() => photoFiles.length),
-                detectGridSizeFromFiles(photoFiles).catch(() => 'square'),
+                detectGridSizeFromFiles(photoFiles, {
+                    gridLayout: gridLayoutForDetection,
+                }).catch(() => 'square'),
             ])
                 .then(([count, gridSize]) => {
                     if (cancelled) return;
@@ -337,7 +362,7 @@ const CreateAlbum = () => {
                 clearTimeout(analysisTimeoutId);
             }
         };
-    }, [photoFiles]);
+    }, [photoFiles, gridLayoutForDetection]);
 
     const analyzingUploads = photoCountBusy || gridSizeBusy;
     const animatePreviewCards = photoPreviews.length <= 12;
@@ -416,7 +441,9 @@ const CreateAlbum = () => {
                     () => photoFiles.length
                 );
                 photoCount = Math.max(expanded, photoFiles.length);
-                finalGridSize = await detectGridSizeFromFiles(photoFiles);
+                finalGridSize = await detectGridSizeFromFiles(photoFiles, {
+                    gridLayout: finalGridLayout,
+                });
             }
 
             const finalPageCount = computePageCountFromPhotoCount(photoCount, {
@@ -674,7 +701,11 @@ const CreateAlbum = () => {
                                             )}
                                             {!analyzingUploads && expandedPhotoCount > 0 && (
                                                 <span className="sa-upload-detected-size sa-upload-detected-size--revealed">
-                                                    Grid: {formatGridSizeLabel(detectedGridSize)}
+                                                    Grid:{' '}
+                                                    {formatGridSizeLabelForLayout(
+                                                        detectedGridSize,
+                                                        gridLayoutForDetection
+                                                    )}
                                                 </span>
                                             )}
                                         </div>
@@ -719,9 +750,13 @@ const CreateAlbum = () => {
                                         ))}
                                     </div>
                                     <p className="sa-upload-order-note">
-                                        {includeCovers
-                                            ? 'Order 1 → cover, 2 → spread 1 left, 3 → spread 1 right, then on.'
-                                            : 'Order 1 → spread 1 left, 2 → spread 1 right, 3 → spread 2 left, then on.'}{' '}
+                                        {gridLayout === 'whole-spread'
+                                            ? includeCovers
+                                                ? 'Order 1 → cover, 2 → spread 1 (full width), 3 → spread 2, then on.'
+                                                : 'Order 1 → spread 1 (full width), 2 → spread 2, then on.'
+                                            : includeCovers
+                                              ? 'Order 1 → cover, 2 → spread 1 left, 3 → spread 1 right, then on.'
+                                              : 'Order 1 → spread 1 left, 2 → spread 1 right, 3 → spread 2 left, then on.'}{' '}
                                         Drag thumbnails if the picker order is wrong.
                                     </p>
                                 </div>

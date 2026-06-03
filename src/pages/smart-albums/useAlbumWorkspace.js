@@ -13,6 +13,8 @@ import {
     migrateInsideCoverSpreadToPageTwo,
     migrateEndHalfSpreadToLeftPage,
     migrateMiskeyedInnerSpreadPhotos,
+    migrateWholeSpreadPagePhotosToSpreadKeys,
+    migrateWholeSpreadPhotoOffRightPage,
     restoreEndCoverPlacement,
 } from '../../components/smart-albums/albumPagePhotos';
 import {
@@ -103,8 +105,10 @@ export function useAlbumWorkspace() {
                     mergeRemotePreviewPagesIntoLocal(albumId);
                     const pages = data?.page_count || 21;
                     const albumSpreadOpts = getAlbumSpreadOptions(data);
-                    migrateEndHalfSpreadToLeftPage(albumId, pages);
-                    migrateMiskeyedInnerSpreadPhotos(albumId, pages);
+                    migrateEndHalfSpreadToLeftPage(albumId, pages, data);
+                    migrateMiskeyedInnerSpreadPhotos(albumId, pages, data);
+                    migrateWholeSpreadPhotoOffRightPage(albumId, data);
+                    migrateWholeSpreadPagePhotosToSpreadKeys(albumId, pages, data);
                     if (albumSpreadOpts.hasCovers) {
                         migrateInsideCoverSpreadToPageTwo(albumId, pages);
                         migrateInsideCoverSpreadTransform(albumId);

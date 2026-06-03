@@ -249,7 +249,7 @@ export function isEndHalfSpreadLeftPage(leftPage, totalPages, opts = {}) {
     return leftPage === left;
 }
 
-function isWholeSpreadLayout(gridLayout) {
+export function isWholeSpreadLayout(gridLayout) {
     return gridLayout === 'whole-spread' || String(gridLayout || '').startsWith('whole-spread');
 }
 

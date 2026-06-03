@@ -423,15 +423,15 @@
 
 .sa-preview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 12px;
-  max-height: 360px;
+  align-items: start;
+  max-height: min(480px, 55vh);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   padding-right: 4px;
-  contain: paint;
 }
 
 .sa-preview-card {
@@ -442,9 +442,6 @@
   background: #fff;
   overflow: hidden;
   box-shadow: 0 8px 18px rgba(46, 30, 62, 0.06);
-  content-visibility: auto;
-  contain-intrinsic-size: 168px 168px;
-  contain: layout paint style;
   cursor: grab;
 }
 
@@ -496,9 +493,10 @@
 .sa-preview-media {
   position: relative;
   width: 100%;
-  aspect-ratio: 1 / 1;
+  min-height: 72px;
   overflow: hidden;
-  background: #f3edf8;
+  background: #ebe6f0;
+  line-height: 0;
 }
 
 .sa-preview-skeleton {
@@ -517,23 +515,19 @@
 }
 
 .sa-preview-img {
-  position: absolute;
-  inset: 0;
+  position: relative;
   z-index: 2;
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  max-height: 200px;
   opacity: 0;
-  transform: scale(1.02);
-  transition:
-    opacity 0.28s ease,
-    transform 0.32s ease;
+  transition: opacity 0.28s ease;
   pointer-events: none;
 }
 
 .sa-preview-img--loaded {
   opacity: 1;
-  transform: scale(1);
 }
 
 .sa-preview-loading {
@@ -544,7 +538,7 @@
   justify-content: center;
   gap: 10px;
   width: 100%;
-  height: 100%;
+  min-height: 120px;
   background: #f3edf8;
 }
 
