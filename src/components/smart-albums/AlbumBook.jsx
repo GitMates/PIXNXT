@@ -1,23 +1,37 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
 import {
     getGridSlotPhoto,
     getPagePhotoOverride,
     getSpreadPhotoOverride,
+    resolveCoverImageSrc,
 } from './albumPagePhotos';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
-import { getSpreadPages, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+import {
+    getAlbumSpreadOptions,
+    getSpreadPages,
+    getTotalSpreads,
+    isEndHalfSpreadIndex,
+    pageToSpreadIndex,
+    spreadIndexToPage,
+} from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
+import {
+    COMMENTS_SEEN_CHANGED_EVENT,
+} from '../../services/smartAlbumComments.service';
 import AlbumFocusView from './AlbumFocusView';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
 import AlbumPinComposer from './AlbumPinComposer';
 import {
     addSwapMark,
+    getSwapMarksForSlot,
     getSwapMarkForSlot,
     getSwapMarks,
-    isSlotSwapLocked,
+    makeSlotKey,
+    slotsMatch,
     SWAP_MARKS_CHANGED_EVENT,
 } from './albumSwapMarks';
 import {
@@ -31,6 +45,7 @@ import './AlbumBook.css';
 import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';
+import { AlbumBookPageContext } from './AlbumBookPageContext';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
@@ -38,11 +53,11 @@ const FLIP_TIME_MS = 800;
 const BOOK_PAGE_HEIGHT_MIN = 300;
 const BOOK_PAGE_HEIGHT_MAX = 520;
 const BOOK_PAGE_HEIGHT_SCALE = 0.93;
-
-function getBookDimensions(stageEl, gridSize = 'square') {
-    if (!stageEl) return { width: 480, height: 480 };
-    const w = stageEl.clientWidth;
-    const h = stageEl.clientHeight;
+const BOOK_STAGE_MIN_PX = 80;
+/** Stage must be tall enough for real page height — avoids mounting while flex layout is still 0px. */
+const BOOK_STAGE_READY_MIN_PX = 300;
+function computeBookDimensions(w, h, gridSize = 'square') {
+    if (w < BOOK_STAGE_MIN_PX || h < BOOK_STAGE_MIN_PX) return null;
     const aspect = parseGridSizeAspect(gridSize);
     const maxPageWidth = w / 2;
     const maxPageHeight = h * BOOK_PAGE_HEIGHT_SCALE;
@@ -57,16 +72,51 @@ function getBookDimensions(stageEl, gridSize = 'square') {
     };
 }
 
+function getBookDimensions(stageEl, gridSize = 'square') {
+    if (!stageEl) return null;
+    const h = stageEl.clientHeight;
+    if (h < BOOK_STAGE_READY_MIN_PX) return null;
+    return computeBookDimensions(stageEl.clientWidth, h, gridSize);
+}
+
+function getFallbackBookDimensions(rootEl, gridSize = 'square') {
+    const rootW = rootEl?.clientWidth ?? 0;
+    const rootH = rootEl?.clientHeight ?? 0;
+    const w =
+        rootW > BOOK_STAGE_MIN_PX ? rootW - 48 : Math.min(960, window.innerWidth - 280);
+    const h =
+        rootH > BOOK_STAGE_MIN_PX ? rootH - 48 : Math.max(360, window.innerHeight - 280);
+    return computeBookDimensions(w, h, gridSize);
+}
+
+function OverviewFramedPhoto({ src, placeholderClass = '' }) {
+    if (!src) {
+        return (
+            <span
+                className={`ab-overview-placeholder ab-overview-placeholder--cover${placeholderClass ? ` ${placeholderClass}` : ''}`}
+            />
+        );
+    }
+    return (
+        <span className="ab-overview-cover-stage">
+            <img className="ab-overview-cover-frame" src={src} alt="" loading="lazy" />
+        </span>
+    );
+}
+
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const albumId = album?.id;
+    const spreadOpts = getAlbumSpreadOptions(album);
+    if (pageNum === 0 && spreadOpts.hasCovers) {
+        return resolveCoverImageSrc(album, { showSamples });
+    }
     const directSrc = getPagePhotoOverride(albumId, pageNum);
     if (directSrc) return directSrc;
-    if (pageNum === 0) {
-        return album?.cover_image_url || (showSamples ? getSampleImageForPage(pageNum) : null);
-    }
-    const spreadLeft = getSpreadLeftPageIndex(pageNum, { showCover: true });
+    const spreadLeft = getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
     const cellId = pageNum === spreadLeft ? 1 : 2;
-    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft);
+    const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
+        wholeSpread: album?.grid_layout === 'whole-spread',
+    });
     return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);
 }
 
@@ -84,15 +134,16 @@ const AlbumBook = ({
     gridSelection = null,
     onSelectGridCell,
     onSelectGridSpread,
+    onSlotActivate,
     onSelectCover,
     onTransformChange,
     transformRevision = 0,
+    photoRevision = 0,
     canAddPages = false,
     onAddPages,
     canRemovePages = false,
     onRemovePages,
     pageCountBusy = false,
-    overviewReopenToken = 0,
     showGridComments = false,
     spreadCommentsBySpread = null,
     swapMarkMode = false,
@@ -109,39 +160,96 @@ const AlbumBook = ({
     const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
     const userNavigatedRef = useRef(false);
+    const syncingPageRef = useRef(false);
     const dimsRafRef = useRef(null);
-    const [dims, setDims] = useState({ width: 480, height: 480 });
+    const prevDimsRef = useRef(null);
+    const pendingDimsCommitRef = useRef(null);
+    const [dims, setDims] = useState(null);
+    const [stableDims, setStableDims] = useState(null);
     const [pageIndex, setPageIndex] = useState(initialPage);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(album?.id));
     const [swapPickerOrigin, setSwapPickerOrigin] = useState(null);
+    const [swapPinFlow, setSwapPinFlow] = useState(null);
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(album?.id));
     const [pinModeActive, setPinModeActive] = useState(false);
     const [pinComposer, setPinComposer] = useState(null);
+    const [initialized, setInitialized] = useState(false);
+    const [commentsSeenTick, setCommentsSeenTick] = useState(0);
+    const isPinModeOn = previewMode ? pinMarkMode : pinModeActive;
+    const spreadOpts = useMemo(() => getAlbumSpreadOptions(album), [album?.has_covers]);
+    const spreadCtx = useMemo(
+        () => ({ ...spreadOpts, totalPages }),
+        [spreadOpts, totalPages]
+    );
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return false;
-        const target = initialPage;
+        const target = Math.max(0, Math.min(totalPages - 1, initialPage));
+        syncingPageRef.current = true;
         const current = api.getCurrentPageIndex();
         if (current !== target) {
             api.turnToPage(target);
+            api.update();
         }
         const resolved = api.getCurrentPageIndex();
         setPageIndex(resolved);
-        return true;
-    }, [initialPage]);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                syncingPageRef.current = false;
+            });
+        });
+        return resolved === target;
+    }, [initialPage, totalPages]);
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [focusOpen, setFocusOpen] = useState(false);
 
-    const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
-    const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true });
+    const flipBookStructuralKey = useMemo(
+        () =>
+            `${album?.id ?? 'album'}-${totalPages}-${album?.grid_size || 'square'}-${
+                album?.grid_layout || 'two-page'
+            }`,
+        [album?.id, album?.grid_layout, album?.grid_size, totalPages]
+    );
+
+    useEffect(() => {
+        setInitialized(false);
+        setStableDims(null);
+        setDims(null);
+        userNavigatedRef.current = false;
+        syncingPageRef.current = true;
+    }, [flipBookStructuralKey]);
+
+    const flipBookMountKey = useMemo(
+        () =>
+            stableDims
+                ? `${flipBookStructuralKey}-${stableDims.width}x${stableDims.height}`
+                : flipBookStructuralKey,
+        [flipBookStructuralKey, stableDims]
+    );
+
+    useEffect(() => {
+        setInitialized(false);
+        syncingPageRef.current = true;
+    }, [flipBookMountKey]);
+
+    const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
+    const spreadIndex = pageToSpreadIndex(pageIndex, spreadCtx);
     const currentSpreadComments =
         showGridComments && spreadCommentsBySpread
             ? spreadCommentsBySpread[spreadIndex] || null
             : null;
-    const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, {
-        showCover: true,
-    });
+
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onSeen = (e) => {
+            if (e.detail?.albumId !== album.id) return;
+            setCommentsSeenTick((tick) => tick + 1);
+        };
+        window.addEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
+        return () => window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, onSeen);
+    }, [album?.id]);
+    const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
     const counterLabel = useMemo(() => {
         const spreadNum = spreadIndex + 1;
@@ -155,50 +263,158 @@ const AlbumBook = ({
 
     useEffect(() => {
         userNavigatedRef.current = false;
+        syncingPageRef.current = true;
     }, [initialPage, album?.id]);
 
+    const syncFlipbookToUrlPage = useCallback(() => {
+        if (userNavigatedRef.current || isFlippingRef.current) return false;
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return false;
+        const target = Math.max(0, Math.min(totalPages - 1, initialPage));
+        const current = api.getCurrentPageIndex();
+        if (current === target) {
+            setPageIndex((prev) => (prev === target ? prev : target));
+            return true;
+        }
+        return applyInitialPage();
+    }, [applyInitialPage, initialPage, totalPages]);
+
     useLayoutEffect(() => {
-        if (isFlippingRef.current) return undefined;
-        if (applyInitialPage()) return undefined;
+        if (!initialized || !stableDims) return undefined;
+        if (syncFlipbookToUrlPage()) return undefined;
 
         let attempts = 0;
         const timer = window.setInterval(() => {
             attempts += 1;
-            if (applyInitialPage() || attempts >= 24) {
+            if (syncFlipbookToUrlPage() || attempts >= 60) {
                 window.clearInterval(timer);
             }
         }, 50);
 
         return () => window.clearInterval(timer);
-    }, [applyInitialPage, album?.id, totalPages]);
+    }, [
+        syncFlipbookToUrlPage,
+        initialized,
+        stableDims,
+        initialPage,
+        totalPages,
+        transformRevision,
+        photoRevision,
+        placementMode,
+        spreadEdit,
+        editable,
+        flipBookMountKey,
+    ]);
 
-    useEffect(() => {
-        if (isFlippingRef.current) return;
-        applyInitialPage();
-    }, [applyInitialPage, transformRevision]);
-
-    useEffect(() => {
-        const stage = stageRef.current;
+    useLayoutEffect(() => {
+        const stage = stageOuterRef.current ?? stageRef.current;
         if (!stage) return undefined;
+
+        let measureAttempts = 0;
+        const maxMeasureAttempts = 64;
+
+        const commitDims = (next) => {
+            if (pendingDimsCommitRef.current != null) {
+                cancelAnimationFrame(pendingDimsCommitRef.current);
+            }
+            pendingDimsCommitRef.current = requestAnimationFrame(() => {
+                pendingDimsCommitRef.current = requestAnimationFrame(() => {
+                    pendingDimsCommitRef.current = null;
+                    const measureTarget = stageOuterRef.current ?? stageRef.current;
+                    const verified = getBookDimensions(measureTarget, album?.grid_size) ?? next;
+                    if (!verified) return;
+                    setDims((prev) =>
+                        prev &&
+                        prev.width === verified.width &&
+                        prev.height === verified.height
+                            ? prev
+                            : verified
+                    );
+                    setStableDims((prev) =>
+                        prev &&
+                        prev.width === verified.width &&
+                        prev.height === verified.height
+                            ? prev
+                            : verified
+                    );
+                });
+            });
+        };
 
         const update = () => {
             if (isFlippingRef.current) return;
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
             dimsRafRef.current = requestAnimationFrame(() => {
                 dimsRafRef.current = null;
-                setDims(getBookDimensions(stage, album?.grid_size));
+                const next = getBookDimensions(stage, album?.grid_size);
+                if (!next) {
+                    measureAttempts += 1;
+                    if (measureAttempts >= maxMeasureAttempts) {
+                        const fallback = getFallbackBookDimensions(
+                            rootRef.current,
+                            album?.grid_size
+                        );
+                        if (fallback) commitDims(fallback);
+                    } else {
+                        dimsRafRef.current = requestAnimationFrame(update);
+                    }
+                    return;
+                }
+                measureAttempts = 0;
+                commitDims(next);
             });
         };
         update();
-        const ro = new ResizeObserver(update);
+        const ro = new ResizeObserver(() => {
+            measureAttempts = 0;
+            update();
+        });
         ro.observe(stage);
         window.addEventListener('resize', update);
         return () => {
             ro.disconnect();
             window.removeEventListener('resize', update);
             if (dimsRafRef.current != null) cancelAnimationFrame(dimsRafRef.current);
+            if (pendingDimsCommitRef.current != null) {
+                cancelAnimationFrame(pendingDimsCommitRef.current);
+            }
         };
-    }, [album?.grid_size]);
+    }, [album?.grid_size, flipBookStructuralKey]);
+
+    useLayoutEffect(() => {
+        if (!stableDims || !initialized) return;
+        const prev = prevDimsRef.current;
+        prevDimsRef.current = stableDims;
+        if (prev && prev.width === stableDims.width && prev.height === stableDims.height) return;
+
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return;
+        api.update();
+        if (!userNavigatedRef.current) {
+            syncFlipbookToUrlPage();
+        }
+    }, [stableDims, initialized, syncFlipbookToUrlPage]);
+
+    const bookDims = stableDims ?? dims;
+
+    const goToPage = useCallback(
+        (pageNum) => {
+            const clamped = Math.max(0, Math.min(totalPages - 1, pageNum));
+            syncingPageRef.current = true;
+            const api = bookRef.current?.pageFlip?.();
+            if (api?.getFlipController?.()) {
+                api.turnToPage(clamped);
+            }
+            setPageIndex(clamped);
+            onPageChange?.(clamped);
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    syncingPageRef.current = false;
+                });
+            });
+        },
+        [totalPages, onPageChange]
+    );
 
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
@@ -218,7 +434,10 @@ const AlbumBook = ({
 
     const handleFlip = useCallback(
         (e) => {
+            // Ignore programmatic sync flips, but accept user-driven page turns.
+            if (syncingPageRef.current && !isFlippingRef.current) return;
             const idx = e.data;
+            syncingPageRef.current = false;
             userNavigatedRef.current = true;
             requestAnimationFrame(() => {
                 setPageIndex(idx);
@@ -229,11 +448,11 @@ const AlbumBook = ({
     );
 
     const handleBookUpdate = useCallback(() => {
-        if (userNavigatedRef.current || isFlippingRef.current) return;
+        if (isFlippingRef.current || userNavigatedRef.current) return;
         requestAnimationFrame(() => {
-            applyInitialPage();
+            syncFlipbookToUrlPage();
         });
-    }, [applyInitialPage]);
+    }, [syncFlipbookToUrlPage]);
 
     const handleChangeState = useCallback(
         (e) => {
@@ -246,11 +465,18 @@ const AlbumBook = ({
     );
 
     const flipPrev = useCallback(() => {
-        bookRef.current?.pageFlip?.()?.flipPrev('bottom');
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return;
+        // Some builds of pageflip are picky about flipPrev(direction).
+        if (typeof api.flipPrev === 'function') api.flipPrev();
+        else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
     }, []);
 
     const flipNext = useCallback(() => {
-        bookRef.current?.pageFlip?.()?.flipNext('bottom');
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return;
+        if (typeof api.flipNext === 'function') api.flipNext();
+        else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
     }, []);
 
     useEffect(() => {
@@ -281,8 +507,22 @@ const AlbumBook = ({
     }, [overviewOpen]);
 
     useEffect(() => {
-        if (overviewReopenToken) setOverviewOpen(true);
-    }, [overviewReopenToken]);
+        if (!overviewOpen) return undefined;
+        const prevHtmlOverflow = document.documentElement.style.overflow;
+        const prevBodyOverflow = document.body.style.overflow;
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.documentElement.style.overflow = prevHtmlOverflow;
+            document.body.style.overflow = prevBodyOverflow;
+        };
+    }, [overviewOpen]);
+
+    useEffect(() => {
+        const maxPage = Math.max(0, totalPages - 1);
+        if (pageIndex <= maxPage) return;
+        goToPage(maxPage);
+    }, [totalPages, pageIndex, goToPage]);
 
     useEffect(() => {
         setSwapMarks(getSwapMarks(album?.id));
@@ -324,6 +564,7 @@ const AlbumBook = ({
 
     useEffect(() => {
         if (!pinModeActive || !pinMarkMode) return undefined;
+        if (previewMode) return undefined;
 
         const onDocClick = (e) => {
             const target = e.target;
@@ -343,7 +584,7 @@ const AlbumBook = ({
             window.clearTimeout(timer);
             document.removeEventListener('click', onDocClick);
         };
-    }, [pinModeActive, pinMarkMode, exitPinMode]);
+    }, [pinModeActive, pinMarkMode, exitPinMode, previewMode]);
 
     useEffect(() => {
         if (!pinModeActive) return undefined;
@@ -354,17 +595,64 @@ const AlbumBook = ({
         return () => window.removeEventListener('keydown', onKey);
     }, [pinModeActive, exitPinMode]);
 
+    useEffect(() => {
+        if (!swapPinFlow) return undefined;
+
+        const onDocClick = (e) => {
+            const target = e.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest('.ab-photo-pin-layer--placing-swap')) return;
+            if (target.closest('.ab-proof-tool-btn')) return;
+            if (target.closest('.ab-proof-tools-hover')) return;
+            setSwapPinFlow(null);
+        };
+
+        const timer = window.setTimeout(() => {
+            document.addEventListener('click', onDocClick);
+        }, 0);
+
+        return () => {
+            window.clearTimeout(timer);
+            document.removeEventListener('click', onDocClick);
+        };
+    }, [swapPinFlow]);
+
+    useEffect(() => {
+        if (!previewMode) return;
+        if (pinMarkMode) {
+            setPinModeActive(true);
+            setSwapPinFlow(null);
+            return;
+        }
+        setPinModeActive(false);
+        setPinComposer(null);
+    }, [previewMode, pinMarkMode]);
+
+    useEffect(() => {
+        if (!previewMode) return;
+        if (!swapMarkMode) {
+            setSwapPinFlow(null);
+        }
+    }, [previewMode, swapMarkMode]);
+
+    useEffect(() => {
+        if (!swapPinFlow) return undefined;
+        const onKey = (e) => {
+            if (e.key === 'Escape') setSwapPinFlow(null);
+        };
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [swapPinFlow]);
+
     const handleSwapRequest = useCallback(
         (slot) => {
             if (!album?.id || !slot) return;
-            const locked = isSlotSwapLocked(swapMarks, slot.pageNum, slot.cellId ?? 0, {
-                placementMode,
-                spreadLeft: slot.spreadLeft ?? slot.pageNum,
+            setSwapPinFlow({
+                originSlot: slot,
+                originPoint: null,
             });
-            if (locked) return;
-            setSwapPickerOrigin(slot);
         },
-        [album?.id, swapMarks, placementMode]
+        [album?.id]
     );
 
     const handleSwapPick = useCallback(
@@ -376,9 +664,79 @@ const AlbumBook = ({
         [album?.id, swapPickerOrigin]
     );
 
+    const handleSwapPinPlace = useCallback(
+        (placement) => {
+            if (!album?.id || !placement) return;
+            const placementPoint = {
+                xPct: placement.xPct,
+                yPct: placement.yPct,
+                pageNum: placement.pageNum,
+                cellId: placement.cellId ?? 0,
+            };
+            if (!swapPinFlow) {
+                if (!swapMarkMode) return;
+                setSwapPinFlow({
+                    originSlot: placement,
+                    originPoint: placementPoint,
+                });
+                return;
+            }
+            const originSlot = swapPinFlow.originSlot;
+
+            if (!swapPinFlow.originPoint) {
+                if (slotsMatch(originSlot, placement)) {
+                    setSwapPinFlow((prev) =>
+                        prev
+                            ? {
+                                  ...prev,
+                                  originPoint: placementPoint,
+                              }
+                            : prev
+                    );
+                    return;
+                }
+                const mark = addSwapMark(album.id, originSlot, placement, {
+                    pointA: {
+                        xPct: 50,
+                        yPct: 50,
+                        pageNum: originSlot.pageNum,
+                        cellId: originSlot.cellId ?? 0,
+                    },
+                    pointB: placementPoint,
+                });
+                if (mark) setSwapPinFlow(null);
+                return;
+            }
+
+            if (slotsMatch(originSlot, placement)) {
+                setSwapPinFlow((prev) =>
+                    prev ? { ...prev, originPoint: placementPoint } : prev
+                );
+                return;
+            }
+
+            const mark = addSwapMark(album.id, originSlot, placement, {
+                pointA: swapPinFlow.originPoint,
+                pointB: placementPoint,
+            });
+            if (mark) setSwapPinFlow(null);
+        },
+        [album?.id, swapPinFlow, swapMarkMode]
+    );
+
     const getSwapMarkInfo = useCallback(
         (pageNum, cellId, spreadLeft) =>
             getSwapMarkForSlot(swapMarks, pageNum, cellId, {
+                placementMode,
+                spreadLeft,
+                gridLayout: album?.grid_layout || 'two-page',
+            }),
+        [swapMarks, placementMode, album?.grid_layout]
+    );
+
+    const getSwapMarkInfos = useCallback(
+        (pageNum, cellId, spreadLeft) =>
+            getSwapMarksForSlot(swapMarks, pageNum, cellId, {
                 placementMode,
                 spreadLeft,
                 gridLayout: album?.grid_layout || 'two-page',
@@ -437,6 +795,70 @@ const AlbumBook = ({
         [onPageChange]
     );
 
+    const pageContextValue = useMemo(
+        () => ({
+            selectionLeftPage: gridSelection?.leftPage ?? null,
+            selectionMode: gridSelection?.mode ?? null,
+            selectedCellId: gridSelection?.cellId ?? null,
+            photoRevision,
+            transformRevision,
+            showGridComments,
+            onSelectCell: onSelectGridCell,
+            onSelectSpread: onSelectGridSpread,
+            onSlotActivate,
+            onSelectCover,
+            onTransformChange,
+            swapMarkMode,
+            getSwapMarkInfo,
+            getSwapMarkInfos,
+            onSwapRequest: handleSwapRequest,
+            swapPinModeActive: previewMode ? swapMarkMode : Boolean(swapPinFlow),
+            swapPinOriginKey: swapPinFlow
+                ? makeSlotKey(
+                      swapPinFlow.originSlot.pageNum,
+                      swapPinFlow.originSlot.cellId ?? 0
+                  )
+                : null,
+            swapPinTargetStep: Boolean(swapPinFlow?.originPoint),
+            swapPinOriginPoint: swapPinFlow?.originPoint || null,
+            onPlaceSwapPin: handleSwapPinPlace,
+            pinMarkMode,
+            pinModeActive: isPinModeOn,
+            getPinsForSlot: getSlotPins,
+            onPinPlace: handlePinPlace,
+            onPinRemove: handlePinRemove,
+            onActivatePinMode: handleActivatePinMode,
+            proofToolsHover,
+        }),
+        [
+            gridSelection?.leftPage,
+            gridSelection?.mode,
+            gridSelection?.cellId,
+            photoRevision,
+            transformRevision,
+            showGridComments,
+            onSelectGridCell,
+            onSelectGridSpread,
+            onSlotActivate,
+            onSelectCover,
+            onTransformChange,
+            swapMarkMode,
+            pinMarkMode,
+            isPinModeOn,
+            proofToolsHover,
+            handleSwapRequest,
+            swapPinFlow,
+            handleSwapPinPlace,
+            previewMode,
+            getSwapMarkInfo,
+            getSwapMarkInfos,
+            getSlotPins,
+            handlePinPlace,
+            handlePinRemove,
+            handleActivatePinMode,
+        ]
+    );
+
     const pages = useMemo(
         () =>
             Array.from({ length: totalPages }, (_, pageNum) => (
@@ -450,25 +872,6 @@ const AlbumBook = ({
                     placementMode={placementMode}
                     showSamples={showSamples}
                     previewMode={previewMode}
-                    showGridComments={showGridComments}
-                    selectionLeftPage={gridSelection?.leftPage ?? null}
-                    selectionMode={gridSelection?.mode ?? null}
-                    selectedCellId={gridSelection?.cellId ?? null}
-                    onSelectCell={onSelectGridCell}
-                    onSelectSpread={onSelectGridSpread}
-                    onSelectCover={onSelectCover}
-                    onTransformChange={onTransformChange}
-                    transformRevision={transformRevision}
-                    swapMarkMode={swapMarkMode}
-                    getSwapMarkInfo={getSwapMarkInfo}
-                    onSwapRequest={handleSwapRequest}
-                    pinMarkMode={pinMarkMode}
-                    pinModeActive={pinModeActive}
-                    getPinsForSlot={getSlotPins}
-                    onPinPlace={handlePinPlace}
-                    onPinRemove={handlePinRemove}
-                    onActivatePinMode={handleActivatePinMode}
-                    proofToolsHover={proofToolsHover}
                 />
             )),
         [
@@ -479,32 +882,13 @@ const AlbumBook = ({
             placementMode,
             showSamples,
             previewMode,
-            showGridComments,
-            gridSelection?.leftPage,
-            gridSelection?.mode,
-            gridSelection?.cellId,
-            onSelectGridCell,
-            onSelectGridSpread,
-            onSelectCover,
-            onTransformChange,
-            transformRevision,
-            swapMarkMode,
-            getSwapMarkInfo,
-            handleSwapRequest,
-            pinMarkMode,
-            pinModeActive,
-            getSlotPins,
-            handlePinPlace,
-            handlePinRemove,
-            handleActivatePinMode,
-            proofToolsHover,
         ]
     );
 
     return (
         <div
             className={`ab-root${previewMode ? ' ab-root--preview' : ''}${
-                pinModeActive && pinMarkMode ? ' ab-root--pin-mode' : ''
+                isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''
             }`}
             ref={rootRef}
         >
@@ -516,7 +900,7 @@ const AlbumBook = ({
                 disabled={atStart}
                 aria-label="Previous page"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="15 18 9 12 15 6" />
                 </svg>
             </button>
@@ -526,31 +910,51 @@ const AlbumBook = ({
                 <div className="ab-flip-escape" ref={escapeRef}>
                 <div
                     className="ab-spread-display"
-                    style={{ width: dims.width * 2 }}
+                    style={bookDims ? { width: bookDims.width * 2 } : undefined}
+                >
+                <div
+                    className="ab-spread-book-block"
+                    style={
+                        bookDims
+                            ? { width: bookDims.width * 2 }
+                            : undefined
+                    }
                 >
                 <div
                     className="ab-flipbook-wrap"
                     ref={wrapRef}
-                    style={{ width: dims.width * 2, height: dims.height }}
+                    style={
+                        bookDims
+                            ? { width: bookDims.width * 2, height: bookDims.height }
+                            : undefined
+                    }
                 >
+                    {bookDims ? (
+                    <AlbumBookPageContext.Provider value={pageContextValue}>
                     <HTMLFlipBook
-                        key={`${album?.id}-${totalPages}`}
+                        key={flipBookMountKey}
                         ref={bookRef}
-                        className="ab-html-flipbook"
-                        width={dims.width}
-                        height={dims.height}
-                        size="stretch"
-                        minWidth={BOOK_PAGE_HEIGHT_MIN}
-                        maxWidth={Math.max(520, dims.width)}
-                        minHeight={BOOK_PAGE_HEIGHT_MIN}
-                        maxHeight={BOOK_PAGE_HEIGHT_MAX}
+                        className="ab-html-flipbook ab-html-flipbook--fixed"
+                        style={{
+                            width: bookDims.width * 2,
+                            height: bookDims.height,
+                        }}
+                        renderOnlyPageLengthChange
+                        width={bookDims.width}
+                        height={bookDims.height}
+                        size="fixed"
+                        autoSize={false}
+                        minWidth={bookDims.width}
+                        maxWidth={bookDims.width}
+                        minHeight={bookDims.height}
+                        maxHeight={bookDims.height}
                         drawShadow
                         maxShadowOpacity={0.5}
                         flippingTime={FLIP_TIME_MS}
                         usePortrait={false}
                         useMouseEvents={clickToFlip}
                         mobileScrollSupport={false}
-                        showCover
+                        showCover={spreadOpts.showCover}
                         showPageCorners={clickToFlip}
                         disableFlipByClick
                         startPage={initialPage}
@@ -558,9 +962,11 @@ const AlbumBook = ({
                         onFlip={handleFlip}
                         onChangeState={handleChangeState}
                         onInit={() => {
+                            syncingPageRef.current = true;
+                            setInitialized(true);
                             requestAnimationFrame(() => {
                                 requestAnimationFrame(() => {
-                                    applyInitialPage();
+                                    syncFlipbookToUrlPage();
                                 });
                             });
                         }}
@@ -568,18 +974,10 @@ const AlbumBook = ({
                     >
                         {pages}
                     </HTMLFlipBook>
-                </div>
-                {currentSpreadComments?.length > 0 && (
-                    <div className="ab-spread-comments-bar">
-                        <SpreadGridComments
-                            comments={currentSpreadComments}
-                            variant="spreadBar"
-                        />
-                    </div>
-                )}
+                    </AlbumBookPageContext.Provider>
+                    ) : null}
                 </div>
                 </div>
-
                 <div className="ab-spread-controls">
                     <button
                         type="button"
@@ -610,6 +1008,19 @@ const AlbumBook = ({
                         {counterLabel}
                     </span>
                 </div>
+                {currentSpreadComments?.length > 0 && (
+                    <div className="ab-spread-comments-bar">
+                        <SpreadGridComments
+                            comments={currentSpreadComments}
+                            variant="spreadBar"
+                            albumId={album?.id}
+                            seenTick={commentsSeenTick}
+                        />
+                    </div>
+                )}
+                </div>
+                </div>
+
             </div>
 
             <button
@@ -620,14 +1031,17 @@ const AlbumBook = ({
                 disabled={atEnd}
                 aria-label="Next page"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="9 18 15 12 9 6" />
                 </svg>
             </button>
 
-            {overviewOpen && (
+            {overviewOpen &&
+                createPortal(
                 <div
-                    className="ab-overview"
+                    className={`ab-overview${
+                        previewMode ? ' ab-overview--gallery-proof' : ''
+                    }${pageCountBusy ? ' ab-overview--page-busy' : ''}`}
                     role="dialog"
                     aria-modal="true"
                     aria-label="Page overview"
@@ -639,16 +1053,35 @@ const AlbumBook = ({
                         aria-label="Close page overview"
                         onClick={() => setOverviewOpen(false)}
                     >
-                        ×
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="18"
+                            height="18"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18" />
+                            <line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
                     </button>
-                    <div className="ab-overview-grid" onClick={(e) => e.stopPropagation()}>
+                    <div className="ab-overview-body" onClick={(e) => e.stopPropagation()}>
+                    <div
+                        className={`ab-overview-grid${
+                            pageCountBusy ? ' ab-overview-grid--transitioning' : ''
+                        }`}
+                    >
                         {Array.from({ length: totalSpreads }, (_, overviewSpreadIndex) => {
                             const { left, right } = getSpreadPages(
                                 overviewSpreadIndex,
                                 totalPages,
-                                { showCover: true }
+                                spreadOpts
                             );
-                            const targetPage = overviewSpreadIndex === 0 ? 0 : left;
+                            const targetPage = spreadIndexToPage(overviewSpreadIndex, spreadCtx);
                             const leftSrc = getOverviewPageImage(
                                 album,
                                 left,
@@ -659,113 +1092,152 @@ const AlbumBook = ({
                                 right !== left
                                     ? getOverviewPageImage(album, right, totalPages, showSamples)
                                     : null;
-                            const spreadSrc =
-                                overviewSpreadIndex > 0
-                                    ? getSpreadPhotoOverride(album?.id, left)
-                                    : null;
+                            const isCover =
+                                spreadOpts.hasCovers && overviewSpreadIndex === 0;
+                            const isEndSpread = isEndHalfSpreadIndex(
+                                overviewSpreadIndex,
+                                totalPages,
+                                spreadOpts
+                            );
+                            const spreadSrc = !isCover
+                                ? getSpreadPhotoOverride(album?.id, left)
+                                : null;
+                            const coverPhotoSrc = isCover
+                                ? resolveCoverImageSrc(album, { showSamples })
+                                : null;
+                            const endCoverSrc = leftSrc || spreadSrc;
+                            const isEndHalf = isEndSpread;
+                            const showSpreadFull = Boolean(spreadSrc && !isCover && !isEndSpread);
                             const isCurrent = overviewSpreadIndex === spreadIndex;
-                            const spreadComments =
-                                showGridComments && spreadCommentsBySpread
-                                    ? spreadCommentsBySpread[overviewSpreadIndex] || null
-                                    : null;
+                            const spreadComments = spreadCommentsBySpread?.[overviewSpreadIndex] ?? null;
                             return (
                                 <button
-                                    key={overviewSpreadIndex}
+                                    key={`spread-${overviewSpreadIndex}`}
                                     type="button"
                                     className={`ab-overview-item${
-                                        isCurrent ? ' ab-overview-item--active' : ''
+                                        isCover ? ' ab-overview-item--cover' : ''
+                                    }${isCurrent ? ' ab-overview-item--active' : ''}${
+                                        spreadComments?.length ? ' ab-overview-item--has-comments' : ''
                                     }`}
                                     onClick={() => {
-                                        bookRef.current?.pageFlip?.()?.turnToPage(targetPage);
-                                        setPageIndex(targetPage);
-                                        onPageChange?.(targetPage);
+                                        goToPage(targetPage);
                                         setOverviewOpen(false);
                                     }}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
-                                        {spreadSrc ? (
+                                        {showSpreadFull ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
                                                 <img src={spreadSrc} alt="" loading="lazy" />
-                                                {spreadComments?.length > 0 && (
-                                                    <SpreadGridComments
-                                                        comments={spreadComments}
-                                                        className="ab-grid-comments--overview"
-                                                    />
-                                                )}
                                             </span>
+                                        ) : isCover ? (
+                                            <>
+                                                <span
+                                                    className="ab-overview-page ab-overview-page--cover-blank"
+                                                    aria-hidden
+                                                />
+                                                <span className="ab-overview-page ab-overview-page--cover-right">
+                                                    <OverviewFramedPhoto src={coverPhotoSrc} />
+                                                </span>
+                                            </>
+                                        ) : isEndHalf ? (
+                                            <>
+                                                <span className="ab-overview-page ab-overview-page--end-left">
+                                                    <OverviewFramedPhoto src={endCoverSrc} />
+                                                </span>
+                                                <span
+                                                    className="ab-overview-page ab-overview-page--cover-blank"
+                                                    aria-hidden
+                                                />
+                                            </>
                                         ) : (
-                                            <span className="ab-overview-page">
-                                                {leftSrc ? (
-                                                    <img src={leftSrc} alt="" loading="lazy" />
-                                                ) : (
-                                                    <span className="ab-overview-placeholder" />
+                                            <>
+                                                <span className="ab-overview-page">
+                                                    {leftSrc ? (
+                                                        <img src={leftSrc} alt="" loading="lazy" />
+                                                    ) : (
+                                                        <span className="ab-overview-placeholder" />
+                                                    )}
+                                                </span>
+                                                {!spreadSrc && (
+                                                    <span className="ab-overview-page">
+                                                        {rightSrc ? (
+                                                            <img
+                                                                src={rightSrc}
+                                                                alt=""
+                                                                loading="lazy"
+                                                            />
+                                                        ) : (
+                                                            <span className="ab-overview-placeholder" />
+                                                        )}
+                                                    </span>
                                                 )}
-                                                {spreadComments?.length > 0 && leftSrc && (
-                                                    <SpreadGridComments
-                                                        comments={spreadComments}
-                                                        className="ab-grid-comments--overview"
-                                                    />
-                                                )}
-                                            </span>
-                                        )}
-                                        {overviewSpreadIndex > 0 && !spreadSrc && (
-                                            <span className="ab-overview-page">
-                                                {rightSrc ? (
-                                                    <img src={rightSrc} alt="" loading="lazy" />
-                                                ) : (
-                                                    <span className="ab-overview-placeholder" />
-                                                )}
-                                                {spreadComments?.length > 0 && rightSrc && (
-                                                    <SpreadGridComments
-                                                        comments={spreadComments}
-                                                        className="ab-grid-comments--overview"
-                                                    />
-                                                )}
-                                            </span>
+                                            </>
                                         )}
                                     </span>
+                                    {spreadComments?.length > 0 && (
+                                        <SpreadGridComments
+                                            comments={spreadComments}
+                                            variant="overview"
+                                        />
+                                    )}
                                     <span className="ab-overview-label">
-                                        {overviewSpreadIndex + 1}
+                                        {isCover
+                                            ? 'Cover'
+                                            : isEndSpread
+                                              ? 'End'
+                                              : spreadOpts.hasCovers
+                                                ? overviewSpreadIndex
+                                                : overviewSpreadIndex + 1}
                                     </span>
                                 </button>
                             );
                         })}
-                        {canAddPages && onAddPages && (
-                            <button
-                                type="button"
-                                className="ab-overview-item ab-overview-item--add"
-                                disabled={pageCountBusy}
-                                onClick={async () => {
-                                    await onAddPages();
-                                }}
-                            >
-                                <span className="ab-overview-thumb ab-overview-thumb--add">
-                                    <span className="ab-overview-add-plus">+</span>
-                                </span>
-                                <span className="ab-overview-label">
-                                    {pageCountBusy ? 'Adding...' : 'Add page'}
-                                </span>
-                            </button>
-                        )}
-                        {canRemovePages && onRemovePages && (
-                            <button
-                                type="button"
-                                className="ab-overview-item ab-overview-item--remove"
-                                disabled={pageCountBusy}
-                                onClick={async () => {
-                                    await onRemovePages();
-                                }}
-                            >
-                                <span className="ab-overview-thumb ab-overview-thumb--remove">
-                                    <span className="ab-overview-add-plus ab-overview-remove-minus">−</span>
-                                </span>
-                                <span className="ab-overview-label">
-                                    {pageCountBusy ? 'Removing...' : 'Remove page'}
-                                </span>
-                            </button>
-                        )}
                     </div>
-                </div>
+                    {(canAddPages || canRemovePages) && (
+                        <div className="ab-overview-actions">
+                            {canAddPages && onAddPages && (
+                                <button
+                                    type="button"
+                                    className="ab-overview-item ab-overview-item--add"
+                                    disabled={pageCountBusy}
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        await onAddPages();
+                                    }}
+                                >
+                                    <span className="ab-overview-thumb ab-overview-thumb--add">
+                                        <span className="ab-overview-add-plus">+</span>
+                                    </span>
+                                    <span className="ab-overview-label">
+                                        {pageCountBusy ? 'Adding...' : 'Add page'}
+                                    </span>
+                                </button>
+                            )}
+                            {canRemovePages && onRemovePages && (
+                                <button
+                                    type="button"
+                                    className="ab-overview-item ab-overview-item--remove"
+                                    disabled={pageCountBusy}
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        await onRemovePages();
+                                    }}
+                                >
+                                    <span className="ab-overview-thumb ab-overview-thumb--remove">
+                                        <span className="ab-overview-add-plus ab-overview-remove-minus">
+                                            −
+                                        </span>
+                                    </span>
+                                    <span className="ab-overview-label">
+                                        {pageCountBusy ? 'Removing...' : 'Remove page'}
+                                    </span>
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    </div>
+                </div>,
+                document.body
             )}
 
             {focusOpen && (

@@ -8,6 +8,10 @@
   cursor: crosshair;
 }
 
+.ab-photo-pin-layer--placing-swap {
+  cursor: crosshair;
+}
+
 .ab-photo-pin-layer--tools:hover .ab-proof-tools-hover {
   opacity: 1;
   pointer-events: auto;
@@ -67,6 +71,10 @@
   pointer-events: none;
 }
 
+.ab-pin-placement-overlay--swap {
+  background: rgba(37, 99, 235, 0.2);
+}
+
 .ab-pin-placement-hint {
   padding: 6px 12px;
   border-radius: 999px;
@@ -76,6 +84,18 @@
   font-weight: 600;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   pointer-events: none;
+}
+
+.ab-pin-placement-floating {
+  position: fixed;
+  z-index: 120;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.ab-pin-placement-floating--swap .ab-pin-placement-hint {
+  background: #ffffff;
+  box-shadow: 0 6px 18px rgba(37, 99, 235, 0.2);
 }
 
 .ab-photo-pin {
@@ -121,6 +141,90 @@
   box-shadow:
     0 2px 12px rgba(0, 0, 0, 0.18),
     0 0 0 3px rgba(239, 68, 68, 0.22);
+}
+
+.ab-photo-pin--swap .ab-photo-pin-marker-body {
+  border-color: #2563eb;
+  color: #2563eb;
+  background: #eff6ff;
+}
+
+.ab-photo-pin--swap .ab-photo-pin-marker-tail {
+  border-top-color: #eff6ff;
+}
+
+.ab-photo-pin--swap-group-0 .ab-photo-pin-marker-body {
+  border-color: #2563eb;
+  color: #1d4ed8;
+  background: #eff6ff;
+}
+
+.ab-photo-pin--swap-group-0 .ab-photo-pin-marker-tail {
+  border-top-color: #eff6ff;
+}
+
+.ab-photo-pin--swap-group-1 .ab-photo-pin-marker-body {
+  border-color: #7c3aed;
+  color: #6d28d9;
+  background: #f5f3ff;
+}
+
+.ab-photo-pin--swap-group-1 .ab-photo-pin-marker-tail {
+  border-top-color: #f5f3ff;
+}
+
+.ab-photo-pin--swap-group-2 .ab-photo-pin-marker-body {
+  border-color: #16a34a;
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+.ab-photo-pin--swap-group-2 .ab-photo-pin-marker-tail {
+  border-top-color: #f0fdf4;
+}
+
+.ab-photo-pin--swap-group-3 .ab-photo-pin-marker-body {
+  border-color: #ea580c;
+  color: #c2410c;
+  background: #fff7ed;
+}
+
+.ab-photo-pin--swap-group-3 .ab-photo-pin-marker-tail {
+  border-top-color: #fff7ed;
+}
+
+.ab-photo-pin--swap-group-4 .ab-photo-pin-marker-body {
+  border-color: #db2777;
+  color: #be185d;
+  background: #fdf2f8;
+}
+
+.ab-photo-pin--swap-group-4 .ab-photo-pin-marker-tail {
+  border-top-color: #fdf2f8;
+}
+
+.ab-photo-pin--swap-group-5 .ab-photo-pin-marker-body {
+  border-color: #0f766e;
+  color: #115e59;
+  background: #f0fdfa;
+}
+
+.ab-photo-pin--swap-group-5 .ab-photo-pin-marker-tail {
+  border-top-color: #f0fdfa;
+}
+
+.ab-photo-pin-swap-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.ab-photo-pin-swap-icon {
+  display: block;
 }
 
 .ab-photo-pin-marker-icon {

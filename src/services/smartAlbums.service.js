@@ -208,14 +208,26 @@ function shouldUseLocalStore(error) {
 }
 
 function isGenericColumnError(error) {
+  if (isMissingColumnError(error)) return true;
   const msg = (error?.message || '').toLowerCase();
-  const code = error?.code || '';
   return (
-    code === '42703' ||
-    code === 'PGRST204' ||
-    (msg.includes('column') &&
-      (msg.includes('does not exist') || msg.includes('schema cache')))
+    msg.includes('column') &&
+    (msg.includes('does not exist') || msg.includes('schema cache'))
   );
+}
+
+const ALBUM_DETAIL_FIELDS_MINIMAL =
+  'id, photographer_id, name, event_date, slug, page_count, cover_image_url, status, created_at, updated_at';
+
+const ALBUM_DETAIL_GRID_FIELDS = `${ALBUM_DETAIL_FIELDS_MINIMAL}, grid_size, grid_layout`;
+
+async function selectAlbumRow(photographerId, albumId, fields) {
+  return supabase
+    .from('smart_albums')
+    .select(fields)
+    .eq('photographer_id', photographerId)
+    .eq('id', albumId)
+    .maybeSingle();
 }
 
 const OPTIONAL_ALBUM_INSERT_COLUMNS = [
@@ -490,6 +502,8 @@ function mapAlbumRow(row, photographerId) {
     grid_size: gridOverrides?.grid_size ?? withSettings.grid_size ?? 'square',
 
     grid_layout: gridOverrides?.grid_layout ?? withSettings.grid_layout ?? 'two-page',
+
+    has_covers: gridOverrides?.has_covers ?? withSettings.has_covers ?? true,
 
     comments_enabled: withSettings.comments_enabled !== false,
 
@@ -766,35 +780,52 @@ export const smartAlbumsService = {
 
 
   async getAlbum(photographerId, albumId) {
+    const fieldSets = [
+      ALBUM_DETAIL_GRID_FIELDS,
+      ALBUM_DETAIL_FIELDS_MINIMAL,
+      ALBUM_LIST_FIELDS,
+      `${ALBUM_LIST_FIELDS},preview_data`,
+    ];
 
-    const { data, error } = await supabase
+    let data = null;
+    let lastError = null;
 
-      .from('smart_albums')
-
-      .select('*')
-
-      .eq('photographer_id', photographerId)
-
-      .eq('id', albumId)
-
-      .maybeSingle();
-
-
-
-    if (error) {
-
-      if (shouldUseLocalStore(error)) {
-
-        return findLocalAlbum(photographerId, albumId);
-
-      }
-
-      throw error;
-
+    for (const fields of fieldSets) {
+      const result = await selectAlbumRow(photographerId, albumId, fields);
+      data = result.data;
+      lastError = result.error;
+      if (!lastError && data) break;
+      if (lastError && !isGenericColumnError(lastError)) break;
     }
 
-    return data ? mapAlbumRow(data, photographerId) : findLocalAlbum(photographerId, albumId);
+    if (!data && !lastError) {
+      return findLocalAlbum(photographerId, albumId);
+    }
 
+    if (!data) {
+      const local = findLocalAlbum(photographerId, albumId);
+      if (local) return local;
+      if (lastError) {
+        if (shouldUseLocalStore(lastError) || isGenericColumnError(lastError)) {
+          return null;
+        }
+        throw lastError;
+      }
+      return null;
+    }
+
+    if (data.grid_size == null && data.grid_layout == null) {
+      const gridResult = await selectAlbumRow(photographerId, albumId, ALBUM_DETAIL_GRID_FIELDS);
+      if (!gridResult.error && gridResult.data) {
+        data = {
+          ...data,
+          grid_size: gridResult.data.grid_size,
+          grid_layout: gridResult.data.grid_layout,
+        };
+      }
+    }
+
+    return mapAlbumRow(data, photographerId);
   },
 
 
@@ -806,6 +837,7 @@ export const smartAlbumsService = {
     page_count = 21,
     grid_size = 'square',
     grid_layout = 'two-page',
+    has_covers = true,
   }) {
 
     const trimmedName = normalizeAlbumName(name);
@@ -846,6 +878,7 @@ export const smartAlbumsService = {
       writeGridSettingsOverride(photographer_id, data.id, {
         grid_size: payload.grid_size,
         grid_layout: payload.grid_layout,
+        has_covers: has_covers !== false,
       });
       removeLocalAlbum(photographer_id, data.id);
       return mapAlbumRow(data, photographer_id);
@@ -881,6 +914,7 @@ export const smartAlbumsService = {
         writeGridSettingsOverride(photographer_id, album.id, {
           grid_size: payload.grid_size,
           grid_layout: payload.grid_layout,
+          has_covers: has_covers !== false,
         });
 
         return mapAlbumRow(album, photographer_id);
@@ -1199,6 +1233,7 @@ export const smartAlbumsService = {
     writeGridSettingsOverride(photographerId, copy.id, {
       grid_size: source.grid_size,
       grid_layout: source.grid_layout,
+      has_covers: source.has_covers !== false,
     });
 
     await duplicateAlbumAssets(albumId, copy.id, photographerId);

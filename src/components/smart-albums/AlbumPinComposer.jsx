@@ -32,7 +32,7 @@ export default function AlbumPinComposer({ open, slotLabel, onSave, onClose }) {
                 className="ab-pin-composer"
                 role="dialog"
                 aria-modal="true"
-                aria-label="Add pin message"
+                aria-label="Add comment message"
                 onClick={(e) => e.stopPropagation()}
             >
                 <button type="button" className="ab-pin-composer-close" onClick={onClose} aria-label="Close">
@@ -40,7 +40,7 @@ export default function AlbumPinComposer({ open, slotLabel, onSave, onClose }) {
                 </button>
                 <div className="ab-pin-composer-head">
                     <div>
-                        <h3 className="ab-pin-composer-title">Add pin</h3>
+                        <h3 className="ab-pin-composer-title">Add comment</h3>
                         {slotLabel && <p className="ab-pin-composer-slot">{slotLabel}</p>}
                     </div>
                 </div>
@@ -48,7 +48,7 @@ export default function AlbumPinComposer({ open, slotLabel, onSave, onClose }) {
                     ref={inputRef}
                     className="ab-pin-composer-input"
                     rows={4}
-                    placeholder="Type your note for this spot…"
+                    placeholder="Type your comment for this spot…"
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                 />
@@ -62,7 +62,7 @@ export default function AlbumPinComposer({ open, slotLabel, onSave, onClose }) {
                         disabled={!message.trim()}
                         onClick={() => onSave?.(message.trim())}
                     >
-                        Save pin
+                        Save comment
                     </button>
                 </div>
             </div>

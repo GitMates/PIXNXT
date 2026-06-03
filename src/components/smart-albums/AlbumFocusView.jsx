@@ -40,7 +40,7 @@ export default function AlbumFocusView({
     const [pageIndex, setPageIndex] = useState(startPage);
 
     const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
-    const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true });
+    const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true, totalPages });
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
 

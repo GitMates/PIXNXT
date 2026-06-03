@@ -1,4 +1,5 @@
 import { getAlbumCollection } from './albumCollection';
+import { spliceIndexedPhotoMap } from './albumPageStorage';
 
 const PHOTOS_KEY = 'pixnxt_album_page_photos';
 const REMOTE_CACHE = new Map();
@@ -126,6 +127,18 @@ export function hydrateAlbumPreviewData(albumId, previewData) {
         return;
     }
     REMOTE_CACHE.set(albumId, previewData);
+}
+
+/** Keep in-memory preview page keys aligned when pages are inserted/removed. */
+export function shiftAlbumRemotePreviewPages(albumId, insertAt, delta) {
+    if (!albumId || !delta) return;
+    const remote = REMOTE_CACHE.get(albumId);
+    if (!remote?.pages) return;
+    REMOTE_CACHE.set(albumId, {
+        ...remote,
+        pages: spliceIndexedPhotoMap(remote.pages, insertAt, delta),
+        revision: (remote.revision || 0) + 1,
+    });
 }
 
 export function clearAlbumPreviewDataCache(albumId) {

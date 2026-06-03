@@ -21,10 +21,14 @@ export function normalizePhotoTransform(t) {
     };
 }
 
-export function photoTransformStyle(transform) {
+export function photoTransformStyle(transform, { panoramic = null } = {}) {
     const t = normalizePhotoTransform(transform);
+    let transformOrigin = '50% 50%';
+    if (panoramic === 'left') transformOrigin = '100% 50%';
+    else if (panoramic === 'right') transformOrigin = '0% 50%';
     return {
         transform: `translate(${t.x}%, ${t.y}%) scale(${t.scaleX}, ${t.scaleY})`,
+        transformOrigin,
     };
 }
 
@@ -93,6 +97,59 @@ export function setPagePhotoTransform(albumId, pageNum, transform) {
 
 export function getTransformRevision(albumId) {
     return readAll()[albumId]?.__revision ?? 0;
+}
+
+/** Match {@link migrateMiskeyedInnerSpreadPhotos} for pan/zoom on whole-spread slots. */
+/** Move spread:1 pan/zoom to page 2 for inside-cover albums. */
+export function migrateInsideCoverSpreadTransform(albumId) {
+    if (!albumId) return false;
+
+    const all = readAll();
+    const album = all[albumId];
+    if (!album) return false;
+
+    const spreadKey = spreadTransformKey(1);
+    const spreadT = album[spreadKey];
+    if (spreadT == null) return false;
+
+    const next = { ...album };
+    if (next['2'] == null) {
+        next['2'] = spreadT;
+    }
+    delete next[spreadKey];
+    next.__revision = (next.__revision || 0) + 1;
+    all[albumId] = next;
+    writeAll(all);
+    return true;
+}
+
+export function migrateMiskeyedInnerSpreadTransforms(albumId, endLeft = 99) {
+    if (!albumId) return false;
+
+    const all = readAll();
+    const album = all[albumId];
+    if (!album) return false;
+
+    const next = { ...album };
+    let changed = false;
+
+    for (let wrongLeft = 2; wrongLeft < endLeft; wrongLeft += 2) {
+        const wrongKey = spreadTransformKey(wrongLeft);
+        if (next[wrongKey] == null) continue;
+
+        const correctKey = spreadTransformKey(wrongLeft - 1);
+        if (next[correctKey] == null) {
+            next[correctKey] = next[wrongKey];
+        }
+        delete next[wrongKey];
+        changed = true;
+    }
+
+    if (!changed) return false;
+    next.__revision = (next.__revision || 0) + 1;
+    all[albumId] = next;
+    writeAll(all);
+    return true;
 }
 
 export function copyAlbumTransforms(sourceAlbumId, targetAlbumId) {

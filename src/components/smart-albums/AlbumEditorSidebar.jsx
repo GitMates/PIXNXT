@@ -1,8 +1,11 @@
 import React, { useRef } from 'react';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
+import { countUnseenPhotoPins } from './albumPhotoPins';
+import { countUnseenSwapMarks } from './albumSwapMarks';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { formatGridSizeLabel } from './albumGridSize';
+import { isCoverInsidePage, isEndHalfSpreadLeftPage } from './albumSpreadUtils';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -26,19 +29,18 @@ const IconSwap = () => (
     </svg>
 );
 
-const IconPin = () => (
+const IconSettings = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M12 2v8" />
-        <path d="m8 10 4 12 4-12" />
-        <circle cx="12" cy="6" r="3" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
     </svg>
 );
 
 const NAV = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
     { id: 'swap', label: 'Swap', icon: IconSwap },
-    { id: 'pin', label: 'Pin', icon: IconPin },
-    { id: 'comments', label: 'Comments', icon: IconComments },
+    { id: 'pin', label: 'Comment', icon: IconComments },
+    { id: 'comments', label: 'Setting', icon: IconSettings },
 ];
 
 const GRID_LAYOUT_LABELS = {
@@ -46,12 +48,28 @@ const GRID_LAYOUT_LABELS = {
     'whole-spread': 'Whole-spread photo',
 };
 
-function placementHint(gridEditSet, gridSelection, canSelectGrid) {
+function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, spreadOpts) {
+    const hasCovers = spreadOpts?.hasCovers !== false;
     if (!canSelectGrid) {
-        return 'Flip to an inner spread (not the cover) to place photos.';
+        return hasCovers
+            ? 'Flip to an inner spread (not the cover) to place photos.'
+            : 'Select a spread to place photos.';
     }
-    if (gridSelection?.mode === 'cover') {
+    if (hasCovers && gridSelection?.mode === 'cover') {
         return 'Cover page';
+    }
+    if (
+        gridSelection?.leftPage != null &&
+        isCoverInsidePage(gridSelection.leftPage, totalPages) &&
+        gridSelection.cellId === 2
+    ) {
+        return 'Inside cover · right page';
+    }
+    if (
+        gridSelection?.leftPage != null &&
+        isEndHalfSpreadLeftPage(gridSelection.leftPage, totalPages, spreadOpts)
+    ) {
+        return 'Last spread · left page only';
     }
     if (gridEditSet === 'whole' || gridSelection?.mode === 'spread') {
         return 'Whole grid · one photo across both pages';
@@ -92,8 +110,14 @@ export default function AlbumEditorSidebar({
     swapMarks = [],
     photoPins = [],
     albumId = null,
+    onNavigateToPin = null,
+    onNavigateToSwapSlotKey = null,
+    proofSeenTick = 0,
 }) {
     const fileRef = useRef(null);
+    void proofSeenTick;
+    const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
+    const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
 
     const handleFiles = (e) => {
         const files = Array.from(e.target.files || []);
@@ -123,13 +147,23 @@ export default function AlbumEditorSidebar({
                         <span className="ae-nav-label">
                             {label}
                             {id === 'swap' && swapMarks.length > 0 && (
-                                <span className="ae-nav-badge" aria-hidden>
-                                    {swapMarks.length}
+                                <span
+                                    className={`ae-nav-badge${
+                                        unseenSwapCount > 0 ? ' ae-nav-badge--unseen' : ''
+                                    }`}
+                                    aria-hidden
+                                >
+                                    {unseenSwapCount > 0 ? unseenSwapCount : swapMarks.length}
                                 </span>
                             )}
                             {id === 'pin' && photoPins.length > 0 && (
-                                <span className="ae-nav-badge ae-nav-badge--pin" aria-hidden>
-                                    {photoPins.length}
+                                <span
+                                    className={`ae-nav-badge ae-nav-badge--pin${
+                                        unseenPinCount > 0 ? ' ae-nav-badge--unseen' : ''
+                                    }`}
+                                    aria-hidden
+                                >
+                                    {unseenPinCount > 0 ? unseenPinCount : photoPins.length}
                                 </span>
                             )}
                         </span>
@@ -140,13 +174,12 @@ export default function AlbumEditorSidebar({
             <div className="ae-panel">
                 {activePanel === 'comments' && (
                     <>
-                        <h3 className="ae-panel-title">Comment settings</h3>
+                        <h3 className="ae-panel-title">Settings</h3>
                         {commentSettings || (
                             <p className="ae-panel-text ae-panel-text--muted">
                                 Sign in to manage client comments and publishing.
                             </p>
                         )}
-                        {commentsFeed}
                     </>
                 )}
 
@@ -162,22 +195,26 @@ export default function AlbumEditorSidebar({
                             marks={swapMarks}
                             gridLayout={album?.grid_layout || 'two-page'}
                             variant="panel"
+                            seenTick={proofSeenTick}
+                            onNavigateToSlotKey={onNavigateToSwapSlotKey}
                         />
                     </>
                 )}
 
                 {activePanel === 'pin' && (
                     <>
-                        <h3 className="ae-panel-title">Pin</h3>
+                        <h3 className="ae-panel-title">Comment</h3>
                         <p className="ae-panel-text">
-                            Client pin notes appear here. To add pins, use the album preview — hover a
-                            photo and click Pin.
+                            Client photo comments appear here. To add comments, use the album preview
+                            — open the Comment tab, then click a photo.
                         </p>
                         <AlbumPhotoPinsPanel
                             albumId={albumId}
                             pins={photoPins}
                             gridLayout={album?.grid_layout || 'two-page'}
                             variant="panel"
+                            onNavigateToPin={onNavigateToPin}
+                            seenTick={proofSeenTick}
                         />
                     </>
                 )}
@@ -191,7 +228,13 @@ export default function AlbumEditorSidebar({
                         </p>
                         {canSelectGrid && (
                             <p className="ae-selection-badge" role="status">
-                                {placementHint(gridEditSet, gridSelection, canSelectGrid)}
+                                {placementHint(
+                                    gridEditSet,
+                                    gridSelection,
+                                    canSelectGrid,
+                                    totalPages,
+                                    { hasCovers: album?.has_covers !== false }
+                                )}
                             </p>
                         )}
                         <input

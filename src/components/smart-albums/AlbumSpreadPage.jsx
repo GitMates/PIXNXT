@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { getSampleImageForPage } from './sampleAlbumImages';
 
 function getPageImageSrc(album, pageNum) {
-    if (pageNum === 1 && album.cover_image_url) {
+    if (pageNum === 0 && album.cover_image_url) {
         return album.cover_image_url;
     }
     return getSampleImageForPage(pageNum);

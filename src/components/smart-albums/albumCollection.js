@@ -1,5 +1,6 @@
 import { storageService } from '../../services/storage.service';
-import { expandUploadFilesToImages } from '../../lib/pdfToImages';
+import { expandUploadFilesToImages, isImageFile, isPdfFile } from '../../lib/pdfToImages';
+import { compressImageForUpload } from '../../lib/prepareUploadFile';
 import { supabase } from '../../lib/supabase/client';
 import {
     getRemotePreviewData,
@@ -31,6 +32,27 @@ function nextId() {
     return `c_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
 }
 
+const UPLOAD_CONCURRENCY = 6;
+const COMPRESS_CONCURRENCY = 3;
+
+async function runWithConcurrency(items, concurrency, worker) {
+    if (!items.length) return [];
+    const results = new Array(items.length);
+    let nextIndex = 0;
+
+    async function runWorker() {
+        while (nextIndex < items.length) {
+            const index = nextIndex;
+            nextIndex += 1;
+            results[index] = await worker(items[index], index);
+        }
+    }
+
+    const workerCount = Math.min(concurrency, items.length);
+    await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+    return results;
+}
+
 function safeSegment(value, fallback = 'photo') {
     return String(value || fallback)
         .trim()
@@ -46,6 +68,19 @@ async function hashDataUrl(dataUrl) {
         if (!globalThis.crypto?.subtle || !dataUrl) return null;
         const bytes = new TextEncoder().encode(dataUrl);
         const digest = await globalThis.crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(digest))
+            .map((b) => b.toString(16).padStart(2, '0'))
+            .join('');
+    } catch {
+        return null;
+    }
+}
+
+async function hashFile(file) {
+    try {
+        if (!globalThis.crypto?.subtle || !file) return null;
+        const buffer = await file.arrayBuffer();
+        const digest = await globalThis.crypto.subtle.digest('SHA-256', buffer);
         return Array.from(new Uint8Array(digest))
             .map((b) => b.toString(16).padStart(2, '0'))
             .join('');
@@ -103,12 +138,26 @@ async function getPhotographerPathFolder(photographerId) {
     }
 }
 
-async function uploadCollectionImage({ albumId, photographerId, image, index }) {
+async function uploadCollectionImage({ albumId, photographerId, image, index, pathContext }) {
     const file = await dataUrlToFile(image.dataUrl, image.name || `photo-${index + 1}`);
-    const [photographerFolder, albumFolder] = await Promise.all([
-        getPhotographerPathFolder(photographerId),
-        getAlbumPathFolder(albumId),
-    ]);
+    const resolvedPathContext =
+        pathContext ||
+        (await Promise.all([
+            getPhotographerPathFolder(photographerId),
+            getAlbumPathFolder(albumId),
+        ]).then(([photographerFolder, albumFolder]) => ({
+            photographerFolder,
+            albumFolder,
+        })));
+    return uploadCollectionFile({
+        file,
+        index,
+        pathContext: resolvedPathContext,
+    });
+}
+
+async function uploadCollectionFile({ file, index, pathContext }) {
+    const { photographerFolder, albumFolder } = pathContext;
     const path = [
         'users',
         photographerFolder,
@@ -117,6 +166,31 @@ async function uploadCollectionImage({ albumId, photographerId, image, index }) 
         `${Date.now()}-${index + 1}-${safeSegment(file.name)}`,
     ].join('/');
     return storageService.upload(path, file);
+}
+
+async function buildCollectionWorkItems(files) {
+    const batches = await Promise.all(
+        (files || []).map(async (file) => {
+            try {
+                if (isImageFile(file)) {
+                    return [{ kind: 'file', file, name: file.name || 'Photo' }];
+                }
+                if (isPdfFile(file)) {
+                    const pages = await expandUploadFilesToImages([file]);
+                    return pages.map((page) => ({
+                        kind: 'dataUrl',
+                        name: page.name,
+                        dataUrl: page.dataUrl,
+                    }));
+                }
+                return [];
+            } catch (e) {
+                console.warn('Could not import file', file?.name, e);
+                return [];
+            }
+        })
+    );
+    return batches.flat();
 }
 
 export function getAlbumCollection(albumId) {
@@ -220,12 +294,28 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
     let previewData = null;
 
     try {
-        const { data, error } = await supabase
+        let { data, error } = await supabase
             .from('smart_albums')
             .select('preview_data, cover_image_url')
             .eq('id', albumId)
             .eq('photographer_id', photographerId)
             .maybeSingle();
+
+        if (error) {
+            const msg = (error.message || '').toLowerCase();
+            const missingPreview =
+                error.status === 400 ||
+                msg.includes('preview_data') ||
+                msg.includes('column');
+            if (missingPreview) {
+                ({ data, error } = await supabase
+                    .from('smart_albums')
+                    .select('cover_image_url')
+                    .eq('id', albumId)
+                    .eq('photographer_id', photographerId)
+                    .maybeSingle());
+            }
+        }
 
         if (!error && data?.preview_data) {
             previewData = data.preview_data;
@@ -270,59 +360,158 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
     };
 }
 
-export async function addFilesToAlbumCollection(albumId, files, { photographerId } = {}) {
+export async function addFilesToAlbumCollection(
+    albumId,
+    files,
+    { photographerId, onProgress, skipDuplicateCheck = false } = {}
+) {
     if (!albumId || !files?.length) return [];
 
     const all = readAll();
     const bucket = { ...(all[albumId] || {}), items: [...(all[albumId]?.items || [])] };
-    const expanded = await expandUploadFilesToImages(files);
+    onProgress?.({
+        phase: 'preparing',
+        message: 'Preparing photos…',
+        current: 0,
+        total: files.length,
+    });
+
+    const [workItems, pathContext] = await Promise.all([
+        buildCollectionWorkItems(files),
+        Promise.all([
+            getPhotographerPathFolder(photographerId),
+            getAlbumPathFolder(albumId),
+        ]).then(([photographerFolder, albumFolder]) => ({
+            photographerFolder,
+            albumFolder,
+        })),
+    ]);
+
     const added = [];
     let skippedDuplicates = 0;
     const duplicateItems = [];
-    const knownHashes = new Map(
-        bucket.items
-            .filter((item) => item.contentHash)
-            .map((item) => [item.contentHash, item])
-    );
-    const legacyNameKeys = new Map(
-        bucket.items
-            .filter((item) => !item.contentHash)
-            .map((item) => safeSegment(item.name || 'photo'))
-            .filter(Boolean)
-            .map((key) => [key, bucket.items.find((item) => safeSegment(item.name || 'photo') === key)])
-    );
+    const knownHashes = skipDuplicateCheck
+        ? new Map()
+        : new Map(
+              bucket.items
+                  .filter((item) => item.contentHash)
+                  .map((item) => [item.contentHash, item])
+          );
+    const legacyNameKeys = skipDuplicateCheck
+        ? new Map()
+        : new Map(
+              bucket.items
+                  .filter((item) => !item.contentHash)
+                  .map((item) => safeSegment(item.name || 'photo'))
+                  .filter(Boolean)
+                  .map((key) => [
+                      key,
+                      bucket.items.find((item) => safeSegment(item.name || 'photo') === key),
+                  ])
+          );
 
-    for (let i = 0; i < expanded.length; i += 1) {
-        const { name, dataUrl } = expanded[i];
-        const contentHash = await hashDataUrl(dataUrl);
-        const nameKey = safeSegment(name || 'photo');
-        const duplicateItem =
-            (contentHash && knownHashes.get(contentHash)) || legacyNameKeys.get(nameKey);
-
-        if (duplicateItem) {
-            skippedDuplicates += 1;
-            duplicateItems.push(duplicateItem);
-            continue;
+    const optimizeTotal = workItems.length;
+    const prepared = await runWithConcurrency(workItems, COMPRESS_CONCURRENCY, async (item, index) => {
+        if (item.kind === 'file') {
+            onProgress?.({
+                phase: 'optimizing',
+                message: `Optimizing photo ${index + 1} of ${optimizeTotal}…`,
+                current: index,
+                total: optimizeTotal,
+            });
+            const file = await compressImageForUpload(item.file);
+            const contentHash = skipDuplicateCheck ? null : await hashFile(file);
+            return {
+                kind: 'file',
+                name: item.name,
+                file,
+                contentHash,
+                index,
+            };
         }
 
-        const upload = await uploadCollectionImage({
-            albumId,
-            photographerId,
-            image: { name, dataUrl },
-            index: i,
-        });
-        const item = {
-            id: nextId(),
-            name: name || 'Photo',
-            dataUrl: upload.url,
-            storagePath: upload.path,
+        const contentHash = skipDuplicateCheck ? null : await hashDataUrl(item.dataUrl);
+        return {
+            kind: 'dataUrl',
+            name: item.name,
+            dataUrl: item.dataUrl,
             contentHash,
-            createdAt: Date.now(),
+            index,
         };
-        bucket.items.push(item);
-        added.push(item);
-        if (contentHash) knownHashes.set(contentHash, item);
-        else legacyNameKeys.set(nameKey, item);
+    });
+
+    const uploadQueue = [];
+    for (const entry of prepared) {
+        const nameKey = safeSegment(entry.name || 'photo');
+        if (!skipDuplicateCheck) {
+            const duplicateItem =
+                (entry.contentHash && knownHashes.get(entry.contentHash)) ||
+                legacyNameKeys.get(nameKey);
+
+            if (duplicateItem) {
+                skippedDuplicates += 1;
+                duplicateItems.push(duplicateItem);
+                continue;
+            }
+        }
+
+        uploadQueue.push({ ...entry, nameKey });
+    }
+
+    const uploadTotal = uploadQueue.length;
+    let uploadCompleted = 0;
+    if (uploadTotal > 0) {
+        onProgress?.({
+            phase: 'uploading',
+            message: `Uploading photo 0 of ${uploadTotal}…`,
+            current: 0,
+            total: uploadTotal,
+        });
+    }
+
+    const uploadedItems = await runWithConcurrency(
+        uploadQueue,
+        UPLOAD_CONCURRENCY,
+        async (entry) => {
+            const upload =
+                entry.kind === 'file'
+                    ? await uploadCollectionFile({
+                          file: entry.file,
+                          index: entry.index,
+                          pathContext,
+                      })
+                    : await uploadCollectionImage({
+                          albumId,
+                          photographerId,
+                          image: { name: entry.name, dataUrl: entry.dataUrl },
+                          index: entry.index,
+                          pathContext,
+                      });
+            uploadCompleted += 1;
+            onProgress?.({
+                phase: 'uploading',
+                message: `Uploading photo ${uploadCompleted} of ${uploadTotal}…`,
+                current: uploadCompleted,
+                total: uploadTotal,
+            });
+            return {
+                id: nextId(),
+                name: entry.name || 'Photo',
+                dataUrl: upload.url,
+                storagePath: upload.path,
+                contentHash: entry.contentHash,
+                nameKey: entry.nameKey,
+                createdAt: Date.now(),
+            };
+        }
+    );
+
+    for (const item of uploadedItems) {
+        const { nameKey, ...stored } = item;
+        bucket.items.push(stored);
+        added.push(stored);
+        if (stored.contentHash) knownHashes.set(stored.contentHash, stored);
+        else legacyNameKeys.set(nameKey, stored);
     }
 
     added.skippedDuplicates = skippedDuplicates;

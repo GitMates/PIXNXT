@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 
-function PinIcon({ className }) {
+function CommentIcon({ className }) {
     return (
         <svg
             className={className}
@@ -15,16 +16,41 @@ function PinIcon({ className }) {
     );
 }
 
+function SwapIcon({ className }) {
+    return (
+        <svg
+            className={className}
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+        >
+            <path d="M7 16V4M7 4 3 8M7 4l4 4" />
+            <path d="M17 8v12M17 20l4-4M17 20l-4-4" />
+        </svg>
+    );
+}
+
 function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
+    const isSwap = pin?.type === 'swap';
+    const swapGroup = isSwap ? String(pin?.swapGroup || '') : '';
+    const swapToneIndex = isSwap && swapGroup
+        ? Array.from(swapGroup).reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 6
+        : null;
     return (
         <div
-            className={`ab-photo-pin${open ? ' ab-photo-pin--open' : ''}`}
+            className={`ab-photo-pin${open ? ' ab-photo-pin--open' : ''}${isSwap ? ' ab-photo-pin--swap' : ''}${isSwap && swapToneIndex != null ? ` ab-photo-pin--swap-group-${swapToneIndex}` : ''}`}
             style={{ left: `${pin.xPct}%`, top: `${pin.yPct}%` }}
         >
             <button
                 type="button"
                 className="ab-photo-pin-marker"
-                aria-label="View pin note"
+                aria-label="View comment"
                 aria-expanded={open}
                 onClick={(e) => {
                     e.stopPropagation();
@@ -32,7 +58,11 @@ function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
                 }}
             >
                 <span className="ab-photo-pin-marker-body">
-                    <PinIcon className="ab-photo-pin-marker-icon" />
+                    {isSwap ? (
+                        <SwapIcon className="ab-photo-pin-swap-icon" />
+                    ) : (
+                        <CommentIcon className="ab-photo-pin-marker-icon" />
+                    )}
                 </span>
                 <span className="ab-photo-pin-marker-tail" aria-hidden />
             </button>
@@ -41,10 +71,16 @@ function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
                     className="ab-photo-pin-popover"
                     onClick={(e) => e.stopPropagation()}
                     role="dialog"
-                    aria-label="Pin note"
+                    aria-label="Comment"
                 >
-                    <span className="ab-photo-pin-popover-label">Note</span>
-                    <p className="ab-photo-pin-message">{pin.message}</p>
+                    <span className="ab-photo-pin-popover-label">
+                        {isSwap ? 'Swap pin' : 'Comment'}
+                    </span>
+                    <p className="ab-photo-pin-message">
+                        {isSwap
+                            ? pin.message || 'Swap point selected'
+                            : pin.message}
+                    </p>
                     {allowRemove && (
                         <button
                             type="button"
@@ -71,6 +107,12 @@ export default function AlbumPhotoPinLayer({
     proofToolsHover = true,
     canSwap = false,
     onSwapRequest,
+    onActivateSwapPinMode,
+    swapPinModeActive = false,
+    swapPinTargetStep = false,
+    swapPinHint = '',
+    onPlaceSwapPin,
+    swapPins = [],
     onActivatePinMode,
     pins = [],
     onPlacePin,
@@ -80,42 +122,103 @@ export default function AlbumPhotoPinLayer({
 }) {
     const [openPinId, setOpenPinId] = useState(null);
     const layerRef = React.useRef(null);
+    const [hintPosition, setHintPosition] = useState(null);
 
     const showTools =
         proofToolsHover &&
         proofToolsEnabled &&
         hasPhoto &&
         !pinModeActive &&
-        (canSwap || onActivatePinMode);
+        !swapPinModeActive &&
+        (canSwap || onActivatePinMode || onActivateSwapPinMode);
 
     const handlePlaceClick = (e) => {
-        if (!pinModeActive || !hasPhoto || !layerRef.current) return;
+        if (!hasPhoto || !layerRef.current) return;
         e.stopPropagation();
         e.preventDefault();
         const rect = layerRef.current.getBoundingClientRect();
         if (!rect.width || !rect.height) return;
         const xPct = ((e.clientX - rect.left) / rect.width) * 100;
         const yPct = ((e.clientY - rect.top) / rect.height) * 100;
-        onPlacePin?.(xPct, yPct);
+        if (swapPinModeActive) {
+            onPlaceSwapPin?.(xPct, yPct);
+            return;
+        }
+        if (pinModeActive) onPlacePin?.(xPct, yPct);
     };
+
+    const placementHint = swapPinHint
+        || (swapPinModeActive && hasPhoto
+            ? swapPinTargetStep
+                ? 'Click target spot to complete swap'
+                : 'Click source spot to start swap'
+            : pinModeActive && hasPhoto
+              ? 'Click to place comment'
+              : '');
+
+    useLayoutEffect(() => {
+        if (!placementHint || !layerRef.current) {
+            setHintPosition(null);
+            return undefined;
+        }
+
+        const updateHintPosition = () => {
+            const rect = layerRef.current?.getBoundingClientRect();
+            if (!rect || !rect.width || !rect.height) return;
+            setHintPosition({
+                left: rect.left + rect.width / 2,
+                top: rect.bottom + 12,
+            });
+        };
+
+        updateHintPosition();
+        window.addEventListener('resize', updateHintPosition);
+        window.addEventListener('scroll', updateHintPosition, true);
+        return () => {
+            window.removeEventListener('resize', updateHintPosition);
+            window.removeEventListener('scroll', updateHintPosition, true);
+        };
+    }, [placementHint]);
+
+    useEffect(() => {
+        if (!placementHint) setHintPosition(null);
+    }, [placementHint]);
 
     return (
         <div
             ref={layerRef}
             className={`ab-photo-pin-layer${
                 pinModeActive && hasPhoto ? ' ab-photo-pin-layer--placing' : ''
+            }${
+                swapPinModeActive && hasPhoto ? ' ab-photo-pin-layer--placing-swap' : ''
             }${showTools ? ' ab-photo-pin-layer--tools' : ''}${className ? ` ${className}` : ''}`}
-            onClick={pinModeActive && hasPhoto ? handlePlaceClick : undefined}
+            onClick={(pinModeActive || swapPinModeActive) && hasPhoto ? handlePlaceClick : undefined}
             onKeyDown={undefined}
-            role={pinModeActive && hasPhoto ? 'button' : undefined}
-            tabIndex={pinModeActive && hasPhoto ? 0 : undefined}
-            aria-label={pinModeActive && hasPhoto ? 'Click to place a pin' : undefined}
+            role={(pinModeActive || swapPinModeActive) && hasPhoto ? 'button' : undefined}
+            tabIndex={(pinModeActive || swapPinModeActive) && hasPhoto ? 0 : undefined}
+            aria-label={
+                swapPinModeActive && hasPhoto
+                    ? 'Click to place a swap pin'
+                    : pinModeActive && hasPhoto
+                      ? 'Click to place a comment'
+                      : undefined
+            }
         >
             {children}
-            {pinModeActive && hasPhoto && (
-                <div className="ab-pin-placement-overlay" aria-hidden>
-                    <span className="ab-pin-placement-hint">Click to place pin</span>
-                </div>
+            {placementHint && hintPosition && createPortal(
+                <div
+                    className={`ab-pin-placement-floating${
+                        swapPinModeActive ? ' ab-pin-placement-floating--swap' : ''
+                    }`}
+                    style={{
+                        left: `${hintPosition.left}px`,
+                        top: `${hintPosition.top}px`,
+                    }}
+                    aria-hidden
+                >
+                    <span className="ab-pin-placement-hint">{placementHint}</span>
+                </div>,
+                document.body
             )}
             {showTools && (
                 <div className="ab-proof-tools-hover ab-proof-tools-hover--with-swap">
@@ -125,7 +228,8 @@ export default function AlbumPhotoPinLayer({
                             className="ab-proof-tool-btn"
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onSwapRequest?.();
+                                if (onActivateSwapPinMode) onActivateSwapPinMode();
+                                else onSwapRequest?.();
                             }}
                         >
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -144,8 +248,8 @@ export default function AlbumPhotoPinLayer({
                                 onActivatePinMode();
                             }}
                         >
-                            <PinIcon className="ab-proof-tool-pin-icon" />
-                            Pin
+                            <CommentIcon className="ab-proof-tool-pin-icon" />
+                            Comment
                         </button>
                     )}
                 </div>
@@ -160,6 +264,17 @@ export default function AlbumPhotoPinLayer({
                         setOpenPinId((id) => (id === pin.id ? null : pin.id))
                     }
                     onRemove={onRemovePin}
+                />
+            ))}
+            {swapPins.map((pin) => (
+                <PinMarker
+                    key={pin.id}
+                    pin={{ ...pin, type: 'swap' }}
+                    open={openPinId === pin.id}
+                    allowRemove={false}
+                    onToggle={() =>
+                        setOpenPinId((id) => (id === pin.id ? null : pin.id))
+                    }
                 />
             ))}
         </div>
