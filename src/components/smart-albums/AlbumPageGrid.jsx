@@ -233,6 +233,9 @@ export default function AlbumPageGrid({
                 const slotKey = makeSlotKey(photoIndex, cell.id);
                 const isOriginSlot =
                     Boolean(swapPinModeActive) && Boolean(swapPinOriginKey) && slotKey === swapPinOriginKey;
+                const swapPinPlacementEnabled =
+                    Boolean(swapPinModeActive) &&
+                    (Boolean(src) || (swapPinTargetStep && !isOriginSlot));
                 if (
                     isOriginSlot &&
                     swapPinTargetStep &&
@@ -309,6 +312,7 @@ export default function AlbumPageGrid({
                                     : ''
                             }
                             hasPhoto={Boolean(src)}
+                            swapPinPlacementEnabled={swapPinPlacementEnabled}
                             pinModeActive={pinModeActive && pinMarkMode}
                             proofToolsEnabled={proofTools}
                             proofToolsHover={proofToolsHover}
@@ -319,15 +323,7 @@ export default function AlbumPageGrid({
                             }
                             swapPinModeActive={swapPinModeActive}
                             swapPinTargetStep={swapPinTargetStep}
-                            swapPinHint={
-                                swapPinModeActive && hasPhoto
-                                    ? swapPinTargetStep
-                                        ? isOriginSlot
-                                            ? 'Source spot selected — pick target photo'
-                                            : 'Click target spot to complete swap'
-                                        : 'Click source spot to start swap'
-                                    : ''
-                            }
+                            renderPlacementHint={false}
                             onPlaceSwapPin={(xPct, yPct) =>
                                 onPlaceSwapPin?.({
                                     ...buildSwapSlot(photoIndex, cell.id),

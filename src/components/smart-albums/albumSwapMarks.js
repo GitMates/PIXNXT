@@ -178,12 +178,6 @@ export function getSwapMarks(albumId) {
     return readAll()[albumId] || [];
 }
 
-function findSwapMarkPairIndex(list, keyA, keyB) {
-    return list.findIndex(
-        (m) => (m.a === keyA && m.b === keyB) || (m.a === keyB && m.b === keyA)
-    );
-}
-
 function swapMarkPointKey(pt) {
     return pt && Number.isFinite(pt.xPct) && Number.isFinite(pt.yPct)
         ? `${pt.pageNum ?? ''}:${pt.cellId ?? ''}:${pt.xPct.toFixed(2)}:${pt.yPct.toFixed(2)}`
@@ -203,35 +197,17 @@ export function addSwapMark(albumId, slotA, slotB, options = {}) {
     const list = [...(all[albumId] || [])];
     const nextPointAKey = swapMarkPointKey(pointA);
     const nextPointBKey = swapMarkPointKey(pointB);
-    const existingIdx = findSwapMarkPairIndex(list, keyA, keyB);
 
-    if (existingIdx >= 0) {
-        const existing = list[existingIdx];
-        if (sameSlot) {
-            const existingAKey = swapMarkPointKey(existing.pointA);
-            const existingBKey = swapMarkPointKey(existing.pointB);
-            const sameDirection =
-                existingAKey === nextPointAKey && existingBKey === nextPointBKey;
-            const reverseDirection =
-                existingAKey === nextPointBKey && existingBKey === nextPointAKey;
-            if (sameDirection || reverseDirection) return existing;
-        }
-        const forward = existing.a === keyA && existing.b === keyB;
-        const updated = {
-            ...existing,
-            labelA: slotA.label || existing.labelA,
-            labelB: slotB.label || existing.labelB,
-            pointA: forward ? pointA || existing.pointA : pointB || existing.pointB,
-            pointB: forward ? pointB || existing.pointB : pointA || existing.pointA,
-            locked: existing.locked !== false,
-            createdAt: new Date().toISOString(),
-        };
-        list[existingIdx] = updated;
-        all[albumId] = list;
-        writeAll(all);
-        notify(albumId);
-        return updated;
-    }
+    /** Allow many marks on the same spread pair — only skip exact duplicate pin positions. */
+    const duplicate = list.find((m) => {
+        const pairMatches = (m.a === keyA && m.b === keyB) || (m.a === keyB && m.b === keyA);
+        if (!pairMatches) return false;
+        const forward = m.a === keyA && m.b === keyB;
+        const existingAKey = swapMarkPointKey(forward ? m.pointA : m.pointB);
+        const existingBKey = swapMarkPointKey(forward ? m.pointB : m.pointA);
+        return existingAKey === nextPointAKey && existingBKey === nextPointBKey;
+    });
+    if (duplicate) return duplicate;
 
     const mark = {
         id: `swap_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
@@ -410,6 +386,12 @@ export function getSwapMarksForSlot(
         const isB = mark.b === key;
         if (!isA && !isB) return [];
 
+        const marksForPair = (marks || []).filter(
+            (m) => m.a === key || m.b === key
+        );
+        const markIndex = marksForPair.findIndex((m) => m.id === mark.id);
+        const markNum = markIndex >= 0 ? markIndex + 1 : marksForPair.length;
+
         const mapEndpoint = (endpointLabel) => {
             const endpointIsA = endpointLabel === 'A';
             const slotLabel =
@@ -419,6 +401,8 @@ export function getSwapMarksForSlot(
                 (endpointIsA ? mark.labelB : mark.labelA) ||
                 resolveSlotLabel(endpointIsA ? mark.b : mark.a, gridLayout);
             const point = endpointIsA ? mark.pointA : mark.pointB;
+            const pinLabel =
+                marksForPair.length > 1 ? `${endpointLabel}${markNum}` : endpointLabel;
             return {
                 slotLabel,
                 partnerLabel,
@@ -427,7 +411,7 @@ export function getSwapMarksForSlot(
                 locked: mark.locked !== false,
                 markId: mark.id,
                 point,
-                pinLabel: endpointLabel,
+                pinLabel,
                 pinKey: `${mark.id}-${endpointLabel}`,
             };
         };
