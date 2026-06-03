@@ -101,8 +101,8 @@
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  background: #8BDFDD;
-  color: #222;
+  background: #f0f0f0;
+  color: #333;
   font-size: 13px;
   font-weight: 600;
   display: flex;
@@ -170,8 +170,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #8BDFDD;
-  color: #111;
+  background: #000000;
+  color: #ffffff;
   border: none;
   padding: 9px 18px;
   font-size: 14px;
@@ -181,7 +181,7 @@
   transition: background 0.15s;
   letter-spacing: 0.01em;
 }
-.mga-create-btn:hover { background: #7acfcd; }
+.mga-create-btn:hover { background: #222222; color: #ffffff; }
 
 .mga-icon-btn {
   background: none;
@@ -264,7 +264,7 @@
   background: none;
   border: none;
   cursor: pointer;
-  color: #8BDFDD;
+  color: #000000;
   font-size: 16px;
   padding: 2px 4px;
   letter-spacing: 2px;
@@ -272,7 +272,7 @@
   font-weight: 700;
   flex-shrink: 0;
 }
-.mga-card-menu:hover { color: #44aaa7; }
+.mga-card-menu:hover { color: #000000; }
 
 /* ── Context menu ───────────────────────────────────────── */
 .mga-ctx {
@@ -422,8 +422,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  background: #8BDFDD;
-  color: #111;
+  background: #000000;
+  color: #ffffff;
   border: none;
   padding: 8px 18px;
   font-size: 13px;
@@ -431,7 +431,7 @@
   cursor: pointer;
   border-radius: 2px;
 }
-.mge-share-btn:hover { background: #7acfcd; }
+.mge-share-btn:hover { background: #222222; color: #ffffff; }
 
 /* Editor tabs */
 .mge-tabs {
@@ -467,12 +467,12 @@
   gap: 6px;
   background: none;
   border: none;
-  color: #8BDFDD;
+  color: #000000;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
 }
-.mge-add-btn:hover { color: #44aaa7; }
+.mge-add-btn:hover { color: #222222; }
 
 .mge-photos-grid {
   display: flex;
@@ -593,7 +593,7 @@
 }
 
 .mge-empty-btn-add {
-  background: #1ea69a;
+  background: #000000;
   color: #ffffff;
   border: none;
   padding: 11px 32px;
@@ -602,10 +602,10 @@
   border-radius: 3px;
   cursor: pointer;
   transition: background 0.15s, transform 0.1s;
-  box-shadow: 0 2px 8px rgba(30, 166, 154, 0.18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 .mge-empty-btn-add:hover {
-  background: #198c82;
+  background: #222222;
 }
 .mge-empty-btn-add:active {
   transform: scale(0.98);
@@ -623,7 +623,7 @@
   justify-content: center;
   font-size: 18px;
   font-weight: 700;
-  color: #1ea69a;
+  color: #000000;
   text-transform: uppercase;
   flex-shrink: 0;
   box-shadow: 0 2px 4px rgba(0,0,0,0.02);
@@ -632,9 +632,9 @@
 .mge-drag-active-overlay {
   position: absolute;
   inset: 12px;
-  border: 2px dashed #1ea69a;
+  border: 2px dashed #000000;
   border-radius: 6px;
-  background: rgba(30, 166, 154, 0.04);
+  background: rgba(0, 0, 0, 0.02);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -645,14 +645,14 @@
 .mge-drag-overlay-text {
   font-size: 15px;
   font-weight: 600;
-  color: #1ea69a;
+  color: #000000;
 }
 
 
 /* Upload progress */
 .mge-progress { padding: 12px 32px; }
 .mge-progress-bar { height: 4px; background: #f0f0f0; border-radius: 2px; overflow: hidden; }
-.mge-progress-fill { height: 100%; background: #8BDFDD; border-radius: 2px; transition: width 0.3s; }
+.mge-progress-fill { height: 100%; background: #000000; border-radius: 2px; transition: width 0.3s; }
 .mge-progress-text { font-size: 12px; color: #888; margin-top: 6px; }
 
 /* Design tab layout */
@@ -703,9 +703,9 @@
   display: flex; flex-direction: column; overflow: hidden;
   transition: border-color 0.15s;
 }
-.mge-cover-opt.sel .mge-cover-thumb { border-color: #8BDFDD; }
+.mge-cover-opt.sel .mge-cover-thumb { border-color: #000000; }
 .mge-cover-label { font-size: 12px; color: #888; }
-.mge-cover-opt.sel .mge-cover-label { color: #8BDFDD; font-weight: 600; }
+.mge-cover-opt.sel .mge-cover-label { color: #000000; font-weight: 600; }
 
 /* Full cover thumb visual */
 .mge-ct-full .mge-ct-img { flex: 1; background: #d0d0d0; }
@@ -734,7 +734,7 @@
   background-position: right 12px center;
   cursor: pointer;
 }
-.mge-select:focus { border-color: #8BDFDD; }
+.mge-select:focus { border-color: #000000; }
 .mge-select-note { font-size: 12px; color: #aaa; margin-top: 6px; line-height: 1.4; }
 
 /* App Settings fields */
@@ -746,7 +746,7 @@
   font-size: 14px; border-radius: 2px; outline: none; color: #333;
   transition: border-color 0.15s;
 }
-.mge-input:focus { border-color: #8BDFDD; }
+.mge-input:focus { border-color: #000000; }
 
 /* Toggle */
 .mge-toggle-row {
@@ -758,7 +758,7 @@
   width: 42px; height: 24px; background: #ddd; border-radius: 12px;
   cursor: pointer; position: relative; transition: background 0.2s; flex-shrink: 0;
 }
-.mge-toggle.on { background: #8BDFDD; }
+.mge-toggle.on { background: #000000; }
 .mge-toggle-knob {
   position: absolute; top: 3px; left: 3px;
   width: 18px; height: 18px; background: #fff; border-radius: 50%;
@@ -774,17 +774,17 @@
   display: flex; align-items: center; justify-content: flex-end; gap: 10px; z-index: 50;
 }
 .mge-save-btn {
-  background: #8BDFDD; color: #111; border: none;
+  background: #000000; color: #ffffff; border: none;
   padding: 9px 24px; font-size: 14px; font-weight: 600;
   cursor: pointer; border-radius: 2px;
 }
-.mge-save-btn:hover { background: #7acfcd; }
+.mge-save-btn:hover { background: #222222; }
 .mge-save-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* ── Phone mock preview ─────────────────────────────────── */
 .mga-phone {
-  width: 310px;
-  height: 560px;
+  width: 320px;
+  height: 640px;
   background: #ffffff;
   border-radius: 36px;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.12);
@@ -930,8 +930,8 @@
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 .mga-modal-input:focus {
-  border-color: #55b7a4;
-  box-shadow: 0 0 0 3px rgba(85, 183, 164, 0.15);
+  border-color: #000000;
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
 }
 
 .mga-modal-note {
@@ -941,14 +941,14 @@
   line-height: 1.5;
 }
 .mga-modal-link {
-  color: #1ea69a;
+  color: #000000;
   text-decoration: none;
   font-weight: 500;
   cursor: pointer;
   transition: color 0.12s;
 }
 .mga-modal-link:hover {
-  color: #157970;
+  color: #222222;
   text-decoration: underline;
 }
 
@@ -975,7 +975,7 @@
 }
 
 .mga-modal-btn-create {
-  background: #1ea69a;
+  background: #000000;
   color: #ffffff;
   border: none;
   padding: 10px 24px;
@@ -984,10 +984,10 @@
   border-radius: 3px;
   cursor: pointer;
   transition: background 0.15s;
-  box-shadow: 0 2px 6px rgba(30, 166, 154, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 .mga-modal-btn-create:hover {
-  background: #198c82;
+  background: #222222;
 }
 .mga-modal-btn-create:disabled {
   opacity: 0.6;
@@ -1001,6 +1001,158 @@
   align-items: center;
   padding: 32px 16px;
   width: 100%;
+}
+
+/* Enforce scrollbar-free public mobile view and iframe previews */
+.public-gallery-body::-webkit-scrollbar,
+iframe::-webkit-scrollbar {
+  display: none !important;
+}
+.public-gallery-body,
+iframe {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* Custom Select styles */
+.mge-custom-select-trigger {
+  width: 100%;
+  max-width: 340px;
+  border: 1px solid #d8d8d8;
+  padding: 10px 14px;
+  font-size: 14px;
+  border-radius: 3px;
+  background: #ffffff;
+  color: #333;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.mge-custom-select-trigger:hover {
+  border-color: #bbbbbb;
+}
+.mge-custom-select-trigger.active {
+  border-color: #00aba6;
+  box-shadow: 0 0 0 3px rgba(0, 171, 166, 0.15);
+}
+
+.mge-custom-select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-width: 340px;
+  background: #ffffff;
+  border: 1px solid #d8d8d8;
+  border-top: none;
+  border-radius: 0 0 3px 3px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.mge-custom-option {
+  padding: 10px 14px;
+  font-size: 13.5px;
+  color: #555;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.mge-custom-option:hover {
+  background-color: #f7f7f7;
+  color: #111;
+}
+.mge-custom-option.selected {
+  background-color: #f0faf9;
+  color: #00aba6;
+  font-weight: 600;
+}
+
+/* App Icon Uploading styles */
+.mge-icon-upload-container {
+  display: flex;
+  gap: 20px;
+  align-items: center;
+  background: #f8f9fa;
+  border: 1px solid #eeeeee;
+  border-radius: 4px;
+  padding: 20px;
+  max-width: 340px;
+}
+
+.mge-icon-preview-box {
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  border: 1px dashed #cccccc;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.mge-icon-preview-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mge-icon-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: #aaa;
+}
+
+.mge-icon-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mge-icon-btn-upload {
+  background: #00aba6;
+  color: #ffffff;
+  border: none;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.mge-icon-btn-upload:hover {
+  background: #00938f;
+}
+.mge-icon-btn-upload:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mge-icon-btn-remove {
+  background: none;
+  border: 1px solid #dcdcdc;
+  color: #666666;
+  padding: 7px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.mge-icon-btn-remove:hover {
+  background-color: #f5f5f5;
+  border-color: #cccccc;
+  color: #333333;
+}
+.mge-icon-btn-remove:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 

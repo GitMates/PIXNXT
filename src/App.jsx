@@ -29,6 +29,7 @@ import MobileGallery from './pages/mobile-gallery/MobileGallery';
 import CreateMobileGallery from './pages/mobile-gallery/CreateMobileGallery';
 import MobileGalleryEditor from './pages/mobile-gallery/MobileGalleryEditor';
 import PublicMobileGallery from './pages/mobile-gallery/PublicMobileGallery';
+import PreviewMobileGallery from './pages/mobile-gallery/PreviewMobileGallery';
 
 function App() {
   const host = window.location.hostname;
@@ -159,6 +160,7 @@ function App() {
           <Route path="/mobile-gallery/create" element={<ProtectedRoute><CreateMobileGallery /></ProtectedRoute>} />
           <Route path="/mobile-gallery/:id/:tab" element={<ProtectedRoute><MobileGalleryEditor /></ProtectedRoute>} />
           <Route path="/mobile-gallery/view/:slug" element={<PublicMobileGallery />} />
+          <Route path="/mobile-gallery/preview/:slug" element={<PreviewMobileGallery />} />
           <Route path="/ref/:code" element={<ReferralRedirect />} />
         </Routes>
 

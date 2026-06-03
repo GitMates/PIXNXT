@@ -132,7 +132,7 @@ const MobileGallery = () => {
         cover_style: 'none',
         grid_style: 'vertical',
         color_theme: 'light',
-        theme_color: '#8BDFDD'
+        theme_color: '#000000'
       };
 
       // 3. Save to database
