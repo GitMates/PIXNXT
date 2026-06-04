@@ -234,6 +234,25 @@
   z-index: 35;
 }
 
+/* Front cover spread: clip blank left page; front photo stays on the right half */
+.ab-flipbook-wrap--front-cover-only {
+  overflow: hidden;
+  clip-path: inset(0 0 0 50%);
+}
+
+.ab-flipbook-wrap--front-cover-only.ab-flipbook-wrap--front-cover-transition {
+  transition: clip-path 800ms cubic-bezier(0.33, 1, 0.68, 1);
+  will-change: clip-path;
+}
+
+.ab-flipbook-wrap--front-cover-only.ab-flipbook-wrap--front-cover-reveal {
+  clip-path: inset(0 0 0 0);
+}
+
+.ab-flipbook-wrap--front-cover-only .stf__item:has(.ab-flip-page--half-blank) {
+  pointer-events: none !important;
+}
+
 .ab-html-flipbook {
   margin: 0 auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
@@ -467,6 +486,48 @@
   position: relative;
   background: #fff;
   overflow: hidden;
+}
+
+.ab-flip-page--half-photo-left .ab-page-photo-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+/* Book wrap: one upload split — right half = front, left half = back */
+.ab-book-wrap-half {
+  display: block;
+  width: 200%;
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ab-book-wrap-half--back {
+  object-position: left center;
+}
+
+.ab-book-wrap-half--front {
+  margin-left: -100%;
+  object-position: right center;
+}
+
+.ab-overview-book-wrap--left,
+.ab-overview-book-wrap--right {
+  width: 200%;
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ab-overview-book-wrap--left {
+  object-position: left center;
+}
+
+.ab-overview-book-wrap--right {
+  margin-left: -100%;
+  object-position: right center;
 }
 
 /* Last spread left page: normal full-page grid slot (no framed / blur underlay) */
@@ -1238,10 +1299,24 @@
   background: #e8eaed;
 }
 
+.ab-overview-page--cover-single {
+  flex: 1 1 100%;
+  position: relative;
+  background: #fff;
+  overflow: hidden;
+}
+
+.ab-overview-page--cover-single .ab-overview-book-wrap--right {
+  width: 200%;
+  max-width: none;
+  margin-left: -100%;
+}
+
 .ab-overview-page--cover-right,
 .ab-overview-page--end-left {
   position: relative;
   background: #fff;
+  overflow: hidden;
 }
 
 .ab-overview-cover-stage {

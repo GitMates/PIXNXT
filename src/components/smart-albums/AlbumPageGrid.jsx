@@ -135,13 +135,11 @@ export default function AlbumPageGrid({
     const inSelectedSpread =
         selectionLeftPage != null && selectionLeftPage === spreadLeft;
     const selectWholeSpread = selectionMode === 'spread' && inSelectedSpread;
-    const frontCoverWholeSpread = frontCoverSpread && spreadOpts.hasCovers;
     const wholePlacement =
-        frontCoverWholeSpread ||
-        (placementMode === 'whole' &&
-            !endHalfSpreadLeft &&
-            !insideCoverSpread &&
-            !frontCoverSpread);
+        placementMode === 'whole' &&
+        !endHalfSpreadLeft &&
+        !insideCoverSpread &&
+        !frontCoverSpread;
     const wholeSpread = wholePlacement;
     const useSelectCells = editable && !spreadEdit;
     const CellTag = useSelectCells ? 'button' : 'div';

@@ -11,6 +11,7 @@ import {
     mergeRemotePreviewPagesIntoLocal,
     migrateInsideCoverSpreadToPageTwo,
     migrateEndHalfSpreadToLeftPage,
+    migrateBackCoverUsesBookWrap,
     migrateFrontCoverToFullSpread,
     migrateMiskeyedInnerSpreadPhotos,
     migrateWholeSpreadPagePhotosToSpreadKeys,
@@ -22,6 +23,7 @@ import {
 } from '../../components/smart-albums/albumPageTransforms';
 import {
     getAlbumSpreadOptions,
+    getEndSpreadPageIndices,
     getPageInsertIndex,
     getPageRemoveIndex,
     getTotalSpreads,
@@ -104,11 +106,13 @@ export function useAlbumWorkspace() {
                     }
                     if (albumSpreadOpts.hasCovers) {
                         migrateFrontCoverToFullSpread(albumId);
+                        migrateBackCoverUsesBookWrap(albumId, pages);
                         migrateInsideCoverSpreadToPageTwo(albumId, pages);
                         migrateInsideCoverSpreadTransform(albumId);
                     }
                     if (albumSpreadOpts.hasCovers) {
-                        migrateMiskeyedInnerSpreadTransforms(albumId, pages);
+                        const { left: endLeft } = getEndSpreadPageIndices(pages);
+                        migrateMiskeyedInnerSpreadTransforms(albumId, endLeft);
                     }
                     setAlbum(data);
                 }

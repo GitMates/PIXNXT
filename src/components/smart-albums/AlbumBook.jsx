@@ -420,6 +420,24 @@ const AlbumBook = ({
 
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
+    const frontCoverOnly = album?.has_covers === true && spreadIndex === 0;
+    const [coverClipTransition, setCoverClipTransition] = useState(null);
+    const [coverRevealOpen, setCoverRevealOpen] = useState(false);
+    const [coverHideReveal, setCoverHideReveal] = useState(true);
+    const showCoverClip =
+        album?.has_covers === true && (frontCoverOnly || coverClipTransition != null);
+    const coverWrapClassName = useMemo(() => {
+        if (!showCoverClip) return '';
+        let cls = ' ab-flipbook-wrap--front-cover-only';
+        if (coverClipTransition) cls += ' ab-flipbook-wrap--front-cover-transition';
+        if (
+            (coverClipTransition === 'reveal' && coverRevealOpen) ||
+            (coverClipTransition === 'hide' && coverHideReveal)
+        ) {
+            cls += ' ab-flipbook-wrap--front-cover-reveal';
+        }
+        return cls;
+    }, [showCoverClip, coverClipTransition, coverRevealOpen, coverHideReveal]);
 
     const syncNavDisabled = useCallback(() => {
         const flipping = isFlippingRef.current;
@@ -462,24 +480,63 @@ const AlbumBook = ({
             isFlippingRef.current = flipping;
             setFlippingUi(flipping);
             syncNavDisabled();
+            if (!flipping && coverClipTransition) {
+                setCoverClipTransition(null);
+                setCoverRevealOpen(false);
+                setCoverHideReveal(true);
+            }
         },
-        [setFlippingUi, syncNavDisabled]
+        [coverClipTransition, setFlippingUi, syncNavDisabled]
     );
 
     const flipPrev = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
-        // Some builds of pageflip are picky about flipPrev(direction).
+
+        if (album?.has_covers && spreadIndex === 1 && api.getCurrentPageIndex() === 2) {
+            setCoverClipTransition('hide');
+            setCoverHideReveal(true);
+            requestAnimationFrame(() => {
+                setCoverHideReveal(false);
+                if (typeof api.flipPrev === 'function') api.flipPrev();
+                else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
+            });
+            return;
+        }
+
         if (typeof api.flipPrev === 'function') api.flipPrev();
         else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-    }, []);
+    }, [album?.has_covers, spreadIndex]);
 
     const flipNext = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
+
+        if (album?.has_covers && spreadIndex === 0) {
+            const current = api.getCurrentPageIndex();
+            const startRevealAndFlip = () => {
+                setCoverClipTransition('reveal');
+                setCoverRevealOpen(false);
+                requestAnimationFrame(() => {
+                    setCoverRevealOpen(true);
+                    if (typeof api.flipNext === 'function') api.flipNext();
+                    else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
+                });
+            };
+            if (current < 1) {
+                api.turnToPage(1);
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(startRevealAndFlip);
+                });
+                return;
+            }
+            startRevealAndFlip();
+            return;
+        }
+
         if (typeof api.flipNext === 'function') api.flipNext();
         else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
-    }, []);
+    }, [album?.has_covers, spreadIndex]);
 
     useEffect(() => {
         const onKey = (e) => {
@@ -972,22 +1029,33 @@ const AlbumBook = ({
                 <div className="ab-flip-escape" ref={escapeRef}>
                 <div
                     className="ab-spread-display"
-                    style={bookDims ? { width: bookDims.width * 2 } : undefined}
+                    style={
+                        bookDims
+                            ? {
+                                  width: bookDims.width * 2,
+                              }
+                            : undefined
+                    }
                 >
                 <div
                     className="ab-spread-book-block"
                     style={
                         bookDims
-                            ? { width: bookDims.width * 2 }
+                            ? {
+                                  width: bookDims.width * 2,
+                              }
                             : undefined
                     }
                 >
                 <div
-                    className="ab-flipbook-wrap"
+                    className={`ab-flipbook-wrap${coverWrapClassName}`}
                     ref={wrapRef}
                     style={
                         bookDims
-                            ? { width: bookDims.width * 2, height: bookDims.height }
+                            ? {
+                                  width: bookDims.width * 2,
+                                  height: bookDims.height,
+                              }
                             : undefined
                     }
                 >
@@ -1161,19 +1229,16 @@ const AlbumBook = ({
                                 totalPages,
                                 spreadOpts
                             );
-                            const spreadSrc = !isCover
+                            const spreadSrc = !isCover && !isEndSpread
                                 ? getSpreadPhotoOverride(album?.id, left)
                                 : null;
-                            const coverSpreadSrc = isCover
-                                ? getSpreadPhotoOverride(album?.id, 0) ||
-                                  resolveCoverImageSrc(album, { showSamples })
-                                : null;
-                            const endCoverSrc = leftSrc || spreadSrc;
+                            const bookWrapSrc =
+                                isCover || isEndSpread
+                                    ? getSpreadPhotoOverride(album?.id, 0) ||
+                                      resolveCoverImageSrc(album, { showSamples })
+                                    : null;
                             const isEndHalf = isEndSpread;
-                            const showSpreadFull = Boolean(
-                                (spreadSrc && !isCover && !isEndSpread) ||
-                                    (isCover && coverSpreadSrc)
-                            );
+                            const showSpreadFull = Boolean(spreadSrc);
                             const isCurrent = overviewSpreadIndex === spreadIndex;
                             const spreadComments = spreadCommentsBySpread?.[overviewSpreadIndex] ?? null;
                             return (
@@ -1193,16 +1258,36 @@ const AlbumBook = ({
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
                                         {showSpreadFull ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
+                                                <img src={spreadSrc} alt="" loading="lazy" />
+                                            </span>
+                                        ) : isCover && bookWrapSrc ? (
+                                            <span className="ab-overview-page ab-overview-page--cover-single">
                                                 <img
-                                                    src={isCover ? coverSpreadSrc : spreadSrc}
+                                                    className="ab-overview-book-wrap--right"
+                                                    src={bookWrapSrc}
                                                     alt=""
                                                     loading="lazy"
                                                 />
                                             </span>
+                                        ) : isEndHalf && bookWrapSrc ? (
+                                            <>
+                                                <span className="ab-overview-page ab-overview-page--end-left">
+                                                    <img
+                                                        className="ab-overview-book-wrap--left"
+                                                        src={bookWrapSrc}
+                                                        alt=""
+                                                        loading="lazy"
+                                                    />
+                                                </span>
+                                                <span
+                                                    className="ab-overview-page ab-overview-page--cover-blank"
+                                                    aria-hidden
+                                                />
+                                            </>
                                         ) : isEndHalf ? (
                                             <>
                                                 <span className="ab-overview-page ab-overview-page--end-left">
-                                                    <OverviewCoverPhoto src={endCoverSrc} />
+                                                    <OverviewCoverPhoto src={leftSrc} />
                                                 </span>
                                                 <span
                                                     className="ab-overview-page ab-overview-page--cover-blank"
@@ -1244,7 +1329,7 @@ const AlbumBook = ({
                                         {isCover
                                             ? 'Cover'
                                             : isEndSpread
-                                              ? 'End'
+                                              ? 'Back'
                                               : spreadOpts.hasCovers
                                                 ? overviewSpreadIndex
                                                 : overviewSpreadIndex + 1}

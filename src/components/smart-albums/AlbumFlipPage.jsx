@@ -31,8 +31,17 @@ import {
 
 function getPageImageSrc(album, pageNum, showSamples, spreadOpts) {
     const opts = spreadOpts ?? getAlbumSpreadOptions(album);
-    if (pageNum === 1 && opts.hasCovers) {
-        return resolveCoverImageSrc(album, { showSamples });
+    const totalPages = opts.totalPages ?? album?.page_count;
+    if (opts.hasCovers) {
+        if (pageNum === 1) {
+            return resolveCoverImageSrc(album, { showSamples });
+        }
+        if (
+            totalPages != null &&
+            getEndSpreadPageRole(pageNum, totalPages, opts) === 'half-left'
+        ) {
+            return resolveCoverImageSrc(album, { showSamples });
+        }
     }
     const albumId = album?.id;
     if (albumId) {
@@ -187,6 +196,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     void liveTransformRevision;
     const collectionCount = albumId ? getAlbumCollection(albumId).length : 0;
     const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
+    const coverLayoutOpts =
+        spreadOpts.hasCovers || album?.has_covers === true
+            ? { ...spreadOpts, hasCovers: true, showCover: true }
+            : spreadOpts;
     const gridOpts = { ...spreadOpts, totalPages };
     const { right: lastSpreadRight } = getLastSpreadInfo(totalPages, spreadOpts);
     const wholeSpread = placementMode === 'whole';
@@ -207,7 +220,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const endHalfLeftPage = isEndHalfSpreadLeftPage(spreadLeftForPage, totalPages, spreadOpts);
     const useLeftGrid = isProofLeftGridPage(pageNum, gridOpts) && !endHalfLeftPage;
     const useRightGrid = isProofRightGridPage(pageNum, gridOpts);
-    const src = getPageImageSrc(album, pageNum, showSamples, spreadOpts);
+    const src = getPageImageSrc(album, pageNum, showSamples, coverLayoutOpts);
     const isFrontCoverPage = false;
 
     if (endSpreadRole === 'half-blank') {
@@ -223,58 +236,12 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             <span className="ab-badge ab-badge--focus">{pageNum + 1}</span>
         ) : null;
 
-    if (isCoverInsidePage(pageNum, totalPages)) {
-        const useLeftGrid = isProofLeftGridPage(pageNum, gridOpts);
-        if (useLeftGrid) {
-            const { cells } = getProofLeftPageGridPercent();
-            return (
-                <div
-                    className="ab-flip-page ab-flip-page--grid ab-flip-page--grid-left"
-                    ref={ref}
-                    data-density="hard"
-                >
-                    {pageBadge}
-                    <AlbumPageGrid
-                        album={album}
-                        albumId={albumId}
-                        pageNum={pageNum}
-                        totalPages={totalPages}
-                        cells={cells}
-                        editable={editable}
-                        spreadEdit={spreadEdit}
-                        placementMode="whole"
-                        showSamples={showSamples}
-                        previewMode={previewMode}
-                        showGridComments={liveShowGridComments}
-                        selectionLeftPage={liveSelectionLeftPage}
-                        selectionMode={liveSelectionMode}
-                        selectedCellId={liveSelectedCellId}
-                        onSelectCell={liveOnSelectCell}
-                        onSelectSpread={liveOnSelectSpread}
-                        onSlotActivate={liveOnSlotActivate}
-                        onTransformChange={liveOnTransformChange}
-                        transformRevision={liveTransformRevision}
-                        photoRevision={livePhotoRevision}
-                        swapMarkMode={liveSwapMarkMode}
-                        getSwapMarkInfo={liveGetSwapMarkInfo}
-                        getSwapMarkInfos={liveGetSwapMarkInfos}
-                        onSwapRequest={liveOnSwapRequest}
-                        swapPinModeActive={liveSwapPinModeActive}
-                        swapPinOriginKey={liveSwapPinOriginKey}
-                        swapPinTargetStep={liveSwapPinTargetStep}
-                        swapPinOriginPoint={liveSwapPinOriginPoint}
-                        onPlaceSwapPin={liveOnPlaceSwapPin}
-                        pinMarkMode={livePinMarkMode}
-                        pinModeActive={livePinModeActive}
-                        getPinsForSlot={liveGetPinsForSlot}
-                        onPinPlace={liveOnPinPlace}
-                        onPinRemove={liveOnPinRemove}
-                        onActivatePinMode={liveOnActivatePinMode}
-                        proofToolsHover={liveProofToolsHover}
-                    />
-                </div>
-            );
-        }
+    if (isCoverInsidePage(pageNum, totalPages, coverLayoutOpts)) {
+        return (
+            <div className="ab-flip-page ab-flip-page--half-blank" ref={ref} data-density="hard">
+                <div className="ab-page-empty" aria-hidden />
+            </div>
+        );
     }
 
     if (isInsideCoverRightPage(pageNum, totalPages, spreadOpts)) {
@@ -306,12 +273,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         );
     }
 
-    const isFrontCoverSpreadPage =
-        spreadOpts.hasCovers && spreadLeftForPage === 0 && pageNum <= 1;
-    const coverPlacementMode = isFrontCoverSpreadPage ? 'whole' : placementMode;
+    const isFrontCoverRightPage = coverLayoutOpts.hasCovers && pageNum === 1;
+    const coverPlacementMode = placementMode;
     const showStar = pageNum === 1 && album?.is_starred;
-    const canSelectCover =
-        isFrontCoverSpreadPage && editable && !spreadEdit;
+    const canSelectCover = isFrontCoverRightPage && editable && !spreadEdit;
     const PageWrapTag = canSelectCover ? 'button' : 'div';
     const coverSwapMarkInfo = liveGetSwapMarkInfo?.(0, 0);
     const coverSwapMarkInfos =
@@ -320,7 +285,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const coverProofTools = (liveSwapMarkMode || livePinMarkMode) && pageNum === 1 && Boolean(src);
     const coverPins =
         livePinMarkMode && liveGetPinsForSlot ? liveGetPinsForSlot(1, 0, 0) : [];
-    const isEndCoverPage = endSpreadRole === 'half-left' && !editable && !spreadEdit;
+    const isBackCoverPage = endSpreadRole === 'half-left' && spreadOpts.hasCovers;
+    const isEndCoverPage = isBackCoverPage && !editable && !spreadEdit;
     const endCoverSwapMarkInfo =
         isEndCoverPage ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage) : null;
     const endCoverSwapMarkInfos =
@@ -595,7 +561,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 src={src}
                                 pageNum={pageNum}
                                 showSamples={showSamples}
-                                className="ab-page-photo ab-page-photo--full"
+                                className={`ab-page-photo ab-page-photo--full${
+                                    isBackCoverPage
+                                        ? ' ab-book-wrap-half ab-book-wrap-half--back'
+                                        : ''
+                                }`}
                             />
                         ) : (
                             <div className="ab-page-empty" aria-hidden />
@@ -829,7 +799,16 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     onRemovePin={onPinRemove}
                 >
                     {src ? (
-                        <PagePhoto src={src} pageNum={pageNum} showSamples={showSamples} />
+                        <PagePhoto
+                            src={src}
+                            pageNum={pageNum}
+                            showSamples={showSamples}
+                            className={
+                                isFrontCoverRightPage
+                                    ? ' ab-book-wrap-half ab-book-wrap-half--front'
+                                    : ''
+                            }
+                        />
                     ) : (
                         <div className="ab-page-empty" aria-hidden />
                     )}

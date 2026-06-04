@@ -61,7 +61,7 @@ function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, sp
             : 'Select a spread to place photos.';
     }
     if (hasCovers && gridSelection?.mode === 'cover') {
-        return 'Cover page';
+        return 'Book wrap (front + back)';
     }
     if (
         gridSelection?.leftPage != null &&
@@ -353,7 +353,7 @@ export default function AlbumEditorSidebar({
                                 </div>
                                 <p className="ae-collection-order-note">
                                     {album?.has_covers === true
-                                        ? 'Order 1 → full front cover spread. Remaining photos fill inner pages in order.'
+                                        ? 'Order 1 → book wrap (front right + back left). Photos 2+ fill inner pages in order.'
                                         : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
                                     Drag thumbnails to reorder; spreads update automatically.
                                 </p>

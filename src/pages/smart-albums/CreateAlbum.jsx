@@ -713,7 +713,7 @@ const CreateAlbum = () => {
                                 />
                                 <p className="sa-field-note">
                                     {includeCovers
-                                        ? 'First photo fills the full front cover spread. Remaining photos fill inner pages in order.'
+                                        ? 'First photo is the book wrap: right half = front cover (blank left), left half = back cover (blank right on last spread). Other photos fill inner pages.'
                                         : 'All uploaded photos fill pages in order — no dedicated cover spreads.'}
                                 </p>
                             </div>
@@ -862,7 +862,7 @@ const CreateAlbum = () => {
                                         {previewSlots.map((preview, index) => {
                                             let roleLabel = null;
                                             if (includeCovers && index === 0) {
-                                                roleLabel = 'Cover';
+                                                roleLabel = 'Book wrap';
                                             }
                                             return (
                                                 <UploadPreviewCard
