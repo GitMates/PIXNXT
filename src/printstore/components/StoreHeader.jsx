@@ -12,7 +12,9 @@ export default function StoreHeader({
   setIsSelectionMode,
   isHeaderThin,
   onOpenMenu,
-  onNavigateToShop
+  onNavigateToShop,
+  onOpenTrackOrder,
+  hasPlacedOrder
 }) {
   return (
     <div className="store-header-wrapper">
@@ -36,6 +38,16 @@ export default function StoreHeader({
         </div>
 
         <div className="store-header-right">
+          {/* Track Order Button */}
+          {hasPlacedOrder && (
+            <button
+              className="store-header-action-btn select-text-btn"
+              onClick={() => onOpenTrackOrder && onOpenTrackOrder()}
+            >
+              Track Order
+            </button>
+          )}
+
           {/* Select Button - Only show on gallery tab */}
           {activeTab === 'gallery' && (
             <button

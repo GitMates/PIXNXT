@@ -42,7 +42,7 @@ export const MOCK_PRODUCTS = [
     id: "dibond",
     name: "Dibond Prints",
     description: "A sturdy and lightweight wall display that elevates any photo.",
-    basePrice: 32.95,
+    basePrice: 86.50,
     image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800&h=1200"
   },
   {
@@ -132,10 +132,10 @@ export const MOCK_PRODUCTS = [
 ];
 
 export const MOCK_SIZES = [
-  { id: "size_8x10", label: "8 × 10\"", priceModifier: 0 },
-  { id: "size_11x14", label: "11 × 14\"", priceModifier: 15 },
-  { id: "size_16x20", label: "16 × 20\"", priceModifier: 35 },
-  { id: "size_20x24", label: "20 × 24\"", priceModifier: 55 }
+  { id: "size_20x20", label: "20x20cm", priceModifier: 0 },
+  { id: "size_30x30", label: "30x30cm", priceModifier: 15 },
+  { id: "size_40x40", label: "40x40cm", priceModifier: 35 },
+  { id: "size_50x50", label: "50x50cm", priceModifier: 55 }
 ];
 
 export const MOCK_FRAMES = [
@@ -146,7 +146,7 @@ export const MOCK_FRAMES = [
 ];
 
 export const MOCK_PAPERS = [
-  { id: "paper_lustre", label: "Archival Lustre", description: "Soft sheen, slight texture, minimizes fingerprints.", priceModifier: 0 },
-  { id: "paper_matte", label: "Fine Art Matte", description: "Zero glare, rich velvety texture, museum look.", priceModifier: 5 },
-  { id: "paper_glossy", label: "High Gloss", description: "Ultra reflective finish with deep colors.", priceModifier: 0 }
+  { id: "paper_semi_gloss", label: "Semi Gloss", description: "Soft sheen, slight texture, minimizes fingerprints.", priceModifier: 0 },
+  { id: "paper_matte", label: "Matte", description: "Zero glare, rich velvety texture, museum look.", priceModifier: 5 },
+  { id: "paper_glossy", label: "Gloss", description: "Ultra reflective finish with deep colors.", priceModifier: 0 }
 ];

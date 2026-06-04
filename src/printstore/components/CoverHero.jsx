@@ -36,12 +36,13 @@ export default function CoverHero({ onExplore }) {
           className="vertical-branding cover-title"
           style={{
             lineHeight: 0.9,
-            fontSize: '137.333px',
+            fontSize: '124px',
             fontFamily: 'europa, sans-serif',
             textTransform: 'uppercase',
             color: '#222222',
             fontWeight: 500,
-            whiteSpace: 'nowrap'
+            whiteSpace: 'normal',
+            wordWrap: 'break-word'
           }}
         >
           Kharthik Baskaran

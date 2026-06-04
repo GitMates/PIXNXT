@@ -6,7 +6,10 @@ import PhotoGrid from './components/PhotoGrid';
 import ShopLanding from './components/ShopLanding';
 import AllProducts from './components/AllProducts';
 import ProductCustomizer from './components/ProductCustomizer';
-import CartSidebar from './components/CartSidebar';
+import CartPage from './components/CartPage';
+import ReviewPage from './components/ReviewPage';
+import PaymentPage from './components/PaymentPage';
+import TrackOrderPage from './components/TrackOrderPage';
 import CheckoutForm from './components/CheckoutForm';
 import StoreFooter from './components/StoreFooter';
 import LeftSidebar from './components/LeftSidebar';
@@ -23,9 +26,10 @@ export default function PrintStoreApp() {
   // Navigation & View States
   const [activeTab, setActiveTab] = useState('gallery'); // 'gallery' | 'shop'
   const [activeCollection, setActiveCollection] = useState('portraits'); // 'favorites' | 'portraits'
-  const [checkoutState, setCheckoutState] = useState('shopping'); // 'shopping' | 'checkout' | 'completed'
+  const [checkoutState, setCheckoutState] = useState('shopping'); // 'shopping' | 'cart' | 'checkout' | 'completed'
   const [viewMode, setViewMode] = useState('landing'); // 'landing' | 'all-products'
   const [selectedProductForDetail, setSelectedProductForDetail] = useState(null);
+  const [customizingProduct, setCustomizingProduct] = useState(null); // Product we are currently picking photos for
   
   // Interaction States
   const [favorites, setFavorites] = useState(['photo_2', 'photo_5']); // Initial mock favorites
@@ -35,14 +39,16 @@ export default function PrintStoreApp() {
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [hasPlacedOrder, setHasPlacedOrder] = useState(false);
+  const [selectedProductType, setSelectedProductType] = useState('');
   
   // Shopping Cart States
   const [cartItems, setCartItems] = useState([]);
-  const [isCartOpen, setIsCartOpen] = useState(false);
   
   // Customizer States
   const [activeCustomizerProduct, setActiveCustomizerProduct] = useState(null);
   const [customizerPhoto, setCustomizerPhoto] = useState(null);
+  const [editingCartItemId, setEditingCartItemId] = useState(null);
 
   // Refs for scroll-spy sections
   const galleryRef = useRef(null);
@@ -132,8 +138,22 @@ export default function PrintStoreApp() {
     }
   };
 
-  // ── Toggle photo selection (batch actions) ──
   const handleToggleSelectPhoto = (photoId) => {
+    const isCurrentlySelected = selectedPhotos.includes(photoId);
+    let newSelectedLength = selectedPhotos.length;
+    
+    if (isCurrentlySelected) {
+      newSelectedLength -= 1;
+    } else {
+      newSelectedLength += 1;
+    }
+
+    if (newSelectedLength === 0) {
+      setIsSelectionMode(false);
+    } else if (!isSelectionMode) {
+      setIsSelectionMode(true);
+    }
+
     setSelectedPhotos((prev) =>
       prev.includes(photoId)
         ? prev.filter((id) => id !== photoId)
@@ -142,14 +162,41 @@ export default function PrintStoreApp() {
   };
 
   // ── Trigger Customizer ──
-  const handleOpenCustomizer = (product, photo = null) => {
+  const handleOpenCustomizer = (product, photos = []) => {
     setActiveCustomizerProduct(product);
-    setCustomizerPhoto(photo || MOCK_PHOTOS[0]);
+    // Convert array of photo IDs or photo objects to an array of photo objects
+    const photoObjects = photos.map(p => typeof p === 'string' ? MOCK_PHOTOS.find(mock => mock.id === p) : p).filter(Boolean);
+    // Default to first mock if empty for some reason
+    setCustomizerPhoto(photoObjects.length ? photoObjects : [MOCK_PHOTOS[0]]);
+  };
+
+  // ── Enter Selection Mode for a Product ──
+  const handleSelectPhotosForProduct = (prod) => {
+    setCustomizingProduct(prod);
+    setIsSelectionMode(true);
+    setSelectedPhotos([]);
+    setSelectedProductForDetail(null);
+    setActiveTab('gallery');
+    setActiveCollection('portraits');
+    setViewMode('landing');
+    
+    // Scroll past the cover hero if we are in portraits
+    setTimeout(() => {
+      if (galleryRef.current) {
+        const top = galleryRef.current.getBoundingClientRect().top + window.scrollY - 60;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+      }
+    }, 50);
   };
 
   // ── Cart operations ──
-  const handleAddToCart = (newItem) => {
+  const handleAddToCart = (newItem, skipCartOpen = false) => {
     setCartItems((prev) => {
+      if (editingCartItemId) {
+        // If we are editing, update the item instead of adding a new one
+        return prev.map(item => item.id === editingCartItemId ? { ...item, ...newItem, id: editingCartItemId } : item);
+      }
+
       // If item with same product, photo, size, frame, and paper exists, increment quantity
       const existingIdx = prev.findIndex(
         (item) =>
@@ -163,17 +210,20 @@ export default function PrintStoreApp() {
       if (existingIdx > -1) {
         const updated = [...prev];
         updated[existingIdx].quantity += newItem.quantity;
-        updated[existingIdx].totalPrice = updated[existingIdx].unitPrice * updated[existingIdx].quantity;
+        updated[existingIdx].totalPrice = updated[existingIdx].quantity * updated[existingIdx].unitPrice;
         return updated;
       }
 
       return [...prev, newItem];
     });
 
-    // Reset customizer and open cart side panel
-    setActiveCustomizerProduct(null);
-    setCustomizerPhoto(null);
-    setIsCartOpen(true);
+    if (!skipCartOpen) {
+      // Reset customizer and go to cart
+      setActiveCustomizerProduct(null);
+      setCustomizerPhoto(null);
+      setEditingCartItemId(null);
+      setCheckoutState('cart');
+    }
   };
 
   const handleUpdateCartQuantity = (itemId, newQty) => {
@@ -224,12 +274,12 @@ export default function PrintStoreApp() {
       {/* 2. Scrollable Content Wrapper (Slides up over cover) */}
       <div className={`printstore-scroll-content ${showCover ? 'has-cover' : ''}`}>
         {/* Top Header Nav */}
-        {!selectedProductForDetail && (
+        {!selectedProductForDetail && checkoutState !== 'cart' && checkoutState !== 'review' && checkoutState !== 'payment' && (
           <StoreHeader
             activeTab={activeTab}
             setActiveTab={handleTabChange}
             cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
-            onOpenCart={() => setIsCartOpen(true)}
+            onOpenCart={() => setCheckoutState('cart')}
             activeCollection={activeCollection}
             setActiveCollection={setActiveCollection}
             isSelectionMode={isSelectionMode}
@@ -237,7 +287,9 @@ export default function PrintStoreApp() {
             scrollY={scrollY}
             showCover={showCover}
             isHeaderThin={isHeaderThin}
+            hasPlacedOrder={hasPlacedOrder}
             onOpenMenu={() => setIsMenuOpen(true)}
+            onOpenTrackOrder={() => setViewMode('tracking')}
             onNavigateToShop={() => {
               setActiveTab('shop');
               setViewMode('all-products');
@@ -247,7 +299,40 @@ export default function PrintStoreApp() {
         )}
 
         {/* 3. Main Views Merged Flow */}
-        {checkoutState === 'shopping' ? (
+        {checkoutState === 'cart' ? (
+          <CartPage
+            cartItems={cartItems}
+            onUpdateQuantity={handleUpdateCartQuantity}
+            onRemoveItem={handleRemoveCartItem}
+            onEditItem={(item) => {
+              setEditingCartItemId(item.id);
+              setActiveCustomizerProduct(MOCK_PRODUCTS.find(p => p.id === item.productId) || MOCK_PRODUCTS[0]);
+              setCustomizerPhoto([item.photo]);
+              setCheckoutState('shopping');
+            }}
+            onBack={() => setCheckoutState('shopping')}
+            onContinueToShipping={() => setCheckoutState('review')}
+          />
+        ) : checkoutState === 'review' ? (
+          <ReviewPage
+            cartItems={cartItems}
+            onUpdateQuantity={handleUpdateCartQuantity}
+            onRemoveItem={handleRemoveCartItem}
+            onBack={() => setCheckoutState('cart')}
+            onContinueToPayment={() => setCheckoutState('payment')}
+          />
+        ) : checkoutState === 'payment' ? (
+          <PaymentPage
+            cartItems={cartItems}
+            onBack={() => setCheckoutState('review')}
+            onPaymentSuccess={() => {
+              setCartItems([]);
+              setCheckoutState('shopping');
+              setViewMode('tracking');
+              setHasPlacedOrder(true);
+            }}
+          />
+        ) : checkoutState === 'shopping' ? (
           selectedProductForDetail ? (
             <ProductDetailPage
               product={selectedProductForDetail}
@@ -255,8 +340,10 @@ export default function PrintStoreApp() {
                 setSelectedProductForDetail(null);
                 window.scrollTo({ top: 0, behavior: 'instant' });
               }}
-              onStartCustomizing={(prod) => handleOpenCustomizer(prod, MOCK_PHOTOS[0])}
+              onSelectPhotosForProduct={handleSelectPhotosForProduct}
             />
+          ) : viewMode === 'tracking' ? (
+            <TrackOrderPage />
           ) : viewMode === 'all-products' ? (
             /* All Products Full Grid Screen */
             <div className="store-shopping-flow all-products-view">
@@ -281,6 +368,11 @@ export default function PrintStoreApp() {
                   isSelectionMode={isSelectionMode}
                   selectedPhotos={selectedPhotos}
                   onToggleSelectPhoto={handleToggleSelectPhoto}
+                  onSelectAll={() => {
+                    const allPhotoIds = getPhotosToDisplay().map(p => p.id);
+                    setSelectedPhotos(allPhotoIds);
+                  }}
+                  onDeselectAll={() => setSelectedPhotos([])}
                 />
               </div>
 
@@ -334,25 +426,25 @@ export default function PrintStoreApp() {
           </div>
         )}
 
-        {/* Bottom Footer inside scroll flow */}
-        <StoreFooter />
+        {/* Bottom Footer inside scroll flow — hidden on PDP */}
+        {!selectedProductForDetail && checkoutState !== 'cart' && checkoutState !== 'review' && checkoutState !== 'payment' && <StoreFooter />}
       </div>
 
       {/* 4. Batch Actions Toolbar (Appears at bottom during selection) */}
       {isSelectionMode && activeTab === 'gallery' && (
-        <div className="selection-toolbar-floating">
+        <div className="selection-toolbar-floating selection-toolbar-redesign">
           <div className="selection-toolbar-left">
             <span className="selection-count">
               {selectedPhotos.length > 0 
-                ? `${selectedPhotos.length} ${selectedPhotos.length === 1 ? 'photo' : 'photos'} selected`
-                : "Start selecting items"}
+                ? `${selectedPhotos.length} item${selectedPhotos.length === 1 ? '' : 's'} selected`
+                : "Select items"}
             </span>
             {selectedPhotos.length > 0 && (
               <button 
-                className="selection-view-btn"
+                className="selection-view-link"
                 onClick={() => {
-                  const firstSelectedPhoto = MOCK_PHOTOS.find((p) => p.id === selectedPhotos[0]);
-                  handleOpenCustomizer(MOCK_PRODUCTS[0], firstSelectedPhoto);
+                  // Scroll to top to view them or trigger something
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
               >
                 View
@@ -360,53 +452,44 @@ export default function PrintStoreApp() {
             )}
           </div>
           
-          <div className="selection-toolbar-right">
+          <div className="selection-toolbar-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            {!customizingProduct && (
+              <select 
+                value={selectedProductType} 
+                onChange={(e) => setSelectedProductType(e.target.value)}
+                style={{
+                  padding: '10px 16px',
+                  borderRadius: '8px',
+                  border: '1px solid #ddd',
+                  background: '#fff',
+                  fontSize: '14px',
+                  color: '#111',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">Select Frame Type</option>
+                {MOCK_PRODUCTS.map(p => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            )}
             <button 
-              className="selection-action-item"
+              className={`finish-personalize-btn ${(selectedPhotos.length === 0 || (!customizingProduct && !selectedProductType)) ? 'disabled' : ''}`}
+              disabled={selectedPhotos.length === 0 || (!customizingProduct && !selectedProductType)}
               onClick={() => {
-                const top = shopRef.current ? shopRef.current.getBoundingClientRect().top + window.scrollY - 60 : 0;
-                window.scrollTo({ top, behavior: 'smooth' });
+                if (selectedPhotos.length > 0) {
+                  // Animate the finish action
+                  const productToCustomize = customizingProduct || MOCK_PRODUCTS.find(p => p.id === selectedProductType) || MOCK_PRODUCTS[0];
+                  handleOpenCustomizer(productToCustomize, selectedPhotos);
+                  setIsSelectionMode(false);
+                  setCustomizingProduct(null);
+                  setSelectedPhotos([]);
+                  setSelectedProductType('');
+                }
               }}
             >
-              <ShoppingBag size={20} strokeWidth={1.5} />
-              <span>Shop</span>
-            </button>
-            
-            <button 
-              className="selection-action-item"
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href);
-                alert("Collection link copied to clipboard!");
-              }}
-            >
-              <Upload size={20} strokeWidth={1.5} />
-              <span>Share</span>
-            </button>
-            
-            <button 
-              className="selection-action-item"
-              onClick={() => {
-                selectedPhotos.forEach((pid) => {
-                  if (!favorites.includes(pid)) handleToggleFavorite(pid);
-                });
-                alert("Added selected photos to favorites collection!");
-              }}
-            >
-              <Bookmark size={20} strokeWidth={1.5} />
-              <span>Collections</span>
-            </button>
-            
-            <span className="action-divider">|</span>
-            
-            <button 
-              className="selection-close-btn"
-              onClick={() => {
-                setSelectedPhotos([]);
-                setIsSelectionMode(false);
-              }}
-              aria-label="Clear selection"
-            >
-              <X size={20} strokeWidth={1.5} />
+              Finish & Personalize
             </button>
           </div>
         </div>
@@ -417,11 +500,19 @@ export default function PrintStoreApp() {
         <ProductCustomizer
           product={activeCustomizerProduct}
           photos={MOCK_PHOTOS}
-          initialPhoto={customizerPhoto}
+          initialPhotos={customizerPhoto}
+          editMode={!!editingCartItemId}
           onAddToCart={handleAddToCart}
           onClose={() => {
             setActiveCustomizerProduct(null);
             setCustomizerPhoto(null);
+            setEditingCartItemId(null);
+          }}
+          onOpenCart={() => {
+            setActiveCustomizerProduct(null);
+            setCustomizerPhoto(null);
+            setEditingCartItemId(null);
+            setCheckoutState('cart');
           }}
         />
       )}
@@ -434,18 +525,7 @@ export default function PrintStoreApp() {
         onToggleLogin={() => setIsLoggedIn(!isLoggedIn)}
       />
 
-      {/* 6. Slide-Over Sidebar Cart Panel */}
-      <CartSidebar
-        isOpen={isCartOpen}
-        cartItems={cartItems}
-        onClose={() => setIsCartOpen(false)}
-        onUpdateQuantity={handleUpdateCartQuantity}
-        onRemoveItem={handleRemoveCartItem}
-        onCheckout={() => {
-          setIsCartOpen(false);
-          setCheckoutState('checkout');
-        }}
-      />
+
 
       {/* 7. Save Collections Modal popup */}
       {showSaveModal && (

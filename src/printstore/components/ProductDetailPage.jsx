@@ -4,15 +4,17 @@ import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES } from '../data/mockStoreData';
 
 const PRODUCT_DETAILS_MAP = {
   dibond: {
-    heroImage: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=1200&h=800",
-    roomBackground: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=1200&h=800",
+    heroImage: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/dibondprints_evkz/lowres/pdp_s_dbond_01.webp",
+    roomBackground: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_small02.webp",
     subtitle: "Lightweight & Durable",
     featureTitle: "Contemporary Decor Piece",
     featureDesc: "A contemporary decor piece minimalists will love, Dibond Prints are a lightweight yet durable way to display your photos — featuring a quality print adhered to eco-friendly backing made from recycled materials.",
     details: [
-      { name: "Side View", url: "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=600&h=400" },
-      { name: "Material", url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=600&h=400" },
-      { name: "Mounting", url: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?auto=format&fit=crop&q=80&w=600&h=400" }
+      { name: "Still Life", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/dibondprints_evkz/lowres/bayphoto-dibond-1.jpg" },
+      { name: "Angle Edge", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/dibondprints_evkz/lowres/bayphoto-dibond-2a.jpg" },
+      { name: "Corner Profile", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/dibondprints_evkz/lowres/bayphoto-dibond-3.jpg" },
+      { name: "Wall Hanging", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/dibondprints_evkz/lowres/bayphoto-dibond-4.jpg" },
+      { name: "Back Hanger", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/dibondprints_evkz/lowres/bayphoto-dibond-5.jpg" }
     ]
   },
   matted_frame: {
@@ -115,7 +117,7 @@ const DEFAULT_FALLBACK_DETAILS = {
   ]
 };
 
-export default function ProductDetailPage({ product, onBack, onStartCustomizing }) {
+export default function ProductDetailPage({ product, onBack, onSelectPhotosForProduct }) {
   const details = PRODUCT_DETAILS_MAP[product.id] || DEFAULT_FALLBACK_DETAILS;
 
   // Selection states for styling configuration
@@ -125,26 +127,41 @@ export default function ProductDetailPage({ product, onBack, onStartCustomizing 
   
   // Customizer preview settings
   const [activePreviewType, setActivePreviewType] = useState('room'); // 'room' | 'detail-0' | 'detail-1' | 'detail-2'
+  const [activePreviewTab, setActivePreviewTab] = useState('wall'); // 'wall' | 'prints'
   
   // Collapsible accordion states
   const [openAccordions, setOpenAccordions] = useState({ info: true, shipping: false });
+  const [activeTrioIndex, setActiveTrioIndex] = useState(0);
 
   const configuratorRef = useRef(null);
+  const mediaRef = useRef(null);
 
   // Calculate pricing based on selection
   const currentPrice = product.basePrice + selectedSize.priceModifier + selectedPaper.priceModifier + (product.id.includes('frame') || product.id.includes('collage') ? selectedFrame.priceModifier : 0);
 
   const toggleAccordion = (section) => {
+    // Snapshot the left image position before DOM update
+    const mediaEl = mediaRef.current;
+    const prevTop = mediaEl ? mediaEl.getBoundingClientRect().top : null;
+    
     setOpenAccordions(prev => ({ ...prev, [section]: !prev[section] }));
+    
+    // After React re-renders, restore scroll so the left image stays in place
+    if (mediaEl && prevTop !== null) {
+      requestAnimationFrame(() => {
+        const newTop = mediaEl.getBoundingClientRect().top;
+        const drift = newTop - prevTop;
+        if (Math.abs(drift) > 1) {
+          window.scrollBy(0, drift);
+        }
+      });
+    }
   };
 
   const handleStartCustomizing = () => {
-    onStartCustomizing({
-      ...product,
-      selectedSize,
-      selectedPaper,
-      selectedFrame
-    });
+    // Instead of customizing a single mock photo right away,
+    // tell the app which product we want, so the user can select photos.
+    onSelectPhotosForProduct(product);
   };
 
   const getActivePreviewUrl = () => {
@@ -157,283 +174,529 @@ export default function ProductDetailPage({ product, onBack, onStartCustomizing 
   const hasFrameOptions = product.id.includes('frame') || product.id.includes('collage') || product.id === 'gallery_board' || product.id === 'frames';
 
   return (
-    <div className="pdp-container">
+    <div className="pdp-products-page">
       {/* 1. Header Bar Navigation */}
-      <div className="pdp-header">
-        <div className="pdp-header-left" onClick={onBack}>
-          <ChevronLeft size={20} className="pdp-back-icon" />
-          <span className="pdp-product-header-name">{product.name}</span>
-        </div>
-        <div className="pdp-header-right">
-          <span className="pdp-breadcrumb-link" onClick={onBack}>Wall Display</span>
-          <span className="pdp-breadcrumb-separator">/</span>
-          <span className="pdp-breadcrumb-active">Prints</span>
-        </div>
-      </div>
-
-      {/* 2. Intro Fold (Split Screen) */}
-      <div className="pdp-intro-fold">
-        {/* Left Side: Hero Image Mockup */}
-        <div className="pdp-intro-left-section">
-          <img 
-            src={details.heroImage} 
-            alt={product.name} 
-            className="pdp-intro-hero-img"
-          />
-        </div>
-
-        {/* Right Side: Product Intro Summary */}
-        <div className="pdp-intro-right-section">
-          <span className="pdp-intro-subtitle">{details.subtitle}</span>
-          <h1 className="pdp-intro-title">{product.name}</h1>
-          <p className="pdp-intro-desc">{product.description}</p>
-          
-          <div className="pdp-intro-meta">
-            <span className="pdp-intro-price-label">Starting at</span>
-            <span className="pdp-intro-price">₹{product.basePrice.toFixed(2)}</span>
-          </div>
-
-          <button 
-            className="pdp-intro-customize-btn"
-            onClick={() => {
-              configuratorRef.current?.scrollIntoView({ behavior: 'smooth' });
-            }}
-          >
-            Start Customizing
-          </button>
-        </div>
-      </div>
-
-      {/* 3. Details Info Fold */}
-      <div className="pdp-details-fold">
-        <div className="pdp-details-grid">
-          <div className="pdp-details-text-box">
-            <h2 className="pdp-details-feature-title">{details.featureTitle}</h2>
-            <p className="pdp-details-feature-desc">{details.featureDesc}</p>
-          </div>
-          
-          <div className="pdp-details-images-box">
-            {details.details.map((item, idx) => (
-              <div key={idx} className={`pdp-detail-img-card card-${idx}`}>
-                <img src={item.url} alt={item.name} className="pdp-detail-img" />
-                <span className="pdp-detail-img-label">{item.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 4. Configurator & Room Preview Fold */}
-      <div ref={configuratorRef} className="pdp-configurator-fold">
-        <div className="pdp-configurator-grid">
-          {/* Left Side: Room Mockup Wall Render */}
-          <div className="pdp-configurator-preview-section">
-            <div className="pdp-main-preview-viewport">
-              {activePreviewType === 'room' ? (
-                <div className="pdp-room-render-container">
-                  <img 
-                    src={details.roomBackground} 
-                    alt="Living Room Mockup" 
-                    className="pdp-room-bg-img"
-                  />
-                  {/* Dynamic Floating Frame Canvas Overlay on Sofa Wall */}
-                  <div className={`pdp-floating-frame-overlay pdp-overlay-${product.id}`}>
-                    <div className="pdp-overlay-matte-board">
-                      {product.id === 'matted_collages' ? (
-                        <div className="pdp-overlay-collage-wrapper">
-                          <img 
-                            src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200" 
-                            alt="Collage 1" 
-                            className="pdp-overlay-collage-img"
-                          />
-                          <img 
-                            src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200" 
-                            alt="Collage 2" 
-                            className="pdp-overlay-collage-img"
-                          />
+      <div className="pdp-products-page__header">
+        <div className="pt-editor-header-wrapper" data-component="C-4-1-3-1">
+          <div className="pt-editor-header pt-container">
+            <div className="pt-editor-header__left">
+              <button className="BS-5-3-3" data-component="BS-5-3-3" type="button" onClick={onBack}>
+                <div className="pt-button__content">
+                  <div className="pt-button__inner">
+                    <svg viewBox="0 0 20 20" className="IS-7 pt-button__icon--desktop pt-button__icon--mobile" data-component="IS-7" style={{ width: '20px', height: '20px', fill: 'currentColor' }}>
+                      <path d="M14.53 17.47a.75.75 0 1 1-1.06 1.06l-8-8a.75.75 0 0 1 0-1.06l8-8a.75.75 0 1 1 1.06 1.06L7.06 10l7.47 7.47Z" />
+                    </svg>
+                  </div>
+                </div>
+              </button>
+              <span className="pt-editor-header__caption SF-1-4">
+                <div className="pt-editor-header__caption-text">{product.name}</div>
+              </span>
+            </div>
+            <div className="pt-editor-header__right">
+              <div className="pt-editor-header__pdp-container">
+                <div className="pdp-navigation-menu PDP-2-1-1">
+                  <div className="pt-tabs C-4-5-4-2 pt-tabs--align-end">
+                    <div className="v-slide-group v-tabs v-tabs--horizontal v-tabs--align-tabs-start v-tabs--density-default pt-tabs__tabs" role="tablist">
+                      <div className="v-slide-group__container">
+                        <div className="v-slide-group__content">
+                          <button 
+                            type="button" 
+                            className={`v-btn v-tab pt-tab TAB-4-4 ${activePreviewTab === 'wall' ? 'v-slide-group-item--active v-tab--selected' : ''}`}
+                            role="tab" 
+                            aria-selected={activePreviewTab === 'wall'}
+                            onClick={() => {
+                              setActivePreviewTab('wall');
+                              setActivePreviewType('room');
+                            }}
+                          >
+                            <span className="v-btn__content">
+                              <div className="pt-tab__content">
+                                <div>Wall Display</div>
+                              </div>
+                            </span>
+                          </button>
+                          <button 
+                            type="button" 
+                            className={`v-btn v-tab pt-tab TAB-4-4 ${activePreviewTab === 'prints' ? 'v-slide-group-item--active v-tab--selected' : ''}`}
+                            role="tab" 
+                            aria-selected={activePreviewTab === 'prints'}
+                            onClick={() => {
+                              setActivePreviewTab('prints');
+                              setActivePreviewType('detail-0');
+                            }}
+                          >
+                            <span className="v-btn__content">
+                              <div className="pt-tab__content">
+                                <div>Prints</div>
+                              </div>
+                            </span>
+                          </button>
                         </div>
-                      ) : (
-                        <img 
-                          src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200" 
-                          alt="Customized Print" 
-                          className="pdp-overlay-single-img"
-                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pdp-products-page__content">
+        {/* 2. Intro Fold */}
+        <div className="pdp-intro-container">
+          <div className="pdp-intro">
+            <div className="pdp-intro__left-section" style={{ backgroundImage: `url(${details.heroImage})` }}>
+            </div>
+            <div className="pdp-intro__right-section PDP-3-1-1">
+              <div className="SF-1-1">{product.name}</div>
+              <div className="SF-2-1">{product.description}</div>
+              <div className="SF-2-1">Starting at ${product.basePrice.toFixed(2)}</div>
+              <div>
+                <button 
+                  className="BS-2-1-4" 
+                  data-component="BS-2-1-4" 
+                  type="button" 
+                  onClick={() => {
+                    configuratorRef.current?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                >
+                  <div className="pt-button__content">
+                    <div className="pt-button__inner">
+                      <span>Start Customizing</span>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Closeup / Details Fold */}
+        <div className="pdp-closeup PDP-5-1-1">
+          <div className="pdp-closeup__inner">
+            {/* Left col: text */}
+            <div className="pdp-products-closeup">
+              <div className="pdp-product-description PDP-3-1-1">
+                <div className="SF-1-2">{details.subtitle || details.featureTitle}</div>
+                <div className="SF-4-1">{details.featureDesc}</div>
+              </div>
+            </div>
+
+            {/* Right col: interactive trio images */}
+            <div className="pdp-closeup__animation">
+              <div className="pt-trio-scope" data-component="PDP-5-1-1">
+                <div className="pt-trio-scope__container">
+                  {details.details.slice(0, 3).map((item, idx) => {
+                    // Determine role: the active index is 'big', next is 'small', next is 'tiny'
+                    const order = [(activeTrioIndex) % 3, (activeTrioIndex + 1) % 3, (activeTrioIndex + 2) % 3];
+                    let role = 'tiny';
+                    if (idx === order[0]) role = 'big';
+                    else if (idx === order[1]) role = 'small';
+                    
+                    return (
+                      <div 
+                        key={idx} 
+                        className={`pt-trio-scope__container__image trio-role-${role}`}
+                        data-role={role}
+                        style={{ backgroundImage: `url(${item.url})` }}
+                        onMouseEnter={() => {
+                          if (role !== 'big') setActiveTrioIndex(idx);
+                        }}
+                      >
+                        <div className="pt-trio-scope__image-label">{item.name}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 4. Configurator & Room Preview Fold */}
+        <div ref={configuratorRef} className="pdp-preview-container" style={{ position: 'relative' }}>
+          <div className="pdp-preview">
+            
+            {/* Left Column: Media Set View (Room Preview & Swiper) */}
+            <div ref={mediaRef} className="pdp-preview__media-set-view">
+              <div className="media-set C-4-40-1-1">
+                <div className="media-set__preview" style={{ position: 'relative' }}>
+                  {activePreviewType === 'room' ? (
+                    <div 
+                      className="media-set-preview" 
+                      style={{ backgroundImage: `url(${details.roomBackground})` }}
+                    >
+                      <div className="media-set-preview__composition-container" style={{ left: '14.0089%', top: '15.2589%', width: '18.6422%', height: '28.2222%' }}>
+                        <div className="composition-preview">
+                          <div className="composition-preview__composition" style={{ aspectRatio: '1 / 1', width: '100%' }}>
+                            <div className="composition-preview__printable-area" style={{ width: '100%', height: '100%', top: '0%', left: '0%' }}>
+                              <div className="composition-preview-box" style={{ width: '100%', height: '100%', top: '0%', left: '0%' }}>
+                                {product.id === 'matted_collages' ? (
+                                  <div className="pdp-overlay-collage-wrapper">
+                                    <div className="composition-preview-box__image" style={{ backgroundImage: `url("https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200")`, width: '100%', height: '50%' }}></div>
+                                    <div className="composition-preview-box__image" style={{ backgroundImage: `url("https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200")`, width: '100%', height: '50%' }}></div>
+                                  </div>
+                                ) : (
+                                  <div 
+                                    className="composition-preview-box__image" 
+                                    style={{ 
+                                      position: 'absolute', 
+                                      backgroundImage: `url(${product.image})`, 
+                                      width: '100%', 
+                                      height: '100%', 
+                                      left: '0px', 
+                                      top: '0px',
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center'
+                                    }}
+                                  ></div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            {/* Overlay types (shadows and frames) */}
+                            {product.id === 'dibond' ? (
+                              <div className="dibond-print-pdp-overlay composition-preview__overlay" style={{ aspectRatio: '1 / 1', width: '100%' }}>
+                                <div style={{ position: 'absolute', width: '100%', height: '100%', top: '0%', left: '0%' }}>
+                                  <div className="dibond-print-shadow"></div>
+                                </div>
+                              </div>
+                            ) : (
+                              /* For other products, render their respective overlays classes */
+                              <div className={`pdp-floating-frame-overlay pdp-overlay-${product.id} composition-preview__overlay`} style={{ width: '100%', height: '100%' }}>
+                                <div className="pdp-overlay-matte-board">
+                                  {/* Empty board or overlay styling via CSS box-shadow / borders */}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div 
+                      className="media-set-preview" 
+                      style={{ backgroundImage: `url(${getActivePreviewUrl()})`, backgroundSize: 'cover', backgroundPosition: 'center', height: '100%' }}
+                    >
+                    </div>
+                  )}
+                </div>
+
+                {/* Swiper Thumbnails row */}
+                <div className="media-set__swiper C-4-23-3">
+                  <div className="pt-tiny-swiper">
+                    <button 
+                      className="pt-tiny-swiper__nav pt-tiny-swiper__prev BS-5-3-2" 
+                      type="button"
+                      onClick={() => {
+                        if (activePreviewType === 'room') {
+                          setActivePreviewType(`detail-${details.details.length - 1}`);
+                          setActivePreviewTab('prints');
+                        } else {
+                          const idx = parseInt(activePreviewType.split('-')[1]);
+                          if (idx === 0) {
+                            setActivePreviewType('room');
+                            setActivePreviewTab('wall');
+                          } else {
+                            setActivePreviewType(`detail-${idx - 1}`);
+                            setActivePreviewTab('prints');
+                          }
+                        }
+                      }}
+                    >
+                      <div className="pt-button__content">
+                        <div className="pt-button__inner">
+                          <svg viewBox="0 0 16 16" className="IS-5 pt-button__icon--desktop" style={{ width: '16px', height: '16px', fill: 'currentColor' }}>
+                            <path d="M11.53.47a.75.75 0 0 1 0 1.06L5.06 8l6.47 6.47a.75.75 0 1 1-1.06 1.06l-7-7a.75.75 0 0 1 0-1.06l7-7a.75.75 0 0 1 1.06 0Z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </button>
+                    
+                    <div className="pt-tiny-swiper__content media-set__swiper--tiny">
+                      <div 
+                        className={`media-set-image BS-22-1-1 ${activePreviewType === 'room' ? 'media-set-image--selected' : ''}`}
+                        onClick={() => {
+                          setActivePreviewType('room');
+                          setActivePreviewTab('wall');
+                        }}
+                        style={{ cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
+                      >
+                        <div className="media-set-preview-thumb-bg" style={{ backgroundImage: `url(${details.roomBackground})`, width: '100%', height: '100%', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+                        <div className="media-set-preview__composition-container" style={{ left: '14.0089%', top: '15.2589%', width: '18.6422%', height: '28.2222%', position: 'absolute' }}>
+                          <div className="composition-preview" style={{ width: '100%', height: '100%' }}>
+                            <div className="composition-preview__composition" style={{ aspectRatio: '1 / 1', width: '100%', height: '100%', position: 'relative' }}>
+                              <div className="composition-preview__printable-area" style={{ width: '100%', height: '100%', top: '0%', left: '0%' }}>
+                                <div className="composition-preview-box" style={{ width: '100%', height: '100%', top: '0%', left: '0%' }}>
+                                  <div 
+                                    className="composition-preview-box__image" 
+                                    style={{ 
+                                      position: 'absolute', 
+                                      backgroundImage: `url(${product.image})`, 
+                                      width: '100%', 
+                                      height: '100%', 
+                                      left: '0px', 
+                                      top: '0px',
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center'
+                                    }}
+                                  ></div>
+                                </div>
+                              </div>
+                              <div className="dibond-print-shadow" style={{ position: 'absolute', width: '100%', height: '100%', top: '0%', left: '0%', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {details.details.map((item, idx) => (
+                        <div 
+                          key={idx}
+                          className={`media-set-image BS-22-1-1 ${activePreviewType === `detail-${idx}` ? 'media-set-image--selected' : ''}`}
+                          onClick={() => {
+                            setActivePreviewType(`detail-${idx}`);
+                            setActivePreviewTab('prints');
+                          }}
+                          style={{ backgroundImage: `url(${item.url})`, cursor: 'pointer', backgroundSize: 'cover', backgroundPosition: 'center' }}
+                        >
+                        </div>
+                      ))}
+                    </div>
+
+                    <button 
+                      className="pt-tiny-swiper__nav pt-tiny-swiper__next BS-5-3-2" 
+                      type="button"
+                      onClick={() => {
+                        if (activePreviewType === 'room') {
+                          setActivePreviewType('detail-0');
+                          setActivePreviewTab('prints');
+                        } else {
+                          const idx = parseInt(activePreviewType.split('-')[1]);
+                          if (idx === details.details.length - 1) {
+                            setActivePreviewType('room');
+                            setActivePreviewTab('wall');
+                          } else {
+                            setActivePreviewType(`detail-${idx + 1}`);
+                            setActivePreviewTab('prints');
+                          }
+                        }
+                      }}
+                    >
+                      <div className="pt-button__content">
+                        <div className="pt-button__inner">
+                          <svg viewBox="0 0 16 16" className="IS-5 pt-button__icon--desktop" style={{ width: '16px', height: '16px', fill: 'currentColor' }}>
+                            <path d="M4.47 15.53a.75.75 0 0 1 0-1.06L10.94 8 4.47 1.53A.75.75 0 0 1 5.53.47l7 7a.75.75 0 0 1 0 1.06l-7 7a.75.75 0 0 1-1.06 0Z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column: Customizer Selector panel */}
+            <div className="pdp-preview__cta-container PDP-20-1-1">
+              <div className="pdp-preview__cta-container-header SF-1-2">
+                Style your {product.name}
+              </div>
+              <div className="pdp-preview__cta-container-content">
+                <div className="pdp-products-form">
+                  <form className="pt-form" onSubmit={(e) => e.preventDefault()}>
+                    <div className="pt-form--layout">
+                      
+                      {/* Size Select Field */}
+                      <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2">
+                        <div className="FE-2-2">
+                          <div className="FE-2-2__header">
+                            <span>Size</span>
+                          </div>
+                        </div>
+                        <div className="pt-dropdown-input">
+                          <div className="pt-system-dropdown-wrapper full-width">
+                            <select 
+                              className="pdp-select-input"
+                              value={selectedSize.id}
+                              onChange={(e) => {
+                                const size = MOCK_SIZES.find(s => s.id === e.target.value);
+                                if (size) setSelectedSize(size);
+                              }}
+                            >
+                              {MOCK_SIZES.map((size) => (
+                                <option key={size.id} value={size.id}>
+                                  {size.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Frame option select if applicable */}
+                      {hasFrameOptions && (
+                        <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2">
+                          <div className="FE-2-2">
+                            <div className="FE-2-2__header">
+                              <span>Frame Option</span>
+                            </div>
+                          </div>
+                          <div className="pt-dropdown-input">
+                            <div className="pt-system-dropdown-wrapper full-width">
+                              <select 
+                                className="pdp-select-input"
+                                value={selectedFrame.id}
+                                onChange={(e) => {
+                                  const frame = MOCK_FRAMES.find(f => f.id === e.target.value);
+                                  if (frame) setSelectedFrame(frame);
+                                }}
+                              >
+                                {MOCK_FRAMES.map((frame) => (
+                                  <option key={frame.id} value={frame.id}>
+                                    {frame.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Paper Type Select Field */}
+                      <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2">
+                        <div className="FE-2-2">
+                          <div className="FE-2-2__header">
+                            <span>Paper Type</span>
+                          </div>
+                        </div>
+                        <div className="pt-dropdown-input">
+                          <div className="pt-system-dropdown-wrapper full-width">
+                            <select 
+                              className="pdp-select-input"
+                              value={selectedPaper.id}
+                              onChange={(e) => {
+                                const paper = MOCK_PAPERS.find(p => p.id === e.target.value);
+                                if (paper) setSelectedPaper(paper);
+                              }}
+                            >
+                              {MOCK_PAPERS.map((paper) => (
+                                <option key={paper.id} value={paper.id}>
+                                  {paper.label}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Price display container box */}
+                      <div className="pdp-products-form__cta">
+                        <div className="pdp-products-form-cta__price">
+                          <div className="SF-1-3">${currentPrice.toFixed(2)}</div>
+                          <div className="SF-4-2">Tax not included</div>
+                        </div>
+                      </div>
+
+                      {/* CTA Action button outside the box */}
+                      <div className="pt-form-conclude FRMC-4-1">
+                        <div className="pt-form-alternatives">
+                          <button 
+                            className="BS-1-1-5 full-width" 
+                            data-component="BS-1-1-5" 
+                            type="button"
+                            onClick={handleStartCustomizing}
+                          >
+                            <div className="pt-button__content">
+                              <div className="pt-button__inner">
+                                <span>Select photos</span>
+                              </div>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+
+                    </div>
+                  </form>
+                </div>
+
+                {/* Collapsible Info Accordions */}
+                <div className="v-expansion-panels v-theme--light v-expansion-panels--variant-accordion pt-collapsible">
+                  
+                  {/* Product Info Panel */}
+                  <div className="product-info">
+                    <div className="v-expansion-panel pt-collapsible-item pdp-collapsible SF-3-4" data-component="PDP-23-1-1">
+                      <button 
+                        className="v-expansion-panel-title pt-collapsible-item__base CCE-5-1-1" 
+                        type="button" 
+                        aria-expanded={openAccordions.info}
+                        onClick={() => toggleAccordion('info')}
+                      >
+                        <div className="pt-collapsible-item__header CCE-5-4-1">Product Info</div>
+                        <span className="v-expansion-panel-title__icon">
+                          <svg viewBox="0 0 12 12" className={`IS-3 pt-collapsible-item__toggle-icon ${openAccordions.info ? 'rotated-180' : ''}`} style={{ width: '12px', height: '12px', transition: 'transform 0.2s', fill: 'currentColor' }}>
+                            <path d="M10.527 2.918a.75.75 0 0 1 1.055 1.056l-.052.056-5 5a.75.75 0 0 1-1.004.052L5.47 9.03l-5-5-.052-.056a.75.75 0 0 1 1.056-1.056l.056.052L6 7.44l4.47-4.47.056-.052Z" />
+                          </svg>
+                        </span>
+                      </button>
+                      {openAccordions.info && (
+                        <div className="v-expansion-panel-text" style={{ padding: '15px' }}>
+                          <ul className="pdp-info-bullets-list" style={{ listStyle: 'disc', paddingLeft: '20px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <li>Professional museum-grade printing using pigment ink</li>
+                            <li>Vibrant color accuracy, deep blacks, and fine contrast details</li>
+                            <li>Environmentally friendly backing made from 100% recycled materials</li>
+                            <li>Arrives fully compiled with ready-to-hang mounting attachments</li>
+                            <li>Premium structural build designed to stand flat against any wall</li>
+                          </ul>
+                        </div>
                       )}
                     </div>
                   </div>
-                </div>
-              ) : (
-                <img 
-                  src={getActivePreviewUrl()} 
-                  alt="Detail Preview" 
-                  className="pdp-detail-closeup-img"
-                />
-              )}
-            </div>
 
-            {/* Viewport Toggles (Thumbnails row underneath room mockup) */}
-            <div className="pdp-preview-thumbnails-row">
-              <button 
-                className={`pdp-preview-thumb-btn ${activePreviewType === 'room' ? 'active' : ''}`}
-                onClick={() => setActivePreviewType('room')}
-              >
-                <img src={details.roomBackground} alt="Room" className="pdp-preview-thumb-img" />
-                <span className="pdp-preview-thumb-label">Room View</span>
-              </button>
-              
-              {details.details.map((item, idx) => (
-                <button 
-                  key={idx}
-                  className={`pdp-preview-thumb-btn ${activePreviewType === `detail-${idx}` ? 'active' : ''}`}
-                  onClick={() => setActivePreviewType(`detail-${idx}`)}
-                >
-                  <img src={item.url} alt={item.name} className="pdp-preview-thumb-img" />
-                  <span className="pdp-preview-thumb-label">{item.name}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Right Side: Configuration Options Selector panel */}
-          <div className="pdp-configurator-options-section">
-            <h2 className="pdp-configurator-title">Style your {product.name}</h2>
-
-            {/* Size Dropdown Select */}
-            <div className="pdp-option-group">
-              <label className="pdp-option-label">Size</label>
-              <div className="pdp-dropdown-wrapper">
-                <select 
-                  className="pdp-select-input"
-                  value={selectedSize.id}
-                  onChange={(e) => {
-                    const size = MOCK_SIZES.find(s => s.id === e.target.value);
-                    if (size) setSelectedSize(size);
-                  }}
-                >
-                  {MOCK_SIZES.map((size) => (
-                    <option key={size.id} value={size.id}>
-                      {size.label} {size.priceModifier > 0 ? `(+₹${size.priceModifier.toFixed(2)})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Frame Dropdown Select (Conditional) */}
-            {hasFrameOptions && (
-              <div className="pdp-option-group">
-                <label className="pdp-option-label">Frame Option</label>
-                <div className="pdp-dropdown-wrapper">
-                  <select 
-                    className="pdp-select-input"
-                    value={selectedFrame.id}
-                    onChange={(e) => {
-                      const frame = MOCK_FRAMES.find(f => f.id === e.target.value);
-                      if (frame) setSelectedFrame(frame);
-                    }}
-                  >
-                    {MOCK_FRAMES.map((frame) => (
-                      <option key={frame.id} value={frame.id}>
-                        {frame.label} {frame.priceModifier > 0 ? `(+₹${frame.priceModifier.toFixed(2)})` : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            )}
-
-            {/* Paper Type Dropdown Select */}
-            <div className="pdp-option-group">
-              <label className="pdp-option-label">Paper Type</label>
-              <div className="pdp-dropdown-wrapper">
-                <select 
-                  className="pdp-select-input"
-                  value={selectedPaper.id}
-                  onChange={(e) => {
-                    const paper = MOCK_PAPERS.find(p => p.id === e.target.value);
-                    if (paper) setSelectedPaper(paper);
-                  }}
-                >
-                  {MOCK_PAPERS.map((paper) => (
-                    <option key={paper.id} value={paper.id}>
-                      {paper.label} {paper.priceModifier > 0 ? `(+₹${paper.priceModifier.toFixed(2)})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <p className="pdp-option-help-text">{selectedPaper.description}</p>
-            </div>
-
-            {/* Price & Primary Action Panel */}
-            <div className="pdp-purchase-actions-box">
-              <div className="pdp-price-summary-row">
-                <span className="pdp-calculated-price">₹{currentPrice.toFixed(2)}</span>
-                <span className="pdp-tax-disclaimer">Tax not included</span>
-              </div>
-              
-              <button 
-                className="pdp-submit-select-photos-btn"
-                onClick={handleStartCustomizing}
-              >
-                Select photos
-              </button>
-            </div>
-
-            {/* Collapsible Info Accordions */}
-            <div className="pdp-accordions-group">
-              {/* Accordion 1: Product Info */}
-              <div className="pdp-accordion-item">
-                <button 
-                  className="pdp-accordion-header"
-                  onClick={() => toggleAccordion('info')}
-                >
-                  <span className="pdp-accordion-header-title">Product Info</span>
-                  <span className="pdp-accordion-icon">{openAccordions.info ? '−' : '+'}</span>
-                </button>
-                {openAccordions.info && (
-                  <div className="pdp-accordion-body">
-                    <ul className="pdp-info-bullets-list">
-                      <li>Professional museum-grade printing using pigment ink</li>
-                      <li>Vibrant color accuracy, deep blacks, and fine contrast details</li>
-                      <li>Environmentally friendly backing made from 100% recycled materials</li>
-                      <li>Arrives fully compiled with ready-to-hang mounting attachments</li>
-                      <li>Premium structural build designed to stand flat against any wall</li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-
-              {/* Accordion 2: Production & Shipping */}
-              <div className="pdp-accordion-item">
-                <button 
-                  className="pdp-accordion-header"
-                  onClick={() => toggleAccordion('shipping')}
-                >
-                  <span className="pdp-accordion-header-title">Production & shipping</span>
-                  <span className="pdp-accordion-icon">{openAccordions.shipping ? '−' : '+'}</span>
-                </button>
-                {openAccordions.shipping && (
-                  <div className="pdp-accordion-body">
-                    <div className="pdp-shipping-info-row">
-                      <Package size={18} strokeWidth={1.5} className="pdp-shipping-icon" />
-                      <div>
-                        <strong>Ready to ship in 3-5 business days</strong>
-                        <p>Every customized frame is individually checked, assembled, and packed by hand.</p>
-                      </div>
-                    </div>
-                    <div className="pdp-shipping-info-row">
-                      <Truck size={18} strokeWidth={1.5} className="pdp-shipping-icon" />
-                      <div>
-                        <strong>Free shipping on orders above ₹2,000.00</strong>
-                        <p>We deliver using robust protective casing to ensure safe arrival at your home.</p>
-                      </div>
+                  {/* Production & Shipping Panel */}
+                  <div className="production-and-shipping-container">
+                    <div className="v-expansion-panel pt-collapsible-item pdp-collapsible SF-3-4" data-component="PDP-23-1-1">
+                      <button 
+                        className="v-expansion-panel-title pt-collapsible-item__base CCE-5-1-1" 
+                        type="button" 
+                        aria-expanded={openAccordions.shipping}
+                        onClick={() => toggleAccordion('shipping')}
+                      >
+                        <div className="pt-collapsible-item__header CCE-5-4-1">Production & shipping</div>
+                        <span className="v-expansion-panel-title__icon">
+                          <svg viewBox="0 0 12 12" className={`IS-3 pt-collapsible-item__toggle-icon ${openAccordions.shipping ? 'rotated-180' : ''}`} style={{ width: '12px', height: '12px', transition: 'transform 0.2s', fill: 'currentColor' }}>
+                            <path d="M10.527 2.918a.75.75 0 0 1 1.055 1.056l-.052.056-5 5a.75.75 0 0 1-1.004.052L5.47 9.03l-5-5-.052-.056a.75.75 0 0 1 1.056-1.056l.056.052L6 7.44l4.47-4.47.056-.052Z" />
+                          </svg>
+                        </span>
+                      </button>
+                      {openAccordions.shipping && (
+                        <div className="v-expansion-panel-text" style={{ display: 'block', padding: '15px' }}>
+                          <div className="pdp-shipping-info-row" style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                            <Package size={18} strokeWidth={1.5} className="pdp-shipping-icon" />
+                            <div>
+                              <strong>Ready to ship in 3-5 business days</strong>
+                              <p style={{ margin: '4px 0 0', color: '#666', fontSize: '13px' }}>Every customized frame is individually checked, assembled, and packed by hand.</p>
+                            </div>
+                          </div>
+                          <div className="pdp-shipping-info-row" style={{ display: 'flex', gap: '12px' }}>
+                            <Truck size={18} strokeWidth={1.5} className="pdp-shipping-icon" />
+                            <div>
+                              <strong>Free shipping on orders above $200.00</strong>
+                              <p style={{ margin: '4px 0 0', color: '#666', fontSize: '13px' }}>We deliver using robust protective casing to ensure safe arrival at your home.</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
+
+                </div>
               </div>
             </div>
+
           </div>
         </div>
+        <div className="pdp-bottom-filler" style={{ height: '100px' }}></div>
       </div>
     </div>
   );
