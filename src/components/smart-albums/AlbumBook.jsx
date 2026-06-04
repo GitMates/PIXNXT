@@ -11,6 +11,7 @@ import {
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getAlbumSpreadOptions,
+    getEndSpreadPageIndices,
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
@@ -421,23 +422,53 @@ const AlbumBook = ({
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
     const frontCoverOnly = album?.has_covers === true && spreadIndex === 0;
+    const endCoverOnly =
+        album?.has_covers === true &&
+        isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
     const [coverClipTransition, setCoverClipTransition] = useState(null);
     const [coverRevealOpen, setCoverRevealOpen] = useState(false);
     const [coverHideReveal, setCoverHideReveal] = useState(true);
+    const [endClipTransition, setEndClipTransition] = useState(null);
+    const [endRevealOpen, setEndRevealOpen] = useState(false);
+    const [endHideReveal, setEndHideReveal] = useState(true);
     const showCoverClip =
         album?.has_covers === true && (frontCoverOnly || coverClipTransition != null);
+    const showEndClip =
+        album?.has_covers === true && (endCoverOnly || endClipTransition != null);
     const coverWrapClassName = useMemo(() => {
-        if (!showCoverClip) return '';
-        let cls = ' ab-flipbook-wrap--front-cover-only';
-        if (coverClipTransition) cls += ' ab-flipbook-wrap--front-cover-transition';
-        if (
-            (coverClipTransition === 'reveal' && coverRevealOpen) ||
-            (coverClipTransition === 'hide' && coverHideReveal)
-        ) {
-            cls += ' ab-flipbook-wrap--front-cover-reveal';
+        if (showCoverClip) {
+            let cls = ' ab-flipbook-wrap--front-cover-only';
+            if (coverClipTransition) cls += ' ab-flipbook-wrap--front-cover-transition';
+            if (
+                (coverClipTransition === 'reveal' && coverRevealOpen) ||
+                (coverClipTransition === 'hide' && coverHideReveal)
+            ) {
+                cls += ' ab-flipbook-wrap--front-cover-reveal';
+            }
+            return cls;
         }
-        return cls;
-    }, [showCoverClip, coverClipTransition, coverRevealOpen, coverHideReveal]);
+        if (showEndClip) {
+            let cls = ' ab-flipbook-wrap--end-cover-only';
+            if (endClipTransition) cls += ' ab-flipbook-wrap--end-cover-transition';
+            if (
+                (endClipTransition === 'reveal' && endRevealOpen) ||
+                (endClipTransition === 'hide' && endHideReveal)
+            ) {
+                cls += ' ab-flipbook-wrap--end-cover-reveal';
+            }
+            return cls;
+        }
+        return '';
+    }, [
+        showCoverClip,
+        showEndClip,
+        coverClipTransition,
+        coverRevealOpen,
+        coverHideReveal,
+        endClipTransition,
+        endRevealOpen,
+        endHideReveal,
+    ]);
 
     const syncNavDisabled = useCallback(() => {
         const flipping = isFlippingRef.current;
@@ -480,13 +511,16 @@ const AlbumBook = ({
             isFlippingRef.current = flipping;
             setFlippingUi(flipping);
             syncNavDisabled();
-            if (!flipping && coverClipTransition) {
+            if (!flipping && (coverClipTransition || endClipTransition)) {
                 setCoverClipTransition(null);
                 setCoverRevealOpen(false);
                 setCoverHideReveal(true);
+                setEndClipTransition(null);
+                setEndRevealOpen(false);
+                setEndHideReveal(true);
             }
         },
-        [coverClipTransition, setFlippingUi, syncNavDisabled]
+        [coverClipTransition, endClipTransition, setFlippingUi, syncNavDisabled]
     );
 
     const flipPrev = useCallback(() => {
@@ -504,9 +538,32 @@ const AlbumBook = ({
             return;
         }
 
+        if (album?.has_covers && endCoverOnly) {
+            const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+            const current = api.getCurrentPageIndex();
+            const startEndRevealAndFlip = () => {
+                setEndClipTransition('reveal');
+                setEndRevealOpen(false);
+                requestAnimationFrame(() => {
+                    setEndRevealOpen(true);
+                    if (typeof api.flipPrev === 'function') api.flipPrev();
+                    else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
+                });
+            };
+            if (current > endLeft) {
+                api.turnToPage(endLeft);
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(startEndRevealAndFlip);
+                });
+                return;
+            }
+            startEndRevealAndFlip();
+            return;
+        }
+
         if (typeof api.flipPrev === 'function') api.flipPrev();
         else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-    }, [album?.has_covers, spreadIndex]);
+    }, [album?.has_covers, endCoverOnly, spreadIndex, totalPages]);
 
     const flipNext = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -534,9 +591,24 @@ const AlbumBook = ({
             return;
         }
 
+        if (album?.has_covers && spreadIndex === totalSpreads - 2) {
+            const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+            const current = api.getCurrentPageIndex();
+            if (current === endLeft - 1) {
+                setEndClipTransition('hide');
+                setEndHideReveal(true);
+                requestAnimationFrame(() => {
+                    setEndHideReveal(false);
+                    if (typeof api.flipNext === 'function') api.flipNext();
+                    else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
+                });
+                return;
+            }
+        }
+
         if (typeof api.flipNext === 'function') api.flipNext();
         else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
-    }, [album?.has_covers, spreadIndex]);
+    }, [album?.has_covers, spreadIndex, totalPages, totalSpreads]);
 
     useEffect(() => {
         const onKey = (e) => {

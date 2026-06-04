@@ -253,6 +253,25 @@
   pointer-events: none !important;
 }
 
+/* End cover spread: clip blank right page; back photo stays on the left half */
+.ab-flipbook-wrap--end-cover-only {
+  overflow: hidden;
+  clip-path: inset(0 50% 0 0);
+}
+
+.ab-flipbook-wrap--end-cover-only.ab-flipbook-wrap--end-cover-transition {
+  transition: clip-path 800ms cubic-bezier(0.33, 1, 0.68, 1);
+  will-change: clip-path;
+}
+
+.ab-flipbook-wrap--end-cover-only.ab-flipbook-wrap--end-cover-reveal {
+  clip-path: inset(0 0 0 0);
+}
+
+.ab-flipbook-wrap--end-cover-only .stf__item:has(.ab-flip-page--half-blank) {
+  pointer-events: none !important;
+}
+
 .ab-html-flipbook {
   margin: 0 auto;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
