@@ -384,7 +384,7 @@ const Dashboard = () => {
               <div className="dash-quick-card-body">
                 <h3>Setup your 24/7 Print Store</h3>
                 <p>Launch your online store in 4 easy steps</p>
-                <button className="dash-get-started-btn">Get Started</button>
+                <button className="dash-get-started-btn" onClick={() => navigate('/printstore')}>Get Started</button>
               </div>
             </div>
 

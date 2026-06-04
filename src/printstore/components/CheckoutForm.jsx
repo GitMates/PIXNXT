@@ -1,0 +1,240 @@
+import React, { useState } from 'react';
+import { CreditCard, ArrowLeft, CheckCircle } from 'lucide-react';
+
+export default function CheckoutForm({ cartItems, onOrderCompleted, onBackToShopping }) {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    address: '',
+    city: '',
+    zip: '',
+    cardNumber: '',
+    expiry: '',
+    cvv: ''
+  });
+
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.name || !formData.email || !formData.address || !formData.cardNumber) {
+      alert("Please fill in the required fields (Name, Email, Address, Card Number).");
+      return;
+    }
+
+    setSubmitting(true);
+    // Mock processing payment
+    setTimeout(() => {
+      setSubmitting(false);
+      onOrderCompleted();
+    }, 1500);
+  };
+
+  const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
+  const shipping = subtotal > 100 ? 0 : 9.99;
+  const tax = subtotal * 0.08; // 8% sales tax
+  const total = subtotal + shipping + tax;
+
+  return (
+    <div className="checkout-section">
+      {/* Main Billing Shipping Details */}
+      <div className="checkout-main">
+        <button
+          onClick={onBackToShopping}
+          style={{
+            background: 'none',
+            border: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            marginBottom: '1.5rem',
+            color: '#666666'
+          }}
+        >
+          <ArrowLeft size={16} />
+          Back to Shopping
+        </button>
+
+        <form onSubmit={handleSubmit}>
+          <div className="checkout-step-title">1. Shipping Information</div>
+          <div className="checkout-form-grid">
+            <div className="form-group checkout-form-col-span-2">
+              <label className="form-label" htmlFor="chk-name">Full Name *</label>
+              <input
+                id="chk-name"
+                type="text"
+                name="name"
+                required
+                className="form-input"
+                placeholder="Nandha"
+                value={formData.name}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="form-group checkout-form-col-span-2">
+              <label className="form-label" htmlFor="chk-email">Email Address *</label>
+              <input
+                id="chk-email"
+                type="email"
+                name="email"
+                required
+                className="form-input"
+                placeholder="kbaskaran@example.com"
+                value={formData.email}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="form-group checkout-form-col-span-2">
+              <label className="form-label" htmlFor="chk-address">Shipping Address *</label>
+              <input
+                id="chk-address"
+                type="text"
+                name="address"
+                required
+                className="form-input"
+                placeholder="123 Gallery Lane"
+                value={formData.address}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="chk-city">City *</label>
+              <input
+                id="chk-city"
+                type="text"
+                name="city"
+                required
+                className="form-input"
+                placeholder="Chennai"
+                value={formData.city}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="chk-zip">Postal Code / ZIP *</label>
+              <input
+                id="chk-zip"
+                type="text"
+                name="zip"
+                required
+                className="form-input"
+                placeholder="600001"
+                value={formData.zip}
+                onChange={handleInputChange}
+              />
+            </div>
+          </div>
+
+          <div className="checkout-step-title">2. Payment Method</div>
+          <div className="checkout-payment-box">
+            <div className="checkout-form-grid" style={{ marginBottom: 0 }}>
+              <div className="form-group checkout-form-col-span-2">
+                <label className="form-label" htmlFor="chk-card">Card Number *</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    id="chk-card"
+                    type="text"
+                    name="cardNumber"
+                    required
+                    className="form-input"
+                    placeholder="4111 2222 3333 4444"
+                    style={{ width: '100%', paddingLeft: '2.5rem' }}
+                    value={formData.cardNumber}
+                    onChange={handleInputChange}
+                  />
+                  <CreditCard size={18} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#888888' }} />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="chk-expiry">Expiry Date *</label>
+                <input
+                  id="chk-expiry"
+                  type="text"
+                  name="expiry"
+                  required
+                  className="form-input"
+                  placeholder="MM/YY"
+                  value={formData.expiry}
+                  onChange={handleInputChange}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label" htmlFor="chk-cvv">CVV *</label>
+                <input
+                  id="chk-cvv"
+                  type="password"
+                  name="cvv"
+                  required
+                  className="form-input"
+                  placeholder="•••"
+                  maxLength={4}
+                  value={formData.cvv}
+                  onChange={handleInputChange}
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="add-to-cart-submit"
+            style={{ width: '100%', height: '48px', marginTop: '1rem' }}
+            disabled={submitting}
+          >
+            {submitting ? 'Processing Payment...' : `Place Order — ₹${total.toFixed(2)}`}
+          </button>
+        </form>
+      </div>
+
+      {/* Sidebar Summary */}
+      <div className="checkout-sidebar">
+        <h3 className="checkout-step-title" style={{ borderBottom: '1px solid #eaeaea' }}>Order Details</h3>
+        
+        {/* Cart items list */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem', maxHeight: '300px', overflowY: 'auto' }}>
+          {cartItems.map((item) => (
+            <div key={item.id} style={{ display: 'flex', gap: '0.75rem', fontSize: '0.85rem' }}>
+              <img src={item.photo.url} alt={item.photo.name} style={{ width: '50px', height: '50px', objectFit: 'cover', border: '1px solid #eaeaea' }} />
+              <div>
+                <div style={{ fontWeight: 500, color: '#111' }}>{item.productName}</div>
+                <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '2px' }}>
+                  {item.size.label} • Qty: {item.quantity}
+                </div>
+              </div>
+              <div style={{ marginLeft: 'auto', fontWeight: 500 }}>
+                ₹{(item.unitPrice * item.quantity).toFixed(2)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Dynamic Calculations */}
+        <div className="checkout-order-summary-box">
+          <div className="checkout-summary-item">
+            <span>Subtotal</span>
+            <span>₹{subtotal.toFixed(2)}</span>
+          </div>
+          <div className="checkout-summary-item">
+            <span>Shipping</span>
+            <span>{shipping === 0 ? 'Free' : `₹${shipping.toFixed(2)}`}</span>
+          </div>
+          <div className="checkout-summary-item">
+            <span>Sales Tax (8%)</span>
+            <span>₹{tax.toFixed(2)}</span>
+          </div>
+          <div className="checkout-summary-total">
+            <span>Total</span>
+            <span>₹{total.toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

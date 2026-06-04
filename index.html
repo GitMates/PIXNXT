@@ -6,6 +6,26 @@
   <link rel="icon" type="image/png" href="/logo.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>pixnxt</title>
+  <script>
+    window.onerror = function (message, source, lineno, colno, error) {
+      var div = document.createElement('div');
+      div.style.position = 'fixed';
+      div.style.top = '0';
+      div.style.left = '0';
+      div.style.width = '100vw';
+      div.style.height = '100vh';
+      div.style.backgroundColor = '#ffeeee';
+      div.style.color = '#aa0000';
+      div.style.padding = '30px';
+      div.style.fontFamily = 'monospace';
+      div.style.fontSize = '14px';
+      div.style.zIndex = '999999';
+      div.style.overflow = 'auto';
+      div.innerHTML = '<h1 style="color:#aa0000;font-size:20px;margin-bottom:15px;text-transform:uppercase;">Early Script Error Detected</h1><pre style="white-space:pre-wrap;">' + (error ? error.stack : message + ' (' + source + ':' + lineno + ')') + '</pre>';
+      document.body.appendChild(div);
+      return false;
+    };
+  </script>
 </head>
 
 <body>
