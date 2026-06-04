@@ -431,6 +431,8 @@ const AlbumBook = ({
     const [endRevealOpen, setEndRevealOpen] = useState(false);
     const [endHideReveal, setEndHideReveal] = useState(true);
     const [bookFlipping, setBookFlipping] = useState(false);
+    const prevNavDisabled = atStart || bookFlipping;
+    const nextNavDisabled = atEnd || bookFlipping;
     const showCoverClip =
         album?.has_covers === true &&
         (frontCoverOnly ||
@@ -470,12 +472,6 @@ const AlbumBook = ({
         endHideReveal,
     ]);
 
-    const syncNavDisabled = useCallback(() => {
-        const flipping = isFlippingRef.current;
-        if (prevNavRef.current) prevNavRef.current.disabled = atStart || flipping;
-        if (nextNavRef.current) nextNavRef.current.disabled = atEnd || flipping;
-    }, [atStart, atEnd]);
-
     const setFlippingUi = useCallback((flipping) => {
         rootRef.current?.classList.toggle('ab-root--flipping', flipping);
         stageOuterRef.current?.classList.toggle('ab-book-stage--flipping', flipping);
@@ -511,17 +507,36 @@ const AlbumBook = ({
             isFlippingRef.current = flipping;
             setBookFlipping(flipping);
             setFlippingUi(flipping);
-            syncNavDisabled();
-            if (!flipping && (coverClipTransition || endClipTransition)) {
-                setCoverClipTransition(null);
-                setCoverRevealOpen(false);
-                setEndClipTransition(null);
-                setEndRevealOpen(false);
-                setEndHideReveal(true);
+
+            if (!flipping) {
+                const api = bookRef.current?.pageFlip?.();
+                if (api?.getFlipController?.()) {
+                    const idx = api.getCurrentPageIndex();
+                    setPageIndex(idx);
+                    onPageChange?.(idx);
+                }
+                if (coverClipTransition || endClipTransition) {
+                    setCoverClipTransition(null);
+                    setCoverRevealOpen(false);
+                    setEndClipTransition(null);
+                    setEndRevealOpen(false);
+                    setEndHideReveal(true);
+                }
             }
         },
-        [coverClipTransition, endClipTransition, setFlippingUi, syncNavDisabled]
+        [coverClipTransition, endClipTransition, onPageChange, setFlippingUi]
     );
+
+    useEffect(() => {
+        if (!bookFlipping) return undefined;
+        const timer = window.setTimeout(() => {
+            if (!isFlippingRef.current) return;
+            isFlippingRef.current = false;
+            setBookFlipping(false);
+            setFlippingUi(false);
+        }, FLIP_TIME_MS + 120);
+        return () => window.clearTimeout(timer);
+    }, [bookFlipping, setFlippingUi]);
 
     const flipPrev = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -645,10 +660,6 @@ const AlbumBook = ({
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [flipPrev, flipNext]);
-
-    useEffect(() => {
-        syncNavDisabled();
-    }, [atStart, atEnd, syncNavDisabled]);
 
     useEffect(() => {
         if (!overviewOpen) return undefined;
@@ -1108,9 +1119,11 @@ const AlbumBook = ({
             <button
                 type="button"
                 ref={prevNavRef}
-                className="ab-nav ab-nav--prev"
+                className={`ab-nav ab-nav--prev${
+                    !prevNavDisabled ? ' ab-nav--enabled' : ''
+                }`}
                 onClick={flipPrev}
-                disabled={atStart}
+                disabled={prevNavDisabled}
                 aria-label="Previous page"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
@@ -1254,9 +1267,11 @@ const AlbumBook = ({
             <button
                 type="button"
                 ref={nextNavRef}
-                className="ab-nav ab-nav--next"
+                className={`ab-nav ab-nav--next${
+                    !nextNavDisabled ? ' ab-nav--enabled' : ''
+                }`}
                 onClick={flipNext}
-                disabled={atEnd}
+                disabled={nextNavDisabled}
                 aria-label="Next page"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
@@ -1345,7 +1360,9 @@ const AlbumBook = ({
                                     type="button"
                                     className={`ab-overview-item${
                                         isCover ? ' ab-overview-item--cover' : ''
-                                    }${isCurrent ? ' ab-overview-item--active' : ''}${
+                                    }${isEndSpread ? ' ab-overview-item--back' : ''}${
+                                        isCurrent ? ' ab-overview-item--active' : ''
+                                    }${
                                         spreadComments?.length ? ' ab-overview-item--has-comments' : ''
                                     }`}
                                     onClick={() => {
@@ -1367,31 +1384,23 @@ const AlbumBook = ({
                                                     loading="lazy"
                                                 />
                                             </span>
+                                        ) : isCover ? (
+                                            <span className="ab-overview-page ab-overview-page--cover-single">
+                                                <OverviewCoverPhoto src={rightSrc || leftSrc} />
+                                            </span>
                                         ) : isEndHalf && bookWrapSrc ? (
-                                            <>
-                                                <span className="ab-overview-page ab-overview-page--end-left">
-                                                    <img
-                                                        className="ab-overview-book-wrap--left"
-                                                        src={bookWrapSrc}
-                                                        alt=""
-                                                        loading="lazy"
-                                                    />
-                                                </span>
-                                                <span
-                                                    className="ab-overview-page ab-overview-page--cover-blank"
-                                                    aria-hidden
+                                            <span className="ab-overview-page ab-overview-page--end-single">
+                                                <img
+                                                    className="ab-overview-book-wrap--left"
+                                                    src={bookWrapSrc}
+                                                    alt=""
+                                                    loading="lazy"
                                                 />
-                                            </>
+                                            </span>
                                         ) : isEndHalf ? (
-                                            <>
-                                                <span className="ab-overview-page ab-overview-page--end-left">
-                                                    <OverviewCoverPhoto src={leftSrc} />
-                                                </span>
-                                                <span
-                                                    className="ab-overview-page ab-overview-page--cover-blank"
-                                                    aria-hidden
-                                                />
-                                            </>
+                                            <span className="ab-overview-page ab-overview-page--end-single">
+                                                <OverviewCoverPhoto src={leftSrc} />
+                                            </span>
                                         ) : (
                                             <>
                                                 <span className="ab-overview-page">

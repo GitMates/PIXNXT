@@ -1025,6 +1025,16 @@
   flex: 1;
 }
 
+/* Let page curls and shadows paint in the canvas margin during flips */
+.ae-body:has(.ab-root--flipping),
+.ae-body:has(.ab-flip-escape--flipping),
+.ae-canvas:has(.ab-root--flipping),
+.ae-canvas:has(.ab-book-stage--flipping),
+.ae-canvas:has(.ab-flip-escape--flipping),
+.ae-canvas-stage:has(.ab-flip-escape--flipping) {
+  overflow: visible;
+}
+
 @media (max-width: 900px) {
   .ae-sidebar {
     width: 272px;
