@@ -26,7 +26,6 @@ import {
     moveFileInOrder,
     moveItemInOrder,
 } from '../../lib/uploadFileOrder';
-import CreateAlbumSpreadViz from './CreateAlbumSpreadViz.jsx';
 import './CreateAlbum.css';
 
 const COVER_OPTIONS = [
@@ -37,16 +36,7 @@ const COVER_OPTIONS = [
 const GRID_LAYOUT_OPTIONS = [
     { value: 'two-page', label: 'Two-page grid (left + right)' },
     { value: 'whole-spread', label: 'Whole-spread photo' },
-    { value: 'custom', label: 'Custom' },
 ];
-
-function normalizeCustomKey(value, fallback = 'custom') {
-    return String(value || fallback)
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || fallback;
-}
 
 function CustomSelect({ id, value, options, onChange, placeholder = 'Select' }) {
     const [open, setOpen] = useState(false);
@@ -226,7 +216,6 @@ const CreateAlbum = () => {
     const [date, setDate] = useState('');
     const [coverMode, setCoverMode] = useState('with');
     const [gridLayout, setGridLayout] = useState('two-page');
-    const [customGridLayout, setCustomGridLayout] = useState('');
     const [detectedGridSize, setDetectedGridSize] = useState('square');
     const [detectedSpreadGridSize, setDetectedSpreadGridSize] = useState(null);
 
@@ -244,17 +233,8 @@ const CreateAlbum = () => {
 
     const includeCovers = coverMode === 'with';
 
-    const resolvedGridLayout = useMemo(() => {
-        if (gridLayout === 'custom') {
-            return `custom-${normalizeCustomKey(customGridLayout)}`;
-        }
-        return gridLayout;
-    }, [gridLayout, customGridLayout]);
-
-    const gridLayoutForDetection = useMemo(() => {
-        if (gridLayout === 'custom') return resolvedGridLayout;
-        return gridLayout;
-    }, [gridLayout, resolvedGridLayout]);
+    const resolvedGridLayout = gridLayout;
+    const gridLayoutForDetection = gridLayout;
 
     const displayPhotoCount =
         previewSlots.length > 0 ? previewSlots.length : expandedPhotoCount;
@@ -420,19 +400,6 @@ const CreateAlbum = () => {
     const analyzingUploads = photoCountBusy || gridSizeBusy;
     const animatePreviewCards = previewSlots.length <= 12;
 
-    const detectedGridLabel = useMemo(() => {
-        if (!displayPhotoCount || analyzingUploads) return '';
-        return formatGridSizeLabelForLayout(detectedGridSize, gridLayoutForDetection, {
-            spreadGridSize: detectedSpreadGridSize,
-        });
-    }, [
-        displayPhotoCount,
-        analyzingUploads,
-        detectedGridSize,
-        gridLayoutForDetection,
-        detectedSpreadGridSize,
-    ]);
-
     const applyPhotoFiles = useCallback((files) => {
         if (files?.length) setPhotoFiles(files);
     }, []);
@@ -496,10 +463,7 @@ const CreateAlbum = () => {
         });
 
         try {
-            const finalGridLayout =
-                gridLayout === 'custom'
-                    ? `custom-${normalizeCustomKey(customGridLayout)}`
-                    : gridLayout;
+            const finalGridLayout = gridLayout;
 
             let photoCount = displayPhotoCount || expandedPhotoCount;
             let finalGridSize = detectedGridSize;
@@ -725,6 +689,60 @@ const CreateAlbum = () => {
                             </div>
                         </section>
 
+                        <section className="sa-create-card">
+                            <div className="sa-section-heading">
+                                <span>Locked layout</span>
+                                <small>Cannot be changed after creation</small>
+                            </div>
+
+                            <div className="cc-form-group">
+                                <label className="cc-label" htmlFor="album-cover-mode">
+                                    Covers
+                                </label>
+                                <CustomSelect
+                                    id="album-cover-mode"
+                                    value={coverMode}
+                                    options={COVER_OPTIONS}
+                                    onChange={setCoverMode}
+                                />
+                                <p className="sa-field-note">
+                                    {includeCovers
+                                        ? 'First photo on the front cover right page (left blank); last photo on the end cover left page (right blank). Middle photos fill inner pages.'
+                                        : 'All uploaded photos fill pages in order — no dedicated cover spreads.'}
+                                </p>
+                            </div>
+
+                            <div className="cc-form-group">
+                                <label className="cc-label" htmlFor="album-grid-layout">
+                                    Grid Layout
+                                </label>
+                                <CustomSelect
+                                    id="album-grid-layout"
+                                    value={gridLayout}
+                                    options={GRID_LAYOUT_OPTIONS}
+                                    onChange={setGridLayout}
+                                />
+                            </div>
+
+                            <p className="sa-field-note">
+                                Layout and cover mode are locked after the album is created.
+                                    {displayPhotoCount > 0 && !analyzingUploads ? (
+                                    <>
+                                        {' '}
+                                        Detected grid:{' '}
+                                        {formatGridSizeLabelForLayout(
+                                            detectedGridSize,
+                                            gridLayoutForDetection,
+                                            { spreadGridSize: detectedSpreadGridSize }
+                                        )}
+                                        .
+                                    </>
+                                ) : (
+                                    <> Grid size is detected from your uploads.</>
+                                )}
+                            </p>
+                        </section>
+
                         <section className="sa-create-card sa-create-card--upload">
                             <div className="sa-section-heading">
                                 <span>Upload photos</span>
@@ -850,26 +868,6 @@ const CreateAlbum = () => {
                                             />
                                         ))}
                                     </div>
-                                    <p className="sa-upload-order-note">
-                                        {gridLayout === 'whole-spread'
-                                            ? includeCovers
-                                                ? 'Order 1 → cover, 2 → spread 1 (full width), 3 → spread 2, then on.'
-                                                : 'Order 1 → spread 1 (full width), 2 → spread 2, then on.'
-                                            : includeCovers
-                                              ? 'Order 1 → front cover right page, 2…n−1 → inner pages, last → end cover left page.'
-                                              : 'Order 1 → spread 1 left, 2 → spread 1 right, 3 → spread 2 left, then on.'}{' '}
-                                        Drag thumbnails if the picker order is wrong.
-                                    </p>
-
-                                    {!analyzingUploads && previewSlots.length > 0 ? (
-                                        <CreateAlbumSpreadViz
-                                            previewSlots={previewSlots}
-                                            includeCovers={includeCovers}
-                                            gridLayout={resolvedGridLayout}
-                                            pageGridSize={detectedGridSize}
-                                            gridSizeLabel={detectedGridLabel}
-                                        />
-                                    ) : null}
                                 </div>
                             ) : (
                                 <p className="sa-field-note">
@@ -916,70 +914,6 @@ const CreateAlbum = () => {
                                     )}
                                 </div>
                             )}
-                        </section>
-
-                        <section className="sa-create-card">
-                            <div className="sa-section-heading">
-                                <span>Locked layout</span>
-                                <small>Cannot be changed after creation</small>
-                            </div>
-
-                            <div className="cc-form-group">
-                                <label className="cc-label" htmlFor="album-cover-mode">
-                                    Covers
-                                </label>
-                                <CustomSelect
-                                    id="album-cover-mode"
-                                    value={coverMode}
-                                    options={COVER_OPTIONS}
-                                    onChange={setCoverMode}
-                                />
-                                <p className="sa-field-note">
-                                    {includeCovers
-                                        ? 'First photo on the front cover right page (left blank); last photo on the end cover left page (right blank). Middle photos fill inner pages.'
-                                        : 'All uploaded photos fill pages in order — no dedicated cover spreads.'}
-                                </p>
-                            </div>
-
-                            <div className="cc-form-group">
-                                <label className="cc-label" htmlFor="album-grid-layout">
-                                    Grid Layout
-                                </label>
-                                <CustomSelect
-                                    id="album-grid-layout"
-                                    value={gridLayout}
-                                    options={GRID_LAYOUT_OPTIONS}
-                                    onChange={setGridLayout}
-                                />
-                                {gridLayout === 'custom' && (
-                                    <input
-                                        type="text"
-                                        className="cc-input sa-custom-input"
-                                        value={customGridLayout}
-                                        onChange={(e) => setCustomGridLayout(e.target.value)}
-                                        placeholder="Custom layout label"
-                                        required
-                                    />
-                                )}
-                            </div>
-
-                            <p className="sa-field-note">
-                                Layout and cover mode are locked after the album is created.
-                                    {displayPhotoCount > 0 && !analyzingUploads ? (
-                                    <>
-                                        {' '}
-                                        Detected grid:{' '}
-                                        {formatGridSizeLabelForLayout(
-                                            detectedGridSize,
-                                            gridLayoutForDetection,
-                                            { spreadGridSize: detectedSpreadGridSize }
-                                        )}
-                                        .
-                                    </>
-                                ) : (
-                                    <> Grid size is detected from your uploads.</>
-                                )}
-                            </p>
                         </section>
 
                         <div className="cc-actions sa-create-actions">
