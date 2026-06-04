@@ -1,21 +1,56 @@
 @import '../CreateCollection.css';
 
+/* Slightly larger type, fields, and previews on the create-album flow */
 .sa-create-page {
   background: #f8f7fb;
 }
 
+.sa-create-page .cc-header-title {
+  font-size: 19px;
+}
+
+.sa-create-page .cc-label {
+  font-size: 14px;
+  margin-bottom: 13px;
+  letter-spacing: 0.08em;
+}
+
+.sa-create-page .cc-input {
+  height: 58px;
+  font-size: 17px;
+  padding: 0 18px;
+}
+
+.sa-create-page .cc-form-group .dp-wrapper {
+  height: 58px;
+  font-size: 17px;
+}
+
+.sa-create-page .cc-submit-btn {
+  height: 50px;
+  min-width: 168px;
+  padding: 0 36px;
+  font-size: 18px;
+  border-radius: 12px;
+}
+
+.sa-create-page .cc-cancel-btn {
+  font-size: 17px;
+  padding: 0 14px;
+}
+
 .sa-create-main {
   align-items: flex-start;
-  padding: 34px 24px 64px;
+  padding: 38px 28px 68px;
 }
 
 .sa-create-shell {
-  max-width: 920px;
+  max-width: 1000px;
 }
 
 .sa-create-intro {
-  margin-bottom: 18px;
-  padding: 24px 28px;
+  margin-bottom: 20px;
+  padding: 28px 32px;
   border: 1px solid #ece6f3;
   border-radius: 18px;
   background:
@@ -26,9 +61,9 @@
 
 .sa-create-kicker {
   display: inline-flex;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   color: #8e44ad;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -37,27 +72,27 @@
 .sa-create-intro h2 {
   margin: 0;
   color: #17111c;
-  font-size: clamp(22px, 3vw, 30px);
+  font-size: clamp(24px, 3.2vw, 34px);
   line-height: 1.15;
   font-weight: 800;
 }
 
 .sa-create-intro p {
-  max-width: 660px;
-  margin: 10px 0 0;
+  max-width: 700px;
+  margin: 12px 0 0;
   color: #665f6f;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.65;
 }
 
 .sa-create-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 16px;
+  gap: 18px;
 }
 
 .sa-create-card {
-  padding: 22px;
+  padding: 26px;
   border: 1px solid #ece6f3;
   border-radius: 18px;
   background: #fff;
@@ -81,19 +116,19 @@
 
 .sa-section-heading span {
   color: #17111c;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
 }
 
 .sa-section-heading small {
   color: #8a8294;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.4;
   text-align: right;
 }
 
 .sa-create-card .cc-form-group {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 }
 
 .sa-create-card .cc-form-group:last-child {
@@ -133,10 +168,6 @@
   background: #fcfbfd;
   box-sizing: border-box;
   min-width: 0;
-}
-
-.sa-create-page .cc-input {
-  height: 52px;
 }
 
 .sa-select-wrap {
@@ -194,11 +225,11 @@
   border-radius: 8px;
   background: transparent;
   color: #2d2238;
-  font-size: 14px;
+  font-size: 15px;
   line-height: 1.35;
   font-weight: 600;
   text-align: left;
-  padding: 10px 12px;
+  padding: 12px 14px;
   cursor: pointer;
 }
 
@@ -224,13 +255,13 @@
 }
 
 .sa-upload-card {
-  min-height: 132px;
+  min-height: 148px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 22px 18px;
+  gap: 10px;
+  padding: 26px 22px;
   border: 1.5px dashed #cdb6df;
   border-radius: 18px;
   background: linear-gradient(180deg, #fbf7ff 0%, #fff 100%);
@@ -253,8 +284,8 @@
 }
 
 .sa-upload-icon {
-  width: 46px;
-  height: 46px;
+  width: 52px;
+  height: 52px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -265,13 +296,13 @@
 
 .sa-upload-card strong {
   color: #17111c;
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 800;
 }
 
 .sa-upload-card small {
   color: #817789;
-  font-size: 12px;
+  font-size: 13px;
 }
 
 @keyframes sa-shimmer {
@@ -334,10 +365,10 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
-  gap: 10px 12px;
-  margin-bottom: 14px;
+  gap: 10px 14px;
+  margin-bottom: 16px;
   color: #2d2238;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -397,7 +428,7 @@
 }
 
 .sa-upload-detected-size {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: #7d3c98;
 }
@@ -410,7 +441,7 @@
   border: none;
   background: transparent;
   color: #8e44ad;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 800;
   cursor: pointer;
   transition: opacity 0.2s ease, color 0.2s ease;
@@ -423,10 +454,10 @@
 
 .sa-preview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  gap: 14px;
   align-items: start;
-  max-height: min(480px, 55vh);
+  max-height: min(540px, 58vh);
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -456,27 +487,27 @@
 
 .sa-preview-order {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 9px;
+  left: 9px;
   z-index: 4;
-  min-width: 22px;
-  height: 22px;
-  padding: 0 6px;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 7px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   background: rgba(22, 16, 29, 0.78);
   color: #fff;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1;
   pointer-events: none;
 }
 
 .sa-upload-order-note {
-  margin: 10px 0 0;
-  font-size: 12px;
+  margin: 12px 0 0;
+  font-size: 13px;
   line-height: 1.45;
   color: #6b6474;
 }
@@ -492,7 +523,7 @@
 
 @media (min-width: 720px) {
   .sa-layout-viz {
-    grid-template-columns: minmax(140px, 200px) 1fr;
+    grid-template-columns: minmax(160px, 220px) 1fr;
     align-items: start;
     gap: 22px;
   }
@@ -500,7 +531,7 @@
 
 .sa-layout-viz-heading {
   margin: 0 0 10px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -516,7 +547,7 @@
 .sa-layout-viz-ref-frame {
   position: relative;
   width: 100%;
-  max-width: 168px;
+  max-width: 188px;
   border: 2px solid #1db8a8;
   border-radius: 6px;
   background: #f3edf8;
@@ -536,16 +567,16 @@
   display: block;
   width: 100%;
   height: 100%;
-  min-height: 48px;
+  min-height: 54px;
   background: linear-gradient(135deg, #ebe3f2 0%, #f8f4fc 50%, #e2d6ee 100%);
 }
 
 .sa-layout-viz-ref-note {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.4;
   color: #6b6474;
-  max-width: 200px;
+  max-width: 220px;
 }
 
 .sa-layout-viz-spreads {
@@ -564,8 +595,8 @@
 
 .sa-layout-viz-spread-thumb {
   display: flex;
-  width: 168px;
-  height: 72px;
+  width: 188px;
+  height: 82px;
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid #d8cde4;
@@ -621,25 +652,25 @@
 
 .sa-layout-viz-order {
   position: absolute;
-  top: 4px;
-  left: 4px;
+  top: 5px;
+  left: 5px;
   z-index: 1;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 4px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   background: rgba(22, 16, 29, 0.78);
   color: #fff;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 800;
   line-height: 1;
 }
 
 .sa-layout-viz-spread-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: #5c5368;
 }
@@ -656,7 +687,7 @@
 .sa-preview-media {
   position: relative;
   width: 100%;
-  min-height: 72px;
+  min-height: 84px;
   overflow: hidden;
   background: #ebe6f0;
   line-height: 0;
@@ -683,7 +714,7 @@
   display: block;
   width: 100%;
   height: auto;
-  max-height: 200px;
+  max-height: 228px;
   opacity: 0;
   transition: opacity 0.28s ease;
   pointer-events: none;
@@ -701,7 +732,7 @@
   justify-content: center;
   gap: 10px;
   width: 100%;
-  min-height: 120px;
+  min-height: 132px;
   background: #f3edf8;
 }
 
@@ -730,7 +761,7 @@
   position: relative;
   z-index: 1;
   color: #7d3c98;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -771,13 +802,13 @@
 .sa-preview-card figcaption {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  padding: 9px 10px 10px;
+  gap: 3px;
+  padding: 10px 12px 12px;
 }
 
 .sa-preview-card figcaption span {
   color: #2f2936;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -786,16 +817,16 @@
 
 .sa-preview-card figcaption small {
   color: #908897;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .sa-preview-remove {
   position: absolute;
-  top: 7px;
-  right: 7px;
+  top: 8px;
+  right: 8px;
   z-index: 2;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -844,14 +875,14 @@
 .sa-create-progress-label {
   margin: 0;
   color: #2d2238;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 800;
 }
 
 .sa-create-progress-detail {
   margin: 4px 0 0;
   color: #6f6478;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.45;
 }
 
@@ -878,21 +909,26 @@
 }
 
 .sa-field-note {
-  margin: 8px 0 0;
-  font-size: 12px;
-  line-height: 1.45;
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
   color: #777;
+}
+
+.sa-create-page .cc-error-message {
+  font-size: 15px;
+  padding: 14px 16px;
 }
 
 @media (max-width: 640px) {
   .sa-create-main {
-    padding: 24px 16px 56px;
+    padding: 28px 18px 60px;
   }
 
   .sa-create-intro,
   .sa-create-card {
     border-radius: 16px;
-    padding: 20px;
+    padding: 22px;
   }
 
   .sa-form-row {
