@@ -224,11 +224,57 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         ) : null;
 
     if (isCoverInsidePage(pageNum, totalPages)) {
-        return (
-            <div className="ab-flip-page ab-flip-page--half-blank" ref={ref} data-density="hard">
-                <div className="ab-page-empty" aria-hidden />
-            </div>
-        );
+        const useLeftGrid = isProofLeftGridPage(pageNum, gridOpts);
+        if (useLeftGrid) {
+            const { cells } = getProofLeftPageGridPercent();
+            return (
+                <div
+                    className="ab-flip-page ab-flip-page--grid ab-flip-page--grid-left"
+                    ref={ref}
+                    data-density="hard"
+                >
+                    {pageBadge}
+                    <AlbumPageGrid
+                        album={album}
+                        albumId={albumId}
+                        pageNum={pageNum}
+                        totalPages={totalPages}
+                        cells={cells}
+                        editable={editable}
+                        spreadEdit={spreadEdit}
+                        placementMode="whole"
+                        showSamples={showSamples}
+                        previewMode={previewMode}
+                        showGridComments={liveShowGridComments}
+                        selectionLeftPage={liveSelectionLeftPage}
+                        selectionMode={liveSelectionMode}
+                        selectedCellId={liveSelectedCellId}
+                        onSelectCell={liveOnSelectCell}
+                        onSelectSpread={liveOnSelectSpread}
+                        onSlotActivate={liveOnSlotActivate}
+                        onTransformChange={liveOnTransformChange}
+                        transformRevision={liveTransformRevision}
+                        photoRevision={livePhotoRevision}
+                        swapMarkMode={liveSwapMarkMode}
+                        getSwapMarkInfo={liveGetSwapMarkInfo}
+                        getSwapMarkInfos={liveGetSwapMarkInfos}
+                        onSwapRequest={liveOnSwapRequest}
+                        swapPinModeActive={liveSwapPinModeActive}
+                        swapPinOriginKey={liveSwapPinOriginKey}
+                        swapPinTargetStep={liveSwapPinTargetStep}
+                        swapPinOriginPoint={liveSwapPinOriginPoint}
+                        onPlaceSwapPin={liveOnPlaceSwapPin}
+                        pinMarkMode={livePinMarkMode}
+                        pinModeActive={livePinModeActive}
+                        getPinsForSlot={liveGetPinsForSlot}
+                        onPinPlace={liveOnPinPlace}
+                        onPinRemove={liveOnPinRemove}
+                        onActivatePinMode={liveOnActivatePinMode}
+                        proofToolsHover={liveProofToolsHover}
+                    />
+                </div>
+            );
+        }
     }
 
     if (isInsideCoverRightPage(pageNum, totalPages, spreadOpts)) {
@@ -260,8 +306,12 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         );
     }
 
+    const isFrontCoverSpreadPage =
+        spreadOpts.hasCovers && spreadLeftForPage === 0 && pageNum <= 1;
+    const coverPlacementMode = isFrontCoverSpreadPage ? 'whole' : placementMode;
     const showStar = pageNum === 1 && album?.is_starred;
-    const canSelectCover = spreadOpts.hasCovers && pageNum === 1 && editable && !spreadEdit;
+    const canSelectCover =
+        isFrontCoverSpreadPage && editable && !spreadEdit;
     const PageWrapTag = canSelectCover ? 'button' : 'div';
     const coverSwapMarkInfo = liveGetSwapMarkInfo?.(0, 0);
     const coverSwapMarkInfos =
@@ -301,7 +351,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     cells={cells}
                     editable={editable}
                     spreadEdit={spreadEdit}
-                    placementMode={placementMode}
+                    placementMode={coverPlacementMode}
                     showSamples={showSamples}
                     previewMode={previewMode}
                     showGridComments={liveShowGridComments}
@@ -359,7 +409,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     cells={cells}
                     editable={editable}
                     spreadEdit={spreadEdit}
-                    placementMode={placementMode}
+                    placementMode={coverPlacementMode}
                     showSamples={showSamples}
                     previewMode={previewMode}
                     showGridComments={liveShowGridComments}
@@ -411,7 +461,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         cells={cells}
                         editable={editable}
                         spreadEdit={spreadEdit}
-                        placementMode={placementMode}
+                        placementMode={coverPlacementMode}
                         showSamples={showSamples}
                         previewMode={previewMode}
                         showGridComments={liveShowGridComments}

@@ -12,6 +12,7 @@ import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGri
 import {
     getAlbumSpreadOptions,
     isEndHalfSpreadLeftPage,
+    isFrontCoverSpreadLeft,
     isInsideCoverSpreadLeft,
 } from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
@@ -130,11 +131,17 @@ export default function AlbumPageGrid({
     const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);
     const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
     const insideCoverSpread = isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts);
+    const frontCoverSpread = isFrontCoverSpreadLeft(spreadLeft, spreadOpts);
     const inSelectedSpread =
         selectionLeftPage != null && selectionLeftPage === spreadLeft;
     const selectWholeSpread = selectionMode === 'spread' && inSelectedSpread;
+    const frontCoverWholeSpread = frontCoverSpread && spreadOpts.hasCovers;
     const wholePlacement =
-        placementMode === 'whole' && !endHalfSpreadLeft && !insideCoverSpread;
+        frontCoverWholeSpread ||
+        (placementMode === 'whole' &&
+            !endHalfSpreadLeft &&
+            !insideCoverSpread &&
+            !frontCoverSpread);
     const wholeSpread = wholePlacement;
     const useSelectCells = editable && !spreadEdit;
     const CellTag = useSelectCells ? 'button' : 'div';

@@ -29,7 +29,7 @@ import {
 import './CreateAlbum.css';
 
 const COVER_OPTIONS = [
-    { value: 'with', label: 'Front & end cover' },
+    { value: 'with', label: 'Front cover' },
     { value: 'without', label: 'No covers' },
 ];
 
@@ -109,6 +109,7 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
     onDrop,
     onDragEnd,
     isDragOver,
+    roleLabel = null,
 }) {
     const imgRef = useRef(null);
     const [imageLoaded, setImageLoaded] = useState(false);
@@ -153,6 +154,11 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
             <span className="sa-preview-order" aria-hidden>
                 {index + 1}
             </span>
+            {roleLabel ? (
+                <span className="sa-preview-role" aria-hidden>
+                    {roleLabel}
+                </span>
+            ) : null}
             <button
                 type="button"
                 className="sa-preview-remove"
@@ -707,7 +713,7 @@ const CreateAlbum = () => {
                                 />
                                 <p className="sa-field-note">
                                     {includeCovers
-                                        ? 'First photo on the front cover right page (left blank); last photo on the end cover left page (right blank). Middle photos fill inner pages.'
+                                        ? 'First photo fills the full front cover spread. Remaining photos fill inner pages in order.'
                                         : 'All uploaded photos fill pages in order — no dedicated cover spreads.'}
                                 </p>
                             </div>
@@ -853,20 +859,27 @@ const CreateAlbum = () => {
                                             '--sa-preview-count': previewSlots.length,
                                         }}
                                     >
-                                        {previewSlots.map((preview, index) => (
-                                            <UploadPreviewCard
-                                                key={preview.id}
-                                                preview={{ ...preview, index }}
-                                                index={index}
-                                                onRemove={handleRemovePreview}
-                                                animateIn={animatePreviewCards}
-                                                onDragStart={handlePreviewDragStart}
-                                                onDragOver={handlePreviewDragOver}
-                                                onDrop={handlePreviewDrop}
-                                                onDragEnd={handlePreviewDragEnd}
-                                                isDragOver={dragOverIndex === index}
-                                            />
-                                        ))}
+                                        {previewSlots.map((preview, index) => {
+                                            let roleLabel = null;
+                                            if (includeCovers && index === 0) {
+                                                roleLabel = 'Cover';
+                                            }
+                                            return (
+                                                <UploadPreviewCard
+                                                    key={preview.id}
+                                                    preview={{ ...preview, index }}
+                                                    index={index}
+                                                    onRemove={handleRemovePreview}
+                                                    animateIn={animatePreviewCards}
+                                                    onDragStart={handlePreviewDragStart}
+                                                    onDragOver={handlePreviewDragOver}
+                                                    onDrop={handlePreviewDrop}
+                                                    onDragEnd={handlePreviewDragEnd}
+                                                    isDragOver={dragOverIndex === index}
+                                                    roleLabel={roleLabel}
+                                                />
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ) : (

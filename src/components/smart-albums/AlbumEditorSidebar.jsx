@@ -353,7 +353,7 @@ export default function AlbumEditorSidebar({
                                 </div>
                                 <p className="ae-collection-order-note">
                                     {album?.has_covers === true
-                                        ? 'Order 1 → front cover (right page). Last order number → end cover (left page). Middle photos fill inner pages.'
+                                        ? 'Order 1 → full front cover spread. Remaining photos fill inner pages in order.'
                                         : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
                                     Drag thumbnails to reorder; spreads update automatically.
                                 </p>

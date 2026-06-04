@@ -44,13 +44,13 @@ export function calculateProofRightPageGrid(pageWidth, pageHeight) {
 /**
  * Left page of a spread uses slot 1.
  * No covers: pages 0|2|4…
- * With covers: front cover page 0, inner 2|4|…, end-cover left page.
+ * With covers: front cover page 0, inner 2|4|… through the last spread.
  */
 export function isProofLeftGridPage(pageNum, { showCover = true, hasCovers, totalPages } = {}) {
     if (pageNum < 0) return false;
     const covers = hasCovers ?? showCover;
     if (!covers) return pageNum % 2 === 0;
-    if (pageNum === 0) return false;
+    if (pageNum === 0) return true;
     if (totalPages != null && usesReservedEndSpread(totalPages, { hasCovers: covers, showCover: covers })) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
         if (pageNum === endLeft) return true;

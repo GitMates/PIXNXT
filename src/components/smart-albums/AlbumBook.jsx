@@ -1164,12 +1164,16 @@ const AlbumBook = ({
                             const spreadSrc = !isCover
                                 ? getSpreadPhotoOverride(album?.id, left)
                                 : null;
-                            const coverPhotoSrc = isCover
-                                ? resolveCoverImageSrc(album, { showSamples })
+                            const coverSpreadSrc = isCover
+                                ? getSpreadPhotoOverride(album?.id, 0) ||
+                                  resolveCoverImageSrc(album, { showSamples })
                                 : null;
                             const endCoverSrc = leftSrc || spreadSrc;
                             const isEndHalf = isEndSpread;
-                            const showSpreadFull = Boolean(spreadSrc && !isCover && !isEndSpread);
+                            const showSpreadFull = Boolean(
+                                (spreadSrc && !isCover && !isEndSpread) ||
+                                    (isCover && coverSpreadSrc)
+                            );
                             const isCurrent = overviewSpreadIndex === spreadIndex;
                             const spreadComments = spreadCommentsBySpread?.[overviewSpreadIndex] ?? null;
                             return (
@@ -1189,18 +1193,12 @@ const AlbumBook = ({
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
                                         {showSpreadFull ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
-                                                <img src={spreadSrc} alt="" loading="lazy" />
-                                            </span>
-                                        ) : isCover ? (
-                                            <>
-                                                <span
-                                                    className="ab-overview-page ab-overview-page--cover-blank"
-                                                    aria-hidden
+                                                <img
+                                                    src={isCover ? coverSpreadSrc : spreadSrc}
+                                                    alt=""
+                                                    loading="lazy"
                                                 />
-                                                <span className="ab-overview-page ab-overview-page--cover-right">
-                                                    <OverviewCoverPhoto src={coverPhotoSrc} />
-                                                </span>
-                                            </>
+                                            </span>
                                         ) : isEndHalf ? (
                                             <>
                                                 <span className="ab-overview-page ab-overview-page--end-left">

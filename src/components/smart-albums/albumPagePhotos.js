@@ -235,30 +235,42 @@ export function migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, albumMeta 
     return writeAll(all);
 }
 
-/** Move front-cover spread storage to page 1 (blank left on page 0). */
-export function migrateFrontCoverSpreadToPageOne(albumId) {
+/** Store cover as a full spread (spread:0) instead of a single right page. */
+export function migrateFrontCoverToFullSpread(albumId) {
     if (!albumId) return false;
     const all = readAll();
     const album = all[albumId];
     if (!album) return false;
 
     const spreadKey = spreadStorageKey(0);
-    const spreadStored = album[spreadKey];
-    const page0 = album['0'];
-    if (spreadStored == null && page0 == null) return false;
-
     const next = { ...album };
-    if (spreadStored != null) {
-        if (next['1'] == null) next['1'] = spreadStored;
-        delete next[spreadKey];
+    let changed = false;
+
+    if (next[spreadKey] == null) {
+        const photo = next['1'] ?? next['0'];
+        if (photo == null) return false;
+        next[spreadKey] = photo;
+        changed = true;
     }
-    if (page0 != null) {
-        if (next['1'] == null) next['1'] = page0;
+
+    if (next['0'] != null) {
         delete next['0'];
+        changed = true;
     }
+    if (next['1'] != null) {
+        delete next['1'];
+        changed = true;
+    }
+
+    if (!changed) return false;
     next.__revision = (next.__revision || 0) + 1;
     all[albumId] = next;
     return writeAll(all);
+}
+
+/** @deprecated Renamed — migrates cover onto spread:0 for a full-spread cover. */
+export function migrateFrontCoverSpreadToPageOne(albumId) {
+    return migrateFrontCoverToFullSpread(albumId);
 }
 
 /** Whole-spread, no covers: move page-1 photo onto spread:0. Skipped when has_covers. */
@@ -331,16 +343,16 @@ export function getPagePhotoOverride(albumId, pageNum) {
     return resolveRemotePagePhoto(albumId, String(pageNum));
 }
 
-/** Cover image on page 1 (right leaf of front spread; page 0 stays blank). */
+/** Cover image stored as a full spread (spread:0). */
 export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
     const albumId = album?.id;
     if (albumId) {
+        const onSpread = getSpreadPhotoOverride(albumId, 0);
+        if (onSpread) return onSpread;
         const onRight = getPagePhotoOverride(albumId, 1);
         if (onRight) return onRight;
         const legacyPage = getPagePhotoOverride(albumId, 0);
         if (legacyPage) return legacyPage;
-        const onSpread = getSpreadPhotoOverride(albumId, 0);
-        if (onSpread) return onSpread;
     }
     if (album?.cover_image_url) return album.cover_image_url;
     if (albumId) {
@@ -433,6 +445,13 @@ export function getGridSlotPhoto(
     const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeftPage);
     const pageSrc = getPagePhotoOverride(albumId, pageNum);
 
+    if (opts.hasCovers && spreadLeftPage === 0) {
+        const coverSrc = spreadSrc ?? pageSrc ?? getPagePhotoOverride(albumId, 1);
+        if (coverSrc) {
+            return { src: coverSrc, panoramic: cellId === 1 ? 'left' : 'right' };
+        }
+        return { src: null, panoramic: null };
+    }
     if (!wholeSpread && pageSrc) {
         return { src: pageSrc, panoramic: null };
     }
@@ -468,6 +487,13 @@ export function hasGridSlotPhoto(
                 getSpreadPhotoOverride(albumId, spreadLeftPage)
         );
     }
+    if (opts.hasCovers && spreadLeftPage === 0) {
+        return Boolean(
+            getSpreadPhotoOverride(albumId, 0) ||
+                getPagePhotoOverride(albumId, 1) ||
+                getPagePhotoOverride(albumId, pageNum)
+        );
+    }
     if (!wholeSpread && getPagePhotoOverride(albumId, pageNum)) return true;
     if (getSpreadPhotoOverride(albumId, spreadLeftPage)) return true;
     return Boolean(getPagePhotoOverride(albumId, pageNum));
@@ -483,7 +509,7 @@ export function getAlbumPhotoRevision(albumId) {
 export function getAlbumListThumbnailUrl(albumId) {
     if (!albumId) return null;
 
-    const coverSrc = getPagePhotoOverride(albumId, 1) || getPagePhotoOverride(albumId, 0);
+    const coverSrc = getSpreadPhotoOverride(albumId, 0) || getPagePhotoOverride(albumId, 1);
     if (coverSrc) return coverSrc;
 
     const collection = getAlbumCollection(albumId);
@@ -757,7 +783,7 @@ export function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
     );
 
     if (spreadOpts.hasCovers) {
-        migrateFrontCoverSpreadToPageOne(albumId);
+        migrateFrontCoverToFullSpread(albumId);
         migrateEndHalfSpreadToLeftPage(albumId, totalPages, album);
     } else if (wholeSpread) {
         migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, album);
