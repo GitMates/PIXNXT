@@ -427,22 +427,23 @@ const AlbumBook = ({
         isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
     const [coverClipTransition, setCoverClipTransition] = useState(null);
     const [coverRevealOpen, setCoverRevealOpen] = useState(false);
-    const [coverHideReveal, setCoverHideReveal] = useState(true);
     const [endClipTransition, setEndClipTransition] = useState(null);
     const [endRevealOpen, setEndRevealOpen] = useState(false);
     const [endHideReveal, setEndHideReveal] = useState(true);
+    const [bookFlipping, setBookFlipping] = useState(false);
     const showCoverClip =
-        album?.has_covers === true && (frontCoverOnly || coverClipTransition != null);
+        album?.has_covers === true &&
+        (frontCoverOnly ||
+            coverClipTransition != null ||
+            (bookFlipping &&
+                (spreadIndex === 0 || (spreadIndex === 1 && pageIndex >= 2))));
     const showEndClip =
         album?.has_covers === true && (endCoverOnly || endClipTransition != null);
     const coverWrapClassName = useMemo(() => {
         if (showCoverClip) {
             let cls = ' ab-flipbook-wrap--front-cover-only';
             if (coverClipTransition) cls += ' ab-flipbook-wrap--front-cover-transition';
-            if (
-                (coverClipTransition === 'reveal' && coverRevealOpen) ||
-                (coverClipTransition === 'hide' && coverHideReveal)
-            ) {
+            if (coverClipTransition === 'reveal' && coverRevealOpen) {
                 cls += ' ab-flipbook-wrap--front-cover-reveal';
             }
             return cls;
@@ -464,7 +465,6 @@ const AlbumBook = ({
         showEndClip,
         coverClipTransition,
         coverRevealOpen,
-        coverHideReveal,
         endClipTransition,
         endRevealOpen,
         endHideReveal,
@@ -509,12 +509,12 @@ const AlbumBook = ({
         (e) => {
             const flipping = e.data === 'flipping';
             isFlippingRef.current = flipping;
+            setBookFlipping(flipping);
             setFlippingUi(flipping);
             syncNavDisabled();
             if (!flipping && (coverClipTransition || endClipTransition)) {
                 setCoverClipTransition(null);
                 setCoverRevealOpen(false);
-                setCoverHideReveal(true);
                 setEndClipTransition(null);
                 setEndRevealOpen(false);
                 setEndHideReveal(true);
@@ -529,12 +529,8 @@ const AlbumBook = ({
 
         if (album?.has_covers && spreadIndex === 1 && api.getCurrentPageIndex() === 2) {
             setCoverClipTransition('hide');
-            setCoverHideReveal(true);
-            requestAnimationFrame(() => {
-                setCoverHideReveal(false);
-                if (typeof api.flipPrev === 'function') api.flipPrev();
-                else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-            });
+            if (typeof api.flipPrev === 'function') api.flipPrev();
+            else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
             return;
         }
 
@@ -571,9 +567,9 @@ const AlbumBook = ({
 
         if (album?.has_covers && spreadIndex === 0) {
             const current = api.getCurrentPageIndex();
+            setCoverClipTransition('reveal');
+            setCoverRevealOpen(false);
             const startRevealAndFlip = () => {
-                setCoverClipTransition('reveal');
-                setCoverRevealOpen(false);
                 requestAnimationFrame(() => {
                     setCoverRevealOpen(true);
                     if (typeof api.flipNext === 'function') api.flipNext();
@@ -609,6 +605,32 @@ const AlbumBook = ({
         if (typeof api.flipNext === 'function') api.flipNext();
         else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
     }, [album?.has_covers, spreadIndex, totalPages, totalSpreads]);
+
+    useEffect(() => {
+        if (!initialized || bookFlipping || coverClipTransition) return;
+        if (!album?.has_covers || spreadIndex !== 0) return;
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return;
+        const current = api.getCurrentPageIndex();
+        if (current === 0) return;
+        if (current !== 1) return;
+        syncingPageRef.current = true;
+        api.turnToPage(0);
+        setPageIndex(0);
+        onPageChange?.(0);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                syncingPageRef.current = false;
+            });
+        });
+    }, [
+        album?.has_covers,
+        bookFlipping,
+        coverClipTransition,
+        initialized,
+        onPageChange,
+        spreadIndex,
+    ]);
 
     useEffect(() => {
         const onKey = (e) => {
@@ -1100,7 +1122,9 @@ const AlbumBook = ({
                 <div className="ab-book-stage-inner" ref={stageRef} aria-hidden="true" />
                 <div className="ab-flip-escape" ref={escapeRef}>
                 <div
-                    className="ab-spread-display"
+                    className={`ab-spread-display${
+                        showCoverClip ? ' ab-spread-display--front-cover-clip' : ''
+                    }${showEndClip ? ' ab-spread-display--end-cover-clip' : ''}`}
                     style={
                         bookDims
                             ? {
@@ -1110,7 +1134,9 @@ const AlbumBook = ({
                     }
                 >
                 <div
-                    className="ab-spread-book-block"
+                    className={`ab-spread-book-block${
+                        showCoverClip ? ' ab-spread-book-block--front-cover-clip' : ''
+                    }${showEndClip ? ' ab-spread-book-block--end-cover-clip' : ''}`}
                     style={
                         bookDims
                             ? {

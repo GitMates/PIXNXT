@@ -253,6 +253,17 @@
   pointer-events: none !important;
 }
 
+.ab-flipbook-wrap--front-cover-only .ab-flip-page--half-blank,
+.ab-flipbook-wrap--front-cover-only .ab-flip-page--half-blank .ab-page-empty {
+  visibility: hidden;
+  background: transparent;
+}
+
+.ab-spread-display--front-cover-clip .ab-spread-book-block--front-cover-clip,
+.ab-spread-display--end-cover-clip .ab-spread-book-block--end-cover-clip {
+  overflow: hidden;
+}
+
 /* End cover spread: clip blank right page; back photo stays on the left half */
 .ab-flipbook-wrap--end-cover-only {
   overflow: hidden;
