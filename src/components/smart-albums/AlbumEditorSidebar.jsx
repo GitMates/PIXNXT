@@ -41,8 +41,16 @@ const IconSettings = () => (
     </svg>
 );
 
-const NAV = [
+const IconEditCover = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+);
+
+const NAV_BASE = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
+    { id: 'cover', label: 'Edit cover', icon: IconEditCover, requiresCovers: true },
     { id: 'swap', label: 'Swap', icon: IconSwap },
     { id: 'pin', label: 'Comment', icon: IconComments },
     { id: 'comments', label: 'Setting', icon: IconSettings },
@@ -127,6 +135,9 @@ export default function AlbumEditorSidebar({
     void proofSeenTick;
     const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
     const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
+    const navItems = NAV_BASE.filter(
+        (item) => !item.requiresCovers || album?.has_covers === true
+    );
 
     const handleFiles = (e) => {
         const files = filesFromInput(e.target.files);
@@ -169,7 +180,7 @@ export default function AlbumEditorSidebar({
             </div>
 
             <nav className="ae-nav" aria-label="Editor tools">
-                {NAV.map(({ id, label, icon: Icon }) => (
+                {navItems.map(({ id, label, icon: Icon }) => (
                     <button
                         key={id}
                         type="button"
@@ -268,7 +279,9 @@ export default function AlbumEditorSidebar({
                                     gridSelection,
                                     canSelectGrid,
                                     totalPages,
-                                    { hasCovers: album?.has_covers === true }
+                                    {
+                                        hasCovers: album?.has_covers === true,
+                                    }
                                 )}
                             </p>
                         )}
@@ -418,6 +431,30 @@ export default function AlbumEditorSidebar({
                         >
                             Remove all images from album
                         </button>
+                    </>
+                )}
+
+                {activePanel === 'cover' && (
+                    <>
+                        <h3 className="ae-panel-title">Edit cover</h3>
+                        <p className="ae-panel-text">
+                            One spread shows your book wrap: collection photo 1 fills the whole spread
+                            (left half = back cover, right half = front).
+                        </p>
+                        <p className="ae-selection-badge" role="status">
+                            Book wrap · whole spread
+                        </p>
+                        <button
+                            type="button"
+                            className="ae-btn-picker"
+                            onClick={() => onOpenPicker?.()}
+                        >
+                            Choose book wrap photo
+                        </button>
+                        <p className="ae-panel-text ae-panel-text--muted">
+                            Upload in Collections first — order 1 is used here. Click the spread to
+                            replace the wrap image.
+                        </p>
                     </>
                 )}
 

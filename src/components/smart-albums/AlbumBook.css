@@ -872,6 +872,7 @@
   margin: 0;
   object-fit: cover;
   object-position: center center;
+  pointer-events: none;
 }
 
 .ab-pano-bleed--right .ab-grid-cell-photo {
@@ -884,6 +885,20 @@
   margin-left: -100%;
   object-fit: cover;
   object-position: center center;
+  pointer-events: none;
+}
+
+/* Whole-spread: right page must receive swap/comment clicks above left pano bleed */
+.ab-flip-page--grid-right:has(.ab-pano-bleed) .ab-page-grid {
+  z-index: 3;
+}
+
+.ab-flip-page--grid-right:has(.ab-pano-bleed) .ab-grid-cell {
+  z-index: 4;
+}
+
+.ab-flip-page--grid-right:has(.ab-pano-bleed) .ab-photo-pin-layer--placing-swap {
+  z-index: 6;
 }
 
 .ab-page-grid--whole-target .ab-grid-cell--whole-unified.ab-grid-cell--selected {

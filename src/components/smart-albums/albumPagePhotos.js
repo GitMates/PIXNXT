@@ -365,6 +365,23 @@ export function getPagePhotoOverride(albumId, pageNum) {
     return resolveRemotePagePhoto(albumId, String(pageNum));
 }
 
+/**
+ * Book-wrap image for the cover editor — spread:0 or collection order 1 only
+ * (avoids a separate page-1 photo showing as the front half).
+ */
+export function resolveBookWrapSpreadSrc(album, { showSamples = false } = {}) {
+    const albumId = album?.id;
+    if (albumId) {
+        const onSpread = getSpreadPhotoOverride(albumId, 0);
+        if (onSpread) return onSpread;
+        const first = getAlbumCollection(albumId)[0];
+        const fromCollection = resolveCollectionItemUrl(albumId, first?.id);
+        if (fromCollection) return fromCollection;
+    }
+    if (album?.cover_image_url) return album.cover_image_url;
+    return showSamples ? getSampleImageForPage(0) : null;
+}
+
 /** Book-wrap cover image (spread:0) — right half = front, left half = back. */
 export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
     const albumId = album?.id;

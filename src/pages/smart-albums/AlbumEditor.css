@@ -770,8 +770,13 @@
   color: #777;
 }
 
-.ae-canvas-stage--edit {
+.ae-canvas-stage--edit,
+.ae-canvas-stage--cover {
   background: linear-gradient(180deg, #e2e4e8 0%, #d8dbe0 100%);
+}
+
+.ae-canvas-stage--cover .ab-cover-edit-root {
+  flex: 1;
 }
 
 .ae-page-stats {

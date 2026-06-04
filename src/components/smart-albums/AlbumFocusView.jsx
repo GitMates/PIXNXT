@@ -36,6 +36,7 @@ export default function AlbumFocusView({
     const prevNavRef = useRef(null);
     const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
+    const [bookFlipping, setBookFlipping] = useState(false);
     const [dims, setDims] = useState(() => getFocusBookDimensions(album?.grid_size));
     const [pageIndex, setPageIndex] = useState(startPage);
 
@@ -100,7 +101,9 @@ export default function AlbumFocusView({
 
     const handleChangeState = useCallback(
         (e) => {
-            isFlippingRef.current = e.data === 'flipping';
+            const flipping = e.data === 'flipping';
+            isFlippingRef.current = flipping;
+            setBookFlipping(flipping);
             syncNavDisabled();
         },
         [syncNavDisabled]
@@ -184,9 +187,17 @@ export default function AlbumFocusView({
                 </button>
 
                 <div
-                    className="ab-focus-flipbook-wrap"
-                    style={{ width: dims.width * 2, height: dims.height }}
+                    className={`ab-book-3d-scene${
+                        bookFlipping ? ' ab-book-3d-scene--flipping' : ''
+                    }`}
                 >
+                    <div className="ab-book-spine" aria-hidden />
+                    <div
+                        className={`ab-focus-flipbook-wrap ab-flipbook-wrap ab-flipbook-wrap--book-3d${
+                            !bookFlipping ? ' ab-flipbook-wrap--book-3d-idle' : ''
+                        }${bookFlipping ? ' ab-flipbook-wrap--flipping' : ''}`}
+                        style={{ width: dims.width * 2, height: dims.height }}
+                    >
                     <HTMLFlipBook
                         key={`focus-${album?.id}-${totalPages}`}
                         ref={bookRef}
@@ -199,7 +210,7 @@ export default function AlbumFocusView({
                         minHeight={200}
                         maxHeight={dims.height}
                         drawShadow
-                        maxShadowOpacity={0.55}
+                        maxShadowOpacity={0.72}
                         flippingTime={FLIP_TIME_MS}
                         usePortrait={false}
                         useMouseEvents
@@ -220,6 +231,7 @@ export default function AlbumFocusView({
                     >
                         {pages}
                     </HTMLFlipBook>
+                    </div>
                 </div>
 
                 <button

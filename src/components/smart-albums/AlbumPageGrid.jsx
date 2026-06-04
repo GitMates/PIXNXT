@@ -147,17 +147,29 @@ export default function AlbumPageGrid({
     const buildSwapSlot = (photoIndex, cellId) => {
         const spreadNum = Math.floor((spreadLeft - 1) / 2) + 1;
         if (wholePlacement) {
+            const isRightHalf = pageNum > spreadLeft || cellId === 2;
+            const halfPage = isRightHalf
+                ? Math.min(spreadLeft + 1, Math.max(0, totalPages - 1))
+                : spreadLeft;
+            const halfCell = isRightHalf ? 2 : 1;
             return {
-                pageNum: spreadLeft,
-                cellId: 1,
+                pageNum: halfPage,
+                cellId: halfCell,
                 spreadLeft,
                 whole: true,
-                label: `Spread ${spreadNum} · Whole`,
+                label: `Spread ${spreadNum} · ${isRightHalf ? 'Right' : 'Left'}`,
             };
         }
         const label =
             cellId === 1 ? `Spread ${spreadNum} · Left` : `Spread ${spreadNum} · Right`;
         return { pageNum: photoIndex, cellId, spreadLeft, label };
+    };
+
+    const swapPointOnThisHalf = (point, halfPage, halfCell) => {
+        if (!point || !wholePlacement) return true;
+        const ptPage = point.pageNum ?? halfPage;
+        const ptCell = point.cellId ?? halfCell;
+        return ptPage === halfPage && ptCell === halfCell;
     };
 
     return (
@@ -246,7 +258,7 @@ export default function AlbumPageGrid({
                       }`
                     : '';
                 const swapPins = swapMarkInfos
-                    .filter((info) => info?.point)
+                    .filter((info) => info?.point && swapPointOnThisHalf(info.point, pageNum, cell.id))
                     .map((info) => ({
                         id: `swap-pin-${info.pinKey || info.markId}-${photoIndex}-${cell.id}`,
                         xPct: info.point.xPct,
@@ -265,7 +277,8 @@ export default function AlbumPageGrid({
                     isOriginSlot &&
                     swapPinTargetStep &&
                     swapPinOriginPoint?.xPct != null &&
-                    swapPinOriginPoint?.yPct != null
+                    swapPinOriginPoint?.yPct != null &&
+                    swapPointOnThisHalf(swapPinOriginPoint, pageNum, cell.id)
                 ) {
                     swapPins.push({
                         id: `swap-pin-live-${slotKey}`,

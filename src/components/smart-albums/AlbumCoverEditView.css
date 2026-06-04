@@ -1,0 +1,92 @@
+.ab-cover-edit-root {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 360px;
+}
+
+.ab-cover-edit-spread--whole {
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  border-radius: 2px;
+  border: none;
+  padding: 0;
+  text-align: left;
+}
+
+.ab-cover-edit-spread--interactive {
+  cursor: pointer;
+}
+
+.ab-cover-edit-spread--interactive:hover {
+  outline: 2px solid rgba(26, 26, 26, 0.12);
+  outline-offset: -2px;
+}
+
+.ab-cover-edit-spread--whole .ab-cover-edit-view__photo-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #fff;
+}
+
+.ab-cover-edit-wrap-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+}
+
+.ab-cover-edit-spread--whole .ab-cover-edit-spine {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 3px;
+  margin-left: -1.5px;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.06) 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(0, 0, 0, 0.06) 100%
+  );
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ab-cover-edit-hint {
+  position: absolute;
+  bottom: 10px;
+  padding: 2px 10px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.ab-cover-edit-hint--back {
+  left: 25%;
+  transform: translateX(-50%);
+}
+
+.ab-cover-edit-hint--front {
+  left: 75%;
+  transform: translateX(-50%);
+}
+
+.ab-cover-edit-view__empty {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(145deg, #eceef1 0%, #dfe3e8 100%);
+}
