@@ -397,7 +397,7 @@
 .ab-flip-page--front-cover {
   width: 100%;
   height: 100%;
-  background: #dfe2e6;
+  background: #fff;
   overflow: hidden;
 }
 
@@ -408,7 +408,7 @@
   height: 100%;
   padding: 0;
   border: none;
-  background: #dfe2e6;
+  background: #fff;
   overflow: hidden;
 }
 
@@ -465,7 +465,7 @@
 
 .ab-flip-page--half-photo-left {
   position: relative;
-  background: #dfe2e6;
+  background: #fff;
   overflow: hidden;
 }
 
@@ -1241,7 +1241,7 @@
 .ab-overview-page--cover-right,
 .ab-overview-page--end-left {
   position: relative;
-  background: #dfe2e6;
+  background: #fff;
 }
 
 .ab-overview-cover-stage {

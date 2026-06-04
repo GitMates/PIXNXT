@@ -24,15 +24,15 @@ export default function AlbumSwapExecuteModal({
             Boolean(
                 originSlot &&
                     albumId &&
-                    isWholeGridSwapSlot(albumId, originSlot, totalPages, gridLayout)
+                    isWholeGridSwapSlot(albumId, originSlot, totalPages, gridLayout, album)
             ),
-        [originSlot, albumId, totalPages, gridLayout]
+        [originSlot, albumId, album, totalPages, gridLayout]
     );
 
     const candidates = useMemo(() => {
         if (!open || !originSlot || !albumId) return [];
-        return enumerateSwapExecuteCandidates(albumId, originSlot, totalPages, gridLayout);
-    }, [open, originSlot, albumId, totalPages, gridLayout]);
+        return enumerateSwapExecuteCandidates(albumId, originSlot, totalPages, gridLayout, album);
+    }, [open, originSlot, albumId, album, totalPages, gridLayout]);
 
     if (!open || !originSlot) return null;
 

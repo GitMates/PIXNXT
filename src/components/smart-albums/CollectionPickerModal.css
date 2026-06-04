@@ -77,6 +77,7 @@
 }
 
 .cpm-thumb {
+  position: relative;
   aspect-ratio: 1;
   padding: 0;
   border: 2px solid transparent;
@@ -85,6 +86,26 @@
   cursor: pointer;
   background: #fff;
   transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cpm-thumb-order {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  z-index: 2;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(22, 16, 29, 0.78);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .cpm-thumb:hover {

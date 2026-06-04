@@ -19,6 +19,7 @@ import {
     isProofLeftGridPage,
     isProofRightGridPage,
 } from './albumSpreadGrid';
+import { getAlbumCollection } from './albumCollection';
 import {
     getAlbumSpreadOptions,
     getEndSpreadPageRole,
@@ -30,7 +31,7 @@ import {
 
 function getPageImageSrc(album, pageNum, showSamples, spreadOpts) {
     const opts = spreadOpts ?? getAlbumSpreadOptions(album);
-    if (pageNum === 0 && opts.hasCovers) {
+    if (pageNum === 1 && opts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples });
     }
     const albumId = album?.id;
@@ -51,7 +52,7 @@ function pageHasVisiblePhoto(
     spreadOpts
 ) {
     const opts = { ...(spreadOpts ?? getAlbumSpreadOptions(album)), totalPages };
-    if (pageNum === 0 && opts.hasCovers && resolveCoverImageSrc(album, { showSamples })) {
+    if (pageNum === 1 && opts.hasCovers && resolveCoverImageSrc(album, { showSamples })) {
         return true;
     }
     if (isInsideCoverRightPage(pageNum, totalPages, opts)) {
@@ -61,11 +62,17 @@ function pageHasVisiblePhoto(
     const spreadLeft = getSpreadLeftPageIndex(pageNum, opts);
     const slotOpts = { wholeSpread };
     if (isProofLeftGridPage(pageNum, opts)) {
-        const slot = getGridSlotPhoto(albumId, pageNum, 1, spreadLeft, totalPages, slotOpts);
+        const slot = getGridSlotPhoto(albumId, pageNum, 1, spreadLeft, totalPages, {
+            ...slotOpts,
+            spreadOpts: opts,
+        });
         if (slot?.src) return true;
     }
     if (isProofRightGridPage(pageNum, opts)) {
-        const slot = getGridSlotPhoto(albumId, pageNum, 2, spreadLeft, totalPages, slotOpts);
+        const slot = getGridSlotPhoto(albumId, pageNum, 2, spreadLeft, totalPages, {
+            ...slotOpts,
+            spreadOpts: opts,
+        });
         if (slot?.src) return true;
     }
     return Boolean(showSamples && getSampleImageForPage(pageNum));
@@ -93,24 +100,6 @@ function PagePhoto({ src, pageNum, showSamples, className = '' }) {
                 }
             }}
         />
-    );
-}
-
-/** Cover / end spread: centered framed photo on plain background (side = which half of the spread). */
-function FramedSpreadPhoto({ src, pageNum, showSamples, side = 'right' }) {
-    if (!src && !showSamples) {
-        return <div className="ab-page-empty" aria-hidden />;
-    }
-
-    return (
-        <div className={`ab-framed-page ab-framed-page--${side}`}>
-            <PagePhoto
-                src={src}
-                pageNum={pageNum}
-                showSamples={showSamples}
-                className="ab-framed-page-img"
-            />
-        </div>
     );
 }
 
@@ -196,7 +185,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const albumId = albumIdProp ?? album?.id;
     void livePhotoRevision;
     void liveTransformRevision;
-    const spreadOpts = getAlbumSpreadOptions(album);
+    const collectionCount = albumId ? getAlbumCollection(albumId).length : 0;
+    const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
     const gridOpts = { ...spreadOpts, totalPages };
     const { right: lastSpreadRight } = getLastSpreadInfo(totalPages, spreadOpts);
     const wholeSpread = placementMode === 'whole';
@@ -218,9 +208,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const useLeftGrid = isProofLeftGridPage(pageNum, gridOpts) && !endHalfLeftPage;
     const useRightGrid = isProofRightGridPage(pageNum, gridOpts);
     const src = getPageImageSrc(album, pageNum, showSamples, spreadOpts);
-    /** With covers, flipbook `showCover` renders page 0 alone — not a 50/50 spread. */
-    const isFrontCoverPage =
-        spreadOpts.hasCovers && pageNum === 0 && !useLeftGrid && !useRightGrid;
+    const isFrontCoverPage = false;
 
     if (endSpreadRole === 'half-blank') {
         return (
@@ -273,15 +261,15 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     const showStar = pageNum === 1 && album?.is_starred;
-    const canSelectCover = spreadOpts.hasCovers && pageNum === 0 && editable && !spreadEdit;
+    const canSelectCover = spreadOpts.hasCovers && pageNum === 1 && editable && !spreadEdit;
     const PageWrapTag = canSelectCover ? 'button' : 'div';
     const coverSwapMarkInfo = liveGetSwapMarkInfo?.(0, 0);
     const coverSwapMarkInfos =
         liveSwapMarkMode && liveGetSwapMarkInfos ? liveGetSwapMarkInfos(0, 0, 0) : [];
-    const canCoverSwap = liveSwapMarkMode && pageNum === 0 && Boolean(src);
-    const coverProofTools = (liveSwapMarkMode || livePinMarkMode) && pageNum === 0 && Boolean(src);
+    const canCoverSwap = liveSwapMarkMode && pageNum === 1 && Boolean(src);
+    const coverProofTools = (liveSwapMarkMode || livePinMarkMode) && pageNum === 1 && Boolean(src);
     const coverPins =
-        livePinMarkMode && liveGetPinsForSlot ? liveGetPinsForSlot(0, 0, 0) : [];
+        livePinMarkMode && liveGetPinsForSlot ? liveGetPinsForSlot(1, 0, 0) : [];
     const isEndCoverPage = endSpreadRole === 'half-left' && !editable && !spreadEdit;
     const endCoverSwapMarkInfo =
         isEndCoverPage ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage) : null;
@@ -552,12 +540,16 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         }
                         onRemovePin={liveOnPinRemove}
                     >
-                        <FramedSpreadPhoto
-                            src={src}
-                            pageNum={pageNum}
-                            showSamples={showSamples}
-                            side="left"
-                        />
+                        {src ? (
+                            <PagePhoto
+                                src={src}
+                                pageNum={pageNum}
+                                showSamples={showSamples}
+                                className="ab-page-photo ab-page-photo--full"
+                            />
+                        ) : (
+                            <div className="ab-page-empty" aria-hidden />
+                        )}
                     </AlbumPhotoPinLayer>
                     {!previewMode && <AlbumSwapMarkBadge markInfo={endCoverSwapMarkInfo} />}
                 </div>
@@ -679,11 +671,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         onRemovePin={liveOnPinRemove}
                     >
                         {src ? (
-                            <FramedSpreadPhoto
+                            <PagePhoto
                                 src={src}
                                 pageNum={pageNum}
                                 showSamples={showSamples}
-                                side="full"
+                                className="ab-page-photo ab-page-photo--full"
                             />
                         ) : (
                             <div className="ab-page-empty" aria-hidden />

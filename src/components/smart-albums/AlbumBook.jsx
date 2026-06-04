@@ -11,6 +11,7 @@ import {
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getAlbumSpreadOptions,
+    getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
     isEndHalfSpreadIndex,
@@ -89,7 +90,7 @@ function getFallbackBookDimensions(rootEl, gridSize = 'square') {
     return computeBookDimensions(w, h, gridSize);
 }
 
-function OverviewFramedPhoto({ src, placeholderClass = '' }) {
+function OverviewCoverPhoto({ src, placeholderClass = '' }) {
     if (!src) {
         return (
             <span
@@ -97,16 +98,12 @@ function OverviewFramedPhoto({ src, placeholderClass = '' }) {
             />
         );
     }
-    return (
-        <span className="ab-overview-cover-stage">
-            <img className="ab-overview-cover-frame" src={src} alt="" loading="lazy" />
-        </span>
-    );
+    return <img src={src} alt="" loading="lazy" />;
 }
 
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const albumId = album?.id;
-    const spreadOpts = getAlbumSpreadOptions(album);
+    const spreadOpts = getSpreadContext(album, totalPages);
     if (pageNum === 0 && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples });
     }
@@ -114,8 +111,10 @@ function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     if (directSrc) return directSrc;
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
     const cellId = pageNum === spreadLeft ? 1 : 2;
+    const spreadCtx = getSpreadContext(album, totalPages);
     const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
         wholeSpread: album?.grid_layout === 'whole-spread',
+        spreadOpts: spreadCtx,
     });
     return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);
 }
@@ -176,7 +175,10 @@ const AlbumBook = ({
     const [initialized, setInitialized] = useState(false);
     const [commentsSeenTick, setCommentsSeenTick] = useState(0);
     const isPinModeOn = previewMode ? pinMarkMode : pinModeActive;
-    const spreadOpts = useMemo(() => getAlbumSpreadOptions(album), [album?.has_covers]);
+    const spreadOpts = useMemo(
+        () => getSpreadContext(album, totalPages),
+        [album?.has_covers, album?.id, album?.page_count, totalPages]
+    );
     const spreadCtx = useMemo(
         () => ({ ...spreadOpts, totalPages }),
         [spreadOpts, totalPages]
@@ -1014,7 +1016,7 @@ const AlbumBook = ({
                         usePortrait={false}
                         useMouseEvents={clickToFlip}
                         mobileScrollSupport={false}
-                        showCover={spreadOpts.showCover}
+                        showCover={false}
                         showPageCorners={clickToFlip}
                         disableFlipByClick
                         startPage={initialPage}
@@ -1196,13 +1198,13 @@ const AlbumBook = ({
                                                     aria-hidden
                                                 />
                                                 <span className="ab-overview-page ab-overview-page--cover-right">
-                                                    <OverviewFramedPhoto src={coverPhotoSrc} />
+                                                    <OverviewCoverPhoto src={coverPhotoSrc} />
                                                 </span>
                                             </>
                                         ) : isEndHalf ? (
                                             <>
                                                 <span className="ab-overview-page ab-overview-page--end-left">
-                                                    <OverviewFramedPhoto src={endCoverSrc} />
+                                                    <OverviewCoverPhoto src={endCoverSrc} />
                                                 </span>
                                                 <span
                                                     className="ab-overview-page ab-overview-page--cover-blank"

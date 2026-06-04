@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { filesFromInput } from '../../lib/uploadFileOrder';
 import './CollectionPickerModal.css';
 
 export default function CollectionPickerModal({
@@ -64,15 +65,18 @@ export default function CollectionPickerModal({
                         </div>
                     ) : (
                         <div className="cpm-grid">
-                            {items.map((item) => (
+                            {items.map((item, index) => (
                                 <button
                                     key={item.id}
                                     type="button"
                                     className="cpm-thumb"
                                     onClick={() => onSelectItem?.(item.id)}
-                                    title={item.name}
+                                    title={`${index + 1}. ${item.name || 'Photo'}`}
                                 >
-                                    <img src={item.dataUrl} alt="" loading="lazy" />
+                                    <span className="cpm-thumb-order" aria-hidden>
+                                        {index + 1}
+                                    </span>
+                                    <img src={item.dataUrl} alt="" loading="lazy" draggable={false} />
                                 </button>
                             ))}
                         </div>
@@ -87,7 +91,7 @@ export default function CollectionPickerModal({
                         multiple
                         className="cpm-file-input"
                         onChange={(e) => {
-                            const files = Array.from(e.target.files || []);
+                            const files = filesFromInput(e.target.files);
                             if (files.length) onUploadFiles?.(files);
                             e.target.value = '';
                         }}

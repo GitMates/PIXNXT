@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
 import CollectionPickerModal from '../../components/smart-albums/CollectionPickerModal';
@@ -16,14 +16,20 @@ import {
     getAlbumCollectionRevision,
     getCollectionItem,
     loadAlbumAssetsFromCloud,
+    reorderCollectionItems,
 } from '../../components/smart-albums/albumCollection';
 import { isPdfFile } from '../../lib/pdfToImages';
+import { filesFromInput } from '../../lib/uploadFileOrder';
 import {
     clearAllAlbumPagePhotos,
     getAlbumPhotoRevision,
     migrateEndHalfSpreadToLeftPage,
+    migrateFrontCoverSpreadToPageOne,
     migrateInsideCoverSpreadToPageTwo,
+    applyCollectionOrderToPages,
     migrateMiskeyedInnerSpreadPhotos,
+    migrateWholeSpreadPagePhotosToSpreadKeys,
+    migrateWholeSpreadPhotoOffRightPage,
     placeCollectionItemOnPages,
     setPagePhotoFromCollectionItem,
     setPagePhotoFromDataUrl,
@@ -82,6 +88,8 @@ import {
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import { useAuth } from '../../hooks/useAuth';
+import { computePageCountFromPhotoCount } from './createAlbumLayout';
+import { smartAlbumsService } from '../../services/smartAlbums.service';
 import './AlbumEditor.css';
 
 function getSpreadLeftForBookPage(bookPageIndex, totalPages, spreadOpts) {
@@ -139,6 +147,7 @@ export default function AlbumEditor({
     pagesPerSpread = 2,
 }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
     const [activePanel, setActivePanel] = useState('collections');
     const { toast, showToast, clearToast } = useAppToast(4000);
@@ -161,9 +170,22 @@ export default function AlbumEditor({
     const shareRef = useRef(null);
     const replaceFileRef = useRef(null);
     const pendingReplaceSlotRef = useRef(null);
+    const collectionSyncRef = useRef(false);
     const [slotMenu, setSlotMenu] = useState(null);
     const [swapExecuteOrigin, setSwapExecuteOrigin] = useState(null);
-    const spreadOpts = useMemo(() => getAlbumSpreadOptions(album), [album?.has_covers, album?.id]);
+
+    const collectionItems = useMemo(
+        () => getAlbumCollection(albumId),
+        [albumId, collectionRevision]
+    );
+
+    const spreadOpts = useMemo(
+        () =>
+            getAlbumSpreadOptions(album, {
+                collectionCount: collectionItems.length,
+            }),
+        [album?.has_covers, album?.id, album?.page_count, collectionItems.length]
+    );
     const spreadCtx = useMemo(
         () => ({ ...spreadOpts, totalPages }),
         [spreadOpts, totalPages]
@@ -184,11 +206,6 @@ export default function AlbumEditor({
     });
 
     const albumForBook = useMemo(() => ({ ...album, id: albumId }), [album, albumId]);
-
-    const collectionItems = useMemo(
-        () => getAlbumCollection(albumId),
-        [albumId, collectionRevision]
-    );
 
     const bumpWorkspace = useCallback(() => {
         onPhotosUploaded?.();
@@ -211,10 +228,52 @@ export default function AlbumEditor({
     }, [albumId]);
 
     useEffect(() => {
+        collectionSyncRef.current = false;
+    }, [albumId]);
+
+    const syncCollectionOrderToSpreads = useCallback(async () => {
+        if (!albumId || !album || !user?.id) return 0;
+        const items = getAlbumCollection(albumId);
+        if (!items.length) return 0;
+
+        const spreadOpts = getAlbumSpreadOptions(album, {
+            collectionCount: items.length,
+        });
+        const requiredPages = computePageCountFromPhotoCount(items.length, {
+            includeCovers: spreadOpts.hasCovers,
+            gridLayout: album.grid_layout || 'two-page',
+        });
+
+        let albumForPlace = album;
+        if (requiredPages !== (album.page_count || 0)) {
+            albumForPlace = await smartAlbumsService.updateAlbumPageCount(
+                user.id,
+                albumId,
+                requiredPages
+            );
+            onAlbumUpdate?.(albumForPlace);
+        }
+
+        return applyCollectionOrderToPages(albumId, {
+            ...albumForPlace,
+            has_covers: album?.has_covers === true,
+            grid_layout: album.grid_layout || 'two-page',
+            page_count: requiredPages,
+        });
+    }, [albumId, album, user?.id, onAlbumUpdate]);
+
+    useEffect(() => {
         let changed = false;
-        if (migrateEndHalfSpreadToLeftPage(albumId, totalPages)) changed = true;
-        if (migrateMiskeyedInnerSpreadPhotos(albumId, totalPages)) changed = true;
+        if (migrateEndHalfSpreadToLeftPage(albumId, totalPages, album)) changed = true;
+        if (migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, album)) changed = true;
+        if (migrateWholeSpreadPhotoOffRightPage(albumId, album)) changed = true;
+        if (!spreadOpts.hasCovers) {
+            if (migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, album)) {
+                changed = true;
+            }
+        }
         if (spreadOpts.hasCovers) {
+            if (migrateFrontCoverSpreadToPageOne(albumId)) changed = true;
             if (migrateInsideCoverSpreadToPageTwo(albumId, totalPages)) changed = true;
             if (migrateInsideCoverSpreadTransform(albumId)) changed = true;
             const { left: endLeft } = getEndSpreadPageIndices(totalPages);
@@ -226,6 +285,50 @@ export default function AlbumEditor({
         }, 0);
         return () => window.clearTimeout(timer);
     }, [albumId, totalPages, spreadOpts.hasCovers, bumpWorkspace]);
+
+    /** Align spread slots with collection order (1st upload → first slot). Runs once per album + after create. */
+    useEffect(() => {
+        if (!albumId || !album || collectionSyncRef.current) return;
+
+        const fromCreate = location.state?.syncCollectionOrder === true;
+        const onceKey = `pixnxt_collection_order_sync_v10_${albumId}`;
+        let needsOnce = false;
+        try {
+            needsOnce = !localStorage.getItem(onceKey);
+        } catch {
+            needsOnce = false;
+        }
+
+        if (!fromCreate && !needsOnce) return;
+
+        collectionSyncRef.current = true;
+        let cancelled = false;
+        void syncCollectionOrderToSpreads().then((placed) => {
+            if (cancelled) return;
+            if (placed > 0) scheduleWorkspaceRefresh();
+            try {
+                localStorage.setItem(onceKey, String(Date.now()));
+            } catch {
+                /* ignore */
+            }
+            if (fromCreate) {
+                const path = `${location.pathname}${location.search}`;
+                navigate(path, { replace: true, state: {} });
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [
+        albumId,
+        album,
+        location.state,
+        location.pathname,
+        location.search,
+        navigate,
+        syncCollectionOrderToSpreads,
+        scheduleWorkspaceRefresh,
+    ]);
 
     useEffect(() => {
         setSwapMarks(getSwapMarks(albumId));
@@ -314,7 +417,7 @@ export default function AlbumEditor({
                     : buildCellSelection(left, 1)
             );
         }
-    }, [album?.grid_layout, bookPage, totalPages]);
+    }, [album?.grid_layout, bookPage, totalPages, spreadOpts]);
 
     useEffect(() => {
         const maxPage = Math.max(0, totalPages - 1);
@@ -329,14 +432,18 @@ export default function AlbumEditor({
             setGridSelection(buildCellSelection(left, 2));
             return;
         }
+        const lockedSet = layoutToPlacementMode(album?.grid_layout);
         if (isProofGridSpread(left, totalPages, spreadOpts)) {
-            setGridSelection((prev) =>
-                prev?.leftPage === left ? prev : buildCellSelection(left, prev?.cellId || 1)
-            );
+            setGridSelection((prev) => {
+                if (prev?.leftPage === left) return prev;
+                return lockedSet === 'whole'
+                    ? buildSpreadSelection(left)
+                    : buildCellSelection(left, prev?.cellId || 1);
+            });
         } else {
             setGridSelection(buildCellSelection(left, 1));
         }
-    }, [initialPage, totalPages, spreadOpts]);
+    }, [initialPage, totalPages, spreadOpts, album?.grid_layout]);
 
     useEffect(() => {
         setBookPage((prev) => {
@@ -460,6 +567,9 @@ export default function AlbumEditor({
     const placeDataUrlOnSlot = useCallback(
         async (slot, dataUrl) => {
             if (!slot || !dataUrl) return false;
+            if (spreadOpts.hasCovers && (slot.pageNum === 0 || slot.pageNum === 1)) {
+                return setPagePhotoFromDataUrl(albumId, 1, dataUrl, { clearSpreadForLeft: 0 });
+            }
             if (slot.pageNum === 0) {
                 return setPagePhotoFromDataUrl(albumId, 0, dataUrl);
             }
@@ -469,7 +579,7 @@ export default function AlbumEditor({
                 const right = getSpreadRightPageIndex(left, totalPages);
                 return setSpreadPhoto(albumId, left, dataUrl, right, { totalPages });
             }
-            if (isEndHalfSpreadLeftPage(left, totalPages)) {
+            if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
                 return setPagePhotoFromDataUrl(albumId, left, dataUrl, {
                     clearSpreadForLeft: left,
                 });
@@ -477,18 +587,24 @@ export default function AlbumEditor({
             const photoIndex = getProofCellPhotoIndex(
                 slot.pageNum,
                 slot.cellId || 1,
-                totalPages
+                totalPages,
+                spreadCtx
             );
             return setPagePhotoFromDataUrl(albumId, photoIndex, dataUrl, {
                 clearSpreadForLeft: left,
             });
         },
-        [albumId, totalPages]
+        [albumId, totalPages, spreadCtx, spreadOpts]
     );
 
     const placeCollectionItemOnSlot = useCallback(
         (slot, itemId) => {
             if (!slot || !itemId) return false;
+            if (spreadOpts.hasCovers && (slot.pageNum === 0 || slot.pageNum === 1)) {
+                return setPagePhotoFromCollectionItem(albumId, 1, itemId, {
+                    clearSpreadForLeft: 0,
+                });
+            }
             if (slot.pageNum === 0) {
                 return setPagePhotoFromCollectionItem(albumId, 0, itemId);
             }
@@ -499,7 +615,7 @@ export default function AlbumEditor({
                     totalPages,
                 });
             }
-            if (isEndHalfSpreadLeftPage(left, totalPages)) {
+            if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
                 return setPagePhotoFromCollectionItem(albumId, left, itemId, {
                     clearSpreadForLeft: left,
                 });
@@ -507,19 +623,20 @@ export default function AlbumEditor({
             const photoIndex = getProofCellPhotoIndex(
                 slot.pageNum,
                 slot.cellId || 1,
-                totalPages
+                totalPages,
+                spreadCtx
             );
             return setPagePhotoFromCollectionItem(albumId, photoIndex, itemId, {
                 clearSpreadForLeft: left,
             });
         },
-        [albumId, totalPages]
+        [albumId, totalPages, spreadCtx, spreadOpts]
     );
 
     const handleSlotActivate = useCallback(
         (slot, anchorRect) => {
             if (activePanel === 'edit') return;
-            if (slot.pageNum === 0) {
+            if (spreadOpts.hasCovers && slot.pageNum === 1) {
                 setGridEditSet('single');
                 setGridSelection(buildCoverSelection());
             } else if (slot.whole) {
@@ -531,7 +648,7 @@ export default function AlbumEditor({
             }
             setSlotMenu({ slot, anchorRect, label: slot.label });
         },
-        [activePanel]
+        [activePanel, spreadOpts.hasCovers]
     );
 
     const closeSlotMenu = useCallback(() => setSlotMenu(null), []);
@@ -551,7 +668,7 @@ export default function AlbumEditor({
 
     const handleReplaceFiles = useCallback(
         async (e) => {
-            const files = Array.from(e.target.files || []);
+            const files = filesFromInput(e.target.files);
             e.target.value = '';
             const slot = pendingReplaceSlotRef.current;
             pendingReplaceSlotRef.current = null;
@@ -615,7 +732,7 @@ export default function AlbumEditor({
             const origin = swapExecuteOrigin;
             setSwapExecuteOrigin(null);
             requestAnimationFrame(() => {
-                if (swapPhotoSlots(albumId, origin, targetSlot, totalPages)) {
+                if (swapPhotoSlots(albumId, origin, targetSlot, totalPages, spreadCtx)) {
                     scheduleWorkspaceRefresh();
                     showToast('Photos swapped.', { duration: 3500 });
                 } else {
@@ -626,7 +743,7 @@ export default function AlbumEditor({
                 }
             });
         },
-        [swapExecuteOrigin, albumId, totalPages, scheduleWorkspaceRefresh, showToast]
+        [swapExecuteOrigin, albumId, totalPages, spreadCtx, scheduleWorkspaceRefresh, showToast]
     );
 
     const placementTargets = useMemo(() => {
@@ -641,7 +758,7 @@ export default function AlbumEditor({
         if (gridEditSet === 'whole' || gridSelection.mode === 'spread') return [];
         if (gridSelection.cellId) {
             return [
-                getProofCellPhotoIndex(left, gridSelection.cellId, totalPages),
+                getProofCellPhotoIndex(left, gridSelection.cellId, totalPages, spreadCtx),
             ];
         }
         return [];
@@ -659,14 +776,16 @@ export default function AlbumEditor({
     const placeItemOnSpread = useCallback(
         (itemId) => {
             const item = getCollectionItem(albumId, itemId);
-            if (!item?.dataUrl || !gridSelection) return false;
+            if (!item || (!item.dataUrl && !item.storagePath) || !gridSelection) return false;
 
             if (spreadOpts.hasCovers && gridSelection.mode === 'cover') {
-                return setPagePhotoFromCollectionItem(albumId, 0, item.id);
+                return setPagePhotoFromCollectionItem(albumId, 1, item.id, {
+                    clearSpreadForLeft: 0,
+                });
             }
 
             const left = gridSelection.leftPage;
-            const endHalfLeft = isEndHalfSpreadLeftPage(left, totalPages);
+            const endHalfLeft = isEndHalfSpreadLeftPage(left, totalPages, spreadOpts);
 
             if (endHalfLeft && gridSelection.mode !== 'cover') {
                 const { left: endLeft } = getEndSpreadPageIndices(totalPages);
@@ -700,7 +819,7 @@ export default function AlbumEditor({
                 }) > 0
             );
         },
-        [albumId, gridSelection, gridEditSet, placementTargets, totalPages]
+        [albumId, gridSelection, gridEditSet, placementTargets, totalPages, spreadOpts]
     );
 
     const handleUploadToCollection = async (files) => {
@@ -759,6 +878,30 @@ export default function AlbumEditor({
         [placeItemOnSpread, scheduleWorkspaceRefresh, showToast, gridSelection?.mode]
     );
 
+    const handleReorderCollectionItem = useCallback(
+        (fromIndex, toIndex) => {
+            if (!reorderCollectionItems(albumId, fromIndex, toIndex)) return;
+            void syncCollectionOrderToSpreads().then((placed) => {
+                if (placed > 0) scheduleWorkspaceRefresh();
+            });
+        },
+        [albumId, syncCollectionOrderToSpreads, scheduleWorkspaceRefresh]
+    );
+
+    const handleApplyCollectionOrder = useCallback(() => {
+        void syncCollectionOrderToSpreads().then((placed) => {
+            if (placed > 0) {
+                scheduleWorkspaceRefresh();
+                showToast(
+                    `Placed ${placed} photo${placed === 1 ? '' : 's'} on spreads in collection order (1, 2, 3…).`,
+                    { variant: 'success', duration: 4500 }
+                );
+            } else {
+                showToast('No photos in the collection to place.', { variant: 'info', duration: 3500 });
+            }
+        });
+    }, [syncCollectionOrderToSpreads, scheduleWorkspaceRefresh, showToast]);
+
     const canAddPages = totalPages + pagesPerSpread <= maxPages;
     const canRemovePages =
         totalPages - pagesPerSpread >= minPages &&
@@ -779,7 +922,7 @@ export default function AlbumEditor({
         if (!slotMenu?.slot) return 'Any left or right photo';
         if (spreadOpts.hasCovers && slotMenu.slot.pageNum === 0) return 'Cover only';
         const gridLayout = album?.grid_layout || 'two-page';
-        if (isWholeGridSwapSlot(albumId, slotMenu.slot, totalPages, gridLayout)) {
+        if (isWholeGridSwapSlot(albumId, slotMenu.slot, totalPages, gridLayout, album)) {
             return 'Other whole spreads only';
         }
         return 'Any left or right photo';
@@ -1054,6 +1197,8 @@ export default function AlbumEditor({
                     albumId={albumId}
                     onNavigateToPin={handleNavigateToPin}
                     onNavigateToSwapSlotKey={handleNavigateToSwapSlotKey}
+                    onReorderCollectionItem={handleReorderCollectionItem}
+                    onApplyCollectionOrder={handleApplyCollectionOrder}
                     proofSeenTick={proofSeenTick}
                 />
             </div>

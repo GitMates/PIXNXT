@@ -2,21 +2,30 @@ import React, { useEffect, useMemo, useRef, useState, useCallback, memo } from '
 import { useNavigate } from 'react-router-dom';
 import { DatePicker } from '../../components/ui/DatePicker';
 import { addFilesToAlbumCollection } from '../../components/smart-albums/albumCollection';
-import {
-    autoPlaceCollectionItems,
-    setPagePhotoFromCollectionItem,
-} from '../../components/smart-albums/albumPagePhotos';
+import { applyCollectionOrderToPages } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
-    detectGridSizeFromFiles,
-    formatGridSizeLabel,
+    detectGridSizesFromFiles,
+    formatGridSizeLabelForLayout,
 } from '../../components/smart-albums/albumGridSize';
 import {
     computePageCountFromPhotoCount,
     countExpandedUploadPhotos,
+    describeAlbumLayout,
 } from './createAlbumLayout';
-import { buildPreviewThumbUrls } from './createAlbumPreviewThumbs';
+import {
+    collectionItemIdsForPreviewSlots,
+    createPdfPagePreviewThumbUrl,
+    getPdfPageCount,
+} from './createAlbumPreviewThumbs';
+import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
+import {
+    filesFromDataTransfer,
+    filesFromInput,
+    moveFileInOrder,
+    moveItemInOrder,
+} from '../../lib/uploadFileOrder';
 import './CreateAlbum.css';
 
 const COVER_OPTIONS = [
@@ -27,16 +36,7 @@ const COVER_OPTIONS = [
 const GRID_LAYOUT_OPTIONS = [
     { value: 'two-page', label: 'Two-page grid (left + right)' },
     { value: 'whole-spread', label: 'Whole-spread photo' },
-    { value: 'custom', label: 'Custom' },
 ];
-
-function normalizeCustomKey(value, fallback = 'custom') {
-    return String(value || fallback)
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '') || fallback;
-}
 
 function CustomSelect({ id, value, options, onChange, placeholder = 'Select' }) {
     const [open, setOpen] = useState(false);
@@ -62,7 +62,7 @@ function CustomSelect({ id, value, options, onChange, placeholder = 'Select' }) 
                 aria-expanded={open}
             >
                 <span>{selected?.label || placeholder}</span>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
                     <path d="M7 10l5 5 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
                 </svg>
             </button>
@@ -99,7 +99,17 @@ function formatFileSize(bytes) {
     return `${(kb / 1024).toFixed(1)} MB`;
 }
 
-const UploadPreviewCard = memo(function UploadPreviewCard({ preview, index, onRemove, animateIn }) {
+const UploadPreviewCard = memo(function UploadPreviewCard({
+    preview,
+    index,
+    onRemove,
+    animateIn,
+    onDragStart,
+    onDragOver,
+    onDrop,
+    onDragEnd,
+    isDragOver,
+}) {
     const imgRef = useRef(null);
     const [imageLoaded, setImageLoaded] = useState(false);
 
@@ -121,13 +131,32 @@ const UploadPreviewCard = memo(function UploadPreviewCard({ preview, index, onRe
         <figure
             className={`sa-preview-card${showSkeleton ? '' : ' sa-preview-card--ready'}${
                 animateIn ? ' sa-preview-card--animate-in' : ''
-            }`}
+            }${isDragOver ? ' sa-preview-card--drag-over' : ''}`}
             style={animateIn ? { animationDelay: `${Math.min(index, 8) * 35}ms` } : undefined}
+            draggable
+            onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', String(preview.index));
+                onDragStart?.(preview.index);
+            }}
+            onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                onDragOver?.(preview.index);
+            }}
+            onDrop={(e) => {
+                e.preventDefault();
+                onDrop?.(preview.index);
+            }}
+            onDragEnd={() => onDragEnd?.()}
         >
+            <span className="sa-preview-order" aria-hidden>
+                {index + 1}
+            </span>
             <button
                 type="button"
                 className="sa-preview-remove"
-                onClick={() => onRemove(preview.index)}
+                onClick={() => onRemove(preview)}
                 aria-label={`Remove ${preview.name}`}
             >
                 x
@@ -150,24 +179,20 @@ const UploadPreviewCard = memo(function UploadPreviewCard({ preview, index, onRe
                 ) : !preview.thumbReady ? (
                     <div
                         className={`sa-preview-loading${
-                            preview.isPdf ? ' sa-preview-loading--pdf' : ''
+                            preview.isPdfPage ? ' sa-preview-loading--pdf' : ''
                         }`}
                         aria-busy="true"
                     >
                         <div
                             className={`sa-preview-skeleton${
-                                preview.isPdf ? '' : ' sa-preview-skeleton--fill'
+                                preview.isPdfPage ? '' : ' sa-preview-skeleton--fill'
                             }`}
                             aria-hidden
                         />
                         <span className="sa-preview-loading-spinner" aria-hidden />
                         <span className="sa-preview-loading-label">
-                            {preview.isPdf ? 'Loading PDF…' : 'Loading…'}
+                            {preview.isPdfPage ? 'Loading page…' : 'Loading…'}
                         </span>
-                    </div>
-                ) : preview.isPdf ? (
-                    <div className="sa-preview-pdf-badge" aria-hidden>
-                        PDF
                     </div>
                 ) : (
                     <div className="sa-preview-loading" aria-busy="true">
@@ -191,11 +216,14 @@ const CreateAlbum = () => {
     const [date, setDate] = useState('');
     const [coverMode, setCoverMode] = useState('with');
     const [gridLayout, setGridLayout] = useState('two-page');
-    const [customGridLayout, setCustomGridLayout] = useState('');
     const [detectedGridSize, setDetectedGridSize] = useState('square');
+    const [detectedSpreadGridSize, setDetectedSpreadGridSize] = useState(null);
 
     const [photoFiles, setPhotoFiles] = useState([]);
-    const [photoPreviews, setPhotoPreviews] = useState([]);
+    const [previewSlots, setPreviewSlots] = useState([]);
+    const [dragOverIndex, setDragOverIndex] = useState(null);
+    const [uploadDropActive, setUploadDropActive] = useState(false);
+    const dragFromIndexRef = useRef(null);
     const [expandedPhotoCount, setExpandedPhotoCount] = useState(0);
     const [photoCountBusy, setPhotoCountBusy] = useState(false);
     const [gridSizeBusy, setGridSizeBusy] = useState(false);
@@ -205,12 +233,23 @@ const CreateAlbum = () => {
 
     const includeCovers = coverMode === 'with';
 
-    const resolvedGridLayout = useMemo(() => {
-        if (gridLayout === 'custom') {
-            return `custom-${normalizeCustomKey(customGridLayout)}`;
-        }
-        return gridLayout;
-    }, [gridLayout, customGridLayout]);
+    const resolvedGridLayout = gridLayout;
+    const gridLayoutForDetection = gridLayout;
+
+    const displayPhotoCount =
+        previewSlots.length > 0 ? previewSlots.length : expandedPhotoCount;
+
+    const layoutPreview = useMemo(() => {
+        if (!displayPhotoCount) return null;
+        const pageCount = computePageCountFromPhotoCount(displayPhotoCount, {
+            includeCovers,
+            gridLayout: resolvedGridLayout,
+        });
+        return describeAlbumLayout(displayPhotoCount, pageCount, {
+            includeCovers,
+            gridLayout: resolvedGridLayout,
+        });
+    }, [displayPhotoCount, includeCovers, resolvedGridLayout]);
 
     const setProgress = (next) => {
         setCreateProgress(next);
@@ -218,38 +257,87 @@ const CreateAlbum = () => {
 
     useEffect(() => {
         if (!photoFiles.length) {
-            setPhotoPreviews([]);
+            setPreviewSlots([]);
             return undefined;
         }
 
         const abort = new AbortController();
-        const previews = photoFiles.map((file, index) => ({
-            index,
-            id: `${file.name}-${file.lastModified}-${file.size}-${index}`,
-            name: file.name,
-            size: file.size,
-            isPdf:
-                file.type === 'application/pdf' ||
-                file.name.toLowerCase().endsWith('.pdf'),
-            url: null,
-            thumbReady: false,
-        }));
+        const blobUrls = [];
 
-        setPhotoPreviews(previews);
+        const buildSlots = async () => {
+            const slots = [];
 
-        void buildPreviewThumbUrls(photoFiles, {
-            signal: abort.signal,
-            onThumb: (fileIndex, url) => {
-                setPhotoPreviews((prev) =>
-                    prev.map((item, i) =>
-                        i === fileIndex ? { ...item, url: url || null, thumbReady: true } : item
+            for (let fileIndex = 0; fileIndex < photoFiles.length; fileIndex += 1) {
+                if (abort.signal.aborted) return;
+                const file = photoFiles[fileIndex];
+                const fileKey = `${file.name}-${file.lastModified}-${file.size}`;
+
+                if (isImageFile(file)) {
+                    const url = URL.createObjectURL(file);
+                    blobUrls.push(url);
+                    slots.push({
+                        id: `${fileKey}-img`,
+                        fileIndex,
+                        pageIndex: null,
+                        name: file.name,
+                        size: file.size,
+                        url,
+                        thumbReady: true,
+                        isPdfPage: false,
+                    });
+                    continue;
+                }
+
+                if (isPdfFile(file)) {
+                    const pageCount = await getPdfPageCount(file);
+                    const baseName = (file.name || 'document.pdf').replace(/\.pdf$/i, '');
+                    for (let page = 0; page < pageCount; page += 1) {
+                        slots.push({
+                            id: `${fileKey}-p${page}`,
+                            fileIndex,
+                            pageIndex: page,
+                            name:
+                                pageCount > 1
+                                    ? `${baseName} · page ${page + 1}`
+                                    : baseName,
+                            size: file.size,
+                            url: null,
+                            thumbReady: false,
+                            isPdfPage: true,
+                        });
+                    }
+                }
+            }
+
+            if (abort.signal.aborted) return;
+            setPreviewSlots(slots);
+
+            for (const slot of slots) {
+                if (abort.signal.aborted) return;
+                if (slot.pageIndex == null) continue;
+                const file = photoFiles[slot.fileIndex];
+                let url = null;
+                try {
+                    url = await createPdfPagePreviewThumbUrl(file, slot.pageIndex + 1);
+                } catch {
+                    url = null;
+                }
+                if (abort.signal.aborted) return;
+                setPreviewSlots((prev) =>
+                    prev.map((item) =>
+                        item.id === slot.id
+                            ? { ...item, url: url || null, thumbReady: true }
+                            : item
                     )
                 );
-            },
-        });
+            }
+        };
+
+        void buildSlots();
 
         return () => {
             abort.abort();
+            blobUrls.forEach((u) => URL.revokeObjectURL(u));
         };
     }, [photoFiles]);
 
@@ -257,6 +345,7 @@ const CreateAlbum = () => {
         if (!photoFiles.length) {
             setExpandedPhotoCount(0);
             setDetectedGridSize('square');
+            setDetectedSpreadGridSize(null);
             setPhotoCountBusy(false);
             setGridSizeBusy(false);
             return undefined;
@@ -270,12 +359,15 @@ const CreateAlbum = () => {
             if (cancelled) return;
             Promise.all([
                 countExpandedUploadPhotos(photoFiles).catch(() => photoFiles.length),
-                detectGridSizeFromFiles(photoFiles).catch(() => 'square'),
+                detectGridSizesFromFiles(photoFiles, {
+                    gridLayout: gridLayoutForDetection,
+                }).catch(() => ({ pageGridSize: 'square', spreadGridSize: null })),
             ])
-                .then(([count, gridSize]) => {
+                .then(([count, gridSizes]) => {
                     if (cancelled) return;
                     setExpandedPhotoCount(count);
-                    setDetectedGridSize(gridSize);
+                    setDetectedGridSize(gridSizes.pageGridSize);
+                    setDetectedSpreadGridSize(gridSizes.spreadGridSize);
                 })
                 .finally(() => {
                     if (!cancelled) {
@@ -303,19 +395,55 @@ const CreateAlbum = () => {
                 clearTimeout(analysisTimeoutId);
             }
         };
-    }, [photoFiles]);
+    }, [photoFiles, gridLayoutForDetection]);
 
     const analyzingUploads = photoCountBusy || gridSizeBusy;
-    const animatePreviewCards = photoPreviews.length <= 12;
+    const animatePreviewCards = previewSlots.length <= 12;
+
+    const applyPhotoFiles = useCallback((files) => {
+        if (files?.length) setPhotoFiles(files);
+    }, []);
 
     const handlePhotoChange = (e) => {
-        setPhotoFiles(Array.from(e.target.files || []));
+        applyPhotoFiles(filesFromInput(e.target.files));
         e.target.value = '';
     };
 
-    const handleRemovePhoto = (indexToRemove) => {
-        setPhotoFiles((prev) => prev.filter((_, index) => index !== indexToRemove));
-    };
+    const handleUploadDrop = useCallback(
+        (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setUploadDropActive(false);
+            applyPhotoFiles(filesFromDataTransfer(e.dataTransfer));
+        },
+        [applyPhotoFiles]
+    );
+
+    const handlePreviewDragStart = useCallback((fromIndex) => {
+        dragFromIndexRef.current = fromIndex;
+    }, []);
+
+    const handlePreviewDragOver = useCallback((overIndex) => {
+        setDragOverIndex(overIndex);
+    }, []);
+
+    const handlePreviewDrop = useCallback((toIndex) => {
+        const fromIndex = dragFromIndexRef.current;
+        dragFromIndexRef.current = null;
+        setDragOverIndex(null);
+        if (fromIndex == null || fromIndex === toIndex) return;
+        setPreviewSlots((prev) => moveItemInOrder(prev, fromIndex, toIndex));
+    }, []);
+
+    const handlePreviewDragEnd = useCallback(() => {
+        dragFromIndexRef.current = null;
+        setDragOverIndex(null);
+    }, []);
+
+    const handleRemovePreview = useCallback((slot) => {
+        if (!slot) return;
+        setPhotoFiles((prev) => prev.filter((_, index) => index !== slot.fileIndex));
+    }, []);
 
     const handleCreate = async (e) => {
         e.preventDefault();
@@ -335,16 +463,25 @@ const CreateAlbum = () => {
         });
 
         try {
-            const finalGridLayout =
-                gridLayout === 'custom'
-                    ? `custom-${normalizeCustomKey(customGridLayout)}`
-                    : gridLayout;
+            const finalGridLayout = gridLayout;
 
-            let photoCount = expandedPhotoCount;
+            let photoCount = displayPhotoCount || expandedPhotoCount;
             let finalGridSize = detectedGridSize;
+            let finalSpreadGridSize = detectedSpreadGridSize;
             if (photoFiles.length > 0) {
-                photoCount = await countExpandedUploadPhotos(photoFiles);
-                finalGridSize = await detectGridSizeFromFiles(photoFiles);
+                const expanded = await countExpandedUploadPhotos(photoFiles).catch(
+                    () => photoFiles.length
+                );
+                photoCount = Math.max(
+                    previewSlots.length,
+                    expanded,
+                    photoFiles.length
+                );
+                const gridSizes = await detectGridSizesFromFiles(photoFiles, {
+                    gridLayout: finalGridLayout,
+                });
+                finalGridSize = gridSizes.pageGridSize;
+                finalSpreadGridSize = gridSizes.spreadGridSize;
             }
 
             const finalPageCount = computePageCountFromPhotoCount(photoCount, {
@@ -365,6 +502,7 @@ const CreateAlbum = () => {
                 event_date: date || null,
                 page_count: finalPageCount,
                 grid_size: finalGridSize,
+                spread_grid_size: finalSpreadGridSize,
                 grid_layout: finalGridLayout,
                 has_covers: includeCovers,
             });
@@ -412,27 +550,51 @@ const CreateAlbum = () => {
                     total: 0,
                 });
 
-                const items = added.filter(Boolean);
-                if (includeCovers && items.length > 0) {
-                    setPagePhotoFromCollectionItem(album.id, 0, items[0].id);
-                    autoPlaceCollectionItems(
+                const uploadedCount = added.filter((item) => item?.id).length;
+                const orderedItemIds = collectionItemIdsForPreviewSlots(
+                    photoFiles,
+                    added,
+                    previewSlots
+                );
+                const effectivePhotoCount = Math.max(
+                    photoCount,
+                    orderedItemIds.length,
+                    uploadedCount,
+                    displayPhotoCount
+                );
+                const requiredPageCount = computePageCountFromPhotoCount(effectivePhotoCount, {
+                    includeCovers,
+                    gridLayout: finalGridLayout,
+                });
+
+                let albumForPlace = album;
+                if (requiredPageCount !== (album.page_count || 0)) {
+                    albumForPlace = await smartAlbumsService.updateAlbumPageCount(
+                        user.id,
                         album.id,
-                        items.slice(1).map((item) => item.id),
-                        {
-                            totalPages: album.page_count || finalPageCount,
-                            gridLayout: finalGridLayout,
-                            showCover: true,
-                        }
+                        requiredPageCount
                     );
-                } else {
-                    autoPlaceCollectionItems(
-                        album.id,
-                        items.map((item) => item.id),
-                        {
-                            totalPages: album.page_count || finalPageCount,
-                            gridLayout: finalGridLayout,
-                            showCover: false,
-                        }
+                }
+
+                const placed = applyCollectionOrderToPages(
+                    album.id,
+                    {
+                        ...albumForPlace,
+                        has_covers: includeCovers,
+                        grid_layout: finalGridLayout,
+                        page_count: requiredPageCount,
+                    },
+                    {
+                        itemIds:
+                            orderedItemIds.length > 0
+                                ? orderedItemIds
+                                : added.filter((item) => item?.id).map((item) => item.id),
+                    }
+                );
+
+                if (placed < uploadedCount) {
+                    console.warn(
+                        `Placed ${placed} of ${uploadedCount} photos — check album page count (${requiredPageCount} pages).`
                     );
                 }
             }
@@ -444,9 +606,11 @@ const CreateAlbum = () => {
                 total: 0,
             });
 
-            void smartAlbumsService.syncAlbumPreviewData(user.id, album.id);
+            await smartAlbumsService.syncAlbumPreviewData(user.id, album.id);
 
-            navigate(`/smart-albums/album/${album.id}`);
+            navigate(`/smart-albums/album/${album.id}`, {
+                state: { syncCollectionOrder: true },
+            });
         } catch (err) {
             console.error('Error creating album:', err);
             setError(err.message || 'Failed to create album. Please try again.');
@@ -461,7 +625,7 @@ const CreateAlbum = () => {
             <header className="cc-header">
                 <div className="cc-header-left">
                     <button type="button" className="cc-back-btn" onClick={() => navigate('/smart-albums')} title="Back">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="15 18 9 12 15 6" />
                         </svg>
                     </button>
@@ -525,6 +689,60 @@ const CreateAlbum = () => {
                             </div>
                         </section>
 
+                        <section className="sa-create-card">
+                            <div className="sa-section-heading">
+                                <span>Locked layout</span>
+                                <small>Cannot be changed after creation</small>
+                            </div>
+
+                            <div className="cc-form-group">
+                                <label className="cc-label" htmlFor="album-cover-mode">
+                                    Covers
+                                </label>
+                                <CustomSelect
+                                    id="album-cover-mode"
+                                    value={coverMode}
+                                    options={COVER_OPTIONS}
+                                    onChange={setCoverMode}
+                                />
+                                <p className="sa-field-note">
+                                    {includeCovers
+                                        ? 'First photo on the front cover right page (left blank); last photo on the end cover left page (right blank). Middle photos fill inner pages.'
+                                        : 'All uploaded photos fill pages in order — no dedicated cover spreads.'}
+                                </p>
+                            </div>
+
+                            <div className="cc-form-group">
+                                <label className="cc-label" htmlFor="album-grid-layout">
+                                    Grid Layout
+                                </label>
+                                <CustomSelect
+                                    id="album-grid-layout"
+                                    value={gridLayout}
+                                    options={GRID_LAYOUT_OPTIONS}
+                                    onChange={setGridLayout}
+                                />
+                            </div>
+
+                            <p className="sa-field-note">
+                                Layout and cover mode are locked after the album is created.
+                                    {displayPhotoCount > 0 && !analyzingUploads ? (
+                                    <>
+                                        {' '}
+                                        Detected grid:{' '}
+                                        {formatGridSizeLabelForLayout(
+                                            detectedGridSize,
+                                            gridLayoutForDetection,
+                                            { spreadGridSize: detectedSpreadGridSize }
+                                        )}
+                                        .
+                                    </>
+                                ) : (
+                                    <> Grid size is detected from your uploads.</>
+                                )}
+                            </p>
+                        </section>
+
                         <section className="sa-create-card sa-create-card--upload">
                             <div className="sa-section-heading">
                                 <span>Upload photos</span>
@@ -539,19 +757,32 @@ const CreateAlbum = () => {
                                 multiple
                                 onChange={handlePhotoChange}
                             />
-                            <label className="sa-upload-card" htmlFor="album-photos">
+                            <label
+                                className={`sa-upload-card${
+                                    uploadDropActive ? ' sa-upload-card--drop-active' : ''
+                                }`}
+                                htmlFor="album-photos"
+                                onDragOver={(e) => {
+                                    e.preventDefault();
+                                    setUploadDropActive(true);
+                                }}
+                                onDragLeave={() => setUploadDropActive(false)}
+                                onDrop={handleUploadDrop}
+                            >
                                 <span className="sa-upload-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                                         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                                         <polyline points="17 8 12 3 7 8" />
                                         <line x1="12" y1="3" x2="12" y2="15" />
                                     </svg>
                                 </span>
                                 <strong>Choose photos or PDF</strong>
-                                <small>JPG, PNG, WEBP, or PDF pages</small>
+                                <small>
+                                    JPG, PNG, WEBP, or PDF · drag from folder to keep pick order
+                                </small>
                             </label>
 
-                            {photoPreviews.length > 0 ? (
+                            {previewSlots.length > 0 ? (
                                 <div
                                     className={`sa-upload-preview${
                                         analyzingUploads ? ' sa-upload-preview--analyzing' : ''
@@ -570,16 +801,31 @@ const CreateAlbum = () => {
                                                 </span>
                                             ) : (
                                                 <span className="sa-upload-count sa-upload-count--revealed">
-                                                    {expandedPhotoCount} photo
-                                                    {expandedPhotoCount === 1 ? '' : 's'} (
-                                                    {photoPreviews.length} file
-                                                    {photoPreviews.length === 1 ? '' : 's'})
+                                                    {displayPhotoCount} photo
+                                                    {displayPhotoCount === 1 ? '' : 's'} (
+                                                    {photoFiles.length} file
+                                                    {photoFiles.length === 1 ? '' : 's'})
                                                 </span>
                                             )}
-                                            {!analyzingUploads && expandedPhotoCount > 0 && (
-                                                <span className="sa-upload-detected-size sa-upload-detected-size--revealed">
-                                                    Grid: {formatGridSizeLabel(detectedGridSize)}
-                                                </span>
+                                            {!analyzingUploads && displayPhotoCount > 0 && layoutPreview && (
+                                                <>
+                                                    <span className="sa-upload-detected-size sa-upload-detected-size--revealed">
+                                                        Page count: {layoutPreview.pageCount} pages
+                                                        · {layoutPreview.totalSpreads} spread
+                                                        {layoutPreview.totalSpreads === 1 ? '' : 's'}
+                                                    </span>
+                                                    <span className="sa-upload-detected-size sa-upload-detected-size--revealed">
+                                                        Grid:{' '}
+                                                        {formatGridSizeLabelForLayout(
+                                                            detectedGridSize,
+                                                            gridLayoutForDetection,
+                                                            {
+                                                                spreadGridSize:
+                                                                    detectedSpreadGridSize,
+                                                            }
+                                                        )}
+                                                    </span>
+                                                </>
                                             )}
                                         </div>
                                         {analyzingUploads && (
@@ -604,16 +850,21 @@ const CreateAlbum = () => {
                                     <div
                                         className="sa-preview-grid"
                                         style={{
-                                            '--sa-preview-count': photoPreviews.length,
+                                            '--sa-preview-count': previewSlots.length,
                                         }}
                                     >
-                                        {photoPreviews.map((preview, index) => (
+                                        {previewSlots.map((preview, index) => (
                                             <UploadPreviewCard
                                                 key={preview.id}
-                                                preview={preview}
+                                                preview={{ ...preview, index }}
                                                 index={index}
-                                                onRemove={handleRemovePhoto}
+                                                onRemove={handleRemovePreview}
                                                 animateIn={animatePreviewCards}
+                                                onDragStart={handlePreviewDragStart}
+                                                onDragOver={handlePreviewDragOver}
+                                                onDrop={handlePreviewDrop}
+                                                onDragEnd={handlePreviewDragEnd}
+                                                isDragOver={dragOverIndex === index}
                                             />
                                         ))}
                                     </div>
@@ -663,57 +914,6 @@ const CreateAlbum = () => {
                                     )}
                                 </div>
                             )}
-                        </section>
-
-                        <section className="sa-create-card">
-                            <div className="sa-section-heading">
-                                <span>Locked layout</span>
-                                <small>Cannot be changed after creation</small>
-                            </div>
-
-                            <div className="cc-form-group">
-                                <label className="cc-label" htmlFor="album-cover-mode">
-                                    Covers
-                                </label>
-                                <CustomSelect
-                                    id="album-cover-mode"
-                                    value={coverMode}
-                                    options={COVER_OPTIONS}
-                                    onChange={setCoverMode}
-                                />
-                                <p className="sa-field-note">
-                                    {includeCovers
-                                        ? 'First photo becomes the front cover; last spread is reserved for the end cover.'
-                                        : 'All uploaded photos fill pages in order — no dedicated cover spreads.'}
-                                </p>
-                            </div>
-
-                            <div className="cc-form-group">
-                                <label className="cc-label" htmlFor="album-grid-layout">
-                                    Grid Layout
-                                </label>
-                                <CustomSelect
-                                    id="album-grid-layout"
-                                    value={gridLayout}
-                                    options={GRID_LAYOUT_OPTIONS}
-                                    onChange={setGridLayout}
-                                />
-                                {gridLayout === 'custom' && (
-                                    <input
-                                        type="text"
-                                        className="cc-input sa-custom-input"
-                                        value={customGridLayout}
-                                        onChange={(e) => setCustomGridLayout(e.target.value)}
-                                        placeholder="Custom layout label"
-                                        required
-                                    />
-                                )}
-                            </div>
-
-                            <p className="sa-field-note">
-                                Layout and cover mode are locked after the album is created. Grid size
-                                is detected from your uploads.
-                            </p>
                         </section>
 
                         <div className="cc-actions sa-create-actions">

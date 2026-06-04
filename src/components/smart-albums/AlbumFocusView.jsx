@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
-import { getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+import { getAlbumSpreadOptions, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
 import './AlbumBook.css';
 import { parseGridSizeAspect } from './albumGridSize';
 
@@ -39,8 +39,10 @@ export default function AlbumFocusView({
     const [dims, setDims] = useState(() => getFocusBookDimensions(album?.grid_size));
     const [pageIndex, setPageIndex] = useState(startPage);
 
-    const totalSpreads = getTotalSpreads(totalPages, { showCover: true });
-    const spreadIndex = pageToSpreadIndex(pageIndex, { showCover: true, totalPages });
+    const spreadOpts = getAlbumSpreadOptions(album);
+    const spreadCtx = { ...spreadOpts, totalPages };
+    const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
+    const spreadIndex = pageToSpreadIndex(pageIndex, spreadCtx);
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
 
@@ -202,7 +204,7 @@ export default function AlbumFocusView({
                         usePortrait={false}
                         useMouseEvents
                         mobileScrollSupport={false}
-                        showCover
+                        showCover={false}
                         showPageCorners
                         disableFlipByClick={false}
                         startPage={startPage}

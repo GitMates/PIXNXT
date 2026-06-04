@@ -1,4 +1,5 @@
 import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
+import { isWholeSpreadLayout } from './albumSpreadUtils';
 
 export const GRID_SIZE_PRESETS = {
     square: { label: 'Square pages (1:1)', aspect: 1 },
@@ -30,18 +31,16 @@ function gcd(a, b) {
     return x || 1;
 }
 
-/** Map pixel dimensions to a preset or custom-{w}-{h} grid size key. */
-export function gridSizeFromDimensions(width, height) {
-    const w = Number(width);
-    const h = Number(height);
-    if (!(w > 0 && h > 0)) return 'square';
+/** Map aspect ratio to a preset or custom-{w}-{h} grid size key. */
+export function gridSizeFromAspect(aspect) {
+    const a = Number(aspect);
+    if (!(a > 0)) return 'square';
 
-    const aspect = w / h;
     let bestKey = 'square';
     let bestDiff = Infinity;
 
     for (const [key, meta] of Object.entries(GRID_SIZE_PRESETS)) {
-        const diff = Math.abs(Math.log(aspect) - Math.log(meta.aspect));
+        const diff = Math.abs(Math.log(a) - Math.log(meta.aspect));
         if (diff < bestDiff) {
             bestDiff = diff;
             bestKey = key;
@@ -49,12 +48,31 @@ export function gridSizeFromDimensions(width, height) {
     }
 
     const presetAspect = GRID_SIZE_PRESETS[bestKey].aspect;
-    if (Math.abs(aspect - presetAspect) / presetAspect <= PRESET_MATCH_TOLERANCE) {
+    if (Math.abs(a - presetAspect) / presetAspect <= PRESET_MATCH_TOLERANCE) {
         return bestKey;
     }
 
+    const w = Math.round(a * 1000);
+    const h = 1000;
     const g = gcd(w, h);
     return customGridSizeKey({ w: Math.round(w / g), h: Math.round(h / g) });
+}
+
+/** Per-page aspect for one uploaded file (whole-spread uses half width per page). */
+export function pageAspectFromFileDimensions(width, height, { wholeSpread = false } = {}) {
+    const w = Number(width);
+    const h = Number(height);
+    if (!(w > 0 && h > 0)) return 1;
+    if (wholeSpread) return w / 2 / h;
+    return w / h;
+}
+
+/** Map pixel dimensions to a preset or custom-{w}-{h} grid size key. */
+export function gridSizeFromDimensions(width, height, { wholeSpread = false } = {}) {
+    const w = Number(width);
+    const h = Number(height);
+    if (!(w > 0 && h > 0)) return 'square';
+    return gridSizeFromAspect(pageAspectFromFileDimensions(w, h, { wholeSpread }));
 }
 
 function loadImageFileDimensions(file) {
@@ -110,31 +128,14 @@ function median(sortedNumbers) {
 }
 
 /** Combine dimensions from every image and PDF page into one grid size. */
-export function gridSizeFromAllDimensions(dimensions) {
+export function gridSizeFromAllDimensions(dimensions, { wholeSpread = false } = {}) {
     const valid = (dimensions || []).filter((d) => d?.width > 0 && d?.height > 0);
     if (!valid.length) return 'square';
 
-    const aspects = valid.map((d) => d.width / d.height).sort((a, b) => a - b);
-    const medianAspect = median(aspects);
-
-    let bestKey = 'square';
-    let bestDiff = Infinity;
-    for (const [key, meta] of Object.entries(GRID_SIZE_PRESETS)) {
-        const diff = Math.abs(Math.log(medianAspect) - Math.log(meta.aspect));
-        if (diff < bestDiff) {
-            bestDiff = diff;
-            bestKey = key;
-        }
-    }
-
-    const presetAspect = GRID_SIZE_PRESETS[bestKey].aspect;
-    if (Math.abs(medianAspect - presetAspect) / presetAspect <= PRESET_MATCH_TOLERANCE) {
-        return bestKey;
-    }
-
-    const widths = valid.map((d) => d.width).sort((a, b) => a - b);
-    const heights = valid.map((d) => d.height).sort((a, b) => a - b);
-    return gridSizeFromDimensions(median(widths), median(heights));
+    const aspects = valid
+        .map((d) => pageAspectFromFileDimensions(d.width, d.height, { wholeSpread }))
+        .sort((a, b) => a - b);
+    return gridSizeFromAspect(median(aspects));
 }
 
 async function collectAllUploadDimensions(files) {
@@ -159,11 +160,57 @@ async function collectAllUploadDimensions(files) {
 
 /**
  * Detect grid size from all uploaded images and every PDF page.
+ * Whole-spread: one photo spans two pages — use half-width per page (2:1 upload → square pages).
  */
-export async function detectGridSizeFromFiles(files) {
-    if (!files?.length) return 'square';
+export async function detectGridSizesFromFiles(files, { gridLayout } = {}) {
+    if (!files?.length) {
+        return { pageGridSize: 'square', spreadGridSize: null };
+    }
     const dimensions = await collectAllUploadDimensions(files);
-    return gridSizeFromAllDimensions(dimensions);
+    const wholeSpread = isWholeSpreadLayout(gridLayout);
+    const pageGridSize = gridSizeFromAllDimensions(dimensions, { wholeSpread });
+    const spreadGridSize = wholeSpread
+        ? gridSizeFromAllDimensions(dimensions, { wholeSpread: false })
+        : null;
+    return { pageGridSize, spreadGridSize };
+}
+
+/** @deprecated Use detectGridSizesFromFiles */
+export async function detectGridSizeFromFiles(files, { gridLayout } = {}) {
+    const { pageGridSize } = await detectGridSizesFromFiles(files, { gridLayout });
+    return pageGridSize;
+}
+
+function shortGridSizeLabel(gridSize) {
+    return formatGridSizeLabel(gridSize).replace(/ pages /g, ' ');
+}
+
+export function formatGridSizeLabelForLayout(pageGridSize, gridLayout, { spreadGridSize } = {}) {
+    const pageLabel = shortGridSizeLabel(pageGridSize);
+    if (!isWholeSpreadLayout(gridLayout)) {
+        return `${pageLabel} · two-page spreads (left + right)`;
+    }
+    const spreadLabel = spreadGridSize ? shortGridSizeLabel(spreadGridSize) : null;
+    if (spreadLabel) {
+        return `${pageLabel} per page · spread ${spreadLabel} (full upload width)`;
+    }
+    return `${pageLabel} per page · spread fits your upload width`;
+}
+
+/** Derive full-upload spread ratio from stored per-page grid (whole-spread albums). */
+export function spreadGridSizeFromPageGrid(pageGridSize, gridLayout) {
+    if (!isWholeSpreadLayout(gridLayout) || !pageGridSize) return null;
+    const pageAspect = parseGridSizeAspect(pageGridSize);
+    if (!(pageAspect > 0)) return null;
+    return gridSizeFromAspect(pageAspect * 2);
+}
+
+/** Grid size line for album settings (matches create-page detection). */
+export function formatAlbumGridSizeDisplay(album) {
+    if (!album?.grid_size) return formatGridSizeLabel('square');
+    const spreadGridSize =
+        album.spread_grid_size ?? spreadGridSizeFromPageGrid(album.grid_size, album.grid_layout);
+    return formatGridSizeLabelForLayout(album.grid_size, album.grid_layout, { spreadGridSize });
 }
 
 export function formatGridLayoutLabel(gridLayout) {

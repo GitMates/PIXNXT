@@ -3,7 +3,12 @@
  * Cell 1 → left page photo index; cell 2 → right page photo index.
  */
 
-import { getEndSpreadPageIndices, isCoverInsidePage } from './albumSpreadUtils';
+import {
+    getEndSpreadPageIndices,
+    isCoverInsidePage,
+    normalizeSpreadOpts,
+    usesReservedEndSpread,
+} from './albumSpreadUtils';
 
 export const PROOF_SLOT_COUNT = 2;
 
@@ -36,55 +41,82 @@ export function calculateProofRightPageGrid(pageWidth, pageHeight) {
     };
 }
 
-/** Left page of an inner spread (pages 1, 3, 5, …) uses slot 1. */
-export function isProofLeftGridPage(pageNum, { showCover = true, totalPages } = {}) {
-    if (pageNum <= 0) return false;
-    if (showCover && totalPages != null && isCoverInsidePage(pageNum, totalPages, { showCover })) {
-        return false;
+/**
+ * Left page of a spread uses slot 1.
+ * No covers: pages 0|2|4…
+ * With covers: front cover page 0, inner 2|4|…, end-cover left page.
+ */
+export function isProofLeftGridPage(pageNum, { showCover = true, hasCovers, totalPages } = {}) {
+    if (pageNum < 0) return false;
+    const covers = hasCovers ?? showCover;
+    if (!covers) return pageNum % 2 === 0;
+    if (pageNum === 0) return false;
+    if (totalPages != null && usesReservedEndSpread(totalPages, { hasCovers: covers, showCover: covers })) {
+        const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+        if (pageNum === endLeft) return true;
     }
-    if (!showCover) return pageNum % 2 === 0;
-    return pageNum % 2 === 1;
+    return pageNum >= 2 && pageNum % 2 === 0;
 }
 
-export function isProofRightGridPage(pageNum, { showCover = true, totalPages } = {}) {
-    if (pageNum <= 0) return false;
-    if (showCover && totalPages != null && isCoverInsidePage(pageNum, totalPages, { showCover })) {
-        return false;
+export function isProofRightGridPage(pageNum, { showCover = true, hasCovers, totalPages } = {}) {
+    if (pageNum < 0) return false;
+    const covers = hasCovers ?? showCover;
+    if (!covers) return pageNum % 2 === 1;
+    if (pageNum === 1) return true;
+    if (totalPages != null && usesReservedEndSpread(totalPages, { hasCovers: covers, showCover: covers })) {
+        const { right } = getEndSpreadPageIndices(totalPages);
+        if (pageNum === right) return true;
     }
-    if (!showCover) return pageNum % 2 === 1;
-    return pageNum % 2 === 0;
+    return pageNum >= 3 && pageNum % 2 === 1;
 }
 
 export function getSpreadLeftPageIndex(pageNum, opts = {}) {
     const { showCover, hasCovers } =
         opts.hasCovers != null
-            ? { showCover: opts.hasCovers !== false, hasCovers: opts.hasCovers !== false }
-            : { showCover: opts.showCover !== false, hasCovers: opts.showCover !== false };
+            ? { showCover: opts.hasCovers === true, hasCovers: opts.hasCovers === true }
+            : { showCover: opts.showCover === true, hasCovers: opts.showCover === true };
     const totalPages = opts.totalPages;
     if (pageNum <= 0) return 0;
     if (hasCovers && totalPages != null && totalPages > 0) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
         if (pageNum >= endLeft) return endLeft;
+        if (showCover && pageNum <= 1) return 0;
+        return pageNum % 2 === 0 ? pageNum : pageNum - 1;
     }
     if (!showCover) {
         return pageNum % 2 === 0 ? pageNum : pageNum - 1;
     }
-    /* With cover: inner pairs are 1|2, 3|4, … — left page is odd, right is even. */
-    return pageNum % 2 === 1 ? pageNum : pageNum - 1;
+    return pageNum % 2 === 0 ? pageNum : pageNum - 1;
 }
 
-/** Photo page index for grid cell 1 (left) or 2 (right). */
-export function getProofCellPhotoIndex(pageNum, cellId, totalPages, { showCover = true } = {}) {
-    const left = getSpreadLeftPageIndex(pageNum, { showCover, totalPages });
-    const idx = left + (cellId - 1);
-    const max = Math.max(0, totalPages - 1);
-    return Math.min(Math.max(0, idx), max);
+/**
+ * Storage page index for a flipbook leaf / slot.
+ * Auto-place stores photos at physical page keys (0, 1, 2, …) — display must use the same index.
+ */
+export function getProofCellPhotoIndex(pageNum, cellId, totalPages, opts = {}) {
+    void cellId;
+    const pages = opts.totalPages ?? totalPages ?? 1;
+    return Math.min(Math.max(0, pageNum), Math.max(0, pages - 1));
 }
 
-export function getProofSpreadSlotPageIndices(leftPage, totalPages, options) {
-    return Array.from({ length: PROOF_SLOT_COUNT }, (_, i) =>
-        getProofCellPhotoIndex(leftPage, i + 1, totalPages, options)
-    );
+export function getProofSpreadSlotPageIndices(leftPage, totalPages, options = {}) {
+    const spreadOpts = normalizeSpreadOpts({
+        ...options,
+        totalPages: options.totalPages ?? totalPages,
+    });
+    const pages = spreadOpts.totalPages ?? totalPages ?? 1;
+    const max = Math.max(0, pages - 1);
+    const left = Math.min(Math.max(0, leftPage), max);
+
+    if (!spreadOpts.hasCovers) {
+        return [left, Math.min(left + 1, max)];
+    }
+
+    return Array.from({ length: PROOF_SLOT_COUNT }, (_, i) => {
+        const cellId = i + 1;
+        const spreadLeft = getSpreadLeftPageIndex(left, { ...spreadOpts, totalPages: pages });
+        return Math.min(spreadLeft + (cellId - 1), max);
+    });
 }
 
 /** Right page index for a spread starting at `leftPage`. */
