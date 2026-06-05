@@ -566,6 +566,21 @@
   object-position: right center;
 }
 
+.ab-book-wrap-cover-img,
+.ab-book-wrap-spine-img {
+  display: block;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+
+/* Spine-aware crops set width/margin inline — don't force full-page sizing */
+.ab-page-photo.ab-book-wrap-cover-img,
+.ab-page-photo.ab-book-wrap-spine-img {
+  width: auto;
+  object-position: inherit;
+}
+
 .ab-overview-book-wrap--left,
 .ab-overview-book-wrap--right {
   width: 200%;

@@ -1,11 +1,15 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
     getGridSlotPhoto,
     getInsideCoverRightPhotoSrc,
     getPagePhotoOverride,
     resolveCoverImageSrc,
 } from './albumPagePhotos';
-import { getPagePhotoTransform, photoTransformStyle } from './albumPageTransforms';
+import {
+    getPagePhotoTransform,
+    getSpreadPhotoTransform,
+    photoTransformStyle,
+} from './albumPageTransforms';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import AlbumPageGrid from './AlbumPageGrid';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
@@ -28,6 +32,9 @@ import {
     isEndHalfSpreadLeftPage,
     isInsideCoverRightPage,
 } from './albumSpreadUtils';
+import { getBookWrapSpineLayout } from './bookWrapSpine';
+import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
+import BookWrapSpineImage from './BookWrapSpineImage';
 
 function getPageImageSrc(album, pageNum, showSamples, spreadOpts) {
     const opts = spreadOpts ?? getAlbumSpreadOptions(album);
@@ -182,6 +189,27 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const liveOnActivatePinMode = ctx.onActivatePinMode ?? onActivatePinMode;
     const liveProofToolsHover = ctx.proofToolsHover ?? proofToolsHover;
     const liveShowGridComments = ctx.showGridComments ?? showGridComments;
+    const [spineBoundsTick, setSpineBoundsTick] = useState(0);
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onChanged = (e) => {
+            if (e.detail?.albumId === album.id) setSpineBoundsTick((t) => t + 1);
+        };
+        window.addEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
+        return () => window.removeEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
+    }, [album?.id]);
+    const bookWrapSpineLayout = useMemo(
+        () => (album?.has_covers === true ? getBookWrapSpineLayout(album) : null),
+        [album, spineBoundsTick]
+    );
+    const coverTransform = useMemo(() => {
+        const id = albumIdProp ?? album?.id;
+        if (!id || album?.has_covers !== true) {
+            return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+        }
+        void liveTransformRevision;
+        return getSpreadPhotoTransform(id, 0);
+    }, [albumIdProp, album?.id, album?.has_covers, liveTransformRevision]);
 
     if (pageNum < 0 || pageNum >= totalPages) {
         return (
@@ -300,7 +328,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             ? liveGetPinsForSlot(pageNum, 1, spreadLeftForPage)
             : [];
 
-    if (useLeftGrid) {
+    if (useLeftGrid && !isBackCoverPage) {
         const { cells } = getProofLeftPageGridPercent();
         return (
             <div
@@ -358,7 +386,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         );
     }
 
-    if (useRightGrid) {
+    if (useRightGrid && !isFrontCoverRightPage) {
         const { cells } = getProofRightPageGridPercent();
         return (
             <div
@@ -410,56 +438,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     if (endSpreadRole === 'half-left') {
-        if (editable || spreadEdit) {
-            const { cells } = getProofLeftPageGridPercent();
-            return (
-                <div
-                    className="ab-flip-page ab-flip-page--grid ab-flip-page--grid-left ab-flip-page--end-left-grid"
-                    ref={ref}
-                    data-density="hard"
-                >
-                    {pageBadge}
-                    <AlbumPageGrid
-                        album={album}
-                        albumId={albumId}
-                        pageNum={pageNum}
-                        totalPages={totalPages}
-                        cells={cells}
-                        editable={editable}
-                        spreadEdit={spreadEdit}
-                        placementMode={coverPlacementMode}
-                        showSamples={showSamples}
-                        previewMode={previewMode}
-                        showGridComments={liveShowGridComments}
-                        selectionLeftPage={liveSelectionLeftPage}
-                        selectionMode={liveSelectionMode}
-                        selectedCellId={liveSelectedCellId}
-                        onSelectCell={liveOnSelectCell}
-                        onSelectSpread={liveOnSelectSpread}
-                        onSlotActivate={liveOnSlotActivate}
-                        onTransformChange={liveOnTransformChange}
-                        transformRevision={liveTransformRevision}
-                        photoRevision={livePhotoRevision}
-                        swapMarkMode={liveSwapMarkMode}
-                        getSwapMarkInfo={liveGetSwapMarkInfo}
-                        getSwapMarkInfos={liveGetSwapMarkInfos}
-                        onSwapRequest={liveOnSwapRequest}
-                        swapPinModeActive={liveSwapPinModeActive}
-                        swapPinOriginKey={liveSwapPinOriginKey}
-                        swapPinTargetStep={liveSwapPinTargetStep}
-                        swapPinOriginPoint={liveSwapPinOriginPoint}
-                        onPlaceSwapPin={liveOnPlaceSwapPin}
-                        pinMarkMode={livePinMarkMode}
-                        pinModeActive={livePinModeActive}
-                        getPinsForSlot={liveGetPinsForSlot}
-                        onPinPlace={liveOnPinPlace}
-                        onPinRemove={liveOnPinRemove}
-                        onActivatePinMode={liveOnActivatePinMode}
-                        proofToolsHover={liveProofToolsHover}
-                    />
-                </div>
-            );
-        }
         return (
             <div className="ab-flip-page ab-flip-page--half-photo-left" ref={ref} data-density="hard">
                 {pageBadge}
@@ -557,16 +535,23 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         onRemovePin={liveOnPinRemove}
                     >
                         {src ? (
-                            <PagePhoto
-                                src={src}
-                                pageNum={pageNum}
-                                showSamples={showSamples}
-                                className={`ab-page-photo ab-page-photo--full${
-                                    isBackCoverPage
-                                        ? ' ab-book-wrap-half ab-book-wrap-half--back'
-                                        : ''
-                                }`}
-                            />
+                            isBackCoverPage && bookWrapSpineLayout ? (
+                                <BookWrapSpineImage
+                                    src={src}
+                                    side="back"
+                                    layout={bookWrapSpineLayout}
+                                    transform={coverTransform}
+                                    className="ab-page-photo ab-page-photo--full"
+                                    panoramic="left"
+                                />
+                            ) : (
+                                <PagePhoto
+                                    src={src}
+                                    pageNum={pageNum}
+                                    showSamples={showSamples}
+                                    className="ab-page-photo ab-page-photo--full"
+                                />
+                            )
                         ) : (
                             <div className="ab-page-empty" aria-hidden />
                         )}
@@ -799,16 +784,22 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     onRemovePin={onPinRemove}
                 >
                     {src ? (
-                        <PagePhoto
-                            src={src}
-                            pageNum={pageNum}
-                            showSamples={showSamples}
-                            className={
-                                isFrontCoverRightPage
-                                    ? ' ab-book-wrap-half ab-book-wrap-half--front'
-                                    : ''
-                            }
-                        />
+                        isFrontCoverRightPage && bookWrapSpineLayout ? (
+                            <BookWrapSpineImage
+                                src={src}
+                                side="front"
+                                layout={bookWrapSpineLayout}
+                                transform={coverTransform}
+                                className="ab-page-photo ab-page-photo--full"
+                                panoramic="right"
+                            />
+                        ) : (
+                            <PagePhoto
+                                src={src}
+                                pageNum={pageNum}
+                                showSamples={showSamples}
+                            />
+                        )
                     ) : (
                         <div className="ab-page-empty" aria-hidden />
                     )}

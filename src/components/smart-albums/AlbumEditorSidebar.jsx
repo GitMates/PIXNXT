@@ -438,11 +438,12 @@ export default function AlbumEditorSidebar({
                     <>
                         <h3 className="ae-panel-title">Edit cover</h3>
                         <p className="ae-panel-text">
-                            One spread shows your book wrap: collection photo 1 fills the whole spread
-                            (left half = back cover, right half = front).
+                            Book wrap (photo 1) is wider than inner spreads. The center strip is the
+                            spine; outer portions are back and front covers (not shown on spine in
+                            the flipbook).
                         </p>
                         <p className="ae-selection-badge" role="status">
-                            Book wrap · whole spread
+                            Book wrap · back · spine · front
                         </p>
                         <button
                             type="button"
@@ -452,8 +453,8 @@ export default function AlbumEditorSidebar({
                             Choose book wrap photo
                         </button>
                         <p className="ae-panel-text ae-panel-text--muted">
-                            Upload in Collections first — order 1 is used here. Click the spread to
-                            replace the wrap image.
+                            Upload in Collections first — order 1 is used here. Drag the red spine
+                            lines on each side of the spine to adjust its width.
                         </p>
                     </>
                 )}

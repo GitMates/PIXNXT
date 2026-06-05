@@ -1188,7 +1188,7 @@ export default function AlbumEditor({
                         </span>
                         <span className="ae-canvas-hint">
                             {coverEditMode
-                                ? 'One wrap photo across the spread · click to change'
+                                ? 'Back · spine · front from book wrap · click a cover to change photo'
                                 : spreadEdit
                                   ? 'Drag photo to move · drag each edge to zoom · hover a photo to mark a swap'
                                   : 'Click a photo or slot for options · use Collections to upload'}
