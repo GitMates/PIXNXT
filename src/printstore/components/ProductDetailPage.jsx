@@ -61,15 +61,17 @@ const PRODUCT_DETAILS_MAP = {
     ]
   },
   canvas: {
-    heroImage: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=1200&h=800",
-    roomBackground: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=1200&h=800",
-    subtitle: "Textured & Immersive",
-    featureTitle: "Museum Canvas Texture",
-    featureDesc: "A wall art classic that displays your photos with a premium textured finish. Crafted on acid-free poly-cotton blend, hand-stretched over custom pine stretcher bars.",
+    heroImage: "https://pictime6eus1public-pub-f5djhafrcqd3djf7.a02.azurefd.net/pictures/51/748/51748702/homepage/homepage.jpg?rs=134218589898130144",
+    roomBackground: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_small02.webp?ts=1780585829",
+    subtitle: "Textured Elegance",
+    featureTitle: "Canvas",
+    featureDesc: "Admired for its textured surface, this hang-ready decor features a matte surface and frameless presentation — an unforgettable way to bring your photos into the everyday.",
     details: [
-      { name: "Canvas Warp", url: "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=600&h=400" },
-      { name: "Texture Edge", url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=600&h=400" },
-      { name: "Wood Joint", url: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?auto=format&fit=crop&q=80&w=600&h=400" }
+      { name: "Texture Detail", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/canvas_b82g/thumbs/bay-canvas-natural-1.jpg" },
+      { name: "Side View", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/canvas_b82g/thumbs/bay-canvas-natural-2.jpg" },
+      { name: "Corner Angle", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/canvas_b82g/thumbs/bay-canvas-natural-3.jpg" },
+      { name: "Back Frame", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/canvas_b82g/thumbs/bay-canvas-natural-4.jpg" },
+      { name: "Warp Detail", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/canvas_b82g/thumbs/bay-canvas-natural-5.jpg" }
     ]
   },
   circular_frames: {
@@ -585,6 +587,19 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                   zIndex: 1,
                                   backgroundColor: '#fff',
                                   boxShadow: 'rgba(0, 0, 0, 0) 33px 33px 13px 0px, rgba(0, 0, 0, 0.01) 21px 21px 12px 0px, rgba(0, 0, 0, 0.05) 12px 12px 10px 0px, rgba(0, 0, 0, 0.09) 5px 5px 7px 0px, rgba(0, 0, 0, 0.1) 1px 1px 4px 0px'
+                                }}>
+                                </div>
+                              ) : product.id === 'canvas' ? (
+                                <div className="canvas-pdp-overlay composition-preview__overlay" style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  position: 'absolute',
+                                  top: 0,
+                                  left: 0,
+                                  zIndex: 1,
+                                  boxShadow: 'rgba(0, 0, 0, 0.1) 0px 15px 16px 3px, rgba(0, 0, 0, 0.06) 0px 0px 7px 3px, rgba(0, 0, 0, 0.25) -1px -1px 3px 0px inset, rgba(0, 0, 0, 0.1) 1px 1px 1px 0px inset, rgba(255, 255, 255, 0.25) 3.5px 3.5px 1px 0px inset',
+                                  overflow: 'hidden',
+                                  borderRadius: '0.13px'
                                 }}>
                                 </div>
                               ) : (

@@ -69,9 +69,9 @@ export const MOCK_PRODUCTS = [
   {
     id: "canvas",
     name: "Canvas",
-    description: "A wall art classic that displays your photos with a premium textured finish.",
+    description: "With texture you can both see and feel, canvas wraps put the spotlight on your photos, bringing life to your walls.",
     basePrice: 73.50,
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200"
+    image: "https://pictime6eus1public-pub-f5djhafrcqd3djf7.a02.azurefd.net/pictures/51/748/51748702/homepage/homepage.jpg?rs=134218589898130144"
   },
   {
     id: "acrylic_prints",
