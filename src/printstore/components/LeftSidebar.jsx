@@ -1,12 +1,19 @@
 import React from 'react';
-import { X, Upload } from 'lucide-react';
+import { X, Upload, FlaskConical } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export default function LeftSidebar({ isOpen, onClose, isLoggedIn, onToggleLogin }) {
+  const navigate = useNavigate();
   if (!isOpen) return null;
 
   const handleShareClick = () => {
     navigator.clipboard.writeText(window.location.href);
     alert("Collection link copied to clipboard!");
+  };
+
+  const handleGoToLab = () => {
+    onClose();
+    navigate('/lab');
   };
 
   return (
@@ -30,6 +37,12 @@ export default function LeftSidebar({ isOpen, onClose, isLoggedIn, onToggleLogin
         <button className="menu-drawer-share-btn" onClick={handleShareClick}>
           <Upload size={18} strokeWidth={1.5} />
           <span>Share gallery</span>
+        </button>
+
+        {/* See Lab button */}
+        <button className="menu-drawer-share-btn" onClick={handleGoToLab} style={{ marginTop: '10px' }}>
+          <FlaskConical size={18} strokeWidth={1.5} />
+          <span>See lab</span>
         </button>
 
         <hr className="menu-drawer-divider" />

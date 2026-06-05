@@ -132,17 +132,22 @@ export const MOCK_PRODUCTS = [
 ];
 
 export const MOCK_SIZES = [
-  { id: "size_20x20", label: "20x20cm", priceModifier: 0 },
+  { id: "size_13x18", label: "13x18cm", priceModifier: 0 },
+  { id: "size_20x20", label: "20x20cm", priceModifier: 5 },
   { id: "size_30x30", label: "30x30cm", priceModifier: 15 },
   { id: "size_40x40", label: "40x40cm", priceModifier: 35 },
   { id: "size_50x50", label: "50x50cm", priceModifier: 55 }
 ];
 
 export const MOCK_FRAMES = [
-  { id: "frame_none", label: "No Frame (Print Only)", priceModifier: 0, color: "transparent" },
-  { id: "frame_black", label: "Classic Black Wood", priceModifier: 20, color: "#111111" },
-  { id: "frame_white", label: "Classic White Wood", priceModifier: 20, color: "#f7f7f7" },
-  { id: "frame_oak", label: "Natural Oak Wood", priceModifier: 25, color: "#d2b48c" }
+  { id: "frame_none", label: "No Frame (Print Only)", priceModifier: 0, color: "transparent", colorThumb: null },
+  { id: "frame_black", label: "Black", priceModifier: 20, color: "#111111", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_black.png" },
+  { id: "frame_white", label: "White", priceModifier: 20, color: "#f7f7f7", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_white.png" },
+  { id: "frame_barnwood", label: "Barnwood", priceModifier: 25, color: "#8a7f75", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_barnwood.png" },
+  { id: "frame_darkwood", label: "Dark Wood", priceModifier: 25, color: "#3e2723", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_darkwood.png" },
+  { id: "frame_lightwood", label: "Light Wood", priceModifier: 25, color: "#d2b48c", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_lightwood.png" },
+  { id: "frame_graphite", label: "Graphite", priceModifier: 30, color: "#53565b", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_graphite.png" },
+  { id: "frame_classicwood", label: "Classic Wood", priceModifier: 30, color: "#8b5a2b", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_classicwood.png" }
 ];
 
 export const MOCK_PAPERS = [

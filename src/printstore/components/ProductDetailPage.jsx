@@ -2,6 +2,11 @@ import React, { useState, useRef } from 'react';
 import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package } from 'lucide-react';
 import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES } from '../data/mockStoreData';
 
+import circularRoom from '../circular frames_files/0.webp';
+import floatRoom from '../float frames_files/1.webp';
+import collageRoom from '../Matted Frame Collages_files/0.webp';
+import kRoom from '../k_files/1.webp';
+
 const PRODUCT_DETAILS_MAP = {
   dibond: {
     heroImage: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/dibondprints_evkz/lowres/pdp_s_dbond_01.webp",
@@ -18,39 +23,41 @@ const PRODUCT_DETAILS_MAP = {
     ]
   },
   matted_frame: {
-    heroImage: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=1200&h=800",
-    roomBackground: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=1200&h=800",
+    heroImage: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/mattedframes_k4l5/lowres/bayphoto-mattedframe-lightwood-1.jpg",
+    roomBackground: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_small02.webp",
     subtitle: "Classic & Elegant",
     featureTitle: "Iconic Mat Window Stage",
     featureDesc: "Give your photos center stage with our iconic Matted Frames. Each print is surrounded by a premium acid-free mat board and enclosed in a high-quality wooden frame, ready to hang and stand the test of time.",
     details: [
-      { name: "Corner Profile", url: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=600&h=400" },
-      { name: "Bevel Cutout", url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=600&h=400" },
-      { name: "Backing Close", url: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?auto=format&fit=crop&q=80&w=600&h=400" }
+      { name: "Front View", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/mattedframes_k4l5/lowres/bayphoto-mattedframe-lightwood-1.jpg" },
+      { name: "Corner Profile", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/mattedframes_k4l5/lowres/bayphoto-mattedframe-lightwood-2.jpg" },
+      { name: "Backing Close", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/mattedframes_k4l5/lowres/bayphoto-mattedframe-lightwood-3.jpg" },
+      { name: "Bevel Cutout", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/mattedframes_k4l5/lowres/bayphoto-mattedframe-lightwood-4.jpg" }
     ]
   },
   gallery_board: {
     heroImage: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=1200&h=800",
-    roomBackground: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=1200&h=800",
+    roomBackground: "https://pictime6eus1public-pub-f5djhafrcqd3djf7.a02.azurefd.net/pictures/51/748/51748702/homepage/homepage.jpg?rs=134218589898130144",
     subtitle: "Firm & Dynamic Presentation",
     featureTitle: "Premium Mounted Board",
     featureDesc: "Elevate your visual space with lightweight mounted boards. Our prints are laminated and sealed onto a firm foam backing, ensuring a flat, reflection-free, and sleek contemporary look.",
     details: [
-      { name: "Side Angle", url: "https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&q=80&w=600&h=400" },
-      { name: "Board Foam", url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=600&h=400" },
-      { name: "Mount Hook", url: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?auto=format&fit=crop&q=80&w=600&h=400" }
+      { name: "Front Angle", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/galleryboards_std/lowres/bayphoto-gallery-board00001.webp" },
+      { name: "Side Angle", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/galleryboards_std/lowres/bay-photo-gallery-board00003.webp" },
+      { name: "Board Foam", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/galleryboards_std/lowres/bay-photo-gallery-board00004.webp" }
     ]
   },
   frames: {
-    heroImage: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=1200&h=800",
-    roomBackground: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=1200&h=800",
+    heroImage: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/frames_std_black/lowres/pdp_s_frame_lightwood_01.webp",
+    roomBackground: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_small02.webp",
     subtitle: "Sleek Wood Borders",
     featureTitle: "Traditional Wood Framing",
     featureDesc: "Classic wood frames complementing any quality print of your choice. Clean mitered corners, high-clarity glaze, and standard matte finishes highlight the natural grain of premium ash wood.",
     details: [
-      { name: "Frame Side", url: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=600&h=400" },
-      { name: "Miter Corner", url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=600&h=400" },
-      { name: "Stand Clip", url: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?auto=format&fit=crop&q=80&w=600&h=400" }
+      { name: "Stand Angle", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/frames_std_black/thumbs/bayphoto-frame-black-1.jpg" },
+      { name: "Miter Corner", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/frames_std_black/thumbs/bayphoto-frame-black-3.jpg" },
+      { name: "Frame Side", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/frames_std_black/thumbs/bayphoto-frame-black-2.jpg" },
+      { name: "Back Clip", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/frames_std_black/thumbs/bayphoto-frame-black-4.jpg" }
     ]
   },
   canvas: {
@@ -66,8 +73,8 @@ const PRODUCT_DETAILS_MAP = {
     ]
   },
   circular_frames: {
-    heroImage: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=1200&h=800",
-    roomBackground: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=1200&h=800",
+    heroImage: circularRoom,
+    roomBackground: circularRoom,
     subtitle: "Modern Round Geometry",
     featureTitle: "Handtorn Round Framing",
     featureDesc: "Make a statement with a circular frame. A handtorn print is delicately centered inside a round wooden frame, drawing focus and giving your portraits an artistic, museum-grade look.",
@@ -78,8 +85,8 @@ const PRODUCT_DETAILS_MAP = {
     ]
   },
   float_frames: {
-    heroImage: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=1200&h=800",
-    roomBackground: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=1200&h=800",
+    heroImage: floatRoom,
+    roomBackground: floatRoom,
     subtitle: "Dimensional & Deep",
     featureTitle: "Elevated Floating Deckle",
     featureDesc: "A floating hand-torn print elevated in a wooden frame. Shadows cast under the hand-torn edge add striking depth, showcasing the organic texture of 100% cotton rag paper.",
@@ -90,8 +97,8 @@ const PRODUCT_DETAILS_MAP = {
     ]
   },
   matted_collages: {
-    heroImage: "https://images.unsplash.com/photo-1607604276583-eef5d076aa5f?auto=format&fit=crop&q=80&w=1200&h=800",
-    roomBackground: "https://images.unsplash.com/photo-1616486338812-3dadae4b4ace?auto=format&fit=crop&q=80&w=1200&h=800",
+    heroImage: collageRoom,
+    roomBackground: collageRoom,
     subtitle: "Storyteller Collections",
     featureTitle: "Multi-Memory Matte",
     featureDesc: "An elegant way to celebrate multiple memories together in one frame. Displays up to three photos set inside custom bevel cut openings in a single mat board.",
@@ -99,6 +106,20 @@ const PRODUCT_DETAILS_MAP = {
       { name: "Mat Divider", url: "https://images.unsplash.com/photo-1513519245088-0e12902e5a38?auto=format&fit=crop&q=80&w=600&h=400" },
       { name: "Double Mat", url: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&q=80&w=600&h=400" },
       { name: "Oak Border", url: "https://images.unsplash.com/photo-1581291518633-83b4ebd1d83e?auto=format&fit=crop&q=80&w=600&h=400" }
+    ]
+  },
+  gallery_board: {
+    heroImage: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_small04.webp",
+    roomBackground: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_small04.webp",
+    subtitle: "Delicate yet Durable",
+    featureTitle: "Delicate yet Durable",
+    featureDesc: "With the option to include a classic white border or feature your photo fully, these prints are mounted for a durable photo display that's made to last.",
+    details: [
+      { name: "Still Life", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/galleryboards_std/lowres/bayphoto-gallery-board00001.webp" },
+      { name: "Side View", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/galleryboards_std/lowres/bayphoto-gallery-board00002.webp" },
+      { name: "Angle Edge", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/galleryboards_std/lowres/bay-photo-gallery-board00003.webp" },
+      { name: "Corner Profile", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/galleryboards_std/lowres/bay-photo-gallery-board00004.webp" },
+      { name: "Close Up", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/galleryboards_std/lowres/bayphoto-gallery-board00005.webp" }
     ]
   }
 };
@@ -170,8 +191,8 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     return details.details[idx]?.url || details.roomBackground;
   };
 
-  // Determine if frame options apply for this product type
-  const hasFrameOptions = product.id.includes('frame') || product.id.includes('collage') || product.id === 'gallery_board' || product.id === 'frames';
+  // Determine if frame options apply  // Whether this product has a framing/color option
+  const hasFrameOptions = product.id.includes('frame') || product.id.includes('collage') || product.id === 'frames';
 
   return (
     <div className="pdp-products-page">
@@ -328,11 +349,30 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                       className="media-set-preview" 
                       style={{ backgroundImage: `url(${details.roomBackground})` }}
                     >
-                      <div className="media-set-preview__composition-container" style={{ left: '14.0089%', top: '15.2589%', width: '18.6422%', height: '28.2222%' }}>
+                      <div className="media-set-preview__composition-container" style={{ 
+                        left: product.id === 'matted_frame' ? '15.15%' : product.id === 'gallery_board' ? '69.5443%' : '14.0089%', 
+                        top: product.id === 'matted_frame' ? '12.05%' : product.id === 'gallery_board' ? '20.5828%' : '15.2589%', 
+                        width: product.id === 'matted_frame' ? '16.31%' : product.id === 'gallery_board' ? '11.6514%' : '18.6422%', 
+                        height: product.id === 'matted_frame' ? '34.57%' : product.id === 'gallery_board' ? '24.6944%' : '28.2222%' 
+                      }}>
                         <div className="composition-preview">
-                          <div className="composition-preview__composition" style={{ aspectRatio: '1 / 1', width: '100%' }}>
-                            <div className="composition-preview__printable-area" style={{ width: '100%', height: '100%', top: '0%', left: '0%' }}>
-                              <div className="composition-preview-box" style={{ width: '100%', height: '100%', top: '0%', left: '0%' }}>
+                          <div className="composition-preview__composition" style={{ aspectRatio: product.id === 'matted_frame' ? '0.783494 / 1' : product.id === 'gallery_board' ? '0.714286 / 1' : '1 / 1', width: '100%' }}>
+                            <div className="composition-preview__printable-area" style={{ 
+                              position: 'absolute',
+                              ...(product.id === 'gallery_board' 
+                                  ? { width: '78.33%', height: '84.14%', top: '7.92%', left: '10.83%' }
+                                  : product.id === 'matted_frame' || product.id === 'frames'
+                                  ? { width: '69.7802%', height: '76.3746%', top: '11.8127%', left: '15.1099%' }
+                                  : { width: '100%', height: '100%', top: '0%', left: '0%' })
+                            }}>
+                              <div className="composition-preview-box" style={{ 
+                                position: 'absolute',
+                                ...(product.id === 'gallery_board'
+                                    ? { width: '100%', height: '100%', top: '0%', left: '0%' }
+                                    : product.id === 'matted_frame' || product.id === 'frames'
+                                    ? { width: '64%', height: '68.5714%', top: '15.8095%', left: '18%' }
+                                    : { width: '100%', height: '100%', top: '0%', left: '0%' })
+                              }}>
                                 {product.id === 'matted_collages' ? (
                                   <div className="pdp-overlay-collage-wrapper">
                                     <div className="composition-preview-box__image" style={{ backgroundImage: `url("https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200")`, width: '100%', height: '50%' }}></div>
@@ -363,9 +403,48 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                   <div className="dibond-print-shadow"></div>
                                 </div>
                               </div>
+                            ) : product.id === 'matted_frame' || product.id === 'frames' ? (
+                              <div className="matted-frame-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
+                                <div className="matted-frame-shadow" style={{ 
+                                  position: 'absolute', 
+                                  width: '100%', 
+                                  height: '100%', 
+                                  backgroundColor: selectedFrame?.color || '#111111',
+                                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
+                                }}>
+                                  <div className="matted-frame-mat" style={{
+                                    width: '84%',
+                                    height: '87%',
+                                    backgroundColor: '#fff'
+                                  }}>
+                                  </div>
+                                </div>
+                              </div>
+                            ) : product.id === 'gallery_board' ? (
+                              <div className="gallery-board-pdp-overlay composition-preview__overlay" style={{
+                                width: '100%',
+                                height: '100%',
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                zIndex: 1,
+                                backgroundColor: '#fff',
+                                boxShadow: 'rgba(0, 0, 0, 0) 33px 33px 13px 0px, rgba(0, 0, 0, 0.01) 21px 21px 12px 0px, rgba(0, 0, 0, 0.05) 12px 12px 10px 0px, rgba(0, 0, 0, 0.09) 5px 5px 7px 0px, rgba(0, 0, 0, 0.1) 1px 1px 4px 0px'
+                              }}>
+                              </div>
                             ) : (
                               /* For other products, render their respective overlays classes */
-                              <div className={`pdp-floating-frame-overlay pdp-overlay-${product.id} composition-preview__overlay`} style={{ width: '100%', height: '100%' }}>
+                              <div 
+                                className={`pdp-floating-frame-overlay pdp-overlay-${product.id} composition-preview__overlay`} 
+                                style={{ 
+                                  width: '100%', 
+                                  height: '100%',
+                                  ...(hasFrameOptions && selectedFrame?.color && { '--frame-color': selectedFrame.color })
+                                }}
+                              >
                                 <div className="pdp-overlay-matte-board">
                                   {/* Empty board or overlay styling via CSS box-shadow / borders */}
                                 </div>
@@ -378,7 +457,12 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                   ) : (
                     <div 
                       className="media-set-preview" 
-                      style={{ backgroundImage: `url(${getActivePreviewUrl()})`, backgroundSize: 'cover', backgroundPosition: 'center', height: '100%' }}
+                      style={{ 
+                        backgroundImage: `url(${getActivePreviewUrl()})`, 
+                        backgroundSize: 'cover', 
+                        backgroundPosition: 'center', 
+                        height: '100%'
+                      }}
                     >
                     </div>
                   )}
@@ -425,11 +509,30 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                         style={{ cursor: 'pointer', overflow: 'hidden', position: 'relative' }}
                       >
                         <div className="media-set-preview-thumb-bg" style={{ backgroundImage: `url(${details.roomBackground})`, width: '100%', height: '100%', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
-                        <div className="media-set-preview__composition-container" style={{ left: '14.0089%', top: '15.2589%', width: '18.6422%', height: '28.2222%', position: 'absolute' }}>
+                        <div className="media-set-preview__composition-container" style={{ 
+                          left: product.id === 'matted_frame' ? '15.15%' : product.id === 'gallery_board' ? '69.5443%' : '14.0089%', 
+                          top: product.id === 'matted_frame' ? '12.05%' : product.id === 'gallery_board' ? '20.5828%' : '15.2589%', 
+                          width: product.id === 'matted_frame' ? '16.31%' : product.id === 'gallery_board' ? '11.6514%' : '18.6422%', 
+                          height: product.id === 'matted_frame' ? '34.57%' : product.id === 'gallery_board' ? '24.6944%' : '28.2222%', 
+                          position: 'absolute' 
+                        }}>
                           <div className="composition-preview" style={{ width: '100%', height: '100%' }}>
-                            <div className="composition-preview__composition" style={{ aspectRatio: '1 / 1', width: '100%', height: '100%', position: 'relative' }}>
-                              <div className="composition-preview__printable-area" style={{ width: '100%', height: '100%', top: '0%', left: '0%' }}>
-                                <div className="composition-preview-box" style={{ width: '100%', height: '100%', top: '0%', left: '0%' }}>
+                            <div className="composition-preview__composition" style={{ aspectRatio: product.id === 'matted_frame' ? '0.783494 / 1' : product.id === 'gallery_board' ? '0.714286 / 1' : '1 / 1', width: '100%', height: '100%', position: 'relative' }}>
+                              <div className="composition-preview__printable-area" style={{ 
+                                width: product.id === 'matted_frame' ? '69.7802%' : '100%', 
+                                height: product.id === 'matted_frame' ? '76.3746%' : '100%', 
+                                top: product.id === 'matted_frame' ? '11.8127%' : '0%', 
+                                left: product.id === 'matted_frame' ? '15.1099%' : '0%',
+                                zIndex: 2,
+                                position: 'absolute'
+                              }}>
+                                <div className="composition-preview-box" style={{ 
+                                  width: product.id === 'gallery_board' ? '78.3333%' : '100%', 
+                                  height: product.id === 'gallery_board' ? '84.1429%' : '100%', 
+                                  top: product.id === 'gallery_board' ? '7.90476%' : '0%', 
+                                  left: product.id === 'gallery_board' ? '10.8%' : '0%',
+                                  position: 'absolute' 
+                                }}>
                                   <div 
                                     className="composition-preview-box__image" 
                                     style={{ 
@@ -445,7 +548,57 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                   ></div>
                                 </div>
                               </div>
-                              <div className="dibond-print-shadow" style={{ position: 'absolute', width: '100%', height: '100%', top: '0%', left: '0%', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}></div>
+                              {/* Overlay types (shadows and frames) */}
+                              {product.id === 'dibond' ? (
+                                <div className="dibond-print-pdp-overlay composition-preview__overlay" style={{ aspectRatio: '1 / 1', width: '100%' }}>
+                                  <div style={{ position: 'absolute', width: '100%', height: '100%', top: '0%', left: '0%' }}>
+                                    <div className="dibond-print-shadow"></div>
+                                  </div>
+                                </div>
+                              ) : product.id === 'matted_frame' || product.id === 'frames' ? (
+                                <div className="matted-frame-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
+                                  <div className="matted-frame-shadow" style={{ 
+                                    position: 'absolute', 
+                                    width: '100%', 
+                                    height: '100%', 
+                                    backgroundColor: selectedFrame?.color || '#111111',
+                                    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                  }}>
+                                    <div className="matted-frame-mat" style={{
+                                      width: '84%',
+                                      height: '87%',
+                                      backgroundColor: '#fff'
+                                    }}>
+                                    </div>
+                                  </div>
+                                </div>
+                              ) : product.id === 'gallery_board' ? (
+                                <div className="gallery-board-pdp-overlay composition-preview__overlay" style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  position: 'absolute',
+                                  top: 0,
+                                  left: 0,
+                                  zIndex: 1,
+                                  backgroundColor: '#fff',
+                                  boxShadow: 'rgba(0, 0, 0, 0) 33px 33px 13px 0px, rgba(0, 0, 0, 0.01) 21px 21px 12px 0px, rgba(0, 0, 0, 0.05) 12px 12px 10px 0px, rgba(0, 0, 0, 0.09) 5px 5px 7px 0px, rgba(0, 0, 0, 0.1) 1px 1px 4px 0px'
+                                }}>
+                                </div>
+                              ) : (
+                                <div 
+                                  className={`pdp-floating-frame-overlay pdp-overlay-${product.id} composition-preview__overlay`} 
+                                  style={{ 
+                                    width: '100%', 
+                                    height: '100%',
+                                    ...(hasFrameOptions && selectedFrame?.color && { '--frame-color': selectedFrame.color })
+                                  }}
+                                >
+                                  <div className="pdp-overlay-matte-board"></div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -459,7 +612,12 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                             setActivePreviewType(`detail-${idx}`);
                             setActivePreviewTab('prints');
                           }}
-                          style={{ backgroundImage: `url(${item.url})`, cursor: 'pointer', backgroundSize: 'cover', backgroundPosition: 'center' }}
+                          style={{ 
+                            backgroundImage: `url(${item.url})`, 
+                            cursor: 'pointer', 
+                            backgroundSize: 'cover', 
+                            backgroundPosition: 'center'
+                          }}
                         >
                         </div>
                       ))}
@@ -535,7 +693,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                       </div>
 
                       {/* Frame option select if applicable */}
-                      {hasFrameOptions && (
+                      {hasFrameOptions && !['matted_frame', 'gallery_board'].includes(product.id) && (
                         <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2">
                           <div className="FE-2-2">
                             <div className="FE-2-2__header">
@@ -563,40 +721,132 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                         </div>
                       )}
 
-                      {/* Paper Type Select Field */}
+                      {/* Paper Type Select Field (or Print Size for Matted Frames and Gallery Boards) */}
                       <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2">
                         <div className="FE-2-2">
                           <div className="FE-2-2__header">
-                            <span>Paper Type</span>
+                            <span>{['matted_frame', 'gallery_board'].includes(product.id) ? 'Print Size' : 'Paper Type'}</span>
                           </div>
                         </div>
                         <div className="pt-dropdown-input">
                           <div className="pt-system-dropdown-wrapper full-width">
-                            <select 
-                              className="pdp-select-input"
-                              value={selectedPaper.id}
-                              onChange={(e) => {
-                                const paper = MOCK_PAPERS.find(p => p.id === e.target.value);
-                                if (paper) setSelectedPaper(paper);
-                              }}
-                            >
-                              {MOCK_PAPERS.map((paper) => (
-                                <option key={paper.id} value={paper.id}>
-                                  {paper.label}
-                                </option>
-                              ))}
-                            </select>
+                            {['matted_frame', 'gallery_board'].includes(product.id) ? (
+                              <select className="pdp-select-input" defaultValue={product.id === 'gallery_board' ? "10x15cm" : "8x8cm"}>
+                                {product.id === 'matted_frame' && <option value="8x8cm">8x8cm</option>}
+                                <option value="10x10cm">10x10cm</option>
+                                {product.id === 'gallery_board' && <option value="10x15cm">10x15cm</option>}
+                              </select>
+                            ) : (
+                              <select 
+                                className="pdp-select-input"
+                                value={selectedPaper.id}
+                                onChange={(e) => {
+                                  const paper = MOCK_PAPERS.find(p => p.id === e.target.value);
+                                  if (paper) setSelectedPaper(paper);
+                                }}
+                              >
+                                {MOCK_PAPERS.map((paper) => (
+                                  <option key={paper.id} value={paper.id}>
+                                    {paper.label}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      {/* Price display container box */}
-                      <div className="pdp-products-form__cta">
-                        <div className="pdp-products-form-cta__price">
-                          <div className="SF-1-3">${currentPrice.toFixed(2)}</div>
-                          <div className="SF-4-2">Tax not included</div>
+                      {/* Frames Color Selector */}
+                      {hasFrameOptions && (
+                        <div className="pt-dropdown-input-field IF-2-2" style={{ marginTop: '20px' }}>
+                          <div className="FE-2-2">
+                            <div className="FE-2-2__header" style={{ marginBottom: '12px' }}>
+                              <span>Color</span>
+                            </div>
+                          </div>
+                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <div className="frame-color-selector" style={{ 
+                            display: 'flex', 
+                            gap: '16px', 
+                            alignItems: 'flex-start',
+                            overflowX: 'auto',
+                            paddingBottom: '12px',
+                            maxWidth: 'calc(100% - 40px)',
+                            scrollbarWidth: 'none',
+                            msOverflowStyle: 'none'
+                          }}>
+                            {MOCK_FRAMES.filter(f => f.id !== 'frame_none').map((frame) => {
+                              let renderColor = frame.color;
+                              let renderName = frame.label;
+                              
+                              const isSelected = selectedFrame.id === frame.id;
+                              
+                              return (
+                                <div 
+                                  key={frame.id} 
+                                  className="color-swatch-wrapper"
+                                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', flexShrink: 0, width: '64px', textAlign: 'center' }}
+                                  onClick={() => setSelectedFrame(frame)}
+                                >
+                                  <div 
+                                    className="color-swatch-circle"
+                                    style={{
+                                      width: '36px',
+                                      height: '36px',
+                                      borderRadius: '50%',
+                                      backgroundColor: renderColor,
+                                      border: isSelected ? '2px solid #5a5a5a' : '1px solid #ddd',
+                                      padding: '2px',
+                                      position: 'relative'
+                                    }}
+                                  >
+                                    <div style={{ 
+                                      width: '100%', 
+                                      height: '100%', 
+                                      borderRadius: '50%', 
+                                      backgroundColor: renderColor,
+                                      backgroundImage: frame.colorThumb ? `url(${frame.colorThumb})` : 'none',
+                                      backgroundSize: 'cover',
+                                      backgroundPosition: 'center'
+                                    }}></div>
+                                    {isSelected && (
+                                      <div style={{
+                                        position: 'absolute',
+                                        bottom: '-4px',
+                                        right: '-4px',
+                                        background: '#a5967f',
+                                        color: '#fff',
+                                        borderRadius: '50%',
+                                        width: '14px',
+                                        height: '14px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '10px'
+                                      }}>✓</div>
+                                    )}
+                                  </div>
+                                  <span style={{ fontSize: '11px', marginTop: '8px', color: '#333' }}>{renderName}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div style={{ marginLeft: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                            <svg viewBox="0 0 24 24" width="24" height="24" stroke="#333" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                          </div>
                         </div>
-                      </div>
+                        </div>
+                      )}
+
+                      {/* Price display container box */}
+                      {product.id !== 'matted_frame' && (
+                        <div className="pdp-products-form__cta">
+                          <div className="pdp-products-form-cta__price">
+                            <div className="SF-1-3">${currentPrice.toFixed(2)}</div>
+                            <div className="SF-4-2">Tax not included</div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* CTA Action button outside the box */}
                       <div className="pt-form-conclude FRMC-4-1">
