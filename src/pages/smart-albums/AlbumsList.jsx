@@ -3,26 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { openSmartAlbumPreview, getSmartAlbumPreviewShareUrl, openShareByEmail, openWhatsAppShare } from '../../lib/shareSmartAlbum';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import { getAlbumListThumbnailUrl } from '../../components/smart-albums/albumPagePhotos';
-import {
-    deriveCoverUrlFromSnapshot,
-    hydrateAlbumPreviewData,
-} from '../../components/smart-albums/albumPreviewData';
 import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu';
+import AlbumListCoverThumb from '../../components/smart-albums/AlbumListCoverThumb';
 import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
 import EditAlbumModal from '../../components/smart-albums/EditAlbumModal';
 import '../ClientGallery.css';
 import './SmartAlbums.css';
-
-function getAlbumThumbSrc(album) {
-    if (album.cover_image_url) return album.cover_image_url;
-    const fromSnapshot = deriveCoverUrlFromSnapshot(album.preview_data);
-    if (fromSnapshot) return fromSnapshot;
-    if (album.preview_data) {
-        hydrateAlbumPreviewData(album.id, album.preview_data);
-    }
-    return getAlbumListThumbnailUrl(album.id);
-}
 
 function formatAlbumDate(dateStr) {
     if (!dateStr) return 'No date';
@@ -494,51 +480,39 @@ const AlbumsList = ({ starredOnly = false }) => {
                     </div>
                 ) : (
                     <div className="cg-style-37 sa-albums-grid">
-                        {filteredAlbums.map((album) => {
-                            const thumbSrc = getAlbumThumbSrc(album);
-                            return (
-                                <div
-                                    key={album.id}
-                                    className={`cg-style-73 group${contextMenuId === album.id ? ' cg-style-73--ctx-open' : ''}`}
-                                    onClick={() => navigate(`/smart-albums/album/${album.id}`)}
-                                    onKeyDown={(e) => e.key === 'Enter' && navigate(`/smart-albums/album/${album.id}`)}
-                                    role="button"
-                                    tabIndex={0}
-                                >
-                                    <div className="cg-style-74">
-                                        {thumbSrc ? (
-                                            <img src={thumbSrc} alt={album.name} loading="lazy" />
-                                        ) : (
-                                            <div className="cg-style-38 sa-album-thumb-placeholder">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                                                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                                                </svg>
-                                            </div>
-                                        )}
-                                        <div className="cg-style-39" onClick={(e) => openContextMenu(e, album.id)}>
-                                            ⋮
-                                        </div>
-                                        <AlbumStarButton
-                                            starred={!!album.is_starred}
-                                            onClick={(e) => handleToggleStar(e, album)}
-                                        />
-                                        {renderContextMenu(album)}
+                        {filteredAlbums.map((album) => (
+                            <div
+                                key={album.id}
+                                className={`cg-style-73 group${contextMenuId === album.id ? ' cg-style-73--ctx-open' : ''}`}
+                                onClick={() => navigate(`/smart-albums/album/${album.id}`)}
+                                onKeyDown={(e) => e.key === 'Enter' && navigate(`/smart-albums/album/${album.id}`)}
+                                role="button"
+                                tabIndex={0}
+                            >
+                                <div className="cg-style-74">
+                                    <AlbumListCoverThumb album={album} alt={album.name} />
+                                    <div className="cg-style-39" onClick={(e) => openContextMenu(e, album.id)}>
+                                        ⋮
                                     </div>
-                                    <div className="px-1">
-                                        <h3 className="cg-style-43">{album.name}</h3>
-                                        <div className="cg-style-44 cg-style-44--split">
-                                            <div className="cg-style-44-meta">
-                                                <span className="cg-style-45" />
-                                                <span>{album.page_count || 21} pages</span>
-                                                <span className="cg-style-46">·</span>
-                                                <span>{formatAlbumDate(album.event_date)}</span>
-                                            </div>
+                                    <AlbumStarButton
+                                        starred={!!album.is_starred}
+                                        onClick={(e) => handleToggleStar(e, album)}
+                                    />
+                                    {renderContextMenu(album)}
+                                </div>
+                                <div className="px-1">
+                                    <h3 className="cg-style-43">{album.name}</h3>
+                                    <div className="cg-style-44 cg-style-44--split">
+                                        <div className="cg-style-44-meta">
+                                            <span className="cg-style-45" />
+                                            <span>{album.page_count || 21} pages</span>
+                                            <span className="cg-style-46">·</span>
+                                            <span>{formatAlbumDate(album.event_date)}</span>
                                         </div>
                                     </div>
                                 </div>
-                            );
-                        })}
+                            </div>
+                        ))}
                     </div>
                 )}
             </div>
