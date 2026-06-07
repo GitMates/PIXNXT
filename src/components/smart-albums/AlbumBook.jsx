@@ -11,6 +11,7 @@ import {
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getAlbumSpreadOptions,
+    getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
     isEndHalfSpreadIndex,
@@ -89,7 +90,7 @@ function getFallbackBookDimensions(rootEl, gridSize = 'square') {
     return computeBookDimensions(w, h, gridSize);
 }
 
-function OverviewFramedPhoto({ src, placeholderClass = '' }) {
+function OverviewCoverPhoto({ src, placeholderClass = '' }) {
     if (!src) {
         return (
             <span
@@ -97,16 +98,12 @@ function OverviewFramedPhoto({ src, placeholderClass = '' }) {
             />
         );
     }
-    return (
-        <span className="ab-overview-cover-stage">
-            <img className="ab-overview-cover-frame" src={src} alt="" loading="lazy" />
-        </span>
-    );
+    return <img src={src} alt="" loading="lazy" />;
 }
 
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const albumId = album?.id;
-    const spreadOpts = getAlbumSpreadOptions(album);
+    const spreadOpts = getSpreadContext(album, totalPages);
     if (pageNum === 0 && spreadOpts.hasCovers) {
         return resolveCoverImageSrc(album, { showSamples });
     }
@@ -114,8 +111,10 @@ function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     if (directSrc) return directSrc;
     const spreadLeft = getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
     const cellId = pageNum === spreadLeft ? 1 : 2;
+    const spreadCtx = getSpreadContext(album, totalPages);
     const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
         wholeSpread: album?.grid_layout === 'whole-spread',
+        spreadOpts: spreadCtx,
     });
     return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);
 }
@@ -176,7 +175,10 @@ const AlbumBook = ({
     const [initialized, setInitialized] = useState(false);
     const [commentsSeenTick, setCommentsSeenTick] = useState(0);
     const isPinModeOn = previewMode ? pinMarkMode : pinModeActive;
-    const spreadOpts = useMemo(() => getAlbumSpreadOptions(album), [album?.has_covers]);
+    const spreadOpts = useMemo(
+        () => getSpreadContext(album, totalPages),
+        [album?.has_covers, album?.id, album?.page_count, totalPages]
+    );
     const spreadCtx = useMemo(
         () => ({ ...spreadOpts, totalPages }),
         [spreadOpts, totalPages]
@@ -709,9 +711,11 @@ const AlbumBook = ({
             }
 
             if (slotsMatch(originSlot, placement)) {
-                setSwapPinFlow((prev) =>
-                    prev ? { ...prev, originPoint: placementPoint } : prev
-                );
+                const mark = addSwapMark(album.id, originSlot, placement, {
+                    pointA: swapPinFlow.originPoint,
+                    pointB: placementPoint,
+                });
+                if (mark) setSwapPinFlow(null);
                 return;
             }
 
@@ -719,7 +723,9 @@ const AlbumBook = ({
                 pointA: swapPinFlow.originPoint,
                 pointB: placementPoint,
             });
-            if (mark) setSwapPinFlow(null);
+            if (mark) {
+                setSwapPinFlow(null);
+            }
         },
         [album?.id, swapPinFlow, swapMarkMode]
     );
@@ -859,6 +865,46 @@ const AlbumBook = ({
         ]
     );
 
+    const [placementHintPos, setPlacementHintPos] = useState(null);
+
+    const bookPlacementHint = useMemo(() => {
+        if (isPinModeOn && pinMarkMode) {
+            return { text: 'Click to place comment', swap: false };
+        }
+        const swapActive = previewMode ? swapMarkMode : Boolean(swapPinFlow);
+        if (!swapActive) return null;
+        if (swapPinFlow?.originPoint) {
+            return { text: 'Click target spot to complete swap', swap: true };
+        }
+        return { text: 'Click source spot to start swap', swap: true };
+    }, [isPinModeOn, pinMarkMode, previewMode, swapMarkMode, swapPinFlow]);
+
+    useLayoutEffect(() => {
+        if (!bookPlacementHint) {
+            setPlacementHintPos(null);
+            return undefined;
+        }
+
+        const updatePosition = () => {
+            const el = wrapRef.current;
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            if (!rect.width) return;
+            setPlacementHintPos({
+                left: rect.left + rect.width / 2,
+                top: rect.bottom + 12,
+            });
+        };
+
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+        };
+    }, [bookPlacementHint, pageIndex, bookDims]);
+
     const pages = useMemo(
         () =>
             Array.from({ length: totalPages }, (_, pageNum) => (
@@ -889,9 +935,25 @@ const AlbumBook = ({
         <div
             className={`ab-root${previewMode ? ' ab-root--preview' : ''}${
                 isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''
-            }`}
+            }${previewMode && swapMarkMode ? ' ab-root--swap-mode' : ''}`}
             ref={rootRef}
         >
+            {bookPlacementHint && placementHintPos &&
+                createPortal(
+                    <div
+                        className={`ab-pin-placement-floating${
+                            bookPlacementHint.swap ? ' ab-pin-placement-floating--swap' : ''
+                        }`}
+                        style={{
+                            left: `${placementHintPos.left}px`,
+                            top: `${placementHintPos.top}px`,
+                        }}
+                        aria-live="polite"
+                    >
+                        <span className="ab-pin-placement-hint">{bookPlacementHint.text}</span>
+                    </div>,
+                    document.body
+                )}
             <button
                 type="button"
                 ref={prevNavRef}
@@ -954,7 +1016,7 @@ const AlbumBook = ({
                         usePortrait={false}
                         useMouseEvents={clickToFlip}
                         mobileScrollSupport={false}
-                        showCover={spreadOpts.showCover}
+                        showCover={false}
                         showPageCorners={clickToFlip}
                         disableFlipByClick
                         startPage={initialPage}
@@ -1136,13 +1198,13 @@ const AlbumBook = ({
                                                     aria-hidden
                                                 />
                                                 <span className="ab-overview-page ab-overview-page--cover-right">
-                                                    <OverviewFramedPhoto src={coverPhotoSrc} />
+                                                    <OverviewCoverPhoto src={coverPhotoSrc} />
                                                 </span>
                                             </>
                                         ) : isEndHalf ? (
                                             <>
                                                 <span className="ab-overview-page ab-overview-page--end-left">
-                                                    <OverviewFramedPhoto src={endCoverSrc} />
+                                                    <OverviewCoverPhoto src={endCoverSrc} />
                                                 </span>
                                                 <span
                                                     className="ab-overview-page ab-overview-page--cover-blank"

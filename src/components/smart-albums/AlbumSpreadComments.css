@@ -566,6 +566,11 @@
   line-height: 1.35;
 }
 
+.asc-settings-row--grid-size .asc-settings-value {
+  max-width: 62%;
+  word-break: break-word;
+}
+
 .asc-settings-row {
   display: flex;
   align-items: flex-start;

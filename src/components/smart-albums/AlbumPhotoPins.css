@@ -437,6 +437,17 @@
   cursor: pointer;
 }
 
+.ab-root--swap-mode .ab-page-grid--preview .ab-grid-cell:has(.ab-photo-pin-layer--placing-swap) {
+  cursor: crosshair;
+}
+
+.ab-root--swap-mode
+  .ab-page-grid--preview
+  .ab-grid-cell:has(.ab-photo-pin-layer--placing-swap)
+  .ab-grid-cell-empty {
+  box-shadow: inset 0 0 0 2px rgba(56, 189, 248, 0.45);
+}
+
 .ab-root--pin-mode .ab-book-stage {
   cursor: default;
 }

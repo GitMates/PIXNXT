@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { getAlbumCollection } from './albumCollection';
 import { getGridSlotPhoto, getPagePhotoOverride, hasGridSlotPhoto } from './albumPagePhotos';
 import {
     getPagePhotoTransform,
@@ -71,10 +72,11 @@ function resolveSlotImage(
     cellId,
     spreadLeft,
     totalPages,
-    { showSamples = true, wholeSpread = false } = {}
+    { showSamples = true, wholeSpread = false, spreadOpts } = {}
 ) {
     const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
         wholeSpread,
+        spreadOpts,
     });
     if (slot.src) return slot;
     const sample = showSamples ? getSampleImageForPage(pageNum) : null;
@@ -122,7 +124,8 @@ export default function AlbumPageGrid({
     const albumId = albumIdProp ?? album?.id;
     void photoRevision;
     void transformRevision;
-    const spreadOpts = getAlbumSpreadOptions(album);
+    const collectionCount = albumId ? getAlbumCollection(albumId).length : 0;
+    const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
     const spreadCtx = { ...spreadOpts, totalPages };
     const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);
     const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
@@ -178,14 +181,31 @@ export default function AlbumPageGrid({
             }
         >
             {cells.map((cell) => {
-                const photoIndex = getProofCellPhotoIndex(pageNum, cell.id, totalPages);
+                if (wholePlacement && pageNum !== spreadLeft) {
+                    const spreadOnly = getGridSlotPhoto(
+                        albumId,
+                        pageNum,
+                        cell.id,
+                        spreadLeft,
+                        totalPages,
+                        { wholeSpread: true, spreadOpts: spreadCtx }
+                    );
+                    if (!spreadOnly.src) return null;
+                }
+
+                const photoIndex = getProofCellPhotoIndex(
+                    pageNum,
+                    cell.id,
+                    totalPages,
+                    spreadCtx
+                );
                 const { src, panoramic } = resolveSlotImage(
                     albumId,
                     photoIndex,
                     cell.id,
                     spreadLeft,
                     totalPages,
-                    { showSamples, wholeSpread }
+                    { showSamples, wholeSpread, spreadOpts: spreadCtx }
                 );
                 const isSelected =
                     inSelectedSpread &&
@@ -196,7 +216,7 @@ export default function AlbumPageGrid({
                     cell.id,
                     spreadLeft,
                     totalPages,
-                    { wholeSpread }
+                    { wholeSpread, spreadOpts: spreadCtx }
                 );
                 const spreadPhotoOnly = panoramic != null;
                 const spreadSrc = spreadPhotoOnly
@@ -233,6 +253,9 @@ export default function AlbumPageGrid({
                 const slotKey = makeSlotKey(photoIndex, cell.id);
                 const isOriginSlot =
                     Boolean(swapPinModeActive) && Boolean(swapPinOriginKey) && slotKey === swapPinOriginKey;
+                const swapPinPlacementEnabled =
+                    Boolean(swapPinModeActive) &&
+                    (Boolean(src) || (swapPinTargetStep && !isOriginSlot));
                 if (
                     isOriginSlot &&
                     swapPinTargetStep &&
@@ -309,6 +332,7 @@ export default function AlbumPageGrid({
                                     : ''
                             }
                             hasPhoto={Boolean(src)}
+                            swapPinPlacementEnabled={swapPinPlacementEnabled}
                             pinModeActive={pinModeActive && pinMarkMode}
                             proofToolsEnabled={proofTools}
                             proofToolsHover={proofToolsHover}
@@ -319,15 +343,7 @@ export default function AlbumPageGrid({
                             }
                             swapPinModeActive={swapPinModeActive}
                             swapPinTargetStep={swapPinTargetStep}
-                            swapPinHint={
-                                swapPinModeActive && hasPhoto
-                                    ? swapPinTargetStep
-                                        ? isOriginSlot
-                                            ? 'Source spot selected — pick target photo'
-                                            : 'Click target spot to complete swap'
-                                        : 'Click source spot to start swap'
-                                    : ''
-                            }
+                            renderPlacementHint={false}
                             onPlaceSwapPin={(xPct, yPct) =>
                                 onPlaceSwapPin?.({
                                     ...buildSwapSlot(photoIndex, cell.id),
