@@ -358,13 +358,7 @@ export function getSwapMarkForSlot(
     cellId = 0,
     { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page' } = {}
 ) {
-    let key = makeSlotKey(pageNum, cellId);
-    if (placementMode === 'whole' && spreadLeft != null) {
-        if (!(pageNum === spreadLeft && cellId === 1)) {
-            return null;
-        }
-        key = makeSlotKey(spreadLeft, 1);
-    }
+    const key = makeSlotKey(pageNum, cellId);
 
     const mark = [...(marks || [])].reverse().find((m) => m.a === key || m.b === key);
     if (!mark) return null;
@@ -398,13 +392,7 @@ export function getSwapMarksForSlot(
     cellId = 0,
     { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page' } = {}
 ) {
-    let key = makeSlotKey(pageNum, cellId);
-    if (placementMode === 'whole' && spreadLeft != null) {
-        if (!(pageNum === spreadLeft && cellId === 1)) {
-            return [];
-        }
-        key = makeSlotKey(spreadLeft, 1);
-    }
+    const key = makeSlotKey(pageNum, cellId);
 
     return (marks || []).flatMap((mark) => {
         const isA = mark.a === key;
@@ -450,6 +438,10 @@ export function getSwapMarksForSlot(
 
 export function slotsMatch(a, b) {
     if (!a || !b) return false;
+    if (a.whole && b.whole) {
+        if ((a.spreadLeft ?? a.pageNum) !== (b.spreadLeft ?? b.pageNum)) return false;
+        return a.pageNum === b.pageNum && (a.cellId ?? 0) === (b.cellId ?? 0);
+    }
     if (a.swapScope === 'both' || b.swapScope === 'both') {
         return (a.spreadLeft ?? a.pageNum) === (b.spreadLeft ?? b.pageNum);
     }

@@ -41,8 +41,16 @@ const IconSettings = () => (
     </svg>
 );
 
-const NAV = [
+const IconEditCover = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+);
+
+const NAV_BASE = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
+    { id: 'cover', label: 'Edit cover', icon: IconEditCover, requiresCovers: true },
     { id: 'swap', label: 'Swap', icon: IconSwap },
     { id: 'pin', label: 'Comment', icon: IconComments },
     { id: 'comments', label: 'Setting', icon: IconSettings },
@@ -61,7 +69,7 @@ function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, sp
             : 'Select a spread to place photos.';
     }
     if (hasCovers && gridSelection?.mode === 'cover') {
-        return 'Cover page';
+        return 'Book wrap (front + back)';
     }
     if (
         gridSelection?.leftPage != null &&
@@ -127,6 +135,9 @@ export default function AlbumEditorSidebar({
     void proofSeenTick;
     const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
     const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
+    const navItems = NAV_BASE.filter(
+        (item) => !item.requiresCovers || album?.has_covers === true
+    );
 
     const handleFiles = (e) => {
         const files = filesFromInput(e.target.files);
@@ -169,7 +180,7 @@ export default function AlbumEditorSidebar({
             </div>
 
             <nav className="ae-nav" aria-label="Editor tools">
-                {NAV.map(({ id, label, icon: Icon }) => (
+                {navItems.map(({ id, label, icon: Icon }) => (
                     <button
                         key={id}
                         type="button"
@@ -268,7 +279,9 @@ export default function AlbumEditorSidebar({
                                     gridSelection,
                                     canSelectGrid,
                                     totalPages,
-                                    { hasCovers: album?.has_covers === true }
+                                    {
+                                        hasCovers: album?.has_covers === true,
+                                    }
                                 )}
                             </p>
                         )}
@@ -353,7 +366,7 @@ export default function AlbumEditorSidebar({
                                 </div>
                                 <p className="ae-collection-order-note">
                                     {album?.has_covers === true
-                                        ? 'Order 1 → front cover (right page). Last order number → end cover (left page). Middle photos fill inner pages.'
+                                        ? 'Order 1 → book wrap (front right + back left). Photos 2+ fill inner pages in order.'
                                         : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
                                     Drag thumbnails to reorder; spreads update automatically.
                                 </p>
@@ -418,6 +431,31 @@ export default function AlbumEditorSidebar({
                         >
                             Remove all images from album
                         </button>
+                    </>
+                )}
+
+                {activePanel === 'cover' && (
+                    <>
+                        <h3 className="ae-panel-title">Edit cover</h3>
+                        <p className="ae-panel-text">
+                            Book wrap (photo 1) is wider than inner spreads. The center strip is the
+                            spine; outer portions are back and front covers (not shown on spine in
+                            the flipbook).
+                        </p>
+                        <p className="ae-selection-badge" role="status">
+                            Book wrap · back · spine · front
+                        </p>
+                        <button
+                            type="button"
+                            className="ae-btn-picker"
+                            onClick={() => onOpenPicker?.()}
+                        >
+                            Choose book wrap photo
+                        </button>
+                        <p className="ae-panel-text ae-panel-text--muted">
+                            Upload in Collections first — order 1 is used here. Drag the red spine
+                            lines on each side of the spine to adjust its width.
+                        </p>
                     </>
                 )}
 

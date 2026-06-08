@@ -505,6 +505,23 @@
   pointer-events: none;
 }
 
+.sa-preview-role {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  z-index: 4;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(91, 45, 130, 0.92);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+  pointer-events: none;
+}
+
 .sa-preview-card--animate-in {
   animation: sa-card-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
 }

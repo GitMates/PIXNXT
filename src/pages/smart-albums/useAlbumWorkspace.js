@@ -8,15 +8,14 @@ import {
     removeAlbumStoragePages,
 } from '../../components/smart-albums/albumPageStorage';
 import {
-    captureEndCoverPlacement,
     mergeRemotePreviewPagesIntoLocal,
     migrateInsideCoverSpreadToPageTwo,
     migrateEndHalfSpreadToLeftPage,
-    migrateFrontCoverSpreadToPageOne,
+    migrateBackCoverUsesBookWrap,
+    migrateFrontCoverToFullSpread,
     migrateMiskeyedInnerSpreadPhotos,
     migrateWholeSpreadPagePhotosToSpreadKeys,
     migrateWholeSpreadPhotoOffRightPage,
-    restoreEndCoverPlacement,
 } from '../../components/smart-albums/albumPagePhotos';
 import {
     migrateInsideCoverSpreadTransform,
@@ -106,7 +105,8 @@ export function useAlbumWorkspace() {
                         migrateWholeSpreadPagePhotosToSpreadKeys(albumId, pages, data);
                     }
                     if (albumSpreadOpts.hasCovers) {
-                        migrateFrontCoverSpreadToPageOne(albumId);
+                        migrateFrontCoverToFullSpread(albumId);
+                        migrateBackCoverUsesBookWrap(albumId, pages);
                         migrateInsideCoverSpreadToPageTwo(albumId, pages);
                         migrateInsideCoverSpreadTransform(albumId);
                     }
@@ -180,15 +180,8 @@ export function useAlbumWorkspace() {
                 } else if (countDelta < 0) {
                     const removeCount = -countDelta;
                     const removeAt = getPageRemoveIndex(current, removeCount, albumSpreadOpts);
-                    const endCapture = albumSpreadOpts.hasCovers
-                        ? captureEndCoverPlacement(albumId, current)
-                        : null;
                     removeAlbumStoragePages(albumId, removeAt, removeCount);
                     shiftAlbumRemotePreviewPages(albumId, removeAt, -removeCount);
-                    if (albumSpreadOpts.hasCovers) {
-                        restoreEndCoverPlacement(albumId, next, endCapture);
-                        migrateEndHalfSpreadToLeftPage(albumId, next);
-                    }
                 }
 
                 const updated = await smartAlbumsService.updateAlbumPageCount(
@@ -199,19 +192,17 @@ export function useAlbumWorkspace() {
                 setAlbum(updated);
 
                 const urlPage = parseUrlPage(searchParams.get('page'), current, albumSpreadOpts);
-                const { left: endLeft } = getEndSpreadPageIndices(next);
-                const { left: oldEndLeft } = getEndSpreadPageIndices(current);
                 let clamped = Math.min(urlPage, next - 1);
                 if (countDelta > 0) {
-                    const insertAt = getPageInsertIndex(current);
+                    const insertAt = getPageInsertIndex(current, albumSpreadOpts);
                     clamped = parseUrlPage(insertAt, next, albumSpreadOpts);
                 } else if (countDelta < 0) {
-                    const removeAt = getPageRemoveIndex(current, -countDelta);
+                    const removeAt = getPageRemoveIndex(current, -countDelta, albumSpreadOpts);
                     const removeEnd = removeAt - countDelta;
                     if (urlPage >= removeAt && urlPage < removeEnd) {
-                        clamped = endLeft;
-                    } else if (urlPage >= oldEndLeft) {
-                        clamped = endLeft;
+                        clamped = Math.max(0, removeAt - 1);
+                    } else if (urlPage >= removeEnd) {
+                        clamped = Math.min(urlPage + countDelta, next - 1);
                     }
                 }
                 if (clamped !== urlPage) {

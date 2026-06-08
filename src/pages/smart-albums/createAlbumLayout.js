@@ -45,7 +45,7 @@ function isWholeSpreadLayout(gridLayout) {
 }
 
 /**
- * Page count from photo count. With covers: reserves front cover + end spread.
+ * Page count from photo count. With covers: front wrap spread + inner + back wrap spread.
  */
 export function computePageCountFromPhotoCount(
     photoCount,
@@ -61,13 +61,13 @@ export function computePageCountFromPhotoCount(
     let pages;
     if (includeCovers) {
         if (whole) {
-            // One spread per photo: front cover, inner spreads, end cover.
-            pages = Math.max(MIN_ALBUM_PAGES, 2 * n);
+            // Front (2) + inner spreads (n−1 photos) + back (2).
+            pages = Math.max(MIN_ALBUM_PAGES, 2 * n + 2);
         } else if (n === 1) {
-            pages = 2;
+            pages = 4;
         } else {
-            // Front cover spread (2) + inner balance (n−2 photos) + end cover spread (2).
-            const innerCount = Math.max(0, n - 2);
+            // Front (2) + inner balance (n−1 photos) + back (2).
+            const innerCount = Math.max(0, n - 1);
             const innerSpreadPages = 2 * Math.ceil(innerCount / 2);
             pages = Math.max(MIN_ALBUM_PAGES, 4 + innerSpreadPages);
         }
@@ -108,7 +108,7 @@ export function describeAlbumLayout(
             pageCount: pages,
             totalSpreads,
             headline: `${n} photo${n === 1 ? '' : 's'} → ${pages} pages`,
-            detail: `Front cover (blank left) · ${innerSpreads} inner spread${innerSpreads === 1 ? '' : 's'} · End cover (blank right)${
+            detail: `Book wrap (front right + back left) · ${innerSpreads} inner spread${innerSpreads === 1 ? '' : 's'}${
                 whole ? ' · whole-spread layout' : ''
             }`,
         };

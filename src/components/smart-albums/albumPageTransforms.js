@@ -53,6 +53,26 @@ function spreadTransformKey(leftPage) {
     return `spread:${leftPage}`;
 }
 
+function bookWrapSpineTransformKey() {
+    return 'spine:0';
+}
+
+export function getBookWrapSpineTransform(albumId) {
+    if (!albumId) return { ...DEFAULT };
+    const album = readAll()[albumId];
+    return normalizePhotoTransform(album?.[bookWrapSpineTransformKey()]);
+}
+
+export function setBookWrapSpineTransform(albumId, transform) {
+    if (!albumId) return;
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    album[bookWrapSpineTransformKey()] = persistTransform(transform);
+    album.__revision = (album.__revision || 0) + 1;
+    all[albumId] = album;
+    writeAll(all);
+}
+
 function persistTransform(transform) {
     const t = normalizePhotoTransform(transform);
     return {

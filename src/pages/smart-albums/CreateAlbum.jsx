@@ -29,7 +29,7 @@ import {
 import './CreateAlbum.css';
 
 const COVER_OPTIONS = [
-    { value: 'with', label: 'Front & end cover' },
+    { value: 'with', label: 'Front cover' },
     { value: 'without', label: 'No covers' },
 ];
 
@@ -109,6 +109,7 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
     onDrop,
     onDragEnd,
     isDragOver,
+    roleLabel = null,
 }) {
     const imgRef = useRef(null);
     const [imageLoaded, setImageLoaded] = useState(false);
@@ -153,6 +154,11 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
             <span className="sa-preview-order" aria-hidden>
                 {index + 1}
             </span>
+            {roleLabel ? (
+                <span className="sa-preview-role" aria-hidden>
+                    {roleLabel}
+                </span>
+            ) : null}
             <button
                 type="button"
                 className="sa-preview-remove"
@@ -361,6 +367,7 @@ const CreateAlbum = () => {
                 countExpandedUploadPhotos(photoFiles).catch(() => photoFiles.length),
                 detectGridSizesFromFiles(photoFiles, {
                     gridLayout: gridLayoutForDetection,
+                    hasCovers: includeCovers,
                 }).catch(() => ({ pageGridSize: 'square', spreadGridSize: null })),
             ])
                 .then(([count, gridSizes]) => {
@@ -479,6 +486,7 @@ const CreateAlbum = () => {
                 );
                 const gridSizes = await detectGridSizesFromFiles(photoFiles, {
                     gridLayout: finalGridLayout,
+                    hasCovers: includeCovers,
                 });
                 finalGridSize = gridSizes.pageGridSize;
                 finalSpreadGridSize = gridSizes.spreadGridSize;
@@ -707,7 +715,7 @@ const CreateAlbum = () => {
                                 />
                                 <p className="sa-field-note">
                                     {includeCovers
-                                        ? 'First photo on the front cover right page (left blank); last photo on the end cover left page (right blank). Middle photos fill inner pages.'
+                                        ? 'First photo is the book wrap (full upload width). If it is wider than inner spreads, the center strip is the spine; outer portions are back and front covers. Other photos set the inner page grid.'
                                         : 'All uploaded photos fill pages in order — no dedicated cover spreads.'}
                                 </p>
                             </div>
@@ -853,20 +861,27 @@ const CreateAlbum = () => {
                                             '--sa-preview-count': previewSlots.length,
                                         }}
                                     >
-                                        {previewSlots.map((preview, index) => (
-                                            <UploadPreviewCard
-                                                key={preview.id}
-                                                preview={{ ...preview, index }}
-                                                index={index}
-                                                onRemove={handleRemovePreview}
-                                                animateIn={animatePreviewCards}
-                                                onDragStart={handlePreviewDragStart}
-                                                onDragOver={handlePreviewDragOver}
-                                                onDrop={handlePreviewDrop}
-                                                onDragEnd={handlePreviewDragEnd}
-                                                isDragOver={dragOverIndex === index}
-                                            />
-                                        ))}
+                                        {previewSlots.map((preview, index) => {
+                                            let roleLabel = null;
+                                            if (includeCovers && index === 0) {
+                                                roleLabel = 'Book wrap';
+                                            }
+                                            return (
+                                                <UploadPreviewCard
+                                                    key={preview.id}
+                                                    preview={{ ...preview, index }}
+                                                    index={index}
+                                                    onRemove={handleRemovePreview}
+                                                    animateIn={animatePreviewCards}
+                                                    onDragStart={handlePreviewDragStart}
+                                                    onDragOver={handlePreviewDragOver}
+                                                    onDrop={handlePreviewDrop}
+                                                    onDragEnd={handlePreviewDragEnd}
+                                                    isDragOver={dragOverIndex === index}
+                                                    roleLabel={roleLabel}
+                                                />
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ) : (

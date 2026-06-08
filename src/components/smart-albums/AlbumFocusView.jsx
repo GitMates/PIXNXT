@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
 import { getAlbumSpreadOptions, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+import { installSafePageFlip } from './pageFlipSafe';
 import './AlbumBook.css';
 import { parseGridSizeAspect } from './albumGridSize';
 
@@ -26,16 +27,18 @@ export default function AlbumFocusView({
     album,
     totalPages,
     startPage = 0,
+    placementMode = 'single',
     showSamples = true,
     transformRevision = 0,
+    photoRevision = 0,
     onPageChange,
     onClose,
 }) {
     const bookRef = useRef(null);
-    const stageRef = useRef(null);
     const prevNavRef = useRef(null);
     const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
+    const [bookFlipping, setBookFlipping] = useState(false);
     const [dims, setDims] = useState(() => getFocusBookDimensions(album?.grid_size));
     const [pageIndex, setPageIndex] = useState(startPage);
 
@@ -45,10 +48,6 @@ export default function AlbumFocusView({
     const spreadIndex = pageToSpreadIndex(pageIndex, spreadCtx);
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
-
-    useEffect(() => {
-        setPageIndex(startPage);
-    }, [startPage]);
 
     useEffect(() => {
         const update = () => setDims(getFocusBookDimensions(album?.grid_size));
@@ -67,15 +66,6 @@ export default function AlbumFocusView({
             document.body.style.overflow = prevBodyOverflow;
         };
     }, []);
-
-    useEffect(() => {
-        const api = bookRef.current?.pageFlip?.();
-        if (!api?.getFlipController?.()) return;
-        if (api.getCurrentPageIndex() !== startPage) {
-            api.turnToPage(startPage);
-        }
-        setPageIndex(api.getCurrentPageIndex());
-    }, [startPage]);
 
     const syncNavDisabled = useCallback(() => {
         const flipping = isFlippingRef.current;
@@ -100,19 +90,23 @@ export default function AlbumFocusView({
 
     const handleChangeState = useCallback(
         (e) => {
-            isFlippingRef.current = e.data === 'flipping';
+            const flipping = e.data === 'flipping';
+            isFlippingRef.current = flipping;
+            setBookFlipping(flipping);
             syncNavDisabled();
         },
         [syncNavDisabled]
     );
 
     const flipPrev = useCallback(() => {
+        if (atStart || isFlippingRef.current) return;
         bookRef.current?.pageFlip?.()?.flipPrev('bottom');
-    }, []);
+    }, [atStart]);
 
     const flipNext = useCallback(() => {
+        if (atEnd || isFlippingRef.current) return;
         bookRef.current?.pageFlip?.()?.flipNext('bottom');
-    }, []);
+    }, [atEnd]);
 
     useEffect(() => {
         const onKey = (e) => {
@@ -141,12 +135,14 @@ export default function AlbumFocusView({
                     totalPages={totalPages}
                     editable={false}
                     spreadEdit={false}
+                    placementMode={placementMode}
                     showSamples={showSamples}
                     previewMode
                     transformRevision={transformRevision}
+                    photoRevision={photoRevision}
                 />
             )),
-        [album, totalPages, showSamples, transformRevision]
+        [album, totalPages, placementMode, showSamples, transformRevision, photoRevision]
     );
 
     return createPortal(
@@ -169,7 +165,7 @@ export default function AlbumFocusView({
                 </svg>
             </button>
 
-            <div className="ab-focus-stage" ref={stageRef} onClick={(e) => e.stopPropagation()}>
+            <div className="ab-focus-stage" onClick={(e) => e.stopPropagation()}>
                 <button
                     type="button"
                     ref={prevNavRef}
@@ -184,42 +180,60 @@ export default function AlbumFocusView({
                 </button>
 
                 <div
-                    className="ab-focus-flipbook-wrap"
-                    style={{ width: dims.width * 2, height: dims.height }}
+                    className={`ab-book-3d-scene${
+                        bookFlipping ? ' ab-book-3d-scene--flipping' : ''
+                    }`}
                 >
-                    <HTMLFlipBook
-                        key={`focus-${album?.id}-${totalPages}`}
-                        ref={bookRef}
-                        className="ab-html-flipbook ab-html-flipbook--focus"
-                        width={dims.width}
-                        height={dims.height}
-                        size="stretch"
-                        minWidth={120}
-                        maxWidth={dims.width}
-                        minHeight={200}
-                        maxHeight={dims.height}
-                        drawShadow
-                        maxShadowOpacity={0.55}
-                        flippingTime={FLIP_TIME_MS}
-                        usePortrait={false}
-                        useMouseEvents
-                        mobileScrollSupport={false}
-                        showCover={false}
-                        showPageCorners
-                        disableFlipByClick={false}
-                        startPage={startPage}
-                        clickEventForward={false}
-                        onFlip={handleFlip}
-                        onChangeState={handleChangeState}
-                        onInit={() => {
-                            requestAnimationFrame(() => {
-                                bookRef.current?.pageFlip?.()?.turnToPage(startPage);
-                                setPageIndex(bookRef.current?.pageFlip?.()?.getCurrentPageIndex() ?? startPage);
-                            });
-                        }}
+                    <div className="ab-book-spine" aria-hidden />
+                    <div
+                        className={`ab-focus-flipbook-wrap ab-flipbook-wrap ab-flipbook-wrap--book-3d${
+                            !bookFlipping ? ' ab-flipbook-wrap--book-3d-idle' : ''
+                        }${bookFlipping ? ' ab-flipbook-wrap--flipping' : ''}`}
+                        style={{ width: dims.width * 2, height: dims.height }}
                     >
-                        {pages}
-                    </HTMLFlipBook>
+                        <HTMLFlipBook
+                            key={`focus-${album?.id}-${totalPages}-${startPage}`}
+                            ref={bookRef}
+                            className="ab-html-flipbook ab-html-flipbook--focus"
+                            style={{
+                                width: dims.width * 2,
+                                height: dims.height,
+                            }}
+                            width={dims.width}
+                            height={dims.height}
+                            size="fixed"
+                            autoSize={false}
+                            minWidth={dims.width}
+                            maxWidth={dims.width}
+                            minHeight={dims.height}
+                            maxHeight={dims.height}
+                            drawShadow
+                            maxShadowOpacity={0.72}
+                            flippingTime={FLIP_TIME_MS}
+                            usePortrait={false}
+                            useMouseEvents={false}
+                            mobileScrollSupport={false}
+                            showCover={false}
+                            showPageCorners={false}
+                            disableFlipByClick
+                            startPage={startPage}
+                            clickEventForward={false}
+                            onFlip={handleFlip}
+                            onChangeState={handleChangeState}
+                            onInit={() => {
+                                const api = bookRef.current?.pageFlip?.();
+                                installSafePageFlip(api, { totalPages, spreadOpts });
+                                requestAnimationFrame(() => {
+                                    api?.turnToPage(startPage);
+                                    const idx = api?.getCurrentPageIndex() ?? startPage;
+                                    setPageIndex(idx);
+                                    onPageChange?.(idx);
+                                });
+                            }}
+                        >
+                            {pages}
+                        </HTMLFlipBook>
+                    </div>
                 </div>
 
                 <button

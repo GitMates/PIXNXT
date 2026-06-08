@@ -162,12 +162,60 @@ async function collectAllUploadDimensions(files) {
  * Detect grid size from all uploaded images and every PDF page.
  * Whole-spread: one photo spans two pages — use half-width per page (2:1 upload → square pages).
  */
-export async function detectGridSizesFromFiles(files, { gridLayout } = {}) {
+async function loadFirstFileDimensions(file) {
+    if (!file) return null;
+    try {
+        if (isImageFile(file)) {
+            return await loadImageFileDimensions(file);
+        }
+        if (isPdfFile(file)) {
+            const pages = await loadPdfAllPageDimensions(file);
+            return pages[0] || null;
+        }
+    } catch (e) {
+        console.warn('Could not read book-wrap dimensions', file?.name, e);
+    }
+    return null;
+}
+
+/**
+ * Detect grid sizes from uploads.
+ * With covers + whole-spread: photo 1 = book wrap (spread_grid_size), photos 2+ = inner page grid.
+ */
+export async function detectGridSizesFromFiles(files, { gridLayout, hasCovers = false } = {}) {
     if (!files?.length) {
         return { pageGridSize: 'square', spreadGridSize: null };
     }
-    const dimensions = await collectAllUploadDimensions(files);
     const wholeSpread = isWholeSpreadLayout(gridLayout);
+    const dimensions = await collectAllUploadDimensions(files);
+
+    if (wholeSpread && hasCovers && files.length >= 1) {
+        const wrapDims = await loadFirstFileDimensions(files[0]);
+        const restDims =
+            files.length > 1
+                ? (
+                      await collectAllUploadDimensions(files.slice(1))
+                  ).filter((d) => d?.width > 0 && d?.height > 0)
+                : [];
+
+        const spreadGridSize = wrapDims
+            ? gridSizeFromDimensions(wrapDims.width, wrapDims.height, { wholeSpread: false })
+            : gridSizeFromAllDimensions(dimensions, { wholeSpread: false });
+
+        let pageGridSize = 'square';
+        if (restDims.length) {
+            pageGridSize = gridSizeFromAllDimensions(restDims, { wholeSpread: true });
+        } else if (wrapDims) {
+            pageGridSize = gridSizeFromDimensions(wrapDims.width, wrapDims.height, {
+                wholeSpread: true,
+            });
+        } else {
+            pageGridSize = gridSizeFromAllDimensions(dimensions, { wholeSpread: true });
+        }
+
+        return { pageGridSize, spreadGridSize };
+    }
+
     const pageGridSize = gridSizeFromAllDimensions(dimensions, { wholeSpread });
     const spreadGridSize = wholeSpread
         ? gridSizeFromAllDimensions(dimensions, { wholeSpread: false })

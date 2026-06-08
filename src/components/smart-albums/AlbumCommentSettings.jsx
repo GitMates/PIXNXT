@@ -105,7 +105,7 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
                         <span className="asc-settings-row-desc">Set when the album was created</span>
                     </div>
                     <span className="asc-settings-value">
-                        {album?.has_covers === true ? 'Front & end cover' : 'No covers'}
+                        {album?.has_covers === true ? 'Front cover' : 'No covers'}
                     </span>
                 </div>
                 <div className="asc-settings-row asc-settings-row--info">
