@@ -186,8 +186,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const liveGetPinsForSlot = ctx.getPinsForSlot ?? getPinsForSlot;
     const liveOnPinPlace = ctx.onPinPlace ?? onPinPlace;
     const liveOnPinRemove = ctx.onPinRemove ?? onPinRemove;
+    const liveOnPinSave = ctx.onPinSave;
     const liveOnActivatePinMode = ctx.onActivatePinMode ?? onActivatePinMode;
     const liveProofToolsHover = ctx.proofToolsHover ?? proofToolsHover;
+    const liveSpotActionPicker = Boolean(ctx.spotActionPicker);
     const liveShowGridComments = ctx.showGridComments ?? showGridComments;
     const [spineBoundsTick, setSpineBoundsTick] = useState(0);
     useEffect(() => {
@@ -308,23 +310,33 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const PageWrapTag = canSelectCover ? 'button' : 'div';
     const coverSwapMarkInfo = liveGetSwapMarkInfo?.(0, 0);
     const coverSwapMarkInfos =
-        liveSwapMarkMode && liveGetSwapMarkInfos ? liveGetSwapMarkInfos(0, 0, 0) : [];
-    const canCoverSwap = liveSwapMarkMode && pageNum === 1 && Boolean(src);
-    const coverProofTools = (liveSwapMarkMode || livePinMarkMode) && pageNum === 1 && Boolean(src);
+        (liveSwapMarkMode || liveSpotActionPicker) && liveGetSwapMarkInfos
+            ? liveGetSwapMarkInfos(0, 0, 0)
+            : [];
+    const canCoverSwap = (liveSwapMarkMode || liveSpotActionPicker) && pageNum === 1 && Boolean(src);
+    const coverProofTools =
+        (liveSwapMarkMode || livePinMarkMode) && pageNum === 1 && Boolean(src) && !liveSpotActionPicker;
     const coverPins =
-        livePinMarkMode && liveGetPinsForSlot ? liveGetPinsForSlot(1, 0, 0) : [];
+        (livePinMarkMode || liveSpotActionPicker) && liveGetPinsForSlot
+            ? liveGetPinsForSlot(1, 0, 0)
+            : [];
     const isBackCoverPage = endSpreadRole === 'half-left' && spreadOpts.hasCovers;
     const isEndCoverPage = isBackCoverPage && !editable && !spreadEdit;
     const endCoverSwapMarkInfo =
         isEndCoverPage ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage) : null;
     const endCoverSwapMarkInfos =
-        isEndCoverPage && liveSwapMarkMode && liveGetSwapMarkInfos
+        isEndCoverPage && (liveSwapMarkMode || liveSpotActionPicker) && liveGetSwapMarkInfos
             ? liveGetSwapMarkInfos(pageNum, 1, spreadLeftForPage)
             : [];
-    const canEndCoverSwap = isEndCoverPage && liveSwapMarkMode && Boolean(src);
-    const endCoverProofTools = isEndCoverPage && (liveSwapMarkMode || livePinMarkMode) && Boolean(src);
+    const canEndCoverSwap =
+        isEndCoverPage && (liveSwapMarkMode || liveSpotActionPicker) && Boolean(src);
+    const endCoverProofTools =
+        isEndCoverPage &&
+        (liveSwapMarkMode || livePinMarkMode) &&
+        Boolean(src) &&
+        !liveSpotActionPicker;
     const endCoverPins =
-        isEndCoverPage && livePinMarkMode && liveGetPinsForSlot
+        isEndCoverPage && (livePinMarkMode || liveSpotActionPicker) && liveGetPinsForSlot
             ? liveGetPinsForSlot(pageNum, 1, spreadLeftForPage)
             : [];
 
@@ -532,6 +544,20 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 label: 'End cover',
                             })
                         }
+                        onSaveSpotComment={
+                            liveSpotActionPicker && liveOnPinSave
+                                ? (xPct, yPct, message) =>
+                                      liveOnPinSave({
+                                          pageNum,
+                                          cellId: 1,
+                                          spreadLeft: spreadLeftForPage,
+                                          xPct,
+                                          yPct,
+                                          label: 'End cover',
+                                          message,
+                                      })
+                                : null
+                        }
                         onRemovePin={liveOnPinRemove}
                     >
                         {src ? (
@@ -673,6 +699,19 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 label: 'Cover',
                             })
                         }
+                        onSaveSpotComment={
+                            liveSpotActionPicker && liveOnPinSave
+                                ? (xPct, yPct, message) =>
+                                      liveOnPinSave({
+                                          pageNum: 0,
+                                          cellId: 0,
+                                          xPct,
+                                          yPct,
+                                          label: 'Cover',
+                                          message,
+                                      })
+                                : null
+                        }
                         onRemovePin={liveOnPinRemove}
                     >
                         {src ? (
@@ -780,6 +819,19 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                             yPct,
                             label: 'Cover',
                         })
+                    }
+                    onSaveSpotComment={
+                        liveSpotActionPicker && liveOnPinSave
+                            ? (xPct, yPct, message) =>
+                                  liveOnPinSave({
+                                      pageNum: 0,
+                                      cellId: 0,
+                                      xPct,
+                                      yPct,
+                                      label: 'Cover',
+                                      message,
+                                  })
+                            : null
                     }
                     onRemovePin={onPinRemove}
                 >

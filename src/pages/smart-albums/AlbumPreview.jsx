@@ -276,9 +276,12 @@ export default function AlbumPreview({
                             previewMode
                             showSamples={false}
                             transformRevision={photoRevision}
-                            swapMarkMode={messagesEnabled && activeProofTab === 'swap'}
-                            pinMarkMode={commentsEnabled && activeProofTab === 'comments'}
-                            proofToolsHover={activeProofTab == null}
+                            proofSpotPicker={commentsEnabled || messagesEnabled}
+                            spotCanComment={commentsEnabled}
+                            spotCanSwap={messagesEnabled}
+                            swapMarkMode={false}
+                            pinMarkMode={false}
+                            proofToolsHover={false}
                             placementMode={
                                 album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
                             }

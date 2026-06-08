@@ -6,10 +6,7 @@ import { countUnseenSwapMarks } from './albumSwapMarks';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { getCollectionItemDisplayUrl } from './albumCollection';
-import {
-    formatAlbumGridSizeDisplay,
-    formatGridLayoutLabel,
-} from './albumGridSize';
+import { formatAlbumGridSizeDisplay } from './albumGridSize';
 import { isCoverInsidePage, isEndHalfSpreadLeftPage } from './albumSpreadUtils';
 
 const IconCollection = () => (
@@ -169,50 +166,44 @@ export default function AlbumEditorSidebar({
         setCollectionDragOverIndex(null);
     }, []);
 
+    const albumSpreadMeta = `${totalPages} pages · ${pagesPerSpread}-page spreads`;
+
     return (
         <aside className="ae-sidebar">
-            <div className="ae-sidebar-head">
-                <p className="ae-sidebar-label">Album studio</p>
-                <h2 className="ae-sidebar-title">{album?.name || 'Album'}</h2>
-                <p className="ae-sidebar-meta">
-                    {totalPages} pages · {formatGridLayoutLabel(album?.grid_layout)}
-                </p>
-            </div>
-
-            <nav className="ae-nav" aria-label="Editor tools">
+            <nav className="ae-nav-rail" aria-label="Editor tools">
                 {navItems.map(({ id, label, icon: Icon }) => (
                     <button
                         key={id}
                         type="button"
-                        className={`ae-nav-btn${activePanel === id ? ' ae-nav-btn--active' : ''}`}
+                        className={`ae-nav-rail-btn${activePanel === id ? ' ae-nav-rail-btn--active' : ''}`}
                         onClick={() => onPanelChange(id)}
+                        aria-label={label}
+                        aria-current={activePanel === id ? 'true' : undefined}
+                        title={label}
                     >
-                        <span className="ae-nav-icon">
+                        <span className="ae-nav-rail-icon">
                             <Icon />
                         </span>
-                        <span className="ae-nav-label">
-                            {label}
-                            {id === 'swap' && swapMarks.length > 0 && (
-                                <span
-                                    className={`ae-nav-badge${
-                                        unseenSwapCount > 0 ? ' ae-nav-badge--unseen' : ''
-                                    }`}
-                                    aria-hidden
-                                >
-                                    {unseenSwapCount > 0 ? unseenSwapCount : swapMarks.length}
-                                </span>
-                            )}
-                            {id === 'pin' && photoPins.length > 0 && (
-                                <span
-                                    className={`ae-nav-badge ae-nav-badge--pin${
-                                        unseenPinCount > 0 ? ' ae-nav-badge--unseen' : ''
-                                    }`}
-                                    aria-hidden
-                                >
-                                    {unseenPinCount > 0 ? unseenPinCount : photoPins.length}
-                                </span>
-                            )}
-                        </span>
+                        {id === 'swap' && swapMarks.length > 0 && (
+                            <span
+                                className={`ae-nav-rail-badge${
+                                    unseenSwapCount > 0 ? ' ae-nav-rail-badge--unseen' : ''
+                                }`}
+                                aria-hidden
+                            >
+                                {unseenSwapCount > 0 ? unseenSwapCount : swapMarks.length}
+                            </span>
+                        )}
+                        {id === 'pin' && photoPins.length > 0 && (
+                            <span
+                                className={`ae-nav-rail-badge ae-nav-rail-badge--pin${
+                                    unseenPinCount > 0 ? ' ae-nav-rail-badge--unseen' : ''
+                                }`}
+                                aria-hidden
+                            >
+                                {unseenPinCount > 0 ? unseenPinCount : photoPins.length}
+                            </span>
+                        )}
                     </button>
                 ))}
             </nav>
@@ -311,17 +302,22 @@ export default function AlbumEditorSidebar({
                                 Choose photo for current slot
                             </button>
                         )}
-                        {collectionItems.length === 0 ? (
-                            <p className="ae-panel-text ae-panel-text--muted ae-collection-count">
-                                No photos yet — upload above.
-                            </p>
-                        ) : (
+                        <div className="ae-panel-status-row">
+                            <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
+                            <span
+                                className={`ae-panel-status-count${
+                                    collectionItems.length === 0 ? ' ae-panel-status-count--muted' : ''
+                                }`}
+                            >
+                                {collectionItems.length === 0
+                                    ? 'No photos yet'
+                                    : `${collectionItems.length} photo${
+                                          collectionItems.length === 1 ? '' : 's'
+                                      } ready`}
+                            </span>
+                        </div>
+                        {collectionItems.length > 0 && (
                             <>
-                                <p className="ae-collection-count">
-                                    {collectionItems.length} photo
-                                    {collectionItems.length === 1 ? '' : 's'} ready · order 1–
-                                    {collectionItems.length}
-                                </p>
                                 <div className="ae-collection-grid" role="list">
                                     {collectionItems.map((item, index) => (
                                         <button
