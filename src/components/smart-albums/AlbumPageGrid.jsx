@@ -18,6 +18,7 @@ import {
 import EditableGridPhoto from './EditableGridPhoto';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
+import { useAlbumBookPageContext } from './AlbumBookPageContext';
 import './AlbumPhotoPins.css';
 import { makeSlotKey } from './albumSwapMarks';
 
@@ -121,7 +122,15 @@ export default function AlbumPageGrid({
     onPinRemove,
     onActivatePinMode,
     proofToolsHover = true,
+    spotActionPicker = false,
+    spotCanComment = false,
+    spotCanSwap = false,
 }) {
+    const ctx = useAlbumBookPageContext();
+    const liveSpotActionPicker = spotActionPicker || Boolean(ctx.spotActionPicker);
+    const liveSpotCanComment = spotCanComment || Boolean(ctx.spotCanComment);
+    const liveSpotCanSwap = spotCanSwap || Boolean(ctx.spotCanSwap);
+    const liveOnPinSave = ctx.onPinSave;
     const albumId = albumIdProp ?? album?.id;
     void photoRevision;
     void transformRevision;
@@ -241,15 +250,16 @@ export default function AlbumPageGrid({
                     : null;
                 const swapMarkInfo = getSwapMarkInfo?.(photoIndex, cell.id, spreadLeft);
                 const swapMarkInfos =
-                    swapMarkMode && getSwapMarkInfos
+                    (swapMarkMode || liveSpotActionPicker) && getSwapMarkInfos
                         ? getSwapMarkInfos(photoIndex, cell.id, spreadLeft)
                         : swapMarkInfo
                           ? [swapMarkInfo]
                           : [];
-                const canSwap = swapMarkMode && Boolean(src);
-                const proofTools = (swapMarkMode || pinMarkMode) && Boolean(src);
+                const canSwap = (swapMarkMode || liveSpotActionPicker) && Boolean(src);
+                const proofTools =
+                    (swapMarkMode || pinMarkMode) && Boolean(src) && !liveSpotActionPicker;
                 const slotPins =
-                    pinMarkMode && getPinsForSlot
+                    (pinMarkMode || liveSpotActionPicker) && getPinsForSlot
                         ? getPinsForSlot(photoIndex, cell.id, spreadLeft)
                         : [];
                 const markedClass = swapMarkInfo
@@ -389,6 +399,31 @@ export default function AlbumPageGrid({
                                 });
                             }}
                             onRemovePin={onPinRemove}
+                            onSaveSpotComment={
+                                liveSpotActionPicker && liveOnPinSave
+                                    ? (xPct, yPct, message) => {
+                                          let targetPage = photoIndex;
+                                          let targetCell = cell.id;
+                                          if (wholePlacement) {
+                                              targetPage =
+                                                  cell.id === 2 ? spreadLeft + 1 : spreadLeft;
+                                              targetCell = cell.id;
+                                          }
+                                          liveOnPinSave({
+                                              pageNum: targetPage,
+                                              cellId: targetCell,
+                                              spreadLeft,
+                                              xPct,
+                                              yPct,
+                                              label: buildSwapSlot(photoIndex, cell.id).label,
+                                              message,
+                                          });
+                                      }
+                                    : null
+                            }
+                            spotActionPicker={liveSpotActionPicker}
+                            spotCanComment={liveSpotCanComment}
+                            spotCanSwap={liveSpotCanSwap && canSwap}
                         >
                             {spreadEdit && hasPhoto ? (
                                 <EditableGridPhoto

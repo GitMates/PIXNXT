@@ -150,6 +150,9 @@ const AlbumBook = ({
     swapMarkMode = false,
     pinMarkMode = false,
     proofToolsHover = true,
+    proofSpotPicker = false,
+    spotCanComment = false,
+    spotCanSwap = false,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -786,6 +789,11 @@ const AlbumBook = ({
 
     useEffect(() => {
         if (!previewMode) return;
+        if (proofSpotPicker) {
+            setPinModeActive(false);
+            setPinComposer(null);
+            return;
+        }
         if (pinMarkMode) {
             setPinModeActive(true);
             setSwapPinFlow(null);
@@ -793,7 +801,7 @@ const AlbumBook = ({
         }
         setPinModeActive(false);
         setPinComposer(null);
-    }, [previewMode, pinMarkMode]);
+    }, [previewMode, pinMarkMode, proofSpotPicker]);
 
     useEffect(() => {
         if (!previewMode) return;
@@ -841,7 +849,7 @@ const AlbumBook = ({
                 cellId: placement.cellId ?? 0,
             };
             if (!swapPinFlow) {
-                if (!swapMarkMode) return;
+                if (!swapMarkMode && !proofSpotPicker) return;
                 setSwapPinFlow({
                     originSlot: placement,
                     originPoint: placementPoint,
@@ -892,7 +900,7 @@ const AlbumBook = ({
                 setSwapPinFlow(null);
             }
         },
-        [album?.id, swapPinFlow, swapMarkMode]
+        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker]
     );
 
     const getSwapMarkInfo = useCallback(
@@ -937,6 +945,14 @@ const AlbumBook = ({
         [album?.id, pinComposer]
     );
 
+    const handlePinSaveDirect = useCallback(
+        (placement) => {
+            if (!album?.id || !placement?.message?.trim()) return;
+            addPhotoPin(album.id, placement);
+        },
+        [album?.id]
+    );
+
     const handlePinRemove = useCallback(
         (pinId) => {
             if (!album?.id) return;
@@ -978,7 +994,9 @@ const AlbumBook = ({
             getSwapMarkInfo,
             getSwapMarkInfos,
             onSwapRequest: handleSwapRequest,
-            swapPinModeActive: previewMode ? swapMarkMode : Boolean(swapPinFlow),
+            swapPinModeActive: previewMode
+                ? swapMarkMode || Boolean(swapPinFlow)
+                : Boolean(swapPinFlow),
             swapPinOriginKey: swapPinFlow
                 ? makeSlotKey(
                       swapPinFlow.originSlot.pageNum,
@@ -992,9 +1010,13 @@ const AlbumBook = ({
             pinModeActive: isPinModeOn,
             getPinsForSlot: getSlotPins,
             onPinPlace: handlePinPlace,
+            onPinSave: handlePinSaveDirect,
             onPinRemove: handlePinRemove,
             onActivatePinMode: handleActivatePinMode,
             proofToolsHover,
+            spotActionPicker: proofSpotPicker,
+            spotCanComment,
+            spotCanSwap,
         }),
         [
             gridSelection?.leftPage,
@@ -1020,8 +1042,12 @@ const AlbumBook = ({
             getSwapMarkInfos,
             getSlotPins,
             handlePinPlace,
+            handlePinSaveDirect,
             handlePinRemove,
             handleActivatePinMode,
+            proofSpotPicker,
+            spotCanComment,
+            spotCanSwap,
         ]
     );
 
@@ -1031,7 +1057,9 @@ const AlbumBook = ({
         if (isPinModeOn && pinMarkMode) {
             return { text: 'Click to place comment', swap: false };
         }
-        const swapActive = previewMode ? swapMarkMode : Boolean(swapPinFlow);
+        const swapActive = previewMode
+            ? swapMarkMode || Boolean(swapPinFlow)
+            : Boolean(swapPinFlow);
         if (!swapActive) return null;
         if (swapPinFlow?.originPoint) {
             return { text: 'Click target spot to complete swap', swap: true };
@@ -1519,7 +1547,7 @@ const AlbumBook = ({
             />
 
             <AlbumPinComposer
-                open={Boolean(pinComposer)}
+                open={Boolean(pinComposer) && !proofSpotPicker}
                 slotLabel={pinComposer?.label}
                 onSave={handlePinSave}
                 onClose={() => setPinComposer(null)}

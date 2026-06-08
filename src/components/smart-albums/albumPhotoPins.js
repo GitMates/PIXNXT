@@ -119,6 +119,7 @@ export function addPhotoPin(albumId, { pageNum, cellId = 0, xPct, yPct, message,
 
     const pin = {
         id: `pin_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        type: 'comment',
         pageNum,
         cellId: cellId ?? 0,
         xPct: Math.min(100, Math.max(0, xPct)),
