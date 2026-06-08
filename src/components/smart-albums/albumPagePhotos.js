@@ -13,6 +13,7 @@ import {
     isCoverInsidePage,
     isEndHalfSpreadLeftPage,
     isInsideCoverSpreadLeft,
+    isPreBackHalfSpreadLeftPage,
     isWholeSpreadLayout,
     normalizeSpreadOpts,
 } from './albumSpreadUtils';
@@ -470,6 +471,11 @@ export function getGridSlotPhoto(
         ...normalizeSpreadOpts(spreadOpts),
         totalPages: spreadOpts?.totalPages ?? totalPages,
     };
+    if (totalPages != null && isPreBackHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
+        const pageSrc = getPagePhotoOverride(albumId, pageNum);
+        if (pageSrc) return { src: pageSrc, panoramic: null };
+        return { src: null, panoramic: null };
+    }
     if (totalPages != null && isEndHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
         const wrapSrc = getSpreadPhotoOverride(albumId, 0);
         if (wrapSrc) {
@@ -526,6 +532,9 @@ export function hasGridSlotPhoto(
         ...normalizeSpreadOpts(spreadOpts),
         totalPages: spreadOpts?.totalPages ?? totalPages,
     };
+    if (totalPages != null && isPreBackHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
+        return Boolean(getPagePhotoOverride(albumId, pageNum));
+    }
     if (totalPages != null && isEndHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
         if (getSpreadPhotoOverride(albumId, 0)) return true;
         if (getPagePhotoOverride(albumId, pageNum)) return true;
@@ -732,7 +741,11 @@ export function setSpreadPhoto(
 ) {
     if (!albumId || leftPage == null || !dataUrl) return false;
     const opts = { ...normalizeSpreadOpts(spreadOpts), totalPages };
-    if (totalPages != null && isEndHalfSpreadLeftPage(leftPage, totalPages, opts)) {
+    if (
+        totalPages != null &&
+        (isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts) ||
+            isEndHalfSpreadLeftPage(leftPage, totalPages, opts))
+    ) {
         return setPagePhotoFromDataUrl(albumId, leftPage, dataUrl, { clearSpreadForLeft: leftPage });
     }
     const all = readAll();
@@ -754,7 +767,11 @@ export function setSpreadPhotoFromCollectionItem(
 ) {
     if (!albumId || leftPage == null || !collectionItemId) return false;
     const opts = { ...normalizeSpreadOpts(spreadOpts), totalPages };
-    if (totalPages != null && isEndHalfSpreadLeftPage(leftPage, totalPages, opts)) {
+    if (
+        totalPages != null &&
+        (isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts) ||
+            isEndHalfSpreadLeftPage(leftPage, totalPages, opts))
+    ) {
         return setPagePhotoFromCollectionItem(albumId, leftPage, collectionItemId, {
             clearSpreadForLeft: leftPage,
         });
