@@ -4,6 +4,7 @@ import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
 import {
     getGridSlotPhoto,
+    getInsideCoverRightPhotoSrc,
     getPagePhotoOverride,
     getSpreadPhotoOverride,
     resolveCoverImageSrc,
@@ -12,10 +13,13 @@ import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getAlbumSpreadOptions,
     getEndSpreadPageIndices,
+    getPreBackHalfSpreadLeftPage,
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
     isEndHalfSpreadIndex,
+    isInsideCoverSpreadIndex,
+    isPreBackHalfSpreadIndex,
     pageToSpreadIndex,
     spreadIndexToPage,
 } from './albumSpreadUtils';
@@ -697,6 +701,37 @@ const AlbumBook = ({
         initialized,
         onPageChange,
         spreadIndex,
+    ]);
+
+    useEffect(() => {
+        if (!initialized || bookFlipping || endClipTransition) return;
+        if (!album?.has_covers) return;
+        if (!isPreBackHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) return;
+        const preBackLeft = getPreBackHalfSpreadLeftPage(totalPages, spreadOpts);
+        if (preBackLeft == null) return;
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return;
+        const current = api.getCurrentPageIndex();
+        if (current === preBackLeft) return;
+        if (current !== preBackLeft + 1) return;
+        syncingPageRef.current = true;
+        api.turnToPage(preBackLeft);
+        setPageIndex(preBackLeft);
+        onPageChange?.(preBackLeft);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                syncingPageRef.current = false;
+            });
+        });
+    }, [
+        album?.has_covers,
+        bookFlipping,
+        endClipTransition,
+        initialized,
+        onPageChange,
+        spreadIndex,
+        spreadOpts,
+        totalPages,
     ]);
 
     useEffect(() => {
@@ -1411,6 +1446,15 @@ const AlbumBook = ({
                                     : null;
                             const isCover =
                                 spreadOpts.hasCovers && overviewSpreadIndex === 0;
+                            const isInsideCover = isInsideCoverSpreadIndex(
+                                overviewSpreadIndex,
+                                spreadOpts
+                            );
+                            const isPreBackHalf = isPreBackHalfSpreadIndex(
+                                overviewSpreadIndex,
+                                totalPages,
+                                spreadOpts
+                            );
                             const isEndSpread = isEndHalfSpreadIndex(
                                 overviewSpreadIndex,
                                 totalPages,
@@ -1462,6 +1506,49 @@ const AlbumBook = ({
                                             <span className="ab-overview-page ab-overview-page--cover-single">
                                                 <OverviewCoverPhoto src={rightSrc || leftSrc} />
                                             </span>
+                                        ) : isInsideCover ? (
+                                            <>
+                                                <span className="ab-overview-page">
+                                                    <span className="ab-overview-placeholder" />
+                                                </span>
+                                                <span className="ab-overview-page">
+                                                    {(() => {
+                                                        const insideSrc =
+                                                            getInsideCoverRightPhotoSrc(
+                                                                album?.id,
+                                                                { showSamples }
+                                                            ) ||
+                                                            getOverviewPageImage(
+                                                                album,
+                                                                2,
+                                                                totalPages,
+                                                                showSamples
+                                                            );
+                                                        return insideSrc ? (
+                                                            <img
+                                                                src={insideSrc}
+                                                                alt=""
+                                                                loading="lazy"
+                                                            />
+                                                        ) : (
+                                                            <span className="ab-overview-placeholder" />
+                                                        );
+                                                    })()}
+                                                </span>
+                                            </>
+                                        ) : isPreBackHalf ? (
+                                            <>
+                                                <span className="ab-overview-page">
+                                                    {leftSrc ? (
+                                                        <img src={leftSrc} alt="" loading="lazy" />
+                                                    ) : (
+                                                        <span className="ab-overview-placeholder" />
+                                                    )}
+                                                </span>
+                                                <span className="ab-overview-page">
+                                                    <span className="ab-overview-placeholder" />
+                                                </span>
+                                            </>
                                         ) : isEndHalf && bookWrapSrc ? (
                                             <span className="ab-overview-page ab-overview-page--end-single">
                                                 <OverviewBookWrapSegment

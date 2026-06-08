@@ -5,6 +5,7 @@
 
 import {
     getEndSpreadPageIndices,
+    getPreBackHalfSpreadPageRole,
     isCoverInsidePage,
     normalizeSpreadOpts,
     usesReservedEndSpread,
@@ -61,6 +62,13 @@ export function isProofLeftGridPage(pageNum, { showCover = true, hasCovers, tota
 export function isProofRightGridPage(pageNum, { showCover = true, hasCovers, totalPages } = {}) {
     if (pageNum < 0) return false;
     const covers = hasCovers ?? showCover;
+    const spreadOpts = { showCover: covers, hasCovers: covers, totalPages };
+    if (
+        totalPages != null &&
+        getPreBackHalfSpreadPageRole(pageNum, totalPages, spreadOpts) === 'half-blank'
+    ) {
+        return false;
+    }
     if (!covers) return pageNum % 2 === 1;
     if (pageNum === 1) return true;
     if (totalPages != null && usesReservedEndSpread(totalPages, { hasCovers: covers, showCover: covers })) {

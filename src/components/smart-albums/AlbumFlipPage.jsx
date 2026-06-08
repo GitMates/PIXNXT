@@ -269,14 +269,29 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     );
     const useLeftGrid =
         isProofLeftGridPage(pageNum, gridOpts) && !endHalfLeftPage && !preBackHalfLeftPage;
-    const useRightGrid = isProofRightGridPage(pageNum, gridOpts);
+    const useRightGrid =
+        isProofRightGridPage(pageNum, gridOpts) &&
+        preBackSpreadRole !== 'half-blank' &&
+        !(coverLayoutOpts.hasCovers && pageNum === 1);
     const src = getPageImageSrc(album, pageNum, showSamples, coverLayoutOpts);
     const isFrontCoverPage = false;
 
-    if (endSpreadRole === 'half-blank' || preBackSpreadRole === 'half-blank') {
+    if (endSpreadRole === 'half-blank') {
         return (
             <div className="ab-flip-page ab-flip-page--half-blank" ref={ref} data-density="hard">
-                <div className="ab-page-empty" aria-hidden />
+                <div className="ab-half-spread-blank" aria-hidden />
+            </div>
+        );
+    }
+
+    if (preBackSpreadRole === 'half-blank') {
+        return (
+            <div
+                className="ab-flip-page ab-flip-page--inner-half-blank"
+                ref={ref}
+                data-density="hard"
+            >
+                <div className="ab-half-spread-blank" aria-hidden />
             </div>
         );
     }

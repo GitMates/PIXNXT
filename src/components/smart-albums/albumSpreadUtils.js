@@ -165,6 +165,11 @@ export function getPreBackHalfSpreadPageRole(pageNum, totalPages, opts = {}) {
     return null;
 }
 
+/** Right page of the inner half-spread before the back cover (always blank). */
+export function isPreBackHalfSpreadRightPage(pageNum, totalPages, opts = {}) {
+    return getPreBackHalfSpreadPageRole(pageNum, totalPages, opts) === 'half-blank';
+}
+
 /** Whether a spread left page is the pre-back inner half-spread (last photo slot). */
 export function isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts = {}) {
     const preBackLeft = getPreBackHalfSpreadLeftPage(totalPages, opts);
@@ -224,12 +229,25 @@ export function enumerateTwoPageInnerPhotoPages(
 
 /** First inner spread (pages 1|2): left is inside cover — never panoramic / whole-spread. */
 export function isInsideCoverSpreadLeft(spreadLeftPage, totalPages, { showCover = true } = {}) {
-    return showCover === true && spreadLeftPage === 1;
+    return showCover === true && (spreadLeftPage === 1 || spreadLeftPage === 2);
 }
 
 /** Page 2 — first photo page beside the blank inside cover (page 1). */
 export function isInsideCoverRightPage(pageNum, totalPages, { showCover = true } = {}) {
     return showCover === true && pageNum === 2;
+}
+
+/** First inner spread after the cover — half layout (blank left, photo on page 2). */
+export function isInsideCoverSpreadIndex(spreadIndex, { hasCovers, showCover } = {}) {
+    return hasCovers === true && showCover === true && spreadIndex === 1;
+}
+
+/** Inner half-spread immediately before the back cover (last photo left, right blank). */
+export function isPreBackHalfSpreadIndex(spreadIndex, totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (!usesReservedEndSpread(totalPages, spreadOpts)) return false;
+    const lastIdx = getTotalSpreads(totalPages, spreadOpts) - 1;
+    return spreadIndex === lastIdx - 1 && getPreBackHalfSpreadLeftPage(totalPages, spreadOpts) != null;
 }
 
 export function getSpreadPages(spreadIndex, totalPages, opts = {}) {
@@ -246,12 +264,25 @@ export function getSpreadPages(spreadIndex, totalPages, opts = {}) {
         return { left: 0, right: Math.min(1, totalPages - 1) };
     }
 
+    if (hasCovers && showCover && spreadIndex === 1) {
+        return { left: 2, right: Math.min(2, totalPages - 1), insideCoverHalf: true };
+    }
+
     if (usesReservedEndSpread(totalPages, spreadOpts) && spreadIndex === lastIdx) {
         return getEndSpreadPageIndices(totalPages);
     }
 
-    // Inner spreads: 2|3, 4|5, … (spread 0 = front cover 0|1).
-    const left = hasCovers && showCover ? spreadIndex * 2 : spreadIndex * 2;
+    if (isPreBackHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) {
+        const preBackLeft = getPreBackHalfSpreadLeftPage(totalPages, spreadOpts);
+        return {
+            left: preBackLeft,
+            right: Math.min(preBackLeft + 1, totalPages - 1),
+            preBackHalf: true,
+        };
+    }
+
+    // Inner full spreads: 3|4, 5|6, … (spread 0 = front cover, spread 1 = inside-cover half).
+    const left = hasCovers && showCover ? spreadIndex * 2 - 1 : spreadIndex * 2;
     const maxInnerRight = usesReservedEndSpread(totalPages, spreadOpts)
         ? totalPages - RESERVED_END_PAGES - 1
         : totalPages - 1;
@@ -283,14 +314,20 @@ export function pageToSpreadIndex(pageIndex, opts = {}) {
 
     if (!hasCovers) return Math.max(0, Math.floor(pageIndex / 2));
     if (showCover && pageIndex <= 1) return 0;
+    if (showCover && pageIndex === 2) return 1;
     if (usesReservedEndSpread(totalPages, spreadOpts)) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+        const preBackLeft = getPreBackHalfSpreadLeftPage(totalPages, spreadOpts);
         if (pageIndex >= endLeft) {
             return getTotalSpreads(totalPages, spreadOpts) - 1;
         }
+        if (preBackLeft != null && pageIndex >= preBackLeft) {
+            return getTotalSpreads(totalPages, spreadOpts) - 2;
+        }
     }
     if (!showCover) return Math.max(0, Math.floor(pageIndex / 2));
-    return Math.floor((pageIndex - 2) / 2) + 1;
+    if (pageIndex >= 3) return Math.floor((pageIndex - 3) / 2) + 2;
+    return 1;
 }
 
 /** Map spread index → book page index (left page of spread in flipbook) */
@@ -300,12 +337,17 @@ export function spreadIndexToPage(spreadIndex, opts = {}) {
     const spreadOpts = { showCover, hasCovers };
 
     if (hasCovers && showCover && spreadIndex <= 0) return 0;
+    if (hasCovers && showCover && spreadIndex === 1) return 2;
     const lastIdx = getTotalSpreads(totalPages, spreadOpts) - 1;
+    if (isPreBackHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) {
+        return getPreBackHalfSpreadLeftPage(totalPages, spreadOpts) ?? 0;
+    }
     if (usesReservedEndSpread(totalPages, spreadOpts) && spreadIndex === lastIdx) {
         return getEndSpreadPageIndices(totalPages).left;
     }
     if (!hasCovers || !showCover) return Math.max(0, spreadIndex * 2);
-    return Math.max(0, spreadIndex * 2);
+    if (spreadIndex >= 2) return Math.max(0, spreadIndex * 2 - 1);
+    return 2;
 }
 
 /** Last spread indices — always the reserved end-cover spread when enabled. */

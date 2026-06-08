@@ -33,6 +33,7 @@ import {
     migrateMiskeyedInnerSpreadPhotos,
     migrateWholeSpreadPagePhotosToSpreadKeys,
     migrateWholeSpreadPhotoOffRightPage,
+    clearPreBackBlankRightPage,
     placeCollectionItemOnPages,
     setPagePhotoFromCollectionItem,
     setPagePhotoFromDataUrl,
@@ -304,6 +305,7 @@ export default function AlbumEditor({
     useEffect(() => {
         let changed = false;
         if (migrateEndHalfSpreadToLeftPage(albumId, totalPages, album)) changed = true;
+        if (clearPreBackBlankRightPage(albumId, totalPages, album)) changed = true;
         if (migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, album)) changed = true;
         if (migrateWholeSpreadPhotoOffRightPage(albumId, album)) changed = true;
         if (!spreadOpts.hasCovers) {

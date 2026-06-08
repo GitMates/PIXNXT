@@ -16,6 +16,7 @@ import {
     migrateMiskeyedInnerSpreadPhotos,
     migrateWholeSpreadPagePhotosToSpreadKeys,
     migrateWholeSpreadPhotoOffRightPage,
+    clearPreBackBlankRightPage,
 } from '../../components/smart-albums/albumPagePhotos';
 import {
     migrateInsideCoverSpreadTransform,
@@ -100,6 +101,7 @@ export function useAlbumWorkspace() {
                     const albumSpreadOpts = getAlbumSpreadOptions(data);
                     migrateEndHalfSpreadToLeftPage(albumId, pages, data);
                     migrateMiskeyedInnerSpreadPhotos(albumId, pages, data);
+                    clearPreBackBlankRightPage(albumId, pages, data);
                     migrateWholeSpreadPhotoOffRightPage(albumId, data);
                     if (!albumSpreadOpts.hasCovers) {
                         migrateWholeSpreadPagePhotosToSpreadKeys(albumId, pages, data);
