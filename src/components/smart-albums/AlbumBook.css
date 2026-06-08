@@ -1673,6 +1673,18 @@
   margin: 0 auto;
 }
 
+/* Clip each page half so whole-spread pano does not duplicate in the gutter */
+.ab-html-flipbook--focus .ab-flip-page {
+  overflow: hidden;
+}
+
+.ab-html-flipbook--focus .ab-flip-page--grid-left:has(.ab-pano-bleed) .ab-page-grid,
+.ab-html-flipbook--focus .ab-flip-page--grid-right:has(.ab-pano-bleed) .ab-page-grid,
+.ab-html-flipbook--focus .ab-flip-page--grid-left:has(.ab-pano-bleed) .ab-grid-cell:has(.ab-pano-bleed),
+.ab-html-flipbook--focus .ab-flip-page--grid-right:has(.ab-pano-bleed) .ab-grid-cell:has(.ab-pano-bleed) {
+  overflow: hidden;
+}
+
 .ab-focus-nav {
   position: absolute;
   top: 50%;

@@ -48,6 +48,7 @@ import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';
 import { AlbumBookPageContext } from './AlbumBookPageContext';
+import { installSafePageFlip } from './pageFlipSafe';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
@@ -206,6 +207,8 @@ const AlbumBook = ({
     }, [initialPage, totalPages]);
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [focusOpen, setFocusOpen] = useState(false);
+    const [focusStartPage, setFocusStartPage] = useState(0);
+    const focusPageRef = useRef(0);
 
     const flipBookStructuralKey = useMemo(
         () =>
@@ -944,24 +947,19 @@ const AlbumBook = ({
 
     const closeFocusView = useCallback(() => {
         setFocusOpen(false);
-    }, []);
+        goToPage(focusPageRef.current);
+    }, [goToPage]);
 
     const openFocusView = useCallback(() => {
         setOverviewOpen(false);
+        focusPageRef.current = pageIndex;
+        setFocusStartPage(pageIndex);
         setFocusOpen(true);
-    }, []);
+    }, [pageIndex]);
 
-    const handleFocusPageChange = useCallback(
-        (idx) => {
-            setPageIndex(idx);
-            onPageChange?.(idx);
-            const api = bookRef.current?.pageFlip?.();
-            if (api?.getFlipController?.() && api.getCurrentPageIndex() !== idx) {
-                api.turnToPage(idx);
-            }
-        },
-        [onPageChange]
-    );
+    const handleFocusPageChange = useCallback((idx) => {
+        focusPageRef.current = idx;
+    }, []);
 
     const pageContextValue = useMemo(
         () => ({
@@ -1205,6 +1203,8 @@ const AlbumBook = ({
                         onInit={() => {
                             syncingPageRef.current = true;
                             setInitialized(true);
+                            const api = bookRef.current?.pageFlip?.();
+                            installSafePageFlip(api, { totalPages, spreadOpts });
                             requestAnimationFrame(() => {
                                 requestAnimationFrame(() => {
                                     syncFlipbookToUrlPage();
@@ -1496,9 +1496,11 @@ const AlbumBook = ({
                 <AlbumFocusView
                     album={album}
                     totalPages={totalPages}
-                    startPage={pageIndex}
+                    startPage={focusStartPage}
+                    placementMode={placementMode}
                     showSamples={showSamples}
                     transformRevision={transformRevision}
+                    photoRevision={photoRevision}
                     onPageChange={handleFocusPageChange}
                     onClose={closeFocusView}
                 />
