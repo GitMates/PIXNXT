@@ -7,6 +7,7 @@ import {
     getBookWrapSpineLayout,
 } from './bookWrapSpine';
 import {
+    getAlbumSpineBoundsOverride,
     setAlbumSpineBoundsOverride,
     SPINE_BOUNDS_CHANGED_EVENT,
 } from './albumSpineSettings';
