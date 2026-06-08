@@ -1,4 +1,16 @@
-import { parseGridSizeAspect, spreadGridSizeFromPageGrid } from './albumGridSize';
+import {
+    parseGridSizeAspect,
+    spreadGridSizeFromPageGrid,
+} from './albumGridSize';
+
+function resolveWrapAspect(album) {
+    const spreadKey =
+        album?.spread_grid_size ??
+        spreadGridSizeFromPageGrid(album?.grid_size, album?.grid_layout);
+    if (spreadKey) return parseGridSizeAspect(spreadKey);
+    if (album?.__wrap_aspect > 0) return album.__wrap_aspect;
+    return parseGridSizeAspect(album?.grid_size);
+}
 import { getAlbumSpineBoundsOverride } from './albumSpineSettings';
 import { photoTransformStyle } from './albumPageTransforms';
 
@@ -12,10 +24,7 @@ const MIN_COVER_FRACTION = 0.12;
 export function getBookWrapSpineLayout(album) {
     const pageAspect = parseGridSizeAspect(album?.grid_size);
     const innerSpreadAspect = pageAspect * 2;
-    const spreadKey =
-        album?.spread_grid_size ??
-        spreadGridSizeFromPageGrid(album?.grid_size, album?.grid_layout);
-    const wrapAspect = parseGridSizeAspect(spreadKey || album?.grid_size);
+    const wrapAspect = resolveWrapAspect(album);
 
     let spineStartFraction = pageAspect / wrapAspect;
     let spineEndFraction = 1 - spineStartFraction;

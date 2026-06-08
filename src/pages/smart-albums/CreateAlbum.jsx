@@ -402,7 +402,7 @@ const CreateAlbum = () => {
                 clearTimeout(analysisTimeoutId);
             }
         };
-    }, [photoFiles, gridLayoutForDetection]);
+    }, [photoFiles, gridLayoutForDetection, includeCovers]);
 
     const analyzingUploads = photoCountBusy || gridSizeBusy;
     const animatePreviewCards = previewSlots.length <= 12;

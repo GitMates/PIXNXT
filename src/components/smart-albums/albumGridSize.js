@@ -180,7 +180,8 @@ async function loadFirstFileDimensions(file) {
 
 /**
  * Detect grid sizes from uploads.
- * With covers + whole-spread: photo 1 = book wrap (spread_grid_size), photos 2+ = inner page grid.
+ * With covers: photo 1 = book wrap (spread_grid_size), photos 2+ = inner page grid.
+ * Two-page grid uses full per-page aspect from photo 2+; whole-spread uses half-width per page.
  */
 export async function detectGridSizesFromFiles(files, { gridLayout, hasCovers = false } = {}) {
     if (!files?.length) {
@@ -189,7 +190,7 @@ export async function detectGridSizesFromFiles(files, { gridLayout, hasCovers = 
     const wholeSpread = isWholeSpreadLayout(gridLayout);
     const dimensions = await collectAllUploadDimensions(files);
 
-    if (wholeSpread && hasCovers && files.length >= 1) {
+    if (hasCovers && files.length >= 1) {
         const wrapDims = await loadFirstFileDimensions(files[0]);
         const restDims =
             files.length > 1
@@ -204,13 +205,13 @@ export async function detectGridSizesFromFiles(files, { gridLayout, hasCovers = 
 
         let pageGridSize = 'square';
         if (restDims.length) {
-            pageGridSize = gridSizeFromAllDimensions(restDims, { wholeSpread: true });
+            pageGridSize = gridSizeFromAllDimensions(restDims, { wholeSpread });
         } else if (wrapDims) {
             pageGridSize = gridSizeFromDimensions(wrapDims.width, wrapDims.height, {
-                wholeSpread: true,
+                wholeSpread,
             });
         } else {
-            pageGridSize = gridSizeFromAllDimensions(dimensions, { wholeSpread: true });
+            pageGridSize = gridSizeFromAllDimensions(dimensions, { wholeSpread });
         }
 
         return { pageGridSize, spreadGridSize };
@@ -221,6 +222,35 @@ export async function detectGridSizesFromFiles(files, { gridLayout, hasCovers = 
         ? gridSizeFromAllDimensions(dimensions, { wholeSpread: false })
         : null;
     return { pageGridSize, spreadGridSize };
+}
+
+/** Load aspect ratio from an image URL (book wrap in editor). */
+export function loadImageAspectFromUrl(src) {
+    return new Promise((resolve) => {
+        if (!src) {
+            resolve(null);
+            return;
+        }
+        const img = new Image();
+        img.onload = () => {
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+            resolve(w > 0 && h > 0 ? w / h : null);
+        };
+        img.onerror = () => resolve(null);
+        img.src = src;
+    });
+}
+
+/** spread_grid_size from album record, or measure book-wrap image when missing. */
+export async function resolveAlbumSpreadGridSize(album, wrapSrc) {
+    if (album?.spread_grid_size) return album.spread_grid_size;
+    if (!album?.has_covers) return null;
+    const derived = spreadGridSizeFromPageGrid(album?.grid_size, album?.grid_layout);
+    if (derived) return derived;
+    if (!wrapSrc) return null;
+    const aspect = await loadImageAspectFromUrl(wrapSrc);
+    return aspect > 0 ? gridSizeFromAspect(aspect) : null;
 }
 
 /** @deprecated Use detectGridSizesFromFiles */
@@ -236,6 +266,10 @@ function shortGridSizeLabel(gridSize) {
 export function formatGridSizeLabelForLayout(pageGridSize, gridLayout, { spreadGridSize } = {}) {
     const pageLabel = shortGridSizeLabel(pageGridSize);
     if (!isWholeSpreadLayout(gridLayout)) {
+        const wrapLabel = spreadGridSize ? shortGridSizeLabel(spreadGridSize) : null;
+        if (wrapLabel) {
+            return `${pageLabel} pages · two-page spreads · book wrap ${wrapLabel}`;
+        }
         return `${pageLabel} · two-page spreads (left + right)`;
     }
     const spreadLabel = spreadGridSize ? shortGridSizeLabel(spreadGridSize) : null;

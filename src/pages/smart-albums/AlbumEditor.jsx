@@ -38,7 +38,9 @@ import {
     setPagePhotoFromDataUrl,
     setSpreadPhoto,
     setSpreadPhotoFromCollectionItem,
+    resolveBookWrapSpreadSrc,
 } from '../../components/smart-albums/albumPagePhotos';
+import { loadImageAspectFromUrl } from '../../components/smart-albums/albumGridSize';
 import {
     clearSpreadPhotos,
     swapPhotoSlots,
@@ -209,7 +211,32 @@ export default function AlbumEditor({
               : buildCellSelection(0, 1);
     });
 
-    const albumForBook = useMemo(() => ({ ...album, id: albumId }), [album, albumId]);
+    const [wrapAspect, setWrapAspect] = useState(null);
+
+    useEffect(() => {
+        if (!album?.has_covers || album?.spread_grid_size || !albumId) {
+            setWrapAspect(null);
+            return undefined;
+        }
+        const src = resolveBookWrapSpreadSrc({ ...album, id: albumId }, { showSamples: false });
+        if (!src) return undefined;
+        let cancelled = false;
+        loadImageAspectFromUrl(src).then((aspect) => {
+            if (!cancelled && aspect > 0) setWrapAspect(aspect);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [album, albumId, album?.has_covers, album?.spread_grid_size, photoRevision, photoLayoutRev, transformRevision]);
+
+    const albumForBook = useMemo(
+        () => ({
+            ...album,
+            id: albumId,
+            ...(wrapAspect > 0 ? { __wrap_aspect: wrapAspect } : {}),
+        }),
+        [album, albumId, wrapAspect]
+    );
 
     const bumpWorkspace = useCallback(() => {
         onPhotosUploaded?.();
