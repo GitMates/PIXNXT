@@ -287,7 +287,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     if (preBackSpreadRole === 'half-blank') {
         return (
             <div
-                className="ab-flip-page ab-flip-page--inner-half-blank"
+                className="ab-flip-page ab-flip-page--inner-half-blank ab-flip-page--spread-seam-left"
                 ref={ref}
                 data-density="hard"
             >
@@ -349,7 +349,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
         return (
             <div
-                className="ab-flip-page ab-flip-page--half-photo-left"
+                className="ab-flip-page ab-flip-page--half-photo-left ab-flip-page--spread-seam-right"
                 ref={ref}
                 data-density="hard"
             >

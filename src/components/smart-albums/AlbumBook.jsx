@@ -493,10 +493,10 @@ const AlbumBook = ({
         album?.has_covers === true &&
         (frontCoverOnly ||
             coverClipTransition != null ||
-            (bookFlipping &&
-                (spreadIndex === 0 || (spreadIndex === 1 && pageIndex >= 2))));
+            (bookFlipping && spreadIndex === 0));
     const showEndClip =
         album?.has_covers === true && (endCoverOnly || endClipTransition != null);
+    const showSpreadSeam = !showCoverClip && !showEndClip;
     const coverWrapClassName = useMemo(() => {
         if (showCoverClip) {
             let cls = ' ab-flipbook-wrap--front-cover-only';
@@ -676,6 +676,21 @@ const AlbumBook = ({
         if (typeof api.flipNext === 'function') api.flipNext();
         else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
     }, [album?.has_covers, spreadIndex, totalPages, totalSpreads]);
+
+    useEffect(() => {
+        if (spreadIndex === 0 || bookFlipping) return;
+        if (!coverClipTransition && !coverRevealOpen) return;
+        setCoverClipTransition(null);
+        setCoverRevealOpen(false);
+    }, [bookFlipping, coverClipTransition, coverRevealOpen, spreadIndex]);
+
+    useEffect(() => {
+        if (endCoverOnly || bookFlipping) return;
+        if (!endClipTransition && !endRevealOpen) return;
+        setEndClipTransition(null);
+        setEndRevealOpen(false);
+        setEndHideReveal(true);
+    }, [bookFlipping, endClipTransition, endCoverOnly, endRevealOpen]);
 
     useEffect(() => {
         if (!initialized || bookFlipping || coverClipTransition) return;
@@ -1327,6 +1342,13 @@ const AlbumBook = ({
                     </AlbumBookPageContext.Provider>
                     ) : null}
                 </div>
+                {showSpreadSeam && bookDims ? (
+                    <div
+                        className="ab-spread-center-seam"
+                        style={{ height: bookDims.height }}
+                        aria-hidden
+                    />
+                ) : null}
                 </div>
                 <div className="ab-spread-controls">
                     <button
