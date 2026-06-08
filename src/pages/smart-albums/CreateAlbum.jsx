@@ -30,8 +30,8 @@ import {
 import './CreateAlbum.css';
 
 const COVER_OPTIONS = [
-    { value: 'with', label: 'Front cover' },
-    { value: 'without', label: 'No covers' },
+    { value: 'with', label: 'Covers with image (in uploaded image first image is take it has cover)' },
+    { value: 'without', label: 'Covers without image (empty covers)' },
 ];
 
 const GRID_LAYOUT_OPTIONS = [
@@ -372,7 +372,8 @@ const CreateAlbum = () => {
                 countExpandedUploadPhotos(photoFiles).catch(() => photoFiles.length),
                 detectGridSizesFromFiles(photoFiles, {
                     gridLayout: gridLayoutForDetection,
-                    hasCovers: useBookWrap,
+                    hasCovers: includeCoverSpreads,
+                    blankCovers,
                 }).catch(() => ({ pageGridSize: 'square', spreadGridSize: null })),
             ])
                 .then(([count, gridSizes]) => {
@@ -407,7 +408,7 @@ const CreateAlbum = () => {
                 clearTimeout(analysisTimeoutId);
             }
         };
-    }, [photoFiles, gridLayoutForDetection, useBookWrap]);
+    }, [photoFiles, gridLayoutForDetection, includeCoverSpreads, blankCovers]);
 
     const analyzingUploads = photoCountBusy || gridSizeBusy;
     const animatePreviewCards = previewSlots.length <= 12;
@@ -491,7 +492,8 @@ const CreateAlbum = () => {
                 );
                 const gridSizes = await detectGridSizesFromFiles(photoFiles, {
                     gridLayout: finalGridLayout,
-                    hasCovers: useBookWrap,
+                    hasCovers: includeCoverSpreads,
+                    blankCovers,
                 });
                 finalGridSize = gridSizes.pageGridSize;
                 finalSpreadGridSize = gridSizes.spreadGridSize;

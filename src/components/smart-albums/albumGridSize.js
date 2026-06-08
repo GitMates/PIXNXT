@@ -138,88 +138,108 @@ export function gridSizeFromAllDimensions(dimensions, { wholeSpread = false } = 
     return gridSizeFromAspect(median(aspects));
 }
 
-async function collectAllUploadDimensions(files) {
-    const batches = await Promise.all(
-        (files || []).map(async (file) => {
-            try {
-                if (isImageFile(file)) {
-                    const dims = await loadImageFileDimensions(file);
-                    return [dims];
+/** One entry per uploaded photo slot (each image + every PDF page), in pick order. */
+async function collectExpandedPhotoDimensions(files) {
+    const dimensions = [];
+    for (const file of files || []) {
+        try {
+            if (isImageFile(file)) {
+                const dims = await loadImageFileDimensions(file);
+                if (dims?.width > 0 && dims?.height > 0) dimensions.push(dims);
+            } else if (isPdfFile(file)) {
+                const pages = await loadPdfAllPageDimensions(file);
+                for (const d of pages) {
+                    if (d?.width > 0 && d?.height > 0) dimensions.push(d);
                 }
-                if (isPdfFile(file)) {
-                    return await loadPdfAllPageDimensions(file);
-                }
-            } catch (e) {
-                console.warn('Could not read dimensions for grid size', file?.name, e);
             }
-            return [];
-        })
-    );
-    return batches.flat();
+        } catch (e) {
+            console.warn('Could not read dimensions for grid size', file?.name, e);
+        }
+    }
+    return dimensions;
 }
 
 /**
- * Detect grid size from all uploaded images and every PDF page.
- * Whole-spread: one photo spans two pages — use half-width per page (2:1 upload → square pages).
+ * Photos used for inner-page grid detection (0-based indices into expanded uploads).
+ * Book wrap: 3rd through second-to-last (exclude 1, 2, and last).
+ * Blank covers: 2nd through second-to-last (exclude 1 and last).
  */
-async function loadFirstFileDimensions(file) {
-    if (!file) return null;
-    try {
-        if (isImageFile(file)) {
-            return await loadImageFileDimensions(file);
-        }
-        if (isPdfFile(file)) {
-            const pages = await loadPdfAllPageDimensions(file);
-            return pages[0] || null;
-        }
-    } catch (e) {
-        console.warn('Could not read book-wrap dimensions', file?.name, e);
+export function selectInnerGridDimensions(
+    allDims,
+    { bookWrap = false, blankCovers = false } = {}
+) {
+    const n = allDims.length;
+    if (n === 0) return [];
+
+    if (bookWrap) {
+        if (n >= 4) return allDims.slice(2, -1);
+        if (n === 3) return allDims.slice(2);
+        if (n === 2) return allDims.slice(1);
+        return [];
     }
-    return null;
+
+    if (blankCovers) {
+        if (n >= 3) return allDims.slice(1, -1);
+        if (n === 2) return allDims.slice(1);
+        return allDims;
+    }
+
+    return allDims;
 }
 
 /**
  * Detect grid sizes from uploads.
- * With covers: photo 1 = book wrap (spread_grid_size), photos 2+ = inner page grid.
- * Two-page grid uses full per-page aspect from photo 2+; whole-spread uses half-width per page.
+ * Book wrap: photo 1 = spread grid; inner page grid from photos 3…second-to-last.
+ * Blank covers: inner page grid from photos 2…second-to-last.
+ * Two-page grid uses full per-page aspect; whole-spread uses half-width per page.
  */
-export async function detectGridSizesFromFiles(files, { gridLayout, hasCovers = false } = {}) {
+export async function detectGridSizesFromFiles(
+    files,
+    { gridLayout, hasCovers = false, blankCovers = false } = {}
+) {
     if (!files?.length) {
         return { pageGridSize: 'square', spreadGridSize: null };
     }
     const wholeSpread = isWholeSpreadLayout(gridLayout);
-    const dimensions = await collectAllUploadDimensions(files);
+    const allDims = await collectExpandedPhotoDimensions(files);
+    const bookWrap = hasCovers && !blankCovers;
 
-    if (hasCovers && files.length >= 1) {
-        const wrapDims = await loadFirstFileDimensions(files[0]);
-        const restDims =
-            files.length > 1
-                ? (
-                      await collectAllUploadDimensions(files.slice(1))
-                  ).filter((d) => d?.width > 0 && d?.height > 0)
-                : [];
+    if (bookWrap && allDims.length >= 1) {
+        const wrapDims = allDims[0];
+        const innerDims = selectInnerGridDimensions(allDims, { bookWrap: true });
 
         const spreadGridSize = wrapDims
             ? gridSizeFromDimensions(wrapDims.width, wrapDims.height, { wholeSpread: false })
-            : gridSizeFromAllDimensions(dimensions, { wholeSpread: false });
+            : gridSizeFromAllDimensions(allDims, { wholeSpread: false });
 
         let pageGridSize = 'square';
-        if (restDims.length) {
-            pageGridSize = gridSizeFromAllDimensions(restDims, { wholeSpread });
+        if (innerDims.length) {
+            pageGridSize = gridSizeFromAllDimensions(innerDims, { wholeSpread });
         } else if (wrapDims) {
             pageGridSize = gridSizeFromDimensions(wrapDims.width, wrapDims.height, {
                 wholeSpread,
             });
         } else {
-            pageGridSize = gridSizeFromAllDimensions(dimensions, { wholeSpread });
+            pageGridSize = gridSizeFromAllDimensions(allDims, { wholeSpread });
         }
 
         return { pageGridSize, spreadGridSize };
     }
 
-    const pageGridSize = gridSizeFromAllDimensions(dimensions, { wholeSpread });
+    if (blankCovers && allDims.length >= 1) {
+        const innerDims = selectInnerGridDimensions(allDims, { blankCovers: true });
+        const pageGridSize = innerDims.length
+            ? gridSizeFromAllDimensions(innerDims, { wholeSpread })
+            : gridSizeFromAllDimensions(allDims, { wholeSpread });
+        const spreadGridSize = wholeSpread
+            ? gridSizeFromAllDimensions(allDims, { wholeSpread: false })
+            : null;
+        return { pageGridSize, spreadGridSize };
+    }
+
+    const pageGridSize = gridSizeFromAllDimensions(allDims, { wholeSpread });
     const spreadGridSize = wholeSpread
-        ? gridSizeFromAllDimensions(dimensions, { wholeSpread: false })
+        ? gridSizeFromAllDimensions(allDims, { wholeSpread: false })
         : null;
     return { pageGridSize, spreadGridSize };
 }

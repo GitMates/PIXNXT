@@ -3,11 +3,14 @@ import { getAlbumCollection } from './albumCollection';
 /** Pages reserved for the back cover spread (left = photo, right = blank). */
 export const RESERVED_END_PAGES = 2;
 
-/** Minimum pages when using front + back book-wrap covers (matches createAlbumLayout). */
-function minPageCountForCovers(photoCount, gridLayout = 'two-page') {
+/** Minimum pages when using front + back cover spreads (matches createAlbumLayout). */
+function minPageCountForCovers(photoCount, gridLayout = 'two-page', blankCovers = false) {
     const n = Math.max(0, Math.floor(Number(photoCount) || 0));
     if (n === 0) return 5;
     if (isWholeSpreadLayout(gridLayout)) {
+        if (blankCovers) {
+            return Math.max(4, 2 + 2 * n + 2);
+        }
         return Math.max(4, 2 * n + 2);
     }
     if (n === 1) return 4;
@@ -37,8 +40,9 @@ export function getAlbumSpreadOptions(album, { collectionCount = 0 } = {}) {
     const n = Math.max(0, Math.floor(Number(collectionCount) || 0));
     const gridLayout = album?.grid_layout;
 
+    const blankCovers = albumHasBlankCovers(album);
     const photoCountForMin = n > 0 ? n : pageCount;
-    const minPages = minPageCountForCovers(photoCountForMin, gridLayout);
+    const minPages = minPageCountForCovers(photoCountForMin, gridLayout, blankCovers);
 
     // Album saved with too few pages for cover spreads (e.g. 6 pages / 6 photos) — use linear layout.
     if (hasCovers && pageCount < minPages) {

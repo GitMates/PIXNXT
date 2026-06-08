@@ -275,8 +275,10 @@ export default function AlbumEditor({
         const spreadOpts = getAlbumSpreadOptions(album, {
             collectionCount: items.length,
         });
+        const blankCovers = albumHasBlankCovers(album);
         const requiredPages = computePageCountFromPhotoCount(items.length, {
             includeCovers: spreadOpts.hasCovers,
+            blankCovers,
             gridLayout: album.grid_layout || 'two-page',
         });
 
@@ -293,6 +295,7 @@ export default function AlbumEditor({
         return applyCollectionOrderToPages(albumId, {
             ...albumForPlace,
             has_covers: album?.has_covers === true,
+            blank_covers: blankCovers,
             grid_layout: album.grid_layout || 'two-page',
             page_count: requiredPages,
         });
