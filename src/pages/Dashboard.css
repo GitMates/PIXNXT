@@ -392,6 +392,15 @@
   box-shadow: none;
 }
 
+.dash-product-icon.blue-store {
+  background: transparent;
+  border-radius: 0;
+}
+
+.dash-product-icon.blue-store:hover {
+  box-shadow: none;
+}
+
 .dash-product-name {
   font-size: 17px;
   font-weight: 600;

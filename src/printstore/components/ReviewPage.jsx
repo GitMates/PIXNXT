@@ -94,8 +94,32 @@ export default function ReviewPage({
             ) : (
               cartItems.map((item) => (
                 <div key={item.id} className="cart-page-item review-page-item">
-                  <div className="cart-item-image-wrapper">
-                    <img src={item.photo.url} alt={item.photo.name} />
+                  <div className={`cart-item-image-wrapper product-card-${item.productId}`} style={{ '--frame-color': item.frame?.color || 'transparent' }}>
+                    <div className="product-image-box cart-item-product-image-box">
+                      {item.productId === 'matted_collages' ? (
+                        <div className="collage-container">
+                          <img src={item.photo.url} alt={item.photo.name} className="collage-img" />
+                          <img src={item.photo.url} alt={item.photo.name} className="collage-img" />
+                        </div>
+                      ) : item.productId === 'prints' ? (
+                        <div className="prints-container">
+                          <img src={item.photo.url} alt={item.photo.name} className="print-img print-img-back" />
+                          <img src={item.photo.url} alt={item.photo.name} className="print-img print-img-front" />
+                        </div>
+                      ) : item.productId === 'print_pack' ? (
+                        <div className="print-pack-container">
+                          {[0, 1, 2, 3].map((i) => (
+                            <img key={i} src={item.photo.url} alt={item.photo.name} className={`print-pack-img img-${i}`} />
+                          ))}
+                        </div>
+                      ) : item.productId === 'deckled_prints' ? (
+                        <div className="deckled-print-wrapper">
+                          <img src={item.photo.url} alt={item.photo.name} className="deckled-print-img" />
+                        </div>
+                      ) : (
+                        <img src={item.photo.url} alt={item.photo.name} className="product-image" />
+                      )}
+                    </div>
                   </div>
                   
                   <div className="cart-item-info">

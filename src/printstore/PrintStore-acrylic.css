@@ -1,0 +1,17 @@
+.acrylic-print-pdp-overlay {
+  border-radius: 1px;
+  box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.4), 0 20px 30px -10px rgba(0, 0, 0, 0.2);
+  background-image: 
+    /* Right thick glassy edge */
+    linear-gradient(to left, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.9) 0.5%, rgba(245,245,245,0.55) 0.5%, rgba(245,245,245,0.55) 3.5%, rgba(0,0,0,0.4) 3.5%, rgba(0,0,0,0.4) 3.8%, transparent 3.8%),
+    /* Bottom thick glassy edge */
+    linear-gradient(to top, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.9) 0.5%, rgba(245,245,245,0.55) 0.5%, rgba(245,245,245,0.55) 3.5%, rgba(0,0,0,0.4) 3.5%, rgba(0,0,0,0.4) 3.8%, transparent 3.8%),
+    /* Top subtle bevel */
+    linear-gradient(to bottom, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.3) 0.5%, transparent 1%),
+    /* Left subtle bevel */
+    linear-gradient(to right, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.3) 0.5%, transparent 1%),
+    /* Diagonal surface glare */
+    linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 100%);
+  border: 1px solid rgba(255,255,255,0.1);
+  pointer-events: none;
+}

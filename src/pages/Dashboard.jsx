@@ -180,6 +180,18 @@ const products = [
       { label: 'Create Album', path: '/smart-albums/create' },
     ],
   },
+  {
+    name: 'Print Store',
+    color: 'blue-store',
+    icon: <img src={recentOrdersGif} alt="Print Store" className="dash-product-image-gif" loading="lazy" decoding="async" />,
+    route: '/printstore',
+    links: [
+      { label: 'Manage Products', path: '/printstore' },
+      { label: 'Manage Orders', path: '/printstore' },
+      { label: 'Shipping & Taxes', path: '/printstore' },
+      { label: 'Settings', path: '/printstore' },
+    ],
+  },
 ];
 
 /* ===== Dashboard Component ===== */

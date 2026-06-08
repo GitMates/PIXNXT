@@ -89,7 +89,7 @@ export default function PhotoGrid({
               className={`photo-grid-item ${isSelected ? 'selected' : ''}`}
               onClick={(e) => isSelectionMode ? handlePhotoClick(e, photo) : onToggleSelectPhoto(photo.id)}
               style={{
-                border: isSelected ? '3px solid #a68c5b' : '1px solid #eaeaea',
+                border: isSelected ? '3px solid #8BDFDD' : '1px solid #eaeaea',
                 transform: isSelected ? 'scale(0.97)' : 'none',
                 transition: 'all 0.2s ease'
               }}
@@ -111,7 +111,7 @@ export default function PhotoGrid({
                   <button
                     className={`card-select-btn ${isSelected ? 'selected' : ''}`}
                     style={{
-                      background: isSelected ? '#a68c5b' : 'transparent',
+                      background: isSelected ? '#8BDFDD' : 'transparent',
                       border: isSelected ? '2px solid white' : '2px solid rgba(255,255,255,0.7)',
                       borderRadius: '50%',
                       width: '28px',
@@ -128,7 +128,7 @@ export default function PhotoGrid({
                     aria-label="Select photo"
                   >
                     {isSelected && (
-                      <Check size={16} strokeWidth={3} color="#ffffff" />
+                      <Check size={16} strokeWidth={3} color="#222222" />
                     )}
                   </button>
                   <div className="card-select-tooltip">Press to select item</div>

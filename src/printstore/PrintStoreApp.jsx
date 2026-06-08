@@ -30,6 +30,7 @@ export default function PrintStoreApp() {
   const [viewMode, setViewMode] = useState('landing'); // 'landing' | 'all-products'
   const [selectedProductForDetail, setSelectedProductForDetail] = useState(null);
   const [customizingProduct, setCustomizingProduct] = useState(null); // Product we are currently picking photos for
+  const [customizingProductOptions, setCustomizingProductOptions] = useState(null); // Selected options (size, frame, paper)
   
   // Interaction States
   const [favorites, setFavorites] = useState(['photo_2', 'photo_5']); // Initial mock favorites
@@ -49,6 +50,7 @@ export default function PrintStoreApp() {
   const [activeCustomizerProduct, setActiveCustomizerProduct] = useState(null);
   const [customizerPhoto, setCustomizerPhoto] = useState(null);
   const [editingCartItemId, setEditingCartItemId] = useState(null);
+  const [editingCartItemOptions, setEditingCartItemOptions] = useState(null);
 
   // Refs for scroll-spy sections
   const galleryRef = useRef(null);
@@ -171,8 +173,9 @@ export default function PrintStoreApp() {
   };
 
   // ── Enter Selection Mode for a Product ──
-  const handleSelectPhotosForProduct = (prod) => {
+  const handleSelectPhotosForProduct = (prod, options = null) => {
     setCustomizingProduct(prod);
+    setCustomizingProductOptions(options);
     setIsSelectionMode(true);
     setSelectedPhotos([]);
     setSelectedProductForDetail(null);
@@ -308,6 +311,11 @@ export default function PrintStoreApp() {
               setEditingCartItemId(item.id);
               setActiveCustomizerProduct(MOCK_PRODUCTS.find(p => p.id === item.productId) || MOCK_PRODUCTS[0]);
               setCustomizerPhoto([item.photo]);
+              setEditingCartItemOptions({
+                size: item.size,
+                frame: item.frame,
+                paper: item.paper
+              });
               setCheckoutState('shopping');
             }}
             onBack={() => setCheckoutState('shopping')}
@@ -502,16 +510,23 @@ export default function PrintStoreApp() {
           photos={MOCK_PHOTOS}
           initialPhotos={customizerPhoto}
           editMode={!!editingCartItemId}
+          initialSize={editingCartItemId ? editingCartItemOptions?.size : customizingProductOptions?.size}
+          initialFrame={editingCartItemId ? editingCartItemOptions?.frame : customizingProductOptions?.frame}
+          initialPaper={editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper}
           onAddToCart={handleAddToCart}
           onClose={() => {
             setActiveCustomizerProduct(null);
             setCustomizerPhoto(null);
             setEditingCartItemId(null);
+            setCustomizingProductOptions(null);
+            setEditingCartItemOptions(null);
           }}
           onOpenCart={() => {
             setActiveCustomizerProduct(null);
             setCustomizerPhoto(null);
             setEditingCartItemId(null);
+            setCustomizingProductOptions(null);
+            setEditingCartItemOptions(null);
             setCheckoutState('cart');
           }}
         />
