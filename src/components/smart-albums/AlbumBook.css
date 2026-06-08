@@ -1408,17 +1408,22 @@
   overflow: hidden;
 }
 
-.ab-overview-page--cover-single .ab-overview-book-wrap--right {
-  width: 200%;
-  max-width: none;
-  height: 100%;
-  margin-left: -100%;
-  object-fit: cover;
-  object-position: right center;
-  display: block;
+.ab-overview-wrap-crop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 
-.ab-overview-page--cover-single > img:not(.ab-overview-book-wrap--right) {
+.ab-overview-wrap-crop .ab-overview-wrap-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+
+.ab-overview-page--cover-single > img:not(.ab-overview-wrap-img) {
   width: 100%;
   max-width: none;
   height: 100%;
@@ -1443,16 +1448,7 @@
   overflow: hidden;
 }
 
-.ab-overview-page--end-single .ab-overview-book-wrap--left {
-  width: 200%;
-  max-width: none;
-  height: 100%;
-  object-fit: cover;
-  object-position: left center;
-  display: block;
-}
-
-.ab-overview-page--end-single > img:not(.ab-overview-book-wrap--left) {
+.ab-overview-page--end-single > img:not(.ab-overview-wrap-img) {
   width: 100%;
   max-width: none;
   height: 100%;
