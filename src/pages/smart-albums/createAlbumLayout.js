@@ -49,7 +49,7 @@ function isWholeSpreadLayout(gridLayout) {
  */
 export function computePageCountFromPhotoCount(
     photoCount,
-    { includeCovers = true, gridLayout = 'two-page' } = {}
+    { includeCovers = true, blankCovers = false, gridLayout = 'two-page' } = {}
 ) {
     const n = Math.max(0, Math.floor(Number(photoCount) || 0));
     const whole = isWholeSpreadLayout(gridLayout);
@@ -60,7 +60,14 @@ export function computePageCountFromPhotoCount(
 
     let pages;
     if (includeCovers) {
-        if (whole) {
+        if (blankCovers) {
+            if (whole) {
+                pages = Math.max(MIN_ALBUM_PAGES, 2 + 2 * n + 2);
+            } else {
+                const innerSpreadPages = 2 * Math.ceil(n / 2);
+                pages = Math.max(MIN_ALBUM_PAGES, 4 + innerSpreadPages);
+            }
+        } else if (whole) {
             // Front (2) + inner spreads (n−1 photos) + back (2).
             pages = Math.max(MIN_ALBUM_PAGES, 2 * n + 2);
         } else if (n === 1) {
@@ -83,7 +90,7 @@ export function computePageCountFromPhotoCount(
 export function describeAlbumLayout(
     photoCount,
     pageCount,
-    { includeCovers = true, gridLayout = 'two-page' } = {}
+    { includeCovers = true, blankCovers = false, gridLayout = 'two-page' } = {}
 ) {
     const n = Math.max(0, Math.floor(Number(photoCount) || 0));
     const pages = Math.max(1, Math.floor(Number(pageCount) || MIN_ALBUM_PAGES));
@@ -103,6 +110,17 @@ export function describeAlbumLayout(
 
     if (includeCovers) {
         const innerSpreads = Math.max(0, totalSpreads - 2);
+        if (blankCovers) {
+            return {
+                photoCount: n,
+                pageCount: pages,
+                totalSpreads,
+                headline: `${n} photo${n === 1 ? '' : 's'} → ${pages} pages`,
+                detail: `Blank front & back covers · ${innerSpreads} inner spread${
+                    innerSpreads === 1 ? '' : 's'
+                } · all photos fill inner pages${whole ? ' · whole-spread layout' : ''}`,
+            };
+        }
         return {
             photoCount: n,
             pageCount: pages,

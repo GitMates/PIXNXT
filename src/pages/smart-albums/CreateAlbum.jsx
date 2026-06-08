@@ -6,6 +6,7 @@ import { applyCollectionOrderToPages } from '../../components/smart-albums/album
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
+    blankCoverSpreadGridSize,
     detectGridSizesFromFiles,
     formatGridSizeLabelForLayout,
 } from '../../components/smart-albums/albumGridSize';
@@ -237,7 +238,9 @@ const CreateAlbum = () => {
     const [createProgress, setCreateProgress] = useState(null);
     const [error, setError] = useState(null);
 
-    const includeCovers = coverMode === 'with';
+    const useBookWrap = coverMode === 'with';
+    const blankCovers = coverMode === 'without';
+    const includeCoverSpreads = true;
 
     const resolvedGridLayout = gridLayout;
     const gridLayoutForDetection = gridLayout;
@@ -248,14 +251,16 @@ const CreateAlbum = () => {
     const layoutPreview = useMemo(() => {
         if (!displayPhotoCount) return null;
         const pageCount = computePageCountFromPhotoCount(displayPhotoCount, {
-            includeCovers,
+            includeCovers: includeCoverSpreads,
+            blankCovers,
             gridLayout: resolvedGridLayout,
         });
         return describeAlbumLayout(displayPhotoCount, pageCount, {
-            includeCovers,
+            includeCovers: includeCoverSpreads,
+            blankCovers,
             gridLayout: resolvedGridLayout,
         });
-    }, [displayPhotoCount, includeCovers, resolvedGridLayout]);
+    }, [displayPhotoCount, blankCovers, includeCoverSpreads, resolvedGridLayout]);
 
     const setProgress = (next) => {
         setCreateProgress(next);
@@ -367,7 +372,7 @@ const CreateAlbum = () => {
                 countExpandedUploadPhotos(photoFiles).catch(() => photoFiles.length),
                 detectGridSizesFromFiles(photoFiles, {
                     gridLayout: gridLayoutForDetection,
-                    hasCovers: includeCovers,
+                    hasCovers: useBookWrap,
                 }).catch(() => ({ pageGridSize: 'square', spreadGridSize: null })),
             ])
                 .then(([count, gridSizes]) => {
@@ -402,7 +407,7 @@ const CreateAlbum = () => {
                 clearTimeout(analysisTimeoutId);
             }
         };
-    }, [photoFiles, gridLayoutForDetection, includeCovers]);
+    }, [photoFiles, gridLayoutForDetection, useBookWrap]);
 
     const analyzingUploads = photoCountBusy || gridSizeBusy;
     const animatePreviewCards = previewSlots.length <= 12;
@@ -486,14 +491,18 @@ const CreateAlbum = () => {
                 );
                 const gridSizes = await detectGridSizesFromFiles(photoFiles, {
                     gridLayout: finalGridLayout,
-                    hasCovers: includeCovers,
+                    hasCovers: useBookWrap,
                 });
                 finalGridSize = gridSizes.pageGridSize;
                 finalSpreadGridSize = gridSizes.spreadGridSize;
             }
+            if (blankCovers && !finalSpreadGridSize) {
+                finalSpreadGridSize = blankCoverSpreadGridSize(finalGridSize);
+            }
 
             const finalPageCount = computePageCountFromPhotoCount(photoCount, {
-                includeCovers,
+                includeCovers: includeCoverSpreads,
+                blankCovers,
                 gridLayout: finalGridLayout,
             });
 
@@ -512,7 +521,8 @@ const CreateAlbum = () => {
                 grid_size: finalGridSize,
                 spread_grid_size: finalSpreadGridSize,
                 grid_layout: finalGridLayout,
-                has_covers: includeCovers,
+                has_covers: includeCoverSpreads,
+                blank_covers: blankCovers,
             });
 
             if (photoFiles.length > 0) {
@@ -551,9 +561,9 @@ const CreateAlbum = () => {
 
                 setProgress({
                     label: 'Placing photos on spreads…',
-                    detail: includeCovers
+                    detail: useBookWrap
                         ? 'Setting cover and auto-filling grid slots.'
-                        : 'Auto-filling pages from your uploads.',
+                        : 'Auto-filling inner pages from your uploads.',
                     current: 0,
                     total: 0,
                 });
@@ -571,7 +581,8 @@ const CreateAlbum = () => {
                     displayPhotoCount
                 );
                 const requiredPageCount = computePageCountFromPhotoCount(effectivePhotoCount, {
-                    includeCovers,
+                    includeCovers: includeCoverSpreads,
+                    blankCovers,
                     gridLayout: finalGridLayout,
                 });
 
@@ -588,7 +599,8 @@ const CreateAlbum = () => {
                     album.id,
                     {
                         ...albumForPlace,
-                        has_covers: includeCovers,
+                        has_covers: includeCoverSpreads,
+                        blank_covers: blankCovers,
                         grid_layout: finalGridLayout,
                         page_count: requiredPageCount,
                     },
@@ -714,9 +726,9 @@ const CreateAlbum = () => {
                                     onChange={setCoverMode}
                                 />
                                 <p className="sa-field-note">
-                                    {includeCovers
+                                    {useBookWrap
                                         ? 'First photo is the book wrap (full upload width). If it is wider than inner spreads, the center strip is the spine; outer portions are back and front covers. Other photos set the inner page grid.'
-                                        : 'All uploaded photos fill pages in order — no dedicated cover spreads.'}
+                                        : 'Blank front and back cover spreads (like Front cover), with all uploaded photos filling inner pages only.'}
                                 </p>
                             </div>
 
@@ -863,7 +875,7 @@ const CreateAlbum = () => {
                                     >
                                         {previewSlots.map((preview, index) => {
                                             let roleLabel = null;
-                                            if (includeCovers && index === 0) {
+                                            if (useBookWrap && index === 0) {
                                                 roleLabel = 'Book wrap';
                                             }
                                             return (

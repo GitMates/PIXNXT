@@ -49,6 +49,7 @@ import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';
 import { AlbumBookPageContext } from './AlbumBookPageContext';
 import { installSafePageFlip } from './pageFlipSafe';
+import { albumHasBlankCovers, albumUsesBookWrap } from './albumSpreadUtils';
 import { getBookWrapSpineLayout } from './bookWrapSpine';
 import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
 import { getSpreadPhotoTransform } from './albumPageTransforms';
@@ -218,10 +219,14 @@ const AlbumBook = ({
         window.addEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
         return () => window.removeEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
     }, [album?.id]);
-    const bookWrapSpineLayout = useMemo(
-        () => (album?.has_covers === true ? getBookWrapSpineLayout(album) : null),
-        [album, spineBoundsTick]
-    );
+    const bookWrapSpineLayout = useMemo(() => {
+        if (album?.has_covers !== true) return null;
+        if (albumHasBlankCovers(album) && !getSpreadPhotoOverride(album?.id, 0)) {
+            return null;
+        }
+        if (!albumUsesBookWrap(album) && !albumHasBlankCovers(album)) return null;
+        return getBookWrapSpineLayout(album);
+    }, [album, spineBoundsTick]);
     const coverTransform = useMemo(() => {
         if (!album?.id || album?.has_covers !== true) {
             return { x: 0, y: 0, scaleX: 1, scaleY: 1 };

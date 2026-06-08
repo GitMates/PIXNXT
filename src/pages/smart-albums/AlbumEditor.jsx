@@ -60,6 +60,8 @@ import {
     getSpreadRightPageIndex,
 } from '../../components/smart-albums/albumSpreadGrid';
 import {
+    albumHasBlankCovers,
+    albumUsesBookWrap,
     getAlbumSpreadOptions,
     getEndSpreadPageIndices,
     getInnerPageCount,
@@ -219,7 +221,10 @@ export default function AlbumEditor({
             return undefined;
         }
         const src = resolveBookWrapSpreadSrc({ ...album, id: albumId }, { showSamples: false });
-        if (!src) return undefined;
+        if (!src) {
+            setWrapAspect(null);
+            return undefined;
+        }
         let cancelled = false;
         loadImageAspectFromUrl(src).then((aspect) => {
             if (!cancelled && aspect > 0) setWrapAspect(aspect);
@@ -1069,24 +1074,27 @@ export default function AlbumEditor({
                 setGridSelection(buildCoverSelection());
                 handleBookPageChange(0);
                 let changed = false;
-                if (migrateFrontCoverToFullSpread(albumId)) changed = true;
-                if (migrateBackCoverUsesBookWrap(albumId, totalPages)) changed = true;
-                const firstItem = getAlbumCollection(albumId)[0];
-                if (firstItem?.id && !getSpreadPhotoOverride(albumId, 0)) {
-                    const right = Math.min(1, totalPages - 1);
-                    if (
-                        setSpreadPhotoFromCollectionItem(albumId, 0, firstItem.id, right, {
-                            totalPages,
-                            spreadOpts,
-                        })
-                    ) {
-                        changed = true;
+                if (albumUsesBookWrap(album)) {
+                    if (migrateFrontCoverToFullSpread(albumId)) changed = true;
+                    if (migrateBackCoverUsesBookWrap(albumId, totalPages)) changed = true;
+                    const firstItem = getAlbumCollection(albumId)[0];
+                    if (firstItem?.id && !getSpreadPhotoOverride(albumId, 0)) {
+                        const right = Math.min(1, totalPages - 1);
+                        if (
+                            setSpreadPhotoFromCollectionItem(albumId, 0, firstItem.id, right, {
+                                totalPages,
+                                spreadOpts,
+                            })
+                        ) {
+                            changed = true;
+                        }
                     }
                 }
                 if (changed) scheduleWorkspaceRefresh();
             }
         },
         [
+            album,
             spreadOpts.hasCovers,
             handleBookPageChange,
             albumId,
@@ -1215,7 +1223,9 @@ export default function AlbumEditor({
                         </span>
                         <span className="ae-canvas-hint">
                             {coverEditMode
-                                ? 'Back · spine · front from book wrap · click a cover to change photo'
+                                ? albumHasBlankCovers(album)
+                                    ? 'Back · spine · front cover · click to choose an optional cover photo'
+                                    : 'Back · spine · front from book wrap · click a cover to change photo'
                                 : spreadEdit
                                   ? 'Drag photo to move · drag each edge to zoom · hover a photo to mark a swap'
                                   : 'Click a photo or slot for options · use Collections to upload'}

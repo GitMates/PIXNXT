@@ -2,6 +2,8 @@ import { expandUploadFilesToImages } from '../../lib/pdfToImages';
 import { storageService } from '../../services/storage.service';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
+    albumHasBlankCovers,
+    albumUsesBookWrap,
     enumerateAutoPlacePageTargets,
     enumerateCollectionPlacementPages,
     enumerateCoverCollectionPlacements,
@@ -374,9 +376,14 @@ export function resolveBookWrapSpreadSrc(album, { showSamples = false } = {}) {
     if (albumId) {
         const onSpread = getSpreadPhotoOverride(albumId, 0);
         if (onSpread) return onSpread;
-        const first = getAlbumCollection(albumId)[0];
-        const fromCollection = resolveCollectionItemUrl(albumId, first?.id);
-        if (fromCollection) return fromCollection;
+        if (!albumHasBlankCovers(album)) {
+            const first = getAlbumCollection(albumId)[0];
+            const fromCollection = resolveCollectionItemUrl(albumId, first?.id);
+            if (fromCollection) return fromCollection;
+        }
+    }
+    if (albumHasBlankCovers(album)) {
+        return showSamples ? null : null;
     }
     if (album?.cover_image_url) return album.cover_image_url;
     return showSamples ? getSampleImageForPage(0) : null;
@@ -385,6 +392,7 @@ export function resolveBookWrapSpreadSrc(album, { showSamples = false } = {}) {
 /** Book-wrap cover image (spread:0) — right half = front, left half = back. */
 export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
     const albumId = album?.id;
+    const blankCovers = albumHasBlankCovers(album);
     if (albumId) {
         const onSpread = getSpreadPhotoOverride(albumId, 0);
         if (onSpread) return onSpread;
@@ -392,6 +400,9 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
         if (onRight) return onRight;
         const legacyPage = getPagePhotoOverride(albumId, 0);
         if (legacyPage) return legacyPage;
+    }
+    if (blankCovers) {
+        return showSamples ? null : null;
     }
     if (album?.cover_image_url) return album.cover_image_url;
     if (albumId) {
@@ -795,6 +806,7 @@ export function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
         ? itemIds.map((id) => getCollectionItem(albumId, id)).filter(Boolean)
         : getAlbumCollection(albumId);
     const includeCovers = album?.has_covers === true;
+    const blankCovers = albumHasBlankCovers(album);
     const spreadOpts = getAlbumSpreadOptions(
         { ...album, has_covers: includeCovers },
         { collectionCount: items.length }
@@ -805,6 +817,7 @@ export function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
     const wholeSpread = isWholeSpreadLayout(gridLayout);
     const requiredPages = computePageCountFromPhotoCount(items.length, {
         includeCovers,
+        blankCovers,
         gridLayout,
     });
     const totalPages = Math.max(album.page_count ?? 21, requiredPages);
@@ -819,10 +832,11 @@ export function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
             gridLayout,
             showCover: spreadOpts.showCover,
             hasCovers: spreadOpts.hasCovers,
+            blankCovers,
         }
     );
 
-    if (spreadOpts.hasCovers) {
+    if (spreadOpts.hasCovers && albumUsesBookWrap(album)) {
         migrateFrontCoverToFullSpread(albumId);
         migrateBackCoverUsesBookWrap(albumId, totalPages);
         migrateEndHalfSpreadToLeftPage(albumId, totalPages, album);
@@ -836,7 +850,7 @@ export function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
 export function autoPlaceCollectionItems(
     albumId,
     collectionItemIds,
-    { totalPages = 21, gridLayout, showCover = true, hasCovers } = {}
+    { totalPages = 21, gridLayout, showCover = true, hasCovers, blankCovers = false } = {}
 ) {
     if (!albumId || !collectionItemIds?.length) return 0;
 
@@ -844,17 +858,19 @@ export function autoPlaceCollectionItems(
     const spreadOpts = {
         showCover: useCovers,
         hasCovers: useCovers,
+        blankCovers: blankCovers === true,
         totalPages,
     };
 
     if (isWholeSpreadLayout(gridLayout)) {
-        const slots = spreadOpts.hasCovers
+        const slots = spreadOpts.hasCovers && !spreadOpts.blankCovers
             ? enumerateCoverCollectionPlacements(collectionItemIds.length, totalPages, {
                   gridLayout,
               })
             : enumerateAutoPlacePageTargets(totalPages, {
-                  showCover,
-                  hasCovers: false,
+                  showCover: useCovers,
+                  hasCovers: useCovers,
+                  blankCovers: spreadOpts.blankCovers,
                   gridLayout: 'whole-spread',
               }).map((leftPage) => ({
                   type: 'spread',
@@ -903,7 +919,7 @@ export function autoPlaceCollectionItems(
         return placed;
     }
 
-    if (spreadOpts.hasCovers) {
+    if (spreadOpts.hasCovers && !spreadOpts.blankCovers) {
         const slots = enumerateCoverCollectionPlacements(collectionItemIds.length, totalPages, {
             gridLayout: 'two-page',
         });
@@ -952,8 +968,9 @@ export function autoPlaceCollectionItems(
         collectionItemIds.length,
         totalPages,
         {
-            showCover,
-            hasCovers: false,
+            showCover: useCovers,
+            hasCovers: useCovers,
+            blankCovers: spreadOpts.blankCovers,
             gridLayout: 'two-page',
         }
     );

@@ -15,9 +15,19 @@ function minPageCountForCovers(photoCount, gridLayout = 'two-page') {
     return Math.max(4, 4 + 2 * Math.ceil(innerCount / 2));
 }
 
-/** True only when the album was created with a front cover (not "No covers"). */
+/** True when the album uses front + back cover spreads (book wrap or blank). */
 export function albumHasCoverSpreads(album) {
     return album?.has_covers === true;
+}
+
+/** True when cover spreads are blank (no book-wrap photo). */
+export function albumHasBlankCovers(album) {
+    return album?.blank_covers === true;
+}
+
+/** True when photo 1 is placed on the book wrap (front + back cover image). */
+export function albumUsesBookWrap(album) {
+    return albumHasCoverSpreads(album) && !albumHasBlankCovers(album);
 }
 
 /** Spread layout flags from album settings. */
@@ -43,7 +53,11 @@ export function getSpreadContext(album, totalPages, { collectionCount } = {}) {
     const count =
         collectionCount ??
         (album?.id ? getAlbumCollection(album.id).length : 0);
-    return { ...getAlbumSpreadOptions(album, { collectionCount: count }), totalPages };
+    return {
+        ...getAlbumSpreadOptions(album, { collectionCount: count }),
+        blankCovers: albumHasBlankCovers(album),
+        totalPages,
+    };
 }
 
 /** 1-based spread number for UI labels from a spread's left page index. */
@@ -55,13 +69,14 @@ export function spreadNumberFromLeftPage(leftPage, opts = {}) {
 }
 
 export function normalizeSpreadOpts(opts = {}) {
+    const blankCovers = opts.blankCovers === true;
     if (typeof opts.hasCovers === 'boolean') {
-        return { showCover: opts.hasCovers, hasCovers: opts.hasCovers };
+        return { showCover: opts.hasCovers, hasCovers: opts.hasCovers, blankCovers };
     }
     if (typeof opts.showCover === 'boolean') {
-        return { showCover: opts.showCover, hasCovers: opts.showCover };
+        return { showCover: opts.showCover, hasCovers: opts.showCover, blankCovers };
     }
-    return { showCover: false, hasCovers: false };
+    return { showCover: false, hasCovers: false, blankCovers };
 }
 
 /** Pages are 0-based. With showCover: spread 0 = front [0|1], inner pairs, then back cover. */
@@ -279,8 +294,14 @@ export function isAutoPlacePhotoPage(pageNum, totalPages, opts = {}) {
     if (pageNum < 0 || pageNum >= totalPages) return false;
     const spreadOpts = normalizeSpreadOpts(opts);
     if (!spreadOpts.hasCovers) return true;
+    if (spreadOpts.blankCovers) {
+        if (isCoverInsidePage(pageNum, totalPages, spreadOpts)) return false;
+        if (pageNum === 1) return false;
+    }
     const role = getEndSpreadPageRole(pageNum, totalPages, spreadOpts);
-    return role !== 'half-blank';
+    if (role === 'half-blank') return false;
+    if (spreadOpts.blankCovers && role === 'half-left') return false;
+    return true;
 }
 
 /**
@@ -289,11 +310,12 @@ export function isAutoPlacePhotoPage(pageNum, totalPages, opts = {}) {
  */
 export function enumerateAutoPlacePageTargets(
     totalPages,
-    { showCover = true, hasCovers, gridLayout = 'two-page' } = {}
+    { showCover = true, hasCovers, blankCovers = false, gridLayout = 'two-page' } = {}
 ) {
     const spreadOpts = normalizeSpreadOpts({
         showCover,
         hasCovers: hasCovers ?? showCover,
+        blankCovers,
     });
     const targets = [];
     const seen = new Set();
@@ -320,7 +342,9 @@ export function enumerateAutoPlacePageTargets(
         const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
         if (spreadOpts.hasCovers && spreadOpts.showCover && spreadIndex === 0) {
-            pushPage(Math.min(1, totalPages - 1));
+            if (!spreadOpts.blankCovers) {
+                pushPage(Math.min(1, totalPages - 1));
+            }
             continue;
         }
 
@@ -398,7 +422,7 @@ export function enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayo
 export function enumerateCollectionPlacementPages(
     photoCount,
     totalPages,
-    { showCover = true, hasCovers, gridLayout = 'two-page' } = {}
+    { showCover = true, hasCovers, blankCovers = false, gridLayout = 'two-page' } = {}
 ) {
     const n = Math.max(0, Math.floor(Number(photoCount) || 0));
     if (n === 0 || totalPages <= 0) return [];
@@ -406,18 +430,29 @@ export function enumerateCollectionPlacementPages(
     const spreadOpts = normalizeSpreadOpts({
         showCover,
         hasCovers: hasCovers ?? showCover,
+        blankCovers,
     });
 
     if (isWholeSpreadLayout(gridLayout)) {
         return enumerateAutoPlacePageTargets(totalPages, {
             showCover,
             hasCovers: spreadOpts.hasCovers,
+            blankCovers: spreadOpts.blankCovers,
             gridLayout: 'whole-spread',
         }).slice(0, n);
     }
 
     if (!spreadOpts.hasCovers) {
         return Array.from({ length: Math.min(n, totalPages) }, (_, i) => i);
+    }
+
+    if (spreadOpts.blankCovers) {
+        return enumerateAutoPlacePageTargets(totalPages, {
+            showCover,
+            hasCovers: true,
+            blankCovers: true,
+            gridLayout: 'two-page',
+        }).slice(0, n);
     }
 
     return enumerateCoverAlbumPlacements(n, totalPages, { gridLayout })

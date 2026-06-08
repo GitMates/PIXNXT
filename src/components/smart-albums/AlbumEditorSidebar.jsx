@@ -7,7 +7,12 @@ import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { getCollectionItemDisplayUrl } from './albumCollection';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
-import { isCoverInsidePage, isEndHalfSpreadLeftPage } from './albumSpreadUtils';
+import {
+    albumHasBlankCovers,
+    albumUsesBookWrap,
+    isCoverInsidePage,
+    isEndHalfSpreadLeftPage,
+} from './albumSpreadUtils';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -66,7 +71,9 @@ function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, sp
             : 'Select a spread to place photos.';
     }
     if (hasCovers && gridSelection?.mode === 'cover') {
-        return 'Book wrap (front + back)';
+        return spreadOpts?.blankCovers
+            ? 'Cover · back · spine · front'
+            : 'Book wrap (front + back)';
     }
     if (
         gridSelection?.leftPage != null &&
@@ -272,6 +279,7 @@ export default function AlbumEditorSidebar({
                                     totalPages,
                                     {
                                         hasCovers: album?.has_covers === true,
+                                        blankCovers: albumHasBlankCovers(album),
                                     }
                                 )}
                             </p>
@@ -361,9 +369,11 @@ export default function AlbumEditorSidebar({
                                     ))}
                                 </div>
                                 <p className="ae-collection-order-note">
-                                    {album?.has_covers === true
+                                    {albumUsesBookWrap(album)
                                         ? 'Order 1 → book wrap (front right + back left). Photos 2+ fill inner pages in order.'
-                                        : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
+                                        : albumHasBlankCovers(album)
+                                          ? 'Blank front & back covers. All photos fill inner pages in upload order.'
+                                          : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
                                     Drag thumbnails to reorder; spreads update automatically.
                                 </p>
                                 <button
@@ -433,25 +443,51 @@ export default function AlbumEditorSidebar({
                 {activePanel === 'cover' && (
                     <>
                         <h3 className="ae-panel-title">Edit cover</h3>
-                        <p className="ae-panel-text">
-                            Book wrap (photo 1) is wider than inner spreads. The center strip is the
-                            spine; outer portions are back and front covers (not shown on spine in
-                            the flipbook).
-                        </p>
-                        <p className="ae-selection-badge" role="status">
-                            Book wrap · back · spine · front
-                        </p>
-                        <button
-                            type="button"
-                            className="ae-btn-picker"
-                            onClick={() => onOpenPicker?.()}
-                        >
-                            Choose book wrap photo
-                        </button>
-                        <p className="ae-panel-text ae-panel-text--muted">
-                            Upload in Collections first — order 1 is used here. Drag the red spine
-                            lines on each side of the spine to adjust its width.
-                        </p>
+                        {albumHasBlankCovers(album) ? (
+                            <>
+                                <p className="ae-panel-text">
+                                    Covers start blank. Choose a wide photo for back, spine, and
+                                    front — or leave empty for a plain cover spread.
+                                </p>
+                                <p className="ae-selection-badge" role="status">
+                                    Cover · back · spine · front
+                                </p>
+                                <button
+                                    type="button"
+                                    className="ae-btn-picker"
+                                    onClick={() => onOpenPicker?.()}
+                                >
+                                    Choose cover photo
+                                </button>
+                                <p className="ae-panel-text ae-panel-text--muted">
+                                    Upload in Collections first, then pick a photo here. If the
+                                    image is wider than inner spreads, drag the red spine lines to
+                                    adjust width.
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <p className="ae-panel-text">
+                                    Book wrap (photo 1) is wider than inner spreads. The center strip
+                                    is the spine; outer portions are back and front covers (not
+                                    shown on spine in the flipbook).
+                                </p>
+                                <p className="ae-selection-badge" role="status">
+                                    Book wrap · back · spine · front
+                                </p>
+                                <button
+                                    type="button"
+                                    className="ae-btn-picker"
+                                    onClick={() => onOpenPicker?.()}
+                                >
+                                    Choose book wrap photo
+                                </button>
+                                <p className="ae-panel-text ae-panel-text--muted">
+                                    Upload in Collections first — order 1 is used here. Drag the red
+                                    spine lines on each side of the spine to adjust its width.
+                                </p>
+                            </>
+                        )}
                     </>
                 )}
 

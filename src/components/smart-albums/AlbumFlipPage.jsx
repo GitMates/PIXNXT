@@ -3,6 +3,7 @@ import {
     getGridSlotPhoto,
     getInsideCoverRightPhotoSrc,
     getPagePhotoOverride,
+    getSpreadPhotoOverride,
     resolveCoverImageSrc,
 } from './albumPagePhotos';
 import {
@@ -201,7 +202,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         return () => window.removeEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
     }, [album?.id]);
     const bookWrapSpineLayout = useMemo(
-        () => (album?.has_covers === true ? getBookWrapSpineLayout(album) : null),
+        () => {
+            if (album?.has_covers !== true) return null;
+            if (album?.blank_covers === true) {
+                const id = albumIdProp ?? album?.id;
+                if (!id || !getSpreadPhotoOverride(id, 0)) return null;
+            }
+            return getBookWrapSpineLayout(album);
+        },
         [album, spineBoundsTick]
     );
     const coverTransform = useMemo(() => {

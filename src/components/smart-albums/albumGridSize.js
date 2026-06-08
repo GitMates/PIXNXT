@@ -279,6 +279,20 @@ export function formatGridSizeLabelForLayout(pageGridSize, gridLayout, { spreadG
     return `${pageLabel} per page · spread fits your upload width`;
 }
 
+/** Default spine strip as a fraction of blank-cover wrap width (before a photo is chosen). */
+export const BLANK_COVER_SPINE_FRACTION = 0.07;
+
+/** Wrap aspect for blank covers: inner spread plus a center spine strip. */
+export function blankCoverWrapAspect(pageGridSize = 'square') {
+    const pageAspect = parseGridSizeAspect(pageGridSize);
+    const innerSpreadAspect = pageAspect * 2;
+    return innerSpreadAspect / (1 - BLANK_COVER_SPINE_FRACTION);
+}
+
+export function blankCoverSpreadGridSize(pageGridSize = 'square') {
+    return gridSizeFromAspect(blankCoverWrapAspect(pageGridSize));
+}
+
 /** Derive full-upload spread ratio from stored per-page grid (whole-spread albums). */
 export function spreadGridSizeFromPageGrid(pageGridSize, gridLayout) {
     if (!isWholeSpreadLayout(gridLayout) || !pageGridSize) return null;

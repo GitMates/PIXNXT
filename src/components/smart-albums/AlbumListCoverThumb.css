@@ -5,6 +5,10 @@
   background: #fff;
 }
 
+.sa-album-list-thumb-crop--blank {
+  background: linear-gradient(90deg, #e8eaed 50%, #fff 50%);
+}
+
 .sa-album-list-thumb-crop .sa-album-list-thumb-img,
 .sa-album-list-thumb-crop .ab-book-wrap-cover-img {
   position: absolute;

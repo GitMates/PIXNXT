@@ -48,7 +48,11 @@ export default function AlbumListCoverThumb({ album, alt = '' }) {
         );
     }
 
-    if (album?.has_covers === true) {
+    if (album?.has_covers === true && album?.blank_covers === true && !src) {
+        return <div className="sa-album-list-thumb-crop sa-album-list-thumb-crop--blank" aria-hidden />;
+    }
+
+    if (album?.has_covers === true && src) {
         return (
             <div className="sa-album-list-thumb-crop">
                 <BookWrapSpineImage

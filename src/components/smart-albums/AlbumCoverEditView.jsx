@@ -7,7 +7,6 @@ import {
     getBookWrapSpineLayout,
 } from './bookWrapSpine';
 import {
-    getAlbumSpineBoundsOverride,
     setAlbumSpineBoundsOverride,
     SPINE_BOUNDS_CHANGED_EVENT,
 } from './albumSpineSettings';
@@ -110,6 +109,7 @@ export default function AlbumCoverEditView({
         return () => window.removeEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
     }, [albumId]);
 
+    const isBlankCoverAlbum = album?.blank_covers === true;
     const spineVisible = spineLayout.hasSpine && showSpine;
 
     const panelWidths = useMemo(() => {
@@ -144,8 +144,8 @@ export default function AlbumCoverEditView({
     }, [measure]);
 
     const persistSpineBounds = useCallback(
-        (start, end) => {
-            const clamped = clampSpineBounds(start, end, baseLayout);
+        (start, end, { fixedEdge = null } = {}) => {
+            const clamped = clampSpineBounds(start, end, baseLayout, { fixedEdge });
             setSpineBounds(clamped);
             if (albumId) {
                 setAlbumSpineBoundsOverride(
@@ -184,9 +184,13 @@ export default function AlbumCoverEditView({
                 const fraction = wrapFractionFromSpreadX(x, drag.spreadRect.width);
 
                 if (drag.edge === 'left') {
-                    persistSpineBounds(fraction, drag.startBounds.spineEndFraction);
+                    persistSpineBounds(fraction, drag.startBounds.spineEndFraction, {
+                        fixedEdge: 'end',
+                    });
                 } else {
-                    persistSpineBounds(drag.startBounds.spineStartFraction, fraction);
+                    persistSpineBounds(drag.startBounds.spineStartFraction, fraction, {
+                        fixedEdge: 'start',
+                    });
                 }
             };
 
@@ -216,12 +220,12 @@ export default function AlbumCoverEditView({
                     spreadLeft: 0,
                     whole: true,
                     hasPhoto: Boolean(src),
-                    label: 'Book wrap',
+                    label: isBlankCoverAlbum ? 'Cover' : 'Book wrap',
                 },
                 e.currentTarget.getBoundingClientRect()
             );
         },
-        [editable, onSlotActivate, src]
+        [editable, onSlotActivate, isBlankCoverAlbum, src]
     );
 
     const panelHeight = dims?.height;
@@ -249,7 +253,7 @@ export default function AlbumCoverEditView({
 
     return (
         <div className="ab-cover-edit-root" ref={stageRef}>
-            {baseLayout.wrapAspect > baseLayout.innerSpreadAspect * 0.99 && (
+            {(spineLayout.hasSpine || isBlankCoverAlbum) && (
                 <button
                     type="button"
                     className={`ab-cover-edit-spine-toggle${
@@ -277,7 +281,13 @@ export default function AlbumCoverEditView({
                     }`}
                     style={backStyle}
                     onClick={editable ? activateWrap : undefined}
-                    aria-label={editable ? 'Back cover — choose book wrap' : undefined}
+                    aria-label={
+                        editable
+                            ? isBlankCoverAlbum
+                                ? 'Back cover — choose cover photo'
+                                : 'Back cover — choose book wrap'
+                            : undefined
+                    }
                 >
                     <div className="ab-cover-edit-view__photo-wrap">
                         {src ? (
@@ -350,7 +360,13 @@ export default function AlbumCoverEditView({
                     }`}
                     style={frontStyle}
                     onClick={editable ? activateWrap : undefined}
-                    aria-label={editable ? 'Front cover — choose book wrap' : undefined}
+                    aria-label={
+                        editable
+                            ? isBlankCoverAlbum
+                                ? 'Front cover — choose cover photo'
+                                : 'Front cover — choose book wrap'
+                            : undefined
+                    }
                 >
                     <div className="ab-cover-edit-view__photo-wrap">
                         {src ? (

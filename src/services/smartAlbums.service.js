@@ -517,6 +517,16 @@ function mapAlbumRow(row, photographerId) {
         return true;
     })(),
 
+    blank_covers: (() => {
+        if (
+            gridOverrides != null &&
+            Object.prototype.hasOwnProperty.call(gridOverrides, 'blank_covers')
+        ) {
+            return gridOverrides.blank_covers === true;
+        }
+        return withSettings.blank_covers === true;
+    })(),
+
     comments_enabled: withSettings.comments_enabled !== false,
 
     replies_enabled: withSettings.replies_enabled !== false,
@@ -851,6 +861,7 @@ export const smartAlbumsService = {
     spread_grid_size = null,
     grid_layout = 'two-page',
     has_covers = true,
+    blank_covers = false,
   }) {
 
     const trimmedName = normalizeAlbumName(name);
@@ -892,6 +903,7 @@ export const smartAlbumsService = {
         grid_size: payload.grid_size,
         grid_layout: payload.grid_layout,
         has_covers: has_covers === true,
+        blank_covers: blank_covers === true,
         spread_grid_size: spread_grid_size || null,
       });
       removeLocalAlbum(photographer_id, data.id);
@@ -929,11 +941,17 @@ export const smartAlbumsService = {
           grid_size: payload.grid_size,
           grid_layout: payload.grid_layout,
           has_covers: has_covers === true,
+          blank_covers: blank_covers === true,
           spread_grid_size: spread_grid_size || null,
         });
 
         return mapAlbumRow(
-            { ...album, has_covers: has_covers === true, spread_grid_size: spread_grid_size || null },
+            {
+                ...album,
+                has_covers: has_covers === true,
+                blank_covers: blank_covers === true,
+                spread_grid_size: spread_grid_size || null,
+            },
             photographer_id
         );
 
@@ -1254,6 +1272,7 @@ export const smartAlbumsService = {
       grid_size: source.grid_size,
       grid_layout: source.grid_layout,
       has_covers: source.has_covers === true,
+      blank_covers: source.blank_covers === true,
     });
 
     await duplicateAlbumAssets(albumId, copy.id, photographerId);
