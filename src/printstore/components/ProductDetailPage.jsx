@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
 import floatRoom from '../float frames_files/1.webp';
@@ -230,16 +230,25 @@ const DEFAULT_FALLBACK_DETAILS = {
 export default function ProductDetailPage({ product, onBack, onSelectPhotosForProduct }) {
   const details = PRODUCT_DETAILS_MAP[product.id] || DEFAULT_FALLBACK_DETAILS;
 
-  const [selectedSize, setSelectedSize] = useState(
-    product.id === 'matted_frame' ? MATTED_FRAME_SIZES[0] : MOCK_SIZES[0]
-  );
+  const productSizes = product.id === 'matted_frame' 
+    ? MATTED_FRAME_SIZES 
+    : product.id === 'print_pack'
+    ? PRINT_PACK_SIZES
+    : product.id === 'gallery_board'
+    ? GALLERY_BOARD_SIZES
+    : MOCK_SIZES;
+  const [selectedSize, setSelectedSize] = useState(productSizes[0]);
   const [selectedPaper, setSelectedPaper] = useState(MOCK_PAPERS[0]);
   const [isSizeDropdownOpen, setIsSizeDropdownOpen] = useState(false);
   const sizeDropdownRef = useRef(null);
   const [isPaperDropdownOpen, setIsPaperDropdownOpen] = useState(false);
   const paperDropdownRef = useRef(null);
   const [selectedPrintSize, setSelectedPrintSize] = useState(
-    product.id === 'matted_frame' ? MATTED_FRAME_SIZES[0].printSize : null
+    product.id === 'matted_frame' 
+      ? MATTED_FRAME_SIZES[0].printSize 
+      : product.id === 'gallery_board'
+      ? GALLERY_BOARD_SIZES[0].printSize
+      : null
   );
   const [isPrintSizeDropdownOpen, setIsPrintSizeDropdownOpen] = useState(false);
   const printSizeDropdownRef = useRef(null);
@@ -375,6 +384,23 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   
   const currentAspect = currentWidthCm / currentHeightCm;
 
+  let gbPrintWidth = 10;
+  let gbPrintHeight = 15;
+  if (product.id === 'gallery_board' && selectedPrintSize) {
+    const pMatch = selectedPrintSize.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+    if (pMatch) {
+      gbPrintWidth = parseFloat(pMatch[1]);
+      gbPrintHeight = parseFloat(pMatch[2]);
+    }
+  }
+  const gbHorizBorder = Math.max(0, (currentWidthCm - gbPrintWidth) / 2);
+  const gbVertBorder = Math.max(0, (currentHeightCm - gbPrintHeight) / 2);
+  
+  const gbPrintWidthPct = (gbPrintWidth / currentWidthCm) * 100;
+  const gbPrintHeightPct = (gbPrintHeight / currentHeightCm) * 100;
+  const gbPrintLeftPct = (gbHorizBorder / currentWidthCm) * 100;
+  const gbPrintTopPct = (gbVertBorder / currentHeightCm) * 100;
+
   const baseWidths = {
     gallery_board: 25,
     canvas: 30,
@@ -440,7 +466,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
       containerHeight = product.id === 'matted_collages' ? '34.57%' : 'auto';
     }
   } else if (product.id === 'gallery_board') {
-    containerLeft = '57.0731%';
+    containerLeft = '68.0731%';
     containerTop = '20.8875%';
     containerWidth = '14.8538%';
   } else if (product.id === 'canvas') {
@@ -765,6 +791,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               height: (product.id === 'print_pack' || product.id === 'matted_collages') ? '100%' : 'auto', 
                               position: 'relative',
                               transition: 'aspect-ratio 0.3s ease-in-out',
+                              ...(product.id === 'gallery_board' && { backgroundColor: '#ffffff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }),
                               ...(product.id === 'canvas' && { clipPath: 'inset(17.28%)', borderRadius: '0.13px' }),
                               ...((product.id === 'prints') && { transform: 'rotate(-7deg)', transformOrigin: 'center center' }),
                               ...((product.id === 'deckled_prints') && { transform: 'rotate(-7deg)', transformOrigin: 'center center' })
@@ -772,7 +799,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               <div className="composition-preview__printable-area" style={{ 
                                 position: 'absolute',
                                 ...(product.id === 'gallery_board' 
-                                    ? { width: '78.33%', height: '84.14%', top: '7.92%', left: '10.83%' }
+                                    ? { width: `${gbPrintWidthPct}%`, height: `${gbPrintHeightPct}%`, top: `${gbPrintTopPct}%`, left: `${gbPrintLeftPct}%` }
                                     : product.id === 'matted_frame' || product.id === 'frames'
                                     ? { width: '69.7802%', height: '76.3746%', top: '11.8127%', left: '15.1099%' }
                                     : product.id === 'circular_frames'
@@ -1147,12 +1174,15 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                             </div>
                             {isSizeDropdownOpen && (
                               <div className="custom-dropdown-menu">
-                                {(product.id === 'matted_frame' ? MATTED_FRAME_SIZES : MOCK_SIZES).map((size) => (
+                                {productSizes.map((size) => (
                                   <div 
                                     key={size.id} 
                                     className={`custom-dropdown-item ${selectedSize.id === size.id ? 'active' : ''}`}
                                     onClick={() => {
                                       setSelectedSize(size);
+                                      if (product.id === 'gallery_board' || product.id === 'matted_frame') {
+                                        setSelectedPrintSize(size.printSize);
+                                      }
                                       setIsSizeDropdownOpen(false);
                                     }}
                                   >
@@ -1201,8 +1231,8 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                           </div>
                         </div>
                         <div className="pt-dropdown-input">
-                          {product.id === 'matted_frame' ? (
-                            /* Custom white dropdown for Matted Frame print size */
+                          {['matted_frame', 'gallery_board'].includes(product.id) ? (
+                            /* Custom white dropdown for print size */
                             <div className={`custom-dropdown-wrapper full-width ${isPrintSizeDropdownOpen ? 'open' : ''}`}>
                               <div 
                                 className="custom-dropdown-trigger"
@@ -1213,8 +1243,8 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               </div>
                               {isPrintSizeDropdownOpen && (
                                 <div className="custom-dropdown-menu">
-                                  {/* Derive unique print sizes from MATTED_FRAME_SIZES */}
-                                  {[...new Set(MATTED_FRAME_SIZES.map(s => s.printSize))].map((ps) => (
+                                  {/* Derive unique print sizes based on product */}
+                                  {[...new Set((product.id === 'matted_frame' ? MATTED_FRAME_SIZES : GALLERY_BOARD_SIZES).map(s => s.printSize))].map((ps) => (
                                     <div 
                                       key={ps} 
                                       className={`custom-dropdown-item ${selectedPrintSize === ps ? 'active' : ''}`}
@@ -1228,13 +1258,6 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                   ))}
                                 </div>
                               )}
-                            </div>
-                          ) : product.id === 'gallery_board' ? (
-                            <div className="custom-dropdown-wrapper full-width">
-                              <select className="pdp-select-input" defaultValue="10x15cm">
-                                <option value="10x10cm">10x10cm</option>
-                                <option value="10x15cm">10x15cm</option>
-                              </select>
                             </div>
                           ) : (
                             <div className={`custom-dropdown-wrapper full-width ${isPaperDropdownOpen ? 'open' : ''}`}>

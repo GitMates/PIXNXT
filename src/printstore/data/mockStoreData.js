@@ -178,6 +178,15 @@ export const PRINT_PACK_SIZES = [
   { id: "pp_13x18", label: "13x18cm", priceModifier: 26.50 }
 ];
 
+export const GALLERY_BOARD_SIZES = [
+  { id: "gb_13x18", label: "13x18cm", priceModifier: 0, printSize: "10x15cm" },
+  { id: "gb_20x25", label: "20x25cm", priceModifier: 2.50, printSize: "13x13cm" },
+  { id: "gb_23x23", label: "23x23cm", priceModifier: 4.75, printSize: "15x15cm" },
+  { id: "gb_28x36", label: "28x36cm", priceModifier: 18.25, printSize: "18x23cm" },
+  { id: "gb_20x30", label: "20x30cm", priceModifier: 6.00, printSize: "13x19cm" },
+  { id: "gb_30x45", label: "30x45cm", priceModifier: 21.75, printSize: "20x25cm" }
+];
+
 export const MOCK_FRAMES = [
   { id: "frame_none", label: "No Frame (Print Only)", priceModifier: 0, color: "transparent", colorThumb: null },
   { id: "frame_black", label: "Black", priceModifier: 20, color: "#111111", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_black.png", floatFilter: "brightness(0.15) saturate(0)" },
