@@ -25,6 +25,7 @@ import {
     isProofRightGridPage,
 } from './albumSpreadGrid';
 import { getInnerAlbumCollection } from './albumCollection';
+import { COVER_TEXT_CHANGED_EVENT, getAlbumCoverText } from './albumCoverText';
 import {
     getAlbumSpreadOptions,
     getEndSpreadPageRole,
@@ -197,6 +198,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const liveSpotActionPicker = Boolean(ctx.spotActionPicker);
     const liveShowGridComments = ctx.showGridComments ?? showGridComments;
     const [spineBoundsTick, setSpineBoundsTick] = useState(0);
+    const [coverTextTick, setCoverTextTick] = useState(0);
     useEffect(() => {
         if (!album?.id) return undefined;
         const onChanged = (e) => {
@@ -204,6 +206,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         };
         window.addEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
         return () => window.removeEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
+    }, [album?.id]);
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onTextChanged = (e) => {
+            if (e.detail?.albumId === album.id) setCoverTextTick((t) => t + 1);
+        };
+        window.addEventListener(COVER_TEXT_CHANGED_EVENT, onTextChanged);
+        return () => window.removeEventListener(COVER_TEXT_CHANGED_EVENT, onTextChanged);
     }, [album?.id]);
     const bookWrapSpineLayout = useMemo(
         () => {
@@ -351,6 +361,9 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     const isFrontCoverRightPage = coverLayoutOpts.hasCovers && pageNum === 1;
+    void coverTextTick;
+    const coverText =
+        isFrontCoverRightPage && albumId ? getAlbumCoverText(albumId) : '';
     const coverPlacementMode = placementMode;
     const showStar = pageNum === 1 && album?.is_starred;
     const canSelectCover = isFrontCoverRightPage && editable && !spreadEdit;
@@ -928,6 +941,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     ) : (
                         <div className="ab-page-empty" aria-hidden />
                     )}
+                    {coverText ? (
+                        <div className="ab-cover-text-message" aria-hidden>
+                            {coverText}
+                        </div>
+                    ) : null}
                 </AlbumPhotoPinLayer>
                 {!previewMode && <AlbumSwapMarkBadge markInfo={coverSwapMarkInfo} />}
                 {showStar && (

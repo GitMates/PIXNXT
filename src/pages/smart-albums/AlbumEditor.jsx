@@ -2,7 +2,13 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumCoverEditView from '../../components/smart-albums/AlbumCoverEditView';
+import AlbumCoverTextModal from '../../components/smart-albums/AlbumCoverTextModal';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
+import {
+    COVER_TEXT_CHANGED_EVENT,
+    getAlbumCoverText,
+    setAlbumCoverText,
+} from '../../components/smart-albums/albumCoverText';
 import CollectionPickerModal from '../../components/smart-albums/CollectionPickerModal';
 import { AlbumPreviewLinkModal } from '../../components/smart-albums/AlbumShareModals';
 import {
@@ -196,6 +202,8 @@ export default function AlbumEditor({
     const collectionSyncRef = useRef(false);
     const [slotMenu, setSlotMenu] = useState(null);
     const [swapExecuteOrigin, setSwapExecuteOrigin] = useState(null);
+    const [coverTextModalOpen, setCoverTextModalOpen] = useState(false);
+    const [coverTextRevision, setCoverTextRevision] = useState(0);
 
     const collectionItems = useMemo(
         () => getAlbumCollection(albumId),
@@ -281,6 +289,15 @@ export default function AlbumEditor({
 
     useEffect(() => {
         setCollectionRevision(getAlbumCollectionRevision(albumId));
+    }, [albumId]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const onCoverTextChanged = (e) => {
+            if (e.detail?.albumId === albumId) setCoverTextRevision((t) => t + 1);
+        };
+        window.addEventListener(COVER_TEXT_CHANGED_EVENT, onCoverTextChanged);
+        return () => window.removeEventListener(COVER_TEXT_CHANGED_EVENT, onCoverTextChanged);
     }, [albumId]);
 
     useEffect(() => {
@@ -845,6 +862,24 @@ export default function AlbumEditor({
         });
     }, [closeSlotMenu]);
 
+    const handleCoverTextFromMenu = useCallback(() => {
+        closeSlotMenu();
+        requestAnimationFrame(() => {
+            setCoverTextModalOpen(true);
+        });
+    }, [closeSlotMenu]);
+
+    const handleSaveCoverText = useCallback(
+        (message) => {
+            setAlbumCoverText(albumId, message);
+            setCoverTextModalOpen(false);
+            showToast(message ? 'Cover message saved.' : 'Cover message removed.', {
+                duration: 3500,
+            });
+        },
+        [albumId, showToast]
+    );
+
     const handleReplaceFiles = useCallback(
         async (e) => {
             const files = filesFromInput(e.target.files);
@@ -1227,6 +1262,17 @@ export default function AlbumEditor({
     const spreadEdit = activePanel === 'edit';
     const coverEditMode = activePanel === 'cover' && albumHasCoverSpreads(album);
 
+    const isCoverEditorSlotMenu = useMemo(() => {
+        if (!coverEditMode || !slotMenu?.slot) return false;
+        const slot = slotMenu.slot;
+        return slot.pageNum === 0 || slot.label === 'Cover' || slot.label === 'Book wrap';
+    }, [coverEditMode, slotMenu]);
+
+    const coverTextMessage = useMemo(() => {
+        void coverTextRevision;
+        return getAlbumCoverText(albumId);
+    }, [albumId, coverTextRevision]);
+
     const handlePanelChange = useCallback(
         (panelId) => {
             if (panelId === 'cover' && !albumHasCoverSpreads(album)) {
@@ -1538,16 +1584,25 @@ export default function AlbumEditor({
                 anchorRect={slotMenu?.anchorRect}
                 slotLabel={slotMenu?.label}
                 hasPhoto={Boolean(slotMenu?.slot?.hasPhoto)}
-                canSwap={Boolean(slotMenu?.slot?.hasPhoto)}
+                canSwap={!isCoverEditorSlotMenu && Boolean(slotMenu?.slot?.hasPhoto)}
                 swapHint={slotMenuSwapHint}
-                canRemoveSpread={Boolean(slotMenu?.slot?.hasPhoto)}
-                canDeleteSpread={canDeleteSpreadFromMenu}
+                canRemoveSpread={!isCoverEditorSlotMenu && Boolean(slotMenu?.slot?.hasPhoto)}
+                canDeleteSpread={!isCoverEditorSlotMenu && canDeleteSpreadFromMenu}
                 onReplace={handleReplaceFromMenu}
                 onChooseFromCollection={handleChooseFromCollectionMenu}
+                onCoverText={isCoverEditorSlotMenu ? handleCoverTextFromMenu : undefined}
+                hasCoverText={Boolean(coverTextMessage)}
                 onRemovePhotos={handleRemoveSpreadPhotos}
                 onDeleteSpread={handleDeleteSpreadFromMenu}
                 onSwap={handleOpenSwapModal}
                 onClose={closeSlotMenu}
+            />
+
+            <AlbumCoverTextModal
+                open={coverTextModalOpen}
+                initialMessage={coverTextMessage}
+                onClose={() => setCoverTextModalOpen(false)}
+                onSave={handleSaveCoverText}
             />
 
             <AlbumSwapExecuteModal
