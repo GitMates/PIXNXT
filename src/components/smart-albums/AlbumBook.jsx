@@ -49,6 +49,11 @@ import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';
 import { AlbumBookPageContext } from './AlbumBookPageContext';
 import { installSafePageFlip } from './pageFlipSafe';
+import { albumHasBlankCovers, albumUsesBookWrap } from './albumSpreadUtils';
+import { getBookWrapSpineLayout } from './bookWrapSpine';
+import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
+import { getSpreadPhotoTransform } from './albumPageTransforms';
+import BookWrapSpineImage from './BookWrapSpineImage';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
@@ -101,6 +106,23 @@ function OverviewCoverPhoto({ src, placeholderClass = '' }) {
         );
     }
     return <img src={src} alt="" loading="lazy" />;
+}
+
+function OverviewBookWrapSegment({ src, side, layout, transform }) {
+    if (!src) {
+        return <span className="ab-overview-placeholder ab-overview-placeholder--cover" />;
+    }
+    return (
+        <span className="ab-overview-wrap-crop">
+            <BookWrapSpineImage
+                src={src}
+                side={side}
+                layout={layout}
+                transform={transform}
+                className="ab-book-wrap-cover-img ab-overview-wrap-img"
+            />
+        </span>
+    );
 }
 
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
@@ -188,6 +210,30 @@ const AlbumBook = ({
         () => ({ ...spreadOpts, totalPages }),
         [spreadOpts, totalPages]
     );
+    const [spineBoundsTick, setSpineBoundsTick] = useState(0);
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onChanged = (e) => {
+            if (e.detail?.albumId === album.id) setSpineBoundsTick((t) => t + 1);
+        };
+        window.addEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
+        return () => window.removeEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
+    }, [album?.id]);
+    const bookWrapSpineLayout = useMemo(() => {
+        if (album?.has_covers !== true) return null;
+        if (albumHasBlankCovers(album) && !getSpreadPhotoOverride(album?.id, 0)) {
+            return null;
+        }
+        if (!albumUsesBookWrap(album) && !albumHasBlankCovers(album)) return null;
+        return getBookWrapSpineLayout(album);
+    }, [album, spineBoundsTick]);
+    const coverTransform = useMemo(() => {
+        if (!album?.id || album?.has_covers !== true) {
+            return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+        }
+        void transformRevision;
+        return getSpreadPhotoTransform(album.id, 0);
+    }, [album?.id, album?.has_covers, transformRevision]);
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -443,10 +489,16 @@ const AlbumBook = ({
         album?.has_covers === true &&
         (frontCoverOnly ||
             coverClipTransition != null ||
-            (bookFlipping &&
-                (spreadIndex === 0 || (spreadIndex === 1 && pageIndex >= 2))));
+            (bookFlipping && spreadIndex === 0));
+    const lastSpreadIndex = Math.max(0, totalSpreads - 1);
+    const preBackSpreadIndex = Math.max(0, totalSpreads - 2);
     const showEndClip =
-        album?.has_covers === true && (endCoverOnly || endClipTransition != null);
+        album?.has_covers === true &&
+        spreadIndex !== preBackSpreadIndex &&
+        (endCoverOnly ||
+            (endClipTransition != null &&
+                bookFlipping &&
+                spreadIndex === lastSpreadIndex));
     const coverWrapClassName = useMemo(() => {
         if (showCoverClip) {
             let cls = ' ab-flipbook-wrap--front-cover-only';
@@ -652,6 +704,14 @@ const AlbumBook = ({
         onPageChange,
         spreadIndex,
     ]);
+
+    useEffect(() => {
+        if (bookFlipping || spreadIndex !== preBackSpreadIndex) return;
+        if (!endClipTransition) return;
+        setEndClipTransition(null);
+        setEndRevealOpen(false);
+        setEndHideReveal(true);
+    }, [bookFlipping, spreadIndex, preBackSpreadIndex, endClipTransition]);
 
     useEffect(() => {
         const onKey = (e) => {
@@ -1405,11 +1465,11 @@ const AlbumBook = ({
                                             </span>
                                         ) : isCover && bookWrapSrc ? (
                                             <span className="ab-overview-page ab-overview-page--cover-single">
-                                                <img
-                                                    className="ab-overview-book-wrap--right"
+                                                <OverviewBookWrapSegment
                                                     src={bookWrapSrc}
-                                                    alt=""
-                                                    loading="lazy"
+                                                    side="front"
+                                                    layout={bookWrapSpineLayout}
+                                                    transform={coverTransform}
                                                 />
                                             </span>
                                         ) : isCover ? (
@@ -1418,11 +1478,11 @@ const AlbumBook = ({
                                             </span>
                                         ) : isEndHalf && bookWrapSrc ? (
                                             <span className="ab-overview-page ab-overview-page--end-single">
-                                                <img
-                                                    className="ab-overview-book-wrap--left"
+                                                <OverviewBookWrapSegment
                                                     src={bookWrapSrc}
-                                                    alt=""
-                                                    loading="lazy"
+                                                    side="back"
+                                                    layout={bookWrapSpineLayout}
+                                                    transform={coverTransform}
                                                 />
                                             </span>
                                         ) : isEndHalf ? (

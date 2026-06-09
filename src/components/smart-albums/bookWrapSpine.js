@@ -1,22 +1,31 @@
-import { parseGridSizeAspect, spreadGridSizeFromPageGrid } from './albumGridSize';
+import {
+    blankCoverWrapAspect,
+    parseGridSizeAspect,
+    spreadGridSizeFromPageGrid,
+} from './albumGridSize';
 import { getAlbumSpineBoundsOverride } from './albumSpineSettings';
 import { photoTransformStyle } from './albumPageTransforms';
 
-const MIN_SPINE_FRACTION = 0.004;
-const MIN_COVER_FRACTION = 0.12;
-
-/**
- * Book-wrap layout: | back cover | spine | front cover |
- * Spine sits in the center strip of the wrap image; bounds are fractions of wrap width.
- */
-export function getBookWrapSpineLayout(album) {
+function resolveWrapAspect(album) {
     const pageAspect = parseGridSizeAspect(album?.grid_size);
     const innerSpreadAspect = pageAspect * 2;
     const spreadKey =
         album?.spread_grid_size ??
         spreadGridSizeFromPageGrid(album?.grid_size, album?.grid_layout);
-    const wrapAspect = parseGridSizeAspect(spreadKey || album?.grid_size);
+    if (spreadKey) return parseGridSizeAspect(spreadKey);
+    if (album?.__wrap_aspect > 0) return album.__wrap_aspect;
+    if (album?.blank_covers === true) {
+        return blankCoverWrapAspect(album?.grid_size);
+    }
+    return innerSpreadAspect;
+}
 
+const MIN_SPINE_FRACTION = 0.004;
+const MIN_COVER_FRACTION = 0.12;
+/** Max spine width when dragging handles, as a multiple of the auto-detected spine. */
+export const SPINE_WIDTH_MAX_SCALE = 2;
+
+function computeAutoSpineBounds(wrapAspect, innerSpreadAspect, pageAspect) {
     let spineStartFraction = pageAspect / wrapAspect;
     let spineEndFraction = 1 - spineStartFraction;
     let spineFraction = Math.max(0, spineEndFraction - spineStartFraction);
@@ -30,6 +39,21 @@ export function getBookWrapSpineLayout(album) {
         spineEndFraction = Math.min(1, spineEndFraction);
         spineFraction = Math.max(0, spineEndFraction - spineStartFraction);
     }
+
+    return { spineStartFraction, spineEndFraction, spineFraction };
+}
+
+/**
+ * Book-wrap layout: | back cover | spine | front cover |
+ * Spine sits in the center strip of the wrap image; bounds are fractions of wrap width.
+ */
+export function getBookWrapSpineLayout(album) {
+    const pageAspect = parseGridSizeAspect(album?.grid_size);
+    const innerSpreadAspect = pageAspect * 2;
+    const wrapAspect = resolveWrapAspect(album);
+
+    const autoBounds = computeAutoSpineBounds(wrapAspect, innerSpreadAspect, pageAspect);
+    let { spineStartFraction, spineEndFraction, spineFraction } = autoBounds;
 
     const override = getAlbumSpineBoundsOverride(album?.id);
     if (override) {
@@ -47,20 +71,40 @@ export function getBookWrapSpineLayout(album) {
         spineStartFraction,
         spineEndFraction,
         spineFraction,
+        defaultSpineStartFraction: autoBounds.spineStartFraction,
+        defaultSpineEndFraction: autoBounds.spineEndFraction,
+        defaultSpineFraction: autoBounds.spineFraction,
         coverFraction,
         hasSpine: spineFraction > MIN_SPINE_FRACTION,
     };
 }
 
-export function clampSpineBounds(spineStartFraction, spineEndFraction, layout) {
-    const wrapAspect = layout?.wrapAspect ?? 2;
-    const pageAspect = layout?.pageAspect ?? 1;
-    const autoStart = (1 - (wrapAspect - pageAspect * 2) / wrapAspect) / 2;
-    const minStart = Math.max(0, autoStart - 0.2);
-    const maxEnd = Math.min(1, 1 - autoStart + 0.2);
+export function clampSpineBounds(
+    spineStartFraction,
+    spineEndFraction,
+    layout,
+    { fixedEdge = null } = {}
+) {
+    const defaultSpineFraction = Math.max(
+        MIN_SPINE_FRACTION,
+        layout?.defaultSpineFraction ?? MIN_SPINE_FRACTION
+    );
+    const maxSpineFraction = defaultSpineFraction * SPINE_WIDTH_MAX_SCALE;
 
-    let start = Math.max(minStart, Math.min(0.5 - MIN_SPINE_FRACTION / 2, spineStartFraction));
-    let end = Math.min(maxEnd, Math.max(0.5 + MIN_SPINE_FRACTION / 2, spineEndFraction));
+    let start = spineStartFraction;
+    let end = spineEndFraction;
+
+    if (fixedEdge === 'end') {
+        start = Math.min(start, end - MIN_SPINE_FRACTION);
+        start = Math.max(start, end - maxSpineFraction);
+    } else if (fixedEdge === 'start') {
+        end = Math.max(end, start + MIN_SPINE_FRACTION);
+        end = Math.min(end, start + maxSpineFraction);
+    } else if (end - start > maxSpineFraction) {
+        const center = (start + end) / 2;
+        start = center - maxSpineFraction / 2;
+        end = center + maxSpineFraction / 2;
+    }
 
     if (end - start < MIN_SPINE_FRACTION) {
         const mid = (start + end) / 2;
@@ -70,10 +114,16 @@ export function clampSpineBounds(spineStartFraction, spineEndFraction, layout) {
     if (start < MIN_COVER_FRACTION) {
         start = MIN_COVER_FRACTION;
         end = Math.max(end, start + MIN_SPINE_FRACTION);
+        if (fixedEdge === 'end') {
+            end = Math.min(end, start + maxSpineFraction);
+        }
     }
     if (end > 1 - MIN_COVER_FRACTION) {
         end = 1 - MIN_COVER_FRACTION;
         start = Math.min(start, end - MIN_SPINE_FRACTION);
+        if (fixedEdge === 'start') {
+            start = Math.max(start, end - maxSpineFraction);
+        }
     }
 
     return { spineStartFraction: start, spineEndFraction: end };

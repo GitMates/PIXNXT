@@ -2,11 +2,13 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
   width: 100%;
   min-height: 360px;
   position: relative;
+  padding: 0 8px;
+  box-sizing: border-box;
 }
 
 .ab-cover-edit-spread-anchor {
@@ -20,7 +22,7 @@
 
 .ab-cover-edit-spine-toggle {
   align-self: flex-end;
-  margin: 0 0 10px;
+  margin: 0 0 10px auto;
   padding: 6px 12px;
   border: 1px solid #c8d4e6;
   border-radius: 999px;
@@ -181,9 +183,21 @@
 .ab-cover-edit-view__empty {
   width: 100%;
   height: 100%;
-  background: linear-gradient(145deg, #eceef1 0%, #dfe3e8 100%);
+  background: #eceef1;
 }
 
 .ab-cover-edit-view__empty--spine {
-  background: linear-gradient(180deg, #e8ebeF 0%, #d5dae2 100%);
+  background: #e4e7ec;
+}
+
+.ab-cover-edit-spread--has-spine .ab-cover-edit-page--back {
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ab-cover-edit-spread--has-spine .ab-cover-edit-page--front {
+  border-left: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.ab-cover-edit-spread--has-spine .ab-cover-edit-spine-panel {
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }

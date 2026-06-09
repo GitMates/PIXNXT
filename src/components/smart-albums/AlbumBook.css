@@ -89,6 +89,35 @@
   overflow: visible;
 }
 
+/* Center spine seam between left and right pages (all spread layouts) */
+.ab-flipbook-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  margin-left: -1px;
+  width: 2px;
+  height: 100%;
+  pointer-events: none;
+  z-index: 15;
+  background: linear-gradient(
+    to right,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.35) 50%,
+    rgba(0, 0, 0, 0.1) 100%
+  );
+}
+
+/* Hide seam when cover spreads are clipped to a single visible half */
+.ab-flipbook-wrap--front-cover-only:not(.ab-flipbook-wrap--flipping):not(
+    .ab-flipbook-wrap--front-cover-reveal
+  )::after,
+.ab-flipbook-wrap--end-cover-only:not(.ab-flipbook-wrap--flipping):not(
+    .ab-flipbook-wrap--end-cover-reveal
+  )::after {
+  display: none;
+}
+
 .ab-spread-display {
   display: flex;
   flex-direction: column;
@@ -264,14 +293,14 @@
   transition: none;
 }
 
-.ab-flipbook-wrap--front-cover-only .stf__item:has(.ab-flip-page--half-blank) {
+.ab-flipbook-wrap--front-cover-only .stf__item:has(.ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank)) {
   pointer-events: none !important;
 }
 
 .ab-flipbook-wrap--front-cover-only:not(.ab-flipbook-wrap--flipping)
-  .ab-flip-page--half-blank,
+  .ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank),
 .ab-flipbook-wrap--front-cover-only:not(.ab-flipbook-wrap--flipping)
-  .ab-flip-page--half-blank
+  .ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank)
   .ab-page-empty {
   visibility: hidden;
   background: transparent;
@@ -303,8 +332,15 @@
   clip-path: inset(0 0 0 0);
 }
 
-.ab-flipbook-wrap--end-cover-only .stf__item:has(.ab-flip-page--half-blank) {
+.ab-flipbook-wrap--end-cover-only .stf__item:has(.ab-flip-page--half-blank:not(.ab-flip-page--pre-back-blank)) {
   pointer-events: none !important;
+}
+
+/* Never clip the pre-back spread — right blank page must stay visible */
+.ab-flipbook-wrap--end-cover-only:has(.ab-flip-page--pre-back-blank),
+.ab-flipbook-wrap--end-cover-only:has(.ab-flip-page--pre-back-blank):not(.ab-flipbook-wrap--flipping) {
+  clip-path: none !important;
+  overflow: visible !important;
 }
 
 .ab-html-flipbook {
@@ -442,6 +478,15 @@
 
 .ab-flip-page--half-blank {
   background: #fff;
+}
+
+.ab-flip-page--inside-cover-blank,
+.ab-flip-page--inside-cover-blank .ab-page-empty,
+.ab-flip-page--pre-back-blank,
+.ab-flip-page--pre-back-blank .ab-page-empty {
+  visibility: visible !important;
+  background: #fff !important;
+  opacity: 1 !important;
 }
 
 .ab-flip-page--single-photo {
@@ -628,24 +673,6 @@
 /* Proof Albums spread grid (images 1 & 2 on left page, 3–5 on right) */
 .ab-flip-page--grid {
   background: #fff;
-}
-
-/* Subtle transparent center seam between left/right spread pages */
-.ab-flip-page--grid-left .ab-page-grid::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  right: -1px;
-  width: 2px;
-  height: 100%;
-  pointer-events: none;
-  z-index: 7;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.35) 50%,
-    rgba(0, 0, 0, 0.1) 100%
-  );
 }
 
 .ab-page-grid {
@@ -1408,17 +1435,22 @@
   overflow: hidden;
 }
 
-.ab-overview-page--cover-single .ab-overview-book-wrap--right {
-  width: 200%;
-  max-width: none;
-  height: 100%;
-  margin-left: -100%;
-  object-fit: cover;
-  object-position: right center;
-  display: block;
+.ab-overview-wrap-crop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
 }
 
-.ab-overview-page--cover-single > img:not(.ab-overview-book-wrap--right) {
+.ab-overview-wrap-crop .ab-overview-wrap-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+
+.ab-overview-page--cover-single > img:not(.ab-overview-wrap-img) {
   width: 100%;
   max-width: none;
   height: 100%;
@@ -1443,16 +1475,7 @@
   overflow: hidden;
 }
 
-.ab-overview-page--end-single .ab-overview-book-wrap--left {
-  width: 200%;
-  max-width: none;
-  height: 100%;
-  object-fit: cover;
-  object-position: left center;
-  display: block;
-}
-
-.ab-overview-page--end-single > img:not(.ab-overview-book-wrap--left) {
+.ab-overview-page--end-single > img:not(.ab-overview-wrap-img) {
   width: 100%;
   max-width: none;
   height: 100%;

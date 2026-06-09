@@ -24,7 +24,38 @@ import {
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import { useAuth } from '../../hooks/useAuth';
+import { countUnseenPhotoPins } from '../../components/smart-albums/albumPhotoPins';
+import { countUnseenSwapMarks } from '../../components/smart-albums/albumSwapMarks';
 import './AlbumViewer.css';
+import './AlbumEditor.css';
+
+const IconCollection = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+);
+
+const IconComments = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+);
+
+const IconSwap = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M7 16V4M7 4 3 8M7 4l4 4" />
+        <path d="M17 8v12M17 20l4-4M17 20l-4-4" />
+    </svg>
+);
+
+const PREVIEW_NAV = [
+    { id: 'comments', label: 'Comment', icon: IconComments },
+    { id: 'swap', label: 'Swap', icon: IconSwap },
+    { id: 'collections', label: 'Collections', icon: IconCollection },
+];
 
 /**
  * Client-facing album preview (gallery-style layout + proofing footer).
@@ -77,7 +108,6 @@ export default function AlbumPreview({
     const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
     const [photoPins, setPhotoPins] = useState([]);
     const [sidebarTab, setSidebarTab] = useState('comments');
-    const [sidebarExpanded, setSidebarExpanded] = useState(false);
     const [editingPinId, setEditingPinId] = useState(null);
     const [editingPinMessage, setEditingPinMessage] = useState('');
     const [swapMarks, setSwapMarks] = useState([]);
@@ -178,6 +208,8 @@ export default function AlbumPreview({
     );
     const visibleCommentCount = albumCommentCount + photoCommentItems.length;
     const swapMarksCount = swapMarks.length;
+    const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
+    const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
     const swapItems = useMemo(
         () =>
             (swapMarks || [])
@@ -208,10 +240,9 @@ export default function AlbumPreview({
         [swapMarks, totalPages]
     );
 
-    const handleSidebarToggle = useCallback((tab) => {
+    const handleSidebarTab = useCallback((tab) => {
         setSidebarTab(tab);
-        setSidebarExpanded((prev) => (tab === sidebarTab ? !prev : true));
-    }, [sidebarTab]);
+    }, []);
 
     const jumpToSpread = useCallback(
         (targetSpreadIndex) => {
@@ -224,12 +255,6 @@ export default function AlbumPreview({
         },
         [onPageChange, totalPages]
     );
-    const activeProofTab =
-        messagesEnabled && sidebarTab === 'swap'
-            ? 'swap'
-            : sidebarTab === 'comments'
-              ? 'comments'
-              : null;
 
     return (
         <div className="av-page av-page--preview av-page--gallery-proof av-page--with-comments">
@@ -260,11 +285,7 @@ export default function AlbumPreview({
             </header>
 
             <div className="av-preview-shell">
-                <div
-                    className={`av-preview-main${
-                        sidebarExpanded ? ' av-preview-main--sidebar-expanded' : ''
-                    }`}
-                >
+                <div className="av-preview-main">
                 <div className="av-preview-book-section">
                     <div className="av-viewer-body av-viewer-body--preview-book">
                         <AlbumBook
@@ -292,17 +313,70 @@ export default function AlbumPreview({
                     </div>
                 </div>
 
-                    <aside className="av-preview-sidebar" aria-label="Preview tools">
-                        {sidebarExpanded && (
-                            <div className="av-preview-sidebar-panel">
-                                {sidebarTab === 'comments' ? (
-                                    <>
-                                        <h3 className="av-preview-sidebar-title">Comments</h3>
-                                        <p className="av-preview-sidebar-lead">
-                                            {visibleCommentCount} comment
-                                            {visibleCommentCount === 1 ? '' : 's'} in album
-                                        </p>
-                                        <div className="av-preview-sidebar-comments">
+                    <aside className="ae-sidebar av-preview-sidebar" aria-label="Preview tools">
+                        <nav className="ae-nav-rail av-preview-nav-rail" aria-label="Preview panels">
+                            {PREVIEW_NAV.map(({ id, label, icon: Icon }) => {
+                                const disabled = id === 'swap' && !messagesEnabled;
+                                return (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        className={`ae-nav-rail-btn${
+                                            sidebarTab === id ? ' ae-nav-rail-btn--active' : ''
+                                        }`}
+                                        onClick={() => handleSidebarTab(id)}
+                                        aria-label={label}
+                                        aria-current={sidebarTab === id ? 'true' : undefined}
+                                        title={
+                                            disabled ? 'Swaps are disabled for this album' : label
+                                        }
+                                        disabled={disabled}
+                                    >
+                                        <span className="ae-nav-rail-icon">
+                                            <Icon />
+                                        </span>
+                                        {id === 'comments' && photoPins.length > 0 && (
+                                            <span
+                                                className={`ae-nav-rail-badge ae-nav-rail-badge--pin${
+                                                    unseenPinCount > 0
+                                                        ? ' ae-nav-rail-badge--unseen'
+                                                        : ''
+                                                }`}
+                                                aria-hidden
+                                            >
+                                                {unseenPinCount > 0
+                                                    ? unseenPinCount
+                                                    : photoPins.length}
+                                            </span>
+                                        )}
+                                        {id === 'swap' && swapMarks.length > 0 && (
+                                            <span
+                                                className={`ae-nav-rail-badge${
+                                                    unseenSwapCount > 0
+                                                        ? ' ae-nav-rail-badge--unseen'
+                                                        : ''
+                                                }`}
+                                                aria-hidden
+                                            >
+                                                {unseenSwapCount > 0
+                                                    ? unseenSwapCount
+                                                    : swapMarks.length}
+                                            </span>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </nav>
+
+                        <div className="ae-panel av-preview-sidebar-panel">
+                            {sidebarTab === 'comments' ? (
+                                <>
+                                    <h3 className="ae-panel-title">Comment</h3>
+                                    <p className="ae-panel-text">
+                                        {visibleCommentCount} comment
+                                        {visibleCommentCount === 1 ? '' : 's'} in album
+                                    </p>
+                                    <div className="av-preview-sidebar-comments">
                                             {photoCommentItems.length === 0 ? (
                                                 <p className="av-preview-sidebar-text">
                                                     No photo comments yet.
@@ -407,8 +481,8 @@ export default function AlbumPreview({
                                     </>
                                 ) : sidebarTab === 'swap' ? (
                                     <>
-                                        <h3 className="av-preview-sidebar-title">Swap</h3>
-                                        <p className="av-preview-sidebar-lead">
+                                        <h3 className="ae-panel-title">Swap</h3>
+                                        <p className="ae-panel-text">
                                             {swapMarksCount > 0
                                                 ? `${swapMarksCount} locked swap request${swapMarksCount === 1 ? '' : 's'}`
                                                 : 'No swap requests yet'}
@@ -467,54 +541,16 @@ export default function AlbumPreview({
                                     </>
                                 ) : (
                                     <>
-                                        <h3 className="av-preview-sidebar-title">Collections</h3>
-                                        <p className="av-preview-sidebar-lead">
+                                        <h3 className="ae-panel-title">Collections</h3>
+                                        <p className="ae-panel-text">
                                             Manage photos from the editor
                                         </p>
-                                        <p className="av-preview-sidebar-text">
-                                            Collection tools are available in Album Studio. Use this preview for proofing.
+                                        <p className="ae-panel-text ae-panel-text--muted">
+                                            Collection tools are available in Album Studio. Use this
+                                            preview for proofing.
                                         </p>
                                     </>
                                 )}
-                            </div>
-                        )}
-
-                        <div className="av-preview-sidebar-rail">
-                            <button
-                                type="button"
-                                className={`av-preview-sidebar-btn${
-                                    sidebarTab === 'comments' ? ' is-active' : ''
-                                }`}
-                                onClick={() => handleSidebarToggle('comments')}
-                                aria-label="Toggle comments panel"
-                            >
-                                <span aria-hidden>💬</span>
-                                <span className="av-preview-sidebar-btn-label">Comments</span>
-                            </button>
-                            <button
-                                type="button"
-                                className={`av-preview-sidebar-btn${
-                                    sidebarTab === 'swap' ? ' is-active' : ''
-                                }`}
-                                onClick={() => handleSidebarToggle('swap')}
-                                aria-label="Toggle swap panel"
-                                    disabled={!messagesEnabled}
-                                    title={!messagesEnabled ? 'Enable swaps in Settings' : undefined}
-                            >
-                                <span aria-hidden>⇅</span>
-                                <span className="av-preview-sidebar-btn-label">Swap</span>
-                            </button>
-                            <button
-                                type="button"
-                                className={`av-preview-sidebar-btn${
-                                    sidebarTab === 'collections' ? ' is-active' : ''
-                                }`}
-                                onClick={() => handleSidebarToggle('collections')}
-                                aria-label="Toggle collections panel"
-                            >
-                                <span aria-hidden>▦</span>
-                                <span className="av-preview-sidebar-btn-label">Collections</span>
-                            </button>
                         </div>
                     </aside>
                 </div>
