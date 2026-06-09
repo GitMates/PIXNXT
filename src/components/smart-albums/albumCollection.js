@@ -7,6 +7,7 @@ import {
     getRemotePreviewData,
     hydrateAlbumPreviewData,
 } from './albumPreviewData';
+import { loadCollectionItemDimensions, loadImageDimensionsFromFile } from './albumGridSize';
 
 const STORAGE_KEY = 'pixnxt_album_collections';
 const ALBUM_PATH_CACHE = new Map();
@@ -558,6 +559,21 @@ export async function addFilesToAlbumCollection(
         async (entry) => {
             try {
                 const sortOrder = baseSortOrder + entry.sortIndex;
+                let width;
+                let height;
+                try {
+                    if (entry.kind === 'file') {
+                        const dims = await loadImageDimensionsFromFile(entry.file);
+                        width = dims?.width;
+                        height = dims?.height;
+                    } else if (entry.dataUrl) {
+                        const dims = await loadCollectionItemDimensions({ dataUrl: entry.dataUrl });
+                        width = dims?.width;
+                        height = dims?.height;
+                    }
+                } catch {
+                    /* dimensions optional */
+                }
                 const upload =
                     entry.kind === 'file'
                         ? await uploadCollectionFile({
@@ -590,6 +606,7 @@ export async function addFilesToAlbumCollection(
                     nameKey: entry.nameKey,
                     sortOrder,
                     createdAt: batchUploadTs + entry.sortIndex,
+                    ...(width > 0 && height > 0 ? { width, height } : {}),
                 };
             } catch (err) {
                 console.warn('Collection upload failed:', entry.name, err);

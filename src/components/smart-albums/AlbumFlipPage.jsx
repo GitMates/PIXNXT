@@ -35,6 +35,7 @@ import {
     isInsideCoverLeftPage,
     isInsideCoverRightPage,
     isPreBackHalfSpreadRightPage,
+    isWholeSpreadLayout,
 } from './albumSpreadUtils';
 import { getBookWrapSpineLayout } from './bookWrapSpine';
 import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
@@ -75,7 +76,7 @@ function pageHasVisiblePhoto(
     if (pageNum === 1 && opts.hasCovers && resolveCoverImageSrc(album, { showSamples })) {
         return true;
     }
-    if (isInsideCoverRightPage(pageNum, totalPages, opts)) {
+    if (!wholeSpread && isInsideCoverRightPage(pageNum, totalPages, opts)) {
         return Boolean(getInsideCoverRightPhotoSrc(albumId, { showSamples }));
     }
     if (getPagePhotoOverride(albumId, pageNum)) return true;
@@ -244,13 +245,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const gridOpts = { ...spreadOpts, totalPages };
     const { right: lastSpreadRight } = getLastSpreadInfo(totalPages, spreadOpts);
     const wholeSpread = placementMode === 'whole';
+    const isWholeSpreadAlbum = wholeSpread || isWholeSpreadLayout(album?.grid_layout);
     const rightPageHasPhoto = pageHasVisiblePhoto(
         album,
         albumId,
         lastSpreadRight,
         totalPages,
         showSamples,
-        wholeSpread,
+        isWholeSpreadAlbum,
         spreadOpts
     );
     const endSpreadRole = getEndSpreadPageRole(pageNum, totalPages, {
@@ -259,33 +261,37 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     });
     const preBackSpreadRole = getPreBackSpreadPageRole(pageNum, totalPages, spreadOpts);
     const spreadLeftForPage = getSpreadLeftPageIndex(pageNum, gridOpts);
+    const spreadWholePhoto = Boolean(albumId && getSpreadPhotoOverride(albumId, spreadLeftForPage));
+    const useHalfSpreadLayout = !isWholeSpreadAlbum || !spreadWholePhoto;
     const endHalfLeftPage = isEndHalfSpreadLeftPage(spreadLeftForPage, totalPages, spreadOpts);
     const useLeftGrid = isProofLeftGridPage(pageNum, gridOpts) && !endHalfLeftPage;
     const useRightGrid = isProofRightGridPage(pageNum, gridOpts);
     const src = getPageImageSrc(album, pageNum, showSamples, coverLayoutOpts);
     const isFrontCoverPage = false;
 
-    if (
-        preBackSpreadRole === 'half-blank' ||
-        isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)
-    ) {
-        return (
-            <div
-                className="ab-flip-page ab-flip-page--half-blank ab-flip-page--pre-back-blank"
-                ref={ref}
-                data-density="hard"
-            >
-                <div className="ab-page-empty" aria-hidden />
-            </div>
-        );
-    }
+    if (useHalfSpreadLayout) {
+        if (
+            preBackSpreadRole === 'half-blank' ||
+            isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)
+        ) {
+            return (
+                <div
+                    className="ab-flip-page ab-flip-page--half-blank ab-flip-page--pre-back-blank"
+                    ref={ref}
+                    data-density="hard"
+                >
+                    <div className="ab-page-empty" aria-hidden />
+                </div>
+            );
+        }
 
-    if (endSpreadRole === 'half-blank') {
-        return (
-            <div className="ab-flip-page ab-flip-page--half-blank" ref={ref} data-density="hard">
-                <div className="ab-page-empty" aria-hidden />
-            </div>
-        );
+        if (endSpreadRole === 'half-blank') {
+            return (
+                <div className="ab-flip-page ab-flip-page--half-blank" ref={ref} data-density="hard">
+                    <div className="ab-page-empty" aria-hidden />
+                </div>
+            );
+        }
     }
 
     const pageBadge =
@@ -301,45 +307,47 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         );
     }
 
-    if (isInsideCoverLeftPage(pageNum, spreadOpts)) {
-        return (
-            <div
-                className="ab-flip-page ab-flip-page--half-blank ab-flip-page--inside-cover-blank"
-                ref={ref}
-                data-density="hard"
-            >
-                <div className="ab-page-empty" aria-hidden />
-            </div>
-        );
-    }
-
-    if (isInsideCoverRightPage(pageNum, totalPages, spreadOpts)) {
-        const photoSrc = getInsideCoverRightPhotoSrc(albumId, { showSamples });
-        const transform = albumId
-            ? getPagePhotoTransform(albumId, 3)
-            : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
-        return (
-            <div
-                className="ab-flip-page ab-flip-page--single-photo"
-                ref={ref}
-                data-density="hard"
-            >
-                {pageBadge}
-                <div className="ab-single-page-photo">
-                    {photoSrc ? (
-                        <img
-                            src={photoSrc}
-                            alt=""
-                            className="ab-page-photo ab-page-photo--full"
-                            draggable={false}
-                            style={photoTransformStyle(transform)}
-                        />
-                    ) : (
-                        <div className="ab-page-empty" aria-hidden />
-                    )}
+    if (useHalfSpreadLayout) {
+        if (isInsideCoverLeftPage(pageNum, spreadOpts)) {
+            return (
+                <div
+                    className="ab-flip-page ab-flip-page--half-blank ab-flip-page--inside-cover-blank"
+                    ref={ref}
+                    data-density="hard"
+                >
+                    <div className="ab-page-empty" aria-hidden />
                 </div>
-            </div>
-        );
+            );
+        }
+
+        if (isInsideCoverRightPage(pageNum, totalPages, spreadOpts)) {
+            const photoSrc = getInsideCoverRightPhotoSrc(albumId, { showSamples });
+            const transform = albumId
+                ? getPagePhotoTransform(albumId, 3)
+                : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+            return (
+                <div
+                    className="ab-flip-page ab-flip-page--single-photo"
+                    ref={ref}
+                    data-density="hard"
+                >
+                    {pageBadge}
+                    <div className="ab-single-page-photo">
+                        {photoSrc ? (
+                            <img
+                                src={photoSrc}
+                                alt=""
+                                className="ab-page-photo ab-page-photo--full"
+                                draggable={false}
+                                style={photoTransformStyle(transform)}
+                            />
+                        ) : (
+                            <div className="ab-page-empty" aria-hidden />
+                        )}
+                    </div>
+                </div>
+            );
+        }
     }
 
     const isFrontCoverRightPage = coverLayoutOpts.hasCovers && pageNum === 1;
@@ -379,7 +387,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             ? liveGetPinsForSlot(pageNum, 1, spreadLeftForPage)
             : [];
 
-    if (preBackSpreadRole === 'half-left') {
+    if (useHalfSpreadLayout && preBackSpreadRole === 'half-left') {
         const photoSrc =
             (albumId && getPagePhotoOverride(albumId, pageNum)) || src;
         const transform = albumId

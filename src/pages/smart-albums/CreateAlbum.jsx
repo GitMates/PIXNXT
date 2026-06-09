@@ -597,7 +597,7 @@ const CreateAlbum = () => {
                     );
                 }
 
-                const placed = applyCollectionOrderToPages(
+                const placed = await applyCollectionOrderToPages(
                     album.id,
                     {
                         ...albumForPlace,

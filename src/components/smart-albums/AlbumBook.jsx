@@ -16,6 +16,7 @@ import {
     getSpreadPages,
     getTotalSpreads,
     isEndHalfSpreadIndex,
+    isWholeSpreadLayout,
     pageToSpreadIndex,
     spreadIndexToPage,
 } from './albumSpreadUtils';
@@ -137,7 +138,7 @@ function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const cellId = pageNum === spreadLeft ? 1 : 2;
     const spreadCtx = getSpreadContext(album, totalPages);
     const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
-        wholeSpread: album?.grid_layout === 'whole-spread',
+        wholeSpread: isWholeSpreadLayout(album?.grid_layout),
         spreadOpts: spreadCtx,
     });
     return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);

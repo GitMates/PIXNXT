@@ -14,6 +14,8 @@ import {
     isEndHalfSpreadLeftPage,
     isFrontCoverSpreadLeft,
     isInsideCoverSpreadLeft,
+    isPreBackHalfSpreadLeftPage,
+    isWholeSpreadLayout,
 } from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
@@ -139,15 +141,24 @@ export default function AlbumPageGrid({
     const spreadCtx = { ...spreadOpts, totalPages };
     const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);
     const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
-    const insideCoverSpread = isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts);
+    const isWholeSpreadAlbum = isWholeSpreadLayout(album?.grid_layout);
+    const spreadWholePhoto = Boolean(albumId && getSpreadPhotoOverride(albumId, spreadLeft));
+    const insideCoverSpread =
+        isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts) &&
+        (!isWholeSpreadAlbum || !spreadWholePhoto);
+    const preBackHalfSpread =
+        isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts) &&
+        (!isWholeSpreadAlbum || !spreadWholePhoto);
     const frontCoverSpread = isFrontCoverSpreadLeft(spreadLeft, spreadOpts);
     const inSelectedSpread =
         selectionLeftPage != null && selectionLeftPage === spreadLeft;
     const selectWholeSpread = selectionMode === 'spread' && inSelectedSpread;
     const wholePlacement =
         placementMode === 'whole' &&
+        spreadWholePhoto &&
         !endHalfSpreadLeft &&
         !insideCoverSpread &&
+        !preBackHalfSpread &&
         !frontCoverSpread;
     const wholeSpread = wholePlacement;
     const useSelectCells = editable && !spreadEdit;

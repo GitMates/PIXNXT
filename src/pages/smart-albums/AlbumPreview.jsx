@@ -4,6 +4,7 @@ import {
     pageToSpreadIndex,
     spreadIndexToPage,
     getTotalSpreads,
+    isWholeSpreadLayout,
 } from '../../components/smart-albums/albumSpreadUtils';
 import {
     getSwapMarks,
@@ -304,7 +305,7 @@ export default function AlbumPreview({
                             pinMarkMode={false}
                             proofToolsHover={false}
                             placementMode={
-                                album?.grid_layout === 'whole-spread' ? 'whole' : 'single'
+                                isWholeSpreadLayout(album?.grid_layout) ? 'whole' : 'single'
                             }
                             spreadCommentsBySpread={
                                 commentsEnabled ? spreadCommentsBySpread : null

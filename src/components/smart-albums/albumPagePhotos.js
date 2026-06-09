@@ -7,6 +7,7 @@ import {
     enumerateAutoPlacePageTargets,
     enumerateCollectionPlacementPages,
     enumerateCoverCollectionPlacements,
+    enumerateWholeSpreadBlankCoverPlacements,
     getAlbumSpreadOptions,
     getEndSpreadPageIndices,
     getLastSpreadInfo,
@@ -18,6 +19,10 @@ import {
     normalizeSpreadOpts,
 } from './albumSpreadUtils';
 import { computePageCountFromPhotoCount } from '../../pages/smart-albums/createAlbumLayout';
+import {
+    photoFillsWholeFromItem,
+    resolvePhotoFillsWholeFlags,
+} from './albumGridSize';
 import { getAlbumCollection, getCollectionItem } from './albumCollection';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import {
@@ -340,6 +345,13 @@ export function migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, al
         const photo = leftStored ?? rightStored;
         if (photo == null) continue;
 
+        if (
+            albumHasBlankCovers(albumMeta) &&
+            ((leftStored && !rightStored) || (!leftStored && rightStored))
+        ) {
+            continue;
+        }
+
         next[spreadKey] = photo;
         delete next[String(left)];
         if (right < totalPages) delete next[String(right)];
@@ -350,6 +362,10 @@ export function migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, al
     next.__revision = (next.__revision || 0) + 1;
     all[albumId] = next;
     return writeAll(all);
+}
+
+export function spreadHasWholeSpreadPhoto(albumId, spreadLeft) {
+    return Boolean(getSpreadPhotoOverride(albumId, spreadLeft));
 }
 
 export function getSpreadPhotoOverride(albumId, leftPage) {
@@ -420,8 +436,9 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
  * Inside-cover spread must use page 3 only (right half; page 2 stays blank).
  * Moves legacy spread:1 / page-2 placements to page 3.
  */
-export function migrateInsideCoverSpreadToPageTwo(albumId, totalPages) {
+export function migrateInsideCoverSpreadToPageTwo(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null || totalPages < 4) return false;
+    if (isWholeSpreadLayout(albumMeta?.grid_layout)) return false;
     if (!isCoverInsidePage(1, totalPages)) return false;
 
     const all = readAll();
@@ -479,7 +496,7 @@ export function getGridSlotPhoto(
         ...normalizeSpreadOpts(spreadOpts),
         totalPages: spreadOpts?.totalPages ?? totalPages,
     };
-    if (totalPages != null && isEndHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
+    if (!wholeSpread && totalPages != null && isEndHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
         const wrapSrc = getSpreadPhotoOverride(albumId, 0);
         if (wrapSrc) {
             return { src: wrapSrc, panoramic: 'left' };
@@ -490,14 +507,14 @@ export function getGridSlotPhoto(
         if (spreadSrc) return { src: spreadSrc, panoramic: null };
         return { src: null, panoramic: null };
     }
-    if (totalPages != null && isPreBackHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
+    if (!wholeSpread && totalPages != null && isPreBackHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
         const pageSrc = getPagePhotoOverride(albumId, pageNum);
         if (pageSrc) return { src: pageSrc, panoramic: null };
         const spreadSrc = getSpreadPhotoOverride(albumId, spreadLeftPage);
         if (spreadSrc) return { src: spreadSrc, panoramic: null };
         return { src: null, panoramic: null };
     }
-    if (totalPages != null && isInsideCoverSpreadLeft(spreadLeftPage, totalPages, opts)) {
+    if (!wholeSpread && totalPages != null && isInsideCoverSpreadLeft(spreadLeftPage, totalPages, opts)) {
         if (pageNum <= 2) {
             return { src: null, panoramic: null };
         }
@@ -543,18 +560,18 @@ export function hasGridSlotPhoto(
         ...normalizeSpreadOpts(spreadOpts),
         totalPages: spreadOpts?.totalPages ?? totalPages,
     };
-    if (totalPages != null && isEndHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
+    if (!wholeSpread && totalPages != null && isEndHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
         if (getSpreadPhotoOverride(albumId, 0)) return true;
         if (getPagePhotoOverride(albumId, pageNum)) return true;
         if (getSpreadPhotoOverride(albumId, spreadLeftPage)) return true;
         return false;
     }
-    if (totalPages != null && isPreBackHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
+    if (!wholeSpread && totalPages != null && isPreBackHalfSpreadLeftPage(spreadLeftPage, totalPages, opts)) {
         if (getPagePhotoOverride(albumId, pageNum)) return true;
         if (getSpreadPhotoOverride(albumId, spreadLeftPage)) return true;
         return false;
     }
-    if (totalPages != null && isInsideCoverSpreadLeft(spreadLeftPage, totalPages, opts)) {
+    if (!wholeSpread && totalPages != null && isInsideCoverSpreadLeft(spreadLeftPage, totalPages, opts)) {
         if (pageNum <= 2) return false;
         return Boolean(
             getPagePhotoOverride(albumId, 3) ||
@@ -777,7 +794,11 @@ export function setSpreadPhotoFromCollectionItem(
 ) {
     if (!albumId || leftPage == null || !collectionItemId) return false;
     const opts = { ...normalizeSpreadOpts(spreadOpts), totalPages };
-    if (totalPages != null && isEndHalfSpreadLeftPage(leftPage, totalPages, opts)) {
+    if (
+        totalPages != null &&
+        isEndHalfSpreadLeftPage(leftPage, totalPages, opts) &&
+        !isWholeSpreadLayout(spreadOpts?.gridLayout)
+    ) {
         return setPagePhotoFromCollectionItem(albumId, leftPage, collectionItemId, {
             clearSpreadForLeft: leftPage,
         });
@@ -823,7 +844,7 @@ export function placeCollectionItemOnPages(
 }
 
 /** Fill spreads from collection order (1st upload → first slot, etc.). */
-export function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
+export async function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
     if (!albumId || !album) return 0;
     const items = itemIds?.length
         ? itemIds.map((id) => getCollectionItem(albumId, id)).filter(Boolean)
@@ -847,12 +868,20 @@ export function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
 
     clearAllAlbumPagePhotos(albumId, { totalPages });
 
+    const pageGridSize = album.grid_size || 'square';
+    const photoFillsWhole =
+        wholeSpread && blankCovers
+            ? await resolvePhotoFillsWholeFlags(items, pageGridSize)
+            : null;
+
     const placed = autoPlaceCollectionItems(
         albumId,
         items.map((item) => item.id),
         {
             totalPages,
             gridLayout,
+            pageGridSize,
+            photoFillsWhole,
             showCover: spreadOpts.showCover,
             hasCovers: spreadOpts.hasCovers,
             blankCovers,
@@ -873,7 +902,15 @@ export function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
 export function autoPlaceCollectionItems(
     albumId,
     collectionItemIds,
-    { totalPages = 21, gridLayout, showCover = true, hasCovers, blankCovers = false } = {}
+    {
+        totalPages = 21,
+        gridLayout,
+        pageGridSize = 'square',
+        photoFillsWhole = null,
+        showCover = true,
+        hasCovers,
+        blankCovers = false,
+    } = {}
 ) {
     if (!albumId || !collectionItemIds?.length) return 0;
 
@@ -883,23 +920,35 @@ export function autoPlaceCollectionItems(
         hasCovers: useCovers,
         blankCovers: blankCovers === true,
         totalPages,
+        gridLayout,
     };
 
     if (isWholeSpreadLayout(gridLayout)) {
+        const fillsWhole =
+            photoFillsWhole ??
+            collectionItemIds.map((id) => {
+                const item = getCollectionItem(albumId, id);
+                return photoFillsWholeFromItem(item, pageGridSize);
+            });
         const slots = spreadOpts.hasCovers && !spreadOpts.blankCovers
             ? enumerateCoverCollectionPlacements(collectionItemIds.length, totalPages, {
                   gridLayout,
               })
-            : enumerateAutoPlacePageTargets(totalPages, {
-                  showCover: useCovers,
-                  hasCovers: useCovers,
-                  blankCovers: spreadOpts.blankCovers,
-                  gridLayout: 'whole-spread',
-              }).map((leftPage) => ({
-                  type: 'spread',
-                  leftPage,
-                  rightPage: leftPage + 1 < totalPages ? leftPage + 1 : leftPage,
-              }));
+            : spreadOpts.blankCovers
+              ? enumerateWholeSpreadBlankCoverPlacements(collectionItemIds.length, totalPages, {
+                    pageGridSize,
+                    photoFillsWhole: fillsWhole,
+                })
+              : enumerateAutoPlacePageTargets(totalPages, {
+                    showCover: useCovers,
+                    hasCovers: useCovers,
+                    blankCovers: spreadOpts.blankCovers,
+                    gridLayout: 'whole-spread',
+                }).map((leftPage) => ({
+                    type: 'spread',
+                    leftPage,
+                    rightPage: leftPage + 1 < totalPages ? leftPage + 1 : leftPage,
+                }));
 
         let placed = 0;
         for (let i = 0; i < Math.min(collectionItemIds.length, slots.length); i += 1) {

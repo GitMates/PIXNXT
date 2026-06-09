@@ -1,4 +1,5 @@
 import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
+import { storageService } from '../../services/storage.service';
 import { isWholeSpreadLayout } from './albumSpreadUtils';
 
 export const GRID_SIZE_PRESETS = {
@@ -19,6 +20,67 @@ const GRID_LAYOUT_LABELS = {
 };
 
 const PRESET_MATCH_TOLERANCE = 0.06;
+
+/** Photo must be at least this wide vs a 2-page spread to count as whole-spread. */
+export const WHOLE_SPREAD_FILL_RATIO = 0.92;
+
+/** Full-upload aspect needed to span both pages (page grid × 2). */
+export function spreadAspectFromPageGrid(pageGridSize = 'square') {
+    const pageAspect = parseGridSizeAspect(pageGridSize);
+    return pageAspect > 0 ? pageAspect * 2 : 2;
+}
+
+/** True when the image is wide enough to fill a whole inner spread. */
+export function photoFillsWholeSpread(width, height, pageGridSize = 'square') {
+    const w = Number(width);
+    const h = Number(height);
+    if (!(w > 0 && h > 0)) return true;
+    const photoAspect = w / h;
+    const spreadAspect = spreadAspectFromPageGrid(pageGridSize);
+    return photoAspect >= spreadAspect * WHOLE_SPREAD_FILL_RATIO;
+}
+
+export function photoFillsWholeFromItem(item, pageGridSize = 'square') {
+    if (item?.width > 0 && item?.height > 0) {
+        return photoFillsWholeSpread(item.width, item.height, pageGridSize);
+    }
+    return true;
+}
+
+/** Load pixel size from a collection item URL or stored fields. */
+export function loadCollectionItemDimensions(item) {
+    if (!item) return Promise.resolve(null);
+    if (item.width > 0 && item.height > 0) {
+        return Promise.resolve({ width: item.width, height: item.height });
+    }
+    const src = item.dataUrl || (item.storagePath ? storageService.getPublicUrl(item.storagePath) : null);
+    if (!src) return Promise.resolve(null);
+    return new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+            const w = img.naturalWidth;
+            const h = img.naturalHeight;
+            resolve(w > 0 && h > 0 ? { width: w, height: h } : null);
+        };
+        img.onerror = () => resolve(null);
+        img.src = src;
+    });
+}
+
+export async function resolvePhotoFillsWholeFlags(items, pageGridSize = 'square') {
+    const flags = [];
+    for (const item of items || []) {
+        if (item?.width > 0 && item?.height > 0) {
+            flags.push(photoFillsWholeSpread(item.width, item.height, pageGridSize));
+            continue;
+        }
+        const dims = await loadCollectionItemDimensions(item);
+        flags.push(
+            dims ? photoFillsWholeSpread(dims.width, dims.height, pageGridSize) : true
+        );
+    }
+    return flags;
+}
 
 function gcd(a, b) {
     let x = Math.abs(Math.round(a));
@@ -75,7 +137,7 @@ export function gridSizeFromDimensions(width, height, { wholeSpread = false } = 
     return gridSizeFromAspect(pageAspectFromFileDimensions(w, h, { wholeSpread }));
 }
 
-function loadImageFileDimensions(file) {
+export function loadImageDimensionsFromFile(file) {
     return new Promise((resolve, reject) => {
         const url = URL.createObjectURL(file);
         const img = new Image();
@@ -144,7 +206,7 @@ async function collectExpandedPhotoDimensions(files) {
     for (const file of files || []) {
         try {
             if (isImageFile(file)) {
-                const dims = await loadImageFileDimensions(file);
+                const dims = await loadImageDimensionsFromFile(file);
                 if (dims?.width > 0 && dims?.height > 0) dimensions.push(dims);
             } else if (isPdfFile(file)) {
                 const pages = await loadPdfAllPageDimensions(file);

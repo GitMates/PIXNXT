@@ -53,7 +53,11 @@ export function getAlbumSpreadOptions(album, { collectionCount = 0 } = {}) {
         hasCovers = false;
     }
 
-    return { showCover: hasCovers, hasCovers };
+    return {
+        showCover: hasCovers,
+        hasCovers,
+        gridLayout: gridLayout || 'two-page',
+    };
 }
 
 /** Spread layout flags plus page count (for grid / slot index helpers). */
@@ -343,9 +347,16 @@ export function isWholeSpreadLayout(gridLayout) {
 export function isAutoPlacePhotoPage(pageNum, totalPages, opts = {}) {
     if (pageNum < 0 || pageNum >= totalPages) return false;
     const spreadOpts = normalizeSpreadOpts(opts);
+    const gridLayout = opts.gridLayout ?? 'two-page';
+    const twoPageHalves =
+        spreadOpts.hasCovers &&
+        (!isWholeSpreadLayout(gridLayout) ||
+            (isWholeSpreadLayout(gridLayout) && spreadOpts.blankCovers));
     if (!spreadOpts.hasCovers) return true;
-    if (isInsideCoverLeftPage(pageNum, spreadOpts)) return false;
-    if (getPreBackSpreadPageRole(pageNum, totalPages, spreadOpts) === 'half-blank') return false;
+    if (twoPageHalves) {
+        if (isInsideCoverLeftPage(pageNum, spreadOpts)) return false;
+        if (getPreBackSpreadPageRole(pageNum, totalPages, spreadOpts) === 'half-blank') return false;
+    }
     const { left: endLeft } = getEndSpreadPageIndices(totalPages);
     if (pageNum >= endLeft) return false;
     if (spreadOpts.blankCovers) {
@@ -353,6 +364,75 @@ export function isAutoPlacePhotoPage(pageNum, totalPages, opts = {}) {
         if (pageNum === 1) return false;
     }
     return true;
+}
+
+/**
+ * Whole-spread + blank covers: place each photo on a spread or single page.
+ * Half-width photos: first → page 3, last → next spread left, middle → left page only.
+ * Full-width photos: one photo across both pages of the spread.
+ */
+export function enumerateWholeSpreadBlankCoverPlacements(
+    photoCount,
+    totalPages,
+    { pageGridSize = 'square', photoFillsWhole = [] } = {}
+) {
+    const n = Math.max(0, Math.floor(Number(photoCount) || 0));
+    if (n === 0 || totalPages < 4) return [];
+
+    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+    const slots = [];
+    let spreadLeft = 2;
+
+    for (let i = 0; i < n; i += 1) {
+        const isFirst = i === 0;
+        const isLast = i === n - 1;
+        const fillsWhole = photoFillsWhole[i] !== false;
+
+        if (!fillsWhole && isFirst) {
+            slots.push({ type: 'page', pageNum: 3 });
+            spreadLeft = 4;
+            continue;
+        }
+
+        if (!fillsWhole && isLast) {
+            if (spreadLeft < endLeft) {
+                slots.push({ type: 'page', pageNum: spreadLeft });
+            }
+            continue;
+        }
+
+        if (!fillsWhole) {
+            if (spreadLeft >= endLeft) break;
+            slots.push({ type: 'page', pageNum: spreadLeft });
+            spreadLeft += 2;
+            continue;
+        }
+
+        if (spreadLeft >= endLeft) break;
+        slots.push({
+            type: 'spread',
+            leftPage: spreadLeft,
+            rightPage: Math.min(spreadLeft + 1, totalPages - 1),
+        });
+        spreadLeft += 2;
+    }
+
+    return slots;
+}
+
+/**
+ * Whole-spread + blank covers (all full-width): one photo per inner spread (pages 2|3, 4|5, …).
+ * Skips front cover (0|1) and back cover (endLeft|endLeft+1).
+ */
+export function enumerateWholeSpreadBlankCoverTargets(totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (!spreadOpts.hasCovers || !spreadOpts.blankCovers || totalPages < 4) return [];
+    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+    const targets = [];
+    for (let left = 2; left < endLeft; left += 2) {
+        targets.push(left);
+    }
+    return targets;
 }
 
 /**
@@ -378,6 +458,9 @@ export function enumerateAutoPlacePageTargets(
     };
 
     if (isWholeSpreadLayout(gridLayout)) {
+        if (spreadOpts.hasCovers && spreadOpts.blankCovers) {
+            return enumerateWholeSpreadBlankCoverTargets(totalPages, spreadOpts);
+        }
         for (let left = 0; left < totalPages; left += 2) {
             if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
                 pushPage(left);
@@ -557,7 +640,12 @@ export function enumerateCollectionPlacementPages(
     }
 
     if (spreadOpts.blankCovers) {
-        return enumerateCoverTwoPagePageTargets(totalPages, { blankCovers: true }).slice(0, n);
+        return enumerateAutoPlacePageTargets(totalPages, {
+            showCover,
+            hasCovers: spreadOpts.hasCovers,
+            blankCovers: true,
+            gridLayout,
+        }).slice(0, n);
     }
 
     return enumerateCoverAlbumPlacements(n, totalPages, { gridLayout, blankCovers: false })
