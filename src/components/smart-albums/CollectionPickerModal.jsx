@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { filesFromInput } from '../../lib/uploadFileOrder';
+import { getCollectionItemDisplayUrl } from './albumCollection';
 import './CollectionPickerModal.css';
 
 export default function CollectionPickerModal({
@@ -76,7 +77,12 @@ export default function CollectionPickerModal({
                                     <span className="cpm-thumb-order" aria-hidden>
                                         {index + 1}
                                     </span>
-                                    <img src={item.dataUrl} alt="" loading="lazy" draggable={false} />
+                                    <img
+                                        src={getCollectionItemDisplayUrl(item)}
+                                        alt=""
+                                        loading="lazy"
+                                        draggable={false}
+                                    />
                                 </button>
                             ))}
                         </div>

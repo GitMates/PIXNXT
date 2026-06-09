@@ -23,7 +23,13 @@ import {
     photoFillsWholeFromItem,
     resolvePhotoFillsWholeFlags,
 } from './albumGridSize';
-import { getAlbumCollection, getCollectionItem } from './albumCollection';
+import {
+    getAlbumCollection,
+    getCollectionItem,
+    getInnerAlbumCollection,
+    isCoverWrapCollectionItem,
+    markCollectionItemAsCoverWrap,
+} from './albumCollection';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import {
     deriveCoverUrlFromSnapshot,
@@ -169,7 +175,7 @@ export function restoreEndCoverPlacement(albumId, totalPages, captured) {
 /** Move a mistaken whole-spread placement on the last spread to the left page only. */
 export function migrateEndHalfSpreadToLeftPage(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null) return false;
-    const collectionCount = getAlbumCollection(albumId).length;
+    const collectionCount = getInnerAlbumCollection(albumId).length;
     const spreadOpts = albumMeta
         ? getAlbumSpreadOptions(albumMeta, { collectionCount })
         : getAlbumSpreadOptions(
@@ -210,7 +216,7 @@ export function migrateEndHalfSpreadToLeftPage(albumId, totalPages, albumMeta = 
 export function migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null || totalPages < 4) return false;
 
-    const collectionCount = getAlbumCollection(albumId).length;
+    const collectionCount = getInnerAlbumCollection(albumId).length;
     const spreadOpts = albumMeta
         ? getAlbumSpreadOptions(albumMeta, { collectionCount })
         : getAlbumSpreadOptions({ has_covers: true, page_count: totalPages }, { collectionCount });
@@ -374,6 +380,22 @@ export function getSpreadPhotoOverride(albumId, leftPage) {
     const local = resolveStoredPhoto(albumId, album?.[spreadStorageKey(leftPage)]);
     if (local) return local;
     return resolveRemotePagePhoto(albumId, spreadStorageKey(leftPage));
+}
+
+export function getSpreadPlacementCollectionItemId(albumId, leftPage = 0) {
+    const stored = getStoredPlacement(albumId, spreadStorageKey(leftPage));
+    if (stored && typeof stored === 'object' && stored.collectionItemId) {
+        return stored.collectionItemId;
+    }
+    return null;
+}
+
+/** Tag the collection item on spread:0 so it is excluded from inner-page auto-place. */
+export function syncCoverWrapRoleFromSpread(albumId) {
+    if (!albumId) return false;
+    const itemId = getSpreadPlacementCollectionItemId(albumId, 0);
+    if (!itemId) return false;
+    return markCollectionItemAsCoverWrap(albumId, itemId);
 }
 
 export function getPagePhotoOverride(albumId, pageNum) {
@@ -846,9 +868,12 @@ export function placeCollectionItemOnPages(
 /** Fill spreads from collection order (1st upload → first slot, etc.). */
 export async function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
     if (!albumId || !album) return 0;
+    syncCoverWrapRoleFromSpread(albumId);
     const items = itemIds?.length
-        ? itemIds.map((id) => getCollectionItem(albumId, id)).filter(Boolean)
-        : getAlbumCollection(albumId);
+        ? itemIds
+              .map((id) => getCollectionItem(albumId, id))
+              .filter((item) => item && !isCoverWrapCollectionItem(item))
+        : getInnerAlbumCollection(albumId);
     const includeCovers = album?.has_covers === true;
     const blankCovers = albumHasBlankCovers(album);
     const spreadOpts = getAlbumSpreadOptions(

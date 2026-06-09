@@ -24,7 +24,7 @@ import {
     isProofLeftGridPage,
     isProofRightGridPage,
 } from './albumSpreadGrid';
-import { getAlbumCollection } from './albumCollection';
+import { getInnerAlbumCollection } from './albumCollection';
 import {
     getAlbumSpreadOptions,
     getEndSpreadPageRole,
@@ -236,7 +236,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const albumId = albumIdProp ?? album?.id;
     void livePhotoRevision;
     void liveTransformRevision;
-    const collectionCount = albumId ? getAlbumCollection(albumId).length : 0;
+    const collectionCount = albumId ? getInnerAlbumCollection(albumId).length : 0;
     const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
     const coverLayoutOpts =
         spreadOpts.hasCovers || album?.has_covers === true

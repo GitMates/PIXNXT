@@ -261,6 +261,41 @@ async function buildCollectionWorkItems(files) {
     return batches.flat().map((item, sortIndex) => ({ ...item, sortIndex }));
 }
 
+/** Collection item used only for the optional book-wrap cover — not an inner-page photo. */
+export const COVER_WRAP_ROLE = 'cover-wrap';
+
+export function isCoverWrapCollectionItem(item) {
+    return item?.role === COVER_WRAP_ROLE;
+}
+
+export function getInnerAlbumCollection(albumId) {
+    return getAlbumCollection(albumId).filter((item) => !isCoverWrapCollectionItem(item));
+}
+
+export function markCollectionItemAsCoverWrap(albumId, itemId) {
+    if (!albumId || !itemId) return false;
+    const all = readAll();
+    const bucket = all[albumId];
+    if (!bucket?.items?.length) return false;
+    let changed = false;
+    const items = bucket.items.map((item) => {
+        if (item.id === itemId) {
+            if (item.role === COVER_WRAP_ROLE) return item;
+            changed = true;
+            return { ...item, role: COVER_WRAP_ROLE };
+        }
+        if (isCoverWrapCollectionItem(item)) {
+            changed = true;
+            const { role, ...rest } = item;
+            return rest;
+        }
+        return item;
+    });
+    if (!changed) return false;
+    persistCollectionBucket(all, albumId, { ...bucket, items });
+    return true;
+}
+
 export function getAlbumCollection(albumId) {
     if (!albumId) return [];
     const list = readAll()[albumId];
@@ -444,7 +479,7 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
 export async function addFilesToAlbumCollection(
     albumId,
     files,
-    { photographerId, onProgress, skipDuplicateCheck = false } = {}
+    { photographerId, onProgress, skipDuplicateCheck = false, coverWrap = false } = {}
 ) {
     if (!albumId || !files?.length) return [];
 
@@ -606,6 +641,7 @@ export async function addFilesToAlbumCollection(
                     nameKey: entry.nameKey,
                     sortOrder,
                     createdAt: batchUploadTs + entry.sortIndex,
+                    ...(coverWrap ? { role: COVER_WRAP_ROLE } : {}),
                     ...(width > 0 && height > 0 ? { width, height } : {}),
                 };
             } catch (err) {
