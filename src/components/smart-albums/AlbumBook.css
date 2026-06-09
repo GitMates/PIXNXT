@@ -307,10 +307,11 @@
   pointer-events: none !important;
 }
 
-.ab-flip-page--pre-back-blank,
-.ab-flip-page--pre-back-blank .ab-page-empty {
-  visibility: visible;
-  background: #fff;
+/* Never clip the pre-back spread — right blank page must stay visible */
+.ab-flipbook-wrap--end-cover-only:has(.ab-flip-page--pre-back-blank),
+.ab-flipbook-wrap--end-cover-only:has(.ab-flip-page--pre-back-blank):not(.ab-flipbook-wrap--flipping) {
+  clip-path: none !important;
+  overflow: visible !important;
 }
 
 .ab-html-flipbook {
@@ -451,9 +452,12 @@
 }
 
 .ab-flip-page--inside-cover-blank,
-.ab-flip-page--inside-cover-blank .ab-page-empty {
-  visibility: visible;
-  background: #fff;
+.ab-flip-page--inside-cover-blank .ab-page-empty,
+.ab-flip-page--pre-back-blank,
+.ab-flip-page--pre-back-blank .ab-page-empty {
+  visibility: visible !important;
+  background: #fff !important;
+  opacity: 1 !important;
 }
 
 .ab-flip-page--single-photo {

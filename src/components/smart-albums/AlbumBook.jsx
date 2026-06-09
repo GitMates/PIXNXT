@@ -12,7 +12,6 @@ import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getAlbumSpreadOptions,
     getEndSpreadPageIndices,
-    getPreBackHalfSpreadInfo,
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
@@ -478,15 +477,6 @@ const AlbumBook = ({
     const endCoverOnly =
         album?.has_covers === true &&
         isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
-    const preBackSpreadInfo = useMemo(
-        () =>
-            album?.has_covers === true
-                ? getPreBackHalfSpreadInfo(totalPages, spreadOpts)
-                : null,
-        [album?.has_covers, totalPages, spreadOpts]
-    );
-    const onPreBackSpread =
-        preBackSpreadInfo != null && spreadIndex === preBackSpreadInfo.spreadIndex;
     const [coverClipTransition, setCoverClipTransition] = useState(null);
     const [coverRevealOpen, setCoverRevealOpen] = useState(false);
     const [endClipTransition, setEndClipTransition] = useState(null);
@@ -500,10 +490,15 @@ const AlbumBook = ({
         (frontCoverOnly ||
             coverClipTransition != null ||
             (bookFlipping && spreadIndex === 0));
+    const lastSpreadIndex = Math.max(0, totalSpreads - 1);
+    const preBackSpreadIndex = Math.max(0, totalSpreads - 2);
     const showEndClip =
         album?.has_covers === true &&
-        (endCoverOnly || endClipTransition != null) &&
-        !(onPreBackSpread && !endClipTransition && !endCoverOnly);
+        spreadIndex !== preBackSpreadIndex &&
+        (endCoverOnly ||
+            (endClipTransition != null &&
+                bookFlipping &&
+                spreadIndex === lastSpreadIndex));
     const coverWrapClassName = useMemo(() => {
         if (showCoverClip) {
             let cls = ' ab-flipbook-wrap--front-cover-only';
@@ -577,18 +572,6 @@ const AlbumBook = ({
                     const idx = api.getCurrentPageIndex();
                     setPageIndex(idx);
                     onPageChange?.(idx);
-                    const landedSpread = pageToSpreadIndex(idx, {
-                        ...spreadOpts,
-                        totalPages,
-                    });
-                    if (
-                        preBackSpreadInfo != null &&
-                        landedSpread === preBackSpreadInfo.spreadIndex
-                    ) {
-                        setEndClipTransition(null);
-                        setEndRevealOpen(false);
-                        setEndHideReveal(true);
-                    }
                 }
                 if (coverClipTransition || endClipTransition) {
                     setCoverClipTransition(null);
@@ -599,7 +582,7 @@ const AlbumBook = ({
                 }
             }
         },
-        [coverClipTransition, endClipTransition, onPageChange, setFlippingUi, preBackSpreadInfo, spreadOpts, totalPages]
+        [coverClipTransition, endClipTransition, onPageChange, setFlippingUi]
     );
 
     useEffect(() => {
@@ -616,12 +599,6 @@ const AlbumBook = ({
     const flipPrev = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
-
-        if (album?.has_covers && onPreBackSpread) {
-            setEndClipTransition(null);
-            setEndRevealOpen(false);
-            setEndHideReveal(true);
-        }
 
         if (album?.has_covers && spreadIndex === 1 && api.getCurrentPageIndex() === 2) {
             setCoverClipTransition('hide');
@@ -655,7 +632,7 @@ const AlbumBook = ({
 
         if (typeof api.flipPrev === 'function') api.flipPrev();
         else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-    }, [album?.has_covers, endCoverOnly, onPreBackSpread, spreadIndex, totalPages]);
+    }, [album?.has_covers, endCoverOnly, spreadIndex, totalPages]);
 
     const flipNext = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -727,6 +704,14 @@ const AlbumBook = ({
         onPageChange,
         spreadIndex,
     ]);
+
+    useEffect(() => {
+        if (bookFlipping || spreadIndex !== preBackSpreadIndex) return;
+        if (!endClipTransition) return;
+        setEndClipTransition(null);
+        setEndRevealOpen(false);
+        setEndHideReveal(true);
+    }, [bookFlipping, spreadIndex, preBackSpreadIndex, endClipTransition]);
 
     useEffect(() => {
         const onKey = (e) => {

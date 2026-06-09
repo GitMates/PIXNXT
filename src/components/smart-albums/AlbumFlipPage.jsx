@@ -34,6 +34,7 @@ import {
     isEndHalfSpreadLeftPage,
     isInsideCoverLeftPage,
     isInsideCoverRightPage,
+    isPreBackHalfSpreadRightPage,
 } from './albumSpreadUtils';
 import { getBookWrapSpineLayout } from './bookWrapSpine';
 import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
@@ -264,7 +265,10 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const src = getPageImageSrc(album, pageNum, showSamples, coverLayoutOpts);
     const isFrontCoverPage = false;
 
-    if (preBackSpreadRole === 'half-blank') {
+    if (
+        preBackSpreadRole === 'half-blank' ||
+        isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts)
+    ) {
         return (
             <div
                 className="ab-flip-page ab-flip-page--half-blank ab-flip-page--pre-back-blank"
@@ -375,6 +379,32 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             ? liveGetPinsForSlot(pageNum, 1, spreadLeftForPage)
             : [];
 
+    if (preBackSpreadRole === 'half-left') {
+        const photoSrc =
+            (albumId && getPagePhotoOverride(albumId, pageNum)) || src;
+        const transform = albumId
+            ? getPagePhotoTransform(albumId, pageNum)
+            : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+        return (
+            <div className="ab-flip-page ab-flip-page--half-photo-left" ref={ref} data-density="hard">
+                {pageBadge}
+                <div className="ab-single-page-photo">
+                    {photoSrc ? (
+                        <img
+                            src={photoSrc}
+                            alt=""
+                            className="ab-page-photo ab-page-photo--full"
+                            draggable={false}
+                            style={photoTransformStyle(transform)}
+                        />
+                    ) : (
+                        <div className="ab-page-empty" aria-hidden />
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     if (useLeftGrid && !isBackCoverPage) {
         const { cells } = getProofLeftPageGridPercent();
         return (
@@ -480,32 +510,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     onActivatePinMode={liveOnActivatePinMode}
                     proofToolsHover={liveProofToolsHover}
                 />
-            </div>
-        );
-    }
-
-    if (preBackSpreadRole === 'half-left') {
-        const photoSrc =
-            (albumId && getPagePhotoOverride(albumId, pageNum)) || src;
-        const transform = albumId
-            ? getPagePhotoTransform(albumId, pageNum)
-            : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
-        return (
-            <div className="ab-flip-page ab-flip-page--half-photo-left" ref={ref} data-density="hard">
-                {pageBadge}
-                <div className="ab-single-page-photo">
-                    {photoSrc ? (
-                        <img
-                            src={photoSrc}
-                            alt=""
-                            className="ab-page-photo ab-page-photo--full"
-                            draggable={false}
-                            style={photoTransformStyle(transform)}
-                        />
-                    ) : (
-                        <div className="ab-page-empty" aria-hidden />
-                    )}
-                </div>
             </div>
         );
     }

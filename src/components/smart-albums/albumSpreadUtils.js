@@ -191,6 +191,11 @@ export function isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts = {}) {
     return info != null && leftPage === info.left;
 }
 
+export function isPreBackHalfSpreadRightPage(pageNum, totalPages, opts = {}) {
+    const info = getPreBackHalfSpreadInfo(totalPages, opts);
+    return info != null && pageNum === info.right;
+}
+
 export function getPreBackSpreadPageRole(pageNum, totalPages, opts = {}) {
     const info = getPreBackHalfSpreadInfo(totalPages, opts);
     if (!info) return null;
