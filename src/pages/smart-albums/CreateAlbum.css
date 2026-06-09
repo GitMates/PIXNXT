@@ -3,6 +3,8 @@
 /* Slightly larger type, fields, and previews on the create-album flow */
 .sa-create-page {
   background: #f8f7fb;
+  min-height: 100vh;
+  overflow-y: auto;
 }
 
 .sa-create-page .cc-header-title {

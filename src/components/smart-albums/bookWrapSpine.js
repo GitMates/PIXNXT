@@ -9,14 +9,21 @@ import { photoTransformStyle } from './albumPageTransforms';
 function resolveWrapAspect(album) {
     const pageAspect = parseGridSizeAspect(album?.grid_size);
     const innerSpreadAspect = pageAspect * 2;
+
+    // Blank covers: spread_grid_size tracks inner whole-spread photos, not the wider wrap.
+    if (album?.blank_covers === true) {
+        const baseWrap = blankCoverWrapAspect(album?.grid_size);
+        if (album?.__wrap_aspect > 0) {
+            return Math.max(baseWrap, album.__wrap_aspect);
+        }
+        return baseWrap;
+    }
+
     const spreadKey =
         album?.spread_grid_size ??
         spreadGridSizeFromPageGrid(album?.grid_size, album?.grid_layout);
     if (spreadKey) return parseGridSizeAspect(spreadKey);
     if (album?.__wrap_aspect > 0) return album.__wrap_aspect;
-    if (album?.blank_covers === true) {
-        return blankCoverWrapAspect(album?.grid_size);
-    }
     return innerSpreadAspect;
 }
 

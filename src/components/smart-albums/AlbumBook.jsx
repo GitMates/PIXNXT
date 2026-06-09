@@ -45,7 +45,6 @@ import {
     removePhotoPin,
 } from './albumPhotoPins';
 import './AlbumBook.css';
-import './coverTextMessage.css';
 import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';

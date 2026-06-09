@@ -244,7 +244,12 @@ export default function AlbumEditor({
     const [wrapAspect, setWrapAspect] = useState(null);
 
     useEffect(() => {
-        if (!album?.has_covers || album?.spread_grid_size || !albumId) {
+        if (!album?.has_covers || !albumId) {
+            setWrapAspect(null);
+            return undefined;
+        }
+        const blankCovers = albumHasBlankCovers(album);
+        if (!blankCovers && album?.spread_grid_size) {
             setWrapAspect(null);
             return undefined;
         }
@@ -260,7 +265,16 @@ export default function AlbumEditor({
         return () => {
             cancelled = true;
         };
-    }, [album, albumId, album?.has_covers, album?.spread_grid_size, photoRevision, photoLayoutRev, transformRevision]);
+    }, [
+        album,
+        albumId,
+        album?.has_covers,
+        album?.blank_covers,
+        album?.spread_grid_size,
+        photoRevision,
+        photoLayoutRev,
+        transformRevision,
+    ]);
 
     const albumForBook = useMemo(
         () => ({
