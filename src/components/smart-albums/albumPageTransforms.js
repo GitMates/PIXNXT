@@ -119,8 +119,7 @@ export function getTransformRevision(albumId) {
     return readAll()[albumId]?.__revision ?? 0;
 }
 
-/** Match {@link migrateMiskeyedInnerSpreadPhotos} for pan/zoom on whole-spread slots. */
-/** Move spread:1 pan/zoom to page 2 for inside-cover albums. */
+/** Move spread:1 / page-2 pan/zoom to page 3 for inside-cover albums. */
 export function migrateInsideCoverSpreadTransform(albumId) {
     if (!albumId) return false;
 
@@ -129,14 +128,19 @@ export function migrateInsideCoverSpreadTransform(albumId) {
     if (!album) return false;
 
     const spreadKey = spreadTransformKey(1);
-    const spreadT = album[spreadKey];
-    if (spreadT == null) return false;
+    const spreadKey2 = spreadTransformKey(2);
+    const spreadT = album[spreadKey] ?? album[spreadKey2];
+    const pageTwoT = album['2'];
+    const source = spreadT ?? pageTwoT;
+    if (source == null) return false;
 
     const next = { ...album };
-    if (next['2'] == null) {
-        next['2'] = spreadT;
+    if (next['3'] == null) {
+        next['3'] = source;
     }
+    delete next['2'];
     delete next[spreadKey];
+    delete next[spreadKey2];
     next.__revision = (next.__revision || 0) + 1;
     all[albumId] = next;
     writeAll(all);

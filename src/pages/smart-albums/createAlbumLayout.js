@@ -63,20 +63,21 @@ export function computePageCountFromPhotoCount(
         if (blankCovers) {
             if (whole) {
                 pages = Math.max(MIN_ALBUM_PAGES, 2 + 2 * n + 2);
+            } else if (n <= 1) {
+                pages = 6;
             } else {
-                const innerSpreadPages = 2 * Math.ceil(n / 2);
-                pages = Math.max(MIN_ALBUM_PAGES, 4 + innerSpreadPages);
+                pages = Math.max(MIN_ALBUM_PAGES, n + 6);
             }
         } else if (whole) {
             // Front (2) + inner spreads (n−1 photos) + back (2).
             pages = Math.max(MIN_ALBUM_PAGES, 2 * n + 2);
         } else if (n === 1) {
             pages = 4;
+        } else if (n === 2) {
+            pages = 6;
         } else {
-            // Front (2) + inner balance (n−1 photos) + back (2).
-            const innerCount = Math.max(0, n - 1);
-            const innerSpreadPages = 2 * Math.ceil(innerCount / 2);
-            pages = Math.max(MIN_ALBUM_PAGES, 4 + innerSpreadPages);
+            // Front (2) + inside half (2) + middle (n−3) + pre-back (2) + back (2).
+            pages = Math.max(MIN_ALBUM_PAGES, n + 5);
         }
     } else if (whole) {
         pages = Math.max(2, n * 2);

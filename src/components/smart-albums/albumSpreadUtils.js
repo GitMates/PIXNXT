@@ -13,9 +13,13 @@ function minPageCountForCovers(photoCount, gridLayout = 'two-page', blankCovers 
         }
         return Math.max(4, 2 * n + 2);
     }
+    if (blankCovers) {
+        if (n <= 1) return 6;
+        return Math.max(6, n + 6);
+    }
     if (n === 1) return 4;
-    const innerCount = Math.max(0, n - 1);
-    return Math.max(4, 4 + 2 * Math.ceil(innerCount / 2));
+    if (n === 2) return 6;
+    return Math.max(6, n + 5);
 }
 
 /** True when the album uses front + back cover spreads (book wrap or blank). */
@@ -144,110 +148,55 @@ export function isBackCoverSpreadLeft(spreadLeftPage, totalPages, opts = {}) {
     return spreadLeftPage === left;
 }
 
-/** Left page index of the inner half-spread immediately before the back-cover spread. */
-export function getPreBackHalfSpreadLeftPage(totalPages, opts = {}) {
+/** Inside-cover spread (pages 2|3): left page stays blank. */
+export function isInsideCoverSpreadLeft(spreadLeftPage, totalPagesOrOpts, maybeOpts) {
+    const opts =
+        typeof totalPagesOrOpts === 'object' && totalPagesOrOpts != null
+            ? totalPagesOrOpts
+            : maybeOpts ?? {};
+    return (opts.hasCovers ?? opts.showCover) === true && spreadLeftPage === 2;
+}
+
+/** Page 2 — blank left half of the inside-cover spread. */
+export function isInsideCoverLeftPage(pageNum, totalPagesOrOpts, maybeOpts) {
+    const opts =
+        typeof totalPagesOrOpts === 'object' && totalPagesOrOpts != null
+            ? totalPagesOrOpts
+            : maybeOpts ?? {};
+    return (opts.hasCovers ?? opts.showCover) === true && pageNum === 2;
+}
+
+/** Page 3 — first inner photo beside the blank inside-cover left page. */
+export function isInsideCoverRightPage(pageNum, totalPagesOrOpts, maybeOpts) {
+    const opts =
+        typeof totalPagesOrOpts === 'object' && totalPagesOrOpts != null
+            ? totalPagesOrOpts
+            : maybeOpts ?? {};
+    return (opts.hasCovers ?? opts.showCover) === true && pageNum === 3;
+}
+
+/** Spread before the back cover: left photo, right blank. */
+export function getPreBackHalfSpreadInfo(totalPages, opts = {}) {
     const spreadOpts = normalizeSpreadOpts(opts);
-    if (!usesReservedEndSpread(totalPages, spreadOpts)) return null;
-    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
-    if (endLeft < 2) return null;
-    return endLeft - 2;
+    if (!spreadOpts.hasCovers || totalPages < 6) return null;
+    const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
+    const preBackIdx = totalSpreads - 2;
+    if (preBackIdx <= 1) return null;
+    const { left, right } = getSpreadPages(preBackIdx, totalPages, spreadOpts);
+    return { spreadIndex: preBackIdx, left, right };
 }
 
-/**
- * Role for the inner half-spread before the back cover (last photo left, right blank).
- * @returns {'half-left' | 'half-blank' | null}
- */
-export function getPreBackHalfSpreadPageRole(pageNum, totalPages, opts = {}) {
-    const preBackLeft = getPreBackHalfSpreadLeftPage(totalPages, opts);
-    if (preBackLeft == null || pageNum < 0) return null;
-    if (pageNum === preBackLeft) return 'half-left';
-    if (pageNum === preBackLeft + 1) return 'half-blank';
-    return null;
-}
-
-/** Right page of the inner half-spread before the back cover (always blank). */
-export function isPreBackHalfSpreadRightPage(pageNum, totalPages, opts = {}) {
-    return getPreBackHalfSpreadPageRole(pageNum, totalPages, opts) === 'half-blank';
-}
-
-/** Whether a spread left page is the pre-back inner half-spread (last photo slot). */
 export function isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts = {}) {
-    const preBackLeft = getPreBackHalfSpreadLeftPage(totalPages, opts);
-    return preBackLeft != null && leftPage === preBackLeft;
+    const info = getPreBackHalfSpreadInfo(totalPages, opts);
+    return info != null && leftPage === info.left;
 }
 
-/**
- * Page indices for two-page grid inner photos (collection order).
- * Book wrap: photo 1 → cover; photo 2 → page 2; middle → sequential; last → pre-back left.
- * Blank covers: photo 1 → page 2; middle → sequential; last → pre-back left.
- */
-export function enumerateTwoPageInnerPhotoPages(
-    photoCount,
-    totalPages,
-    { bookWrap = false, blankCovers = false } = {}
-) {
-    const n = Math.max(0, Math.floor(Number(photoCount) || 0));
-    if (n === 0 || totalPages <= 0) return [];
-
-    const spreadOpts = { showCover: true, hasCovers: true, blankCovers };
-    const preBackLeft = getPreBackHalfSpreadLeftPage(totalPages, spreadOpts);
-    const pages = [];
-    const maxMiddlePage = preBackLeft != null ? preBackLeft - 1 : totalPages - 1;
-
-    const pushMiddlePages = (middleCount) => {
-        if (middleCount <= 0) return;
-        let page = 3;
-        for (let i = 0; i < middleCount && page <= maxMiddlePage; i += 1) {
-            pages.push(page);
-            page += 1;
-        }
-    };
-
-    if (bookWrap) {
-        if (n === 1) return pages;
-        pages.push(2);
-        if (n === 2) return pages;
-        pushMiddlePages(n - 3);
-        if (preBackLeft != null) pages.push(preBackLeft);
-        return pages;
-    }
-
-    if (blankCovers) {
-        if (n === 1) return [2];
-        pages.push(2);
-        if (n === 2) {
-            if (preBackLeft != null) pages.push(preBackLeft);
-            return pages;
-        }
-        pushMiddlePages(n - 2);
-        if (preBackLeft != null) pages.push(preBackLeft);
-        return pages;
-    }
-
-    return pages;
-}
-
-/** First inner spread (pages 1|2): left is inside cover — never panoramic / whole-spread. */
-export function isInsideCoverSpreadLeft(spreadLeftPage, totalPages, { showCover = true } = {}) {
-    return showCover === true && (spreadLeftPage === 1 || spreadLeftPage === 2);
-}
-
-/** Page 2 — first photo page beside the blank inside cover (page 1). */
-export function isInsideCoverRightPage(pageNum, totalPages, { showCover = true } = {}) {
-    return showCover === true && pageNum === 2;
-}
-
-/** First inner spread after the cover — half layout (blank left, photo on page 2). */
-export function isInsideCoverSpreadIndex(spreadIndex, { hasCovers, showCover } = {}) {
-    return hasCovers === true && showCover === true && spreadIndex === 1;
-}
-
-/** Inner half-spread immediately before the back cover (last photo left, right blank). */
-export function isPreBackHalfSpreadIndex(spreadIndex, totalPages, opts = {}) {
-    const spreadOpts = normalizeSpreadOpts(opts);
-    if (!usesReservedEndSpread(totalPages, spreadOpts)) return false;
-    const lastIdx = getTotalSpreads(totalPages, spreadOpts) - 1;
-    return spreadIndex === lastIdx - 1 && getPreBackHalfSpreadLeftPage(totalPages, spreadOpts) != null;
+export function getPreBackSpreadPageRole(pageNum, totalPages, opts = {}) {
+    const info = getPreBackHalfSpreadInfo(totalPages, opts);
+    if (!info) return null;
+    if (pageNum === info.right) return 'half-blank';
+    if (pageNum === info.left) return 'half-left';
+    return null;
 }
 
 export function getSpreadPages(spreadIndex, totalPages, opts = {}) {
@@ -264,25 +213,12 @@ export function getSpreadPages(spreadIndex, totalPages, opts = {}) {
         return { left: 0, right: Math.min(1, totalPages - 1) };
     }
 
-    if (hasCovers && showCover && spreadIndex === 1) {
-        return { left: 2, right: Math.min(2, totalPages - 1), insideCoverHalf: true };
-    }
-
     if (usesReservedEndSpread(totalPages, spreadOpts) && spreadIndex === lastIdx) {
         return getEndSpreadPageIndices(totalPages);
     }
 
-    if (isPreBackHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) {
-        const preBackLeft = getPreBackHalfSpreadLeftPage(totalPages, spreadOpts);
-        return {
-            left: preBackLeft,
-            right: Math.min(preBackLeft + 1, totalPages - 1),
-            preBackHalf: true,
-        };
-    }
-
-    // Inner full spreads: 3|4, 5|6, … (spread 0 = front cover, spread 1 = inside-cover half).
-    const left = hasCovers && showCover ? spreadIndex * 2 - 1 : spreadIndex * 2;
+    // Inner spreads: 2|3, 4|5, … (spread 0 = front cover 0|1).
+    const left = hasCovers && showCover ? spreadIndex * 2 : spreadIndex * 2;
     const maxInnerRight = usesReservedEndSpread(totalPages, spreadOpts)
         ? totalPages - RESERVED_END_PAGES - 1
         : totalPages - 1;
@@ -314,20 +250,14 @@ export function pageToSpreadIndex(pageIndex, opts = {}) {
 
     if (!hasCovers) return Math.max(0, Math.floor(pageIndex / 2));
     if (showCover && pageIndex <= 1) return 0;
-    if (showCover && pageIndex === 2) return 1;
     if (usesReservedEndSpread(totalPages, spreadOpts)) {
         const { left: endLeft } = getEndSpreadPageIndices(totalPages);
-        const preBackLeft = getPreBackHalfSpreadLeftPage(totalPages, spreadOpts);
         if (pageIndex >= endLeft) {
             return getTotalSpreads(totalPages, spreadOpts) - 1;
         }
-        if (preBackLeft != null && pageIndex >= preBackLeft) {
-            return getTotalSpreads(totalPages, spreadOpts) - 2;
-        }
     }
     if (!showCover) return Math.max(0, Math.floor(pageIndex / 2));
-    if (pageIndex >= 3) return Math.floor((pageIndex - 3) / 2) + 2;
-    return 1;
+    return Math.floor((pageIndex - 2) / 2) + 1;
 }
 
 /** Map spread index → book page index (left page of spread in flipbook) */
@@ -337,17 +267,12 @@ export function spreadIndexToPage(spreadIndex, opts = {}) {
     const spreadOpts = { showCover, hasCovers };
 
     if (hasCovers && showCover && spreadIndex <= 0) return 0;
-    if (hasCovers && showCover && spreadIndex === 1) return 2;
     const lastIdx = getTotalSpreads(totalPages, spreadOpts) - 1;
-    if (isPreBackHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) {
-        return getPreBackHalfSpreadLeftPage(totalPages, spreadOpts) ?? 0;
-    }
     if (usesReservedEndSpread(totalPages, spreadOpts) && spreadIndex === lastIdx) {
         return getEndSpreadPageIndices(totalPages).left;
     }
     if (!hasCovers || !showCover) return Math.max(0, spreadIndex * 2);
-    if (spreadIndex >= 2) return Math.max(0, spreadIndex * 2 - 1);
-    return 2;
+    return Math.max(0, spreadIndex * 2);
 }
 
 /** Last spread indices — always the reserved end-cover spread when enabled. */
@@ -414,15 +339,14 @@ export function isAutoPlacePhotoPage(pageNum, totalPages, opts = {}) {
     if (pageNum < 0 || pageNum >= totalPages) return false;
     const spreadOpts = normalizeSpreadOpts(opts);
     if (!spreadOpts.hasCovers) return true;
+    if (isInsideCoverLeftPage(pageNum, spreadOpts)) return false;
+    if (getPreBackSpreadPageRole(pageNum, totalPages, spreadOpts) === 'half-blank') return false;
+    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+    if (pageNum >= endLeft) return false;
     if (spreadOpts.blankCovers) {
         if (isCoverInsidePage(pageNum, totalPages, spreadOpts)) return false;
         if (pageNum === 1) return false;
     }
-    const preBackRole = getPreBackHalfSpreadPageRole(pageNum, totalPages, spreadOpts);
-    if (preBackRole === 'half-blank') return false;
-    const role = getEndSpreadPageRole(pageNum, totalPages, spreadOpts);
-    if (role === 'half-blank') return false;
-    if (spreadOpts.blankCovers && role === 'half-left') return false;
     return true;
 }
 
@@ -459,8 +383,10 @@ export function enumerateAutoPlacePageTargets(
         return targets;
     }
 
-    if (spreadOpts.hasCovers && spreadOpts.blankCovers) {
-        for (const page of enumerateTwoPageInnerPhotoPages(999, totalPages, { blankCovers: true })) {
+    if (spreadOpts.hasCovers) {
+        for (const page of enumerateCoverTwoPagePageTargets(totalPages, {
+            blankCovers: spreadOpts.blankCovers,
+        })) {
             pushPage(page);
         }
         return targets;
@@ -492,40 +418,56 @@ export function enumerateAutoPlacePageTargets(
 }
 
 /**
- * Placement slots for cover albums: photo 1 → book wrap (front right + back left),
- * photos 2…n → inner pages only.
- * @returns {Array<{ type: 'book-wrap' | 'spread', leftPage: number, rightPage: number } | { type: 'page', pageNum: number }>}
+ * Ordered page targets for two-page cover albums (inside + middle + pre-back slots).
+ * Book wrap: photo 1 uses spread:0; pages listed here start at photo 2.
+ * Blank covers: photo 1 on page 3; pages listed here match collection order.
  */
-export function enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayout = 'two-page' } = {}) {
+export function enumerateCoverTwoPagePageTargets(totalPages, { blankCovers = false } = {}) {
+    if (totalPages <= 0) return [];
+    const spreadOpts = { showCover: true, hasCovers: true, blankCovers };
+    const pages = [];
+    const preBack = getPreBackHalfSpreadInfo(totalPages, spreadOpts);
+    const preBackLeft = preBack?.left;
+    const middleEnd = preBackLeft != null ? preBackLeft - 1 : totalPages - 3;
+
+    pages.push(3);
+    for (let page = 4; page <= middleEnd; page += 1) {
+        pages.push(page);
+    }
+    if (preBackLeft != null) {
+        pages.push(preBackLeft);
+    }
+
+    return pages.filter((page) => isAutoPlacePhotoPage(page, totalPages, spreadOpts));
+}
+
+/**
+ * Placement slots for two-page cover albums in collection order.
+ * Book wrap: photo 1 → wrap; photo 2 → page 3; middle photos → pages 4…; last → pre-back left.
+ * Blank covers: photo 1 → page 3; middle → pages 4…; last → pre-back left.
+ */
+export function enumerateCoverTwoPagePlacements(
+    photoCount,
+    totalPages,
+    { blankCovers = false } = {}
+) {
     const n = Math.max(0, Math.floor(Number(photoCount) || 0));
     if (n === 0 || totalPages <= 0) return [];
 
-    const spreadOpts = { showCover: true, hasCovers: true, totalPages };
-    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
     const slots = [];
+    const pageTargets = enumerateCoverTwoPagePageTargets(totalPages, { blankCovers });
+    const minPhotosForPreBack = blankCovers ? 2 : 3;
+    const usableTargets =
+        n >= minPhotosForPreBack ? pageTargets : pageTargets.filter((page) => {
+              const preBack = getPreBackHalfSpreadInfo(totalPages, {
+                  showCover: true,
+                  hasCovers: true,
+                  blankCovers,
+              });
+              return preBack == null || page !== preBack.left;
+          });
 
-    if (isWholeSpreadLayout(gridLayout)) {
-        for (let i = 0; i < n; i += 1) {
-            if (i === 0) {
-                slots.push({
-                    type: 'book-wrap',
-                    leftPage: 0,
-                    rightPage: Math.min(1, totalPages - 1),
-                });
-                continue;
-            }
-            const leftPage = 2 + (i - 1) * 2;
-            if (leftPage >= endLeft) break;
-            slots.push({
-                type: 'spread',
-                leftPage,
-                rightPage: Math.min(leftPage + 1, totalPages - 1),
-            });
-        }
-        return slots;
-    }
-
-    if (n >= 1) {
+    if (!blankCovers && n >= 1) {
         slots.push({
             type: 'book-wrap',
             leftPage: 0,
@@ -533,10 +475,47 @@ export function enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayo
         });
     }
 
-    for (const pageNum of enumerateTwoPageInnerPhotoPages(n, totalPages, { bookWrap: true })) {
+    const pageSlots = usableTargets.slice(0, blankCovers ? n : Math.max(0, n - 1));
+    for (const pageNum of pageSlots) {
         slots.push({ type: 'page', pageNum });
     }
 
+    return slots;
+}
+
+/**
+ * Placement slots for cover albums: photo 1 → book wrap (front right + back left),
+ * photos 2…n → inner pages only.
+ * @returns {Array<{ type: 'book-wrap' | 'spread', leftPage: number, rightPage: number } | { type: 'page', pageNum: number }>}
+ */
+export function enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayout = 'two-page', blankCovers = false } = {}) {
+    const n = Math.max(0, Math.floor(Number(photoCount) || 0));
+    if (n === 0 || totalPages <= 0) return [];
+
+    if (!isWholeSpreadLayout(gridLayout)) {
+        return enumerateCoverTwoPagePlacements(n, totalPages, { blankCovers });
+    }
+
+    const spreadOpts = { showCover: true, hasCovers: true, totalPages };
+    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+    const slots = [];
+    for (let i = 0; i < n; i += 1) {
+        if (i === 0) {
+            slots.push({
+                type: 'book-wrap',
+                leftPage: 0,
+                rightPage: Math.min(1, totalPages - 1),
+            });
+            continue;
+        }
+        const leftPage = 2 + (i - 1) * 2;
+        if (leftPage >= endLeft) break;
+        slots.push({
+            type: 'spread',
+            leftPage,
+            rightPage: Math.min(leftPage + 1, totalPages - 1),
+        });
+    }
     return slots;
 }
 
@@ -573,15 +552,19 @@ export function enumerateCollectionPlacementPages(
     }
 
     if (spreadOpts.blankCovers) {
-        return enumerateTwoPageInnerPhotoPages(n, totalPages, { blankCovers: true }).slice(0, n);
+        return enumerateCoverTwoPagePageTargets(totalPages, { blankCovers: true }).slice(0, n);
     }
 
-    return enumerateCoverAlbumPlacements(n, totalPages, { gridLayout })
+    return enumerateCoverAlbumPlacements(n, totalPages, { gridLayout, blankCovers: false })
         .filter((slot) => slot.type === 'page')
         .map((slot) => slot.pageNum);
 }
 
 /** Cover placement slots (spread or page) in collection order — use in autoPlace. */
-export function enumerateCoverCollectionPlacements(photoCount, totalPages, { gridLayout = 'two-page' } = {}) {
-    return enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayout });
+export function enumerateCoverCollectionPlacements(
+    photoCount,
+    totalPages,
+    { gridLayout = 'two-page', blankCovers = false } = {}
+) {
+    return enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayout, blankCovers });
 }

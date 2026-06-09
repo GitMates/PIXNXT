@@ -102,23 +102,6 @@
   flex: 0 0 auto;
 }
 
-/* Center seam on book block (outside flipbook clip) — toggled by React, not cover CSS. */
-.ab-spread-center-seam {
-  position: absolute;
-  top: 0;
-  left: calc(50% - 1px);
-  width: 2px;
-  height: 100%;
-  pointer-events: none;
-  z-index: 26;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.35) 50%,
-    rgba(0, 0, 0, 0.1) 100%
-  );
-}
-
 .ab-spread-display > .ab-spread-controls {
   position: static;
   align-self: flex-end;
@@ -281,14 +264,14 @@
   transition: none;
 }
 
-.ab-flipbook-wrap--front-cover-only .stf__item:has(.ab-flip-page--half-blank) {
+.ab-flipbook-wrap--front-cover-only .stf__item:has(.ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank)) {
   pointer-events: none !important;
 }
 
 .ab-flipbook-wrap--front-cover-only:not(.ab-flipbook-wrap--flipping)
-  .ab-flip-page--half-blank,
+  .ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank),
 .ab-flipbook-wrap--front-cover-only:not(.ab-flipbook-wrap--flipping)
-  .ab-flip-page--half-blank
+  .ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank)
   .ab-page-empty {
   visibility: hidden;
   background: transparent;
@@ -320,8 +303,14 @@
   clip-path: inset(0 0 0 0);
 }
 
-.ab-flipbook-wrap--end-cover-only .stf__item:has(.ab-flip-page--half-blank) {
+.ab-flipbook-wrap--end-cover-only .stf__item:has(.ab-flip-page--half-blank:not(.ab-flip-page--pre-back-blank)) {
   pointer-events: none !important;
+}
+
+.ab-flip-page--pre-back-blank,
+.ab-flip-page--pre-back-blank .ab-page-empty {
+  visibility: visible;
+  background: #fff;
 }
 
 .ab-html-flipbook {
@@ -461,41 +450,10 @@
   background: #fff;
 }
 
-/* Inner half-spread blank (pre-back right): not clipped/hidden by cover spreads. */
-.ab-flip-page--inner-half-blank {
+.ab-flip-page--inside-cover-blank,
+.ab-flip-page--inside-cover-blank .ab-page-empty {
+  visibility: visible;
   background: #fff;
-}
-
-/* Center seam on half-spread pages (inside cover, pre-back). */
-.ab-flip-page--spread-seam-right::after,
-.ab-flip-page--spread-seam-left::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  width: 2px;
-  height: 100%;
-  pointer-events: none;
-  z-index: 7;
-}
-
-.ab-flip-page--spread-seam-right::after {
-  right: -1px;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.35) 50%,
-    rgba(0, 0, 0, 0.1) 100%
-  );
-}
-
-.ab-flip-page--spread-seam-left::before {
-  left: -1px;
-  background: linear-gradient(
-    to left,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.35) 50%,
-    rgba(0, 0, 0, 0.1) 100%
-  );
 }
 
 .ab-flip-page--single-photo {
@@ -684,7 +642,7 @@
   background: #fff;
 }
 
-/* Page-level seam backup on grid left pages (persists if overlay is occluded). */
+/* Subtle transparent center seam between left/right spread pages */
 .ab-flip-page--grid-left .ab-page-grid::after {
   content: '';
   position: absolute;
