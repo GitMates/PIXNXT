@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check } from 'lucide-react';
+import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
 import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
@@ -31,6 +31,13 @@ const PRODUCT_DETAILS_MAP = {
       { name: "Corner Profile", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/dibondprints_evkz/lowres/bayphoto-dibond-3.jpg" },
       { name: "Wall Hanging", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/dibondprints_evkz/lowres/bayphoto-dibond-4.jpg" },
       { name: "Back Hanger", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/dibondprints_evkz/lowres/bayphoto-dibond-5.jpg" }
+    ],
+    matteDetails: [
+      { name: "Matte View 1", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1001/specs/dibondprints_mluz/thumbs/sim-dibond-1.jpg" },
+      { name: "Matte View 2", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1001/specs/dibondprints_mluz/thumbs/sim-dibond-3a.jpg" },
+      { name: "Matte View 3", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1001/specs/dibondprints_mluz/thumbs/sim-dibond-2.jpg" },
+      { name: "Matte View 4", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1001/specs/dibondprints_mluz/thumbs/sim-dibond-4.jpg" },
+      { name: "Matte View 5", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1001/specs/dibondprints_mluz/thumbs/sim-dibond-6.jpg" }
     ]
   },
   matted_frame: {
@@ -188,6 +195,19 @@ const PRODUCT_DETAILS_MAP = {
       { name: "Print Close", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_matte/thumbs/prints_matte00003.webp" },
       { name: "Paper Sample", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_matte/thumbs/prints_matte00001.webp" }
     ]
+  },
+  print_pack: {
+    heroImage: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/printpack_std/lowres/pdp_s_print-pack_01.webp",
+    roomBackground: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_small07.webp?ts=1780585829",
+    subtitle: "Photo Collection",
+    featureTitle: "Photo Collection",
+    featureDesc: "A meaningful way to relive your moments, this set features 24 unique prints made of thick, quality paper with a simple white border.",
+    details: [
+      { name: "Pack 1", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/printpack_std/thumbs/digitalab-print%20pack1webp.webp" },
+      { name: "Pack 2", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/printpack_std/thumbs/digitalab-print%20pack2.webp" },
+      { name: "Pack 3", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/printpack_std/thumbs/digitalab-print%20pack3.webp" },
+      { name: "Pack 4", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/printpack_std/thumbs/digitalab-print%20pack4.webp" }
+    ]
   }
 };
 
@@ -209,6 +229,10 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
 
   const [selectedSize, setSelectedSize] = useState(MOCK_SIZES[0]);
   const [selectedPaper, setSelectedPaper] = useState(MOCK_PAPERS[0]);
+  const [isSizeDropdownOpen, setIsSizeDropdownOpen] = useState(false);
+  const sizeDropdownRef = useRef(null);
+  const [isPaperDropdownOpen, setIsPaperDropdownOpen] = useState(false);
+  const paperDropdownRef = useRef(null);
   const [selectedFrame, setSelectedFrame] = useState(
     product.id === 'float_frames' ? MOCK_FRAMES[5] : MOCK_FRAMES.find(f => f.id === 'frame_light_wood') || MOCK_FRAMES[0]
   );
@@ -245,6 +269,21 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     }
   }, []);
 
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (sizeDropdownRef.current && !sizeDropdownRef.current.contains(event.target)) {
+        setIsSizeDropdownOpen(false);
+      }
+      if (paperDropdownRef.current && !paperDropdownRef.current.contains(event.target)) {
+        setIsPaperDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const currentPrice = product.basePrice + selectedSize.priceModifier + selectedPaper.priceModifier + ((product.id.includes('frame') || product.id.includes('collage')) && product.id !== 'panoramic_prints' ? selectedFrame.priceModifier : 0);
 
   const toggleAccordion = (section) => {
@@ -272,13 +311,101 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     });
   };
 
+  const isLargeSize = selectedSize && !['size_20x20', 'size_20x25', 'size_20x30', 'size_25x25'].includes(selectedSize.id);
+  const isExtraLargeSize = selectedSize && ['size_50x60', 'size_51x76', 'size_60x90', 'size_76x102'].includes(selectedSize.id);
+  const currentRoomBackground = (product.id === 'dibond' && isLargeSize) 
+    ? "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_medium02.webp?ts=1780585829" 
+    : details.roomBackground;
+
   const getActivePreviewUrl = () => {
-    if (activePreviewType === 'room') return details.roomBackground;
+    if (activePreviewType === 'room') return currentRoomBackground;
     const idx = parseInt(activePreviewType.split('-')[1]);
-    return details.details[idx]?.url || details.roomBackground;
+    const activeDetails = (product.id === 'dibond' && selectedPaper?.id === 'paper_matte' && details.matteDetails)
+      ? details.matteDetails
+      : details.details;
+    return activeDetails[idx]?.url || currentRoomBackground;
   };
 
   const hasFrameOptions = (product.id.includes('frame') || product.id.includes('collage') || product.id === 'frames') && product.id !== 'panoramic_prints';
+
+  const sizeMatch = selectedSize?.label?.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+  const currentWidthCm = sizeMatch ? parseFloat(sizeMatch[1]) : 20;
+  const currentHeightCm = sizeMatch ? parseFloat(sizeMatch[2]) : 30;
+  const currentAspect = currentWidthCm / currentHeightCm;
+
+  const baseWidths = {
+    gallery_board: 25,
+    canvas: 30,
+    circular_frames: 20,
+    float_frames: 20,
+    prints: 13,
+    deckled_prints: 13,
+    matted_frame: 20,
+    frames: 20
+  };
+  let baseWidthCm = baseWidths[product.id] || 20;
+  if (product.id === 'dibond' && isExtraLargeSize) {
+    baseWidthCm = 50;
+  } else if (product.id === 'dibond' && isLargeSize) {
+    baseWidthCm = 25;
+  }
+  const sizeScaleFactor = (product.id === 'print_pack' || product.id === 'matted_collages') ? 1 : (currentWidthCm / baseWidthCm);
+
+  // Positioning variables for the composition container
+  let containerLeft = '14.0089%';
+  let containerTop = '15.2589%';
+  let containerWidth = '18.6422%';
+  let containerHeight = 'auto';
+
+  if (product.id === 'print_pack') {
+    containerLeft = '58.2977%';
+    containerTop = '38.4373%';
+    containerWidth = '18.0647%';
+    containerHeight = '26.8654%';
+  } else if (product.id === 'matted_frame' || product.id === 'matted_collages') {
+    containerLeft = '15.15%';
+    containerTop = '12.05%';
+    containerWidth = '16.31%';
+    containerHeight = product.id === 'matted_collages' ? '34.57%' : 'auto';
+  } else if (product.id === 'gallery_board') {
+    containerLeft = '57.0731%';
+    containerTop = '20.8875%';
+    containerWidth = '14.8538%';
+  } else if (product.id === 'canvas') {
+    containerLeft = '9.05706%';
+    containerTop = '7.76236%';
+    containerWidth = '28.5459%';
+  } else if (product.id === 'circular_frames') {
+    containerLeft = '58.2614%';
+    containerTop = '26.0121%';
+    containerWidth = '12.4772%';
+  } else if (product.id === 'float_frames') {
+    containerLeft = '14.0089%';
+    containerTop = '11.7311%';
+    containerWidth = '18.6422%';
+  } else if (product.id === 'prints' || product.id === 'deckled_prints') {
+    containerLeft = '38.1825%';
+    containerTop = product.id === 'prints' ? '39.6483%' : '40.8464%';
+    containerWidth = '15.875%';
+  } else if (product.id === 'panoramic_prints') {
+    containerLeft = '26%';
+    containerTop = '10%';
+    containerWidth = '13%';
+  } else if (product.id === 'dibond') {
+    if (isExtraLargeSize) {
+      containerLeft = '50%';
+      containerTop = selectedSize?.id === 'size_76x102' ? '26%' : '18%';
+      containerWidth = '22%';
+    } else if (isLargeSize) {
+      containerLeft = '57.0731%';
+      containerTop = '20.8875%';
+      containerWidth = '14.8538%';
+    } else {
+      containerLeft = '14.0089%';
+      containerTop = '15.2589%';
+      containerWidth = '18.6422%';
+    }
+  }
 
   return (
     <div className="pdp-products-page">
@@ -433,19 +560,23 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                 <div className="media-set__preview" style={{ position: 'relative' }}>
                   {isRoomPreview ? (
                     <div 
-                      className="media-set-preview" 
+                      className="media-set-preview media-set-preview--animated" 
+                      key={product.id === 'matted_collages' ? selectedWall.url : currentRoomBackground}
                       style={{ 
-                        backgroundImage: `url(${product.id === 'matted_collages' ? selectedWall.url : details.roomBackground})`, 
+                        backgroundImage: `url(${product.id === 'matted_collages' ? selectedWall.url : currentRoomBackground})`, 
                         backgroundSize: 'cover', 
                         backgroundPosition: 'center' 
                       }}
                     >
                       <div ref={containerRef} className="media-set-preview__composition-container" style={{ 
-                        left: (product.id === 'matted_frame' || product.id === 'matted_collages') ? '15.15%' : product.id === 'gallery_board' ? '69.5443%' : product.id === 'canvas' ? '9.05706%' : product.id === 'circular_frames' ? '58.2614%' : product.id === 'float_frames' ? '14.0089%' : product.id === 'prints' ? '38.1825%' : product.id === 'deckled_prints' ? '38.1825%' : product.id === 'panoramic_prints' ? '26%' : '14.0089%', 
-                        top: (product.id === 'matted_frame' || product.id === 'matted_collages') ? '12.05%' : product.id === 'gallery_board' ? '20.5828%' : product.id === 'canvas' ? '7.76236%' : product.id === 'circular_frames' ? '26.0121%' : product.id === 'float_frames' ? '11.7311%' : product.id === 'prints' ? '39.6483%' : product.id === 'deckled_prints' ? '40.8464%' : product.id === 'panoramic_prints' ? '10%' : '15.2589%', 
-                        width: (product.id === 'matted_frame' || product.id === 'matted_collages') ? '16.31%' : product.id === 'gallery_board' ? '11.6514%' : product.id === 'canvas' ? '28.5459%' : product.id === 'circular_frames' ? '12.4772%' : product.id === 'float_frames' ? '18.6422%' : product.id === 'prints' ? '15.875%' : product.id === 'deckled_prints' ? '15.875%' : product.id === 'panoramic_prints' ? '13%' : '18.6422%', 
-                        height: product.id === 'panoramic_prints' ? 'auto' : (product.id === 'matted_frame' || product.id === 'matted_collages') ? '34.57%' : product.id === 'gallery_board' ? '24.6944%' : product.id === 'canvas' ? '43.2153%' : product.id === 'circular_frames' ? '18.7158%' : product.id === 'float_frames' ? '35.2778%' : product.id === 'prints' ? '35.9434%' : product.id === 'deckled_prints' ? '33.5472%' : '28.2222%', 
-                        position: 'absolute' 
+                        left: containerLeft, 
+                        top: containerTop, 
+                        width: containerWidth, 
+                        height: containerHeight, 
+                        position: 'absolute',
+                        transform: `scale(${sizeScaleFactor})`,
+                        transformOrigin: 'bottom center',
+                        transition: 'transform 0.3s ease-in-out'
                       }}>
                         {product.id === 'matted_collages' ? (
                           /* DYNAMICALLY CALCULATED AND RESPONSIVE MATTED FRAMES COLLAGE ACCORDING TO SCREEN MATRIX */
@@ -516,13 +647,45 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               </div>
                             </div>
                           </div>
+                        ) : product.id === 'print_pack' ? (
+                          <div 
+                            className="product-card-print_pack wall-preview-print-pack" 
+                            style={{ 
+                              width: '100%',
+                              height: '100%',
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              background: 'transparent'
+                            }}
+                          >
+                            <style>{`.wall-preview-print-pack.product-card-print_pack { background: transparent !important; }`}</style>
+                            <div 
+                              className="print-pack-container" 
+                              style={{ 
+                                margin: 0,
+                                width: '100%',
+                                height: '100%'
+                              }}
+                            >
+                              {[0, 1, 2, 3].map((i) => (
+                                <img 
+                                  key={i} 
+                                  src={product.image || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200"} 
+                                  alt="" 
+                                  className={`print-pack-img img-${i}`} 
+                                />
+                              ))}
+                            </div>
+                          </div>
                         ) : (
-                          <div className="composition-preview" style={{ width: '100%', height: product.id === 'panoramic_prints' ? 'auto' : '100%', position: 'relative' }}>
+                          <div className="composition-preview" style={{ width: '100%', height: (product.id === 'print_pack' || product.id === 'matted_collages') ? '100%' : 'auto', position: 'relative' }}>
                             <div className="composition-preview__composition" style={{ 
-                              aspectRatio: (product.id === 'matted_frame' || product.id === 'matted_collages') ? '0.783494 / 1' : product.id === 'gallery_board' ? '0.714286 / 1' : product.id === 'float_frames' ? '0.836642 / 1' : product.id === 'deckled_prints' ? '0.714286 / 1' : product.id === 'panoramic_prints' ? '118.1 / 249.33' : product.id === 'prints' ? `${(() => { const s = selectedSize?.label || ''; const m = s.match(/(\d+)x(\d+)/); return m ? (parseFloat(m[1]) / parseFloat(m[2])).toFixed(6) : '0.666667'; })() } / 1` : '1 / 1', 
+                              aspectRatio: (product.id === 'matted_frame' || product.id === 'matted_collages') ? '0.783494 / 1' : product.id === 'panoramic_prints' ? '118.1 / 249.33' : `${currentAspect.toFixed(6)} / 1`, 
                               width: '100%', 
-                              height: product.id === 'panoramic_prints' ? 'auto' : '100%', 
+                              height: (product.id === 'print_pack' || product.id === 'matted_collages') ? '100%' : 'auto', 
                               position: 'relative',
+                              transition: 'aspect-ratio 0.3s ease-in-out',
                               ...(product.id === 'canvas' && { clipPath: 'inset(17.28%)', borderRadius: '0.13px' }),
                               ...((product.id === 'prints') && { transform: 'rotate(-7deg)', transformOrigin: 'center center' }),
                               ...((product.id === 'deckled_prints') && { transform: 'rotate(-7deg)', transformOrigin: 'center center' })
@@ -823,11 +986,11 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                             }}
                             style={{ cursor: 'pointer', overflow: 'hidden' }}
                           >
-                            <div className="media-set-preview-thumb-bg" style={{ backgroundImage: `url(${details.roomBackground})`, width: '100%', height: '100%', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
+                            <div className="media-set-preview-thumb-bg" style={{ backgroundImage: `url(${currentRoomBackground})`, width: '100%', height: '100%', backgroundSize: 'cover', backgroundPosition: 'center' }}></div>
                           </div>
                           
                           {/* Balance Product Component View Thumbnails */}
-                          {details.details.map((item, idx) => (
+                          {(product.id === 'dibond' && selectedPaper?.id === 'paper_matte' && details.matteDetails ? details.matteDetails : details.details).map((item, idx) => (
                             <div 
                               key={idx}
                               className={`media-set-image BS-22-1-1 ${activePreviewType === `detail-${idx}` ? 'media-set-image--selected' : ''}`}
@@ -888,28 +1051,37 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                   <form className="pt-form" onSubmit={(e) => e.preventDefault()}>
                     <div className="pt-form--layout">
                       
-                      <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2">
+                      <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2" ref={sizeDropdownRef}>
                         <div className="FE-2-2">
                           <div className="FE-2-2__header">
                             <span>{product.id === 'deckled_prints' ? 'Frame Size' : 'Size'}</span>
                           </div>
                         </div>
                         <div className="pt-dropdown-input">
-                          <div className="pt-system-dropdown-wrapper full-width">
-                            <select 
-                              className="pdp-select-input"
-                              value={selectedSize.id}
-                              onChange={(e) => {
-                                const size = MOCK_SIZES.find(s => s.id === e.target.value);
-                                if (size) setSelectedSize(size);
-                              }}
+                          <div className={`custom-dropdown-wrapper full-width ${isSizeDropdownOpen ? 'open' : ''}`}>
+                            <div 
+                              className="custom-dropdown-trigger"
+                              onClick={() => setIsSizeDropdownOpen(prev => !prev)}
                             >
-                              {MOCK_SIZES.map((size) => (
-                                <option key={size.id} value={size.id}>
-                                  {size.label}
-                                </option>
-                              ))}
-                            </select>
+                              <span>{selectedSize.label}</span>
+                              {isSizeDropdownOpen ? <ChevronUp size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
+                            </div>
+                            {isSizeDropdownOpen && (
+                              <div className="custom-dropdown-menu">
+                                {MOCK_SIZES.map((size) => (
+                                  <div 
+                                    key={size.id} 
+                                    className={`custom-dropdown-item ${selectedSize.id === size.id ? 'active' : ''}`}
+                                    onClick={() => {
+                                      setSelectedSize(size);
+                                      setIsSizeDropdownOpen(false);
+                                    }}
+                                  >
+                                    {size.label}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -943,14 +1115,14 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                       )}
 
                       {product.id !== 'deckled_prints' && (
-                      <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2">
+                      <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2" ref={paperDropdownRef}>
                         <div className="FE-2-2">
                           <div className="FE-2-2__header">
                             <span>{['matted_frame', 'gallery_board'].includes(product.id) ? 'Print Size' : 'Paper Type'}</span>
                           </div>
                         </div>
                         <div className="pt-dropdown-input">
-                          <div className="pt-system-dropdown-wrapper full-width">
+                          <div className={`custom-dropdown-wrapper full-width ${isPaperDropdownOpen ? 'open' : ''}`}>
                             {['matted_frame', 'gallery_board'].includes(product.id) ? (
                               <select className="pdp-select-input" defaultValue={product.id === 'gallery_board' ? "10x15cm" : "8x8cm"}>
                                 {product.id === 'matted_frame' && <option value="8x8cm">8x8cm</option>}
@@ -958,20 +1130,31 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                 {product.id === 'gallery_board' && <option value="10x15cm">10x15cm</option>}
                               </select>
                             ) : (
-                              <select 
-                                className="pdp-select-input"
-                                value={selectedPaper.id}
-                                onChange={(e) => {
-                                  const paper = MOCK_PAPERS.find(p => p.id === e.target.value);
-                                  if (paper) setSelectedPaper(paper);
-                                }}
-                              >
-                                {MOCK_PAPERS.map((paper) => (
-                                  <option key={paper.id} value={paper.id}>
-                                    {paper.label}
-                                  </option>
-                                ))}
-                              </select>
+                              <>
+                                <div 
+                                  className="custom-dropdown-trigger"
+                                  onClick={() => setIsPaperDropdownOpen(prev => !prev)}
+                                >
+                                  <span>{selectedPaper.label}</span>
+                                  {isPaperDropdownOpen ? <ChevronUp size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
+                                </div>
+                                {isPaperDropdownOpen && (
+                                  <div className="custom-dropdown-menu">
+                                    {(product.id === 'dibond' ? MOCK_PAPERS.filter(p => p.id !== 'paper_glossy') : MOCK_PAPERS).map((paper) => (
+                                      <div 
+                                        key={paper.id} 
+                                        className={`custom-dropdown-item ${selectedPaper.id === paper.id ? 'active' : ''}`}
+                                        onClick={() => {
+                                          setSelectedPaper(paper);
+                                          setIsPaperDropdownOpen(false);
+                                        }}
+                                      >
+                                        {paper.label}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>

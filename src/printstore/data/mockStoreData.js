@@ -132,11 +132,20 @@ export const MOCK_PRODUCTS = [
 ];
 
 export const MOCK_SIZES = [
-  { id: "size_13x18", label: "13x18cm", priceModifier: 0 },
-  { id: "size_20x20", label: "20x20cm", priceModifier: 5 },
-  { id: "size_30x30", label: "30x30cm", priceModifier: 15 },
-  { id: "size_40x40", label: "40x40cm", priceModifier: 35 },
-  { id: "size_50x50", label: "50x50cm", priceModifier: 55 }
+  { id: "size_20x20", label: "20x20cm", priceModifier: 0 },
+  { id: "size_20x25", label: "20x25cm", priceModifier: 5 },
+  { id: "size_20x30", label: "20x30cm", priceModifier: 10 },
+  { id: "size_25x25", label: "25x25cm", priceModifier: 15 },
+  { id: "size_25x33", label: "25x33cm", priceModifier: 20 },
+  { id: "size_25x38", label: "25x38cm", priceModifier: 30 },
+  { id: "size_28x36", label: "28x36cm", priceModifier: 40 },
+  { id: "size_30x45", label: "30x45cm", priceModifier: 55 },
+  { id: "size_40x50", label: "40x50cm", priceModifier: 80 },
+  { id: "size_40x60", label: "40x60cm", priceModifier: 100 },
+  { id: "size_50x60", label: "50x60cm", priceModifier: 130 },
+  { id: "size_51x76", label: "51x76cm", priceModifier: 160 },
+  { id: "size_60x90", label: "60x90cm", priceModifier: 200 },
+  { id: "size_76x102", label: "76x102cm", priceModifier: 260 }
 ];
 
 export const MOCK_FRAMES = [

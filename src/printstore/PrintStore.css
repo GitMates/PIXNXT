@@ -4070,6 +4070,90 @@ div.customizer-grid-item[class*="product-card-"] {
 .pdp-select-input:focus {
   border-color: #222222 !important;
 }
+
+/* Custom Dropdown styling */
+.custom-dropdown-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.custom-dropdown-wrapper .custom-dropdown-trigger {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #cccccc;
+  padding: 12px 14px;
+  font-size: 15px;
+  color: #222222;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.custom-dropdown-wrapper .custom-dropdown-trigger:hover {
+  border-color: #999999;
+}
+
+.custom-dropdown-wrapper.open .custom-dropdown-trigger {
+  border-color: #0a5c5a; /* Dark teal border when open */
+  box-shadow: 0 0 0 1px #0a5c5a;
+}
+
+.custom-dropdown-wrapper .custom-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid #eaeaea;
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  z-index: 1000;
+  max-height: 280px !important;
+  overflow-y: auto !important;
+  padding: 6px 0;
+}
+
+/* Custom scrollbar for dropdown menu */
+.custom-dropdown-wrapper .custom-dropdown-menu::-webkit-scrollbar {
+  width: 6px !important;
+  display: block !important;
+}
+.custom-dropdown-wrapper .custom-dropdown-menu::-webkit-scrollbar-track {
+  background: #f1f1f1 !important;
+  border-radius: 3px !important;
+}
+.custom-dropdown-wrapper .custom-dropdown-menu::-webkit-scrollbar-thumb {
+  background: #0a5c5a !important; /* Dark teal scrollbar thumb */
+  border-radius: 3px !important;
+}
+.custom-dropdown-wrapper .custom-dropdown-menu::-webkit-scrollbar-thumb:hover {
+  background: #084846 !important;
+}
+
+.custom-dropdown-wrapper .custom-dropdown-item {
+  padding: 10px 16px !important;
+  font-size: 15px !important;
+  color: #333333 !important;
+  cursor: pointer !important;
+  transition: background 0.2s ease, color 0.2s ease !important;
+  text-align: left !important;
+}
+
+.custom-dropdown-wrapper .custom-dropdown-item:hover {
+  background: #f7f7f7 !important;
+  color: #111111 !important;
+}
+
+.custom-dropdown-wrapper .custom-dropdown-item.active {
+  color: #0a5c5a !important; /* Dark teal color */
+  font-weight: 500 !important;
+}
+
 .pdp-option-help-text {
   font-size: 0.8rem;
   color: #888888;
@@ -4604,6 +4688,16 @@ div.customizer-grid-item[class*="product-card-"] {
   background-position: center;
   position: relative;
 }
+
+/* Smooth wall-background crossfade when size changes */
+@keyframes fadeInBg {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.media-set-preview--animated {
+  animation: fadeInBg 0.35s ease forwards;
+}
+
 .media-set-preview__composition-container {
   position: absolute;
   z-index: 10;
