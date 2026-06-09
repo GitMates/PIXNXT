@@ -84,6 +84,8 @@
 }
 
 .ab-flipbook-wrap {
+  --ab-flip-time: 900ms;
+  --ab-flip-ease: cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   flex: 0 0 auto;
   overflow: visible;
@@ -273,7 +275,7 @@
 .ab-flipbook-wrap--front-cover-only.ab-flipbook-wrap--front-cover-transition:not(
     .ab-flipbook-wrap--flipping
   ) {
-  transition: clip-path 800ms cubic-bezier(0.33, 1, 0.68, 1);
+  transition: clip-path var(--ab-flip-time) var(--ab-flip-ease);
   will-change: clip-path;
 }
 
@@ -322,7 +324,7 @@
 .ab-flipbook-wrap--end-cover-only.ab-flipbook-wrap--end-cover-transition:not(
     .ab-flipbook-wrap--flipping
   ) {
-  transition: clip-path 800ms cubic-bezier(0.33, 1, 0.68, 1);
+  transition: clip-path var(--ab-flip-time) var(--ab-flip-ease);
   will-change: clip-path;
 }
 

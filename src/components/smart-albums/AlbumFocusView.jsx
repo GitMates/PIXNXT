@@ -7,7 +7,7 @@ import { installSafePageFlip } from './pageFlipSafe';
 import './AlbumBook.css';
 import { parseGridSizeAspect } from './albumGridSize';
 
-const FLIP_TIME_MS = 800;
+const FLIP_TIME_MS = 900;
 
 function getFocusBookDimensions(gridSize = 'square') {
     const w = window.innerWidth;
