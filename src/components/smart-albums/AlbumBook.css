@@ -311,13 +311,15 @@
   transition: none;
 }
 
+/* Page 0 is structural (blank left of front cover) — never show, including during page turn */
 .ab-flipbook-wrap--front-cover-only .stf__item:has(.ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank)) {
   pointer-events: none !important;
+  background: transparent !important;
 }
 
-.ab-flipbook-wrap--front-cover-only:not(.ab-flipbook-wrap--flipping)
+.ab-flipbook-wrap--front-cover-only
   .ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank),
-.ab-flipbook-wrap--front-cover-only:not(.ab-flipbook-wrap--flipping)
+.ab-flipbook-wrap--front-cover-only
   .ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank)
   .ab-page-empty {
   visibility: hidden;
