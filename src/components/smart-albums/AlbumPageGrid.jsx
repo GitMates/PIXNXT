@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getAlbumCollection } from './albumCollection';
+import { getAlbumLayoutPhotoCount } from './albumCollection';
 import { getGridSlotPhoto, getPagePhotoOverride, hasGridSlotPhoto } from './albumPagePhotos';
 import {
     getPagePhotoTransform,
@@ -136,7 +136,7 @@ export default function AlbumPageGrid({
     const albumId = albumIdProp ?? album?.id;
     void photoRevision;
     void transformRevision;
-    const collectionCount = albumId ? getAlbumCollection(albumId).length : 0;
+    const collectionCount = albumId ? getAlbumLayoutPhotoCount(albumId, album) : 0;
     const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
     const spreadCtx = { ...spreadOpts, totalPages };
     const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);

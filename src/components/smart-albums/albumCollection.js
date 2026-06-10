@@ -272,6 +272,15 @@ export function getInnerAlbumCollection(albumId) {
     return getAlbumCollection(albumId).filter((item) => !isCoverWrapCollectionItem(item));
 }
 
+/** Collection size used for page-count and inner spread placement (excludes optional cover-wrap on blank covers). */
+export function getAlbumLayoutPhotoCount(albumId, album = null) {
+    if (!albumId) return 0;
+    if (album?.blank_covers === true) {
+        return getInnerAlbumCollection(albumId).length;
+    }
+    return getAlbumCollection(albumId).length;
+}
+
 export function markCollectionItemAsCoverWrap(albumId, itemId) {
     if (!albumId || !itemId) return false;
     const all = readAll();

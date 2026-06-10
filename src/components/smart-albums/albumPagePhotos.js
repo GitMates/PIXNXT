@@ -25,7 +25,9 @@ import {
 } from './albumGridSize';
 import {
     getAlbumCollection,
+    getAlbumLayoutPhotoCount,
     getCollectionItem,
+    isCoverWrapCollectionItem,
     markCollectionItemAsCoverWrap,
 } from './albumCollection';
 import { getSampleImageForPage } from './sampleAlbumImages';
@@ -173,7 +175,7 @@ export function restoreEndCoverPlacement(albumId, totalPages, captured) {
 /** Move a mistaken whole-spread placement on the last spread to the left page only. */
 export function migrateEndHalfSpreadToLeftPage(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null) return false;
-    const collectionCount = getAlbumCollection(albumId).length;
+    const collectionCount = getAlbumLayoutPhotoCount(albumId, albumMeta);
     const spreadOpts = albumMeta
         ? getAlbumSpreadOptions(albumMeta, { collectionCount })
         : getAlbumSpreadOptions(
@@ -214,7 +216,7 @@ export function migrateEndHalfSpreadToLeftPage(albumId, totalPages, albumMeta = 
 export function migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null || totalPages < 4) return false;
 
-    const collectionCount = getAlbumCollection(albumId).length;
+    const collectionCount = getAlbumLayoutPhotoCount(albumId, albumMeta);
     const spreadOpts = albumMeta
         ? getAlbumSpreadOptions(albumMeta, { collectionCount })
         : getAlbumSpreadOptions({ has_covers: true, page_count: totalPages }, { collectionCount });
@@ -286,7 +288,8 @@ export function migrateFrontCoverSpreadToPageOne(albumId) {
 }
 
 /** Back cover uses the left half of spread:0 — drop separate end-page placements. */
-export function migrateBackCoverUsesBookWrap(albumId, totalPages) {
+export function migrateBackCoverUsesBookWrap(albumId, totalPages, albumMeta = null) {
+    if (albumMeta?.blank_covers === true) return false;
     if (!albumId || totalPages == null || !getSpreadPhotoOverride(albumId, 0)) return false;
     const { left, right } = getEndSpreadPageIndices(totalPages);
     const all = readAll();
@@ -732,6 +735,35 @@ export function clearPagePhoto(albumId, pageNum) {
     return writeAll(all);
 }
 
+/** Remove a collection item from all page/spread slots except an optional cover spread. */
+export function clearCollectionItemPlacements(albumId, collectionItemId, { keepSpreadLeft = null } = {}) {
+    if (!albumId || !collectionItemId) return false;
+    const all = readAll();
+    const album = all[albumId];
+    if (!album) return false;
+
+    const keepSpreadKey =
+        keepSpreadLeft != null ? spreadStorageKey(keepSpreadLeft) : null;
+    const next = { ...album };
+    let changed = false;
+
+    for (const key of Object.keys(next)) {
+        if (key === '__revision') continue;
+        const stored = next[key];
+        if (!stored || typeof stored !== 'object' || stored.collectionItemId !== collectionItemId) {
+            continue;
+        }
+        if (keepSpreadKey && key === keepSpreadKey) continue;
+        delete next[key];
+        changed = true;
+    }
+
+    if (!changed) return false;
+    next.__revision = (next.__revision || 0) + 1;
+    all[albumId] = next;
+    return writeAll(all);
+}
+
 /** Remove all placed photos from album pages (collection is unchanged). */
 function remapPageStoredValue(stored, idMap) {
     if (stored == null) return stored;
@@ -873,15 +905,19 @@ export async function applyCollectionOrderToPages(albumId, album, { itemIds } = 
         : getAlbumCollection(albumId);
     const includeCovers = album?.has_covers === true;
     const blankCovers = albumHasBlankCovers(album);
+    const coverWrapItem = blankCovers ? items.find(isCoverWrapCollectionItem) : null;
+    const placementItems = blankCovers
+        ? items.filter((item) => !isCoverWrapCollectionItem(item))
+        : items;
     const spreadOpts = getAlbumSpreadOptions(
         { ...album, has_covers: includeCovers },
-        { collectionCount: items.length }
+        { collectionCount: placementItems.length }
     );
-    if (!items.length) return 0;
+    if (!placementItems.length && !coverWrapItem) return 0;
 
     const gridLayout = album.grid_layout || 'two-page';
     const wholeSpread = isWholeSpreadLayout(gridLayout);
-    const requiredPages = computePageCountFromPhotoCount(items.length, {
+    const requiredPages = computePageCountFromPhotoCount(placementItems.length, {
         includeCovers,
         blankCovers,
         gridLayout,
@@ -893,12 +929,12 @@ export async function applyCollectionOrderToPages(albumId, album, { itemIds } = 
     const pageGridSize = album.grid_size || 'square';
     const photoFillsWhole =
         wholeSpread && blankCovers
-            ? await resolvePhotoFillsWholeFlags(items, pageGridSize)
+            ? await resolvePhotoFillsWholeFlags(placementItems, pageGridSize)
             : null;
 
-    const placed = autoPlaceCollectionItems(
+    let placed = autoPlaceCollectionItems(
         albumId,
-        items.map((item) => item.id),
+        placementItems.map((item) => item.id),
         {
             totalPages,
             gridLayout,
@@ -910,9 +946,22 @@ export async function applyCollectionOrderToPages(albumId, album, { itemIds } = 
         }
     );
 
+    if (coverWrapItem) {
+        const right = Math.min(1, totalPages - 1);
+        if (
+            setSpreadPhotoFromCollectionItem(albumId, 0, coverWrapItem.id, right, {
+                totalPages,
+                spreadOpts,
+            })
+        ) {
+            placed += 1;
+        }
+        syncCoverWrapRoleFromSpread(albumId);
+    }
+
     if (spreadOpts.hasCovers && albumUsesBookWrap(album)) {
         migrateFrontCoverToFullSpread(albumId);
-        migrateBackCoverUsesBookWrap(albumId, totalPages);
+        migrateBackCoverUsesBookWrap(albumId, totalPages, album);
         migrateEndHalfSpreadToLeftPage(albumId, totalPages, album);
         syncCoverWrapRoleFromSpread(albumId);
     } else if (wholeSpread) {

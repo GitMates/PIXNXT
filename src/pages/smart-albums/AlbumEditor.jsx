@@ -21,7 +21,9 @@ import {
     addFilesToAlbumCollection,
     getAlbumCollection,
     getAlbumCollectionRevision,
+    getAlbumLayoutPhotoCount,
     getCollectionItem,
+    isCoverWrapCollectionItem,
     loadAlbumAssetsFromCloud,
     markCollectionItemAsCoverWrap,
     reorderCollectionItems,
@@ -33,6 +35,7 @@ import { isPdfFile } from '../../lib/pdfToImages';
 import { filesFromInput } from '../../lib/uploadFileOrder';
 import {
     clearAllAlbumPagePhotos,
+    clearCollectionItemPlacements,
     getAlbumPhotoRevision,
     getSpreadPhotoOverride,
     migrateEndHalfSpreadToLeftPage,
@@ -212,8 +215,8 @@ export default function AlbumEditor({
     );
 
     const collectionCount = useMemo(
-        () => getAlbumCollection(albumId).length,
-        [albumId, collectionRevision]
+        () => getAlbumLayoutPhotoCount(albumId, album),
+        [albumId, album?.blank_covers, collectionRevision]
     );
 
     const spreadOpts = useMemo(
@@ -322,7 +325,7 @@ export default function AlbumEditor({
     const ensurePageCountForCollection = useCallback(async () => {
         if (!albumId || !album || !user?.id) return album;
         syncCoverWrapRoleFromSpread(albumId);
-        const photoCount = getAlbumCollection(albumId).length;
+        const photoCount = getAlbumLayoutPhotoCount(albumId, album);
         if (!photoCount && !getSpreadPhotoOverride(albumId, 0)) return album;
 
         const blankCovers = albumHasBlankCovers(album);
@@ -384,13 +387,16 @@ export default function AlbumEditor({
     const syncCollectionOrderToSpreads = useCallback(async () => {
         if (!albumId || !album || !user?.id) return 0;
         const items = getAlbumCollection(albumId);
-        if (!items.length) return 0;
+        const placementItems = albumHasBlankCovers(album)
+            ? items.filter((item) => !isCoverWrapCollectionItem(item))
+            : items;
+        if (!placementItems.length && !items.some(isCoverWrapCollectionItem)) return 0;
 
         const spreadOpts = getAlbumSpreadOptions(album, {
-            collectionCount: items.length,
+            collectionCount: placementItems.length,
         });
         const blankCovers = albumHasBlankCovers(album);
-        const requiredPages = computePageCountFromPhotoCount(items.length, {
+        const requiredPages = computePageCountFromPhotoCount(placementItems.length, {
             includeCovers: spreadOpts.hasCovers,
             blankCovers,
             gridLayout: album.grid_layout || 'two-page',
@@ -432,7 +438,9 @@ export default function AlbumEditor({
         }
         if (spreadOpts.hasCovers) {
             if (migrateFrontCoverToFullSpread(albumId)) changed = true;
-            if (migrateBackCoverUsesBookWrap(albumId, totalPages)) changed = true;
+            if (albumUsesBookWrap(album) && migrateBackCoverUsesBookWrap(albumId, totalPages, album)) {
+                changed = true;
+            }
             if (!wholeSpreadAlbum && migrateInsideCoverSpreadToPageTwo(albumId, totalPages, album)) {
                 changed = true;
             }
@@ -809,7 +817,12 @@ export default function AlbumEditor({
                     totalPages,
                     spreadOpts,
                 });
-                if (placed) markCollectionItemAsCoverWrap(albumId, itemId);
+                if (placed) {
+                    if (albumHasBlankCovers(album)) {
+                        clearCollectionItemPlacements(albumId, itemId, { keepSpreadLeft: 0 });
+                    }
+                    markCollectionItemAsCoverWrap(albumId, itemId);
+                }
                 return placed;
             }
             if (slot.pageNum === 0) {
@@ -1049,7 +1062,12 @@ export default function AlbumEditor({
                     totalPages,
                     spreadOpts,
                 });
-                if (placed) markCollectionItemAsCoverWrap(albumId, itemId);
+                if (placed) {
+                    if (albumHasBlankCovers(album)) {
+                        clearCollectionItemPlacements(albumId, itemId, { keepSpreadLeft: 0 });
+                    }
+                    markCollectionItemAsCoverWrap(albumId, itemId);
+                }
                 return placed;
             }
 

@@ -1,4 +1,4 @@
-import { getAlbumCollection, getInnerAlbumCollection } from './albumCollection';
+import { getAlbumCollection, getAlbumLayoutPhotoCount } from './albumCollection';
 
 /** Pages reserved for the back cover spread (left = photo, right = blank). */
 export const RESERVED_END_PAGES = 2;
@@ -38,10 +38,13 @@ export function albumUsesBookWrap(album) {
 }
 
 /** Spread layout flags from album settings. */
-export function getAlbumSpreadOptions(album, { collectionCount = 0 } = {}) {
+export function getAlbumSpreadOptions(album, { collectionCount } = {}) {
     let hasCovers = albumHasCoverSpreads(album);
     const pageCount = album?.page_count ?? 21;
-    const n = Math.max(0, Math.floor(Number(collectionCount) || 0));
+    const n =
+        collectionCount != null
+            ? Math.max(0, Math.floor(Number(collectionCount) || 0))
+            : getAlbumLayoutPhotoCount(album?.id, album);
     const gridLayout = album?.grid_layout;
 
     const blankCovers = albumHasBlankCovers(album);
@@ -56,6 +59,7 @@ export function getAlbumSpreadOptions(album, { collectionCount = 0 } = {}) {
     return {
         showCover: hasCovers,
         hasCovers,
+        blankCovers,
         gridLayout: gridLayout || 'two-page',
     };
 }
@@ -63,11 +67,9 @@ export function getAlbumSpreadOptions(album, { collectionCount = 0 } = {}) {
 /** Spread layout flags plus page count (for grid / slot index helpers). */
 export function getSpreadContext(album, totalPages, { collectionCount } = {}) {
     const count =
-        collectionCount ??
-        (album?.id ? getAlbumCollection(album.id).length : 0);
+        collectionCount ?? getAlbumLayoutPhotoCount(album?.id, album);
     return {
         ...getAlbumSpreadOptions(album, { collectionCount: count }),
-        blankCovers: albumHasBlankCovers(album),
         totalPages,
     };
 }
