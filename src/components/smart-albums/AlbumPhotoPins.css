@@ -397,7 +397,7 @@
 }
 
 .ab-proof-tool-pin-icon {
-  color: #ef4444;
+  color: #111827;
   flex-shrink: 0;
 }
 
@@ -471,23 +471,23 @@
   height: 24px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #ef4444;
-  color: #ef4444;
+  border: 2px solid #111827;
+  color: #111827;
   box-shadow:
     0 2px 10px rgba(0, 0, 0, 0.16),
     0 0 0 1px rgba(0, 0, 0, 0.04);
 }
 
 .ab-photo-pin--open .ab-photo-pin-marker-body {
-  border-color: #dc2626;
+  border-color: #000;
   box-shadow:
     0 2px 12px rgba(0, 0, 0, 0.18),
-    0 0 0 3px rgba(239, 68, 68, 0.22);
+    0 0 0 3px rgba(0, 0, 0, 0.14);
 }
 
 .ab-photo-pin--comment .ab-photo-pin-marker-body {
-  border-color: #ef4444;
-  color: #ef4444;
+  border-color: #111827;
+  color: #111827;
   background: #fff;
 }
 
@@ -496,80 +496,80 @@
 }
 
 .ab-photo-pin--open.ab-photo-pin--comment .ab-photo-pin-marker-body {
-  border-color: #dc2626;
+  border-color: #000;
   box-shadow:
     0 2px 12px rgba(0, 0, 0, 0.18),
-    0 0 0 3px rgba(239, 68, 68, 0.22);
+    0 0 0 3px rgba(0, 0, 0, 0.14);
 }
 
 .ab-photo-pin--swap .ab-photo-pin-marker-body {
-  border-color: #2563eb;
-  color: #2563eb;
-  background: #eff6ff;
+  border-color: #fff;
+  color: #fff;
+  background: #2563eb;
 }
 
 .ab-photo-pin--swap .ab-photo-pin-marker-tail {
-  border-top-color: #eff6ff;
+  border-top-color: #2563eb;
 }
 
 .ab-photo-pin--swap-group-0 .ab-photo-pin-marker-body {
-  border-color: #2563eb;
-  color: #1d4ed8;
-  background: #eff6ff;
+  border-color: #fff;
+  color: #fff;
+  background: #2563eb;
 }
 
 .ab-photo-pin--swap-group-0 .ab-photo-pin-marker-tail {
-  border-top-color: #eff6ff;
+  border-top-color: #2563eb;
 }
 
 .ab-photo-pin--swap-group-1 .ab-photo-pin-marker-body {
-  border-color: #7c3aed;
-  color: #6d28d9;
-  background: #f5f3ff;
+  border-color: #fff;
+  color: #fff;
+  background: #7c3aed;
 }
 
 .ab-photo-pin--swap-group-1 .ab-photo-pin-marker-tail {
-  border-top-color: #f5f3ff;
+  border-top-color: #7c3aed;
 }
 
 .ab-photo-pin--swap-group-2 .ab-photo-pin-marker-body {
-  border-color: #16a34a;
-  color: #15803d;
-  background: #f0fdf4;
+  border-color: #fff;
+  color: #fff;
+  background: #16a34a;
 }
 
 .ab-photo-pin--swap-group-2 .ab-photo-pin-marker-tail {
-  border-top-color: #f0fdf4;
+  border-top-color: #16a34a;
 }
 
 .ab-photo-pin--swap-group-3 .ab-photo-pin-marker-body {
-  border-color: #ea580c;
-  color: #c2410c;
-  background: #fff7ed;
+  border-color: #fff;
+  color: #fff;
+  background: #ea580c;
 }
 
 .ab-photo-pin--swap-group-3 .ab-photo-pin-marker-tail {
-  border-top-color: #fff7ed;
+  border-top-color: #ea580c;
 }
 
 .ab-photo-pin--swap-group-4 .ab-photo-pin-marker-body {
-  border-color: #db2777;
-  color: #be185d;
-  background: #fdf2f8;
+  border-color: #fff;
+  color: #fff;
+  background: #db2777;
 }
 
 .ab-photo-pin--swap-group-4 .ab-photo-pin-marker-tail {
-  border-top-color: #fdf2f8;
+  border-top-color: #db2777;
 }
 
 .ab-photo-pin--swap-group-5 .ab-photo-pin-marker-body {
-  border-color: #0f766e;
-  color: #115e59;
-  background: #f0fdfa;
+  border-color: #fff;
+  color: #fff;
+  background: #0f766e;
 }
 
 .ab-photo-pin--swap-group-5 .ab-photo-pin-marker-tail {
-  border-top-color: #f0fdfa;
+  border-top-color: #0f766e;
 }
 
 .ab-photo-pin-swap-label {
@@ -660,7 +660,7 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #ef4444;
+  color: #111827;
 }
 
 .ab-photo-pin-message {

@@ -34,6 +34,7 @@ import {
     hydrateAlbumPreviewData,
     shiftAlbumRemotePreviewPages,
 } from '../../components/smart-albums/albumPreviewData';
+import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
 
 export function parseUrlPage(raw, totalPages, _spreadOpts) {
     if (raw == null || raw === '') return 0;
@@ -177,11 +178,13 @@ export function useAlbumWorkspace() {
                     const insertAt = getPageInsertIndex(current, albumSpreadOpts);
                     insertAlbumStoragePages(albumId, insertAt, countDelta);
                     shiftAlbumRemotePreviewPages(albumId, insertAt, countDelta);
+                    shiftAlbumPhotoPins(albumId, insertAt, countDelta);
                 } else if (countDelta < 0) {
                     const removeCount = -countDelta;
                     const removeAt = getPageRemoveIndex(current, removeCount, albumSpreadOpts);
                     removeAlbumStoragePages(albumId, removeAt, removeCount);
                     shiftAlbumRemotePreviewPages(albumId, removeAt, -removeCount);
+                    shiftAlbumPhotoPins(albumId, removeAt, -removeCount);
                 }
 
                 const updated = await smartAlbumsService.updateAlbumPageCount(

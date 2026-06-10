@@ -28,6 +28,7 @@ import {
 } from '../../components/smart-albums/albumCollection';
 import { insertAlbumStoragePages, removeAlbumStoragePages } from '../../components/smart-albums/albumPageStorage';
 import { shiftAlbumRemotePreviewPages } from '../../components/smart-albums/albumPreviewData';
+import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
 import { isPdfFile } from '../../lib/pdfToImages';
 import { filesFromInput } from '../../lib/uploadFileOrder';
 import {
@@ -343,11 +344,13 @@ export default function AlbumEditor({
             const insertAt = getPageInsertIndex(currentPages, spreadOptsNow);
             insertAlbumStoragePages(albumId, insertAt, delta);
             shiftAlbumRemotePreviewPages(albumId, insertAt, delta);
+            shiftAlbumPhotoPins(albumId, insertAt, delta);
         } else if (targetPages < currentPages && blankCovers) {
             const delta = currentPages - targetPages;
             const removeAt = getPageRemoveIndex(currentPages, delta, spreadOptsNow);
             removeAlbumStoragePages(albumId, removeAt, delta);
             shiftAlbumRemotePreviewPages(albumId, removeAt, -delta);
+            shiftAlbumPhotoPins(albumId, removeAt, -delta);
         } else {
             return album;
         }

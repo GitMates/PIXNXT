@@ -189,16 +189,13 @@ export default function AlbumPreview({
                     });
                     const wholePin =
                         isWholeSpreadLayout(album?.grid_layout) && pin.pageNum > 0;
-                    const pinSpreadLabel =
-                        pinSpreadIndex <= 0
-                            ? 'Cover'
-                            : getSlotLabel(
-                                  pin.pageNum,
-                                  pin.cellId ?? 0,
-                                  wholePin,
-                                  totalPages,
-                                  album
-                              );
+                    const pinSpreadLabel = getSlotLabel(
+                        pin.pageNum,
+                        pin.cellId ?? 0,
+                        wholePin,
+                        totalPages,
+                        album
+                    );
                     return {
                         ...pin,
                         spreadIndex: pinSpreadIndex,
