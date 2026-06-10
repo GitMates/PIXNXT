@@ -1,11 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShoppingCart, Trash2, Plus, ChevronLeft, Undo2, Redo2, HelpCircle, Image as ImageIcon, Check, ChevronRight } from 'lucide-react';
-import { MOCK_SIZES, MOCK_FRAMES, MOCK_PAPERS, MOCK_LAYOUTS, MOCK_WALLS, PRINT_PACK_SIZES } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_FRAMES, MOCK_PAPERS, MOCK_LAYOUTS, MOCK_WALLS, PRINT_PACK_SIZES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, FLOAT_FRAME_SIZES } from '../data/mockStoreData';
 import AddPhotosSidebar from './AddPhotosSidebar';
 
 export default function ProductCustomizer({ product, photos, initialPhotos, editMode, initialSize, initialFrame, initialPaper, onAddToCart, onClose, onOpenCart }) {
   const [selectedSize, setSelectedSize] = useState(
-    initialSize || (product.id === 'print_pack' ? PRINT_PACK_SIZES[0] : MOCK_SIZES[0])
+    initialSize || (
+      product.id === 'print_pack' ? PRINT_PACK_SIZES[0] :
+      product.id === 'matted_frame' ? MATTED_FRAME_SIZES[0] :
+      product.id === 'gallery_board' ? GALLERY_BOARD_SIZES[0] :
+      product.id === 'circular_frames' ? CIRCULAR_FRAME_SIZES[0] :
+      product.id === 'float_frames' ? FLOAT_FRAME_SIZES[0] :
+      MOCK_SIZES[0]
+    )
   );
   const [selectedFrame, setSelectedFrame] = useState(
     initialFrame || MOCK_FRAMES.find(f => f.id === 'frame_light_wood') || MOCK_FRAMES[1]
@@ -23,6 +30,29 @@ export default function ProductCustomizer({ product, photos, initialPhotos, edit
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
   const [selectedPhotoIds, setSelectedPhotoIds] = useState([]);
+
+  // Compute aspect ratio based on selected size for dynamic frames (like float_frames)
+  let currentAspect = 0.8;
+  const sizeMatch = selectedSize?.label?.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+  let currentWidthCm = 20;
+  let currentHeightCm = 25;
+  if (sizeMatch) {
+    currentWidthCm = parseFloat(sizeMatch[1]);
+    currentHeightCm = parseFloat(sizeMatch[2]);
+    currentAspect = currentWidthCm / currentHeightCm;
+  }
+
+  let ffPrintWidth = currentWidthCm;
+  let ffPrintHeight = currentHeightCm;
+  if (product.id === 'float_frames' && selectedSize?.printSize) {
+    const pMatch = selectedSize.printSize.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+    if (pMatch) {
+      ffPrintWidth = parseFloat(pMatch[1]);
+      ffPrintHeight = parseFloat(pMatch[2]);
+    }
+  }
+  const ffPrintWidthPct = Math.min((ffPrintWidth / currentWidthCm) * 100, 100);
+  const ffPrintHeightPct = Math.min((ffPrintHeight / currentHeightCm) * 100, 100);
 
   // Sync initial items and pre-populate slots
   useEffect(() => {
@@ -166,6 +196,99 @@ export default function ProductCustomizer({ product, photos, initialPhotos, edit
                 ))}
               </div>
             </div>
+          ) : product.id === 'float_frames' ? (
+            /* Float Frames Customizer View */
+            <div className="single-frame-view-canvas float-frame-customizer">
+              <div 
+                className="customizer-frame-shadow-wrapper"
+                style={{ 
+                  backgroundColor: selectedFrame?.color || '#111111', 
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  height: '70vh',
+                  aspectRatio: currentAspect,
+                  padding: '12px' // thin frame border width
+                }}
+              >
+                <div className="float-frame-mat" style={{ 
+                  width: '94%', height: '94%', backgroundColor: '#fdfdfd',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.1)'
+                }}>
+                  <div className="float-frame-photo-container" style={{
+                    position: 'relative',
+                    width: `${ffPrintWidthPct}%`, 
+                    height: `${ffPrintHeightPct}%`, 
+                    backgroundColor: '#fff',
+                    padding: '3px', // VERY THIN white border inside
+                    boxSizing: 'border-box',
+                    filter: 'url(#slight-deckled-edge) drop-shadow(2px 6px 12px rgba(0,0,0,0.22))',
+                  }}>
+                    {gridItems[0] ? (
+                      <div className="single-image-wrapper" style={{ width: '100%', height: '100%', position: 'relative' }} onClick={() => handleOpenSidebarForSlot(0)}>
+                        <img src={gridItems[0].url} alt="Customized view" className="single-customizer-img" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button className="remove-slot-item-btn" style={{ position: 'absolute', top: 10, right: 10, zIndex: 10 }} onClick={(e) => { e.stopPropagation(); handleRemoveSlotPhoto(0, e); }}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="single-empty-placeholder" onClick={() => handleOpenSidebarForSlot(0)}>
+                        <ImageIcon size={40} strokeWidth={1} />
+                        <p>Click to add image</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : product.id === 'matted_frame' || product.id === 'frames' ? (
+            /* Matted Frames / Frames Customizer View */
+            <div className="single-frame-view-canvas matted-frame-customizer">
+              <div 
+                className="customizer-frame-shadow-wrapper"
+                style={{ 
+                  backgroundColor: selectedFrame?.color || '#111111', 
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  height: '70vh',
+                  aspectRatio: currentAspect,
+                  padding: '16px' // Frame width
+                }}
+              >
+                <div className="matted-frame-mat" style={{ 
+                  width: '100%', height: '100%', backgroundColor: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.1)'
+                }}>
+                  <div className="matted-frame-photo-container" style={{
+                    position: 'relative',
+                    width: '71%', 
+                    height: '80%', 
+                    backgroundColor: 'transparent',
+                    boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.2)',
+                    border: '1px solid rgba(0,0,0,0.05)'
+                  }}>
+                    {gridItems[0] ? (
+                      <div className="single-image-wrapper" style={{ width: '100%', height: '100%', position: 'relative' }} onClick={() => handleOpenSidebarForSlot(0)}>
+                        <img src={gridItems[0].url} alt="Customized view" className="single-customizer-img" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button className="remove-slot-item-btn" style={{ position: 'absolute', top: 10, right: 10, zIndex: 10 }} onClick={(e) => { e.stopPropagation(); handleRemoveSlotPhoto(0, e); }}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="single-empty-placeholder" onClick={() => handleOpenSidebarForSlot(0)}>
+                        <ImageIcon size={40} strokeWidth={1} />
+                        <p>Click to add image</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           ) : (
             /* Single Image Product Layout Frame Fallback View Wrapper */
             <div className="single-frame-view-canvas">
@@ -202,10 +325,17 @@ export default function ProductCustomizer({ product, photos, initialPhotos, edit
           <div className="properties-section-group">
             <h3 className="section-label-heading">Size</h3>
             <div className="options-selection-grid">
-              {(product.id === 'print_pack' ? PRINT_PACK_SIZES : MOCK_SIZES).map(size => (
+              {(
+                product.id === 'print_pack' ? PRINT_PACK_SIZES :
+                product.id === 'matted_frame' ? MATTED_FRAME_SIZES :
+                product.id === 'gallery_board' ? GALLERY_BOARD_SIZES :
+                product.id === 'circular_frames' ? CIRCULAR_FRAME_SIZES :
+                product.id === 'float_frames' ? FLOAT_FRAME_SIZES :
+                MOCK_SIZES
+              ).map(size => (
                 <button
                   key={size.id}
-                  className={`option-pill-button ${selectedSize.id === size.id ? 'active' : ''}`}
+                  className={`option-pill-button ${selectedSize?.id === size.id ? 'active' : ''}`}
                   onClick={() => setSelectedSize(size)}
                 >
                   <span className="pill-primary-title">{size.label}</span>

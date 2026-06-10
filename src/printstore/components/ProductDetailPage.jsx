@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES, CANVAS_SIZES, MOCK_WRAPS } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES, CANVAS_SIZES, MOCK_WRAPS, FLOAT_FRAME_SIZES } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
 import floatRoom from '../float frames_files/1.webp';
@@ -252,12 +252,16 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
 
   const productSizes = product.id === 'matted_frame' 
     ? MATTED_FRAME_SIZES 
+    : product.id === 'frames'
+    ? MATTED_FRAME_SIZES
     : product.id === 'print_pack'
     ? PRINT_PACK_SIZES
     : product.id === 'gallery_board'
     ? GALLERY_BOARD_SIZES
     : product.id === 'circular_frames'
     ? CIRCULAR_FRAME_SIZES
+    : product.id === 'float_frames'
+    ? FLOAT_FRAME_SIZES
     : product.id === 'deckled_prints'
     ? DECKLED_PRINTS_SIZES
     : product.id === 'panoramic_prints'
@@ -278,8 +282,8 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   const borderDropdownRef = useRef(null);
   const wrapDropdownRef = useRef(null);
   const [selectedPrintSize, setSelectedPrintSize] = useState(
-    product.id === 'matted_frame' 
-      ? MATTED_FRAME_SIZES[0].printSize 
+    ['matted_frame', 'frames'].includes(product.id)
+      ? '35x35cm'
       : product.id === 'gallery_board'
       ? GALLERY_BOARD_SIZES[0].printSize
       : null
@@ -380,12 +384,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   const isLargeSize = selectedSize && !['size_20x20', 'size_20x25', 'size_20x30', 'size_25x25'].includes(selectedSize.id);
   const isExtraLargeSize = selectedSize && ['size_50x60', 'size_51x76', 'size_60x90', 'size_76x102'].includes(selectedSize.id);
   
-  const mattedLargeWallSizes = [
-    'mf_28x36', 'mf_30x30', 'mf_30x40', 'mf_30x45', 'mf_35x35', 
-    'mf_40x40', 'mf_40x60', 'mf_50x50', 'mf_50x60', 'mf_55x76', 'mf_61x61',
-    'mf_76x76', 'mf_76x102', 'mf_102x102', 'mf_102x152'
-  ];
-  const useLargeWall = (product.id === 'dibond' && isLargeSize) || (product.id === 'matted_frame' && mattedLargeWallSizes.includes(selectedSize?.id));
+  const useLargeWall = (product.id === 'dibond' && isLargeSize);
 
   let currentRoomBackground = details.roomBackground;
   if (useLargeWall) {
@@ -401,6 +400,20 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   } else if (product.id === 'canvas') {
     const mediumWallSizes = ['canvas_28x36', 'canvas_30x30', 'canvas_30x45', 'canvas_35x35', 'canvas_40x40', 'canvas_40x50', 'canvas_40x60', 'canvas_50x50', 'canvas_50x60', 'canvas_51x76', 'canvas_61x61'];
     const largeWallSizes = ['canvas_60x90', 'canvas_76x114', 'canvas_102x102', 'canvas_102x152'];
+    if (largeWallSizes.includes(selectedSize?.id)) {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_large02.webp?ts=1780585829";
+    } else if (mediumWallSizes.includes(selectedSize?.id)) {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_medium02.webp?ts=1780585829";
+    }
+  } else if (['matted_frame', 'frames', 'float_frames'].includes(product.id)) {
+    const mediumWallSizes = [
+      'mf_28x36', 'mf_30x30', 'mf_30x40', 'mf_30x45', 'mf_35x35', 
+      'mf_40x40', 'mf_40x60', 'mf_50x50', 'mf_50x60', 'mf_55x76', 'mf_61x61'
+    ];
+    const largeWallSizes = [
+      'mf_76x76', 'mf_76x102', 'mf_102x102', 'mf_102x152',
+      'float_30x45', 'float_40x60', 'float_50x60', 'float_55x76', 'float_76x76', 'float_76x102'
+    ];
     if (largeWallSizes.includes(selectedSize?.id)) {
       currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_large02.webp?ts=1780585829";
     } else if (mediumWallSizes.includes(selectedSize?.id)) {
@@ -488,9 +501,27 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   // The mat hole needs to be slightly larger than the print to show the torn edge resting on the backing board.
   // E.g. print is 20x20, mat hole is 23x23. So we add 3cm to the width for the hole size.
   const cfMatHolePct = ((cfPrintWidth + 3) / currentWidthCm) * 100;
-  // Let the SVG mask be scaled by this percentage so the hole perfectly matches the print size.
-  // Wait, if we scale the SVG, it will be smaller than the frame!
-  // It's better to just set the print size percentage for the image. The white mat SVG might not fit properly if scaled. Let's see.
+
+  let ffPrintWidth = currentWidthCm;
+  let ffPrintHeight = currentHeightCm;
+  const ffPrintSizeStr = selectedPrintSize || selectedSize?.printSize;
+  if (product.id === 'float_frames' && ffPrintSizeStr) {
+    const pMatch = ffPrintSizeStr.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+    if (pMatch) {
+      ffPrintWidth = parseFloat(pMatch[1]);
+      ffPrintHeight = parseFloat(pMatch[2]);
+    }
+  }
+  const ffPrintWidthPct = (ffPrintWidth / currentWidthCm) * 100;
+  const ffPrintHeightPct = (ffPrintHeight / currentHeightCm) * 100;
+  const ffHorizBorder = Math.max(0, (currentWidthCm - ffPrintWidth) / 2);
+  const ffVertBorder = Math.max(0, (currentHeightCm - ffPrintHeight) / 2);
+  const ffPrintLeftPct = (ffHorizBorder / currentWidthCm) * 100;
+  const ffPrintTopPct = (ffVertBorder / currentHeightCm) * 100;
+  
+  const ffFrameBorderCm = 1.5;
+  const ffMatWidthPct = Math.max(0, 100 - ((ffFrameBorderCm * 2) / currentWidthCm) * 100);
+  const ffMatHeightPct = Math.max(0, 100 - ((ffFrameBorderCm * 2) / currentHeightCm) * 100);
 
   const baseWidths = {
     gallery_board: 25,
@@ -512,36 +543,19 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   } else if (product.id === 'canvas') {
     if (['canvas_60x90', 'canvas_76x114', 'canvas_102x102', 'canvas_102x152'].includes(selectedSize?.id)) {
       baseWidthCm = 80;
-    } else if (['canvas_51x76', 'canvas_61x61'].includes(selectedSize?.id)) {
+    } else if (['canvas_28x36', 'canvas_30x30', 'canvas_30x45', 'canvas_35x35', 'canvas_40x40', 'canvas_40x50', 'canvas_40x60', 'canvas_50x50', 'canvas_50x60', 'canvas_51x76', 'canvas_61x61'].includes(selectedSize?.id)) {
+      baseWidthCm = 35;
+    }
+  } else if (['matted_frame', 'frames', 'float_frames'].includes(product.id)) {
+    if (['mf_76x76', 'mf_76x102', 'mf_102x102', 'mf_102x152', 'float_76x76', 'float_76x102'].includes(selectedSize?.id)) {
+      baseWidthCm = 80;
+    } else if (['mf_28x36', 'mf_30x30', 'mf_30x40', 'mf_30x45', 'mf_35x35', 'mf_40x40', 'mf_40x60', 'mf_50x50', 'mf_50x60', 'mf_55x76', 'mf_61x61', 'float_30x45', 'float_40x60', 'float_50x60', 'float_55x76'].includes(selectedSize?.id)) {
       baseWidthCm = 35;
     }
   }
   let sizeScaleFactor = (product.id === 'matted_collages') ? 1 : (currentWidthCm / baseWidthCm);
   if (product.id === 'panoramic_prints' && selectedSize?.id === 'pano_38x76') {
     sizeScaleFactor = 0.5; 
-  }
-
-  if (product.id === 'matted_frame' && useLargeWall) {
-    const customScales = {
-      'mf_28x36': 0.50,
-      'mf_30x30': 0.52,
-      'mf_30x40': 0.54,
-      'mf_30x45': 0.56,
-      'mf_35x35': 0.58,
-      'mf_40x40': 0.60,
-      'mf_40x60': 0.63,
-      'mf_50x50': 0.66,
-      'mf_50x60': 0.69,
-      'mf_55x76': 0.72,
-      'mf_61x61': 0.70,
-      'mf_76x76': 0.76,
-      'mf_76x102': 0.80,
-      'mf_102x102': 0.84,
-      'mf_102x152': 0.88
-    };
-    if (customScales[selectedSize?.id]) {
-      sizeScaleFactor = customScales[selectedSize?.id];
-    }
   }
 
   // Positioning variables for the composition container
@@ -555,7 +569,33 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     containerTop = '38.4373%';
     containerWidth = '18.0647%';
     containerHeight = '26.8654%';
-  } else if (product.id === 'matted_frame' || product.id === 'matted_collages') {
+  } else if (['matted_frame', 'frames', 'float_frames'].includes(product.id)) {
+    const mediumWallSizes = [
+      'mf_28x36', 'mf_30x30', 'mf_30x40', 'mf_30x45', 'mf_35x35', 
+      'mf_40x40', 'mf_40x60', 'mf_50x50', 'mf_50x60', 'mf_55x76', 'mf_61x61',
+      'float_30x45', 'float_40x60', 'float_50x60', 'float_55x76'
+    ];
+    const largeWallSizes = [
+      'mf_76x76', 'mf_76x102', 'mf_102x102', 'mf_102x152',
+      'float_76x76', 'float_76x102'
+    ];
+    if (largeWallSizes.includes(selectedSize?.id)) {
+      containerLeft = '50%';
+      containerTop = '15%';
+      containerWidth = '22%';
+      containerHeight = 'auto';
+    } else if (mediumWallSizes.includes(selectedSize?.id)) {
+      containerLeft = '45%';
+      containerTop = '20%';
+      containerWidth = '14%';
+      containerHeight = 'auto';
+    } else {
+      containerLeft = '15.15%';
+      containerTop = '15.05%';
+      containerWidth = '16.31%';
+      containerHeight = 'auto';
+    }
+  } else if (product.id === 'matted_collages') {
     if (useLargeWall) {
       containerLeft = '49.7689%';
       containerTop = '10.2542%';
@@ -565,7 +605,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
       containerLeft = '15.15%';
       containerTop = '15.05%';
       containerWidth = '16.31%';
-      containerHeight = product.id === 'matted_collages' ? '34.57%' : 'auto';
+      containerHeight = '34.57%';
     }
   } else if (product.id === 'gallery_board') {
     containerLeft = '68.0731%';
@@ -940,7 +980,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                     : product.id === 'circular_frames'
                                     ? { width: '80%', height: '80%', top: '10%', left: '10%', borderRadius: '50%' }
                                     : product.id === 'float_frames'
-                                    ? { width: '78.6987%', height: '82.2006%', top: '8.89968%', left: '10.6507%', backgroundColor: '#ffffff' }
+                                    ? { width: '100%', height: '100%', top: '0%', left: '0%' }
                                     : product.id === 'prints'
                                     ? { width: '100%', height: '100%', top: '0%', left: '0%', backgroundColor: selectedBorder === 'white' ? '#ffffff' : 'transparent', padding: selectedBorder === 'white' ? '8%' : '0', boxSizing: 'border-box' }
                                     : product.id === 'deckled_prints'
@@ -958,24 +998,37 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                       : product.id === 'circular_frames'
                                       ? { width: '58%', height: '58%', top: '21%', left: '21%', borderRadius: '50%', overflow: 'hidden' }
                                       : product.id === 'float_frames'
-                                      ? { width: '56.25%', height: '65%', top: '17.5%', left: '21.875%' }
+                                      ? { 
+                                          width: `${ffPrintWidthPct * (ffMatWidthPct/100)}%`, 
+                                          height: `${ffPrintHeightPct * (ffMatHeightPct/100)}%`, 
+                                          top: `${ffPrintTopPct * (ffMatHeightPct/100) + (100 - ffMatHeightPct)/2}%`, 
+                                          left: `${ffPrintLeftPct * (ffMatWidthPct/100) + (100 - ffMatWidthPct)/2}%` 
+                                        }
                                       : { width: '100%', height: '100%', top: '0%', left: '0%' })
                                 }}>
                                   {product.id === 'float_frames' ? (
-                                    <img 
-                                      src={product.image}
-                                      alt=""
-                                      className="float-frame-preview-photo"
-                                      style={{ 
-                                        position: 'absolute', 
-                                        width: '100%', 
-                                        height: '100%', 
-                                        left: '0px', 
-                                        top: '0px',
-                                        objectFit: 'cover',
-                                        filter: 'url(#deckled-edge) drop-shadow(3px 6px 10px rgba(0,0,0,0.22))'
-                                      }}
-                                    />
+                                    <div style={{
+                                      position: 'absolute', 
+                                      width: '100%', 
+                                      height: '100%', 
+                                      left: '0px', 
+                                      top: '0px',
+                                      backgroundColor: '#ffffff',
+                                      padding: '3px',
+                                      boxSizing: 'border-box',
+                                      filter: 'url(#slight-deckled-edge) drop-shadow(2px 6px 12px rgba(0,0,0,0.22))'
+                                    }}>
+                                      <img 
+                                        src={product.image}
+                                        alt=""
+                                        className="float-frame-preview-photo"
+                                        style={{ 
+                                          width: '100%', 
+                                          height: '100%', 
+                                          objectFit: 'cover'
+                                        }}
+                                      />
+                                    </div>
                                   ) : product.id === 'deckled_prints' ? (
                                     <div style={{
                                       position: 'absolute',
@@ -1049,7 +1102,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                         boxShadow: 'inset 0 0 1px rgba(255,255,255,0.6)'
                                       }}></div>
                                     </div>
-                                  ) : product.id === 'circular_frames' ? null : (
+                                  ) : ['circular_frames', 'matted_frame', 'frames', 'float_frames'].includes(product.id) ? null : (
                                     <div 
                                       className="composition-preview-box__image" 
                                       style={{ 
@@ -1077,7 +1130,22 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               ) : product.id === 'matted_frame' || product.id === 'frames' ? (
                                 <div className="matted-frame-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
                                   <div className="matted-frame-shadow" style={{ position: 'absolute', width: '100%', height: '100%', backgroundColor: selectedFrame?.color || '#111111', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div className="matted-frame-mat" style={{ width: '84%', height: '87%', backgroundColor: '#fff' }}></div>
+                                    <div className="matted-frame-mat" style={{ 
+                                      width: '90%', height: '90%', backgroundColor: '#fff',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.1)'
+                                    }}>
+                                      {/* Image inside the mat */}
+                                      <div style={{
+                                        width: selectedPrintSize === '35x35cm' ? '70%' : selectedPrintSize === '50x63cm' ? '85%' : selectedPrintSize === '40x60cm' ? '80%' : '100%',
+                                        height: selectedPrintSize === '35x35cm' ? 'auto' : selectedPrintSize === '50x63cm' ? '65%' : selectedPrintSize === '40x60cm' ? '80%' : '100%',
+                                        aspectRatio: selectedPrintSize === '35x35cm' ? '1 / 1' : 'auto',
+                                        backgroundImage: `url(${product.image})`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center center',
+                                        boxShadow: selectedPrintSize === '55x76cm' ? 'none' : '0 2px 8px rgba(0,0,0,0.15)'
+                                      }}></div>
+                                    </div>
                                   </div>
                                 </div>
                               ) : product.id === 'gallery_board' ? (
@@ -1157,7 +1225,37 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                   <div className="deckled-print-pdp-overlay__deckle deckled-print-pdp-overlay__deckle--right"><div className="deckled-print-pdp-overlay__deckle-tile"></div></div>
                                 </div>
                               ) : product.id === 'float_frames' ? (
-                                <div className="pdp-overlay-float_frames composition-preview__overlay" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 2, pointerEvents: 'none', '--frame-color': selectedFrame?.color && selectedFrame.color !== 'transparent' ? selectedFrame.color : '#d2b48c' }}></div>
+                                <div className="composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
+                                  <div className="float-frame-shadow" style={{ position: 'absolute', width: '100%', height: '100%', backgroundColor: selectedFrame?.color || '#111111', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div className="float-frame-mat" style={{ 
+                                      width: `${ffMatWidthPct}%`, height: `${ffMatHeightPct}%`, backgroundColor: '#fdfdfd',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                      boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.1)'
+                                    }}>
+                                      {/* Floating Photo with deckled edges */}
+                                      <div style={{
+                                        position: 'relative',
+                                        width: `${ffPrintWidthPct}%`, 
+                                        height: `${ffPrintHeightPct}%`, 
+                                        backgroundColor: '#fff',
+                                        padding: '3px',
+                                        boxSizing: 'border-box',
+                                        filter: 'url(#slight-deckled-edge) drop-shadow(2px 6px 12px rgba(0,0,0,0.22))', /* Deckled shadow */
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                      }}>
+                                        <div style={{
+                                          width: '100%',
+                                          height: '100%',
+                                          backgroundImage: `url(${product.image})`,
+                                          backgroundSize: 'cover',
+                                          backgroundPosition: 'center center'
+                                        }}></div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
                               ) : (
                                 <div className={`pdp-floating-frame-overlay pdp-overlay-${product.id} composition-preview__overlay`} style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, ...(hasFrameOptions && selectedFrame?.color && { '--frame-color': selectedFrame.color }) }}>
                                   <div className="pdp-overlay-matte-board"></div>
@@ -1418,56 +1516,34 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                         </div>
                       </div>
 
-                      {hasFrameOptions && !['matted_frame', 'gallery_board'].includes(product.id) && (
-                        <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2">
-                          <div className="FE-2-2">
-                            <div className="FE-2-2__header">
-                              <span>Frame Option</span>
-                            </div>
-                          </div>
-                          <div className="pt-dropdown-input">
-                            <div className="pt-system-dropdown-wrapper full-width">
-                              <select 
-                                className="pdp-select-input"
-                                value={selectedFrame.id}
-                                onChange={(e) => {
-                                  const frame = MOCK_FRAMES.find(f => f.id === e.target.value);
-                                  if (frame) setSelectedFrame(frame);
-                                }}
-                              >
-                                {MOCK_FRAMES.map((frame) => (
-                                  <option key={frame.id} value={frame.id}>
-                                    {frame.label}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
-                        </div>
-                      )}
 
-                      {product.id !== 'deckled_prints' && (
+
+                      {product.id !== 'deckled_prints' && product.id !== 'float_frames' && (
                       <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2" ref={product.id === 'matted_frame' ? printSizeDropdownRef : paperDropdownRef}>
                         <div className="FE-2-2">
                           <div className="FE-2-2__header">
-                            <span>{['matted_frame', 'gallery_board', 'circular_frames'].includes(product.id) ? 'Print Size' : product.id === 'canvas' ? 'Wrap' : 'Paper Type'}</span>
+                            <span>{['matted_frame', 'frames', 'gallery_board', 'circular_frames'].includes(product.id) ? 'Print Size' : product.id === 'canvas' ? 'Wrap' : 'Paper Type'}</span>
                           </div>
                         </div>
                         <div className="pt-dropdown-input">
-                          {['matted_frame', 'gallery_board', 'circular_frames'].includes(product.id) ? (
+                          {['matted_frame', 'frames', 'gallery_board', 'circular_frames'].includes(product.id) ? (
                             /* Custom white dropdown for print size */
                             <div className={`custom-dropdown-wrapper full-width ${isPrintSizeDropdownOpen ? 'open' : ''}`}>
                               <div 
                                 className="custom-dropdown-trigger"
                                 onClick={() => setIsPrintSizeDropdownOpen(prev => !prev)}
                               >
-                                <span>{selectedPrintSize || selectedSize?.printSize || '8x8cm'}</span>
+                                <span>{product.id === 'float_frames' ? selectedSize?.printSize : (selectedPrintSize || selectedSize?.printSize || '8x8cm')}</span>
                                 {isPrintSizeDropdownOpen ? <ChevronUp size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
                               </div>
                               {isPrintSizeDropdownOpen && (
                                 <div className="custom-dropdown-menu">
                                   {/* Derive unique print sizes based on product */}
-                                  {[...new Set((product.id === 'matted_frame' ? MATTED_FRAME_SIZES : product.id === 'gallery_board' ? GALLERY_BOARD_SIZES : CIRCULAR_FRAME_SIZES).map(s => s.printSize))].map((ps) => (
+                                  {(
+                                    ['matted_frame', 'frames'].includes(product.id) ? ['35x35cm', '50x63cm', '40x60cm', '55x76cm'] : 
+                                    product.id === 'float_frames' ? [selectedSize?.printSize] :
+                                    [...new Set((product.id === 'gallery_board' ? GALLERY_BOARD_SIZES : CIRCULAR_FRAME_SIZES).map(s => s.printSize))]
+                                  ).map((ps) => (
                                     <div 
                                       key={ps} 
                                       className={`custom-dropdown-item ${selectedPrintSize === ps ? 'active' : ''}`}

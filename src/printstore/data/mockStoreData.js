@@ -149,9 +149,9 @@ export const MOCK_SIZES = [
 ];
 
 export const MATTED_FRAME_SIZES = [
-  { id: "mf_13x18", label: "13x18cm", priceModifier: 0, printSize: "8x8cm" },
+  { id: "mf_13x18", label: "13x18cm", priceModifier: 0, printSize: "8x13cm" },
   { id: "mf_20x20", label: "20x20cm", priceModifier: 10, printSize: "10x10cm" },
-  { id: "mf_20x25", label: "20x25cm", priceModifier: 15, printSize: "10x10cm" },
+  { id: "mf_20x25", label: "20x25cm", priceModifier: 15, printSize: "10x15cm" },
   { id: "mf_20x30", label: "20x30cm", priceModifier: 20, printSize: "15x15cm" },
   { id: "mf_25x25", label: "25x25cm", priceModifier: 25, printSize: "15x15cm" },
   { id: "mf_28x36", label: "28x36cm", priceModifier: 40, printSize: "15x15cm" },
@@ -202,6 +202,18 @@ export const CIRCULAR_FRAME_SIZES = [
   { id: "cf_40x40", label: "40x40cm", priceModifier: 100.00, printSize: "30x30cm" },
   { id: "cf_50x50", label: "50x50cm", priceModifier: 180.00, printSize: "35x35cm" },
   { id: "cf_61x61", label: "61x61cm", priceModifier: 248.75, printSize: "46x46cm" }
+];
+
+export const FLOAT_FRAME_SIZES = [
+  { id: "float_20x25", label: "20x25cm", printSize: "13x18cm", priceModifier: 0 },
+  { id: "float_25x25", label: "25x25cm", printSize: "15x15cm", priceModifier: 15 },
+  { id: "float_28x36", label: "28x36cm", printSize: "15x23cm", priceModifier: 30 },
+  { id: "float_30x45", label: "30x45cm", printSize: "20x30cm", priceModifier: 55 },
+  { id: "float_40x60", label: "40x60cm", printSize: "30x45cm", priceModifier: 85 },
+  { id: "float_50x60", label: "50x60cm", printSize: "40x50cm", priceModifier: 120 },
+  { id: "float_55x76", label: "55x76cm", printSize: "40x60cm", priceModifier: 160 },
+  { id: "float_76x76", label: "76x76cm", printSize: "66x66cm", priceModifier: 210 },
+  { id: "float_76x102", label: "76x102cm", printSize: "60x90cm", priceModifier: 280 }
 ];
 
 export const PANORAMIC_PRINTS_SIZES = [

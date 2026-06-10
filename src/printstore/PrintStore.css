@@ -2722,8 +2722,8 @@ div.customizer-grid-item[class*="product-card-"] {
   padding: 24px; /* Thick white mat board */
   border: 1px solid rgba(0, 0, 0, 0.09) !important; /* Divider separator line between frame and mat board */
   box-shadow: 
-    0 0 0 16px #ffffff, /* Thick outer 16px white frame border */
-    0 0 0 17px rgba(0, 0, 0, 0.05), /* Outer edge outline of frame */
+    0 0 0 8px #ffffff, /* Medium outer 8px white frame border */
+    0 0 0 9px rgba(0, 0, 0, 0.05), /* Outer edge outline of frame */
     inset 0 3px 6px rgba(0, 0, 0, 0.06), /* Inner bevel depth shadow inside frame */
     0 20px 45px rgba(0, 0, 0, 0.18), /* Outer frame drop shadow */
     0 5px 15px rgba(0, 0, 0, 0.08) !important;
@@ -2783,15 +2783,15 @@ div.customizer-grid-item[class*="product-card-"] {
   padding: 20px; /* Thick white mat board */
   border: 1px solid rgba(0, 0, 0, 0.09) !important; /* Divider separator line between frame and mat board */
   box-shadow: 
-    0 0 0 12px var(--frame-color, #ffffff), /* Thick outer white frame border */
-    0 0 0 13px rgba(0, 0, 0, 0.05), /* Outer edge outline of frame */
+    0 0 0 8px var(--frame-color, #ffffff), /* Medium outer 8px white frame border */
+    0 0 0 9px rgba(0, 0, 0, 0.05), /* Outer edge outline of frame */
     inset 0 3px 6px rgba(0, 0, 0, 0.06), /* Inner bevel depth shadow inside frame */
     0 18px 40px rgba(0, 0, 0, 0.18), /* Outer frame drop shadow */
     0 5px 12px rgba(0, 0, 0, 0.08) !important;
   outline: 1px solid rgba(0, 0, 0, 0.12) !important; /* Inner thin border line around photo */
   outline-offset: -21px !important;
   width: auto;
-  height: calc(100% - 24px) !important; /* Visual offset to compensate for border spread */
+  height: calc(100% - 16px) !important; /* Visual offset to compensate for border spread */
   object-fit: contain;
 }
 
@@ -2828,13 +2828,13 @@ div.customizer-grid-item[class*="product-card-"] {
   background: #ffffff;
   border: 1px solid rgba(0, 0, 0, 0.09) !important; /* Divider line separating outer frame & mat board */
   box-shadow: 
-    0 0 0 24px var(--frame-color, #ffffff), /* Dynamic Wooden Frame (big border 1) */
-    0 0 0 25px rgba(0, 0, 0, 0.05), /* Outer edge line of wood frame */
+    0 0 0 6px var(--frame-color, #ffffff), /* Dynamic Wooden Frame (big border 1) */
+    0 0 0 7px rgba(0, 0, 0, 0.05), /* Outer edge line of wood frame */
     inset 0 3px 6px rgba(0, 0, 0, 0.06), /* Inner bevel depth shadow inside frame */
     0 18px 40px rgba(0, 0, 0, 0.16), /* Soft drop shadow */
     0 5px 12px rgba(0, 0, 0, 0.08) !important;
   width: auto;
-  height: calc(100% - 48px) !important; /* Visual offset to compensate for 24px border spread */
+  height: calc(100% - 12px) !important; /* Visual offset to compensate for 6px border spread */
   object-fit: contain;
 }
 
