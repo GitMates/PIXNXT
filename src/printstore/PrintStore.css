@@ -2909,7 +2909,7 @@ div.customizer-grid-item[class*="product-card-"] {
     inset 0 3px 7px rgba(0, 0, 0, 0.08), /* Deeper inner bevel shadow on the mat */
     0 20px 40px rgba(0, 0, 0, 0.16) !important; /* Outer shadow below the frame */
   margin: 2rem auto !important; /* Centered inside card */
-  border-radius: 1px;
+  border-radius: 0px !important; /* Make corners sharp */
   box-sizing: border-box;
   display: flex !important;
   align-items: center !important;
@@ -2921,12 +2921,15 @@ div.customizer-grid-item[class*="product-card-"] {
 .product-card-circular_frames .product-image-box::before {
   content: '';
   position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   width: 205px;
   height: 205px;
   border-radius: 50%;
   border: 1px solid rgba(0, 0, 0, 0.07);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
-  background: #ffffff;
+  background: transparent;
   pointer-events: none;
   z-index: 1;
 }
@@ -2935,7 +2938,7 @@ div.customizer-grid-item[class*="product-card-"] {
   width: 175px !important;
   height: 175px !important;
   object-fit: cover !important;
-  border: none !important;
+  border: 10px solid #ffffff !important; /* White paper border that gets torn by the deckled filter */
   box-shadow: none !important;
   position: relative !important;
   z-index: 2 !important;
@@ -6173,13 +6176,17 @@ div.cart-item-image-wrapper .cart-item-product-image-box > * {
   max-width: unset !important;
 }
 .composition-preview__overlay.product-card-circular_frames .product-image {
-  width: 50cqi !important; /* 62.5% of 80cqi */
-  height: 50cqi !important;
+  width: var(--cf-print-size, 50cqi) !important; /* 62.5% of 80cqi */
+  height: var(--cf-print-size, 50cqi) !important;
+  aspect-ratio: 1 / 1 !important;
   max-width: unset !important;
+  max-height: unset !important;
+  border: 2.5cqi solid #ffffff !important; /* White paper border that gets torn by the deckled filter */
 }
 .composition-preview__overlay.product-card-circular_frames .product-image-box::before {
-  width: 58.5cqi !important; /* 205/280 is approx 73% of 80cqi */
-  height: 58.5cqi !important;
+  width: var(--cf-mat-hole, 58.5cqi) !important; /* approx 1.17x print size */
+  height: var(--cf-mat-hole, 58.5cqi) !important;
+  display: block !important;
 }
 
 /* Matted Collage Preview background resets inside PDP room visualizer, Swiper thumbnails and Customizer */

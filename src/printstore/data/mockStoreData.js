@@ -85,7 +85,7 @@ export const MOCK_PRODUCTS = [
     name: "Circular Frames",
     description: "A handtorn circular print, set in a timeless frame to elevate your space.",
     basePrice: 200.25,
-    image: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200"
+    image: "https://images.unsplash.com/photo-1472396961693-142e6e269027?auto=format&fit=crop&q=80&w=800&h=1200"
   },
   {
     id: "float_frames",
@@ -185,6 +185,14 @@ export const GALLERY_BOARD_SIZES = [
   { id: "gb_28x36", label: "28x36cm", priceModifier: 18.25, printSize: "18x23cm" },
   { id: "gb_20x30", label: "20x30cm", priceModifier: 6.00, printSize: "13x19cm" },
   { id: "gb_30x45", label: "30x45cm", priceModifier: 21.75, printSize: "20x25cm" }
+];
+
+export const CIRCULAR_FRAME_SIZES = [
+  { id: "cf_30x30", label: "30x30cm", priceModifier: 0, printSize: "20x20cm" },
+  { id: "cf_35x35", label: "35x35cm", priceModifier: 58.25, printSize: "20x20cm" },
+  { id: "cf_40x40", label: "40x40cm", priceModifier: 100.00, printSize: "30x30cm" },
+  { id: "cf_50x50", label: "50x50cm", priceModifier: 180.00, printSize: "35x35cm" },
+  { id: "cf_61x61", label: "61x61cm", priceModifier: 248.75, printSize: "46x46cm" }
 ];
 
 export const MOCK_FRAMES = [

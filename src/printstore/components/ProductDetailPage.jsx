@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
 import floatRoom from '../float frames_files/1.webp';
@@ -236,6 +236,8 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     ? PRINT_PACK_SIZES
     : product.id === 'gallery_board'
     ? GALLERY_BOARD_SIZES
+    : product.id === 'circular_frames'
+    ? CIRCULAR_FRAME_SIZES
     : MOCK_SIZES;
   const [selectedSize, setSelectedSize] = useState(productSizes[0]);
   const [selectedPaper, setSelectedPaper] = useState(MOCK_PAPERS[0]);
@@ -400,6 +402,34 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   const gbPrintHeightPct = (gbPrintHeight / currentHeightCm) * 100;
   const gbPrintLeftPct = (gbHorizBorder / currentWidthCm) * 100;
   const gbPrintTopPct = (gbVertBorder / currentHeightCm) * 100;
+
+  let cfPrintWidth = 20;
+  let cfVisualSize = '100%';
+  if (product.id === 'circular_frames') {
+    const printSizeStr = selectedSize?.printSize || selectedPrintSize;
+    if (printSizeStr) {
+      const pMatch = printSizeStr.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+      if (pMatch) {
+        cfPrintWidth = parseFloat(pMatch[1]);
+      }
+    }
+    if (selectedSize?.label === '50x50cm' || selectedSize?.label === '61x61cm') {
+      cfVisualSize = '65%'; 
+    } else if (selectedSize?.label === '40x40cm') {
+      cfVisualSize = '72%';
+    } else if (selectedSize?.label === '35x35cm') {
+      cfVisualSize = '80%';
+    } else {
+      cfVisualSize = '88%';
+    }
+  }
+  const cfPrintPct = (cfPrintWidth / currentWidthCm) * 100;
+  // The mat hole needs to be slightly larger than the print to show the torn edge resting on the backing board.
+  // E.g. print is 20x20, mat hole is 23x23. So we add 3cm to the width for the hole size.
+  const cfMatHolePct = ((cfPrintWidth + 3) / currentWidthCm) * 100;
+  // Let the SVG mask be scaled by this percentage so the hole perfectly matches the print size.
+  // Wait, if we scale the SVG, it will be smaller than the frame!
+  // It's better to just set the print size percentage for the image. The white mat SVG might not fit properly if scaled. Let's see.
 
   const baseWidths = {
     gallery_board: 25,
@@ -787,7 +817,8 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                           <div className="composition-preview" style={{ width: '100%', height: (product.id === 'print_pack' || product.id === 'matted_collages') ? '100%' : 'auto', position: 'relative' }}>
                             <div className="composition-preview__composition" style={{ 
                               aspectRatio: (product.id === 'matted_frame' || product.id === 'matted_collages') ? '0.783494 / 1' : product.id === 'panoramic_prints' ? '118.1 / 249.33' : `${currentAspect.toFixed(6)} / 1`, 
-                              width: '100%', 
+                              width: product.id === 'circular_frames' ? cfVisualSize : '100%', 
+                              margin: '0 auto',
                               height: (product.id === 'print_pack' || product.id === 'matted_collages') ? '100%' : 'auto', 
                               position: 'relative',
                               transition: 'aspect-ratio 0.3s ease-in-out',
@@ -868,7 +899,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                         display: 'block'
                                       }}
                                     />
-                                  ) : (
+                                  ) : product.id === 'circular_frames' ? null : (
                                     <div 
                                       className="composition-preview-box__image" 
                                       style={{ 
@@ -902,9 +933,51 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               ) : product.id === 'gallery_board' ? (
                                 <div className="gallery-board-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, backgroundColor: '#fff', boxShadow: 'rgba(0, 0, 0, 0) 33px 33px 13px 0px, rgba(0, 0, 0, 0.01) 21px 21px 12px 0px, rgba(0, 0, 0, 0.05) 12px 12px 10px 0px, rgba(0, 0, 0, 0.09) 5px 5px 7px 0px, rgba(0, 0, 0, 0.1) 1px 1px 4px 0px' }}></div>
                               ) : product.id === 'circular_frames' ? (
-                                <div className="product-card-circular_frames composition-preview__overlay" style={{ '--frame-color': selectedFrame?.color || '#ffffff', width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent' }}>
-                                  <div className="product-image-box" style={{ width: '85%', height: '85%', margin: '0' }}>
-                                    <img src={product.image} className="product-image" style={{ width: '73.5%', height: '73.5%', objectFit: 'cover' }} alt="" />
+                                <div className="product-card-circular_frames composition-preview__overlay" style={{ 
+                                  '--frame-color': selectedFrame?.color || '#a89f91', 
+                                  '--cf-print-size': `${cfPrintPct * 0.8}cqi`, 
+                                  '--cf-mat-hole': `${cfMatHolePct * 0.8}cqi`,
+                                  width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent' 
+                                }}>
+                                  <div className="cf-outer-frame" style={{
+                                    width: '100%', height: '100%',
+                                    backgroundColor: 'var(--frame-color)',
+                                    boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
+                                    border: '1px solid rgba(0,0,0,0.08)',
+                                    position: 'relative',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                  }}>
+                                    <div className="cf-square-mat" style={{
+                                      width: '94%', height: '94%',
+                                      backgroundColor: '#f9f9f9',
+                                      border: '1px solid rgba(0,0,0,0.08)',
+                                      boxShadow: 'inset 0 4px 12px rgba(0,0,0,0.1)',
+                                      position: 'relative',
+                                      overflow: 'hidden',
+                                      display: 'flex', alignItems: 'center', justifyContent: 'center'
+                                    }}>
+                                      <div className="cf-photo-container" style={{
+                                        width: 'var(--cf-print-size, 50cqi)',
+                                        height: 'var(--cf-print-size, 50cqi)',
+                                        position: 'absolute', zIndex: 1
+                                      }}>
+                                        <img src={product.image} alt="" style={{
+                                          width: '100%', height: '100%',
+                                          objectFit: 'cover',
+                                          borderRadius: '50%',
+                                          border: '2.5cqi solid #ffffff',
+                                          filter: 'url(#deckled-edge) drop-shadow(2px 5px 8px rgba(0,0,0,0.15))'
+                                        }} />
+                                      </div>
+                                      <div className="cf-mat-hole" style={{
+                                        width: 'var(--cf-mat-hole, 58cqi)',
+                                        height: 'var(--cf-mat-hole, 58cqi)',
+                                        borderRadius: '50%',
+                                        border: '1px solid rgba(0,0,0,0.08)',
+                                        position: 'absolute', zIndex: 2, pointerEvents: 'none',
+                                        boxShadow: '0 0 0 2000px #f9f9f9, inset 0 2px 6px rgba(0,0,0,0.12), inset 0 1px 3px rgba(0,0,0,0.08)'
+                                      }}></div>
+                                    </div>
                                   </div>
                                 </div>
                               ) : product.id === 'canvas' ? (
@@ -1227,24 +1300,24 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                       <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2" ref={product.id === 'matted_frame' ? printSizeDropdownRef : paperDropdownRef}>
                         <div className="FE-2-2">
                           <div className="FE-2-2__header">
-                            <span>{['matted_frame', 'gallery_board'].includes(product.id) ? 'Print Size' : 'Paper Type'}</span>
+                            <span>{['matted_frame', 'gallery_board', 'circular_frames'].includes(product.id) ? 'Print Size' : 'Paper Type'}</span>
                           </div>
                         </div>
                         <div className="pt-dropdown-input">
-                          {['matted_frame', 'gallery_board'].includes(product.id) ? (
+                          {['matted_frame', 'gallery_board', 'circular_frames'].includes(product.id) ? (
                             /* Custom white dropdown for print size */
                             <div className={`custom-dropdown-wrapper full-width ${isPrintSizeDropdownOpen ? 'open' : ''}`}>
                               <div 
                                 className="custom-dropdown-trigger"
                                 onClick={() => setIsPrintSizeDropdownOpen(prev => !prev)}
                               >
-                                <span>{selectedPrintSize || '8x8cm'}</span>
+                                <span>{selectedPrintSize || selectedSize?.printSize || '8x8cm'}</span>
                                 {isPrintSizeDropdownOpen ? <ChevronUp size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
                               </div>
                               {isPrintSizeDropdownOpen && (
                                 <div className="custom-dropdown-menu">
                                   {/* Derive unique print sizes based on product */}
-                                  {[...new Set((product.id === 'matted_frame' ? MATTED_FRAME_SIZES : GALLERY_BOARD_SIZES).map(s => s.printSize))].map((ps) => (
+                                  {[...new Set((product.id === 'matted_frame' ? MATTED_FRAME_SIZES : product.id === 'gallery_board' ? GALLERY_BOARD_SIZES : CIRCULAR_FRAME_SIZES).map(s => s.printSize))].map((ps) => (
                                     <div 
                                       key={ps} 
                                       className={`custom-dropdown-item ${selectedPrintSize === ps ? 'active' : ''}`}
