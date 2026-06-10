@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
 import floatRoom from '../float frames_files/1.webp';
@@ -210,6 +210,12 @@ const PRODUCT_DETAILS_MAP = {
       { name: "Pack 2", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/printpack_std/thumbs/digitalab-print%20pack2.webp" },
       { name: "Pack 3", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/printpack_std/thumbs/digitalab-print%20pack3.webp" },
       { name: "Pack 4", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/printpack_std/thumbs/digitalab-print%20pack4.webp" }
+    ],
+    matteDetails: [
+      { name: "Pack 1", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/printpack_std/lowres/pdp_s_print-pack_01.webp" },
+      { name: "Pack 2", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1233/specs/printpack_l26e/thumbs/dialab-print-pack-1.jpg" },
+      { name: "Pack 3", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1233/specs/printpack_l26e/thumbs/dialab-print-pack-2.jpg" },
+      { name: "Pack 4", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1233/specs/printpack_l26e/thumbs/dialab-print-pack-3.jpg" }
     ]
   }
 };
@@ -356,12 +362,13 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     ? "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_large02.webp?ts=1780585829" 
     : details.roomBackground;
 
+  const activeDetails = ((product.id === 'dibond' || product.id === 'print_pack') && selectedPaper?.id === 'paper_matte' && details.matteDetails)
+    ? details.matteDetails
+    : details.details;
+
   const getActivePreviewUrl = () => {
     if (activePreviewType === 'room') return currentRoomBackground;
     const idx = parseInt(activePreviewType.split('-')[1]);
-    const activeDetails = (product.id === 'dibond' && selectedPaper?.id === 'paper_matte' && details.matteDetails)
-      ? details.matteDetails
-      : details.details;
     return activeDetails[idx]?.url || currentRoomBackground;
   };
 
@@ -439,7 +446,8 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     prints: 13,
     deckled_prints: 13,
     matted_frame: 20,
-    frames: 20
+    frames: 20,
+    print_pack: 10
   };
   let baseWidthCm = baseWidths[product.id] || 20;
   if (product.id === 'dibond' && isExtraLargeSize) {
@@ -447,7 +455,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   } else if (product.id === 'dibond' && isLargeSize) {
     baseWidthCm = 25;
   }
-  let sizeScaleFactor = (product.id === 'print_pack' || product.id === 'matted_collages') ? 1 : (currentWidthCm / baseWidthCm);
+  let sizeScaleFactor = (product.id === 'matted_collages') ? 1 : (currentWidthCm / baseWidthCm);
 
   if (product.id === 'matted_frame' && useLargeWall) {
     const customScales = {
@@ -802,6 +810,12 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                   src={product.image || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200"} 
                                   alt="" 
                                   className={`print-pack-img img-${i}`} 
+                                  style={{
+                                    width: '100%',
+                                    aspectRatio: `${currentAspect} / 1`,
+                                    padding: '4%',
+                                    boxSizing: 'border-box'
+                                  }}
                                 />
                               ))}
                             </div>
@@ -1169,7 +1183,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                           </div>
                           
                           {/* Balance Product Component View Thumbnails */}
-                          {(product.id === 'dibond' && selectedPaper?.id === 'paper_matte' && details.matteDetails ? details.matteDetails : details.details).map((item, idx) => (
+                          {activeDetails.map((item, idx) => (
                             <div 
                               key={idx}
                               className={`media-set-image BS-22-1-1 ${activePreviewType === `detail-${idx}` ? 'media-set-image--selected' : ''}`}
@@ -1343,7 +1357,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               </div>
                               {isPaperDropdownOpen && (
                                 <div className="custom-dropdown-menu">
-                                  {(product.id === 'dibond' ? MOCK_PAPERS.filter(p => p.id !== 'paper_glossy') : MOCK_PAPERS).map((paper) => (
+                                  {(product.id === 'dibond' ? MOCK_PAPERS.filter(p => p.id !== 'paper_glossy') : product.id === 'print_pack' ? MOCK_PAPERS.filter(p => p.id === 'paper_matte' || p.id === 'paper_semi_gloss') : MOCK_PAPERS).map((paper) => (
                                     <div 
                                       key={paper.id} 
                                       className={`custom-dropdown-item ${selectedPaper.id === paper.id ? 'active' : ''}`}

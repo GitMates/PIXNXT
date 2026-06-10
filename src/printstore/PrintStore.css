@@ -3528,12 +3528,9 @@ div.customizer-grid-item[class*="product-card-"] {
   justify-content: center;
 }
 .product-card-print_pack .print-pack-img {
-  width: 50% !important;
   height: auto !important;
-  aspect-ratio: 2 / 3 !important;
   object-fit: cover;
   background: #ffffff !important;
-  padding: 6px !important; /* White border around each print */
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
   position: absolute !important;
   border: 1px solid rgba(0, 0, 0, 0.05) !important;
