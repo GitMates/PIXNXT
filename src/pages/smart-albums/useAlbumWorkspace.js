@@ -27,6 +27,7 @@ import {
     getPageInsertIndex,
     getPageRemoveIndex,
     getTotalSpreads,
+    normalizeStoragePageIndex,
 } from '../../components/smart-albums/albumSpreadUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
@@ -36,11 +37,11 @@ import {
 } from '../../components/smart-albums/albumPreviewData';
 import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
 
-export function parseUrlPage(raw, totalPages, _spreadOpts) {
+export function parseUrlPage(raw, totalPages, spreadOpts = {}) {
     if (raw == null || raw === '') return 0;
     let n = parseInt(raw, 10);
     if (Number.isNaN(n)) return 0;
-    return Math.max(0, Math.min(totalPages - 1, n));
+    return normalizeStoragePageIndex(n, totalPages, spreadOpts);
 }
 
 /** Preview = client-facing album only (final output). */

@@ -4,6 +4,7 @@ import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePh
 import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache } from '../../components/smart-albums/albumPreviewData';
 import { smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
 import AlbumPreview from './AlbumPreview';
+import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { parseUrlPage } from './useAlbumWorkspace';
 import './AlbumViewer.css';
 
@@ -54,7 +55,8 @@ export default function PublicAlbumPreview() {
     }, [albumId, album?.id, album?.preview_data]);
 
     const totalPages = album?.page_count || 21;
-    const initialPage = parseUrlPage(searchParams.get('page'), totalPages);
+    const spreadOpts = getAlbumSpreadOptions(album);
+    const initialPage = parseUrlPage(searchParams.get('page'), totalPages, spreadOpts);
 
     const handlePageChange = (pageIdx) => {
         const next = new URLSearchParams(searchParams);

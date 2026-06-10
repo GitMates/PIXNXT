@@ -354,6 +354,54 @@ export function getEndSpreadPageRole(
     return null;
 }
 
+/** True when this storage page is the unused back-cover right leaf (omitted from the flipbook). */
+export function isEndCoverBlankPage(pageNum, totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (!usesReservedEndSpread(totalPages, spreadOpts)) return false;
+    const { left, right } = getEndSpreadPageIndices(totalPages);
+    return right > left && pageNum === right;
+}
+
+/** Clamp storage page indices off the omitted back-cover blank leaf. */
+export function normalizeStoragePageIndex(pageNum, totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const clamped = Math.max(0, Math.min(totalPages - 1, Math.floor(Number(pageNum) || 0)));
+    if (isEndCoverBlankPage(clamped, totalPages, spreadOpts)) {
+        return getEndSpreadPageIndices(totalPages).left;
+    }
+    return clamped;
+}
+
+/** Storage pages rendered as flipbook leaves (skips back-cover blank right). */
+export function getFlipbookStoragePages(totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const pages = [];
+    for (let pageNum = 0; pageNum < totalPages; pageNum += 1) {
+        if (!isEndCoverBlankPage(pageNum, totalPages, spreadOpts)) {
+            pages.push(pageNum);
+        }
+    }
+    return pages;
+}
+
+export function getFlipbookPageCount(totalPages, opts = {}) {
+    return getFlipbookStoragePages(totalPages, opts).length;
+}
+
+export function storagePageToFlipbookIndex(pageNum, totalPages, opts = {}) {
+    const storagePage = normalizeStoragePageIndex(pageNum, totalPages, opts);
+    const pages = getFlipbookStoragePages(totalPages, opts);
+    const idx = pages.indexOf(storagePage);
+    return idx >= 0 ? idx : Math.max(0, pages.length - 1);
+}
+
+export function flipbookIndexToStoragePage(flipIndex, totalPages, opts = {}) {
+    const pages = getFlipbookStoragePages(totalPages, opts);
+    if (!pages.length) return 0;
+    const idx = Math.max(0, Math.min(pages.length - 1, Math.floor(Number(flipIndex) || 0)));
+    return pages[idx];
+}
+
 /** Whether a spread index is the last spread with a half-blank layout. */
 export function isEndHalfSpreadIndex(spreadIndex, totalPages, opts = {}) {
     const spreadOpts = normalizeSpreadOpts(opts);

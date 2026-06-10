@@ -300,7 +300,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
 
         if (endSpreadRole === 'half-blank') {
             return (
-                <div className="ab-flip-page ab-flip-page--half-blank" ref={ref} data-density="hard">
+                <div
+                    className="ab-flip-page ab-flip-page--half-blank ab-flip-page--end-cover-blank"
+                    ref={ref}
+                    data-density="hard"
+                >
                     <div className="ab-page-empty" aria-hidden />
                 </div>
             );

@@ -287,9 +287,25 @@
 
 /* Page turn: curls/shadows paint outside the book grid; cover clip returns when idle */
 .ab-flip-escape--flipping .ab-flipbook-wrap--front-cover-only,
-.ab-flip-escape--flipping .ab-flipbook-wrap--end-cover-only,
-.ab-flipbook-wrap--front-cover-only.ab-flipbook-wrap--flipping,
-.ab-flipbook-wrap--end-cover-only.ab-flipbook-wrap--flipping {
+.ab-flipbook-wrap--front-cover-only.ab-flipbook-wrap--flipping {
+  overflow: visible;
+  clip-path: none;
+  transition: none;
+}
+
+/* End cover: keep left-half clip while turning onto back cover */
+.ab-flip-escape--flipping
+  .ab-flipbook-wrap--end-cover-only:not(.ab-flipbook-wrap--end-cover-reveal),
+.ab-flipbook-wrap--end-cover-only.ab-flipbook-wrap--flipping:not(
+    .ab-flipbook-wrap--end-cover-reveal
+  ) {
+  overflow: hidden;
+  clip-path: inset(0 50% 0 0);
+  transition: none;
+}
+
+.ab-flipbook-wrap--end-cover-reveal.ab-flipbook-wrap--flipping,
+.ab-flip-escape--flipping .ab-flipbook-wrap--end-cover-reveal {
   overflow: visible;
   clip-path: none;
   transition: none;
@@ -338,11 +354,30 @@
   pointer-events: none !important;
 }
 
-/* Never clip the pre-back spread — right blank page must stay visible */
-.ab-flipbook-wrap--end-cover-only:has(.ab-flip-page--pre-back-blank),
-.ab-flipbook-wrap--end-cover-only:has(.ab-flip-page--pre-back-blank):not(.ab-flipbook-wrap--flipping) {
-  clip-path: none !important;
-  overflow: visible !important;
+.ab-flipbook-wrap--end-cover-only
+  .ab-flip-page--half-blank:not(.ab-flip-page--pre-back-blank),
+.ab-flipbook-wrap--end-cover-only
+  .ab-flip-page--half-blank:not(.ab-flip-page--pre-back-blank)
+  .ab-page-empty {
+  visibility: hidden;
+  background: transparent;
+}
+
+/* Back-cover blank right leaf: transparent in the flipbook (still a page for page-flip) */
+.ab-html-flipbook .stf__item:has(.ab-flip-page--end-cover-blank) {
+  background: transparent !important;
+}
+
+.ab-flip-page--end-cover-blank,
+.ab-flip-page--end-cover-blank .ab-page-empty {
+  background: transparent !important;
+}
+
+.ab-flipbook-wrap--end-cover-reveal .stf__item:has(.ab-flip-page--end-cover-blank),
+.ab-flipbook-wrap--end-cover-reveal .ab-flip-page--end-cover-blank,
+.ab-flipbook-wrap--end-cover-reveal .ab-flip-page--end-cover-blank .ab-page-empty {
+  background: #fff !important;
+  visibility: visible !important;
 }
 
 .ab-html-flipbook {

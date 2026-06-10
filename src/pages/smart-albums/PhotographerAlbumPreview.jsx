@@ -4,6 +4,7 @@ import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePh
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import AlbumPreview from './AlbumPreview';
+import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { parseUrlPage } from './useAlbumWorkspace';
 import './AlbumViewer.css';
 
@@ -45,7 +46,8 @@ export default function PhotographerAlbumPreview() {
     }, [albumId, album?.id]);
 
     const totalPages = album?.page_count || 21;
-    const initialPage = parseUrlPage(searchParams.get('page'), totalPages);
+    const spreadOpts = getAlbumSpreadOptions(album);
+    const initialPage = parseUrlPage(searchParams.get('page'), totalPages, spreadOpts);
 
     const handlePageChange = (pageIdx) => {
         const next = new URLSearchParams(searchParams);

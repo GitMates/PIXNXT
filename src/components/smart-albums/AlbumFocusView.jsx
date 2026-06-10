@@ -2,7 +2,15 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import HTMLFlipBook from 'react-pageflip';
 import AlbumFlipPage from './AlbumFlipPage';
-import { getAlbumSpreadOptions, getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+import {
+    flipbookIndexToStoragePage,
+    getAlbumSpreadOptions,
+    getFlipbookStoragePages,
+    getTotalSpreads,
+    normalizeStoragePageIndex,
+    pageToSpreadIndex,
+    storagePageToFlipbookIndex,
+} from './albumSpreadUtils';
 import { installSafePageFlip } from './pageFlipSafe';
 import './AlbumBook.css';
 import { parseGridSizeAspect } from './albumGridSize';
@@ -40,9 +48,15 @@ export default function AlbumFocusView({
     const isFlippingRef = useRef(false);
     const [bookFlipping, setBookFlipping] = useState(false);
     const [dims, setDims] = useState(() => getFocusBookDimensions(album?.grid_size));
-    const [pageIndex, setPageIndex] = useState(startPage);
-
     const spreadOpts = getAlbumSpreadOptions(album);
+    const normalizedStartPage = normalizeStoragePageIndex(startPage, totalPages, spreadOpts);
+    const flipStartPage = storagePageToFlipbookIndex(normalizedStartPage, totalPages, spreadOpts);
+    const [pageIndex, setPageIndex] = useState(normalizedStartPage);
+
+    useEffect(() => {
+        const next = normalizeStoragePageIndex(startPage, totalPages, spreadOpts);
+        setPageIndex(next);
+    }, [startPage, totalPages, spreadOpts]);
     const spreadCtx = { ...spreadOpts, totalPages };
     const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
     const spreadIndex = pageToSpreadIndex(pageIndex, spreadCtx);
@@ -79,13 +93,13 @@ export default function AlbumFocusView({
 
     const handleFlip = useCallback(
         (e) => {
-            const idx = e.data;
+            const storageIdx = flipbookIndexToStoragePage(e.data, totalPages, spreadOpts);
             requestAnimationFrame(() => {
-                setPageIndex(idx);
-                onPageChange?.(idx);
+                setPageIndex(storageIdx);
+                onPageChange?.(storageIdx);
             });
         },
-        [onPageChange]
+        [onPageChange, spreadOpts, totalPages]
     );
 
     const handleChangeState = useCallback(
@@ -127,7 +141,7 @@ export default function AlbumFocusView({
 
     const pages = useMemo(
         () =>
-            Array.from({ length: totalPages }, (_, pageNum) => (
+            getFlipbookStoragePages(totalPages, spreadOpts).map((pageNum) => (
                 <AlbumFlipPage
                     key={`focus-page-${pageNum}`}
                     album={album}
@@ -142,7 +156,7 @@ export default function AlbumFocusView({
                     photoRevision={photoRevision}
                 />
             )),
-        [album, totalPages, placementMode, showSamples, transformRevision, photoRevision]
+        [album, totalPages, spreadOpts, placementMode, showSamples, transformRevision, photoRevision]
     );
 
     return createPortal(
@@ -192,7 +206,7 @@ export default function AlbumFocusView({
                         style={{ width: dims.width * 2, height: dims.height }}
                     >
                         <HTMLFlipBook
-                            key={`focus-${album?.id}-${totalPages}-${startPage}`}
+                            key={`focus-${album?.id}-${totalPages}-${flipStartPage}`}
                             ref={bookRef}
                             className="ab-html-flipbook ab-html-flipbook--focus"
                             style={{
@@ -216,7 +230,7 @@ export default function AlbumFocusView({
                             showCover={false}
                             showPageCorners={false}
                             disableFlipByClick
-                            startPage={startPage}
+                            startPage={flipStartPage}
                             clickEventForward={false}
                             onFlip={handleFlip}
                             onChangeState={handleChangeState}
@@ -224,10 +238,14 @@ export default function AlbumFocusView({
                                 const api = bookRef.current?.pageFlip?.();
                                 installSafePageFlip(api, { totalPages, spreadOpts });
                                 requestAnimationFrame(() => {
-                                    api?.turnToPage(startPage);
-                                    const idx = api?.getCurrentPageIndex() ?? startPage;
-                                    setPageIndex(idx);
-                                    onPageChange?.(idx);
+                                    api?.turnToPage(flipStartPage);
+                                    const storageIdx = flipbookIndexToStoragePage(
+                                        api?.getCurrentPageIndex() ?? flipStartPage,
+                                        totalPages,
+                                        spreadOpts
+                                    );
+                                    setPageIndex(storageIdx);
+                                    onPageChange?.(storageIdx);
                                 });
                             }}
                         >
