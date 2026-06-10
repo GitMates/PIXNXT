@@ -110,11 +110,39 @@ export function getEndSpreadPageIndices(totalPages) {
     };
 }
 
+/** Spread index of the first of the last two spreads (e.g. pre-back before back). */
+export function getLastTwoSpreadsStartIndex(totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
+    return Math.max(0, totalSpreads - 2);
+}
+
+/** Spread index removed when dropping one spread before the last two. */
+export function getRemovableSpreadIndex(totalPages, opts = {}) {
+    return getLastTwoSpreadsStartIndex(totalPages, opts) - 1;
+}
+
+/** Whether the album has a spread that can be removed before the last two. */
+export function canRemoveSpreadBeforeLastTwo(totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const removeIdx = getRemovableSpreadIndex(totalPages, spreadOpts);
+    if (removeIdx <= 0) return false;
+    const minSpreads = spreadOpts.hasCovers ? 4 : 3;
+    if (getTotalSpreads(totalPages, spreadOpts) < minSpreads) return false;
+    const { left } = getSpreadPages(removeIdx, totalPages, spreadOpts);
+    const minLeft = spreadOpts.hasCovers ? 2 : 0;
+    return left >= minLeft;
+}
+
 /** Index where new pages are inserted (before the last two spreads). */
 export function getPageInsertIndex(totalPages, opts = {}) {
-    const { hasCovers } = normalizeSpreadOpts(opts);
-    const insertAt = totalPages - 2 * RESERVED_END_PAGES;
-    if (!hasCovers) return Math.max(0, insertAt);
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const { left: insertAt } = getSpreadPages(
+        getLastTwoSpreadsStartIndex(totalPages, spreadOpts),
+        totalPages,
+        spreadOpts
+    );
+    if (!spreadOpts.hasCovers) return Math.max(0, insertAt);
     return Math.max(2, insertAt);
 }
 
@@ -123,9 +151,14 @@ export function getPageInsertIndex(totalPages, opts = {}) {
  * (never removes front cover pages 0–1 or the last two spreads).
  */
 export function getPageRemoveIndex(totalPages, removeCount = RESERVED_END_PAGES, opts = {}) {
-    const { hasCovers } = normalizeSpreadOpts(opts);
-    const removeAt = totalPages - removeCount - 2 * RESERVED_END_PAGES;
-    if (!hasCovers) return Math.max(0, removeAt);
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const { left: beforeLastTwo } = getSpreadPages(
+        getLastTwoSpreadsStartIndex(totalPages, spreadOpts),
+        totalPages,
+        spreadOpts
+    );
+    const removeAt = beforeLastTwo - removeCount;
+    if (!spreadOpts.hasCovers) return Math.max(0, removeAt);
     return Math.max(2, removeAt);
 }
 

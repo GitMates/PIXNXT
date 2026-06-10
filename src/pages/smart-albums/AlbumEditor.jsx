@@ -80,6 +80,7 @@ import {
     getAlbumSpreadOptions,
     getEndSpreadPageIndices,
     getInnerPageCount,
+    canRemoveSpreadBeforeLastTwo,
     getPageInsertIndex,
     getPageRemoveIndex,
     isCoverInsidePage,
@@ -1193,7 +1194,7 @@ export default function AlbumEditor({
     const canAddPages = totalPages + pagesPerSpread <= maxPages;
     const canRemovePages =
         totalPages - pagesPerSpread >= minPages &&
-        getInnerPageCount(totalPages) >= pagesPerSpread;
+        canRemoveSpreadBeforeLastTwo(totalPages, spreadOpts);
 
     const slotMenuSpreadIndex = useMemo(() => {
         if (!slotMenu?.slot) return -1;
