@@ -1583,7 +1583,7 @@ const AlbumBook = ({
                                         <span className="ab-overview-add-plus">+</span>
                                     </span>
                                     <span className="ab-overview-label">
-                                        {pageCountBusy ? 'Adding...' : 'Add page'}
+                                        {pageCountBusy ? 'Adding...' : 'Add spread'}
                                     </span>
                                 </button>
                             )}
@@ -1603,7 +1603,7 @@ const AlbumBook = ({
                                         </span>
                                     </span>
                                     <span className="ab-overview-label">
-                                        {pageCountBusy ? 'Removing...' : 'Remove page'}
+                                        {pageCountBusy ? 'Removing...' : 'Remove spread'}
                                     </span>
                                 </button>
                             )}

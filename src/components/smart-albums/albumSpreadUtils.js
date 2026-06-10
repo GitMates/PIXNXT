@@ -110,22 +110,23 @@ export function getEndSpreadPageIndices(totalPages) {
     };
 }
 
-/** Index where new pages are inserted (before the back-cover spread). */
+/** Index where new pages are inserted (before the last two spreads). */
 export function getPageInsertIndex(totalPages, opts = {}) {
     const { hasCovers } = normalizeSpreadOpts(opts);
-    if (!hasCovers) return Math.max(0, totalPages);
-    return Math.max(1, totalPages - RESERVED_END_PAGES);
+    const insertAt = totalPages - 2 * RESERVED_END_PAGES;
+    if (!hasCovers) return Math.max(0, insertAt);
+    return Math.max(2, insertAt);
 }
 
 /**
- * Index where pages are removed when shrinking — inner spread before the back cover
- * (never removes front cover pages 0–1 or the back-cover spread).
+ * Index where pages are removed when shrinking — the spread before the last two
+ * (never removes front cover pages 0–1 or the last two spreads).
  */
 export function getPageRemoveIndex(totalPages, removeCount = RESERVED_END_PAGES, opts = {}) {
     const { hasCovers } = normalizeSpreadOpts(opts);
-    if (!hasCovers) return Math.max(0, totalPages - removeCount);
-    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
-    return Math.max(2, endLeft - removeCount);
+    const removeAt = totalPages - removeCount - 2 * RESERVED_END_PAGES;
+    if (!hasCovers) return Math.max(0, removeAt);
+    return Math.max(2, removeAt);
 }
 
 export function usesReservedEndSpread(totalPages, opts = {}) {
