@@ -25,7 +25,7 @@ import {
     isProofLeftGridPage,
     isProofRightGridPage,
 } from './albumSpreadGrid';
-import { getInnerAlbumCollection } from './albumCollection';
+import { getAlbumCollection } from './albumCollection';
 import { COVER_TEXT_CHANGED_EVENT, getAlbumCoverText } from './albumCoverText';
 import {
     getAlbumSpreadOptions,
@@ -247,7 +247,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const albumId = albumIdProp ?? album?.id;
     void livePhotoRevision;
     void liveTransformRevision;
-    const collectionCount = albumId ? getInnerAlbumCollection(albumId).length : 0;
+    const collectionCount = albumId ? getAlbumCollection(albumId).length : 0;
     const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
     const coverLayoutOpts =
         spreadOpts.hasCovers || album?.has_covers === true

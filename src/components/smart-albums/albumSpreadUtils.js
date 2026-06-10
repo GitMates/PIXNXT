@@ -1,4 +1,4 @@
-import { getInnerAlbumCollection } from './albumCollection';
+import { getAlbumCollection, getInnerAlbumCollection } from './albumCollection';
 
 /** Pages reserved for the back cover spread (left = photo, right = blank). */
 export const RESERVED_END_PAGES = 2;
@@ -64,7 +64,7 @@ export function getAlbumSpreadOptions(album, { collectionCount = 0 } = {}) {
 export function getSpreadContext(album, totalPages, { collectionCount } = {}) {
     const count =
         collectionCount ??
-        (album?.id ? getInnerAlbumCollection(album.id).length : 0);
+        (album?.id ? getAlbumCollection(album.id).length : 0);
     return {
         ...getAlbumSpreadOptions(album, { collectionCount: count }),
         blankCovers: albumHasBlankCovers(album),

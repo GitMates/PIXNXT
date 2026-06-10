@@ -26,8 +26,6 @@ import {
 import {
     getAlbumCollection,
     getCollectionItem,
-    getInnerAlbumCollection,
-    isCoverWrapCollectionItem,
     markCollectionItemAsCoverWrap,
 } from './albumCollection';
 import { getSampleImageForPage } from './sampleAlbumImages';
@@ -175,7 +173,7 @@ export function restoreEndCoverPlacement(albumId, totalPages, captured) {
 /** Move a mistaken whole-spread placement on the last spread to the left page only. */
 export function migrateEndHalfSpreadToLeftPage(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null) return false;
-    const collectionCount = getInnerAlbumCollection(albumId).length;
+    const collectionCount = getAlbumCollection(albumId).length;
     const spreadOpts = albumMeta
         ? getAlbumSpreadOptions(albumMeta, { collectionCount })
         : getAlbumSpreadOptions(
@@ -216,7 +214,7 @@ export function migrateEndHalfSpreadToLeftPage(albumId, totalPages, albumMeta = 
 export function migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null || totalPages < 4) return false;
 
-    const collectionCount = getInnerAlbumCollection(albumId).length;
+    const collectionCount = getAlbumCollection(albumId).length;
     const spreadOpts = albumMeta
         ? getAlbumSpreadOptions(albumMeta, { collectionCount })
         : getAlbumSpreadOptions({ has_covers: true, page_count: totalPages }, { collectionCount });
@@ -868,12 +866,11 @@ export function placeCollectionItemOnPages(
 /** Fill spreads from collection order (1st upload → first slot, etc.). */
 export async function applyCollectionOrderToPages(albumId, album, { itemIds } = {}) {
     if (!albumId || !album) return 0;
-    syncCoverWrapRoleFromSpread(albumId);
     const items = itemIds?.length
         ? itemIds
               .map((id) => getCollectionItem(albumId, id))
-              .filter((item) => item && !isCoverWrapCollectionItem(item))
-        : getInnerAlbumCollection(albumId);
+              .filter((item) => item?.id)
+        : getAlbumCollection(albumId);
     const includeCovers = album?.has_covers === true;
     const blankCovers = albumHasBlankCovers(album);
     const spreadOpts = getAlbumSpreadOptions(
@@ -917,6 +914,7 @@ export async function applyCollectionOrderToPages(albumId, album, { itemIds } = 
         migrateFrontCoverToFullSpread(albumId);
         migrateBackCoverUsesBookWrap(albumId, totalPages);
         migrateEndHalfSpreadToLeftPage(albumId, totalPages, album);
+        syncCoverWrapRoleFromSpread(albumId);
     } else if (wholeSpread) {
         migrateWholeSpreadPagePhotosToSpreadKeys(albumId, totalPages, album);
     }

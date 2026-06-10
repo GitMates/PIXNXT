@@ -22,7 +22,6 @@ import {
     getAlbumCollection,
     getAlbumCollectionRevision,
     getCollectionItem,
-    getInnerAlbumCollection,
     loadAlbumAssetsFromCloud,
     markCollectionItemAsCoverWrap,
     reorderCollectionItems,
@@ -210,17 +209,17 @@ export default function AlbumEditor({
         [albumId, collectionRevision]
     );
 
-    const innerCollectionCount = useMemo(
-        () => getInnerAlbumCollection(albumId).length,
+    const collectionCount = useMemo(
+        () => getAlbumCollection(albumId).length,
         [albumId, collectionRevision]
     );
 
     const spreadOpts = useMemo(
         () =>
             getAlbumSpreadOptions(album, {
-                collectionCount: innerCollectionCount,
+                collectionCount,
             }),
-        [album?.has_covers, album?.id, album?.page_count, innerCollectionCount]
+        [album?.has_covers, album?.id, album?.page_count, collectionCount]
     );
     const spreadCtx = useMemo(
         () => ({ ...spreadOpts, totalPages }),
@@ -321,11 +320,11 @@ export default function AlbumEditor({
     const ensurePageCountForCollection = useCallback(async () => {
         if (!albumId || !album || !user?.id) return album;
         syncCoverWrapRoleFromSpread(albumId);
-        const innerCount = getInnerAlbumCollection(albumId).length;
-        if (!innerCount && !getSpreadPhotoOverride(albumId, 0)) return album;
+        const photoCount = getAlbumCollection(albumId).length;
+        if (!photoCount && !getSpreadPhotoOverride(albumId, 0)) return album;
 
         const blankCovers = albumHasBlankCovers(album);
-        const requiredPages = computePageCountFromPhotoCount(innerCount, {
+        const requiredPages = computePageCountFromPhotoCount(photoCount, {
             includeCovers: album?.has_covers === true,
             blankCovers,
             gridLayout: album.grid_layout || 'two-page',
@@ -335,7 +334,7 @@ export default function AlbumEditor({
         if (targetPages === currentPages) return album;
 
         const spreadOptsNow = getAlbumSpreadOptions(album, {
-            collectionCount: innerCount,
+            collectionCount: photoCount,
         });
 
         if (targetPages > currentPages) {
@@ -348,6 +347,8 @@ export default function AlbumEditor({
             const removeAt = getPageRemoveIndex(currentPages, delta, spreadOptsNow);
             removeAlbumStoragePages(albumId, removeAt, delta);
             shiftAlbumRemotePreviewPages(albumId, removeAt, -delta);
+        } else {
+            return album;
         }
 
         const updated = await smartAlbumsService.updateAlbumPageCount(
@@ -361,7 +362,7 @@ export default function AlbumEditor({
         return updated;
     }, [albumId, album, user?.id, onAlbumUpdate, maxPages, scheduleWorkspaceRefresh]);
 
-    /** Keep page count aligned with inner photos only (cover-wrap uploads must not add pages). */
+    /** Keep page count aligned with collection size (book wrap: photo 1 is the cover). */
     useEffect(() => {
         if (!albumId || !album || !user?.id) return;
         void ensurePageCountForCollection();
@@ -371,15 +372,14 @@ export default function AlbumEditor({
         album?.has_covers,
         album?.blank_covers,
         album?.grid_layout,
-        innerCollectionCount,
+        collectionCount,
         ensurePageCountForCollection,
         user?.id,
     ]);
 
     const syncCollectionOrderToSpreads = useCallback(async () => {
         if (!albumId || !album || !user?.id) return 0;
-        syncCoverWrapRoleFromSpread(albumId);
-        const items = getInnerAlbumCollection(albumId);
+        const items = getAlbumCollection(albumId);
         if (!items.length) return 0;
 
         const spreadOpts = getAlbumSpreadOptions(album, {
@@ -450,7 +450,7 @@ export default function AlbumEditor({
         if (!albumId || !album || collectionSyncRef.current) return;
 
         const fromCreate = location.state?.syncCollectionOrder === true;
-        const onceKey = `pixnxt_collection_order_sync_v11_${albumId}`;
+        const onceKey = `pixnxt_collection_order_sync_v12_${albumId}`;
         let needsOnce = false;
         try {
             needsOnce = !localStorage.getItem(onceKey);
