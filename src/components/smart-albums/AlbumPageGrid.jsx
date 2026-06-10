@@ -155,7 +155,6 @@ export default function AlbumPageGrid({
     const selectWholeSpread = selectionMode === 'spread' && inSelectedSpread;
     const wholePlacement =
         placementMode === 'whole' &&
-        spreadWholePhoto &&
         !endHalfSpreadLeft &&
         !insideCoverSpread &&
         !preBackHalfSpread &&

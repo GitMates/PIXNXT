@@ -231,6 +231,21 @@ export function isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts = {}) {
     return info != null && leftPage === info.left;
 }
 
+/** Inner spreads in whole-spread albums that accept one photo across both pages (manual upload). */
+export function isManualWholeSpreadPlacement(leftPage, totalPages, album, opts = {}) {
+    if (!album || !isWholeSpreadLayout(album?.grid_layout)) return false;
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (spreadOpts.hasCovers && leftPage === 0) return false;
+    if (spreadOpts.hasCovers && leftPage <= 0) return false;
+    if (totalPages != null && isCoverInsidePage(leftPage, totalPages, spreadOpts)) return false;
+    if (isEndHalfSpreadLeftPage(leftPage, totalPages, spreadOpts)) return false;
+    if (isPreBackHalfSpreadLeftPage(leftPage, totalPages, spreadOpts)) return false;
+    if (albumHasBlankCovers(album) && isInsideCoverSpreadLeft(leftPage, totalPages, spreadOpts)) {
+        return false;
+    }
+    return true;
+}
+
 export function isPreBackHalfSpreadRightPage(pageNum, totalPages, opts = {}) {
     const info = getPreBackHalfSpreadInfo(totalPages, opts);
     return info != null && pageNum === info.right;
