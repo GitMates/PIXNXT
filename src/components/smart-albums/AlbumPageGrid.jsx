@@ -192,6 +192,21 @@ export default function AlbumPageGrid({
         return ptPage === halfPage && ptCell === halfCell;
     };
 
+    /** Whole-spread pano: tint both halves when either side has a swap mark. */
+    const spreadPanoSwapMark = (() => {
+        if (!wholePlacement || !getSwapMarkInfo) return null;
+        const rightPage = Math.min(spreadLeft + 1, Math.max(0, totalPages - 1));
+        for (const [halfPage, halfCell] of [
+            [spreadLeft, 1],
+            [rightPage, 2],
+        ]) {
+            const idx = getProofCellPhotoIndex(halfPage, halfCell, totalPages, spreadCtx);
+            const info = getSwapMarkInfo(idx, halfCell, spreadLeft);
+            if (info) return info;
+        }
+        return null;
+    })();
+
     return (
         <div
             className={`ab-page-grid${editable ? ' ab-page-grid--editable' : ''}${
@@ -273,9 +288,12 @@ export default function AlbumPageGrid({
                     (pinMarkMode || liveSpotActionPicker) && getPinsForSlot
                         ? getPinsForSlot(photoIndex, cell.id, spreadLeft)
                         : [];
-                const markedClass = swapMarkInfo
+                const activeSwapMark =
+                    swapMarkInfo ||
+                    (panoramic != null && spreadPanoSwapMark ? spreadPanoSwapMark : null);
+                const markedClass = activeSwapMark
                     ? ` ab-grid-cell--swap-marked${
-                          swapMarkInfo.locked !== false ? ' ab-grid-cell--swap-locked' : ''
+                          activeSwapMark.locked !== false ? ' ab-grid-cell--swap-locked' : ''
                       }`
                     : '';
                 const swapPins = swapMarkInfos
