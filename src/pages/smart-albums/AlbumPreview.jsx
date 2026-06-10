@@ -25,6 +25,7 @@ import {
     groupRootCommentsBySpread,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
+import AlbumPreviewNotifications from '../../components/smart-albums/AlbumPreviewNotifications';
 import { useAuth } from '../../hooks/useAuth';
 import { countUnseenPhotoPins } from '../../components/smart-albums/albumPhotoPins';
 import { countUnseenSwapMarks } from '../../components/smart-albums/albumSwapMarks';
@@ -269,27 +270,15 @@ export default function AlbumPreview({
     return (
         <div className="av-page av-page--preview av-page--gallery-proof av-page--with-comments">
             <header className="av-preview-header">
-                <button
-                    type="button"
-                    className="av-preview-header-btn"
-                    aria-label="Notifications"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="22"
-                        height="22"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                    >
-                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-                    </svg>
-                </button>
+                {clientPreview && commentsEnabled ? (
+                    <AlbumPreviewNotifications
+                        albumId={albumId}
+                        onSelectSpread={jumpToSpread}
+                        onOpenComments={() => handleSidebarTab('comments')}
+                    />
+                ) : (
+                    <span className="av-preview-header-btn" aria-hidden />
+                )}
                 <h1 className="av-preview-header-title">{album?.name || 'Album'}</h1>
                 <span className="av-preview-header-spacer" aria-hidden />
             </header>

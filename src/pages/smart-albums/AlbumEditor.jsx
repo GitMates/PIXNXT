@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumCoverEditView from '../../components/smart-albums/AlbumCoverEditView';
 import AlbumCoverTextModal from '../../components/smart-albums/AlbumCoverTextModal';
@@ -179,6 +179,7 @@ export default function AlbumEditor({
 }) {
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams] = useSearchParams();
     const { user } = useAuth();
     const [activePanel, setActivePanel] = useState('collections');
     const { toast, showToast, clearToast } = useAppToast(4000);
@@ -635,6 +636,14 @@ export default function AlbumEditor({
             setGridSelection(buildCellSelection(left, 1));
         }
     }, [initialPage, totalPages, spreadOpts, album, album?.grid_layout]);
+
+    useEffect(() => {
+        const panel = searchParams.get('panel');
+        const validPanels = ['collections', 'cover', 'swap', 'pin', 'comments', 'grid', 'edit', 'pages'];
+        if (panel && validPanels.includes(panel)) {
+            setActivePanel(panel);
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         setBookPage((prev) => {

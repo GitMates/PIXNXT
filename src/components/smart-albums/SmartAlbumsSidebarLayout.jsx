@@ -5,7 +5,7 @@ import brandPng from '../../assets/icons/client gallery.png';
 import smartAlbumPng from '../../assets/icons/smart album.png';
 import dashboardPng from '../../assets/icons/dashboard.png';
 import helpPng from '../../assets/icons/help.png';
-import notificationPng from '../../assets/icons/notification.png';
+import SmartAlbumNotifications from './SmartAlbumNotifications';
 import '../../pages/ClientGallery.css';
 
 const PURPLE = '#9b59b6';
@@ -233,13 +233,11 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                         )}
                     </div>
                     {(!isCollapsed || isMobileMenuOpen) && (
-                        <div className="flex items-center gap-2.5 shrink-0 ml-auto relative" ref={profileDropdownRef}>
+                        <div className="flex items-center gap-2.5 shrink-0 ml-auto relative overflow-visible" ref={profileDropdownRef}>
                             <div className="text-[#222] cursor-pointer flex items-center hover:text-[#111]" aria-hidden>
                                 <img src={helpPng} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />
                             </div>
-                            <div className="text-[#222] cursor-pointer flex items-center hover:text-[#111]" aria-hidden>
-                                <img src={notificationPng} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />
-                            </div>
+                            <SmartAlbumNotifications userId={user?.id} />
                             <div
                                 className="w-[30px] h-[30px] rounded-full flex items-center justify-center text-sm font-semibold cursor-pointer max-md:hidden text-[#fff]"
                                 style={{ background: PURPLE }}
