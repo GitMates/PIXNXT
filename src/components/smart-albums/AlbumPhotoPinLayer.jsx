@@ -296,17 +296,45 @@ function SpotInlineCommentComposer({ layerRef, xPct, yPct, onSave, onClose }) {
     );
 }
 
-function SpotActionPicker({ xPct, yPct, canComment, canSwap, onComment, onSwap }) {
+const SPOT_PICKER_ABOVE_OFFSET = 58;
+
+function SpotActionPicker({ layerRef, xPct, yPct, canComment, canSwap, onComment, onSwap }) {
+    const [anchor, setAnchor] = useState(null);
+    const [flipBelow, setFlipBelow] = useState(false);
     const showComment = canComment;
     const showSwap = canSwap;
     const both = showComment && showSwap;
 
-    return (
-        <>
-            <div className="ab-spot-action-picker-dim" aria-hidden />
+    const updateAnchor = useCallback(() => {
+        const layer = layerRef?.current;
+        if (!layer) return;
+        const rect = layer.getBoundingClientRect();
+        const left = rect.left + (rect.width * xPct) / 100;
+        const top = rect.top + (rect.height * yPct) / 100;
+        setAnchor({ left, top });
+        setFlipBelow(top < SPOT_PICKER_ABOVE_OFFSET + 8);
+    }, [layerRef, xPct, yPct]);
+
+    useLayoutEffect(() => {
+        updateAnchor();
+        const raf = window.requestAnimationFrame(updateAnchor);
+        window.addEventListener('resize', updateAnchor);
+        window.addEventListener('scroll', updateAnchor, true);
+        return () => {
+            window.cancelAnimationFrame(raf);
+            window.removeEventListener('resize', updateAnchor);
+            window.removeEventListener('scroll', updateAnchor, true);
+        };
+    }, [updateAnchor]);
+
+    const pickerPanel =
+        anchor &&
+        createPortal(
             <div
-                className="ab-spot-action-picker"
-                style={{ left: `${xPct}%`, top: `${yPct}%` }}
+                className={`ab-spot-action-picker ab-spot-action-picker--portal${
+                    flipBelow ? ' ab-spot-action-picker--below' : ''
+                }`}
+                style={{ left: `${anchor.left}px`, top: `${anchor.top}px` }}
                 onClick={(e) => e.stopPropagation()}
             >
                 <span className="ab-spot-action-picker-ring" aria-hidden />
@@ -342,7 +370,14 @@ function SpotActionPicker({ xPct, yPct, canComment, canSwap, onComment, onSwap }
                         </button>
                     )}
                 </div>
-            </div>
+            </div>,
+            document.body
+        );
+
+    return (
+        <>
+            <div className="ab-spot-action-picker-dim" aria-hidden />
+            {pickerPanel}
         </>
     );
 }
@@ -621,6 +656,7 @@ export default function AlbumPhotoPinLayer({
             )}
             {spotPicker && (
                 <SpotActionPicker
+                    layerRef={layerRef}
                     xPct={spotPicker.xPct}
                     yPct={spotPicker.yPct}
                     canComment={spotCanComment}

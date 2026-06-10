@@ -57,6 +57,21 @@
   pointer-events: none;
 }
 
+.ab-spot-action-picker--portal {
+  position: fixed;
+  z-index: 4600;
+}
+
+.ab-spot-action-picker--portal.ab-spot-action-picker--below .ab-spot-action-picker-actions--dual {
+  top: 58px;
+}
+
+.ab-spot-action-picker--portal.ab-spot-action-picker--below
+  .ab-spot-action-picker-actions:not(.ab-spot-action-picker-actions--dual)
+  .ab-spot-action-btn {
+  top: 58px;
+}
+
 .ab-spot-action-picker-ring {
   position: absolute;
   left: 50%;
