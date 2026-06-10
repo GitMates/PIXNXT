@@ -7,15 +7,17 @@ import {
 } from './albumPhotoPins';
 import { getSlotLabel } from './albumSwapMarks';
 
-function pinSlotLabel(pin, gridLayout) {
-    if (pin.label) return pin.label;
-    return getSlotLabel(pin.pageNum, pin.cellId ?? 0, gridLayout === 'whole-spread' && pin.pageNum > 0);
+function pinSlotLabel(pin, gridLayout, totalPages, album) {
+    const whole = gridLayout === 'whole-spread' && pin.pageNum > 0;
+    return getSlotLabel(pin.pageNum, pin.cellId ?? 0, whole, totalPages, album);
 }
 
 export default function AlbumPhotoPinsPanel({
     albumId,
+    album = null,
     pins = [],
     gridLayout = 'two-page',
+    totalPages = 0,
     variant = 'panel',
     onNavigateToPin,
     seenTick = 0,
@@ -30,7 +32,12 @@ export default function AlbumPhotoPinsPanel({
         onNavigateToPin?.(pin);
     };
 
-    if (!pins.length) {
+    const sortedPins = [...pins].sort(
+        (a, b) =>
+            new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+
+    if (!sortedPins.length) {
         if (!isPanel) return null;
         return (
             <p className="ae-panel-text ae-panel-text--muted ae-swap-marks-empty">
@@ -57,8 +64,8 @@ export default function AlbumPhotoPinsPanel({
                 </p>
             )}
             <ul className="ae-swap-marks-list">
-                {pins.map((pin) => {
-                    const slot = pinSlotLabel(pin, gridLayout);
+                {sortedPins.map((pin) => {
+                    const slot = pinSlotLabel(pin, gridLayout, totalPages, album);
                     const createdAtLabel = pin.createdAt
                         ? new Date(pin.createdAt).toLocaleString()
                         : null;
@@ -75,27 +82,29 @@ export default function AlbumPhotoPinsPanel({
                                 className="ae-photo-pins-link"
                                 onClick={() => handleOpenPin(pin)}
                             >
-                                <span className="ae-photo-pins-item-body">
-                                    <span className="ae-photo-pins-slot">
-                                        {slot}
-                                        {unseen && (
-                                            <span className="ae-proof-new-badge">New</span>
-                                        )}
-                                    </span>
-                                    <span className="ae-photo-pins-message">{pin.message}</span>
-                                    {createdAtLabel && (
-                                        <span className="ae-photo-pins-time">{createdAtLabel}</span>
+                                <span className="ae-photo-pins-slot">
+                                    {slot}
+                                    {unseen && (
+                                        <span className="ae-proof-new-badge">New</span>
                                     )}
                                 </span>
+                                <span className="ae-photo-pins-message">{pin.message}</span>
                             </button>
-                            <button
-                                type="button"
-                                className="ae-swap-marks-remove"
-                                onClick={() => removePhotoPin(albumId, pin.id)}
-                                aria-label={`Remove comment on ${slot}`}
-                            >
-                                Remove
-                            </button>
+                            <div className="ae-photo-pins-footer">
+                                {createdAtLabel ? (
+                                    <span className="ae-photo-pins-time">{createdAtLabel}</span>
+                                ) : (
+                                    <span className="ae-photo-pins-time" aria-hidden />
+                                )}
+                                <button
+                                    type="button"
+                                    className="ae-photo-pins-remove"
+                                    onClick={() => removePhotoPin(albumId, pin.id)}
+                                    aria-label={`Remove comment on ${slot}`}
+                                >
+                                    Remove
+                                </button>
+                            </div>
                         </li>
                     );
                 })}

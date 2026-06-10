@@ -609,7 +609,25 @@
   overflow: hidden;
 }
 
+.ab-flip-page--half-photo-left:has(.ab-swap-mark-badge),
+.ab-flip-page--single-photo:has(.ab-swap-mark-badge),
+.ab-flip-page--grid:has(.ab-swap-mark-badge) {
+  overflow: visible;
+}
+
 .ab-flip-page--half-photo-left .ab-page-photo-wrap {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ab-flip-page--single-photo {
+  position: relative;
+  background: #fff;
+  overflow: hidden;
+}
+
+.ab-flip-page--single-photo .ab-page-photo-wrap {
   position: absolute;
   inset: 0;
   overflow: hidden;

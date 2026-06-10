@@ -6,6 +6,7 @@ import {
     getTotalSpreads,
     isWholeSpreadLayout,
 } from '../../components/smart-albums/albumSpreadUtils';
+import { getSlotLabel } from '../../components/smart-albums/albumSwapMarks';
 import {
     getSwapMarks,
     parseSlotKey,
@@ -186,7 +187,18 @@ export default function AlbumPreview({
                         showCover: true,
                         totalPages,
                     });
-                    const pinSpreadLabel = pinSpreadIndex <= 0 ? 'Cover' : `Spread ${pinSpreadIndex}`;
+                    const wholePin =
+                        isWholeSpreadLayout(album?.grid_layout) && pin.pageNum > 0;
+                    const pinSpreadLabel =
+                        pinSpreadIndex <= 0
+                            ? 'Cover'
+                            : getSlotLabel(
+                                  pin.pageNum,
+                                  pin.cellId ?? 0,
+                                  wholePin,
+                                  totalPages,
+                                  album
+                              );
                     return {
                         ...pin,
                         spreadIndex: pinSpreadIndex,
@@ -219,18 +231,18 @@ export default function AlbumPreview({
                     const slotB = parseSlotKey(mark.b);
                     const spreadA = pageToSpreadIndex(slotA.pageNum, { showCover: true, totalPages });
                     const spreadB = pageToSpreadIndex(slotB.pageNum, { showCover: true, totalPages });
+                    const wholeA = isWholeSpreadLayout(album?.grid_layout) && slotA.pageNum > 0;
+                    const wholeB = isWholeSpreadLayout(album?.grid_layout) && slotB.pageNum > 0;
                     return {
                         ...mark,
                         spreadA,
                         spreadB,
-                        spreadLabelA:
-                            spreadA <= 0
-                                ? 'Cover'
-                                : `Spread ${spreadA}`,
-                        spreadLabelB:
-                            spreadB <= 0
-                                ? 'Cover'
-                                : `Spread ${spreadB}`,
+                        labelA:
+                            mark.labelA ||
+                            getSlotLabel(slotA.pageNum, slotA.cellId, wholeA, totalPages, album),
+                        labelB:
+                            mark.labelB ||
+                            getSlotLabel(slotB.pageNum, slotB.cellId, wholeB, totalPages, album),
                     };
                 })
                 .sort(
@@ -238,7 +250,7 @@ export default function AlbumPreview({
                         new Date(b.createdAt || 0).getTime() -
                         new Date(a.createdAt || 0).getTime()
                 ),
-        [swapMarks, totalPages]
+        [swapMarks, totalPages, album]
     );
 
     const handleSidebarTab = useCallback((tab) => {
@@ -396,7 +408,6 @@ export default function AlbumPreview({
                                                                     </p>
                                                                     <textarea
                                                                         className="av-preview-sidebar-comment-input"
-                                                                        rows={3}
                                                                         value={editingPinMessage}
                                                                         onChange={(e) =>
                                                                             setEditingPinMessage(e.target.value)
@@ -445,10 +456,21 @@ export default function AlbumPreview({
                                                                         <p className="av-preview-sidebar-comment-author">
                                                                             Photo comment · {pin.spreadLabel}
                                                                         </p>
-                                                                        <p className="av-preview-sidebar-comment-body">
-                                                                            {pin.message}
-                                                                        </p>
                                                                     </button>
+                                                                    <div
+                                                                        className="av-preview-sidebar-comment-body"
+                                                                        role="button"
+                                                                        tabIndex={0}
+                                                                        onClick={() => jumpToSpread(pin.spreadIndex)}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                                                e.preventDefault();
+                                                                                jumpToSpread(pin.spreadIndex);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        {pin.message}
+                                                                    </div>
                                                                     <div className="av-preview-sidebar-comment-actions">
                                                                         <button
                                                                             type="button"
@@ -495,7 +517,11 @@ export default function AlbumPreview({
                                                 </p>
                                             ) : (
                                                 <>
-                                                    {swapItems.map((item) => (
+                                                    {swapItems.map((item) => {
+                                                        const createdAtLabel = item.createdAt
+                                                            ? new Date(item.createdAt).toLocaleString()
+                                                            : null;
+                                                        return (
                                                         <article
                                                             key={item.id}
                                                             className="av-preview-sidebar-comment av-preview-sidebar-comment--swap"
@@ -504,38 +530,45 @@ export default function AlbumPreview({
                                                                 Swap request
                                                             </p>
                                                             <div className="av-preview-sidebar-swap-route">
-                                                                <span className="av-preview-sidebar-swap-chip">
-                                                                    {item.labelA || item.spreadLabelA}
-                                                                </span>
-                                                                <span className="av-preview-sidebar-swap-arrow">
+                                                                <button
+                                                                    type="button"
+                                                                    className="av-preview-sidebar-swap-chip"
+                                                                    onClick={() => jumpToSpread(item.spreadA)}
+                                                                >
+                                                                    {item.labelA}
+                                                                </button>
+                                                                <span className="av-preview-sidebar-swap-arrow" aria-hidden>
                                                                     ↔
                                                                 </span>
-                                                                <span className="av-preview-sidebar-swap-chip">
-                                                                    {item.labelB || item.spreadLabelB}
-                                                                </span>
-                                                            </div>
-                                                            <div className="av-preview-sidebar-comment-actions">
                                                                 <button
                                                                     type="button"
-                                                                    className="av-preview-sidebar-comment-action"
-                                                                    onClick={() =>
-                                                                        jumpToSpread(item.spreadA)
-                                                                    }
+                                                                    className="av-preview-sidebar-swap-chip"
+                                                                    onClick={() => jumpToSpread(item.spreadB)}
                                                                 >
-                                                                    Go to {item.spreadLabelA}
+                                                                    {item.labelB}
                                                                 </button>
+                                                            </div>
+                                                            <div className="av-preview-sidebar-swap-footer">
+                                                                {createdAtLabel ? (
+                                                                    <span className="av-preview-sidebar-swap-time">
+                                                                        {createdAtLabel}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="av-preview-sidebar-swap-time" aria-hidden />
+                                                                )}
                                                                 <button
                                                                     type="button"
-                                                                    className="av-preview-sidebar-comment-delete"
+                                                                    className="av-preview-sidebar-swap-remove"
                                                                     onClick={() =>
                                                                         removeSwapMark(albumId, item.id)
                                                                     }
                                                                 >
-                                                                    Delete
+                                                                    Remove
                                                                 </button>
                                                             </div>
                                                         </article>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </>
                                             )}
                                         </div>

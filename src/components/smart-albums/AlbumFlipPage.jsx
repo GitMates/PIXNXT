@@ -16,6 +16,7 @@ import AlbumPageGrid from './AlbumPageGrid';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
 import './AlbumPhotoPins.css';
+import { getSlotLabel } from './albumSwapMarks';
 import { useAlbumBookPageContext } from './AlbumBookPageContext';
 import {
     getProofLeftPageGridPercent,
@@ -271,6 +272,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     });
     const preBackSpreadRole = getPreBackSpreadPageRole(pageNum, totalPages, spreadOpts);
     const spreadLeftForPage = getSpreadLeftPageIndex(pageNum, gridOpts);
+    const labelForPin = (pinPageNum, cellId, whole = false) =>
+        getSlotLabel(pinPageNum, cellId, whole, totalPages, album);
     const spreadWholePhoto = Boolean(albumId && getSpreadPhotoOverride(albumId, spreadLeftForPage));
     const useHalfSpreadLayout = !isWholeSpreadAlbum || !spreadWholePhoto;
     const endHalfLeftPage = isEndHalfSpreadLeftPage(spreadLeftForPage, totalPages, spreadOpts);
@@ -329,35 +332,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 </div>
             );
         }
-
-        if (isInsideCoverRightPage(pageNum, totalPages, spreadOpts)) {
-            const photoSrc = getInsideCoverRightPhotoSrc(albumId, { showSamples });
-            const transform = albumId
-                ? getPagePhotoTransform(albumId, 3)
-                : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
-            return (
-                <div
-                    className="ab-flip-page ab-flip-page--single-photo"
-                    ref={ref}
-                    data-density="hard"
-                >
-                    {pageBadge}
-                    <div className="ab-single-page-photo">
-                        {photoSrc ? (
-                            <img
-                                src={photoSrc}
-                                alt=""
-                                className="ab-page-photo ab-page-photo--full"
-                                draggable={false}
-                                style={photoTransformStyle(transform)}
-                            />
-                        ) : (
-                            <div className="ab-page-empty" aria-hidden />
-                        )}
-                    </div>
-                </div>
-            );
-        }
     }
 
     const isFrontCoverRightPage = coverLayoutOpts.hasCovers && pageNum === 1;
@@ -400,27 +374,311 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             ? liveGetPinsForSlot(pageNum, 1, spreadLeftForPage)
             : [];
 
-    if (useHalfSpreadLayout && preBackSpreadRole === 'half-left') {
-        const photoSrc =
-            (albumId && getPagePhotoOverride(albumId, pageNum)) || src;
-        const transform = albumId
-            ? getPagePhotoTransform(albumId, pageNum)
-            : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+    const isInsideCoverRight = isInsideCoverRightPage(pageNum, totalPages, spreadOpts);
+    const insideCoverPhotoSrc = isInsideCoverRight
+        ? getInsideCoverRightPhotoSrc(albumId, { showSamples })
+        : null;
+    const insideCoverTransform = isInsideCoverRight && albumId
+        ? getPagePhotoTransform(albumId, 3)
+        : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+    const insideCoverSwapMarkInfo = isInsideCoverRight
+        ? liveGetSwapMarkInfo?.(pageNum, 2, spreadLeftForPage)
+        : null;
+    const insideCoverSwapMarkInfos =
+        isInsideCoverRight && (liveSwapMarkMode || liveSpotActionPicker) && liveGetSwapMarkInfos
+            ? liveGetSwapMarkInfos(pageNum, 2, spreadLeftForPage)
+            : [];
+    const canInsideCoverSwap =
+        isInsideCoverRight && (liveSwapMarkMode || liveSpotActionPicker) && Boolean(insideCoverPhotoSrc);
+    const insideCoverProofTools =
+        isInsideCoverRight &&
+        (liveSwapMarkMode || livePinMarkMode) &&
+        Boolean(insideCoverPhotoSrc) &&
+        !liveSpotActionPicker;
+    const insideCoverPins =
+        isInsideCoverRight && (livePinMarkMode || liveSpotActionPicker) && liveGetPinsForSlot
+            ? liveGetPinsForSlot(pageNum, 2, spreadLeftForPage)
+            : [];
+
+    const isPreBackHalfLeft = useHalfSpreadLayout && preBackSpreadRole === 'half-left';
+    const preBackPhotoSrc = isPreBackHalfLeft
+        ? (albumId && getPagePhotoOverride(albumId, pageNum)) || src
+        : null;
+    const preBackTransform = isPreBackHalfLeft && albumId
+        ? getPagePhotoTransform(albumId, pageNum)
+        : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+    const preBackSwapMarkInfo = isPreBackHalfLeft
+        ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage)
+        : null;
+    const preBackSwapMarkInfos =
+        isPreBackHalfLeft && (liveSwapMarkMode || liveSpotActionPicker) && liveGetSwapMarkInfos
+            ? liveGetSwapMarkInfos(pageNum, 1, spreadLeftForPage)
+            : [];
+    const canPreBackSwap =
+        isPreBackHalfLeft && (liveSwapMarkMode || liveSpotActionPicker) && Boolean(preBackPhotoSrc);
+    const preBackProofTools =
+        isPreBackHalfLeft &&
+        (liveSwapMarkMode || livePinMarkMode) &&
+        Boolean(preBackPhotoSrc) &&
+        !liveSpotActionPicker;
+    const preBackPins =
+        isPreBackHalfLeft && (livePinMarkMode || liveSpotActionPicker) && liveGetPinsForSlot
+            ? liveGetPinsForSlot(pageNum, 1, spreadLeftForPage)
+            : [];
+
+    if (isInsideCoverRight) {
+        return (
+            <div className="ab-flip-page ab-flip-page--single-photo" ref={ref} data-density="hard">
+                {pageBadge}
+                <div
+                    className={`ab-page-photo-wrap${
+                        liveProofToolsHover && insideCoverProofTools && !livePinModeActive
+                            ? ' ab-page-photo-wrap--swap'
+                            : ''
+                    }${
+                        insideCoverSwapMarkInfo
+                            ? ` ab-page-photo-wrap--swap-marked${
+                                  insideCoverSwapMarkInfo.locked !== false
+                                      ? ' ab-page-photo-wrap--swap-locked'
+                                      : ''
+                              }`
+                            : ''
+                    }`}
+                >
+                    <AlbumPhotoPinLayer
+                        hasPhoto={Boolean(insideCoverPhotoSrc)}
+                        pinModeActive={livePinModeActive && livePinMarkMode}
+                        swapPinModeActive={liveSwapPinModeActive}
+                        swapPinTargetStep={liveSwapPinTargetStep}
+                        proofToolsEnabled={insideCoverProofTools}
+                        proofToolsHover={liveProofToolsHover}
+                        canSwap={canInsideCoverSwap}
+                        onSwapRequest={() =>
+                            liveOnSwapRequest?.({
+                                pageNum,
+                                cellId: 2,
+                                spreadLeft: spreadLeftForPage,
+                                label: labelForPin(pageNum, 2),
+                            })
+                        }
+                        onActivatePinMode={livePinMarkMode ? liveOnActivatePinMode : undefined}
+                        onActivateSwapPinMode={
+                            canInsideCoverSwap
+                                ? () =>
+                                      liveOnSwapRequest?.({
+                                          pageNum,
+                                          cellId: 2,
+                                          spreadLeft: spreadLeftForPage,
+                                          label: labelForPin(pageNum, 2),
+                                      })
+                                : undefined
+                        }
+                        onPlaceSwapPin={(xPct, yPct) =>
+                            liveOnPlaceSwapPin?.({
+                                pageNum,
+                                cellId: 2,
+                                spreadLeft: spreadLeftForPage,
+                                label: labelForPin(pageNum, 2),
+                                xPct,
+                                yPct,
+                            })
+                        }
+                        swapPins={[
+                            ...insideCoverSwapMarkInfos
+                                .filter((info) => info?.point)
+                                .map((info) => ({
+                                    id: `swap-pin-inside-${info.pinKey || info.markId}`,
+                                    xPct: info.point.xPct,
+                                    yPct: info.point.yPct,
+                                    pinLabel: info.pinLabel || 'S',
+                                    swapGroup: info.markId,
+                                    message: `${info.slotLabel} ↔ ${info.partnerLabel}`,
+                                })),
+                            ...(liveSwapPinModeActive &&
+                            liveSwapPinTargetStep &&
+                            liveSwapPinOriginKey === `${pageNum}:2` &&
+                            liveSwapPinOriginPoint?.xPct != null &&
+                            liveSwapPinOriginPoint?.yPct != null
+                                ? [
+                                      {
+                                          id: `swap-pin-live-inside-${pageNum}`,
+                                          xPct: liveSwapPinOriginPoint.xPct,
+                                          yPct: liveSwapPinOriginPoint.yPct,
+                                          pinLabel: 'A',
+                                          message: 'Source spot selected. Click target spot.',
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                        pins={insideCoverPins}
+                        onPlacePin={(xPct, yPct) =>
+                            liveOnPinPlace?.({
+                                pageNum,
+                                cellId: 2,
+                                spreadLeft: spreadLeftForPage,
+                                xPct,
+                                yPct,
+                                label: labelForPin(pageNum, 2),
+                            })
+                        }
+                        onSaveSpotComment={
+                            liveSpotActionPicker && liveOnPinSave
+                                ? (xPct, yPct, message) =>
+                                      liveOnPinSave({
+                                          pageNum,
+                                          cellId: 2,
+                                          spreadLeft: spreadLeftForPage,
+                                          xPct,
+                                          yPct,
+                                          label: labelForPin(pageNum, 2),
+                                          message,
+                                      })
+                                : null
+                        }
+                        onRemovePin={liveOnPinRemove}
+                    >
+                        {insideCoverPhotoSrc ? (
+                            <img
+                                src={insideCoverPhotoSrc}
+                                alt=""
+                                className="ab-page-photo ab-page-photo--full"
+                                draggable={false}
+                                style={photoTransformStyle(insideCoverTransform)}
+                            />
+                        ) : (
+                            <div className="ab-page-empty" aria-hidden />
+                        )}
+                    </AlbumPhotoPinLayer>
+                    {!previewMode && <AlbumSwapMarkBadge markInfo={insideCoverSwapMarkInfo} />}
+                </div>
+            </div>
+        );
+    }
+
+    if (isPreBackHalfLeft) {
         return (
             <div className="ab-flip-page ab-flip-page--half-photo-left" ref={ref} data-density="hard">
                 {pageBadge}
-                <div className="ab-single-page-photo">
-                    {photoSrc ? (
-                        <img
-                            src={photoSrc}
-                            alt=""
-                            className="ab-page-photo ab-page-photo--full"
-                            draggable={false}
-                            style={photoTransformStyle(transform)}
-                        />
-                    ) : (
-                        <div className="ab-page-empty" aria-hidden />
-                    )}
+                <div
+                    className={`ab-page-photo-wrap${
+                        liveProofToolsHover && preBackProofTools && !livePinModeActive
+                            ? ' ab-page-photo-wrap--swap'
+                            : ''
+                    }${
+                        preBackSwapMarkInfo
+                            ? ` ab-page-photo-wrap--swap-marked${
+                                  preBackSwapMarkInfo.locked !== false
+                                      ? ' ab-page-photo-wrap--swap-locked'
+                                      : ''
+                              }`
+                            : ''
+                    }`}
+                >
+                    <AlbumPhotoPinLayer
+                        hasPhoto={Boolean(preBackPhotoSrc)}
+                        pinModeActive={livePinModeActive && livePinMarkMode}
+                        swapPinModeActive={liveSwapPinModeActive}
+                        swapPinTargetStep={liveSwapPinTargetStep}
+                        proofToolsEnabled={preBackProofTools}
+                        proofToolsHover={liveProofToolsHover}
+                        canSwap={canPreBackSwap}
+                        onSwapRequest={() =>
+                            liveOnSwapRequest?.({
+                                pageNum,
+                                cellId: 1,
+                                spreadLeft: spreadLeftForPage,
+                                label: labelForPin(pageNum, 1),
+                            })
+                        }
+                        onActivatePinMode={livePinMarkMode ? liveOnActivatePinMode : undefined}
+                        onActivateSwapPinMode={
+                            canPreBackSwap
+                                ? () =>
+                                      liveOnSwapRequest?.({
+                                          pageNum,
+                                          cellId: 1,
+                                          spreadLeft: spreadLeftForPage,
+                                          label: labelForPin(pageNum, 1),
+                                      })
+                                : undefined
+                        }
+                        onPlaceSwapPin={(xPct, yPct) =>
+                            liveOnPlaceSwapPin?.({
+                                pageNum,
+                                cellId: 1,
+                                spreadLeft: spreadLeftForPage,
+                                xPct,
+                                yPct,
+                                label: labelForPin(pageNum, 1),
+                            })
+                        }
+                        swapPins={[
+                            ...preBackSwapMarkInfos
+                                .filter((info) => info?.point)
+                                .map((info) => ({
+                                    id: `swap-pin-preback-${info.pinKey || info.markId}`,
+                                    xPct: info.point.xPct,
+                                    yPct: info.point.yPct,
+                                    pinLabel: info.pinLabel || 'S',
+                                    swapGroup: info.markId,
+                                    message: `${info.slotLabel} ↔ ${info.partnerLabel}`,
+                                })),
+                            ...(liveSwapPinModeActive &&
+                            liveSwapPinTargetStep &&
+                            liveSwapPinOriginKey === `${pageNum}:1` &&
+                            liveSwapPinOriginPoint?.xPct != null &&
+                            liveSwapPinOriginPoint?.yPct != null
+                                ? [
+                                      {
+                                          id: `swap-pin-live-preback-${pageNum}`,
+                                          xPct: liveSwapPinOriginPoint.xPct,
+                                          yPct: liveSwapPinOriginPoint.yPct,
+                                          pinLabel: 'A',
+                                          message: 'Source spot selected. Click target spot.',
+                                      },
+                                  ]
+                                : []),
+                        ]}
+                        pins={preBackPins}
+                        onPlacePin={(xPct, yPct) =>
+                            liveOnPinPlace?.({
+                                pageNum,
+                                cellId: 1,
+                                spreadLeft: spreadLeftForPage,
+                                xPct,
+                                yPct,
+                                label: labelForPin(pageNum, 1),
+                            })
+                        }
+                        onSaveSpotComment={
+                            liveSpotActionPicker && liveOnPinSave
+                                ? (xPct, yPct, message) =>
+                                      liveOnPinSave({
+                                          pageNum,
+                                          cellId: 1,
+                                          spreadLeft: spreadLeftForPage,
+                                          xPct,
+                                          yPct,
+                                          label: labelForPin(pageNum, 1),
+                                          message,
+                                      })
+                                : null
+                        }
+                        onRemovePin={liveOnPinRemove}
+                    >
+                        {preBackPhotoSrc ? (
+                            <img
+                                src={preBackPhotoSrc}
+                                alt=""
+                                className="ab-page-photo ab-page-photo--full"
+                                draggable={false}
+                                style={photoTransformStyle(preBackTransform)}
+                            />
+                        ) : (
+                            <div className="ab-page-empty" aria-hidden />
+                        )}
+                    </AlbumPhotoPinLayer>
+                    {!previewMode && <AlbumSwapMarkBadge markInfo={preBackSwapMarkInfo} />}
                 </div>
             </div>
         );
@@ -567,7 +825,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 pageNum,
                                 cellId: 1,
                                 spreadLeft: spreadLeftForPage,
-                                label: 'End cover',
+                                label: labelForPin(pageNum, 1),
                             })
                         }
                         onActivatePinMode={livePinMarkMode ? liveOnActivatePinMode : undefined}
@@ -578,7 +836,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                           pageNum,
                                           cellId: 1,
                                           spreadLeft: spreadLeftForPage,
-                                          label: 'End cover',
+                                          label: labelForPin(pageNum, 1),
                                       })
                                 : undefined
                         }
@@ -587,7 +845,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 pageNum,
                                 cellId: 1,
                                 spreadLeft: spreadLeftForPage,
-                                label: 'End cover',
+                                label: labelForPin(pageNum, 1),
                                 xPct,
                                 yPct,
                             })
@@ -627,7 +885,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 spreadLeft: spreadLeftForPage,
                                 xPct,
                                 yPct,
-                                label: 'End cover',
+                                label: labelForPin(pageNum, 1),
                             })
                         }
                         onSaveSpotComment={
@@ -639,7 +897,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                           spreadLeft: spreadLeftForPage,
                                           xPct,
                                           yPct,
-                                          label: 'End cover',
+                                          label: labelForPin(pageNum, 1),
                                           message,
                                       })
                                 : null
@@ -703,7 +961,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                               spreadLeft: 0,
                                               whole: false,
                                               hasPhoto: Boolean(src),
-                                              label: 'Cover',
+                                              label: labelForPin(0, 0),
                                           },
                                           rect
                                       );
@@ -733,7 +991,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                       liveOnSwapRequest?.({
                                           pageNum: 0,
                                           cellId: 0,
-                                          label: 'Cover',
+                                          label: labelForPin(0, 0),
                                       })
                                 : undefined
                         }
@@ -741,7 +999,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                             liveOnPlaceSwapPin?.({
                                 pageNum: 0,
                                 cellId: 0,
-                                label: 'Cover',
+                                label: labelForPin(0, 0),
                                 xPct,
                                 yPct,
                             })
@@ -782,7 +1040,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 cellId: 0,
                                 xPct,
                                 yPct,
-                                label: 'Cover',
+                                label: labelForPin(0, 0),
                             })
                         }
                         onSaveSpotComment={
@@ -793,7 +1051,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                           cellId: 0,
                                           xPct,
                                           yPct,
-                                          label: 'Cover',
+                                          label: labelForPin(0, 0),
                                           message,
                                       })
                                 : null
@@ -854,7 +1112,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                   liveOnSwapRequest?.({
                                       pageNum: 0,
                                       cellId: 0,
-                                      label: 'Cover',
+                                      label: labelForPin(0, 0),
                                   })
                             : undefined
                     }
@@ -862,7 +1120,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         liveOnPlaceSwapPin?.({
                             pageNum: 0,
                             cellId: 0,
-                            label: 'Cover',
+                            label: labelForPin(0, 0),
                             xPct,
                             yPct,
                         })
@@ -903,7 +1161,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                             cellId: 0,
                             xPct,
                             yPct,
-                            label: 'Cover',
+                            label: labelForPin(0, 0),
                         })
                     }
                     onSaveSpotComment={
@@ -914,7 +1172,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                       cellId: 0,
                                       xPct,
                                       yPct,
-                                      label: 'Cover',
+                                      label: labelForPin(0, 0),
                                       message,
                                   })
                             : null

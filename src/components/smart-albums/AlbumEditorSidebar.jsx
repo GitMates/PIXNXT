@@ -7,11 +7,12 @@ import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { getCollectionItemDisplayUrl } from './albumCollection';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
+import { getSlotLabel } from './albumSwapMarks';
 import {
     albumHasBlankCovers,
     albumUsesBookWrap,
-    isCoverInsidePage,
     isEndHalfSpreadLeftPage,
+    isInsideCoverSpreadLeft,
 } from './albumSpreadUtils';
 
 const IconCollection = () => (
@@ -63,7 +64,7 @@ const GRID_LAYOUT_LABELS = {
     'whole-spread': 'Whole-spread photo',
 };
 
-function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, spreadOpts) {
+function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, spreadOpts, album) {
     const hasCovers = spreadOpts?.hasCovers === true;
     if (!canSelectGrid) {
         return hasCovers
@@ -77,16 +78,22 @@ function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, sp
     }
     if (
         gridSelection?.leftPage != null &&
-        isCoverInsidePage(gridSelection.leftPage, totalPages) &&
+        isInsideCoverSpreadLeft(gridSelection.leftPage, totalPages, spreadOpts) &&
         gridSelection.cellId === 2
     ) {
-        return 'Inside cover · right page';
+        return getSlotLabel(
+            gridSelection.leftPage + 1,
+            2,
+            false,
+            totalPages,
+            album
+        );
     }
     if (
         gridSelection?.leftPage != null &&
         isEndHalfSpreadLeftPage(gridSelection.leftPage, totalPages, spreadOpts)
     ) {
-        return 'Last spread · left page only';
+        return getSlotLabel(gridSelection.leftPage, 1, false, totalPages, album);
     }
     if (gridEditSet === 'whole' || gridSelection?.mode === 'spread') {
         return 'Whole grid · one photo across both pages';
@@ -254,6 +261,8 @@ export default function AlbumEditorSidebar({
                         </p>
                         <AlbumPhotoPinsPanel
                             albumId={albumId}
+                            album={album}
+                            totalPages={totalPages}
                             pins={photoPins}
                             gridLayout={album?.grid_layout || 'two-page'}
                             variant="panel"
@@ -280,7 +289,8 @@ export default function AlbumEditorSidebar({
                                     {
                                         hasCovers: album?.has_covers === true,
                                         blankCovers: albumHasBlankCovers(album),
-                                    }
+                                    },
+                                    album
                                 )}
                             </p>
                         )}

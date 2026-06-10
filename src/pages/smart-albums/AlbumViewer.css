@@ -218,7 +218,8 @@
 }
 
 .av-preview-sidebar .ae-panel {
-  padding-top: 14px;
+  padding-top: 0;
+  overflow: hidden;
 }
 
 .av-preview-nav-rail {
@@ -237,9 +238,33 @@
 }
 
 .av-preview-sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   width: auto;
   padding: 0 18px 24px;
   border-right: none;
+}
+
+.av-preview-sidebar-panel .ae-panel-title {
+  flex-shrink: 0;
+  padding-top: 14px;
+}
+
+.av-preview-sidebar-panel .ae-panel-text {
+  flex-shrink: 0;
+}
+
+.av-preview-sidebar-comments {
+  flex: 1;
+  min-height: 0;
+  margin-top: 10px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overscroll-behavior: contain;
 }
 
 .av-preview-sidebar-title {
@@ -265,13 +290,6 @@
   color: #6b7280;
 }
 
-.av-preview-sidebar-comments {
-  margin-top: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
 .av-preview-sidebar-comment {
   margin: 0;
   padding: 8px 10px;
@@ -282,17 +300,22 @@
 
 .av-preview-sidebar-comment-author {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   color: #374151;
 }
 
 .av-preview-sidebar-comment-body {
   margin: 6px 0 0;
-  font-size: 12px;
-  line-height: 1.45;
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.5;
   color: #4b5563;
+  white-space: pre-wrap;
   word-break: break-word;
+  overscroll-behavior: contain;
+  cursor: pointer;
 }
 
 .av-preview-sidebar-comment--pin {
@@ -301,9 +324,13 @@
 }
 
 .av-preview-sidebar-comment--swap {
-  border-color: #dbeafe;
-  background: #f8fbff;
-  padding: 10px;
+  border-color: #fde68a;
+  background: #fffbeb;
+  padding: 10px 12px;
+}
+
+.av-preview-sidebar-comment--swap .av-preview-sidebar-comment-author {
+  color: #92400e;
 }
 
 .av-preview-sidebar-swap-route {
@@ -311,26 +338,79 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
 }
 
 .av-preview-sidebar-swap-chip {
   display: inline-flex;
   align-items: center;
-  padding: 3px 8px;
+  max-width: 100%;
+  padding: 5px 10px;
   border-radius: 999px;
-  border: 1px solid #c7d2fe;
-  background: #eef2ff;
-  color: #312e81;
-  font-size: 11px;
+  border: 1px solid #fcd34d;
+  background: #fff;
+  color: #78350f;
+  font-size: 12px;
   font-weight: 600;
-  line-height: 1.2;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.av-preview-sidebar-swap-chip:hover {
+  border-color: #f59e0b;
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .av-preview-sidebar-swap-arrow {
-  font-size: 12px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #b45309;
+  font-size: 13px;
   font-weight: 700;
-  color: #4f46e5;
+  line-height: 1;
+}
+
+.av-preview-sidebar-swap-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #fde68a;
+}
+
+.av-preview-sidebar-swap-time {
+  font-size: 11px;
+  font-weight: 500;
+  color: #a16207;
+  line-height: 1.3;
+}
+
+.av-preview-sidebar-swap-remove {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.av-preview-sidebar-swap-remove:hover {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .av-preview-sidebar-comment-link {
@@ -390,14 +470,18 @@
 .av-preview-sidebar-comment-input {
   width: 100%;
   margin-top: 8px;
-  resize: vertical;
+  min-height: 120px;
+  max-height: 120px;
+  overflow-y: auto;
+  resize: none;
   border: 1px solid #d1d5db;
   border-radius: 6px;
   padding: 8px;
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 13px;
+  line-height: 1.5;
   color: #374151;
   box-sizing: border-box;
+  overscroll-behavior: contain;
 }
 
 /* Keep right nav arrow outside the preview sidebar */
