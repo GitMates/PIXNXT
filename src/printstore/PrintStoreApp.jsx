@@ -200,14 +200,15 @@ export default function PrintStoreApp() {
         return prev.map(item => item.id === editingCartItemId ? { ...item, ...newItem, id: editingCartItemId } : item);
       }
 
-      // If item with same product, photo, size, frame, and paper exists, increment quantity
+      // If item with same product, photo, size, frame, paper, and border exists, increment quantity
       const existingIdx = prev.findIndex(
         (item) =>
           item.productId === newItem.productId &&
           item.photo.id === newItem.photo.id &&
           item.size.id === newItem.size.id &&
           item.frame.id === newItem.frame.id &&
-          item.paper.id === newItem.paper.id
+          item.paper.id === newItem.paper.id &&
+          item.border === newItem.border
       );
 
       if (existingIdx > -1) {
@@ -513,6 +514,7 @@ export default function PrintStoreApp() {
           initialSize={editingCartItemId ? editingCartItemOptions?.size : customizingProductOptions?.size}
           initialFrame={editingCartItemId ? editingCartItemOptions?.frame : customizingProductOptions?.frame}
           initialPaper={editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper}
+          initialBorder={editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border}
           onAddToCart={handleAddToCart}
           onClose={() => {
             setActiveCustomizerProduct(null);

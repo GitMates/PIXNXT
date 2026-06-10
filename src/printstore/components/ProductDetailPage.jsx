@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES, CANVAS_SIZES, MOCK_WRAPS, FLOAT_FRAME_SIZES } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES, CANVAS_SIZES, MOCK_WRAPS, FLOAT_FRAME_SIZES, PRINT_SIZES, ACRYLIC_PRINT_SIZES, MOCK_FINISHINGS } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
 import floatRoom from '../float frames_files/1.webp';
@@ -180,6 +180,17 @@ const PRODUCT_DETAILS_MAP = {
       { name: "Paper Detail", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_matte/thumbs/prints_matte00002.webp" },
       { name: "Print Close", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_matte/thumbs/prints_matte00003.webp" },
       { name: "Print Sample", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_matte/thumbs/prints_matte00001.webp" }
+    ],
+    semiGlossDetails: [
+      { name: "Paper Detail", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_semigloss/thumbs/semiglosegeneral.jpg" },
+      { name: "Print Close", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_semigloss/thumbs/sg2.jpg" },
+      { name: "Print Sample", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_semigloss/thumbs/sg3.jpg" }
+    ],
+    fineArtDetails: [
+      { name: "Paper Detail", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_vyfr/thumbs/prints_fineart00001.webp" },
+      { name: "Print Close", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_vyfr/thumbs/prints_fineart00003.webp" },
+      { name: "Print Sample", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_vyfr/thumbs/prints_fineart00004.webp" },
+      { name: "Edge Detail", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/prints_vyfr/thumbs/prints_fineart00005.webp" }
     ]
   },
   deckled_prints: {
@@ -268,17 +279,24 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     ? PANORAMIC_PRINTS_SIZES
     : product.id === 'canvas'
     ? CANVAS_SIZES
+    : product.id === 'prints'
+    ? PRINT_SIZES
+    : product.id === 'acrylic_prints'
+    ? ACRYLIC_PRINT_SIZES
     : MOCK_SIZES;
   const [selectedSize, setSelectedSize] = useState(productSizes[0]);
   const [selectedPaper, setSelectedPaper] = useState(MOCK_PAPERS[0]);
+  const [selectedFinishing, setSelectedFinishing] = useState(MOCK_FINISHINGS[0]);
   const [selectedWrap, setSelectedWrap] = useState(MOCK_WRAPS[0]);
   const [isSizeDropdownOpen, setIsSizeDropdownOpen] = useState(false);
   const [isBorderDropdownOpen, setIsBorderDropdownOpen] = useState(false);
   const [isFrameDropdownOpen, setIsFrameDropdownOpen] = useState(false);
   const [isPaperDropdownOpen, setIsPaperDropdownOpen] = useState(false);
+  const [isFinishingDropdownOpen, setIsFinishingDropdownOpen] = useState(false);
   const [isWrapDropdownOpen, setIsWrapDropdownOpen] = useState(false);
   const sizeDropdownRef = useRef(null);
   const paperDropdownRef = useRef(null);
+  const finishingDropdownRef = useRef(null);
   const borderDropdownRef = useRef(null);
   const wrapDropdownRef = useRef(null);
   const [selectedPrintSize, setSelectedPrintSize] = useState(
@@ -334,6 +352,9 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
       if (paperDropdownRef.current && !paperDropdownRef.current.contains(event.target)) {
         setIsPaperDropdownOpen(false);
       }
+      if (finishingDropdownRef.current && !finishingDropdownRef.current.contains(event.target)) {
+        setIsFinishingDropdownOpen(false);
+      }
       if (borderDropdownRef.current && !borderDropdownRef.current.contains(event.target)) {
         setIsBorderDropdownOpen(false);
       }
@@ -377,7 +398,8 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     onSelectPhotosForProduct(product, {
       size: selectedSize,
       frame: selectedFrame,
-      paper: selectedPaper
+      paper: selectedPaper,
+      border: selectedBorder
     });
   };
 
@@ -419,11 +441,34 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     } else if (mediumWallSizes.includes(selectedSize?.id)) {
       currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_medium02.webp?ts=1780585829";
     }
+  } else if (product.id === 'prints') {
+    const mediumWallSizes = ['print_a3', 'print_30x40', 'print_30x45', 'print_40x50', 'print_a2', 'print_40x60', 'print_50x60', 'print_51x76'];
+    const largeWallSizes = ['print_60x90', 'print_76x76', 'print_76x102', 'print_102x152'];
+    if (largeWallSizes.includes(selectedSize?.id)) {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_large02.webp?ts=1780585829";
+    } else if (mediumWallSizes.includes(selectedSize?.id)) {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_medium02.webp?ts=1780585829";
+    }
+  } else if (product.id === 'acrylic_prints') {
+    const mediumWallSizes = ['acrylic_25x33', 'acrylic_25x38', 'acrylic_28x36', 'acrylic_30x40', 'acrylic_30x45', 'acrylic_40x50', 'acrylic_40x60', 'acrylic_50x60', 'acrylic_51x76'];
+    const largeWallSizes = ['acrylic_60x90', 'acrylic_76x102'];
+    if (largeWallSizes.includes(selectedSize?.id)) {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_large02.webp?ts=1780585829";
+    } else if (mediumWallSizes.includes(selectedSize?.id)) {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_medium02.webp?ts=1780585829";
+    }
   }
 
-  let activeDetails = ((product.id === 'dibond' || product.id === 'print_pack') && selectedPaper?.id === 'paper_matte' && details.matteDetails)
-    ? details.matteDetails
-    : details.details;
+  let activeDetails = details.details;
+  if ((product.id === 'dibond' || product.id === 'print_pack') && selectedPaper?.id === 'paper_matte' && details.matteDetails) {
+    activeDetails = details.matteDetails;
+  } else if (product.id === 'prints') {
+    if (selectedPaper?.id === 'paper_semi_gloss' && details.semiGlossDetails) {
+      activeDetails = details.semiGlossDetails;
+    } else if (selectedPaper?.id === 'paper_fine_art' && details.fineArtDetails) {
+      activeDetails = details.fineArtDetails;
+    }
+  }
 
   if (product.id === 'canvas') {
     if (selectedWrap?.id === 'wrap_black' && details.blackDetails) {
@@ -552,6 +597,18 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     } else if (['mf_28x36', 'mf_30x30', 'mf_30x40', 'mf_30x45', 'mf_35x35', 'mf_40x40', 'mf_40x60', 'mf_50x50', 'mf_50x60', 'mf_55x76', 'mf_61x61', 'float_30x45', 'float_40x60', 'float_50x60', 'float_55x76'].includes(selectedSize?.id)) {
       baseWidthCm = 35;
     }
+  } else if (product.id === 'prints') {
+    if (['print_60x90', 'print_76x76', 'print_76x102', 'print_102x152'].includes(selectedSize?.id)) {
+      baseWidthCm = 80;
+    } else if (['print_a3', 'print_30x40', 'print_30x45', 'print_40x50', 'print_a2', 'print_40x60', 'print_50x60', 'print_51x76'].includes(selectedSize?.id)) {
+      baseWidthCm = 35;
+    }
+  } else if (product.id === 'acrylic_prints') {
+    if (['acrylic_60x90', 'acrylic_76x102'].includes(selectedSize?.id)) {
+      baseWidthCm = 80;
+    } else if (['acrylic_25x33', 'acrylic_25x38', 'acrylic_28x36', 'acrylic_30x40', 'acrylic_30x45', 'acrylic_40x50', 'acrylic_40x60', 'acrylic_50x60', 'acrylic_51x76'].includes(selectedSize?.id)) {
+      baseWidthCm = 35;
+    }
   }
   let sizeScaleFactor = (product.id === 'matted_collages') ? 1 : (currentWidthCm / baseWidthCm);
   if (product.id === 'panoramic_prints' && selectedSize?.id === 'pano_38x76') {
@@ -559,9 +616,9 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   }
 
   // Positioning variables for the composition container
-  let containerLeft = '14.0089%';
-  let containerTop = '15.2589%';
-  let containerWidth = '18.6422%';
+  let containerLeft = '15.15%';
+  let containerTop = '15.05%';
+  let containerWidth = '16.31%';
   let containerHeight = 'auto';
 
   if (product.id === 'print_pack') {
@@ -583,6 +640,49 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
       containerLeft = '50%';
       containerTop = '15%';
       containerWidth = '22%';
+      containerHeight = 'auto';
+    } else if (mediumWallSizes.includes(selectedSize?.id)) {
+      containerLeft = '45%';
+      containerTop = '20%';
+      containerWidth = '14%';
+      containerHeight = 'auto';
+    } else {
+      containerLeft = '15.15%';
+      containerTop = '15.05%';
+      containerWidth = '16.31%';
+      containerHeight = 'auto';
+    }
+  } else if (product.id === 'prints') {
+    const mediumWallSizes = ['print_a3', 'print_30x40', 'print_30x45', 'print_40x50', 'print_a2', 'print_40x60', 'print_50x60', 'print_51x76'];
+    const largeWallSizes = ['print_60x90', 'print_76x76', 'print_76x102', 'print_102x152'];
+    if (largeWallSizes.includes(selectedSize?.id)) {
+      containerLeft = '50%';
+      containerTop = '15%';
+      containerWidth = '22%';
+      containerHeight = 'auto';
+    } else if (mediumWallSizes.includes(selectedSize?.id)) {
+      containerLeft = '45%';
+      containerTop = '20%';
+      containerWidth = '14%';
+      containerHeight = 'auto';
+    } else {
+      containerLeft = '15.15%';
+      containerTop = '15.05%';
+      containerWidth = '16.31%';
+      containerHeight = 'auto';
+    }
+  } else if (product.id === 'acrylic_prints') {
+    const mediumWallSizes = ['acrylic_25x33', 'acrylic_25x38', 'acrylic_28x36', 'acrylic_30x40', 'acrylic_30x45', 'acrylic_40x50', 'acrylic_40x60', 'acrylic_50x60'];
+    const largeWallSizes = ['acrylic_60x90', 'acrylic_76x102'];
+    if (largeWallSizes.includes(selectedSize?.id)) {
+      containerLeft = '50%';
+      containerTop = '15%';
+      containerWidth = '22%';
+      containerHeight = 'auto';
+    } else if (selectedSize?.id === 'acrylic_51x76') {
+      containerLeft = '45%';
+      containerTop = '12%'; 
+      containerWidth = '14%';
       containerHeight = 'auto';
     } else if (mediumWallSizes.includes(selectedSize?.id)) {
       containerLeft = '45%';
@@ -789,7 +889,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
               <div className="pdp-closeup__animation">
                 <div className="pt-trio-scope" data-component="PDP-5-1-1">
                   <div className="pt-trio-scope__container">
-                    {(details.trioImages || details.details.map(d => d.url)).slice(0, 3).map((imgUrl, idx) => {
+                    {(details.trioImages || activeDetails.map(d => d.url)).slice(0, 3).map((imgUrl, idx) => {
                       const order = [(activeTrioIndex) % 3, (activeTrioIndex + 1) % 3, (activeTrioIndex + 2) % 3];
                       let role = 'tiny';
                       if (idx === order[0]) role = 'big';
@@ -805,7 +905,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                             if (role !== 'big') setActiveTrioIndex(idx);
                           }}
                         >
-                          <div className="pt-trio-scope__image-label">{details.trioImages ? '' : (details.details[idx]?.name || '')}</div>
+                          <div className="pt-trio-scope__image-label">{details.trioImages ? '' : (activeDetails[idx]?.name || '')}</div>
                         </div>
                       );
                     })}
@@ -968,7 +1068,6 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               transition: 'aspect-ratio 0.3s ease-in-out',
                               ...(product.id === 'gallery_board' && { backgroundColor: '#ffffff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }),
                               ...(product.id === 'canvas' && { borderRadius: '0.13px' }),
-                              ...((product.id === 'prints') && { transform: 'rotate(-7deg)', transformOrigin: 'center center' }),
                               ...((product.id === 'deckled_prints') && { transform: 'rotate(-7deg)', transformOrigin: 'center center' })
                             }}>
                               <div className="composition-preview__printable-area" style={{ 
@@ -981,10 +1080,10 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                     ? { width: '80%', height: '80%', top: '10%', left: '10%', borderRadius: '50%' }
                                     : product.id === 'float_frames'
                                     ? { width: '100%', height: '100%', top: '0%', left: '0%' }
-                                    : product.id === 'prints'
-                                    ? { width: '100%', height: '100%', top: '0%', left: '0%', backgroundColor: selectedBorder === 'white' ? '#ffffff' : 'transparent', padding: selectedBorder === 'white' ? '8%' : '0', boxSizing: 'border-box' }
+                                    : product.id === 'prints' || product.id === 'acrylic_prints'
+                                    ? { width: '100%', height: '100%', top: '0%', left: '0%' }
                                     : product.id === 'deckled_prints'
-                                    ? { width: '100%', height: '100%', top: '0%', left: '0%', backgroundColor: selectedBorder === 'white' ? '#ffffff' : 'transparent', padding: selectedBorder === 'white' ? '8%' : '0', boxSizing: 'border-box' }
+                                    ? { width: '100%', height: '100%', top: '0%', left: '0%', backgroundColor: selectedBorder === 'white' ? '#ffffff' : 'transparent', padding: selectedBorder === 'white' ? '3%' : '0', boxSizing: 'border-box' }
                                     : product.id === 'panoramic_prints'
                                     ? { width: '100%', height: '100%', top: '0%', left: '0%' }
                                     : { width: '100%', height: '100%', top: '0%', left: '0%' })
@@ -1102,6 +1201,32 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                         boxShadow: 'inset 0 0 1px rgba(255,255,255,0.6)'
                                       }}></div>
                                     </div>
+                                  ) : product.id === 'prints' || product.id === 'acrylic_prints' ? (
+                                    <div 
+                                      className="composition-preview-box__image" 
+                                      style={{ 
+                                        position: 'absolute', 
+                                        width: '100%', 
+                                        height: '100%', 
+                                        left: '0px', 
+                                        top: '0px',
+                                        backgroundColor: selectedBorder === 'white' ? '#ffffff' : 'transparent',
+                                        padding: selectedBorder === 'white' ? '3%' : '0',
+                                        boxSizing: 'border-box'
+                                      }}
+                                    >
+                                      <div style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        backgroundImage: `url(${product.image})`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center center',
+                                        ...(product.id === 'acrylic_prints' && selectedFinishing?.id === 'finish_nonglare' && { filter: 'grayscale(0.3) brightness(1.1) contrast(0.85)' })
+                                      }}></div>
+                                      {product.id === 'acrylic_prints' && selectedFinishing?.id === 'finish_nonglare' && (
+                                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(240, 240, 240, 0.35)', pointerEvents: 'none', zIndex: 5 }}></div>
+                                      )}
+                                    </div>
                                   ) : ['circular_frames', 'matted_frame', 'frames', 'float_frames'].includes(product.id) ? null : (
                                     <div 
                                       className="composition-preview-box__image" 
@@ -1201,7 +1326,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               ) : product.id === 'canvas' ? (
                                 <div className="canvas-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, scale: isRoomPreview ? '0.654443' : '1', borderRadius: '0.13px', boxShadow: 'rgba(0, 0, 0, 0.1) 0px 15px 16px 3px, rgba(0, 0, 0, 0.06) 0px 0px 7px 3px, rgba(0, 0, 0, 0.25) -1px -1px 3px 0px inset, rgba(0, 0, 0, 0.1) 1px 1px 1px 0px inset, rgba(255, 255, 255, 0.25) 3.5px 3.5px 1px 0px inset', overflow: 'hidden' }}></div>
                               ) : product.id === 'acrylic_prints' ? (
-                                <div className="acrylic-print-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}></div>
+                                <div className="acrylic-print-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, border: '1.5cqi solid rgba(255, 255, 255, 0.2)', boxSizing: 'border-box', boxShadow: 'inset 0 0 4px rgba(255,255,255,0.3), 0 4px 12px rgba(0,0,0,0.15)' }}></div>
                               ) : product.id === 'prints' ? (
                                 <div className="print-pdp-overlay composition-preview__overlay" style={{ 
                                   position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, pointerEvents: 'none',
@@ -1288,7 +1413,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                       type="button"
                       onClick={() => {
                         if (activePreviewType === 'room') {
-                          const lastIdx = details.details.length - 1;
+                          const lastIdx = activeDetails.length - 1;
                           setActivePreviewType(`detail-${lastIdx}`);
                           setActivePreviewTab('prints');
                         } else {
@@ -1344,7 +1469,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                             </div>
                           </div>
                           {/* Thumbnails 2-4: product detail images */}
-                          {details.details.map((item, idx) => (
+                          {activeDetails.map((item, idx) => (
                             <div
                               key={idx}
                               className={`media-set-image BS-22-1-1 ${activePreviewType === `detail-${idx}` ? 'media-set-image--selected' : ''}`}
@@ -1392,7 +1517,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                             </div>
                           </div>
                           {/* Remaining thumbnails: product detail images */}
-                          {details.details.map((item, idx) => (
+                          {activeDetails.map((item, idx) => (
                             <div
                               key={idx}
                               className={`media-set-image BS-22-1-1 ${activePreviewType === `detail-${idx}` ? 'media-set-image--selected' : ''}`}
@@ -1443,7 +1568,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                           setActivePreviewTab('prints');
                         } else {
                           const idx = parseInt(activePreviewType.split('-')[1]);
-                          const maxIdx = details.details.length - 1;
+                          const maxIdx = activeDetails.length - 1;
                           if (idx === maxIdx) {
                             setActivePreviewType('room');
                             setActivePreviewTab('wall');
@@ -1521,8 +1646,10 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                       {product.id !== 'deckled_prints' && product.id !== 'float_frames' && (
                       <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2" ref={product.id === 'matted_frame' ? printSizeDropdownRef : paperDropdownRef}>
                         <div className="FE-2-2">
-                          <div className="FE-2-2__header">
-                            <span>{['matted_frame', 'frames', 'gallery_board', 'circular_frames'].includes(product.id) ? 'Print Size' : product.id === 'canvas' ? 'Wrap' : 'Paper Type'}</span>
+                          <div className="pt-dropdown-label">
+                            <div className="pt-dropdown-label-title">
+                              <span>{['matted_frame', 'frames', 'gallery_board', 'circular_frames'].includes(product.id) ? 'Print Size' : product.id === 'canvas' ? 'Wrap' : product.id === 'acrylic_prints' ? 'Finishing' : 'Paper Type'}</span>
+                            </div>
                           </div>
                         </div>
                         <div className="pt-dropdown-input">
@@ -1579,6 +1706,32 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                       }}
                                     >
                                       {wrap.label}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : product.id === 'acrylic_prints' ? (
+                            <div className={`custom-dropdown-wrapper full-width ${isFinishingDropdownOpen ? 'open' : ''}`} ref={finishingDropdownRef}>
+                              <div 
+                                className="custom-dropdown-trigger"
+                                onClick={() => setIsFinishingDropdownOpen(prev => !prev)}
+                              >
+                                <span>{selectedFinishing.label}</span>
+                                {isFinishingDropdownOpen ? <ChevronUp size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
+                              </div>
+                              {isFinishingDropdownOpen && (
+                                <div className="custom-dropdown-menu">
+                                  {MOCK_FINISHINGS.map((finishing) => (
+                                    <div 
+                                      key={finishing.id} 
+                                      className={`custom-dropdown-item ${selectedFinishing.id === finishing.id ? 'active' : ''}`}
+                                      onClick={() => {
+                                        setSelectedFinishing(finishing);
+                                        setIsFinishingDropdownOpen(false);
+                                      }}
+                                    >
+                                      {finishing.label}
                                     </div>
                                   ))}
                                 </div>

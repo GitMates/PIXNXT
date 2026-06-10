@@ -131,6 +131,24 @@ export const MOCK_PRODUCTS = [
   }
 ];
 
+export const ACRYLIC_PRINT_SIZES = [
+  { id: "acrylic_20x20", label: "20x20cm", priceModifier: 0 },
+  { id: "acrylic_20x25", label: "20x25cm", priceModifier: 5 },
+  { id: "acrylic_20x30", label: "20x30cm", priceModifier: 10 },
+  { id: "acrylic_25x25", label: "25x25cm", priceModifier: 15 },
+  { id: "acrylic_25x33", label: "25x33cm", priceModifier: 20 },
+  { id: "acrylic_25x38", label: "25x38cm", priceModifier: 25 },
+  { id: "acrylic_28x36", label: "28x36cm", priceModifier: 28 },
+  { id: "acrylic_30x40", label: "30x40cm", priceModifier: 30 },
+  { id: "acrylic_30x45", label: "30x45cm", priceModifier: 35 },
+  { id: "acrylic_40x50", label: "40x50cm", priceModifier: 45 },
+  { id: "acrylic_40x60", label: "40x60cm", priceModifier: 55 },
+  { id: "acrylic_50x60", label: "50x60cm", priceModifier: 65 },
+  { id: "acrylic_51x76", label: "51x76cm", priceModifier: 75 },
+  { id: "acrylic_60x90", label: "60x90cm", priceModifier: 95 },
+  { id: "acrylic_76x102", label: "76x102cm", priceModifier: 120 }
+];
+
 export const MOCK_SIZES = [
   { id: "size_20x20", label: "20x20cm", priceModifier: 0 },
   { id: "size_20x25", label: "20x25cm", priceModifier: 5 },
@@ -146,6 +164,31 @@ export const MOCK_SIZES = [
   { id: "size_51x76", label: "51x76cm", priceModifier: 160 },
   { id: "size_60x90", label: "60x90cm", priceModifier: 200 },
   { id: "size_76x102", label: "76x102cm", priceModifier: 260 }
+];
+
+export const PRINT_SIZES = [
+  { id: "print_9x13", label: "9x13cm", priceModifier: 0 },
+  { id: "print_10x15", label: "10x15cm", priceModifier: 1 },
+  { id: "print_11x15", label: "11x15cm", priceModifier: 2 },
+  { id: "print_13x13", label: "13x13cm", priceModifier: 3 },
+  { id: "print_13x18", label: "13x18cm", priceModifier: 4 },
+  { id: "print_13x19", label: "13x19cm", priceModifier: 5 },
+  { id: "print_15x20", label: "15x20cm", priceModifier: 7 },
+  { id: "print_15x23", label: "15x23cm", priceModifier: 9 },
+  { id: "print_20x20", label: "20x20cm", priceModifier: 12 },
+  { id: "print_20x25", label: "20x25cm", priceModifier: 15 },
+  { id: "print_a3", label: "A3", priceModifier: 20 },
+  { id: "print_30x40", label: "30x40cm", priceModifier: 25 },
+  { id: "print_30x45", label: "30x45cm", priceModifier: 30 },
+  { id: "print_40x50", label: "40x50cm", priceModifier: 40 },
+  { id: "print_a2", label: "A2", priceModifier: 50 },
+  { id: "print_40x60", label: "40x60cm", priceModifier: 60 },
+  { id: "print_50x60", label: "50x60cm", priceModifier: 70 },
+  { id: "print_51x76", label: "51x76cm", priceModifier: 80 },
+  { id: "print_60x90", label: "60x90cm", priceModifier: 100 },
+  { id: "print_76x76", label: "76x76cm", priceModifier: 120 },
+  { id: "print_76x102", label: "76x102cm", priceModifier: 150 },
+  { id: "print_102x152", label: "102x152cm", priceModifier: 200 }
 ];
 
 export const MATTED_FRAME_SIZES = [
@@ -258,7 +301,7 @@ export const MOCK_FRAMES = [
 
 export const MOCK_PAPERS = [
   { id: "paper_semi_gloss", label: "Semi Gloss", description: "Soft sheen, slight texture, minimizes fingerprints.", priceModifier: 0 },
-  { id: "paper_matte", label: "Matte", description: "Zero glare, rich velvety texture, museum look.", priceModifier: 5 },
+  { id: "paper_fine_art", label: "Fine Art", description: "Premium archival cotton paper with exceptional detail.", priceModifier: 15 },
   { id: "paper_glossy", label: "Gloss", description: "Ultra reflective finish with deep colors.", priceModifier: 0 }
 ];
 
@@ -266,6 +309,11 @@ export const MOCK_WRAPS = [
   { id: "wrap_black", label: "Black", priceModifier: 0 },
   { id: "wrap_natural", label: "Natural", priceModifier: 0 },
   { id: "wrap_white", label: "White", priceModifier: 0 }
+];
+
+export const MOCK_FINISHINGS = [
+  { id: "finish_glossy", label: "Glossy", description: "Vibrant and shiny." },
+  { id: "finish_nonglare", label: "Non Glare", description: "Matte-like finish, reduces reflections." }
 ];
 
 export const MOCK_LAYOUTS = [

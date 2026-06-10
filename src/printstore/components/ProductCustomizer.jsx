@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, ShoppingCart, Trash2, Plus, ChevronLeft, Undo2, Redo2, HelpCircle, Image as ImageIcon, Check, ChevronRight } from 'lucide-react';
-import { MOCK_SIZES, MOCK_FRAMES, MOCK_PAPERS, MOCK_LAYOUTS, MOCK_WALLS, PRINT_PACK_SIZES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, FLOAT_FRAME_SIZES } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_FRAMES, MOCK_PAPERS, MOCK_LAYOUTS, MOCK_WALLS, PRINT_PACK_SIZES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, FLOAT_FRAME_SIZES, ACRYLIC_PRINT_SIZES } from '../data/mockStoreData';
 import AddPhotosSidebar from './AddPhotosSidebar';
 
-export default function ProductCustomizer({ product, photos, initialPhotos, editMode, initialSize, initialFrame, initialPaper, onAddToCart, onClose, onOpenCart }) {
+export default function ProductCustomizer({ product, photos, initialPhotos, editMode, initialSize, initialFrame, initialPaper, initialBorder, onAddToCart, onClose, onOpenCart }) {
   const [selectedSize, setSelectedSize] = useState(
     initialSize || (
       product.id === 'print_pack' ? PRINT_PACK_SIZES[0] :
@@ -11,6 +11,7 @@ export default function ProductCustomizer({ product, photos, initialPhotos, edit
       product.id === 'gallery_board' ? GALLERY_BOARD_SIZES[0] :
       product.id === 'circular_frames' ? CIRCULAR_FRAME_SIZES[0] :
       product.id === 'float_frames' ? FLOAT_FRAME_SIZES[0] :
+      product.id === 'acrylic_prints' ? ACRYLIC_PRINT_SIZES[0] :
       MOCK_SIZES[0]
     )
   );
@@ -18,6 +19,7 @@ export default function ProductCustomizer({ product, photos, initialPhotos, edit
     initialFrame || MOCK_FRAMES.find(f => f.id === 'frame_light_wood') || MOCK_FRAMES[1]
   );
   const [selectedPaper, setSelectedPaper] = useState(initialPaper || MOCK_PAPERS[0]);
+  const [selectedBorder, setSelectedBorder] = useState(initialBorder || 'none');
   const [selectedLayout, setSelectedLayout] = useState(product.id === 'matted_collages' ? MOCK_LAYOUTS[0] : null);
   const [selectedWall, setSelectedWall] = useState(product.id === 'matted_collages' ? MOCK_WALLS[0] : null);
   
@@ -127,6 +129,7 @@ export default function ProductCustomizer({ product, photos, initialPhotos, edit
       size: selectedSize,
       frame: selectedFrame,
       paper: selectedPaper,
+      border: selectedBorder,
       photos: finalPhotos,
       quantity: 1
     });
@@ -175,7 +178,14 @@ export default function ProductCustomizer({ product, photos, initialPhotos, edit
                     onClick={() => handleOpenSidebarForSlot(index)}
                   >
                     {slot ? (
-                      <div className="pack-image-wrapper">
+                      <div 
+                        className="pack-image-wrapper"
+                        style={{
+                          backgroundColor: selectedBorder === 'white' ? '#fff' : 'transparent',
+                          padding: selectedBorder === 'white' ? '3%' : '0',
+                          boxSizing: 'border-box'
+                        }}
+                      >
                         <img src={slot.url} alt={`Slot ${index + 1}`} className="pack-slotted-img" />
                         <button 
                           className="remove-slot-item-btn" 
@@ -331,6 +341,7 @@ export default function ProductCustomizer({ product, photos, initialPhotos, edit
                 product.id === 'gallery_board' ? GALLERY_BOARD_SIZES :
                 product.id === 'circular_frames' ? CIRCULAR_FRAME_SIZES :
                 product.id === 'float_frames' ? FLOAT_FRAME_SIZES :
+                product.id === 'acrylic_prints' ? ACRYLIC_PRINT_SIZES :
                 MOCK_SIZES
               ).map(size => (
                 <button
