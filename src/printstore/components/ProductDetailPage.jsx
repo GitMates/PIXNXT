@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
 import floatRoom from '../float frames_files/1.webp';
@@ -244,13 +244,17 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     ? GALLERY_BOARD_SIZES
     : product.id === 'circular_frames'
     ? CIRCULAR_FRAME_SIZES
+    : product.id === 'deckled_prints'
+    ? DECKLED_PRINTS_SIZES
     : MOCK_SIZES;
   const [selectedSize, setSelectedSize] = useState(productSizes[0]);
   const [selectedPaper, setSelectedPaper] = useState(MOCK_PAPERS[0]);
   const [isSizeDropdownOpen, setIsSizeDropdownOpen] = useState(false);
+  const [isBorderDropdownOpen, setIsBorderDropdownOpen] = useState(false);
   const sizeDropdownRef = useRef(null);
   const [isPaperDropdownOpen, setIsPaperDropdownOpen] = useState(false);
   const paperDropdownRef = useRef(null);
+  const borderDropdownRef = useRef(null);
   const [selectedPrintSize, setSelectedPrintSize] = useState(
     product.id === 'matted_frame' 
       ? MATTED_FRAME_SIZES[0].printSize 
@@ -297,17 +301,20 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   }, []);
 
   useEffect(() => {
-    function handleClickOutside(event) {
+    const handleClickOutside = (event) => {
       if (sizeDropdownRef.current && !sizeDropdownRef.current.contains(event.target)) {
         setIsSizeDropdownOpen(false);
       }
       if (paperDropdownRef.current && !paperDropdownRef.current.contains(event.target)) {
         setIsPaperDropdownOpen(false);
       }
+      if (borderDropdownRef.current && !borderDropdownRef.current.contains(event.target)) {
+        setIsBorderDropdownOpen(false);
+      }
       if (printSizeDropdownRef.current && !printSizeDropdownRef.current.contains(event.target)) {
         setIsPrintSizeDropdownOpen(false);
       }
-    }
+    };
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -887,20 +894,30 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                       }}
                                     />
                                   ) : product.id === 'deckled_prints' ? (
-                                    <img 
-                                      src={product.image}
-                                      alt=""
-                                      className="deckled-print-preview-photo"
-                                      style={{ 
-                                        position: 'absolute', 
-                                        width: '100%', 
-                                        height: '100%', 
-                                        left: '0px', 
-                                        top: '0px',
-                                        objectFit: 'cover',
-                                        filter: 'url(#slight-deckled-edge) drop-shadow(2px 4px 8px rgba(0,0,0,0.18))'
-                                      }}
-                                    />
+                                    <div style={{
+                                      position: 'absolute',
+                                      width: '100%',
+                                      height: '100%',
+                                      left: '0px',
+                                      top: '0px',
+                                      backgroundColor: '#ffffff',
+                                      filter: 'url(#slight-deckled-edge) drop-shadow(2px 4px 8px rgba(0,0,0,0.18))',
+                                      padding: selectedBorder === 'white' ? '12%' : '2%',
+                                      boxSizing: 'border-box',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center'
+                                    }}>
+                                      <img 
+                                        src={product.image}
+                                        alt=""
+                                        style={{ 
+                                          width: '100%', 
+                                          height: '100%', 
+                                          objectFit: 'cover'
+                                        }}
+                                      />
+                                    </div>
                                   ) : product.id === 'panoramic_prints' ? (
                                     <img
                                       src={product.image}
@@ -1379,22 +1396,43 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
 
                       {/* Border dropdown — prints and deckled_prints */}
                       {(product.id === 'prints' || product.id === 'deckled_prints') && (
-                        <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2">
+                        <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2" ref={borderDropdownRef}>
                           <div className="FE-2-2">
                             <div className="FE-2-2__header">
                               <span>Border</span>
                             </div>
                           </div>
                           <div className="pt-dropdown-input">
-                            <div className="pt-system-dropdown-wrapper full-width">
-                              <select
-                                className="pdp-select-input"
-                                value={selectedBorder}
-                                onChange={(e) => setSelectedBorder(e.target.value)}
+                            <div className={`custom-dropdown-wrapper full-width ${isBorderDropdownOpen ? 'open' : ''}`}>
+                              <div 
+                                className="custom-dropdown-trigger"
+                                onClick={() => setIsBorderDropdownOpen(prev => !prev)}
                               >
-                                <option value="none">No Border</option>
-                                <option value="white">White Border</option>
-                              </select>
+                                <span>{selectedBorder === 'none' ? 'No Border' : 'White Border'}</span>
+                                {isBorderDropdownOpen ? <ChevronUp size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
+                              </div>
+                              {isBorderDropdownOpen && (
+                                <div className="custom-dropdown-menu">
+                                  <div 
+                                    className={`custom-dropdown-item ${selectedBorder === 'none' ? 'active' : ''}`}
+                                    onClick={() => {
+                                      setSelectedBorder('none');
+                                      setIsBorderDropdownOpen(false);
+                                    }}
+                                  >
+                                    No Border
+                                  </div>
+                                  <div 
+                                    className={`custom-dropdown-item ${selectedBorder === 'white' ? 'active' : ''}`}
+                                    onClick={() => {
+                                      setSelectedBorder('white');
+                                      setIsBorderDropdownOpen(false);
+                                    }}
+                                  >
+                                    White Border
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>

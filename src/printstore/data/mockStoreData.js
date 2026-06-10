@@ -178,6 +178,15 @@ export const PRINT_PACK_SIZES = [
   { id: "pp_13x18", label: "13x18cm", priceModifier: 26.50 }
 ];
 
+export const DECKLED_PRINTS_SIZES = [
+  { id: "dp_13x18", label: "13x18cm", priceModifier: 0.00 },
+  { id: "dp_15x20", label: "15x20cm", priceModifier: 1.50 },
+  { id: "dp_20x20", label: "20x20cm", priceModifier: 2.75 },
+  { id: "dp_20x25", label: "20x25cm", priceModifier: 3.50 },
+  { id: "dp_20x30", label: "20x30cm", priceModifier: 5.00 },
+  { id: "dp_28x36", label: "28x36cm", priceModifier: 12.00 }
+];
+
 export const GALLERY_BOARD_SIZES = [
   { id: "gb_13x18", label: "13x18cm", priceModifier: 0, printSize: "10x15cm" },
   { id: "gb_20x25", label: "20x25cm", priceModifier: 2.50, printSize: "13x13cm" },
