@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES, CANVAS_SIZES, MOCK_WRAPS } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
 import floatRoom from '../float frames_files/1.webp';
@@ -81,6 +81,20 @@ const PRODUCT_DETAILS_MAP = {
       { name: "Corner Angle", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/canvas_b82g/thumbs/bay-canvas-natural-3.jpg" },
       { name: "Back Frame", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/canvas_b82g/thumbs/bay-canvas-natural-4.jpg" },
       { name: "Warp Detail", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/0/specs/canvas_b82g/thumbs/bay-canvas-natural-5.jpg" }
+    ],
+    blackDetails: [
+      { name: "Black Edge", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1/specs/canvas_gys8/thumbs/richard-canvas-black-1.jpg" },
+      { name: "Corner Angle", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1/specs/canvas_gys8/thumbs/richard-canvas-black-2.jpg" },
+      { name: "Side View", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1/specs/canvas_gys8/thumbs/richard-canvas-black-3.jpg" },
+      { name: "Back Frame", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1/specs/canvas_gys8/thumbs/richard-canvas-black-4.jpg" },
+      { name: "Detail", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1/specs/canvas_gys8/thumbs/richard-canvas-black-5.jpg" }
+    ],
+    whiteDetails: [
+      { name: "White Edge", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1/specs/canvas_695a/thumbs/richard-canvas-white-1.jpg" },
+      { name: "Corner Angle", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1/specs/canvas_695a/thumbs/richard-canvas-white-2.jpg" },
+      { name: "Side View", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1/specs/canvas_695a/thumbs/richard-canvas-white-3.jpg" },
+      { name: "Back Frame", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1/specs/canvas_695a/thumbs/richard-canvas-white-4.jpg" },
+      { name: "Detail", url: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/fulfillers/1/specs/canvas_695a/thumbs/richard-canvas-white-5.jpg" }
     ]
   },
   circular_frames: {
@@ -248,15 +262,21 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     ? DECKLED_PRINTS_SIZES
     : product.id === 'panoramic_prints'
     ? PANORAMIC_PRINTS_SIZES
+    : product.id === 'canvas'
+    ? CANVAS_SIZES
     : MOCK_SIZES;
   const [selectedSize, setSelectedSize] = useState(productSizes[0]);
   const [selectedPaper, setSelectedPaper] = useState(MOCK_PAPERS[0]);
+  const [selectedWrap, setSelectedWrap] = useState(MOCK_WRAPS[0]);
   const [isSizeDropdownOpen, setIsSizeDropdownOpen] = useState(false);
   const [isBorderDropdownOpen, setIsBorderDropdownOpen] = useState(false);
-  const sizeDropdownRef = useRef(null);
+  const [isFrameDropdownOpen, setIsFrameDropdownOpen] = useState(false);
   const [isPaperDropdownOpen, setIsPaperDropdownOpen] = useState(false);
+  const [isWrapDropdownOpen, setIsWrapDropdownOpen] = useState(false);
+  const sizeDropdownRef = useRef(null);
   const paperDropdownRef = useRef(null);
   const borderDropdownRef = useRef(null);
+  const wrapDropdownRef = useRef(null);
   const [selectedPrintSize, setSelectedPrintSize] = useState(
     product.id === 'matted_frame' 
       ? MATTED_FRAME_SIZES[0].printSize 
@@ -378,11 +398,27 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     } else {
       currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_small02.webp?ts=1780585829";
     }
+  } else if (product.id === 'canvas') {
+    const mediumWallSizes = ['canvas_28x36', 'canvas_30x30', 'canvas_30x45', 'canvas_35x35', 'canvas_40x40', 'canvas_40x50', 'canvas_40x60', 'canvas_50x50', 'canvas_50x60', 'canvas_51x76', 'canvas_61x61'];
+    const largeWallSizes = ['canvas_60x90', 'canvas_76x114', 'canvas_102x102', 'canvas_102x152'];
+    if (largeWallSizes.includes(selectedSize?.id)) {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_large02.webp?ts=1780585829";
+    } else if (mediumWallSizes.includes(selectedSize?.id)) {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_medium02.webp?ts=1780585829";
+    }
   }
 
-  const activeDetails = ((product.id === 'dibond' || product.id === 'print_pack') && selectedPaper?.id === 'paper_matte' && details.matteDetails)
+  let activeDetails = ((product.id === 'dibond' || product.id === 'print_pack') && selectedPaper?.id === 'paper_matte' && details.matteDetails)
     ? details.matteDetails
     : details.details;
+
+  if (product.id === 'canvas') {
+    if (selectedWrap?.id === 'wrap_black' && details.blackDetails) {
+      activeDetails = details.blackDetails;
+    } else if (selectedWrap?.id === 'wrap_white' && details.whiteDetails) {
+      activeDetails = details.whiteDetails;
+    }
+  }
 
   const getActivePreviewUrl = () => {
     if (activePreviewType === 'room') return currentRoomBackground;
@@ -458,7 +494,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
 
   const baseWidths = {
     gallery_board: 25,
-    canvas: 30,
+    canvas: 20,
     circular_frames: 20,
     float_frames: 20,
     prints: 13,
@@ -473,6 +509,12 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     baseWidthCm = 50;
   } else if (product.id === 'dibond' && isLargeSize) {
     baseWidthCm = 25;
+  } else if (product.id === 'canvas') {
+    if (['canvas_60x90', 'canvas_76x114', 'canvas_102x102', 'canvas_102x152'].includes(selectedSize?.id)) {
+      baseWidthCm = 80;
+    } else if (['canvas_51x76', 'canvas_61x61'].includes(selectedSize?.id)) {
+      baseWidthCm = 35;
+    }
   }
   let sizeScaleFactor = (product.id === 'matted_collages') ? 1 : (currentWidthCm / baseWidthCm);
   if (product.id === 'panoramic_prints' && selectedSize?.id === 'pano_38x76') {
@@ -530,9 +572,21 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     containerTop = '20.8875%';
     containerWidth = '14.8538%';
   } else if (product.id === 'canvas') {
-    containerLeft = '9.05706%';
-    containerTop = '7.76236%';
-    containerWidth = '28.5459%';
+    const mediumWallSizes = ['canvas_28x36', 'canvas_30x30', 'canvas_30x45', 'canvas_35x35', 'canvas_40x40', 'canvas_40x50', 'canvas_40x60', 'canvas_50x50', 'canvas_50x60', 'canvas_51x76', 'canvas_61x61'];
+    const largeWallSizes = ['canvas_60x90', 'canvas_76x114', 'canvas_102x102', 'canvas_102x152'];
+    if (largeWallSizes.includes(selectedSize?.id)) {
+      containerLeft = '50%';
+      containerTop = '15%';
+      containerWidth = '22%';
+    } else if (mediumWallSizes.includes(selectedSize?.id)) {
+      containerLeft = '45%';
+      containerTop = '20%';
+      containerWidth = '14%';
+    } else {
+      containerLeft = '14%';
+      containerTop = '8%';
+      containerWidth = '15.875%';
+    }
   } else if (product.id === 'circular_frames') {
     containerLeft = '58.2614%';
     containerTop = '26.0121%';
@@ -873,7 +927,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               position: 'relative',
                               transition: 'aspect-ratio 0.3s ease-in-out',
                               ...(product.id === 'gallery_board' && { backgroundColor: '#ffffff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }),
-                              ...(product.id === 'canvas' && { clipPath: 'inset(17.28%)', borderRadius: '0.13px' }),
+                              ...(product.id === 'canvas' && { borderRadius: '0.13px' }),
                               ...((product.id === 'prints') && { transform: 'rotate(-7deg)', transformOrigin: 'center center' }),
                               ...((product.id === 'deckled_prints') && { transform: 'rotate(-7deg)', transformOrigin: 'center center' })
                             }}>
@@ -959,6 +1013,42 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                         display: 'block'
                                       }}
                                     />
+                                  ) : product.id === 'canvas' ? (
+                                    <div style={{ position: 'absolute', width: '100%', height: '100%', left: 0, top: 0, overflow: 'hidden' }}>
+                                      {/* Background blur to simulate glass border wrap */}
+                                      <div style={{
+                                        position: 'absolute',
+                                        top: '-5%', left: '-5%', right: '-5%', bottom: '-5%',
+                                        backgroundColor: selectedWrap?.id === 'wrap_black' ? '#111111' : selectedWrap?.id === 'wrap_white' ? '#f7f7f7' : undefined,
+                                        backgroundImage: selectedWrap?.id === 'wrap_natural' || !selectedWrap ? `url(${product.image})` : 'none',
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center',
+                                        filter: selectedWrap?.id === 'wrap_natural' || !selectedWrap ? 'blur(8px) brightness(0.9)' : 'none',
+                                        zIndex: 0
+                                      }}></div>
+                                      
+                                      {/* The actual image, very slightly inset on left and right */}
+                                      <div style={{
+                                        position: 'absolute',
+                                        width: 'calc(100% - 6px)', height: '100%',
+                                        left: '3px', top: 0,
+                                        backgroundImage: `url(${product.image})`,
+                                        backgroundSize: 'cover',
+                                        backgroundPosition: 'center center',
+                                        backgroundRepeat: 'no-repeat',
+                                        zIndex: 1,
+                                        boxShadow: '0 0 6px rgba(0,0,0,0.3)'
+                                      }}></div>
+
+                                      {/* Subtle glass reflection overlay */}
+                                      <div style={{
+                                        position: 'absolute',
+                                        top: 0, left: 0, right: 0, bottom: 0,
+                                        background: 'linear-gradient(90deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.0) 3px, rgba(255,255,255,0.0) calc(100% - 3px), rgba(255,255,255,0.45) 100%)',
+                                        zIndex: 2, pointerEvents: 'none',
+                                        boxShadow: 'inset 0 0 1px rgba(255,255,255,0.6)'
+                                      }}></div>
+                                    </div>
                                   ) : product.id === 'circular_frames' ? null : (
                                     <div 
                                       className="composition-preview-box__image" 
@@ -1360,7 +1450,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                       <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2" ref={product.id === 'matted_frame' ? printSizeDropdownRef : paperDropdownRef}>
                         <div className="FE-2-2">
                           <div className="FE-2-2__header">
-                            <span>{['matted_frame', 'gallery_board', 'circular_frames'].includes(product.id) ? 'Print Size' : 'Paper Type'}</span>
+                            <span>{['matted_frame', 'gallery_board', 'circular_frames'].includes(product.id) ? 'Print Size' : product.id === 'canvas' ? 'Wrap' : 'Paper Type'}</span>
                           </div>
                         </div>
                         <div className="pt-dropdown-input">
@@ -1387,6 +1477,32 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                       }}
                                     >
                                       {ps}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : product.id === 'canvas' ? (
+                            <div className={`custom-dropdown-wrapper full-width ${isWrapDropdownOpen ? 'open' : ''}`}>
+                              <div 
+                                className="custom-dropdown-trigger"
+                                onClick={() => setIsWrapDropdownOpen(prev => !prev)}
+                              >
+                                <span>{selectedWrap.label}</span>
+                                {isWrapDropdownOpen ? <ChevronUp size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
+                              </div>
+                              {isWrapDropdownOpen && (
+                                <div className="custom-dropdown-menu">
+                                  {MOCK_WRAPS.map((wrap) => (
+                                    <div 
+                                      key={wrap.id} 
+                                      className={`custom-dropdown-item ${selectedWrap.id === wrap.id ? 'active' : ''}`}
+                                      onClick={() => {
+                                        setSelectedWrap(wrap);
+                                        setIsWrapDropdownOpen(false);
+                                      }}
+                                    >
+                                      {wrap.label}
                                     </div>
                                   ))}
                                 </div>

@@ -212,6 +212,27 @@ export const PANORAMIC_PRINTS_SIZES = [
   { id: "pano_38x76", label: "38x76cm", priceModifier: 40.50 }
 ];
 
+export const CANVAS_SIZES = [
+  { id: "canvas_20x20", label: "20x20cm", priceModifier: 0.00 },
+  { id: "canvas_20x25", label: "20x25cm", priceModifier: 0.00 },
+  { id: "canvas_25x25", label: "25x25cm", priceModifier: 5.00 },
+  { id: "canvas_28x36", label: "28x36cm", priceModifier: 18.50 },
+  { id: "canvas_30x30", label: "30x30cm", priceModifier: 64.50 },
+  { id: "canvas_30x45", label: "30x45cm", priceModifier: 70.00 },
+  { id: "canvas_35x35", label: "35x35cm", priceModifier: 75.00 },
+  { id: "canvas_40x40", label: "40x40cm", priceModifier: 80.00 },
+  { id: "canvas_40x50", label: "40x50cm", priceModifier: 85.00 },
+  { id: "canvas_40x60", label: "40x60cm", priceModifier: 90.00 },
+  { id: "canvas_50x50", label: "50x50cm", priceModifier: 103.50 },
+  { id: "canvas_50x60", label: "50x60cm", priceModifier: 61.00 },
+  { id: "canvas_51x76", label: "51x76cm", priceModifier: 83.50 },
+  { id: "canvas_61x61", label: "61x61cm", priceModifier: 136.25 },
+  { id: "canvas_60x90", label: "60x90cm", priceModifier: 145.50 },
+  { id: "canvas_76x114", label: "76x114cm", priceModifier: 180.00 },
+  { id: "canvas_102x102", label: "102x102cm", priceModifier: 200.00 },
+  { id: "canvas_102x152", label: "102x152cm", priceModifier: 250.00 }
+];
+
 export const MOCK_FRAMES = [
   { id: "frame_none", label: "No Frame (Print Only)", priceModifier: 0, color: "transparent", colorThumb: null },
   { id: "frame_black", label: "Black", priceModifier: 20, color: "#111111", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_black.png", floatFilter: "brightness(0.15) saturate(0)" },
@@ -227,6 +248,12 @@ export const MOCK_PAPERS = [
   { id: "paper_semi_gloss", label: "Semi Gloss", description: "Soft sheen, slight texture, minimizes fingerprints.", priceModifier: 0 },
   { id: "paper_matte", label: "Matte", description: "Zero glare, rich velvety texture, museum look.", priceModifier: 5 },
   { id: "paper_glossy", label: "Gloss", description: "Ultra reflective finish with deep colors.", priceModifier: 0 }
+];
+
+export const MOCK_WRAPS = [
+  { id: "wrap_black", label: "Black", priceModifier: 0 },
+  { id: "wrap_natural", label: "Natural", priceModifier: 0 },
+  { id: "wrap_white", label: "White", priceModifier: 0 }
 ];
 
 export const MOCK_LAYOUTS = [
