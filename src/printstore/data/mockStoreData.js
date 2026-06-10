@@ -204,6 +204,14 @@ export const CIRCULAR_FRAME_SIZES = [
   { id: "cf_61x61", label: "61x61cm", priceModifier: 248.75, printSize: "46x46cm" }
 ];
 
+export const PANORAMIC_PRINTS_SIZES = [
+  { id: "pano_13x25", label: "13x25cm", priceModifier: 0.00 },
+  { id: "pano_20x41", label: "20x41cm", priceModifier: 6.50 },
+  { id: "pano_25x51", label: "25x51cm", priceModifier: 12.00 },
+  { id: "pano_30x61", label: "30x61cm", priceModifier: 22.00 },
+  { id: "pano_38x76", label: "38x76cm", priceModifier: 40.50 }
+];
+
 export const MOCK_FRAMES = [
   { id: "frame_none", label: "No Frame (Print Only)", priceModifier: 0, color: "transparent", colorThumb: null },
   { id: "frame_black", label: "Black", priceModifier: 20, color: "#111111", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_black.png", floatFilter: "brightness(0.15) saturate(0)" },

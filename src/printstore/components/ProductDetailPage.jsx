@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
 import floatRoom from '../float frames_files/1.webp';
@@ -246,6 +246,8 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     ? CIRCULAR_FRAME_SIZES
     : product.id === 'deckled_prints'
     ? DECKLED_PRINTS_SIZES
+    : product.id === 'panoramic_prints'
+    ? PANORAMIC_PRINTS_SIZES
     : MOCK_SIZES;
   const [selectedSize, setSelectedSize] = useState(productSizes[0]);
   const [selectedPaper, setSelectedPaper] = useState(MOCK_PAPERS[0]);
@@ -365,9 +367,18 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   ];
   const useLargeWall = (product.id === 'dibond' && isLargeSize) || (product.id === 'matted_frame' && mattedLargeWallSizes.includes(selectedSize?.id));
 
-  const currentRoomBackground = useLargeWall 
-    ? "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_large02.webp?ts=1780585829" 
-    : details.roomBackground;
+  let currentRoomBackground = details.roomBackground;
+  if (useLargeWall) {
+    currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_large02.webp?ts=1780585829";
+  } else if (product.id === 'panoramic_prints') {
+    if (selectedSize?.id === 'pano_38x76') {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_large02.webp?ts=1780585829";
+    } else if (['pano_20x41', 'pano_25x51', 'pano_30x61'].includes(selectedSize?.id)) {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_medium02.webp?ts=1780585829";
+    } else {
+      currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_small02.webp?ts=1780585829";
+    }
+  }
 
   const activeDetails = ((product.id === 'dibond' || product.id === 'print_pack') && selectedPaper?.id === 'paper_matte' && details.matteDetails)
     ? details.matteDetails
@@ -452,6 +463,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     float_frames: 20,
     prints: 13,
     deckled_prints: 13,
+    panoramic_prints: 20,
     matted_frame: 20,
     frames: 20,
     print_pack: 10
@@ -463,6 +475,9 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     baseWidthCm = 25;
   }
   let sizeScaleFactor = (product.id === 'matted_collages') ? 1 : (currentWidthCm / baseWidthCm);
+  if (product.id === 'panoramic_prints' && selectedSize?.id === 'pano_38x76') {
+    sizeScaleFactor = 0.5; 
+  }
 
   if (product.id === 'matted_frame' && useLargeWall) {
     const customScales = {
@@ -531,9 +546,23 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     containerTop = product.id === 'prints' ? '39.6483%' : '40.8464%';
     containerWidth = '15.875%';
   } else if (product.id === 'panoramic_prints') {
-    containerLeft = '26%';
-    containerTop = '10%';
-    containerWidth = '13%';
+    if (['pano_25x51', 'pano_30x61'].includes(selectedSize?.id)) {
+      containerLeft = '45%';
+      containerTop = '20%';
+      containerWidth = '14%';
+    } else if (selectedSize?.id === 'pano_20x41') {
+      containerLeft = '45%';
+      containerTop = '20%';
+      containerWidth = '14%';
+    } else if (selectedSize?.id === 'pano_38x76') {
+      containerLeft = '45%';
+      containerTop = '20%';
+      containerWidth = '22%';
+    } else {
+      containerLeft = '14%';
+      containerTop = '8%';
+      containerWidth = '15.875%';
+    }
   } else if (product.id === 'dibond') {
     if (isExtraLargeSize) {
       containerLeft = '50%';
@@ -837,7 +866,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                         ) : (
                           <div className="composition-preview" style={{ width: '100%', height: (product.id === 'print_pack' || product.id === 'matted_collages') ? '100%' : 'auto', position: 'relative' }}>
                             <div className="composition-preview__composition" style={{ 
-                              aspectRatio: (product.id === 'matted_frame' || product.id === 'matted_collages') ? '0.783494 / 1' : product.id === 'panoramic_prints' ? '118.1 / 249.33' : `${currentAspect.toFixed(6)} / 1`, 
+                              aspectRatio: (product.id === 'matted_frame' || product.id === 'matted_collages') ? '0.783494 / 1' : `${currentAspect.toFixed(6)} / 1`, 
                               width: product.id === 'circular_frames' ? cfVisualSize : '100%', 
                               margin: '0 auto',
                               height: (product.id === 'print_pack' || product.id === 'matted_collages') ? '100%' : 'auto', 
