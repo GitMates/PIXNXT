@@ -262,6 +262,10 @@ const ALBUM_LIST_FIELDS = [
   'expiry_date',
   'created_at',
   'updated_at',
+  'client_approved_at',
+  'client_approved_by',
+  'client_changes_submitted_at',
+  'client_changes_submitted_by',
 ].join(', ');
 
 function buildAlbumRowFromLocal(local, photographerId) {

@@ -63,6 +63,18 @@ export default function SmartAlbumNotifications({ userId }) {
         }
     }, []);
 
+    const reloadAlbums = useCallback(async () => {
+        if (!userId) return [];
+        try {
+            const data = await smartAlbumsService.getAlbums(userId);
+            setAlbums(data);
+            return data;
+        } catch {
+            setAlbums([]);
+            return [];
+        }
+    }, [userId]);
+
     useEffect(() => {
         if (!userId) {
             setAlbums([]);
@@ -72,28 +84,29 @@ export default function SmartAlbumNotifications({ userId }) {
 
         let cancelled = false;
         (async () => {
-            try {
-                const data = await smartAlbumsService.getAlbums(userId);
-                if (!cancelled) {
-                    setAlbums(data);
-                    await refreshItems(data);
-                }
-            } catch {
-                if (!cancelled) {
-                    setAlbums([]);
-                    setItems([]);
-                }
+            const data = await reloadAlbums();
+            if (!cancelled && data.length) {
+                await refreshItems(data);
             }
         })();
 
+        const pollId = window.setInterval(async () => {
+            const data = await reloadAlbums();
+            if (!cancelled && data.length) {
+                await refreshItems(data);
+            }
+        }, 45000);
+
         return () => {
             cancelled = true;
+            window.clearInterval(pollId);
         };
-    }, [userId, refreshItems]);
+    }, [userId, refreshItems, reloadAlbums]);
 
     useEffect(() => {
-        const onRefresh = () => {
-            refreshItems(albums);
+        const onRefresh = async () => {
+            const data = await reloadAlbums();
+            await refreshItems(data.length ? data : albums);
         };
 
         NOTIFICATION_REFRESH_EVENTS.forEach((eventName) => {
@@ -104,7 +117,7 @@ export default function SmartAlbumNotifications({ userId }) {
                 window.removeEventListener(eventName, onRefresh);
             });
         };
-    }, [albums, refreshItems]);
+    }, [albums, refreshItems, reloadAlbums]);
 
     useLayoutEffect(() => {
         if (!open) {
@@ -132,10 +145,13 @@ export default function SmartAlbumNotifications({ userId }) {
         return () => document.removeEventListener('mousedown', onDocClick);
     }, []);
 
-    const handleToggle = () => {
+    const handleToggle = async () => {
         const next = !open;
         setOpen(next);
-        if (next) refreshItems(albums);
+        if (next) {
+            const data = await reloadAlbums();
+            await refreshItems(data.length ? data : albums);
+        }
     };
 
     const handleSelect = (item) => {

@@ -26,6 +26,8 @@ import {
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import AlbumPreviewNotifications from '../../components/smart-albums/AlbumPreviewNotifications';
+import AlbumPreviewProofActions from '../../components/smart-albums/AlbumPreviewProofActions';
+import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import { useAuth } from '../../hooks/useAuth';
 import { countUnseenPhotoPins } from '../../components/smart-albums/albumPhotoPins';
 import { countUnseenSwapMarks } from '../../components/smart-albums/albumSwapMarks';
@@ -74,6 +76,7 @@ export default function AlbumPreview({
     clientPreview = false,
 }) {
     const { user } = useAuth();
+    const { toast, showToast, clearToast } = useAppToast(4500);
     const [bookPage, setBookPage] = useState(initialPage);
 
     useEffect(() => {
@@ -280,7 +283,20 @@ export default function AlbumPreview({
                     <span className="av-preview-header-btn" aria-hidden />
                 )}
                 <h1 className="av-preview-header-title">{album?.name || 'Album'}</h1>
-                <span className="av-preview-header-spacer" aria-hidden />
+                {clientPreview ? (
+                    <AlbumPreviewProofActions
+                        albumId={albumId}
+                        albumName={album?.name}
+                        photoCommentItems={photoCommentItems}
+                        swapItems={swapItems}
+                        spreadCommentsBySpread={spreadCommentsBySpread}
+                        onToast={(message, variant = 'info') =>
+                            showToast(message, { variant, duration: 4500 })
+                        }
+                    />
+                ) : (
+                    <span className="av-preview-header-spacer" aria-hidden />
+                )}
             </header>
 
             <div className="av-preview-shell">
@@ -575,6 +591,7 @@ export default function AlbumPreview({
                     </aside>
                 </div>
             </div>
+            <AppToast toast={toast} onDismiss={clearToast} />
         </div>
     );
 }

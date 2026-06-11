@@ -21,6 +21,8 @@ import {
 } from './smartAlbumComments.service';
 
 const SUBMIT_SEEN_KEY = 'pixnxt_album_comments_submit_seen';
+const PROOF_APPROVED_SEEN_KEY = 'pixnxt_album_proof_approved_seen';
+const PROOF_CHANGES_SEEN_KEY = 'pixnxt_album_proof_changes_seen';
 const DISMISSED_KEY = 'pixnxt_album_notifications_dismissed';
 
 export const NOTIFICATIONS_CHANGED_EVENT = 'pixnxt-album-notifications-changed';
@@ -31,6 +33,8 @@ export const NOTIFICATION_TYPES = {
     SPREAD_COMMENT: 'spread_comment',
     CLIENT_REPLY: 'client_reply',
     COMMENTS_SIGNED: 'comments_signed',
+    ALBUM_APPROVED: 'album_approved',
+    CHANGES_SUBMITTED: 'changes_submitted',
 };
 
 const TYPE_LABELS = {
@@ -39,6 +43,8 @@ const TYPE_LABELS = {
     [NOTIFICATION_TYPES.SPREAD_COMMENT]: 'Spread comment',
     [NOTIFICATION_TYPES.CLIENT_REPLY]: 'Client reply',
     [NOTIFICATION_TYPES.COMMENTS_SIGNED]: 'Comments confirmed',
+    [NOTIFICATION_TYPES.ALBUM_APPROVED]: 'Album approved',
+    [NOTIFICATION_TYPES.CHANGES_SUBMITTED]: 'Changes submitted',
 };
 
 export function getNotificationTypeLabel(type) {
@@ -109,6 +115,70 @@ export function markSubmitNotificationSeen(albumId) {
     notifyNotificationsChanged();
 }
 
+function readProofApprovedSeen() {
+    try {
+        const raw = localStorage.getItem(PROOF_APPROVED_SEEN_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeProofApprovedSeen(data) {
+    try {
+        localStorage.setItem(PROOF_APPROVED_SEEN_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+function readProofChangesSeen() {
+    try {
+        const raw = localStorage.getItem(PROOF_CHANGES_SEEN_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeProofChangesSeen(data) {
+    try {
+        localStorage.setItem(PROOF_CHANGES_SEEN_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+function isProofApprovedUnseen(albumId, approvedAt) {
+    if (!albumId || !approvedAt) return false;
+    const seenAt = readProofApprovedSeen()[albumId];
+    if (!seenAt) return true;
+    return new Date(approvedAt).getTime() > new Date(seenAt).getTime();
+}
+
+function isProofChangesUnseen(albumId, submittedAt) {
+    if (!albumId || !submittedAt) return false;
+    const seenAt = readProofChangesSeen()[albumId];
+    if (!seenAt) return true;
+    return new Date(submittedAt).getTime() > new Date(seenAt).getTime();
+}
+
+function markProofApprovedSeen(albumId, approvedAt) {
+    if (!albumId || !approvedAt) return;
+    const all = readProofApprovedSeen();
+    all[albumId] = approvedAt;
+    writeProofApprovedSeen(all);
+    notifyNotificationsChanged();
+}
+
+function markProofChangesSeen(albumId, submittedAt) {
+    if (!albumId || !submittedAt) return;
+    const all = readProofChangesSeen();
+    all[albumId] = submittedAt;
+    writeProofChangesSeen(all);
+    notifyNotificationsChanged();
+}
+
 function collectSyncNotificationsForAlbum(album, dismissed) {
     if (!album?.id) return [];
     const albumId = album.id;
@@ -160,6 +230,42 @@ function collectSyncNotificationsForAlbum(album, dismissed) {
                 preview: 'Client confirmed and sent album comments',
                 createdAt: submittedAt,
                 isUnread: isSubmitNotificationUnseen(albumId),
+            });
+        }
+    }
+
+    if (album.client_approved_at) {
+        const id = `proof-approved-${albumId}`;
+        if (!dismissed[id]) {
+            const by = album.client_approved_by?.trim();
+            items.push({
+                id,
+                type: NOTIFICATION_TYPES.ALBUM_APPROVED,
+                albumId,
+                albumName,
+                preview: by
+                    ? `${by} approved this album for binding`
+                    : 'Client approved this album for binding',
+                createdAt: album.client_approved_at,
+                isUnread: isProofApprovedUnseen(albumId, album.client_approved_at),
+            });
+        }
+    }
+
+    if (album.client_changes_submitted_at) {
+        const id = `proof-changes-${albumId}`;
+        if (!dismissed[id]) {
+            const by = album.client_changes_submitted_by?.trim();
+            items.push({
+                id,
+                type: NOTIFICATION_TYPES.CHANGES_SUBMITTED,
+                albumId,
+                albumName,
+                preview: by
+                    ? `${by} submitted album change requests`
+                    : 'Client submitted album change requests',
+                createdAt: album.client_changes_submitted_at,
+                isUnread: isProofChangesUnseen(albumId, album.client_changes_submitted_at),
             });
         }
     }
@@ -243,6 +349,12 @@ export function markNotificationItemSeen(item) {
         case NOTIFICATION_TYPES.COMMENTS_SIGNED:
             markSubmitNotificationSeen(albumId);
             break;
+        case NOTIFICATION_TYPES.ALBUM_APPROVED:
+            markProofApprovedSeen(albumId, item.createdAt);
+            break;
+        case NOTIFICATION_TYPES.CHANGES_SUBMITTED:
+            markProofChangesSeen(albumId, item.createdAt);
+            break;
         default:
             break;
     }
@@ -285,7 +397,10 @@ export function getNotificationPanel(item) {
         case NOTIFICATION_TYPES.SPREAD_COMMENT:
         case NOTIFICATION_TYPES.CLIENT_REPLY:
         case NOTIFICATION_TYPES.COMMENTS_SIGNED:
+        case NOTIFICATION_TYPES.CHANGES_SUBMITTED:
             return 'comments';
+        case NOTIFICATION_TYPES.ALBUM_APPROVED:
+            return null;
         default:
             return null;
     }
