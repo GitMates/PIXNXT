@@ -20,7 +20,7 @@ body:has(.printstore-container) footer:not(.store-footer) {
   background-color: #ffffff !important; /* Fully white background */
   min-height: 100vh;
   --gallery-accent: #8BDFDD !important;
-  --gallery-meta-text: #8BDFDD !important;
+  --gallery-meta-text: #005C5A !important;
   --gallery-on-accent: #222222 !important;
 }
 
@@ -210,7 +210,7 @@ body:has(.printstore-container) footer:not(.store-footer) {
   flex-direction: column;
   align-items: center;
   gap: 12px;
-  color: #8BDFDD;
+  color: #005C5A;
   font-weight: 500;
 }
 
@@ -576,7 +576,7 @@ body:has(.printstore-container) footer:not(.store-footer) {
 
 .printstore-container .store-header-action-btn.select-text-btn.active {
   font-weight: 600 !important;
-  color: #8BDFDD !important;
+  color: #005C5A !important;
   background: none !important;
 }
 
@@ -714,10 +714,10 @@ body:has(.printstore-container) footer:not(.store-footer) {
 }
 
 .cover-hero-left {
-  width: 30%;
+  width: 45%;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  justify-content: center;
   padding: 4rem 3rem;
   background: #ffffff !important; /* Fully white background */
   border-right: 1px solid #eaeaea;
@@ -747,7 +747,7 @@ body:has(.printstore-container) footer:not(.store-footer) {
 }
 
 .cover-hero-right {
-  width: 70%;
+  width: 55%;
   height: 100%;
   position: relative;
   overflow: hidden;
@@ -2990,7 +2990,7 @@ div.customizer-grid-item[class*="product-card-"] {
 }
 
 .product-card-matted_collages {
-  background: #f8f8f8 !important;
+  background: var(--frame-color, #f8f8f8) !important;
 }
 .product-card-matted_collages .product-image-box {
   padding: 1.5rem !important;
@@ -5094,12 +5094,13 @@ body:has(.pdp-products-page) iframe[name*="intercom"] {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 0;
 }
 
 .cart-page-item {
   display: flex;
-  padding-bottom: 24px;
+  align-items: center;
+  padding: 24px 0;
   border-bottom: 1px solid #eaeaea;
 }
 
@@ -6193,14 +6194,10 @@ div.cart-item-image-wrapper .cart-item-product-image-box > * {
   display: block !important;
 }
 
-/* Matted Collage Preview background resets inside PDP room visualizer, Swiper thumbnails and Customizer */
 .media-set-preview__composition-container .product-card-matted_collages,
 .media-set-image .product-card-matted_collages,
 .customizer-grid-item.product-card-matted_collages {
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
+  background: var(--frame-color, #111111) !important;
 }
 
 .product-card-matted_collages .customizer-product-image-box {

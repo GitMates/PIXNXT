@@ -6,6 +6,7 @@ import PhotoGrid from './components/PhotoGrid';
 import ShopLanding from './components/ShopLanding';
 import AllProducts from './components/AllProducts';
 import ProductCustomizer from './components/ProductCustomizer';
+import MattedCollagesCustomizer from './components/MattedCollagesCustomizer';
 import CartPage from './components/CartPage';
 import ReviewPage from './components/ReviewPage';
 import PaymentPage from './components/PaymentPage';
@@ -51,6 +52,7 @@ export default function PrintStoreApp() {
   const [customizerPhoto, setCustomizerPhoto] = useState(null);
   const [editingCartItemId, setEditingCartItemId] = useState(null);
   const [editingCartItemOptions, setEditingCartItemOptions] = useState(null);
+  const [previousViewState, setPreviousViewState] = useState(null);
 
   // Refs for scroll-spy sections
   const galleryRef = useRef(null);
@@ -192,6 +194,13 @@ export default function PrintStoreApp() {
     }, 50);
   };
 
+  const handleCancelCustomizing = () => {
+    setIsSelectionMode(false);
+    setSelectedProductForDetail(customizingProduct);
+    setCustomizingProduct(null);
+    setSelectedPhotos([]);
+  };
+
   // ── Cart operations ──
   const handleAddToCart = (newItem, skipCartOpen = false) => {
     setCartItems((prev) => {
@@ -204,7 +213,7 @@ export default function PrintStoreApp() {
       const existingIdx = prev.findIndex(
         (item) =>
           item.productId === newItem.productId &&
-          item.photo.id === newItem.photo.id &&
+          item.photo?.id === newItem.photo?.id &&
           item.size.id === newItem.size.id &&
           item.frame.id === newItem.frame.id &&
           item.paper.id === newItem.paper.id &&
@@ -226,8 +235,40 @@ export default function PrintStoreApp() {
       setActiveCustomizerProduct(null);
       setCustomizerPhoto(null);
       setEditingCartItemId(null);
-      setCheckoutState('cart');
+      openCart();
     }
+  };
+
+  const openCart = () => {
+    // Save current states before entering cart (only if not already in cart)
+    setPreviousViewState((prev) => {
+      if (checkoutState !== 'cart' && checkoutState !== 'review' && checkoutState !== 'payment') {
+        return {
+          selectedProductForDetail,
+          viewMode,
+          activeTab,
+          activeCollection
+        };
+      }
+      return prev;
+    });
+    setCheckoutState('cart');
+  };
+
+  const handleBackFromCart = () => {
+    if (previousViewState) {
+      setSelectedProductForDetail(previousViewState.selectedProductForDetail);
+      setViewMode(previousViewState.viewMode);
+      setActiveTab(previousViewState.activeTab);
+      setActiveCollection(previousViewState.activeCollection);
+    } else {
+      // Fallback: reset to default shopping view
+      setSelectedProductForDetail(null);
+      setViewMode('landing');
+      setActiveTab('gallery');
+      setActiveCollection('portraits');
+    }
+    setCheckoutState('shopping');
   };
 
   const handleUpdateCartQuantity = (itemId, newQty) => {
@@ -283,7 +324,7 @@ export default function PrintStoreApp() {
             activeTab={activeTab}
             setActiveTab={handleTabChange}
             cartCount={cartItems.reduce((sum, item) => sum + item.quantity, 0)}
-            onOpenCart={() => setCheckoutState('cart')}
+            onOpenCart={openCart}
             activeCollection={activeCollection}
             setActiveCollection={setActiveCollection}
             isSelectionMode={isSelectionMode}
@@ -299,6 +340,8 @@ export default function PrintStoreApp() {
               setViewMode('all-products');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            customizingProduct={customizingProduct}
+            onCancelCustomizing={handleCancelCustomizing}
           />
         )}
 
@@ -311,15 +354,17 @@ export default function PrintStoreApp() {
             onEditItem={(item) => {
               setEditingCartItemId(item.id);
               setActiveCustomizerProduct(MOCK_PRODUCTS.find(p => p.id === item.productId) || MOCK_PRODUCTS[0]);
-              setCustomizerPhoto([item.photo]);
+              setCustomizerPhoto(item.photos && item.photos.length > 0 ? item.photos : [item.photo]);
               setEditingCartItemOptions({
                 size: item.size,
                 frame: item.frame,
-                paper: item.paper
+                paper: item.paper,
+                border: item.border,
+                layout: item.layout
               });
               setCheckoutState('shopping');
             }}
-            onBack={() => setCheckoutState('shopping')}
+            onBack={handleBackFromCart}
             onContinueToShipping={() => setCheckoutState('review')}
           />
         ) : checkoutState === 'review' ? (
@@ -446,7 +491,7 @@ export default function PrintStoreApp() {
             <span className="selection-count">
               {selectedPhotos.length > 0 
                 ? `${selectedPhotos.length} item${selectedPhotos.length === 1 ? '' : 's'} selected`
-                : "Select items"}
+                : "Start selecting"}
             </span>
             {selectedPhotos.length > 0 && (
               <button 
@@ -462,34 +507,13 @@ export default function PrintStoreApp() {
           </div>
           
           <div className="selection-toolbar-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {!customizingProduct && (
-              <select 
-                value={selectedProductType} 
-                onChange={(e) => setSelectedProductType(e.target.value)}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: '8px',
-                  border: '1px solid #ddd',
-                  background: '#fff',
-                  fontSize: '14px',
-                  color: '#111',
-                  outline: 'none',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="">Select Frame Type</option>
-                {MOCK_PRODUCTS.map(p => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
-            )}
             <button 
-              className={`finish-personalize-btn ${(selectedPhotos.length === 0 || (!customizingProduct && !selectedProductType)) ? 'disabled' : ''}`}
-              disabled={selectedPhotos.length === 0 || (!customizingProduct && !selectedProductType)}
+              className={`finish-personalize-btn ${selectedPhotos.length === 0 ? 'disabled' : ''}`}
+              disabled={selectedPhotos.length === 0}
               onClick={() => {
                 if (selectedPhotos.length > 0) {
                   // Animate the finish action
-                  const productToCustomize = customizingProduct || MOCK_PRODUCTS.find(p => p.id === selectedProductType) || MOCK_PRODUCTS[0];
+                  const productToCustomize = customizingProduct || MOCK_PRODUCTS[0];
                   handleOpenCustomizer(productToCustomize, selectedPhotos);
                   setIsSelectionMode(false);
                   setCustomizingProduct(null);
@@ -506,32 +530,120 @@ export default function PrintStoreApp() {
 
       {/* 5. Product Options Configuration Modal */}
       {activeCustomizerProduct && (
-        <ProductCustomizer
-          product={activeCustomizerProduct}
-          photos={MOCK_PHOTOS}
-          initialPhotos={customizerPhoto}
-          editMode={!!editingCartItemId}
-          initialSize={editingCartItemId ? editingCartItemOptions?.size : customizingProductOptions?.size}
-          initialFrame={editingCartItemId ? editingCartItemOptions?.frame : customizingProductOptions?.frame}
-          initialPaper={editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper}
-          initialBorder={editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border}
-          onAddToCart={handleAddToCart}
-          onClose={() => {
-            setActiveCustomizerProduct(null);
-            setCustomizerPhoto(null);
-            setEditingCartItemId(null);
-            setCustomizingProductOptions(null);
-            setEditingCartItemOptions(null);
-          }}
-          onOpenCart={() => {
-            setActiveCustomizerProduct(null);
-            setCustomizerPhoto(null);
-            setEditingCartItemId(null);
-            setCustomizingProductOptions(null);
-            setEditingCartItemOptions(null);
-            setCheckoutState('cart');
-          }}
-        />
+        activeCustomizerProduct.id === 'matted_collages' ? (
+          <MattedCollagesCustomizer
+            product={activeCustomizerProduct}
+            photos={MOCK_PHOTOS}
+            initialPhotos={customizerPhoto}
+            editingCartItemId={editingCartItemId}
+            initialSize={editingCartItemId ? editingCartItemOptions?.size : customizingProductOptions?.size}
+            initialFrame={editingCartItemId ? editingCartItemOptions?.frame : customizingProductOptions?.frame}
+            initialPaper={editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper}
+            initialBorder={editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border}
+            initialLayout={editingCartItemId ? editingCartItemOptions?.layout : customizingProductOptions?.layout}
+            onAddToCart={handleAddToCart}
+            onClose={() => {
+              const productToRestore = activeCustomizerProduct;
+              setActiveCustomizerProduct(null);
+              setCustomizerPhoto(null);
+              setCustomizingProductOptions(null);
+              setEditingCartItemOptions(null);
+              if (editingCartItemId) {
+                setCheckoutState('cart');
+                setEditingCartItemId(null);
+              } else {
+                // Navigate back to the product detail page (store), not gallery
+                setSelectedProductForDetail(productToRestore);
+                setActiveTab('shop');
+                setViewMode('landing');
+                window.scrollTo({ top: 0, behavior: 'instant' });
+              }
+            }}
+            onOpenCart={() => {
+              setActiveCustomizerProduct(null);
+              setCustomizerPhoto(null);
+              setEditingCartItemId(null);
+              setCustomizingProductOptions(null);
+              setEditingCartItemOptions(null);
+              openCart();
+            }}
+            onBrowseGallery={(currentPhotos) => {
+              setIsSelectionMode(true);
+              setSelectedPhotos(currentPhotos.map(p => p.id));
+              setCustomizingProduct(activeCustomizerProduct);
+              setCustomizingProductOptions({
+                size: editingCartItemId ? editingCartItemOptions?.size : customizingProductOptions?.size,
+                frame: editingCartItemId ? editingCartItemOptions?.frame : customizingProductOptions?.frame,
+                paper: editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper,
+                border: editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border,
+                layout: editingCartItemId ? editingCartItemOptions?.layout : customizingProductOptions?.layout
+              });
+              setActiveCustomizerProduct(null);
+              setCustomizerPhoto(null);
+              setActiveTab('gallery');
+              setActiveCollection('portraits');
+              setViewMode('landing');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        ) : (
+          <ProductCustomizer
+            product={activeCustomizerProduct}
+            photos={MOCK_PHOTOS}
+            initialPhotos={customizerPhoto}
+            editMode={!!editingCartItemId}
+            editingCartItemId={editingCartItemId}
+            initialSize={editingCartItemId ? editingCartItemOptions?.size : customizingProductOptions?.size}
+            initialFrame={editingCartItemId ? editingCartItemOptions?.frame : customizingProductOptions?.frame}
+            initialPaper={editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper}
+            initialBorder={editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border}
+            initialLayout={editingCartItemId ? editingCartItemOptions?.layout : customizingProductOptions?.layout}
+            onAddToCart={handleAddToCart}
+            onClose={() => {
+              const productToRestore = activeCustomizerProduct;
+              setActiveCustomizerProduct(null);
+              setCustomizerPhoto(null);
+              setCustomizingProductOptions(null);
+              setEditingCartItemOptions(null);
+              if (editingCartItemId) {
+                setCheckoutState('cart');
+                setEditingCartItemId(null);
+              } else {
+                // Navigate back to the product detail page (store), not gallery
+                setSelectedProductForDetail(productToRestore);
+                setActiveTab('shop');
+                setViewMode('landing');
+                window.scrollTo({ top: 0, behavior: 'instant' });
+              }
+            }}
+            onOpenCart={() => {
+              setActiveCustomizerProduct(null);
+              setCustomizerPhoto(null);
+              setEditingCartItemId(null);
+              setCustomizingProductOptions(null);
+              setEditingCartItemOptions(null);
+              openCart();
+            }}
+            onBrowseGallery={(currentPhotos) => {
+              setIsSelectionMode(true);
+              setSelectedPhotos(currentPhotos.map(p => p.id));
+              setCustomizingProduct(activeCustomizerProduct);
+              setCustomizingProductOptions({
+                size: editingCartItemId ? editingCartItemOptions?.size : customizingProductOptions?.size,
+                frame: editingCartItemId ? editingCartItemOptions?.frame : customizingProductOptions?.frame,
+                paper: editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper,
+                border: editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border,
+                layout: editingCartItemId ? editingCartItemOptions?.layout : customizingProductOptions?.layout
+              });
+              setActiveCustomizerProduct(null);
+              setCustomizerPhoto(null);
+              setActiveTab('gallery');
+              setActiveCollection('portraits');
+              setViewMode('landing');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        )
       )}
 
       {/* 5.5 Left Navigation Sidebar Drawer */}

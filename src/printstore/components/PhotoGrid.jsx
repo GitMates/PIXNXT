@@ -52,29 +52,37 @@ export default function PhotoGrid({
 
   return (
     <section className="photos-section">
-      <div className="photos-section-header" style={{ textAlign: 'center', marginBottom: '2rem', position: 'relative' }}>
-        <h2 className="photos-section-title" style={{ margin: 0 }}>{title}</h2>
+      <div className="photos-section-header" style={{ 
+        display: 'flex', 
+        alignItems: 'baseline', 
+        gap: '12px', 
+        marginBottom: '3rem', 
+        position: 'relative',
+        justifyContent: 'flex-start'
+      }}>
+        <h2 className="photos-section-title" style={{ margin: 0, textTransform: 'uppercase', fontSize: '18px', letterSpacing: '0.1em' }}>{title}</h2>
+        <span className="items-count" style={{ fontSize: '14px', color: '#666' }}>{photos.length} items</span>
         {isSelectionMode && (
-          <div className="photos-selection-meta" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '15px', color: '#333', marginTop: '1rem' }}>
-            <span className="items-count" style={{ fontSize: '14px' }}>{photos.length} items</span>
+          <>
+            <span style={{ color: '#ccc', margin: '0 4px' }}>|</span>
             {selectedPhotos.length === photos.length && photos.length > 0 ? (
               <button 
                 type="button" 
                 onClick={onDeselectAll}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#111' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#111', padding: 0 }}
               >
-                <span style={{ fontSize: '16px' }}>✕</span> Deselect all
+                <span style={{ fontSize: '14px' }}>✕</span> Deselect all
               </button>
             ) : (
               <button 
                 type="button" 
                 onClick={onSelectAll}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#111' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '14px', color: '#111', padding: 0 }}
               >
-                <Check size={16} strokeWidth={2} /> Select all
+                <Check size={14} strokeWidth={2} /> Select all
               </button>
             )}
-          </div>
+          </>
         )}
       </div>
 
@@ -91,7 +99,8 @@ export default function PhotoGrid({
               style={{
                 border: isSelected ? '3px solid #8BDFDD' : '1px solid #eaeaea',
                 transform: isSelected ? 'scale(0.97)' : 'none',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                position: 'relative'
               }}
             >
               <img
@@ -100,26 +109,33 @@ export default function PhotoGrid({
                 className="photo-grid-img"
               />
 
-              {/* Selection Checkmark & Hover Actions Overlay */}
-              <div className="photo-card-actions">
-                <div style={{ display: 'flex', gap: '0.75rem' }}>
-                  {/* Heart button removed */}
-                </div>
-
-                {/* Right: Select Toggle Checkmark with Tooltip */}
-                <div className="card-select-wrapper">
+              {/* Selection Checkmark - Visible at all times in selection mode */}
+              {isSelectionMode && (
+                <div 
+                  className="card-select-wrapper"
+                  style={{
+                    position: 'absolute',
+                    bottom: '16px',
+                    right: '16px',
+                    zIndex: 15,
+                    pointerEvents: 'auto'
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <button
                     className={`card-select-btn ${isSelected ? 'selected' : ''}`}
                     style={{
-                      background: isSelected ? '#8BDFDD' : 'transparent',
-                      border: isSelected ? '2px solid white' : '2px solid rgba(255,255,255,0.7)',
+                      background: isSelected ? '#ffffff' : 'transparent',
+                      border: '2.5px solid white',
                       borderRadius: '50%',
                       width: '28px',
                       height: '28px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                      cursor: 'pointer',
+                      padding: 0
                     }}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -131,9 +147,8 @@ export default function PhotoGrid({
                       <Check size={16} strokeWidth={3} color="#222222" />
                     )}
                   </button>
-                  <div className="card-select-tooltip">Press to select item</div>
                 </div>
-              </div>
+              )}
             </div>
           );
         })}

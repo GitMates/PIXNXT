@@ -1,5 +1,4 @@
-import React from 'react';
-import { ShoppingCart, Menu, Upload } from 'lucide-react';
+import { ShoppingCart, Menu, ChevronLeft } from 'lucide-react';
 
 export default function StoreHeader({
   activeTab,
@@ -14,8 +13,37 @@ export default function StoreHeader({
   onOpenMenu,
   onNavigateToShop,
   onOpenTrackOrder,
-  hasPlacedOrder
+  hasPlacedOrder,
+  customizingProduct,
+  onCancelCustomizing
 }) {
+  if (customizingProduct) {
+    return (
+      <div className="store-header-wrapper">
+        <header className="store-header thin-header" style={{ justifyContent: 'flex-start', height: '64px', borderBottom: '1px solid #eee' }}>
+          <div 
+            onClick={onCancelCustomizing}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              cursor: 'pointer',
+              padding: '0 1.5rem',
+              fontSize: '15px',
+              fontFamily: 'var(--font-heading)',
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              fontWeight: 500
+            }}
+          >
+            <ChevronLeft size={20} strokeWidth={1.5} color="#111" />
+            <span style={{ textDecoration: 'underline' }}>{activeCollection || 'portraits'}</span>
+          </div>
+        </header>
+      </div>
+    );
+  }
+
   return (
     <div className="store-header-wrapper">
       <header className={`store-header ${isHeaderThin ? 'thin-header' : ''}`}>
@@ -57,15 +85,6 @@ export default function StoreHeader({
               {isSelectionMode ? 'Selecting' : 'Select'}
             </button>
           )}
-
-          {/* Share/Upload Button (Icon only) */}
-          <button
-            className="store-header-icon-btn"
-            onClick={() => alert("Collection link copied to clipboard! (Mock share)")}
-            aria-label="Share Collection"
-          >
-            <Upload size={20} strokeWidth={1.5} color="var(--gallery-text, #111111)" />
-          </button>
 
           {/* Cart Icon with badge count - always rendered to prevent shaking */}
           <button 

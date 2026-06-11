@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
-import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES, CANVAS_SIZES, MOCK_WRAPS, FLOAT_FRAME_SIZES, PRINT_SIZES, ACRYLIC_PRINT_SIZES, MOCK_FINISHINGS } from '../data/mockStoreData';
+import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES, CANVAS_SIZES, MOCK_WRAPS, FLOAT_FRAME_SIZES, PRINT_SIZES, ACRYLIC_PRINT_SIZES, MOCK_FINISHINGS, MATTED_COLLAGE_SIZES, MATTED_COLLAGE_LAYOUTS, MOCK_PHOTOS } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
 import floatRoom from '../float frames_files/1.webp';
@@ -20,6 +20,179 @@ const WALL_OPTIONS = [
 const LAYOUT_OPTIONS = [
   { id: 'layout-1', thumbnail: '/printstore/Matted Frame Collages_files/layout_lab-1_des-1997053.png', label: '2 Photos Vertical' }
 ];
+
+const getCollageDimensions = (sizeLabel, layoutType) => {
+  let w = 25;
+  let h = 25;
+  const match = sizeLabel?.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+  if (match) {
+    const d1 = parseFloat(match[1]);
+    const d2 = parseFloat(match[2]);
+    if (d1 !== d2) {
+      const minD = Math.min(d1, d2);
+      const maxD = Math.max(d1, d2);
+      if (['grid_1x2_horizontal', 'grid_2x3', 'grid_2x2_landscape', 'grid_2x4', 'grid_2x5'].includes(layoutType)) {
+        w = maxD;
+        h = minD;
+      } else if (['grid_2x1_vertical', 'grid_3x2', 'grid_1top_2bottom', 'grid_2top_1bottom', 'grid_1left_2right', 'grid_2left_1right', 'grid_1left_3right', 'grid_3top_1bottom', 'grid_4x2', 'grid_5x2'].includes(layoutType)) {
+        w = minD;
+        h = maxD;
+      } else {
+        w = d1;
+        h = d2;
+      }
+    } else {
+      w = d1;
+      h = d2;
+    }
+  }
+  return { w, h };
+};
+
+const renderLayoutIcon = (iconType, active) => {
+  const activeColor = '#a5967f';
+  const inactiveColor = '#ddd';
+  const borderColor = active ? activeColor : inactiveColor;
+  const innerColor = active ? 'rgba(165,150,127,0.2)' : '#eee';
+  const strokeColor = '#fff';
+
+  let gridTemplate = '';
+  let children = [];
+
+  switch (iconType) {
+    case '2x2':
+    case '2x2_landscape':
+      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+      children = Array(4).fill(0);
+      break;
+    case '1x2_horiz':
+      gridTemplate = '1fr / repeat(2, 1fr)';
+      children = Array(2).fill(0);
+      break;
+    case '3x2':
+      gridTemplate = 'repeat(3, 1fr) / repeat(2, 1fr)';
+      children = Array(6).fill(0);
+      break;
+    case '1top_2bottom':
+      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+      children = [
+        <div key="0" style={{ background: innerColor, gridColumn: 'span 2' }}></div>,
+        <div key="1" style={{ background: innerColor }}></div>,
+        <div key="2" style={{ background: innerColor }}></div>
+      ];
+      break;
+    case '2top_1bottom':
+      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+      children = [
+        <div key="0" style={{ background: innerColor }}></div>,
+        <div key="1" style={{ background: innerColor }}></div>,
+        <div key="2" style={{ background: innerColor, gridColumn: 'span 2' }}></div>
+      ];
+      break;
+    case '1left_2right':
+      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+      children = [
+        <div key="0" style={{ background: innerColor, gridRow: 'span 2' }}></div>,
+        <div key="1" style={{ background: innerColor }}></div>,
+        <div key="2" style={{ background: innerColor }}></div>
+      ];
+      break;
+    case '2left_1right':
+      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+      children = [
+        <div key="0" style={{ background: innerColor }}></div>,
+        <div key="1" style={{ background: innerColor, gridRow: 'span 2' }}></div>,
+        <div key="2" style={{ background: innerColor }}></div>
+      ];
+      break;
+    case 'asymmetric_4':
+      gridTemplate = '2fr 1fr 2fr / 1fr 1fr';
+      children = [
+        <div key="0" style={{ background: innerColor, gridRow: '1 / 3', gridColumn: '1' }}></div>,
+        <div key="1" style={{ background: innerColor, gridRow: '3 / 4', gridColumn: '1' }}></div>,
+        <div key="2" style={{ background: innerColor, gridRow: '1 / 2', gridColumn: '2' }}></div>,
+        <div key="3" style={{ background: innerColor, gridRow: '2 / 4', gridColumn: '2' }}></div>
+      ];
+      break;
+    case '2x1_vert':
+      gridTemplate = 'repeat(2, 1fr) / 1fr';
+      children = Array(2).fill(0);
+      break;
+    case '2x3':
+      gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+      children = Array(6).fill(0);
+      break;
+    case '1left_3right':
+      gridTemplate = 'repeat(3, 1fr) / 3fr 1fr';
+      children = [
+        <div key="0" style={{ background: innerColor, gridRow: 'span 3' }}></div>,
+        <div key="1" style={{ background: innerColor }}></div>,
+        <div key="2" style={{ background: innerColor }}></div>,
+        <div key="3" style={{ background: innerColor }}></div>
+      ];
+      break;
+    case '3top_1bottom':
+      gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+      children = [
+        <div key="0" style={{ background: innerColor }}></div>,
+        <div key="1" style={{ background: innerColor }}></div>,
+        <div key="2" style={{ background: innerColor }}></div>,
+        <div key="3" style={{ background: innerColor, gridColumn: 'span 3' }}></div>
+      ];
+      break;
+    case '3x3':
+      gridTemplate = 'repeat(3, 1fr) / repeat(3, 1fr)';
+      children = Array(9).fill(0);
+      break;
+    case '4x4':
+      gridTemplate = 'repeat(4, 1fr) / repeat(4, 1fr)';
+      children = Array(16).fill(0);
+      break;
+    case '4x2':
+      gridTemplate = 'repeat(4, 1fr) / repeat(2, 1fr)';
+      children = Array(8).fill(0);
+      break;
+    case '5x2':
+      gridTemplate = 'repeat(5, 1fr) / repeat(2, 1fr)';
+      children = Array(10).fill(0);
+      break;
+    case '2x4':
+      gridTemplate = 'repeat(2, 1fr) / repeat(4, 1fr)';
+      children = Array(8).fill(0);
+      break;
+    case '2x5':
+      gridTemplate = 'repeat(2, 1fr) / repeat(5, 1fr)';
+      children = Array(10).fill(0);
+      break;
+    default:
+      gridTemplate = '1fr / 1fr';
+      children = Array(1).fill(0);
+  }
+
+  return (
+    <div style={{
+      width: '100%',
+      height: '100%',
+      border: '1px solid #e0e0e0',
+      background: strokeColor,
+      padding: '4px',
+      boxSizing: 'border-box'
+    }}>
+      <div style={{
+        width: '100%',
+        height: '100%',
+        display: 'grid',
+        gridTemplate: gridTemplate,
+        gap: '2px',
+        boxSizing: 'border-box'
+      }}>
+        {children.length > 0 && children[0].key ? children : children.map((_, i) => (
+          <div key={i} style={{ background: innerColor }}></div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const PRODUCT_DETAILS_MAP = {
   dibond: {
@@ -283,8 +456,11 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     ? PRINT_SIZES
     : product.id === 'acrylic_prints'
     ? ACRYLIC_PRINT_SIZES
+    : product.id === 'matted_collages'
+    ? MATTED_COLLAGE_SIZES
     : MOCK_SIZES;
   const [selectedSize, setSelectedSize] = useState(productSizes[0]);
+  const [selectedCollageLayout, setSelectedCollageLayout] = useState(null);
   const [selectedPaper, setSelectedPaper] = useState(MOCK_PAPERS[0]);
   const [selectedFinishing, setSelectedFinishing] = useState(MOCK_FINISHINGS[0]);
   const [selectedWrap, setSelectedWrap] = useState(MOCK_WRAPS[0]);
@@ -299,6 +475,18 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   const finishingDropdownRef = useRef(null);
   const borderDropdownRef = useRef(null);
   const wrapDropdownRef = useRef(null);
+  const layoutScrollRef = useRef(null);
+  
+  const handleScrollLayouts = (direction) => {
+    if (layoutScrollRef.current) {
+      const scrollAmount = 240;
+      layoutScrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
+    }
+  };
+
   const [selectedPrintSize, setSelectedPrintSize] = useState(
     ['matted_frame', 'frames'].includes(product.id)
       ? '35x35cm'
@@ -373,6 +561,9 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     if (product.id === 'matted_frame' && selectedSize?.printSize) {
       setSelectedPrintSize(selectedSize.printSize);
     }
+    if (product.id === 'matted_collages' && MATTED_COLLAGE_LAYOUTS[selectedSize?.id]) {
+      setSelectedCollageLayout(MATTED_COLLAGE_LAYOUTS[selectedSize.id][0]);
+    }
   }, [selectedSize, product.id]);
 
   const currentPrice = product.basePrice + selectedSize.priceModifier + selectedPaper.priceModifier + ((product.id.includes('frame') || product.id.includes('collage')) && product.id !== 'panoramic_prints' ? selectedFrame.priceModifier : 0);
@@ -399,14 +590,15 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
       size: selectedSize,
       frame: selectedFrame,
       paper: selectedPaper,
-      border: selectedBorder
+      border: selectedBorder,
+      layout: selectedCollageLayout
     });
   };
 
   const isLargeSize = selectedSize && !['size_20x20', 'size_20x25', 'size_20x30', 'size_25x25'].includes(selectedSize.id);
   const isExtraLargeSize = selectedSize && ['size_50x60', 'size_51x76', 'size_60x90', 'size_76x102'].includes(selectedSize.id);
   
-  const useLargeWall = (product.id === 'dibond' && isLargeSize);
+  const useLargeWall = (product.id === 'dibond' && isLargeSize) || (['matted_frame', 'frames', 'float_frames', 'matted_collages'].includes(product.id) && ['mf_76x76', 'mf_76x102', 'mf_102x102', 'mf_102x152', 'mc_76x76', 'mc_76x102', 'float_76x76', 'float_76x102'].includes(selectedSize?.id));
 
   let currentRoomBackground = details.roomBackground;
   if (useLargeWall) {
@@ -427,13 +619,16 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     } else if (mediumWallSizes.includes(selectedSize?.id)) {
       currentRoomBackground = "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/resources/modeling_resources/pdp_bg_medium02.webp?ts=1780585829";
     }
-  } else if (['matted_frame', 'frames', 'float_frames'].includes(product.id)) {
+  } else if (['matted_frame', 'frames', 'float_frames', 'matted_collages'].includes(product.id)) {
     const mediumWallSizes = [
       'mf_28x36', 'mf_30x30', 'mf_30x40', 'mf_30x45', 'mf_35x35', 
-      'mf_40x40', 'mf_40x60', 'mf_50x50', 'mf_50x60', 'mf_55x76', 'mf_61x61'
+      'mf_40x40', 'mf_40x60', 'mf_50x50', 'mf_50x60', 'mf_55x76', 'mf_61x61',
+      'mc_25x25', 'mc_28x36', 'mc_30x30', 'mc_35x35', 'mc_40x40', 'mc_30x45', 'mc_40x60',
+      'mc_50x50', 'mc_50x60', 'mc_50x76', 'mc_61x61'
     ];
     const largeWallSizes = [
       'mf_76x76', 'mf_76x102', 'mf_102x102', 'mf_102x152',
+      'mc_76x76', 'mc_76x102',
       'float_30x45', 'float_40x60', 'float_50x60', 'float_55x76', 'float_76x76', 'float_76x102'
     ];
     if (largeWallSizes.includes(selectedSize?.id)) {
@@ -501,6 +696,10 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
       currentWidthCm = 76;
       currentHeightCm = 55;
     }
+  } else if (product.id === 'matted_collages') {
+    const collageDims = getCollageDimensions(selectedSize?.label, selectedCollageLayout?.type);
+    currentWidthCm = collageDims.w;
+    currentHeightCm = collageDims.h;
   }
   
   const currentAspect = currentWidthCm / currentHeightCm;
@@ -609,8 +808,14 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
     } else if (['acrylic_25x33', 'acrylic_25x38', 'acrylic_28x36', 'acrylic_30x40', 'acrylic_30x45', 'acrylic_40x50', 'acrylic_40x60', 'acrylic_50x60', 'acrylic_51x76'].includes(selectedSize?.id)) {
       baseWidthCm = 35;
     }
+  } else if (product.id === 'matted_collages') {
+    if (['mc_76x76', 'mc_76x102'].includes(selectedSize?.id)) {
+      baseWidthCm = 80;
+    } else if (['mc_28x36', 'mc_30x30', 'mc_35x35', 'mc_40x40', 'mc_30x45', 'mc_40x60', 'mc_50x50', 'mc_50x60', 'mc_50x76', 'mc_61x61'].includes(selectedSize?.id)) {
+      baseWidthCm = 35;
+    }
   }
-  let sizeScaleFactor = (product.id === 'matted_collages') ? 1 : (currentWidthCm / baseWidthCm);
+  let sizeScaleFactor = currentWidthCm / baseWidthCm;
   if (product.id === 'panoramic_prints' && selectedSize?.id === 'pano_38x76') {
     sizeScaleFactor = 0.5; 
   }
@@ -696,16 +901,26 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
       containerHeight = 'auto';
     }
   } else if (product.id === 'matted_collages') {
-    if (useLargeWall) {
-      containerLeft = '49.7689%';
-      containerTop = '10.2542%';
-      containerWidth = '23.9623%';
+    const mediumWallSizes = [
+      'mc_28x36', 'mc_30x30', 'mc_35x35', 'mc_40x40', 'mc_30x45',
+      'mc_40x60', 'mc_50x50', 'mc_50x60', 'mc_50x76', 'mc_61x61'
+    ];
+    const largeWallSizes = ['mc_76x76', 'mc_76x102'];
+    if (largeWallSizes.includes(selectedSize?.id)) {
+      containerLeft = '50%';
+      containerTop = '15%';
+      containerWidth = '22%';
+      containerHeight = 'auto';
+    } else if (mediumWallSizes.includes(selectedSize?.id)) {
+      containerLeft = '45%';
+      containerTop = '20%';
+      containerWidth = '14%';
       containerHeight = 'auto';
     } else {
-      containerLeft = '15.15%';
-      containerTop = '15.05%';
+      containerLeft = '58.2614%';
+      containerTop = '20.8875%';
       containerWidth = '16.31%';
-      containerHeight = '34.57%';
+      containerHeight = 'auto';
     }
   } else if (product.id === 'gallery_board') {
     containerLeft = '68.0731%';
@@ -927,9 +1142,9 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                   {isRoomPreview ? (
                     <div 
                       className="media-set-preview media-set-preview--animated" 
-                      key={product.id === 'matted_collages' ? selectedWall.url : currentRoomBackground}
+                      key={product.id === 'gallery_board' ? selectedWall.url : currentRoomBackground}
                       style={{ 
-                        backgroundImage: `url(${product.id === 'matted_collages' ? selectedWall.url : currentRoomBackground})`, 
+                        backgroundImage: `url(${product.id === 'gallery_board' ? selectedWall.url : currentRoomBackground})`, 
                         backgroundSize: 'cover', 
                         backgroundPosition: 'center' 
                       }}
@@ -944,76 +1159,198 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                         transformOrigin: product.id === 'matted_collages' ? 'bottom center' : 'center center',
                         transition: 'transform 0.3s ease-in-out'
                       }}>
-                        {product.id === 'matted_collages' ? (
-                          /* DYNAMICALLY CALCULATED AND RESPONSIVE MATTED FRAMES COLLAGE ACCORDING TO SCREEN MATRIX */
-                          <div 
-                            className="product-card-matted_collages" 
-                            style={{ 
-                              '--frame-color': selectedFrame?.color || '#111111',
-                              width: '215px',
-                              height: '280px',
-                              transform: `scale(${compositionWidth / 215})`,
-                              transformOrigin: 'top left',
-                              background: selectedFrame?.color || '#111111',
-                              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              position: 'absolute',
-                              top: 0,
-                              left: 0
-                            }}
-                          >
+                        {product.id === 'matted_collages' ? (() => {
+                          const type = selectedCollageLayout?.type || 'grid_2x2';
+                          const collageDims = getCollageDimensions(selectedSize?.label, type);
+                          let baseW = collageDims.w * 10;
+                          let baseH = collageDims.h * 10;
+                          
+                          let gridTemplate = '1fr / 1fr';
+                          let images = [];
+                          
+                          const imgs = MOCK_PHOTOS.map(p => p.url);
+                          const defaultImg1 = imgs[5] || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200";
+                          const defaultImg2 = defaultImg1;
+                          const defaultImg3 = defaultImg1;
+                          const defaultImg4 = defaultImg1;
+                          const defaultImg5 = defaultImg1;
+                          const defaultImg6 = defaultImg1;
+
+                          switch(type) {
+                            case 'grid_2x2':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [defaultImg1, defaultImg2, defaultImg3, defaultImg4];
+                              break;
+                            case 'grid_1x2_horizontal':
+                              gridTemplate = '1fr / repeat(2, 1fr)';
+                              images = [defaultImg1, defaultImg2];
+                              break;
+                            case 'grid_3x2':
+                              gridTemplate = 'repeat(3, 1fr) / repeat(2, 1fr)';
+                              images = [defaultImg1, defaultImg2, defaultImg3, defaultImg4, defaultImg5, defaultImg6];
+                              break;
+                            case 'grid_2x3':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+                              images = [defaultImg1, defaultImg2, defaultImg3, defaultImg4, defaultImg5, defaultImg6];
+                              break;
+                            case 'grid_1top_2bottom':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [
+                                { src: defaultImg1, style: { gridColumn: 'span 2' } },
+                                { src: defaultImg2, style: {} },
+                                { src: defaultImg3, style: {} }
+                              ];
+                              break;
+                            case 'grid_2top_1bottom':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [
+                                { src: defaultImg1, style: {} },
+                                { src: defaultImg2, style: {} },
+                                { src: defaultImg3, style: { gridColumn: 'span 2' } }
+                              ];
+                              break;
+                            case 'grid_1left_2right':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [
+                                { src: defaultImg1, style: { gridRow: 'span 2' } },
+                                { src: defaultImg2, style: {} },
+                                { src: defaultImg3, style: {} }
+                              ];
+                              break;
+                            case 'grid_2left_1right':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [
+                                { src: defaultImg1, style: {} },
+                                { src: defaultImg2, style: { gridRow: 'span 2' } },
+                                { src: defaultImg3, style: {} }
+                              ];
+                              break;
+                            case 'grid_asymmetric_4':
+                              gridTemplate = '2fr 1fr 2fr / 1fr 1fr';
+                              images = [
+                                { src: defaultImg1, style: { gridRow: '1 / 3', gridColumn: '1' } },
+                                { src: defaultImg2, style: { gridRow: '3 / 4', gridColumn: '1' } },
+                                { src: defaultImg3, style: { gridRow: '1 / 2', gridColumn: '2' } },
+                                { src: defaultImg4, style: { gridRow: '2 / 4', gridColumn: '2' } }
+                              ];
+                              break;
+                            case 'grid_2x1_vertical':
+                              gridTemplate = 'repeat(2, 1fr) / 1fr';
+                              images = [defaultImg1, defaultImg2];
+                              break;
+                            case 'grid_2x2_landscape':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [defaultImg1, defaultImg2, defaultImg3, defaultImg4];
+                              break;
+                            case 'grid_1left_3right':
+                              gridTemplate = 'repeat(3, 1fr) / 3fr 1fr';
+                              images = [
+                                { src: defaultImg1, style: { gridRow: 'span 3' } },
+                                { src: defaultImg2, style: {} },
+                                { src: defaultImg3, style: {} },
+                                { src: defaultImg4, style: {} }
+                              ];
+                              break;
+                            case 'grid_3top_1bottom':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+                              images = [
+                                { src: defaultImg1, style: {} },
+                                { src: defaultImg2, style: {} },
+                                { src: defaultImg3, style: {} },
+                                { src: defaultImg4, style: { gridColumn: 'span 3' } }
+                              ];
+                              break;
+                            case 'grid_3x3':
+                              gridTemplate = 'repeat(3, 1fr) / repeat(3, 1fr)';
+                              images = Array(9).fill(defaultImg1);
+                              break;
+                            case 'grid_4x4':
+                              gridTemplate = 'repeat(4, 1fr) / repeat(4, 1fr)';
+                              images = Array(16).fill(defaultImg1);
+                              break;
+                            case 'grid_4x2':
+                              gridTemplate = 'repeat(4, 1fr) / repeat(2, 1fr)';
+                              images = Array(8).fill(defaultImg1);
+                              break;
+                            case 'grid_5x2':
+                              gridTemplate = 'repeat(5, 1fr) / repeat(2, 1fr)';
+                              images = Array(10).fill(defaultImg1);
+                              break;
+                            case 'grid_2x4':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(4, 1fr)';
+                              images = Array(8).fill(defaultImg1);
+                              break;
+                            case 'grid_2x5':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(5, 1fr)';
+                              images = Array(10).fill(defaultImg1);
+                              break;
+                            default:
+                              gridTemplate = '1fr / 1fr';
+                              images = [defaultImg1];
+                          }
+
+                          const gapStr = '1.5%'; 
+
+                          return (
                             <div 
-                              className="matted-frame-mat" 
+                              className="product-card-matted_collages" 
                               style={{ 
-                                width: '183.18px', 
-                                height: '243.6px', 
-                                backgroundColor: '#ffffff',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                justifyContent: 'space-between',
-                                padding: '24px 20px',
-                                boxSizing: 'border-box'
+                                '--frame-color': selectedFrame?.color || '#111111',
+                                width: '100%',
+                                aspectRatio: `${baseW} / ${baseH}`,
+                                background: selectedFrame?.color || '#111111',
+                                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                                padding: '5.5%',
+                                boxSizing: 'border-box',
+                                position: 'relative'
                               }}
                             >
                               <div 
-                                className="collage-container" 
+                                className="matted-frame-mat" 
                                 style={{ 
-                                  margin: 0,
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '12px',
-                                  width: '100%',
-                                  height: '100%'
+                                  width: '100%', 
+                                  height: '100%', 
+                                  backgroundColor: '#ffffff',
+                                  padding: '12%',
+                                  boxSizing: 'border-box'
                                 }}
                               >
-                                <img
-                                  src={product.image || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200"}
-                                  alt=""
-                                  className="collage-img"
-                                  style={{
-                                    width: '100%',
-                                    height: 'calc(50% - 6px)',
-                                    objectFit: 'cover',
-                                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15)'
-                                  }}
-                                />
-                                <img
-                                  src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200"
-                                  alt=""
-                                  className="collage-img"
-                                  style={{
-                                    width: '100%',
-                                    height: 'calc(50% - 6px)',
-                                    objectFit: 'cover',
-                                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15)'
-                                  }}
-                                />
+                                  <div 
+                                    className="collage-grid-container" 
+                                    style={{ 
+                                      display: 'grid',
+                                      gridTemplateRows: gridTemplate.split(' / ')[0],
+                                      gridTemplateColumns: gridTemplate.split(' / ')[1],
+                                      gap: gapStr,
+                                      width: '100%',
+                                      height: '100%'
+                                    }}
+                                  >
+                                  {images.map((img, i) => {
+                                    const src = typeof img === 'string' ? img : img.src;
+                                    const customStyle = typeof img === 'string' ? {} : img.style;
+                                    return (
+                                      <img
+                                        key={i}
+                                        src={src}
+                                        alt=""
+                                        className="collage-grid-img"
+                                        style={{
+                                          width: '100%',
+                                          height: '100%',
+                                          objectFit: 'cover',
+                                          objectPosition: 'center 20%',
+                                          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15)',
+                                          ...customStyle
+                                        }}
+                                      />
+                                    );
+                                  })}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ) : product.id === 'print_pack' ? (
+                          );
+                        })() : product.id === 'print_pack' ? (
                           <div 
                             className="product-card-print_pack wall-preview-print-pack" 
                             style={{ 
@@ -1057,7 +1394,191 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                             selectedSize={selectedSize}
                             selectedPrintSize={selectedPrintSize}
                           />
-                        ) : (
+                        ) : product.id === 'matted_collages' ? (() => {
+                          const type = selectedCollageLayout?.type || 'grid_2x2';
+                          const collageDims = getCollageDimensions(selectedSize?.label, type);
+                          let baseW = collageDims.w * 10;
+                          let baseH = collageDims.h * 10;
+                          
+                          let gridTemplate = '1fr / 1fr';
+                          let images = [];
+                          
+                          const imgs = MOCK_PHOTOS.map(p => p.url);
+                          const defaultImg1 = imgs[5] || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200";
+                          const defaultImg2 = defaultImg1;
+                          const defaultImg3 = defaultImg1;
+                          const defaultImg4 = defaultImg1;
+                          const defaultImg5 = defaultImg1;
+                          const defaultImg6 = defaultImg1;
+
+                          switch(type) {
+                            case 'grid_2x2':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [defaultImg1, defaultImg2, defaultImg3, defaultImg4];
+                              break;
+                            case 'grid_1x2_horizontal':
+                              gridTemplate = '1fr / repeat(2, 1fr)';
+                              images = [defaultImg1, defaultImg2];
+                              break;
+                            case 'grid_3x2':
+                              gridTemplate = 'repeat(3, 1fr) / repeat(2, 1fr)';
+                              images = [defaultImg1, defaultImg2, defaultImg3, defaultImg4, defaultImg5, defaultImg6];
+                              break;
+                            case 'grid_2x3':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+                              images = [defaultImg1, defaultImg2, defaultImg3, defaultImg4, defaultImg5, defaultImg6];
+                              break;
+                            case 'grid_1top_2bottom':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [
+                                { src: defaultImg1, style: { gridColumn: 'span 2' } },
+                                { src: defaultImg2, style: {} },
+                                { src: defaultImg3, style: {} }
+                              ];
+                              break;
+                            case 'grid_2top_1bottom':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [
+                                { src: defaultImg1, style: {} },
+                                { src: defaultImg2, style: {} },
+                                { src: defaultImg3, style: { gridColumn: 'span 2' } }
+                              ];
+                              break;
+                            case 'grid_1left_2right':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [
+                                { src: defaultImg1, style: { gridRow: 'span 2' } },
+                                { src: defaultImg2, style: {} },
+                                { src: defaultImg3, style: {} }
+                              ];
+                              break;
+                            case 'grid_2left_1right':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [
+                                { src: defaultImg1, style: {} },
+                                { src: defaultImg2, style: { gridRow: 'span 2' } },
+                                { src: defaultImg3, style: {} }
+                              ];
+                              break;
+                            case 'grid_asymmetric_4':
+                              gridTemplate = '2fr 1fr 2fr / 1fr 1fr';
+                              images = [
+                                { src: defaultImg1, style: { gridRow: '1 / 3', gridColumn: '1' } },
+                                { src: defaultImg2, style: { gridRow: '3 / 4', gridColumn: '1' } },
+                                { src: defaultImg3, style: { gridRow: '1 / 2', gridColumn: '2' } },
+                                { src: defaultImg4, style: { gridRow: '2 / 4', gridColumn: '2' } }
+                              ];
+                              break;
+                            case 'grid_2x1_vertical':
+                              gridTemplate = 'repeat(2, 1fr) / 1fr';
+                              images = [defaultImg1, defaultImg2];
+                              break;
+                            case 'grid_2x2_landscape':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                              images = [defaultImg1, defaultImg2, defaultImg3, defaultImg4];
+                              break;
+                            case 'grid_1left_3right':
+                              gridTemplate = 'repeat(3, 1fr) / 3fr 1fr';
+                              images = [
+                                { src: defaultImg1, style: { gridRow: 'span 3' } },
+                                { src: defaultImg2, style: {} },
+                                { src: defaultImg3, style: {} },
+                                { src: defaultImg4, style: {} }
+                              ];
+                              break;
+                            case 'grid_3top_1bottom':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+                              images = [
+                                { src: defaultImg1, style: {} },
+                                { src: defaultImg2, style: {} },
+                                { src: defaultImg3, style: {} },
+                                { src: defaultImg4, style: { gridColumn: 'span 3' } }
+                              ];
+                              break;
+                            case 'grid_3x3':
+                              gridTemplate = 'repeat(3, 1fr) / repeat(3, 1fr)';
+                              images = Array(9).fill(defaultImg1);
+                              break;
+                            case 'grid_4x4':
+                              gridTemplate = 'repeat(4, 1fr) / repeat(4, 1fr)';
+                              images = Array(16).fill(defaultImg1);
+                              break;
+                            case 'grid_4x2':
+                              gridTemplate = 'repeat(4, 1fr) / repeat(2, 1fr)';
+                              images = Array(8).fill(defaultImg1);
+                              break;
+                            case 'grid_5x2':
+                              gridTemplate = 'repeat(5, 1fr) / repeat(2, 1fr)';
+                              images = Array(10).fill(defaultImg1);
+                              break;
+                            case 'grid_2x4':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(4, 1fr)';
+                              images = Array(8).fill(defaultImg1);
+                              break;
+                            case 'grid_2x5':
+                              gridTemplate = 'repeat(2, 1fr) / repeat(5, 1fr)';
+                              images = Array(10).fill(defaultImg1);
+                              break;
+                            default:
+                              gridTemplate = '1fr / 1fr';
+                              images = [defaultImg1];
+                          }
+
+                          const gapStr = '1.5%'; 
+
+                          return (
+                            <div className="composition-preview" style={{ width: '100%', height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <div style={{
+                                width: '100%',
+                                maxWidth: `${Math.min(300 * (currentWidthCm / 25), 420)}px`,
+                                aspectRatio: `${baseW} / ${baseH}`,
+                                background: selectedFrame?.color || '#111111',
+                                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                                padding: '5.5%',
+                                boxSizing: 'border-box',
+                                transition: 'max-width 0.3s ease-in-out'
+                              }}>
+                                <div style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  backgroundColor: '#ffffff',
+                                  padding: '8%',
+                                  boxSizing: 'border-box'
+                                }}>
+                                  <div style={{
+                                    display: 'grid',
+                                    gridTemplateRows: gridTemplate.split(' / ')[0],
+                                    gridTemplateColumns: gridTemplate.split(' / ')[1],
+                                    gap: gapStr,
+                                    width: '100%',
+                                    height: '100%'
+                                  }}>
+                                    {images.map((img, i) => {
+                                      const src = typeof img === 'string' ? img : img.src;
+                                      const customStyle = typeof img === 'string' ? {} : img.style;
+                                      return (
+                                        <img
+                                          key={i}
+                                          src={src}
+                                          alt=""
+                                          className="collage-grid-img"
+                                          style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                            objectPosition: 'center 20%',
+                                            boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15)',
+                                            ...customStyle
+                                          }}
+                                        />
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })() : (
                           <div className="composition-preview" style={{ width: '100%', height: (product.id === 'print_pack' || product.id === 'matted_collages') ? '100%' : 'auto', position: 'relative' }}>
                             <div className="composition-preview__composition" style={{ 
                               aspectRatio: (product.id === 'matted_frame' || product.id === 'matted_collages') ? '0.783494 / 1' : `${currentAspect.toFixed(6)} / 1`, 
@@ -1450,14 +1971,14 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                             <div
                               className="media-set-preview"
                               style={{
-                                backgroundImage: `url(${details.roomBackground})`,
+                                backgroundImage: `url(${currentRoomBackground})`,
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center',
                                 width: '100%',
                                 height: '100%'
                               }}
                             >
-                              <div className="media-set-preview__composition-container" style={{ left: '11.533%', top: '11.5106%', width: '23.594%', height: '35.7188%', position: 'absolute' }}>
+                              <div className="media-set-preview__composition-container" style={{ left: '58.2614%', top: '20.8875%', width: '16.31%', aspectRatio: '1 / 1', position: 'absolute' }}>
                                 <div style={{
                                   width: '100%', height: '100%',
                                   background: selectedFrame?.color || '#111111',
@@ -1900,60 +2421,122 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               <span>Layout</span>
                             </div>
                           </div>
-                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <button className="layout-scroll-btn" style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '50%',
-                              border: '1px solid #ddd',
-                              background: 'white',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              color: '#666',
-                              flexShrink: 0
-                            }}>
+                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '8px', width: '100%' }}>
+                            <button 
+                              className="layout-scroll-btn" 
+                              onClick={() => handleScrollLayouts('left')}
+                              style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                border: '1px solid #ddd',
+                                background: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#666',
+                                flexShrink: 0
+                              }}
+                            >
                               <ChevronLeft size={16} />
                             </button>
-                            <div style={{ display: 'flex', gap: '12px' }}>
-                              {LAYOUT_OPTIONS.map((layout) => (
-                                <div 
-                                  key={layout.id} 
-                                  className={`layout-option ${selectedLayout.id === layout.id ? 'active' : ''}`}
-                                  style={{
-                                    position: 'relative',
-                                    width: '70px',
-                                    height: '70px',
-                                    borderRadius: '4px',
-                                    border: selectedLayout.id === layout.id ? '2px solid #a5967f' : '2px solid #ddd',
-                                    overflow: 'hidden',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  onClick={() => setSelectedLayout(layout)}
-                                >
-                                  <img src={layout.thumbnail} alt={layout.label} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                                  {selectedLayout.id === layout.id && (
-                                    <div style={{
-                                      position: 'absolute',
-                                      bottom: '4px',
-                                      right: '4px',
-                                      width: '24px',
-                                      height: '24px',
-                                      background: '#a5967f',
-                                      borderRadius: '50%',
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      justifyContent: 'center',
-                                      color: '#fff'
-                                    }}>
-                                      <Check size={14} />
-                                    </div>
-                                  )}
-                                </div>
-                              ))}
+                            
+                            <div 
+                              ref={layoutScrollRef}
+                              style={{ 
+                                display: 'flex', 
+                                gap: '12px', 
+                                overflowX: 'auto', 
+                                scrollbarWidth: 'none', 
+                                msOverflowStyle: 'none',
+                                WebkitOverflowScrolling: 'touch',
+                                padding: '4px 0',
+                                flex: 1
+                              }}
+                            >
+                              {(MATTED_COLLAGE_LAYOUTS[selectedSize?.id] || []).map((layout) => {
+                                const isActive = selectedCollageLayout?.id === layout.id;
+                                
+                                const sizeMatch = selectedSize?.label?.match(/(\d+)x(\d+)cm/);
+                                let iconW = 40;
+                                let iconH = 50;
+                                if (sizeMatch) {
+                                  const w = parseFloat(sizeMatch[1]);
+                                  const h = parseFloat(sizeMatch[2]);
+                                  if (w === h) {
+                                    iconW = 45;
+                                    iconH = 45;
+                                  } else if (w > h) {
+                                    iconW = 50;
+                                    iconH = 40;
+                                  } else {
+                                    iconW = 40;
+                                    iconH = 50;
+                                  }
+                                }
+
+                                return (
+                                  <div 
+                                    key={layout.id} 
+                                    className={`layout-option ${isActive ? 'active' : ''}`}
+                                    style={{
+                                      position: 'relative',
+                                      width: `${iconW}px`,
+                                      height: `${iconH}px`,
+                                      borderRadius: '4px',
+                                      border: isActive ? '2px solid #a5967f' : '2px solid transparent',
+                                      overflow: 'hidden',
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                      padding: '2px',
+                                      flexShrink: 0
+                                    }}
+                                    onClick={() => setSelectedCollageLayout(layout)}
+                                  >
+                                    {renderLayoutIcon(layout.icon, isActive)}
+                                    {isActive && (
+                                      <div style={{
+                                        position: 'absolute',
+                                        bottom: '-2px',
+                                        right: '-2px',
+                                        background: '#a5967f',
+                                        borderRadius: '50%',
+                                        width: '16px',
+                                        height: '16px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        color: '#fff',
+                                        border: '2px solid white'
+                                      }}>
+                                        <Check size={10} />
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
+
+                            <button 
+                              className="layout-scroll-btn" 
+                              onClick={() => handleScrollLayouts('right')}
+                              style={{
+                                width: '36px',
+                                height: '36px',
+                                borderRadius: '50%',
+                                border: '1px solid #ddd',
+                                background: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: '#666',
+                                flexShrink: 0
+                              }}
+                            >
+                              <ChevronRight size={16} />
+                            </button>
                           </div>
                         </div>
                       )}

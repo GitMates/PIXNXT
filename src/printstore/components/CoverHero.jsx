@@ -27,16 +27,13 @@ export default function CoverHero({ onExplore }) {
   return (
     <div className="cover-hero-container">
       {/* Left Vertical Info Banner */}
-      <div className="cover-hero-left" ref={leftRef}>
-        <div style={{ fontSize: '0.85rem', tracking: '0.2em', color: 'var(--gallery-meta-text, #777777)', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
-          Pixnxt Studio
-        </div>
+      <div className="cover-hero-left" ref={leftRef} style={{ justifyContent: 'center' }}>
         <h1 
           id="gallery-name"
           className="vertical-branding cover-title"
           style={{
             lineHeight: 0.9,
-            fontSize: '124px',
+            fontSize: '170px',
             fontFamily: 'europa, sans-serif',
             textTransform: 'uppercase',
             color: '#222222',
@@ -47,9 +44,6 @@ export default function CoverHero({ onExplore }) {
         >
           Kharthik Baskaran
         </h1>
-        <div className="cover-hero-date">
-          April 28, 2026
-        </div>
       </div>
 
       {/* Right Hero Image Fold */}

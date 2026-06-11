@@ -320,6 +320,113 @@ export const MOCK_LAYOUTS = [
   { id: 'layout-1', label: '2 Photos Vertical', thumbnail: '/printstore/Matted Frame Collages_files/layout_lab-1_des-1997053.png', photoCount: 2 }
 ];
 
+export const MATTED_COLLAGE_SIZES = [
+  { id: "mc_25x25", label: "25x25cm", priceModifier: 0 },
+  { id: "mc_28x36", label: "28x36cm", priceModifier: 15 },
+  { id: "mc_30x30", label: "30x30cm", priceModifier: 20 },
+  { id: "mc_35x35", label: "35x35cm", priceModifier: 25 },
+  { id: "mc_40x40", label: "40x40cm", priceModifier: 30 },
+  { id: "mc_30x45", label: "30x45cm", priceModifier: 30 },
+  { id: "mc_40x60", label: "40x60cm", priceModifier: 40 },
+  { id: "mc_50x50", label: "50x50cm", priceModifier: 50 },
+  { id: "mc_50x60", label: "50x60cm", priceModifier: 60 },
+  { id: "mc_50x76", label: "50x76cm", priceModifier: 75 },
+  { id: "mc_61x61", label: "61x61cm", priceModifier: 90 },
+  { id: "mc_76x76", label: "76x76cm", priceModifier: 110 },
+  { id: "mc_76x102", label: "76x102cm", priceModifier: 130 }
+];
+
+export const MATTED_COLLAGE_LAYOUTS = {
+  "mc_25x25": [
+    { id: "mc_25x25_l1", type: "grid_2x2", icon: "2x2", photos: 4 }
+  ],
+  "mc_28x36": [
+    { id: "mc_28x36_l1", type: "grid_1x2_horizontal", icon: "1x2_horiz", photos: 2 },
+    { id: "mc_28x36_l2", type: "grid_2x2", icon: "2x2", photos: 4 },
+    { id: "mc_28x36_l3", type: "grid_3x2", icon: "3x2", photos: 6 },
+    { id: "mc_28x36_l4", type: "grid_1top_2bottom", icon: "1top_2bottom", photos: 3 },
+    { id: "mc_28x36_l5", type: "grid_2top_1bottom", icon: "2top_1bottom", photos: 3 }
+  ],
+  "mc_30x30": [
+    { id: "mc_30x30_l1", type: "grid_2x2", icon: "2x2", photos: 4 },
+    { id: "mc_30x30_l2", type: "grid_1left_2right", icon: "1left_2right", photos: 3 },
+    { id: "mc_30x30_l3", type: "grid_2left_1right", icon: "2left_1right", photos: 3 }
+  ],
+  "mc_35x35": [
+    { id: "mc_35x35_l1", type: "grid_2x2", icon: "2x2", photos: 4 },
+    { id: "mc_35x35_l2", type: "grid_1left_2right", icon: "1left_2right", photos: 3 },
+    { id: "mc_35x35_l3", type: "grid_asymmetric_4", icon: "asymmetric_4", photos: 4 }
+  ],
+  "mc_40x40": [
+    { id: "mc_40x40_l1", type: "grid_2x2", icon: "2x2", photos: 4 },
+    { id: "mc_40x40_l2", type: "grid_1left_2right", icon: "1left_2right", photos: 3 },
+    { id: "mc_40x40_l3", type: "grid_asymmetric_4", icon: "asymmetric_4", photos: 4 }
+  ],
+  "mc_30x45": [
+    { id: "mc_30x45_l1", type: "grid_2x1_vertical", icon: "2x1_vert", photos: 2 },
+    { id: "mc_30x45_l2", type: "grid_2x2", icon: "2x2", photos: 4 },
+    { id: "mc_30x45_l3", type: "grid_3x2", icon: "3x2", photos: 6 },
+    { id: "mc_30x45_l4", type: "grid_1left_2right", icon: "1left_2right", photos: 3 },
+    { id: "mc_30x45_l5", type: "grid_2left_1right", icon: "2left_1right", photos: 3 }
+  ],
+  "mc_40x60": [
+    { id: "mc_40x60_l1", type: "grid_1x2_horizontal", icon: "1x2_horiz", photos: 2 },
+    { id: "mc_40x60_l2", type: "grid_2x3", icon: "2x3", photos: 6 },
+    { id: "mc_40x60_l3", type: "grid_2x1_vertical", icon: "2x1_vert", photos: 2 },
+    { id: "mc_40x60_l4", type: "grid_3x2", icon: "3x2", photos: 6 }
+  ],
+  "mc_50x50": [
+    { id: "mc_50x50_l1", type: "grid_1left_3right", icon: "1left_3right", photos: 4 },
+    { id: "mc_50x50_l2", type: "grid_2x2", icon: "2x2", photos: 4 },
+    { id: "mc_50x50_l3", type: "grid_2left_1right", icon: "2left_1right", photos: 3 },
+    { id: "mc_50x50_l4", type: "grid_1left_2right", icon: "1left_2right", photos: 3 },
+    { id: "mc_50x50_l5", type: "grid_3top_1bottom", icon: "3top_1bottom", photos: 4 }
+  ],
+  "mc_50x60": [
+    { id: "mc_50x60_l1", type: "grid_1x2_horizontal", icon: "1x2_horiz", photos: 2 },
+    { id: "mc_50x60_l2", type: "grid_2left_1right", icon: "2left_1right", photos: 3 },
+    { id: "mc_50x60_l3", type: "grid_2x3", icon: "2x3", photos: 6 },
+    { id: "mc_50x60_l4", type: "grid_2x1_vertical", icon: "2x1_vert", photos: 2 },
+    { id: "mc_50x60_l5", type: "grid_2top_1bottom", icon: "2top_1bottom", photos: 3 }
+  ],
+  "mc_50x76": [
+    { id: "mc_50x76_l1", type: "grid_1x2_horizontal", icon: "1x2_horiz", photos: 2 },
+    { id: "mc_50x76_l2", type: "grid_2x2_landscape", icon: "2x2_landscape", photos: 4 },
+    { id: "mc_50x76_l3", type: "grid_2x3", icon: "2x3", photos: 6 },
+    { id: "mc_50x76_l4", type: "grid_2x1_vertical", icon: "2x1_vert", photos: 2 },
+    { id: "mc_50x76_l5", type: "grid_2x2", icon: "2x2", photos: 4 },
+    { id: "mc_50x76_l6", type: "grid_3x2", icon: "3x2", photos: 6 }
+  ],
+  "mc_61x61": [
+    { id: "mc_61x61_l1", type: "grid_1top_2bottom", icon: "1top_2bottom", photos: 3 },
+    { id: "mc_61x61_l2", type: "grid_2x2", icon: "2x2", photos: 4 },
+    { id: "mc_61x61_l3", type: "grid_1left_2right", icon: "1left_2right", photos: 3 },
+    { id: "mc_61x61_l4", type: "grid_2left_1right", icon: "2left_1right", photos: 3 },
+    { id: "mc_61x61_l5", type: "grid_asymmetric_4", icon: "asymmetric_4", photos: 4 }
+  ],
+  "mc_76x76": [
+    { id: "mc_76x76_l1", type: "grid_1top_2bottom", icon: "1top_2bottom", photos: 3 },
+    { id: "mc_76x76_l2", type: "grid_2left_1right", icon: "2left_1right", photos: 3 },
+    { id: "mc_76x76_l3", type: "grid_2x2", icon: "2x2", photos: 4 },
+    { id: "mc_76x76_l4", type: "grid_1left_2right", icon: "1left_2right", photos: 3 },
+    { id: "mc_76x76_l5", type: "grid_1left_3right", icon: "1left_3right", photos: 4 },
+    { id: "mc_76x76_l6", type: "grid_3x3", icon: "3x3", photos: 9 },
+    { id: "mc_76x76_l7", type: "grid_4x4", icon: "4x4", photos: 16 }
+  ],
+  "mc_76x102": [
+    { id: "mc_76x102_l1", type: "grid_1x2_horizontal", icon: "1x2_horiz", photos: 2 },
+    { id: "mc_76x102_l2", type: "grid_2x2_landscape", icon: "2x2_landscape", photos: 4 },
+    { id: "mc_76x102_l3", type: "grid_2x3", icon: "2x3", photos: 6 },
+    { id: "mc_76x102_l4", type: "grid_2x4", icon: "2x4", photos: 8 },
+    { id: "mc_76x102_l5", type: "grid_2x5", icon: "2x5", photos: 10 },
+    { id: "mc_76x102_l6", type: "grid_2x1_vertical", icon: "2x1_vert", photos: 2 },
+    { id: "mc_76x102_l7", type: "grid_2x2", icon: "2x2", photos: 4 },
+    { id: "mc_76x102_l8", type: "grid_3x2", icon: "3x2", photos: 6 },
+    { id: "mc_76x102_l9", type: "grid_4x2", icon: "4x2", photos: 8 },
+    { id: "mc_76x102_l10", type: "grid_5x2", icon: "5x2", photos: 10 }
+  ]
+};
+
 export const MOCK_WALLS = [
   { id: 'wall-1', label: 'Wall 1', url: '/printstore/wall1.webp' },
   { id: 'wall-2', label: 'Wall 2', url: '/printstore/wall2.webp' },
