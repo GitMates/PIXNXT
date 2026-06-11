@@ -378,6 +378,9 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             ? liveGetPinsForSlot(pageNum, 1, spreadLeftForPage)
             : [];
 
+    const canActivateSlot = editable && !spreadEdit && Boolean(liveOnSlotActivate);
+    const HalfSpreadWrapTag = canActivateSlot ? 'button' : 'div';
+
     const isInsideCoverRight = isInsideCoverRightPage(pageNum, totalPages, spreadOpts);
     const insideCoverPhotoSrc = isInsideCoverRight
         ? getInsideCoverRightPhotoSrc(albumId, { showSamples })
@@ -434,8 +437,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         return (
             <div className="ab-flip-page ab-flip-page--single-photo" ref={ref} data-density="hard">
                 {pageBadge}
-                <div
+                <HalfSpreadWrapTag
+                    type={canActivateSlot ? 'button' : undefined}
                     className={`ab-page-photo-wrap${
+                        canActivateSlot ? ' ab-page-photo-wrap--interactive' : ''
+                    }${
                         liveProofToolsHover && insideCoverProofTools && !livePinModeActive
                             ? ' ab-page-photo-wrap--swap'
                             : ''
@@ -448,6 +454,26 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                               }`
                             : ''
                     }`}
+                    onClick={
+                        canActivateSlot
+                            ? (e) => {
+                                  e.stopPropagation();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  liveOnSlotActivate(
+                                      {
+                                          pageNum,
+                                          cellId: 2,
+                                          spreadLeft: spreadLeftForPage,
+                                          whole: false,
+                                          hasPhoto: Boolean(insideCoverPhotoSrc),
+                                          label: labelForPin(pageNum, 2),
+                                      },
+                                      rect
+                                  );
+                              }
+                            : undefined
+                    }
+                    aria-label={canActivateSlot ? 'Photo options' : undefined}
                 >
                     <AlbumPhotoPinLayer
                         hasPhoto={Boolean(insideCoverPhotoSrc)}
@@ -554,7 +580,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         )}
                     </AlbumPhotoPinLayer>
                     {!previewMode && <AlbumSwapMarkBadge markInfo={insideCoverSwapMarkInfo} />}
-                </div>
+                </HalfSpreadWrapTag>
             </div>
         );
     }
@@ -563,8 +589,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         return (
             <div className="ab-flip-page ab-flip-page--half-photo-left" ref={ref} data-density="hard">
                 {pageBadge}
-                <div
+                <HalfSpreadWrapTag
+                    type={canActivateSlot ? 'button' : undefined}
                     className={`ab-page-photo-wrap${
+                        canActivateSlot ? ' ab-page-photo-wrap--interactive' : ''
+                    }${
                         liveProofToolsHover && preBackProofTools && !livePinModeActive
                             ? ' ab-page-photo-wrap--swap'
                             : ''
@@ -577,6 +606,26 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                               }`
                             : ''
                     }`}
+                    onClick={
+                        canActivateSlot
+                            ? (e) => {
+                                  e.stopPropagation();
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  liveOnSlotActivate(
+                                      {
+                                          pageNum,
+                                          cellId: 1,
+                                          spreadLeft: spreadLeftForPage,
+                                          whole: false,
+                                          hasPhoto: Boolean(preBackPhotoSrc),
+                                          label: labelForPin(pageNum, 1),
+                                      },
+                                      rect
+                                  );
+                              }
+                            : undefined
+                    }
+                    aria-label={canActivateSlot ? 'Photo options' : undefined}
                 >
                     <AlbumPhotoPinLayer
                         hasPhoto={Boolean(preBackPhotoSrc)}
@@ -683,7 +732,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         )}
                     </AlbumPhotoPinLayer>
                     {!previewMode && <AlbumSwapMarkBadge markInfo={preBackSwapMarkInfo} />}
-                </div>
+                </HalfSpreadWrapTag>
             </div>
         );
     }

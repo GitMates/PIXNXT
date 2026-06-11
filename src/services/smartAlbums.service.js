@@ -1092,10 +1092,13 @@ export const smartAlbumsService = {
 
     if (error) {
       console.warn('syncAlbumPreviewData:', error.message);
+      hydrateAlbumPreviewData(albumId, previewData);
       return previewData;
     }
 
-    return data?.preview_data ?? previewData;
+    const synced = data?.preview_data ?? previewData;
+    hydrateAlbumPreviewData(albumId, synced);
+    return synced;
   },
 
   async updateAlbumDetails(photographerId, albumId, patch) {

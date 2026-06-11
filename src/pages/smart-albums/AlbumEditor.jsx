@@ -85,7 +85,6 @@ import {
     getPageInsertIndex,
     getPageRemoveIndex,
     isCoverInsidePage,
-    isEndHalfSpreadIndex,
     isEndHalfSpreadLeftPage,
     isInsideCoverSpreadLeft,
     isManualWholeSpreadPlacement,
@@ -1008,13 +1007,35 @@ export default function AlbumEditor({
         const left = slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
         const scope = slot.whole ? 'whole' : slot.cellId === 2 ? 'right' : 'left';
         closeSlotMenu();
-        requestAnimationFrame(() => {
-            if (clearSpreadPhotos(albumId, left, totalPages, scope)) {
+        requestAnimationFrame(async () => {
+            if (
+                clearSpreadPhotos(albumId, left, totalPages, scope, {
+                    gridLayout: album?.grid_layout,
+                    spreadOpts,
+                })
+            ) {
                 scheduleWorkspaceRefresh();
+                if (user?.id) {
+                    try {
+                        await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                    } catch (err) {
+                        console.warn('Could not sync album preview after remove:', err);
+                    }
+                }
                 showToast('Photos removed from spread.', { duration: 3500 });
             }
         });
-    }, [slotMenu, closeSlotMenu, albumId, totalPages, scheduleWorkspaceRefresh, showToast]);
+    }, [
+        slotMenu,
+        closeSlotMenu,
+        albumId,
+        album?.grid_layout,
+        totalPages,
+        spreadOpts,
+        scheduleWorkspaceRefresh,
+        showToast,
+        user?.id,
+    ]);
 
     const handleOpenSwapModal = useCallback(() => {
         if (slotMenu?.slot) setSwapExecuteOrigin(slotMenu.slot);
@@ -1257,17 +1278,6 @@ export default function AlbumEditor({
         totalPages - pagesPerSpread >= minPages &&
         canRemoveSpreadBeforeLastTwo(totalPages, spreadOpts);
 
-    const slotMenuSpreadIndex = useMemo(() => {
-        if (!slotMenu?.slot) return -1;
-        return pageToSpreadIndex(slotMenu.slot.pageNum, spreadCtx);
-    }, [slotMenu, totalPages]);
-
-    const canDeleteSpreadFromMenu =
-        Boolean(slotMenu) &&
-        canRemovePages &&
-        slotMenuSpreadIndex > 0 &&
-        !isEndHalfSpreadIndex(slotMenuSpreadIndex, totalPages, spreadOpts);
-
     const slotMenuSwapHint = useMemo(() => {
         if (!slotMenu?.slot) return 'Any left or right photo';
         if (spreadOpts.hasCovers && slotMenu.slot.pageNum === 0) return 'Cover only';
@@ -1308,25 +1318,6 @@ export default function AlbumEditor({
     const handleRemovePagesFromOverview = useCallback(async () => {
         await handleRemovePages();
     }, [handleRemovePages]);
-
-    const handleDeleteSpreadFromMenu = useCallback(() => {
-        if (!canRemovePages || !onChangePageCount) return;
-        const ok = window.confirm(
-            'Delete this spread? Two pages will be removed from the album.'
-        );
-        if (!ok) return;
-        closeSlotMenu();
-        requestAnimationFrame(async () => {
-            await handleRemovePages();
-            scheduleWorkspaceRefresh();
-        });
-    }, [
-        closeSlotMenu,
-        canRemovePages,
-        onChangePageCount,
-        handleRemovePages,
-        scheduleWorkspaceRefresh,
-    ]);
 
     const handleClearAllPhotos = useCallback(() => {
         clearAllAlbumPagePhotos(albumId, { totalPages });
@@ -1663,13 +1654,11 @@ export default function AlbumEditor({
                 canSwap={!isCoverEditorSlotMenu && Boolean(slotMenu?.slot?.hasPhoto)}
                 swapHint={slotMenuSwapHint}
                 canRemoveSpread={!isCoverEditorSlotMenu && Boolean(slotMenu?.slot?.hasPhoto)}
-                canDeleteSpread={!isCoverEditorSlotMenu && canDeleteSpreadFromMenu}
                 onReplace={handleReplaceFromMenu}
                 onChooseFromCollection={handleChooseFromCollectionMenu}
                 onCoverText={isCoverEditorSlotMenu ? handleCoverTextFromMenu : undefined}
                 hasCoverText={Boolean(coverTextMessage)}
                 onRemovePhotos={handleRemoveSpreadPhotos}
-                onDeleteSpread={handleDeleteSpreadFromMenu}
                 onSwap={handleOpenSwapModal}
                 onClose={closeSlotMenu}
             />
