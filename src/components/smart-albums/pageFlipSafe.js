@@ -1,4 +1,8 @@
-import { getTotalSpreads, pageToSpreadIndex } from './albumSpreadUtils';
+import {
+    flipbookIndexToStoragePage,
+    getTotalSpreads,
+    pageToSpreadIndex,
+} from './albumSpreadUtils';
 
 /**
  * page-flip showNext() can increment past the last spread and crash in showSpread().
@@ -10,7 +14,14 @@ export function installSafePageFlip(api, { totalPages, spreadOpts }) {
     const spreadCtx = { ...spreadOpts, totalPages };
     const maxSpreadIndex = Math.max(0, getTotalSpreads(totalPages, spreadOpts) - 1);
 
-    const spreadIndex = () => pageToSpreadIndex(api.getCurrentPageIndex(), spreadCtx);
+    const spreadIndex = () => {
+        const storagePage = flipbookIndexToStoragePage(
+            api.getCurrentPageIndex(),
+            totalPages,
+            spreadOpts
+        );
+        return pageToSpreadIndex(storagePage, spreadCtx);
+    };
 
     const wrap = (method, blockWhen) => {
         if (typeof api[method] !== 'function') return;

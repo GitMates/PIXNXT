@@ -137,6 +137,35 @@ export function addPhotoPin(albumId, { pageNum, cellId = 0, xPct, yPct, message,
     return pin;
 }
 
+/** Shift or drop pins when album pages are inserted/removed (matches page photo storage). */
+export function shiftAlbumPhotoPins(albumId, insertAt, delta) {
+    if (!albumId || !delta) return;
+    const all = readAll();
+    const list = all[albumId];
+    if (!list?.length) return;
+
+    const next = list.flatMap((pin) => {
+        const page = pin.pageNum;
+        if (delta > 0) {
+            if (page >= insertAt) return [{ ...pin, pageNum: page + delta }];
+            return [pin];
+        }
+        const removeEnd = insertAt - delta;
+        if (page >= insertAt && page < removeEnd) return [];
+        if (page >= removeEnd) return [{ ...pin, pageNum: page + delta }];
+        return [pin];
+    });
+
+    const changed =
+        next.length !== list.length ||
+        next.some((pin, index) => pin.pageNum !== list[index].pageNum);
+    if (!changed) return;
+
+    all[albumId] = next;
+    writeAll(all);
+    notify(albumId);
+}
+
 export function removePhotoPin(albumId, pinId) {
     if (!albumId || !pinId) return;
     const all = readAll();

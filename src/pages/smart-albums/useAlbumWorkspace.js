@@ -27,6 +27,7 @@ import {
     getPageInsertIndex,
     getPageRemoveIndex,
     getTotalSpreads,
+    normalizeStoragePageIndex,
 } from '../../components/smart-albums/albumSpreadUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
@@ -34,12 +35,13 @@ import {
     hydrateAlbumPreviewData,
     shiftAlbumRemotePreviewPages,
 } from '../../components/smart-albums/albumPreviewData';
+import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
 
-export function parseUrlPage(raw, totalPages, _spreadOpts) {
+export function parseUrlPage(raw, totalPages, spreadOpts = {}) {
     if (raw == null || raw === '') return 0;
     let n = parseInt(raw, 10);
     if (Number.isNaN(n)) return 0;
-    return Math.max(0, Math.min(totalPages - 1, n));
+    return normalizeStoragePageIndex(n, totalPages, spreadOpts);
 }
 
 /** Preview = client-facing album only (final output). */
@@ -106,8 +108,10 @@ export function useAlbumWorkspace() {
                     }
                     if (albumSpreadOpts.hasCovers) {
                         migrateFrontCoverToFullSpread(albumId);
-                        migrateBackCoverUsesBookWrap(albumId, pages);
-                        migrateInsideCoverSpreadToPageTwo(albumId, pages);
+                        if (data?.blank_covers !== true) {
+                            migrateBackCoverUsesBookWrap(albumId, pages, data);
+                        }
+                        migrateInsideCoverSpreadToPageTwo(albumId, pages, data);
                         migrateInsideCoverSpreadTransform(albumId);
                     }
                     if (albumSpreadOpts.hasCovers) {
@@ -177,11 +181,13 @@ export function useAlbumWorkspace() {
                     const insertAt = getPageInsertIndex(current, albumSpreadOpts);
                     insertAlbumStoragePages(albumId, insertAt, countDelta);
                     shiftAlbumRemotePreviewPages(albumId, insertAt, countDelta);
+                    shiftAlbumPhotoPins(albumId, insertAt, countDelta);
                 } else if (countDelta < 0) {
                     const removeCount = -countDelta;
                     const removeAt = getPageRemoveIndex(current, removeCount, albumSpreadOpts);
                     removeAlbumStoragePages(albumId, removeAt, removeCount);
                     shiftAlbumRemotePreviewPages(albumId, removeAt, -removeCount);
+                    shiftAlbumPhotoPins(albumId, removeAt, -removeCount);
                 }
 
                 const updated = await smartAlbumsService.updateAlbumPageCount(

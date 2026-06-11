@@ -4,6 +4,7 @@ import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePh
 import { openSmartAlbumPreview } from '../../lib/shareSmartAlbum';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
+import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import AlbumEditor from './AlbumEditor';
 import { useAlbumWorkspace, isAlbumPreviewView, parseUrlPage } from './useAlbumWorkspace';
 import './AlbumViewer.css';
@@ -46,13 +47,13 @@ const AlbumViewer = () => {
 
     useEffect(() => {
         if (!albumId || !isAlbumPreviewView(searchParams)) return;
-        const page = parseUrlPage(searchParams.get('page'), totalPages);
+        const page = parseUrlPage(searchParams.get('page'), totalPages, getAlbumSpreadOptions(album));
         openSmartAlbumPreview(albumId, page);
         const next = new URLSearchParams(searchParams);
         next.delete('view');
         const qs = next.toString();
         navigate(`/smart-albums/album/${albumId}${qs ? `?${qs}` : ''}`, { replace: true });
-    }, [albumId, searchParams, navigate, totalPages]);
+    }, [album, albumId, searchParams, navigate, totalPages]);
 
     if (loading) {
         return (

@@ -1,8 +1,10 @@
 import {
     getEndSpreadPageIndices,
     isEndHalfSpreadLeftPage,
+    isWholeSpreadLayout,
 } from './albumSpreadUtils';
-import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
+import { getProofCellPhotoIndex, getProofSpreadSlotPageIndices, getSpreadLeftPageIndex } from './albumSpreadGrid';
+import { buildAlbumPreviewSnapshot, getRemotePreviewData, hydrateAlbumPreviewData } from './albumPreviewData';
 import {
     getPagePhotoOverride,
     getSpreadPhotoOverride,
@@ -149,33 +151,74 @@ export function clearSlotPhoto(albumId, slot, totalPages) {
 }
 
 /** Clear photos on a spread — whole, left page only, or right page only. */
-export function clearSpreadPhotos(albumId, spreadLeft, totalPages, scope = 'whole') {
+export function clearSpreadPhotos(
+    albumId,
+    spreadLeft,
+    totalPages,
+    scope = 'whole',
+    { gridLayout, spreadOpts } = {}
+) {
     if (!albumId || spreadLeft == null) return false;
+
+    const opts = normalizeSpreadOpts(spreadOpts, totalPages);
+    const [leftPage, rightPage] = getProofSpreadSlotPageIndices(spreadLeft, totalPages, opts);
+    const sk = spreadStorageKey(spreadLeft);
+    const keysToClear = new Set();
+    const wholeSpreadAlbum = isWholeSpreadLayout(gridLayout);
+    const spreadPhoto = getSpreadPhotoOverride(albumId, spreadLeft);
+
+    if (scope === 'whole' || wholeSpreadAlbum) {
+        keysToClear.add(sk);
+        keysToClear.add(String(spreadLeft));
+        if (leftPage != null) keysToClear.add(String(leftPage));
+        if (rightPage != null && rightPage !== leftPage) keysToClear.add(String(rightPage));
+    } else if (scope === 'left') {
+        if (leftPage != null) keysToClear.add(String(leftPage));
+        if (spreadPhoto) {
+            keysToClear.add(sk);
+            keysToClear.add(String(spreadLeft));
+            if (rightPage != null) keysToClear.add(String(rightPage));
+        }
+    } else if (scope === 'right') {
+        if (rightPage != null) keysToClear.add(String(rightPage));
+        if (spreadPhoto) {
+            keysToClear.add(sk);
+            keysToClear.add(String(spreadLeft));
+            if (leftPage != null) keysToClear.add(String(leftPage));
+        }
+    }
+
     const all = readAll();
     const album = { ...(all[albumId] || {}) };
-    let changed = false;
+    let localChanged = false;
 
-    const touch = (key) => {
+    for (const key of keysToClear) {
         if (key in album) {
             delete album[key];
-            changed = true;
+            localChanged = true;
         }
-    };
-
-    const sk = spreadStorageKey(spreadLeft);
-    if (scope === 'whole' || scope === 'left') {
-        touch(sk);
-        touch(String(spreadLeft));
-    }
-    if (scope === 'whole' || scope === 'right') {
-        const right = spreadLeft + 1;
-        if (right < totalPages) touch(String(right));
     }
 
-    if (!changed) return false;
+    if (!localChanged) {
+        const remote = getRemotePreviewData(albumId);
+        const hadRemote =
+            keysToClear.size > 0 &&
+            [...keysToClear].some((key) => remote?.pages?.[key] != null);
+        if (!hadRemote) return false;
+    }
+
     album.__revision = (album.__revision || 0) + 1;
     all[albumId] = album;
-    return writeAll(all);
+    writeAll(all);
+
+    const snapshot = buildAlbumPreviewSnapshot(albumId);
+    if (snapshot) {
+        for (const key of keysToClear) {
+            delete snapshot.pages[key];
+        }
+        hydrateAlbumPreviewData(albumId, snapshot);
+    }
+    return true;
 }
 
 function readTransformPair(albumId, descA, descB) {

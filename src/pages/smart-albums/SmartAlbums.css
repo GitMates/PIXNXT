@@ -317,3 +317,244 @@
     min-width: 220px;
   }
 }
+
+.sa-notifications {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.sa-notifications-trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #222;
+  cursor: pointer;
+}
+
+.sa-notifications-trigger:hover {
+  color: #111;
+}
+
+.sa-notifications-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+  color: #fff;
+  pointer-events: none;
+}
+
+.sa-notifications-panel {
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: 420px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+  z-index: 9999;
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+.sa-notifications-panel--fixed {
+  position: fixed;
+}
+
+.sa-notifications-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+}
+
+.sa-notifications-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sa-notifications-panel-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: #9b59b6;
+}
+
+.sa-notifications-clear-btn,
+.sa-notifications-mark-read-btn {
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: #888;
+  cursor: pointer;
+}
+
+.sa-notifications-clear-btn:hover,
+.sa-notifications-mark-read-btn:hover {
+  color: #9b59b6;
+}
+
+.sa-notifications-toolbar {
+  padding: 8px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.sa-notifications-empty {
+  padding: 28px 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+}
+
+.sa-notifications-list {
+  list-style: none;
+  margin: 0;
+  padding: 6px 0;
+  overflow-y: auto;
+}
+
+.sa-notifications-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.sa-notifications-row:last-child {
+  border-bottom: none;
+}
+
+.sa-notifications-row--unread {
+  background: #faf6fc;
+}
+
+.sa-notifications-row--unread .sa-notifications-item-album {
+  color: #111;
+}
+
+.sa-notifications-row--read {
+  background: #fff;
+}
+
+.sa-notifications-row--read .sa-notifications-item-type {
+  color: #b39bc8;
+}
+
+.sa-notifications-row--read .sa-notifications-item-album {
+  font-weight: 500;
+  color: #666;
+}
+
+.sa-notifications-row--read .sa-notifications-item-preview {
+  color: #999;
+}
+
+.sa-notifications-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+  padding: 12px 8px 12px 16px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  box-sizing: border-box;
+  font-family: inherit;
+}
+
+.sa-notifications-row:hover .sa-notifications-item {
+  background: #f3ebf8;
+}
+
+.sa-notifications-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  gap: 8px;
+}
+
+.sa-notifications-item-type {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9b59b6;
+}
+
+.sa-notifications-unread-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #9b59b6;
+  flex-shrink: 0;
+}
+
+.sa-notifications-dismiss {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  align-self: stretch;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #bbb;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sa-notifications-dismiss:hover {
+  color: #666;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.sa-notifications-item-album {
+  font-size: 14px;
+  font-weight: 600;
+  color: #222;
+}
+
+.sa-notifications-item-preview {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.4;
+  width: 100%;
+  word-break: break-word;
+}
+
+.sa-notifications-item-time {
+  font-size: 11px;
+  color: #999;
+  margin-top: 2px;
+}

@@ -1,10 +1,14 @@
 import { getGridSlotPhoto, getPagePhotoOverride, getSpreadPhotoOverride } from './albumPagePhotos';
 import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
+    getEndSpreadPageIndices,
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
     isEndHalfSpreadLeftPage,
+    isInsideCoverLeftPage,
+    isInsideCoverRightPage,
+    isPreBackHalfSpreadLeftPage,
     spreadNumberFromLeftPage,
 } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
@@ -135,7 +139,7 @@ export function enumerateAlbumPhotoSlots(
                 pageNum: left,
                 cellId: 1,
                 spreadLeft: left,
-                label: `Spread ${spreadNum} · Left`,
+                label: 'Back cover',
             });
             continue;
         }
@@ -337,11 +341,30 @@ export function buildSwapSlotForScope(
 /** Human-readable label for a photo slot (cover, left, right, whole). */
 export function getSlotLabel(pageNum, cellId = 0, whole = false, totalPages = 99, album = null) {
     const spreadCtx = getSpreadContext(album, totalPages);
-    if (pageNum === 0 && spreadCtx.hasCovers) return 'Cover';
+    const spreadOpts = { ...spreadCtx, totalPages };
+    const cid = cellId ?? 0;
+
+    if (spreadCtx.hasCovers) {
+        if (pageNum === 0 || (pageNum === 1 && cid === 0)) return 'Cover';
+        if (totalPages != null && isEndHalfSpreadLeftPage(pageNum, totalPages, spreadOpts)) {
+            return 'Back cover';
+        }
+        const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+        if (pageNum === endLeft && cid === 1) return 'Back cover';
+        if (isInsideCoverLeftPage(pageNum, totalPages, spreadOpts)) return 'Inside cover';
+        if (isInsideCoverRightPage(pageNum, totalPages, spreadOpts)) {
+            return cid === 2 ? 'Spread 1 · Right' : 'Inside cover';
+        }
+        if (isPreBackHalfSpreadLeftPage(pageNum, totalPages, spreadOpts)) {
+            const spreadNum = spreadNumberFromLeftPage(pageNum, spreadCtx);
+            return `Spread ${spreadNum} · Left`;
+        }
+    }
+
     const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);
     const spreadNum = spreadNumberFromLeftPage(spreadLeft, spreadCtx);
     if (whole) return `Spread ${spreadNum} · Whole`;
-    if (cellId === 1 || pageNum === spreadLeft) return `Spread ${spreadNum} · Left`;
+    if (cid === 1 || pageNum === spreadLeft) return `Spread ${spreadNum} · Left`;
     return `Spread ${spreadNum} · Right`;
 }
 

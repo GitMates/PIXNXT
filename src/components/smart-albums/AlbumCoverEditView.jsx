@@ -12,6 +12,7 @@ import {
     SPINE_BOUNDS_CHANGED_EVENT,
 } from './albumSpineSettings';
 import BookWrapSpineImage from './BookWrapSpineImage';
+import { COVER_TEXT_CHANGED_EVENT, getAlbumCoverText } from './albumCoverText';
 import './AlbumCoverEditView.css';
 
 const PAGE_HEIGHT_MIN = 300;
@@ -57,6 +58,7 @@ export default function AlbumCoverEditView({
     const [spineBoundsTick, setSpineBoundsTick] = useState(0);
     const [spineBounds, setSpineBounds] = useState(null);
     const [spineDragging, setSpineDragging] = useState(false);
+    const [coverTextTick, setCoverTextTick] = useState(0);
     const dragRef = useRef(null);
 
     const baseLayout = useMemo(() => getBookWrapSpineLayout(album), [album, spineBoundsTick]);
@@ -109,6 +111,20 @@ export default function AlbumCoverEditView({
         window.addEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
         return () => window.removeEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
     }, [albumId]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const onTextChanged = (e) => {
+            if (e.detail?.albumId === albumId) setCoverTextTick((t) => t + 1);
+        };
+        window.addEventListener(COVER_TEXT_CHANGED_EVENT, onTextChanged);
+        return () => window.removeEventListener(COVER_TEXT_CHANGED_EVENT, onTextChanged);
+    }, [albumId]);
+
+    const coverText = useMemo(() => {
+        void coverTextTick;
+        return albumId ? getAlbumCoverText(albumId) : '';
+    }, [albumId, coverTextTick]);
 
     const isBlankCoverAlbum = album?.blank_covers === true;
     const spineVisible = spineLayout.hasSpine && showSpine;
@@ -380,6 +396,11 @@ export default function AlbumCoverEditView({
                         ) : (
                             <div className="ab-cover-edit-view__empty" aria-hidden />
                         )}
+                        {coverText ? (
+                            <div className="ab-cover-text-message" aria-hidden>
+                                {coverText}
+                            </div>
+                        ) : null}
                     </div>
                     <span className="ab-cover-edit-hint ab-cover-edit-hint--front">Front</span>
                 </PanelTag>

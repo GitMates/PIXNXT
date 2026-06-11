@@ -7,6 +7,7 @@ import {
     getRemotePreviewData,
     hydrateAlbumPreviewData,
 } from './albumPreviewData';
+import { loadCollectionItemDimensions, loadImageDimensionsFromFile } from './albumGridSize';
 
 const STORAGE_KEY = 'pixnxt_album_collections';
 const ALBUM_PATH_CACHE = new Map();
@@ -260,6 +261,50 @@ async function buildCollectionWorkItems(files) {
     return batches.flat().map((item, sortIndex) => ({ ...item, sortIndex }));
 }
 
+/** Collection item used only for the optional book-wrap cover — not an inner-page photo. */
+export const COVER_WRAP_ROLE = 'cover-wrap';
+
+export function isCoverWrapCollectionItem(item) {
+    return item?.role === COVER_WRAP_ROLE;
+}
+
+export function getInnerAlbumCollection(albumId) {
+    return getAlbumCollection(albumId).filter((item) => !isCoverWrapCollectionItem(item));
+}
+
+/** Collection size used for page-count and inner spread placement (excludes optional cover-wrap on blank covers). */
+export function getAlbumLayoutPhotoCount(albumId, album = null) {
+    if (!albumId) return 0;
+    if (album?.blank_covers === true) {
+        return getInnerAlbumCollection(albumId).length;
+    }
+    return getAlbumCollection(albumId).length;
+}
+
+export function markCollectionItemAsCoverWrap(albumId, itemId) {
+    if (!albumId || !itemId) return false;
+    const all = readAll();
+    const bucket = all[albumId];
+    if (!bucket?.items?.length) return false;
+    let changed = false;
+    const items = bucket.items.map((item) => {
+        if (item.id === itemId) {
+            if (item.role === COVER_WRAP_ROLE) return item;
+            changed = true;
+            return { ...item, role: COVER_WRAP_ROLE };
+        }
+        if (isCoverWrapCollectionItem(item)) {
+            changed = true;
+            const { role, ...rest } = item;
+            return rest;
+        }
+        return item;
+    });
+    if (!changed) return false;
+    persistCollectionBucket(all, albumId, { ...bucket, items });
+    return true;
+}
+
 export function getAlbumCollection(albumId) {
     if (!albumId) return [];
     const list = readAll()[albumId];
@@ -443,7 +488,7 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
 export async function addFilesToAlbumCollection(
     albumId,
     files,
-    { photographerId, onProgress, skipDuplicateCheck = false } = {}
+    { photographerId, onProgress, skipDuplicateCheck = false, coverWrap = false } = {}
 ) {
     if (!albumId || !files?.length) return [];
 
@@ -558,6 +603,21 @@ export async function addFilesToAlbumCollection(
         async (entry) => {
             try {
                 const sortOrder = baseSortOrder + entry.sortIndex;
+                let width;
+                let height;
+                try {
+                    if (entry.kind === 'file') {
+                        const dims = await loadImageDimensionsFromFile(entry.file);
+                        width = dims?.width;
+                        height = dims?.height;
+                    } else if (entry.dataUrl) {
+                        const dims = await loadCollectionItemDimensions({ dataUrl: entry.dataUrl });
+                        width = dims?.width;
+                        height = dims?.height;
+                    }
+                } catch {
+                    /* dimensions optional */
+                }
                 const upload =
                     entry.kind === 'file'
                         ? await uploadCollectionFile({
@@ -590,6 +650,8 @@ export async function addFilesToAlbumCollection(
                     nameKey: entry.nameKey,
                     sortOrder,
                     createdAt: batchUploadTs + entry.sortIndex,
+                    ...(coverWrap ? { role: COVER_WRAP_ROLE } : {}),
+                    ...(width > 0 && height > 0 ? { width, height } : {}),
                 };
             } catch (err) {
                 console.warn('Collection upload failed:', entry.name, err);

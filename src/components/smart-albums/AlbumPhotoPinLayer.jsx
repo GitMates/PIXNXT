@@ -67,7 +67,86 @@ function SwapIcon({ className, size = 20 }) {
     );
 }
 
-function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
+function PinPopover({ markerRef, layerRef, pin, isSwap, allowRemove, onRemove }) {
+    const popoverRef = useRef(null);
+    const [anchor, setAnchor] = useState(null);
+    const [flipBelow, setFlipBelow] = useState(false);
+
+    const updateAnchor = useCallback(() => {
+        const marker = markerRef?.current;
+        if (marker) {
+            const rect = marker.getBoundingClientRect();
+            const popoverHeight = popoverRef.current?.offsetHeight ?? 88;
+            const shouldFlip = rect.top < popoverHeight + 20;
+            setFlipBelow(shouldFlip);
+            setAnchor({
+                left: rect.left + rect.width / 2,
+                top: shouldFlip ? rect.bottom : rect.top,
+            });
+            return;
+        }
+
+        const layer = layerRef?.current;
+        if (!layer) return;
+        const rect = layer.getBoundingClientRect();
+        const left = rect.left + (rect.width * pin.xPct) / 100;
+        const top = rect.top + (rect.height * pin.yPct) / 100;
+        const popoverHeight = popoverRef.current?.offsetHeight ?? 88;
+        const pinOffset = 32;
+        setFlipBelow(top < popoverHeight + pinOffset + 20);
+        setAnchor({ left, top: top - pinOffset });
+    }, [markerRef, layerRef, pin.xPct, pin.yPct]);
+
+    useLayoutEffect(() => {
+        updateAnchor();
+        const raf = window.requestAnimationFrame(updateAnchor);
+        window.addEventListener('resize', updateAnchor);
+        window.addEventListener('scroll', updateAnchor, true);
+        return () => {
+            window.cancelAnimationFrame(raf);
+            window.removeEventListener('resize', updateAnchor);
+            window.removeEventListener('scroll', updateAnchor, true);
+        };
+    }, [updateAnchor]);
+
+    if (!anchor) return null;
+
+    return createPortal(
+        <div
+            ref={popoverRef}
+            className={`ab-photo-pin-popover ab-photo-pin-popover--portal${
+                flipBelow ? ' ab-photo-pin-popover--below' : ''
+            }`}
+            style={{ left: `${anchor.left}px`, top: `${anchor.top}px` }}
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label={isSwap ? 'Swap pin' : 'Comment'}
+        >
+            <span className="ab-photo-pin-popover-label">
+                {isSwap ? 'Swap pin' : 'Comment'}
+            </span>
+            <p className="ab-photo-pin-message">
+                {isSwap ? pin.message || 'Swap point selected' : pin.message}
+            </p>
+            {allowRemove && (
+                <button
+                    type="button"
+                    className="ab-photo-pin-remove"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onRemove?.(pin.id);
+                    }}
+                >
+                    Remove
+                </button>
+            )}
+        </div>,
+        document.body
+    );
+}
+
+function PinMarker({ layerRef, pin, open, onToggle, onRemove, allowRemove }) {
+    const markerRef = useRef(null);
     const isSwap = pin?.type === 'swap';
     const isComment = !isSwap;
     const swapGroup = isSwap ? String(pin?.swapGroup || '') : '';
@@ -80,6 +159,7 @@ function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
             style={{ left: `${pin.xPct}%`, top: `${pin.yPct}%` }}
         >
             <button
+                ref={markerRef}
                 type="button"
                 className="ab-photo-pin-marker"
                 aria-label={isSwap ? 'View swap' : 'View comment'}
@@ -99,41 +179,25 @@ function PinMarker({ pin, open, onToggle, onRemove, allowRemove }) {
                 <span className="ab-photo-pin-marker-tail" aria-hidden />
             </button>
             {open && (
-                <div
-                    className="ab-photo-pin-popover"
-                    onClick={(e) => e.stopPropagation()}
-                    role="dialog"
-                    aria-label="Comment"
-                >
-                    <span className="ab-photo-pin-popover-label">
-                        {isSwap ? 'Swap pin' : 'Comment'}
-                    </span>
-                    <p className="ab-photo-pin-message">
-                        {isSwap
-                            ? pin.message || 'Swap point selected'
-                            : pin.message}
-                    </p>
-                    {allowRemove && (
-                        <button
-                            type="button"
-                            className="ab-photo-pin-remove"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onRemove?.(pin.id);
-                            }}
-                        >
-                            Remove
-                        </button>
-                    )}
-                </div>
+                <PinPopover
+                    markerRef={markerRef}
+                    layerRef={layerRef}
+                    pin={pin}
+                    isSwap={isSwap}
+                    allowRemove={allowRemove}
+                    onRemove={onRemove}
+                />
             )}
         </div>
     );
 }
 
-function SpotInlineCommentComposer({ xPct, yPct, onSave, onClose }) {
+function SpotInlineCommentComposer({ layerRef, xPct, yPct, onSave, onClose }) {
     const [message, setMessage] = useState('');
     const textareaRef = useRef(null);
+    const composerRef = useRef(null);
+    const [anchor, setAnchor] = useState(null);
+    const [flipBelow, setFlipBelow] = useState(false);
 
     const resizeTextarea = useCallback(() => {
         const el = textareaRef.current;
@@ -141,6 +205,30 @@ function SpotInlineCommentComposer({ xPct, yPct, onSave, onClose }) {
         el.style.height = 'auto';
         el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
     }, []);
+
+    const updateAnchor = useCallback(() => {
+        const layer = layerRef?.current;
+        if (!layer) return;
+        const rect = layer.getBoundingClientRect();
+        const left = rect.left + (rect.width * xPct) / 100;
+        const top = rect.top + (rect.height * yPct) / 100;
+        setAnchor({ left, top });
+
+        const composerHeight = composerRef.current?.offsetHeight ?? 120;
+        setFlipBelow(top < composerHeight + 28);
+    }, [layerRef, xPct, yPct]);
+
+    useLayoutEffect(() => {
+        updateAnchor();
+        const raf = window.requestAnimationFrame(updateAnchor);
+        window.addEventListener('resize', updateAnchor);
+        window.addEventListener('scroll', updateAnchor, true);
+        return () => {
+            window.cancelAnimationFrame(raf);
+            window.removeEventListener('resize', updateAnchor);
+            window.removeEventListener('scroll', updateAnchor, true);
+        };
+    }, [updateAnchor, message]);
 
     useEffect(() => {
         const timer = window.setTimeout(() => textareaRef.current?.focus(), 40);
@@ -151,10 +239,15 @@ function SpotInlineCommentComposer({ xPct, yPct, onSave, onClose }) {
         resizeTextarea();
     }, [message, resizeTextarea]);
 
-    return (
+    if (!anchor) return null;
+
+    return createPortal(
         <div
-            className="ab-spot-inline-composer"
-            style={{ left: `${xPct}%`, top: `${yPct}%` }}
+            ref={composerRef}
+            className={`ab-spot-inline-composer ab-spot-inline-composer--portal${
+                flipBelow ? ' ab-spot-inline-composer--below' : ''
+            }`}
+            style={{ left: `${anchor.left}px`, top: `${anchor.top}px` }}
             onClick={(e) => e.stopPropagation()}
             role="dialog"
             aria-label="Add comment at this spot"
@@ -198,21 +291,50 @@ function SpotInlineCommentComposer({ xPct, yPct, onSave, onClose }) {
                 </div>
             </div>
             <span className="ab-spot-action-picker-ring ab-spot-action-picker-ring--small" aria-hidden />
-        </div>
+        </div>,
+        document.body
     );
 }
 
-function SpotActionPicker({ xPct, yPct, canComment, canSwap, onComment, onSwap }) {
+const SPOT_PICKER_ABOVE_OFFSET = 58;
+
+function SpotActionPicker({ layerRef, xPct, yPct, canComment, canSwap, onComment, onSwap }) {
+    const [anchor, setAnchor] = useState(null);
+    const [flipBelow, setFlipBelow] = useState(false);
     const showComment = canComment;
     const showSwap = canSwap;
     const both = showComment && showSwap;
 
-    return (
-        <>
-            <div className="ab-spot-action-picker-dim" aria-hidden />
+    const updateAnchor = useCallback(() => {
+        const layer = layerRef?.current;
+        if (!layer) return;
+        const rect = layer.getBoundingClientRect();
+        const left = rect.left + (rect.width * xPct) / 100;
+        const top = rect.top + (rect.height * yPct) / 100;
+        setAnchor({ left, top });
+        setFlipBelow(top < SPOT_PICKER_ABOVE_OFFSET + 8);
+    }, [layerRef, xPct, yPct]);
+
+    useLayoutEffect(() => {
+        updateAnchor();
+        const raf = window.requestAnimationFrame(updateAnchor);
+        window.addEventListener('resize', updateAnchor);
+        window.addEventListener('scroll', updateAnchor, true);
+        return () => {
+            window.cancelAnimationFrame(raf);
+            window.removeEventListener('resize', updateAnchor);
+            window.removeEventListener('scroll', updateAnchor, true);
+        };
+    }, [updateAnchor]);
+
+    const pickerPanel =
+        anchor &&
+        createPortal(
             <div
-                className="ab-spot-action-picker"
-                style={{ left: `${xPct}%`, top: `${yPct}%` }}
+                className={`ab-spot-action-picker ab-spot-action-picker--portal${
+                    flipBelow ? ' ab-spot-action-picker--below' : ''
+                }`}
+                style={{ left: `${anchor.left}px`, top: `${anchor.top}px` }}
                 onClick={(e) => e.stopPropagation()}
             >
                 <span className="ab-spot-action-picker-ring" aria-hidden />
@@ -248,7 +370,14 @@ function SpotActionPicker({ xPct, yPct, canComment, canSwap, onComment, onSwap }
                         </button>
                     )}
                 </div>
-            </div>
+            </div>,
+            document.body
+        );
+
+    return (
+        <>
+            <div className="ab-spot-action-picker-dim" aria-hidden />
+            {pickerPanel}
         </>
     );
 }
@@ -364,6 +493,23 @@ export default function AlbumPhotoPinLayer({
     }, [layerId]);
 
     useEffect(() => {
+        if (!openPinId) return undefined;
+        const onDocClick = (e) => {
+            const target = e.target;
+            if (!(target instanceof Element)) return;
+            if (target.closest('.ab-photo-pin-marker, .ab-photo-pin-popover')) return;
+            setOpenPinId(null);
+        };
+        const timer = window.setTimeout(() => {
+            document.addEventListener('click', onDocClick);
+        }, 0);
+        return () => {
+            window.clearTimeout(timer);
+            document.removeEventListener('click', onDocClick);
+        };
+    }, [openPinId]);
+
+    useEffect(() => {
         if (!spotPicker) return undefined;
         const onDocClick = (e) => {
             const target = e.target;
@@ -455,7 +601,11 @@ export default function AlbumPhotoPinLayer({
                 swapPinModeActive && canPlaceSwapPin ? ' ab-photo-pin-layer--placing-swap' : ''
             }${spotPickerActive ? ' ab-photo-pin-layer--spot-picker' : ''}${
                 spotPicker ? ' ab-photo-pin-layer--picker-open' : ''
-            }${showTools ? ' ab-photo-pin-layer--tools' : ''}${className ? ` ${className}` : ''}`}
+            }${
+                spotCommentComposer ? ' ab-photo-pin-layer--composer-open' : ''
+            }${openPinId ? ' ab-photo-pin-layer--pin-open' : ''}${
+                showTools ? ' ab-photo-pin-layer--tools' : ''
+            }${className ? ` ${className}` : ''}`}
             onClick={
                 spotPickerActive ||
                 (pinModeActive && hasPhoto) ||
@@ -506,6 +656,7 @@ export default function AlbumPhotoPinLayer({
             )}
             {spotPicker && (
                 <SpotActionPicker
+                    layerRef={layerRef}
                     xPct={spotPicker.xPct}
                     yPct={spotPicker.yPct}
                     canComment={spotCanComment}
@@ -529,6 +680,7 @@ export default function AlbumPhotoPinLayer({
             )}
             {spotCommentComposer && onSaveSpotComment && (
                 <SpotInlineCommentComposer
+                    layerRef={layerRef}
                     xPct={spotCommentComposer.xPct}
                     yPct={spotCommentComposer.yPct}
                     onSave={(message) => {
@@ -579,6 +731,7 @@ export default function AlbumPhotoPinLayer({
             {pins.map((pin) => (
                 <PinMarker
                     key={pin.id}
+                    layerRef={layerRef}
                     pin={pin}
                     open={openPinId === pin.id}
                     allowRemove={allowPinRemove}
@@ -595,6 +748,7 @@ export default function AlbumPhotoPinLayer({
             {swapPins.map((pin) => (
                 <PinMarker
                     key={pin.id}
+                    layerRef={layerRef}
                     pin={{ ...pin, type: 'swap' }}
                     open={openPinId === pin.id}
                     allowRemove={false}

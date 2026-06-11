@@ -238,6 +238,19 @@ const CreateAlbum = () => {
     const [createProgress, setCreateProgress] = useState(null);
     const [error, setError] = useState(null);
 
+    useEffect(() => {
+        const html = document.documentElement;
+        const body = document.body;
+        const prevHtmlOverflow = html.style.overflow;
+        const prevBodyOverflow = body.style.overflow;
+        html.style.overflow = '';
+        body.style.overflow = '';
+        return () => {
+            html.style.overflow = prevHtmlOverflow;
+            body.style.overflow = prevBodyOverflow;
+        };
+    }, []);
+
     const useBookWrap = coverMode === 'with';
     const blankCovers = coverMode === 'without';
     const includeCoverSpreads = true;
@@ -597,7 +610,7 @@ const CreateAlbum = () => {
                     );
                 }
 
-                const placed = applyCollectionOrderToPages(
+                const placed = await applyCollectionOrderToPages(
                     album.id,
                     {
                         ...albumForPlace,

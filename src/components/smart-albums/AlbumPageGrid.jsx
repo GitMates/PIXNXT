@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getAlbumCollection } from './albumCollection';
+import { getAlbumLayoutPhotoCount } from './albumCollection';
 import { getGridSlotPhoto, getPagePhotoOverride, hasGridSlotPhoto } from './albumPagePhotos';
 import {
     getPagePhotoTransform,
@@ -14,6 +14,8 @@ import {
     isEndHalfSpreadLeftPage,
     isFrontCoverSpreadLeft,
     isInsideCoverSpreadLeft,
+    isPreBackHalfSpreadLeftPage,
+    isWholeSpreadLayout,
 } from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
@@ -134,12 +136,19 @@ export default function AlbumPageGrid({
     const albumId = albumIdProp ?? album?.id;
     void photoRevision;
     void transformRevision;
-    const collectionCount = albumId ? getAlbumCollection(albumId).length : 0;
+    const collectionCount = albumId ? getAlbumLayoutPhotoCount(albumId, album) : 0;
     const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
     const spreadCtx = { ...spreadOpts, totalPages };
     const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);
     const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
-    const insideCoverSpread = isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts);
+    const isWholeSpreadAlbum = isWholeSpreadLayout(album?.grid_layout);
+    const spreadWholePhoto = Boolean(albumId && getSpreadPhotoOverride(albumId, spreadLeft));
+    const insideCoverSpread =
+        isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts) &&
+        (!isWholeSpreadAlbum || !spreadWholePhoto);
+    const preBackHalfSpread =
+        isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts) &&
+        (!isWholeSpreadAlbum || !spreadWholePhoto);
     const frontCoverSpread = isFrontCoverSpreadLeft(spreadLeft, spreadOpts);
     const inSelectedSpread =
         selectionLeftPage != null && selectionLeftPage === spreadLeft;
@@ -148,6 +157,7 @@ export default function AlbumPageGrid({
         placementMode === 'whole' &&
         !endHalfSpreadLeft &&
         !insideCoverSpread &&
+        !preBackHalfSpread &&
         !frontCoverSpread;
     const wholeSpread = wholePlacement;
     const useSelectCells = editable && !spreadEdit;
@@ -180,6 +190,21 @@ export default function AlbumPageGrid({
         const ptCell = point.cellId ?? halfCell;
         return ptPage === halfPage && ptCell === halfCell;
     };
+
+    /** Whole-spread pano: tint both halves when either side has a swap mark. */
+    const spreadPanoSwapMark = (() => {
+        if (!wholePlacement || !getSwapMarkInfo) return null;
+        const rightPage = Math.min(spreadLeft + 1, Math.max(0, totalPages - 1));
+        for (const [halfPage, halfCell] of [
+            [spreadLeft, 1],
+            [rightPage, 2],
+        ]) {
+            const idx = getProofCellPhotoIndex(halfPage, halfCell, totalPages, spreadCtx);
+            const info = getSwapMarkInfo(idx, halfCell, spreadLeft);
+            if (info) return info;
+        }
+        return null;
+    })();
 
     return (
         <div
@@ -262,9 +287,12 @@ export default function AlbumPageGrid({
                     (pinMarkMode || liveSpotActionPicker) && getPinsForSlot
                         ? getPinsForSlot(photoIndex, cell.id, spreadLeft)
                         : [];
-                const markedClass = swapMarkInfo
+                const activeSwapMark =
+                    swapMarkInfo ||
+                    (panoramic != null && spreadPanoSwapMark ? spreadPanoSwapMark : null);
+                const markedClass = activeSwapMark
                     ? ` ab-grid-cell--swap-marked${
-                          swapMarkInfo.locked !== false ? ' ab-grid-cell--swap-locked' : ''
+                          activeSwapMark.locked !== false ? ' ab-grid-cell--swap-locked' : ''
                       }`
                     : '';
                 const swapPins = swapMarkInfos

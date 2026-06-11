@@ -262,6 +262,10 @@ const ALBUM_LIST_FIELDS = [
   'expiry_date',
   'created_at',
   'updated_at',
+  'client_approved_at',
+  'client_approved_by',
+  'client_changes_submitted_at',
+  'client_changes_submitted_by',
 ].join(', ');
 
 function buildAlbumRowFromLocal(local, photographerId) {
@@ -1088,10 +1092,13 @@ export const smartAlbumsService = {
 
     if (error) {
       console.warn('syncAlbumPreviewData:', error.message);
+      hydrateAlbumPreviewData(albumId, previewData);
       return previewData;
     }
 
-    return data?.preview_data ?? previewData;
+    const synced = data?.preview_data ?? previewData;
+    hydrateAlbumPreviewData(albumId, synced);
+    return synced;
   },
 
   async updateAlbumDetails(photographerId, albumId, patch) {

@@ -291,7 +291,7 @@
   margin: 0 0 10px;
   font-size: 12px;
   font-weight: 600;
-  color: #92400e;
+  color: #374151;
 }
 
 .ae-swap-marks-title {
@@ -332,6 +332,98 @@
   border: 1px solid #e5e7eb;
 }
 
+.ae-swap-marks--panel .ae-swap-marks-card {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 10px 12px;
+  background: #f9fafb;
+  border-color: #e5e7eb;
+}
+
+.ae-swap-marks--panel .ae-photo-pins-item {
+  background: #faf7ff;
+  border-color: #e9e5ff;
+}
+
+.ae-swap-marks-body {
+  min-width: 0;
+}
+
+.ae-swap-marks-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.ae-swap-marks-route {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ae-swap-marks-slot-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  padding: 5px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  color: #374151;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+
+.ae-swap-marks-slot-chip:hover {
+  border-color: #9ca3af;
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.ae-swap-marks-route-arrow {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ae-swap-marks-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.ae-swap-marks-time {
+  font-size: 11px;
+  font-weight: 500;
+  color: #9ca3af;
+  line-height: 1.3;
+}
+
 .ae-swap-marks-pair {
   display: inline-flex;
   align-items: center;
@@ -366,18 +458,20 @@
 
 .ae-swap-marks-remove {
   flex-shrink: 0;
-  padding: 2px 8px;
+  padding: 4px 10px;
   border: none;
-  border-radius: 4px;
+  border-radius: 999px;
   background: transparent;
-  color: #92400e;
+  color: #6b7280;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .ae-swap-marks-remove:hover {
-  background: #fef3c7;
+  background: #f3f4f6;
+  color: #111827;
 }
 
 .ae-nav-rail-badge--pin {
@@ -434,15 +528,13 @@
 }
 
 /* Unseen highlight should appear only inside the swap/pin list rows. */
-.ae-swap-marks--panel .ae-swap-marks-item.ae-proof-item--unseen:not(.ae-photo-pins-item) {
+.ae-swap-marks--panel .ae-swap-marks-card.ae-proof-item--unseen {
   background: #eff6ff !important;
   border-color: #bfdbfe !important;
   box-shadow: inset 3px 0 0 #2563eb;
 }
 
-/* (Row-level highlight handled on .ae-swap-marks-item) */
-
-.ae-swap-marks--panel .ae-swap-marks-item.ae-proof-item--unseen:not(.ae-photo-pins-item) .ae-proof-new-badge {
+.ae-swap-marks--panel .ae-swap-marks-card.ae-proof-item--unseen .ae-proof-new-badge {
   background: #2563eb;
 }
 
@@ -451,19 +543,24 @@
 }
 
 .ae-photo-pins-item.ae-proof-item--unseen .ae-photo-pins-link {
-  border-radius: 8px;
+  border-radius: 6px;
   padding: 6px 8px;
-  margin: -6px -8px;
+  margin: -6px -8px 0;
   background: #eef2ff;
   box-shadow: inset 3px 0 0 #7c3aed;
 }
 
 .ae-photo-pins-item {
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+  padding: 10px 12px;
 }
 
 .ae-photo-pins-link {
-  flex: 1;
+  display: block;
+  width: 100%;
+  flex: none;
   min-width: 0;
   border: none;
   background: transparent;
@@ -474,14 +571,7 @@
 }
 
 .ae-photo-pins-link:hover .ae-photo-pins-slot {
-  color: #374151;
-}
-
-.ae-photo-pins-item-body {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
+  color: #4f46e5;
 }
 
 .ae-photo-pins-slot {
@@ -489,26 +579,60 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 6px;
+  margin-bottom: 6px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #9ca3af;
+  color: #6b7280;
 }
 
 .ae-photo-pins-message {
-  font-size: 14px;
-  font-weight: 500;
+  display: block;
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: 13px;
+  font-weight: 400;
   color: #374151;
-  line-height: 1.45;
+  line-height: 1.5;
+  white-space: pre-wrap;
   word-break: break-word;
+  overscroll-behavior: contain;
+}
+
+.ae-photo-pins-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f3f4f6;
 }
 
 .ae-photo-pins-time {
-  margin-top: 2px;
   font-size: 11px;
   font-weight: 500;
   color: #9ca3af;
+  line-height: 1.3;
+}
+
+.ae-photo-pins-remove {
+  flex-shrink: 0;
+  padding: 4px 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #b45309;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.ae-photo-pins-remove:hover {
+  background: #fef3c7;
+  color: #92400e;
 }
 
 .ae-panel-list {
