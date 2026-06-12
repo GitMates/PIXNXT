@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { useEffect, useState } from 'react';
+import { useThree } from '@react-three/fiber';
 import { parseGridSizeAspect } from '../albumGridSize';
 import { getBookWrapSpineLayout } from '../bookWrapSpine';
 import { albumHasBlankCovers, albumUsesBookWrap } from '../albumSpreadUtils';
@@ -17,6 +18,10 @@ const blankTexture = (() => {
     ctx.fillRect(0, 0, 1, 1);
     return new THREE.CanvasTexture(canvas);
 })();
+
+/** Reuse configured textures so page turns do not flash blank while reloading. */
+const textureCache = new Map();
+const pendingLoads = new Map();
 
 function proxyUrl(src) {
     if (!src) return null;
@@ -55,6 +60,24 @@ function applyPanoramic(tex, panoramic, { mirrorX = false } = {}) {
     }
 }
 
+/** Matches CSS object-fit: cover for a single page plane. */
+function applyObjectFitCover(tex, pageAspect) {
+    const image = tex.image;
+    if (!image?.width || !image?.height || !pageAspect) return;
+    const imgAspect = image.width / image.height;
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    if (imgAspect > pageAspect) {
+        const repeatX = pageAspect / imgAspect;
+        tex.repeat.set(repeatX, 1);
+        tex.offset.set((1 - repeatX) / 2, 0);
+    } else {
+        const repeatY = imgAspect / pageAspect;
+        tex.repeat.set(1, repeatY);
+        tex.offset.set(0, (1 - repeatY) / 2);
+    }
+}
+
 /** Crop wrap image to back | spine | front — matches 2D cover editor. */
 function applyWrapLayout(tex, layout, side) {
     if (!layout || !side) return;
@@ -81,6 +104,106 @@ function applyWrapLayout(tex, layout, side) {
     }
 }
 
+/** Back face is rotated 180° — swap pano halves so UV matches the 2D bleed. */
+function panoramicForBackFace(panoramic) {
+    if (panoramic === 'left') return 'right';
+    if (panoramic === 'right') return 'left';
+    return panoramic;
+}
+
+function textureCacheKey(src, { panoramic, layout, side, mirrorX, pageAspect, backFace }) {
+    const layoutKey = layout
+        ? `${layout.spineStartFraction}:${layout.spineEndFraction}:${layout.spineFraction}`
+        : '';
+    return [
+        src,
+        panoramic || '',
+        layoutKey,
+        side || '',
+        mirrorX ? 'mx' : '',
+        backFace ? 'back' : '',
+        pageAspect ? String(pageAspect) : '',
+    ].join('|');
+}
+
+function configureTexture(tex, slot, layout, side, { mirrorX = false, pageAspect = null, backFace = false } = {}) {
+    tex.repeat.set(1, 1);
+    tex.offset.set(0, 0);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+
+    if (layout && side) {
+        applyWrapLayout(tex, layout, side);
+        return tex;
+    }
+
+    let panoramic = slot?.panoramic || null;
+    if (backFace && panoramic) {
+        panoramic = panoramicForBackFace(panoramic);
+    }
+
+    if (panoramic) {
+        applyPanoramic(tex, panoramic, { mirrorX: false });
+        return tex;
+    }
+
+    if (mirrorX) {
+        tex.repeat.set(-1, 1);
+        tex.offset.set(1, 0);
+        return tex;
+    }
+
+    if (pageAspect) {
+        applyObjectFitCover(tex, pageAspect);
+    }
+    return tex;
+}
+
+function loadConfiguredTexture(src, config) {
+    const url = proxyUrl(src);
+    const key = textureCacheKey(src, {
+        panoramic: config.slot?.panoramic,
+        layout: config.layout,
+        side: config.side,
+        mirrorX: config.mirrorX,
+        pageAspect: config.pageAspect,
+        backFace: config.backFace,
+    });
+    const cached = textureCache.get(key);
+    if (cached) return Promise.resolve(cached);
+
+    const pending = pendingLoads.get(key);
+    if (pending) return pending;
+
+    const promise = new Promise((resolve, reject) => {
+        const loader = new THREE.TextureLoader();
+        loader.setCrossOrigin('anonymous');
+        loader.load(
+            url,
+            (loadedTex) => {
+                const tex = loadedTex.clone();
+                configureTexture(tex, config.slot, config.layout, config.side, {
+                    mirrorX: config.mirrorX,
+                    pageAspect: config.pageAspect,
+                    backFace: config.backFace,
+                });
+                finalizeTexture(tex);
+                textureCache.set(key, tex);
+                pendingLoads.delete(key);
+                resolve(tex);
+            },
+            undefined,
+            (err) => {
+                pendingLoads.delete(key);
+                reject(err);
+            }
+        );
+    });
+
+    pendingLoads.set(key, promise);
+    return promise;
+}
+
 export function getBook3dDimensions(album) {
     const aspect = parseGridSizeAspect(album?.grid_size || 'landscape');
     const scale = 2.5;
@@ -101,11 +224,14 @@ export function getSpineWidth(coverWidth, album) {
     return Math.max(0.04, coverWidth * 0.04);
 }
 
-const PANORAMIC_SIDE = { back: 'left', front: 'right', spine: 'spine' };
-
-export function useBookTexture(slot, layout, side, { mirrorX = false } = {}) {
+export function useBookTexture(
+    slot,
+    layout,
+    side,
+    { mirrorX = false, pageAspect = null, backFace = false } = {}
+) {
+    const invalidate = useThree((state) => state.invalidate);
     const [texture, setTexture] = useState(blankTexture);
-    const mirror = mirrorX || slot?.mirrorX === true;
 
     useEffect(() => {
         if (!slot?.src) {
@@ -114,37 +240,31 @@ export function useBookTexture(slot, layout, side, { mirrorX = false } = {}) {
         }
 
         let cancelled = false;
-        const loader = new THREE.TextureLoader();
-        loader.setCrossOrigin('anonymous');
-        loader.load(
-            proxyUrl(slot.src),
-            (loadedTex) => {
+        const config = {
+            slot,
+            layout,
+            side,
+            mirrorX,
+            pageAspect,
+            backFace,
+            panoramic: slot.panoramic,
+        };
+
+        loadConfiguredTexture(slot.src, config)
+            .then((tex) => {
                 if (cancelled) return;
-                const tex = loadedTex.clone();
-                if (layout && side) {
-                    applyWrapLayout(tex, layout, side);
-                } else if (slot.panoramic) {
-                    applyPanoramic(tex, slot.panoramic, { mirrorX: mirror });
-                } else if (side && PANORAMIC_SIDE[side]) {
-                    applyPanoramic(tex, PANORAMIC_SIDE[side], { mirrorX: mirror });
-                } else if (mirror) {
-                    tex.wrapS = THREE.ClampToEdgeWrapping;
-                    tex.wrapT = THREE.ClampToEdgeWrapping;
-                    tex.repeat.set(-1, 1);
-                    tex.offset.set(1, 0);
-                }
-                setTexture(finalizeTexture(tex));
-            },
-            undefined,
-            () => {
+                setTexture(tex);
+                tex.needsUpdate = true;
+                invalidate();
+            })
+            .catch(() => {
                 if (!cancelled) setTexture(blankTexture);
-            }
-        );
+            });
 
         return () => {
             cancelled = true;
         };
-    }, [slot?.src, slot?.panoramic, slot?.mirrorX, layout, side, mirror]);
+    }, [slot?.src, slot?.panoramic, layout, side, mirrorX, pageAspect, backFace, invalidate]);
 
     return texture;
 }

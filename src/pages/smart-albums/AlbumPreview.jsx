@@ -316,7 +316,7 @@ export default function AlbumPreview({
                     <div className="av-viewer-body av-viewer-body--preview-book">
                         {is3D ? (
                             <BookScene
-                                key={`${albumId}-preview-3d`}
+                                key={`${albumId}-preview-3d-r${photoRevision}`}
                                 album={albumForBook}
                                 totalPages={totalPages}
                                 initialPage={bookPage}

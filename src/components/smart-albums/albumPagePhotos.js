@@ -565,6 +565,18 @@ export function getGridSlotPhoto(
         return { src: pageSrc, panoramic: null };
     }
     if (spreadSrc) {
+        if (!wholeSpread) {
+            const maxPage = spreadOpts?.totalPages ?? totalPages;
+            const partnerPage = cellId === 1 ? spreadLeftPage + 1 : spreadLeftPage;
+            if (
+                partnerPage >= 0 &&
+                maxPage != null &&
+                partnerPage < maxPage &&
+                getPagePhotoOverride(albumId, partnerPage)
+            ) {
+                return { src: null, panoramic: null };
+            }
+        }
         return { src: spreadSrc, panoramic: cellId === 1 ? 'left' : 'right' };
     }
     if (pageSrc) return { src: pageSrc, panoramic: null };
