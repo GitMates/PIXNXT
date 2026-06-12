@@ -1,16 +1,14 @@
-import React, { useRef, useState, useEffect, useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { useSpring, a } from '@react-spring/three';
 import { useDrag } from '@use-gesture/react';
 import * as THREE from 'three';
-import { resolveCoverImageSrc, getGridSlotPhoto } from '../albumPagePhotos';
-import { getSpreadLeftPageIndex } from '../albumSpreadGrid';
+import { resolveCoverImageSrc } from '../albumPagePhotos';
 import {
     getSpreadContext,
-    isWholeSpreadLayout,
     getTotalSpreads,
     getSpreadPages,
     pageToSpreadIndex,
+    normalizeStoragePageIndex,
 } from '../albumSpreadUtils';
 import { getBookWrapSpineLayout } from '../bookWrapSpine';
 import {
@@ -23,13 +21,26 @@ import {
     SPINE_DARK,
     PAGE_WHITE,
 } from './book3dTextures';
+import { resolveBook3dPageSlot } from './book3dPageSlots';
 
 const COVER_THICK = 0.045;
-const PAGE_THICK = 0.012;
+const PAGE_Z = 0.012;
+const FLIP_LIFT = 0.022;
+const FLIP_CONFIG = { mass: 1, tension: 118, friction: 24 };
+const HALF_PI = Math.PI / 2;
 
 /** Unlit — shows texture pixels exactly as in the 2D preview (no glare or color shift). */
-function CoverPhotoMaterial({ map, side = THREE.FrontSide }) {
-    return <meshBasicMaterial map={map} toneMapped={false} side={side} />;
+function CoverPhotoMaterial({ map, side = THREE.FrontSide, opacity = 1 }) {
+    return (
+        <meshBasicMaterial
+            map={map}
+            toneMapped={false}
+            side={side}
+            transparent={opacity < 1}
+            opacity={opacity}
+            depthWrite={opacity >= 1}
+        />
+    );
 }
 
 function MatteMaterial({ color }) {
@@ -44,7 +55,6 @@ function ClosedBook({
     width,
     height,
     pageDepth,
-    spineWidth,
     frontTexture,
     backTexture,
     spineTexture,
@@ -57,7 +67,6 @@ function ClosedBook({
     const boardPad = 0.012;
     const coverW = width + boardPad;
     const coverH = height + boardPad;
-    const halfW = width / 2;
     const halfCoverW = coverW / 2;
     const outerZ = pageDepth / 2 + COVER_THICK;
     const boardColor = blankCover ? HARDCOVER_GREEN : SPINE_DARK;
@@ -113,19 +122,6 @@ function ClosedBook({
                     <MatteMaterial color={boardColor} />
                 )}
             </mesh>
-
-            <mesh position={[0, height / 2 + 0.005, 0]}>
-                <boxGeometry args={[width, 0.012, totalDepth]} />
-                <PageEdgeMaterial />
-            </mesh>
-            <mesh position={[0, -height / 2 - 0.005, 0]}>
-                <boxGeometry args={[width, 0.012, totalDepth]} />
-                <PageEdgeMaterial />
-            </mesh>
-            <mesh position={[halfW + 0.005, 0, 0]}>
-                <boxGeometry args={[0.012, height, totalDepth]} />
-                <PageEdgeMaterial />
-            </mesh>
         </group>
     );
 }
@@ -137,139 +133,374 @@ function wrapSideForSlot(slot) {
     return null;
 }
 
-const Leaf = ({
-    index,
-    totalLeaves,
-    frontSlot,
-    backSlot,
-    isCover,
-    targetSpread,
-    width,
-    height,
-    wrapLayout,
-    useWrapCrop,
-}) => {
-    const materialsRef = useRef([]);
-    const frontSide = useWrapCrop ? wrapSideForSlot(frontSlot) : null;
-    const backSide = useWrapCrop ? wrapSideForSlot(backSlot) : null;
-    const frontTexture = useBookTexture(
-        frontSlot,
-        frontSide ? wrapLayout : null,
-        frontSide
+/** Book-wrap UV crop only for the cover image — spread panoramics use applyPanoramic. */
+function resolveTextureCrop(slot, coverSrc, useWrapCrop, wrapLayout) {
+    const isCoverWrap =
+        useWrapCrop &&
+        coverSrc &&
+        slot?.src === coverSrc &&
+        (slot.panoramic === 'left' || slot.panoramic === 'right' || slot.panoramic === 'spine');
+    if (!isCoverWrap) return { layout: null, side: null };
+    const side = wrapSideForSlot(slot);
+    return { layout: side ? wrapLayout : null, side };
+}
+
+function pagePosition(side, width) {
+    return side === 'left' ? [-width / 2, 0, PAGE_Z] : [width / 2, 0, PAGE_Z];
+}
+
+function isPanoramicPair(leftSlot, rightSlot) {
+    return (
+        leftSlot?.src &&
+        rightSlot?.src &&
+        leftSlot.src === rightSlot.src &&
+        leftSlot.panoramic === 'left' &&
+        rightSlot.panoramic === 'right'
     );
-    const backTexture = useBookTexture(
-        backSlot,
-        backSide ? wrapLayout : null,
-        backSide
-    );
+}
 
-    const thickness = isCover ? COVER_THICK : PAGE_THICK;
-    const isTurned = index < targetSpread;
-    const targetRotY = isTurned ? -Math.PI : 0;
-    const pageZOffset = 0.004;
-    const targetZ = isTurned
-        ? index * pageZOffset
-        : (totalLeaves - index) * pageZOffset;
-
-    const { rotY, z } = useSpring({
-        rotY: targetRotY,
-        z: targetZ,
-        config: { mass: 1, tension: 150, friction: 25 },
-    });
-
-    const onBeforeCompile = useMemo(() => {
-        return (shader) => {
-            shader.uniforms.uProgress = { value: 0 };
-            shader.uniforms.uWidth = { value: width };
-            shader.userData = shader.userData || {};
-            shader.userData.uProgress = shader.uniforms.uProgress;
-
-            shader.vertexShader = `
-                uniform float uProgress;
-                uniform float uWidth;
-            ${shader.vertexShader}`;
-
-            shader.vertexShader = shader.vertexShader.replace(
-                '#include <begin_vertex>',
-                `
-                #include <begin_vertex>
-                float u = (position.x + uWidth / 2.0) / uWidth;
-                float curlAngle = sin(uProgress * 3.14159) * ${isCover ? '0.0' : '0.08'};
-                if (abs(curlAngle) > 0.0001) {
-                    float R = uWidth / curlAngle;
-                    float theta = u * curlAngle;
-                    transformed.x = R * sin(theta) - uWidth / 2.0;
-                    transformed.z += R * (1.0 - cos(theta));
-                }
-                `
-            );
-        };
-    }, [width, isCover]);
-
-    const setMaterialRef = (el, i) => {
-        if (el) {
-            materialsRef.current[i] = el;
-            el.onBeforeCompile = onBeforeCompile;
-        }
-    };
-
-    useFrame(() => {
-        const progress = Math.abs(rotY.get()) / Math.PI;
-        materialsRef.current.forEach((mat) => {
-            if (mat?.userData?.uProgress) {
-                mat.userData.uProgress.value = progress;
-            }
-        });
-    });
-
-    const edgeProps = { color: '#e8e8e6', roughness: 0.9, onBeforeCompile };
+/** One continuous plane for whole-spread photos — no seam at the spine. */
+function PanoramicSpread({ src, width, height, opacity = 1, renderOrder = 0 }) {
+    const slot = useMemo(() => ({ src }), [src]);
+    const texture = useBookTexture(slot, null, null);
+    const animated = typeof opacity !== 'number';
 
     return (
-        <a.group position-z={z} rotation-y={rotY}>
-            <a.group position-z={rotY.to((r) => Math.sin(Math.abs(r)) * 0.015)}>
-                <mesh position={[width / 2, 0, 0]} castShadow receiveShadow>
-                    <boxGeometry args={[width, height, thickness, 16, 1, 1]} />
-                    <meshStandardMaterial ref={(el) => setMaterialRef(el, 0)} attach="material-0" {...edgeProps} />
-                    <meshStandardMaterial ref={(el) => setMaterialRef(el, 1)} attach="material-1" {...edgeProps} />
-                    <meshStandardMaterial ref={(el) => setMaterialRef(el, 2)} attach="material-2" {...edgeProps} />
-                    <meshStandardMaterial ref={(el) => setMaterialRef(el, 3)} attach="material-3" {...edgeProps} />
-                    <meshBasicMaterial
-                        ref={(el) => setMaterialRef(el, 4)}
-                        attach="material-4"
-                        map={frontTexture}
-                        color={!frontSlot?.src ? PAGE_WHITE : '#ffffff'}
-                        toneMapped={false}
-                        onBeforeCompile={onBeforeCompile}
-                    />
-                    <meshBasicMaterial
-                        ref={(el) => setMaterialRef(el, 5)}
-                        attach="material-5"
-                        map={backTexture}
-                        color={!backSlot?.src ? PAGE_WHITE : '#ffffff'}
-                        toneMapped={false}
-                        onBeforeCompile={onBeforeCompile}
-                    />
+        <a.mesh position={[0, 0, PAGE_Z]} renderOrder={renderOrder}>
+            <planeGeometry args={[width * 2, height]} />
+            <a.meshBasicMaterial
+                map={texture}
+                toneMapped={false}
+                transparent={animated || opacity < 1}
+                opacity={opacity}
+                depthWrite={!animated && opacity >= 1}
+            />
+        </a.mesh>
+    );
+}
+
+function PageFace({
+    slot,
+    width,
+    height,
+    side,
+    coverSrc,
+    wrapLayout,
+    useWrapCrop,
+    opacity = 1,
+    renderOrder = 0,
+}) {
+    const { layout, side: wrapSide } = resolveTextureCrop(slot, coverSrc, useWrapCrop, wrapLayout);
+    const texture = useBookTexture(slot, layout, wrapSide);
+    const hasPhoto = Boolean(slot?.src);
+    const animated = typeof opacity !== 'number';
+
+    return (
+        <a.mesh
+            position={pagePosition(side, width)}
+            castShadow
+            receiveShadow
+            renderOrder={renderOrder}
+        >
+            <planeGeometry args={[width, height]} />
+            {hasPhoto ? (
+                <a.meshBasicMaterial
+                    map={texture}
+                    toneMapped={false}
+                    transparent={animated || opacity < 1}
+                    opacity={opacity}
+                    depthWrite={!animated && opacity >= 1}
+                />
+            ) : (
+                <a.meshBasicMaterial
+                    color={PAGE_WHITE}
+                    toneMapped={false}
+                    transparent={animated || opacity < 1}
+                    opacity={opacity}
+                    depthWrite={!animated && opacity >= 1}
+                />
+            )}
+        </a.mesh>
+    );
+}
+
+/** Thin double-sided sheet — avoids box-edge distortion during rotation. */
+function FlippingSheet({
+    width,
+    height,
+    side,
+    rotY,
+    frontSlot,
+    backSlot,
+    coverSrc,
+    wrapLayout,
+    useWrapCrop,
+}) {
+    const xPivot = side === 'right' ? width / 2 : -width / 2;
+    const frontCrop = resolveTextureCrop(frontSlot, coverSrc, useWrapCrop, wrapLayout);
+    const backCrop = resolveTextureCrop(backSlot, coverSrc, useWrapCrop, wrapLayout);
+    const frontTexture = useBookTexture(frontSlot, frontCrop.layout, frontCrop.side);
+    const backTexture = useBookTexture(backSlot, backCrop.layout, backCrop.side, {
+        mirrorX: true,
+    });
+
+    return (
+        <a.group rotation-y={rotY}>
+            <a.group
+                position-x={xPivot}
+                position-z={rotY.to((r) => Math.sin(Math.abs(r)) * FLIP_LIFT + 0.018)}
+            >
+                <mesh position={[0, 0, 0.001]} renderOrder={3}>
+                    <planeGeometry args={[width, height]} />
+                    <CoverPhotoMaterial map={frontTexture} />
+                </mesh>
+                <mesh rotation-y={Math.PI} position={[0, 0, -0.001]} renderOrder={3}>
+                    <planeGeometry args={[width, height]} />
+                    <CoverPhotoMaterial map={backTexture} />
                 </mesh>
             </a.group>
         </a.group>
     );
-};
+}
 
-export default function BookModel({ album, totalPages, initialPage, onPageChange }) {
+function OpenSpread({ leftSlot, rightSlot, width, height, coverSrc, wrapLayout, useWrapCrop }) {
+    if (isPanoramicPair(leftSlot, rightSlot)) {
+        return <PanoramicSpread src={leftSlot.src} width={width} height={height} />;
+    }
+
+    return (
+        <group>
+            <PageFace
+                slot={leftSlot}
+                width={width}
+                height={height}
+                side="left"
+                coverSrc={coverSrc}
+                wrapLayout={wrapLayout}
+                useWrapCrop={useWrapCrop}
+            />
+            <PageFace
+                slot={rightSlot}
+                width={width}
+                height={height}
+                side="right"
+                coverSrc={coverSrc}
+                wrapLayout={wrapLayout}
+                useWrapCrop={useWrapCrop}
+            />
+        </group>
+    );
+}
+
+function FlipSpread({
+    layout,
+    rotY,
+    width,
+    height,
+    coverSrc,
+    wrapLayout,
+    useWrapCrop,
+}) {
+    const forward = layout.direction === 'forward';
+
+    const revealOpacity = rotY.to((r) => {
+        if (layout.revealAfterHalf === false) return 1;
+        const fade = 0.22;
+        if (forward) {
+            if (r >= 0) return 0;
+            if (r <= -HALF_PI) return 1;
+            return Math.max(0, Math.min(1, (-r - HALF_PI + fade) / fade));
+        }
+        if (r <= 0) return 0;
+        if (r >= HALF_PI) return 1;
+        return Math.max(0, Math.min(1, (r - HALF_PI + fade) / fade));
+    });
+
+    return (
+        <group>
+            {layout.anchorLeft && (
+                <PageFace
+                    slot={layout.anchorLeft}
+                    width={width}
+                    height={height}
+                    side="left"
+                    coverSrc={coverSrc}
+                    wrapLayout={wrapLayout}
+                    useWrapCrop={useWrapCrop}
+                    renderOrder={0}
+                />
+            )}
+            {layout.anchorRight && (
+                <PageFace
+                    slot={layout.anchorRight}
+                    width={width}
+                    height={height}
+                    side="right"
+                    coverSrc={coverSrc}
+                    wrapLayout={wrapLayout}
+                    useWrapCrop={useWrapCrop}
+                    renderOrder={0}
+                />
+            )}
+            {layout.revealLeft && (
+                <PageFace
+                    slot={layout.revealLeft}
+                    width={width}
+                    height={height}
+                    side="left"
+                    coverSrc={coverSrc}
+                    wrapLayout={wrapLayout}
+                    useWrapCrop={useWrapCrop}
+                    opacity={revealOpacity}
+                    renderOrder={0}
+                />
+            )}
+            {layout.revealRight && (
+                <PageFace
+                    slot={layout.revealRight}
+                    width={width}
+                    height={height}
+                    side="right"
+                    coverSrc={coverSrc}
+                    wrapLayout={wrapLayout}
+                    useWrapCrop={useWrapCrop}
+                    opacity={revealOpacity}
+                    renderOrder={0}
+                />
+            )}
+            <FlippingSheet
+                width={width}
+                height={height}
+                side={layout.sheetSide}
+                rotY={rotY}
+                frontSlot={layout.sheetFront}
+                backSlot={layout.sheetBack}
+                coverSrc={coverSrc}
+                wrapLayout={wrapLayout}
+                useWrapCrop={useWrapCrop}
+            />
+        </group>
+    );
+}
+
+function isClosedBackSpread(spreadIndex, totalSpreads, spreadOpts) {
+    return (
+        spreadOpts.hasCovers &&
+        totalSpreads > 1 &&
+        spreadIndex >= totalSpreads - 1
+    );
+}
+
+function isClosedFrontSpread(spreadIndex) {
+    return spreadIndex === 0;
+}
+
+function isOpenSpread(spreadIndex, totalSpreads, spreadOpts) {
+    return !isClosedFrontSpread(spreadIndex) && !isClosedBackSpread(spreadIndex, totalSpreads, spreadOpts);
+}
+
+function buildFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot) {
+    const forward = flip.forward;
+
+    if (flip.mode === 'cover-open') {
+        return {
+            direction: 'forward',
+            anchorLeft: to.left,
+            revealRight: to.right,
+            revealAfterHalf: true,
+            sheetSide: 'right',
+            sheetFront: coverFrontSlot,
+            sheetBack: coverInsideSlot,
+        };
+    }
+
+    if (flip.mode === 'cover-close') {
+        return {
+            direction: 'backward',
+            anchorLeft: from.left,
+            anchorRight: from.right,
+            revealAfterHalf: false,
+            sheetSide: 'right',
+            sheetFront: coverFrontSlot,
+            sheetBack: coverInsideSlot,
+        };
+    }
+
+    if (flip.mode === 'back-close') {
+        return {
+            direction: 'forward',
+            anchorLeft: from.left,
+            revealRight: to.right,
+            revealAfterHalf: true,
+            sheetSide: 'right',
+            sheetFront: from.right,
+            sheetBack: to.left,
+        };
+    }
+
+    if (flip.mode === 'back-open') {
+        return {
+            direction: 'backward',
+            anchorRight: from.right,
+            revealLeft: to.left,
+            revealAfterHalf: true,
+            sheetSide: 'left',
+            sheetFront: from.left,
+            sheetBack: to.right,
+        };
+    }
+
+    if (forward) {
+        return {
+            direction: 'forward',
+            anchorLeft: from.left,
+            revealRight: to.right,
+            revealAfterHalf: true,
+            sheetSide: 'right',
+            sheetFront: from.right,
+            sheetBack: to.left,
+        };
+    }
+
+    return {
+        direction: 'backward',
+        anchorRight: from.right,
+        revealLeft: to.left,
+        revealAfterHalf: true,
+        sheetSide: 'left',
+        sheetFront: from.left,
+        sheetBack: to.right,
+    };
+}
+
+export default function BookModel({
+    album,
+    totalPages,
+    initialPage,
+    onPageChange,
+    showSamples = false,
+}) {
     const groupRef = useRef();
-    const [targetPage, setTargetPage] = useState(initialPage || 0);
+    const flippingRef = useRef(false);
+    const spreadOpts = useMemo(() => getSpreadContext(album, totalPages), [album, totalPages]);
 
-    useEffect(() => {
-        setTargetPage(initialPage);
-    }, [initialPage]);
+    const normalizedInitial = useMemo(
+        () => normalizeStoragePageIndex(initialPage ?? 0, totalPages, spreadOpts),
+        [initialPage, totalPages, spreadOpts]
+    );
+
+    const initialSpread = useMemo(
+        () => pageToSpreadIndex(normalizedInitial, { ...spreadOpts, totalPages }),
+        [normalizedInitial, spreadOpts, totalPages]
+    );
+
+    const [displaySpread, setDisplaySpread] = useState(initialSpread);
+    const [flip, setFlip] = useState(null);
+
+    const [{ rotY }, flipApi] = useSpring(() => ({ rotY: 0 }));
 
     const { width, height } = useMemo(() => getBook3dDimensions(album), [album]);
-    const spreadOpts = useMemo(() => getSpreadContext(album, totalPages), [album, totalPages]);
     const totalSpreads = useMemo(() => getTotalSpreads(totalPages, spreadOpts), [totalPages, spreadOpts]);
-    const targetSpread = useMemo(
-        () => pageToSpreadIndex(targetPage, { ...spreadOpts, totalPages }),
-        [targetPage, spreadOpts, totalPages]
-    );
 
     const wrapLayout = useMemo(() => {
         if (!album) return null;
@@ -281,6 +512,11 @@ export default function BookModel({ album, totalPages, initialPage, onPageChange
     const useWrapCrop = shouldUseWrapCrop(album, coverSrc, wrapLayout);
 
     const coverSlot = useMemo(() => ({ src: coverSrc }), [coverSrc]);
+    const coverFrontSlot = useMemo(
+        () => (coverSrc ? { src: coverSrc, panoramic: 'right' } : { src: null }),
+        [coverSrc]
+    );
+    const coverInsideSlot = useMemo(() => ({ src: null }), []);
     const closedFrontTex = useBookTexture(
         coverSlot,
         useWrapCrop ? wrapLayout : null,
@@ -301,73 +537,107 @@ export default function BookModel({ album, totalPages, initialPage, onPageChange
     const hasSpinePhoto = Boolean(coverSrc && useWrapCrop && wrapLayout?.hasSpine);
 
     const spineWidth = useMemo(() => getSpineWidth(width, album), [width, album]);
+    const pageDepth = Math.max(0.14, (totalSpreads - 1) * 0.006 + 0.06);
 
-    const leaves = useMemo(() => {
-        const lvs = [];
-        const numLeaves = Math.max(0, totalSpreads - 1);
+    const resolveSlot = useCallback(
+        (pageNum) => {
+            if (!album) return { src: null };
+            return resolveBook3dPageSlot(album, pageNum, totalPages, spreadOpts, { showSamples });
+        },
+        [album, totalPages, spreadOpts, showSamples]
+    );
 
-        const getSlot = (pageNum) => {
-            if (!album?.id || pageNum == null) return { src: null };
-            if (pageNum === 0 && spreadOpts.hasCovers) return { src: null };
-            if (pageNum === 1 && spreadOpts.hasCovers) {
-                return { src: resolveCoverImageSrc(album), panoramic: 'right' };
-            }
-            const { left: endLeft } = getSpreadPages(totalSpreads - 1, totalPages, spreadOpts);
-            if (pageNum === endLeft && spreadOpts.hasCovers) {
-                return { src: resolveCoverImageSrc(album), panoramic: 'left' };
-            }
-            const spreadLeft = getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
-            const cellId = pageNum === spreadLeft ? 1 : 2;
-            return getGridSlotPhoto(album?.id, pageNum, cellId, spreadLeft, totalPages, {
-                wholeSpread: isWholeSpreadLayout(album?.grid_layout),
-                spreadOpts,
-            });
-        };
+    const getSpreadSlots = useCallback(
+        (spreadIndex) => {
+            const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
+            return { left: resolveSlot(left), right: resolveSlot(right) };
+        },
+        [totalPages, spreadOpts, resolveSlot]
+    );
 
-        for (let i = 0; i < numLeaves; i++) {
-            const frontPageNum = getSpreadPages(i, totalPages, spreadOpts).right;
-            const backPageNum = getSpreadPages(i + 1, totalPages, spreadOpts).left;
-            lvs.push({
-                id: i,
-                frontSlot: getSlot(frontPageNum),
-                backSlot: getSlot(backPageNum),
-                isCover: i === 0 || i === numLeaves - 1,
-            });
-        }
-        return lvs;
-    }, [totalSpreads, totalPages, album, spreadOpts]);
+    const isClosedBack = isClosedBackSpread(displaySpread, totalSpreads, spreadOpts);
+    const isClosedFront = isClosedFrontSpread(displaySpread);
+    const isOpen = isOpenSpread(displaySpread, totalSpreads, spreadOpts);
 
-    const pageDepth = Math.max(0.14, leaves.length * 0.006 + 0.06);
-    const isClosedFront = targetSpread === 0;
-    const isClosedBack =
-        spreadOpts.hasCovers &&
-        totalSpreads > 1 &&
-        targetSpread >= totalSpreads - 1;
-    const isOpen = !isClosedFront && !isClosedBack;
-
-    const { positionX, closedRotY } = useSpring({
-        positionX: isOpen ? -width / 2 : 0,
+    const { closedRotY } = useSpring({
         closedRotY: isClosedBack ? Math.PI : 0,
-        config: { mass: 1, tension: 140, friction: 28 },
+        config: FLIP_CONFIG,
     });
 
-    const handleNextPage = () => {
-        if (targetSpread < totalSpreads - 1) {
-            const nextSpread = targetSpread + 1;
-            const nextPage = getSpreadPages(nextSpread, totalPages, spreadOpts).left;
-            setTargetPage(nextPage);
-            onPageChange?.(nextPage);
-        }
-    };
+    const displaySlots = useMemo(
+        () => getSpreadSlots(displaySpread),
+        [displaySpread, getSpreadSlots]
+    );
 
-    const handlePrevPage = () => {
-        if (targetSpread > 0) {
-            const prevSpread = targetSpread - 1;
-            const prevPage = getSpreadPages(prevSpread, totalPages, spreadOpts).left;
-            setTargetPage(prevPage);
-            onPageChange?.(prevPage);
+    const finishFlip = useCallback(
+        (toSpread) => {
+            flippingRef.current = false;
+            setDisplaySpread(toSpread);
+            setFlip(null);
+            flipApi.set({ rotY: 0 });
+        },
+        [flipApi]
+    );
+
+    const startFlip = useCallback(
+        (fromSpread, toSpread) => {
+            if (flippingRef.current || fromSpread === toSpread) return;
+            flippingRef.current = true;
+
+            const forward = toSpread > fromSpread;
+            let mode = 'page';
+
+            if (fromSpread === 0 && toSpread === 1) mode = 'cover-open';
+            else if (fromSpread === 1 && toSpread === 0) mode = 'cover-close';
+            else if (isClosedBackSpread(toSpread, totalSpreads, spreadOpts)) mode = 'back-close';
+            else if (isClosedBackSpread(fromSpread, totalSpreads, spreadOpts)) mode = 'back-open';
+
+            setFlip({ from: fromSpread, to: toSpread, mode, forward });
+
+            const opening = mode === 'cover-close' || mode === 'back-open';
+            const closing = mode === 'cover-open' || mode === 'back-close' || (mode === 'page' && forward);
+            let startRot = 0;
+            let endRot = -Math.PI;
+            if (opening) {
+                startRot = -Math.PI;
+                endRot = 0;
+            } else if (!closing) {
+                endRot = Math.PI;
+            }
+
+            flipApi.set({ rotY: startRot });
+            flipApi.start({
+                rotY: endRot,
+                config: FLIP_CONFIG,
+                onRest: (result) => {
+                    if (result.finished) finishFlip(toSpread);
+                },
+            });
+        },
+        [finishFlip, flipApi, spreadOpts, totalSpreads]
+    );
+
+    useEffect(() => {
+        const externalPage = normalizeStoragePageIndex(initialPage ?? 0, totalPages, spreadOpts);
+        const externalSpread = pageToSpreadIndex(externalPage, { ...spreadOpts, totalPages });
+        if (!flippingRef.current && externalSpread !== displaySpread) {
+            startFlip(displaySpread, externalSpread);
         }
-    };
+    }, [initialPage, totalPages, spreadOpts, displaySpread, startFlip]);
+
+    const navigate = useCallback(
+        (direction) => {
+            const nextSpread = displaySpread + direction;
+            if (nextSpread < 0 || nextSpread >= totalSpreads) return;
+            const nextPage = getSpreadPages(nextSpread, totalPages, spreadOpts).left;
+            startFlip(displaySpread, nextSpread);
+            onPageChange?.(nextPage);
+        },
+        [displaySpread, totalSpreads, totalPages, spreadOpts, startFlip, onPageChange]
+    );
+
+    const handleNextPage = useCallback(() => navigate(1), [navigate]);
+    const handlePrevPage = useCallback(() => navigate(-1), [navigate]);
 
     const bind = useDrag(
         ({ down, movement: [mx], cancel, event }) => {
@@ -383,20 +653,26 @@ export default function BookModel({ album, totalPages, initialPage, onPageChange
 
     const handleClick = (e) => {
         e.stopPropagation?.();
-        if (e.point && groupRef.current) {
-            if (e.point.x > groupRef.current.position.x) handleNextPage();
+        if (flippingRef.current) return;
+        if (e.point) {
+            if (e.point.x > 0) handleNextPage();
             else handlePrevPage();
         }
     };
 
+    const flipLayout = useMemo(() => {
+        if (!flip) return null;
+        const from = getSpreadSlots(flip.from);
+        const to = getSpreadSlots(flip.to);
+        return buildFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot);
+    }, [flip, getSpreadSlots, coverFrontSlot, coverInsideSlot]);
+
+    const showClosedIdle = !flip && (isClosedFront || isClosedBack);
+    const showOpenIdle = !flip && isOpen;
+
     return (
-        <a.group
-            ref={groupRef}
-            position-x={positionX}
-            {...bind()}
-            onClick={handleClick}
-        >
-            {(isClosedFront || isClosedBack) && (
+        <a.group ref={groupRef} {...bind()} onClick={handleClick}>
+            {showClosedIdle && (
                 <a.group rotation-y={closedRotY}>
                     <ClosedBook
                         width={width}
@@ -414,22 +690,29 @@ export default function BookModel({ album, totalPages, initialPage, onPageChange
                 </a.group>
             )}
 
-            {isOpen &&
-                leaves.map((leaf) => (
-                    <Leaf
-                        key={leaf.id}
-                        index={leaf.id}
-                        totalLeaves={leaves.length}
-                        frontSlot={leaf.frontSlot}
-                        backSlot={leaf.backSlot}
-                        isCover={leaf.isCover}
-                        targetSpread={targetSpread}
-                        width={width}
-                        height={height}
-                        wrapLayout={wrapLayout}
-                        useWrapCrop={useWrapCrop}
-                    />
-                ))}
+            {showOpenIdle && (
+                <OpenSpread
+                    leftSlot={displaySlots.left}
+                    rightSlot={displaySlots.right}
+                    width={width}
+                    height={height}
+                    coverSrc={coverSrc}
+                    wrapLayout={wrapLayout}
+                    useWrapCrop={useWrapCrop}
+                />
+            )}
+
+            {flip && flipLayout && (
+                <FlipSpread
+                    layout={flipLayout}
+                    rotY={rotY}
+                    width={width}
+                    height={height}
+                    coverSrc={coverSrc}
+                    wrapLayout={wrapLayout}
+                    useWrapCrop={useWrapCrop}
+                />
+            )}
         </a.group>
     );
 }

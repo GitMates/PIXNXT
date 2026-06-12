@@ -29,20 +29,29 @@ function proxyUrl(src) {
 
 function finalizeTexture(tex) {
     tex.colorSpace = THREE.SRGBColorSpace;
+    tex.minFilter = THREE.LinearFilter;
+    tex.magFilter = THREE.LinearFilter;
+    tex.generateMipmaps = false;
     tex.needsUpdate = true;
     return tex;
 }
 
-function applyPanoramic(tex, panoramic) {
+function applyPanoramic(tex, panoramic, { mirrorX = false } = {}) {
     if (!panoramic) return;
     tex.wrapS = THREE.ClampToEdgeWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
     if (panoramic === 'spine') {
         tex.repeat.set(0.06, 1);
         tex.offset.set(0.47, 0);
+        return;
+    }
+    const half = 0.5;
+    if (mirrorX) {
+        tex.repeat.set(-half, 1);
+        tex.offset.set(panoramic === 'left' ? half : 0, 0);
     } else {
-        tex.repeat.set(0.5, 1);
-        tex.offset.set(panoramic === 'left' ? 0 : 0.5, 0);
+        tex.repeat.set(half, 1);
+        tex.offset.set(panoramic === 'left' ? 0 : half, 0);
     }
 }
 
@@ -94,8 +103,9 @@ export function getSpineWidth(coverWidth, album) {
 
 const PANORAMIC_SIDE = { back: 'left', front: 'right', spine: 'spine' };
 
-export function useBookTexture(slot, layout, side) {
+export function useBookTexture(slot, layout, side, { mirrorX = false } = {}) {
     const [texture, setTexture] = useState(blankTexture);
+    const mirror = mirrorX || slot?.mirrorX === true;
 
     useEffect(() => {
         if (!slot?.src) {
@@ -114,9 +124,14 @@ export function useBookTexture(slot, layout, side) {
                 if (layout && side) {
                     applyWrapLayout(tex, layout, side);
                 } else if (slot.panoramic) {
-                    applyPanoramic(tex, slot.panoramic);
+                    applyPanoramic(tex, slot.panoramic, { mirrorX: mirror });
                 } else if (side && PANORAMIC_SIDE[side]) {
-                    applyPanoramic(tex, PANORAMIC_SIDE[side]);
+                    applyPanoramic(tex, PANORAMIC_SIDE[side], { mirrorX: mirror });
+                } else if (mirror) {
+                    tex.wrapS = THREE.ClampToEdgeWrapping;
+                    tex.wrapT = THREE.ClampToEdgeWrapping;
+                    tex.repeat.set(-1, 1);
+                    tex.offset.set(1, 0);
                 }
                 setTexture(finalizeTexture(tex));
             },
@@ -129,7 +144,7 @@ export function useBookTexture(slot, layout, side) {
         return () => {
             cancelled = true;
         };
-    }, [slot?.src, slot?.panoramic, layout, side]);
+    }, [slot?.src, slot?.panoramic, slot?.mirrorX, layout, side, mirror]);
 
     return texture;
 }
