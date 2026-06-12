@@ -807,10 +807,10 @@ export const smartAlbumsService = {
 
   async getAlbum(photographerId, albumId) {
     const fieldSets = [
+      `${ALBUM_LIST_FIELDS},preview_data`,
+      ALBUM_LIST_FIELDS,
       ALBUM_DETAIL_GRID_FIELDS,
       ALBUM_DETAIL_FIELDS_MINIMAL,
-      ALBUM_LIST_FIELDS,
-      `${ALBUM_LIST_FIELDS},preview_data`,
     ];
 
     let data = null;

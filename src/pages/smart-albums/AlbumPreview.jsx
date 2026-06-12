@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
+import BookScene from '../../components/smart-albums/3d/BookScene';
 import {
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -78,6 +79,7 @@ export default function AlbumPreview({
     const { user } = useAuth();
     const { toast, showToast, clearToast } = useAppToast(4500);
     const [bookPage, setBookPage] = useState(initialPage);
+    const [is3D, setIs3D] = useState(true);
 
     useEffect(() => {
         setBookPage(initialPage);
@@ -282,7 +284,16 @@ export default function AlbumPreview({
                 ) : (
                     <span className="av-preview-header-btn" aria-hidden />
                 )}
-                <h1 className="av-preview-header-title">{album?.name || 'Album'}</h1>
+                <div className="av-preview-header-title-wrap">
+                    <h1 className="av-preview-header-title">{album?.name || 'Album'}</h1>
+                    <button
+                        type="button"
+                        className="av-preview-view-toggle"
+                        onClick={() => setIs3D(!is3D)}
+                    >
+                        {is3D ? 'Switch to 2D' : 'View in 3D'}
+                    </button>
+                </div>
                 {clientPreview ? (
                     <AlbumPreviewProofActions
                         albumId={albumId}
@@ -303,28 +314,38 @@ export default function AlbumPreview({
                 <div className="av-preview-main">
                 <div className="av-preview-book-section">
                     <div className="av-viewer-body av-viewer-body--preview-book">
-                        <AlbumBook
-                            key={`${albumId}-preview`}
-                            album={albumForBook}
-                            totalPages={totalPages}
-                            initialPage={bookPage}
-                            onPageChange={handleBookPageChange}
-                            previewMode
-                            showSamples={false}
-                            transformRevision={photoRevision}
-                            proofSpotPicker={commentsEnabled || messagesEnabled}
-                            spotCanComment={commentsEnabled}
-                            spotCanSwap={messagesEnabled}
-                            swapMarkMode={false}
-                            pinMarkMode={false}
-                            proofToolsHover={false}
-                            placementMode={
-                                isWholeSpreadLayout(album?.grid_layout) ? 'whole' : 'single'
-                            }
-                            spreadCommentsBySpread={
-                                commentsEnabled ? spreadCommentsBySpread : null
-                            }
-                        />
+                        {is3D ? (
+                            <BookScene
+                                key={`${albumId}-preview-3d`}
+                                album={albumForBook}
+                                totalPages={totalPages}
+                                initialPage={bookPage}
+                                onPageChange={handleBookPageChange}
+                            />
+                        ) : (
+                            <AlbumBook
+                                key={`${albumId}-preview`}
+                                album={albumForBook}
+                                totalPages={totalPages}
+                                initialPage={bookPage}
+                                onPageChange={handleBookPageChange}
+                                previewMode
+                                showSamples={false}
+                                transformRevision={photoRevision}
+                                proofSpotPicker={commentsEnabled || messagesEnabled}
+                                spotCanComment={commentsEnabled}
+                                spotCanSwap={messagesEnabled}
+                                swapMarkMode={false}
+                                pinMarkMode={false}
+                                proofToolsHover={false}
+                                placementMode={
+                                    isWholeSpreadLayout(album?.grid_layout) ? 'whole' : 'single'
+                                }
+                                spreadCommentsBySpread={
+                                    commentsEnabled ? spreadCommentsBySpread : null
+                                }
+                            />
+                        )}
                     </div>
                 </div>
 
