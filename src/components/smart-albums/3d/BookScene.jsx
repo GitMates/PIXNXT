@@ -1,8 +1,13 @@
-import React, { Suspense, useMemo } from 'react';
+import React, { Suspense, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, ContactShadows } from '@react-three/drei';
 import BookModel from './BookModel';
+import {
+    BOOK_SCENE_CAMERA_DISTANCE,
+    BOOK_SCENE_CAMERA_FOV,
+    pagePxToBook3dWorld,
+} from '../albumBookDimensions';
 import { getBook3dDimensions } from './book3dTextures';
 import './BookScene.css';
 
@@ -13,16 +18,67 @@ export default function BookScene({
     onPageChange,
     showSamples = false,
     coversOnly = false,
+    placementMode = 'single',
+    onDisplaySpreadChange,
+    onFlipStateChange,
+    pageLayoutDims = null,
+    pageWorldDims = null,
+    matchAlbumBookLayout = false,
+    handoff = null,
+    onHandoffComplete,
+    lockCoverInteraction = false,
 }) {
-    const { height: bookHeight } = useMemo(() => getBook3dDimensions(album), [album]);
+    const sceneWrapRef = useRef(null);
+    const [canvasHeight, setCanvasHeight] = useState(0);
+    const latchedWorldDimsRef = useRef(null);
+
+    useLayoutEffect(() => {
+        const el = sceneWrapRef.current;
+        if (!el) return undefined;
+        const update = () => setCanvasHeight(el.clientHeight);
+        update();
+        const ro = new ResizeObserver(update);
+        ro.observe(el);
+        return () => ro.disconnect();
+    }, []);
+
+    const derivedWorldDims = useMemo(() => {
+        if (pageWorldDims) return pageWorldDims;
+        if (!pageLayoutDims || !canvasHeight) return null;
+        return pagePxToBook3dWorld(
+            pageLayoutDims.width,
+            pageLayoutDims.height,
+            canvasHeight,
+            {
+                fovDeg: BOOK_SCENE_CAMERA_FOV,
+                cameraDistance: BOOK_SCENE_CAMERA_DISTANCE,
+            }
+        );
+    }, [pageWorldDims, pageLayoutDims, canvasHeight]);
+
+    useLayoutEffect(() => {
+        if (derivedWorldDims) {
+            latchedWorldDimsRef.current = derivedWorldDims;
+        }
+    }, [derivedWorldDims]);
+
+    const resolvedWorldDims =
+        derivedWorldDims ??
+        (matchAlbumBookLayout ? latchedWorldDimsRef.current : null);
+
+    const fallbackDims = useMemo(() => getBook3dDimensions(album), [album]);
+    const bookHeight = resolvedWorldDims?.height ?? fallbackDims.height;
     const shadowY = -(bookHeight / 2 + 0.2);
 
     return (
-        <div className="ab-book-scene">
+        <div className="ab-book-scene" ref={sceneWrapRef}>
             <Canvas
                 shadows={{ enabled: true, type: THREE.PCFShadowMap }}
                 dpr={[1, 2]}
-                camera={{ position: [0, 0, 6], fov: 34 }}
+                camera={{
+                    position: [0, 0, BOOK_SCENE_CAMERA_DISTANCE],
+                    fov: BOOK_SCENE_CAMERA_FOV,
+                }}
                 gl={{
                     outputColorSpace: THREE.SRGBColorSpace,
                     toneMapping: THREE.NoToneMapping,
@@ -54,6 +110,13 @@ export default function BookScene({
                         onPageChange={onPageChange}
                         showSamples={showSamples}
                         coversOnly={coversOnly}
+                        placementMode={placementMode}
+                        onDisplaySpreadChange={onDisplaySpreadChange}
+                        onFlipStateChange={onFlipStateChange}
+                        pageWorldDims={resolvedWorldDims}
+                        handoff={handoff}
+                        onHandoffComplete={onHandoffComplete}
+                        lockCoverInteraction={lockCoverInteraction}
                     />
                 </Suspense>
 

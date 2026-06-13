@@ -663,9 +663,18 @@ export default function BookModel({
     onPageChange,
     showSamples = false,
     coversOnly = true,
+    placementMode = 'single',
+    onDisplaySpreadChange,
+    onFlipStateChange,
+    pageWorldDims = null,
+    handoff = null,
+    onHandoffComplete,
+    lockCoverInteraction = false,
 }) {
     const groupRef = useRef();
     const flippingRef = useRef(false);
+    const handoffRef = useRef(null);
+    const handoffStartedRef = useRef(false);
     const spreadOpts = useMemo(() => getSpreadContext(album, totalPages), [album, totalPages]);
 
     const normalizedInitial = useMemo(
@@ -684,7 +693,12 @@ export default function BookModel({
 
     const [{ rotY }, flipApi] = useSpring(() => ({ rotY: 0 }));
 
-    const { width, height, aspect: pageAspect } = useMemo(() => getBook3dDimensions(album), [album]);
+    const { width, height, aspect: pageAspect } = useMemo(() => {
+        if (pageWorldDims?.width > 0 && pageWorldDims?.height > 0) {
+            return pageWorldDims;
+        }
+        return getBook3dDimensions(album);
+    }, [album, pageWorldDims]);
     const totalSpreads = useMemo(() => getTotalSpreads(totalPages, spreadOpts), [totalPages, spreadOpts]);
 
     useEffect(() => {
@@ -753,9 +767,12 @@ export default function BookModel({
     const resolveSlot = useCallback(
         (pageNum) => {
             if (!album || coversOnly) return { src: null };
-            return resolveBook3dPageSlot(album, pageNum, totalPages, spreadOpts, { showSamples });
+            return resolveBook3dPageSlot(album, pageNum, totalPages, spreadOpts, {
+                showSamples,
+                placementMode,
+            });
         },
-        [album, totalPages, spreadOpts, showSamples, coversOnly]
+        [album, totalPages, spreadOpts, showSamples, coversOnly, placementMode]
     );
 
     const getSpreadSlots = useCallback(
@@ -786,11 +803,20 @@ export default function BookModel({
         [displaySpread, getSpreadSlots]
     );
 
-    const finishFlip = useCallback((toSpread) => {
-        flippingRef.current = false;
-        setFlip(null);
-        setDisplaySpread(toSpread);
-    }, []);
+    const finishFlip = useCallback(
+        (toSpread) => {
+            flippingRef.current = false;
+            setFlip(null);
+            setDisplaySpread(toSpread);
+            onFlipStateChange?.(false);
+            if (handoffRef.current) {
+                const { targetPage, mode } = handoffRef.current;
+                handoffRef.current = null;
+                onHandoffComplete?.(targetPage, mode);
+            }
+        },
+        [onFlipStateChange, onHandoffComplete]
+    );
 
     const startFlip = useCallback(
         (fromSpread, toSpread) => {
@@ -804,15 +830,8 @@ export default function BookModel({
             else if (isClosedBackSpread(toSpread, totalSpreads, spreadOpts)) mode = 'back-close';
             else if (isClosedBackSpread(fromSpread, totalSpreads, spreadOpts)) mode = 'back-open';
 
-            // Inside pages are blank in coversOnly mode — snap past cover/back reveal flips.
-            if (coversOnly && (mode === 'cover-open' || mode === 'back-open')) {
-                flippingRef.current = false;
-                setFlip(null);
-                setDisplaySpread(toSpread);
-                return;
-            }
-
             flippingRef.current = true;
+            onFlipStateChange?.(true);
 
             setFlip({ from: fromSpread, to: toSpread, mode, forward });
 
@@ -836,16 +855,43 @@ export default function BookModel({
                 },
             });
         },
-        [finishFlip, flipApi, spreadOpts, totalSpreads, coversOnly]
+        [finishFlip, flipApi, spreadOpts, totalSpreads, onFlipStateChange]
     );
 
     useEffect(() => {
+        handoffRef.current = handoff;
+        handoffStartedRef.current = false;
+    }, [handoff]);
+
+    useEffect(() => {
+        if (!handoff || handoffStartedRef.current) return undefined;
+        handoffStartedRef.current = true;
+        const fromSpread = handoff.fromSpread;
+        const toSpread = pageToSpreadIndex(
+            normalizeStoragePageIndex(handoff.targetPage, totalPages, spreadOpts),
+            { ...spreadOpts, totalPages }
+        );
+        setDisplaySpread(fromSpread);
+        const timer = requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                startFlip(fromSpread, toSpread);
+            });
+        });
+        return () => cancelAnimationFrame(timer);
+    }, [handoff, spreadOpts, startFlip, totalPages]);
+
+    useEffect(() => {
+        onDisplaySpreadChange?.(displaySpread);
+    }, [displaySpread, onDisplaySpreadChange]);
+
+    useEffect(() => {
+        if (handoffRef.current || handoff) return;
         const externalPage = normalizeStoragePageIndex(initialPage ?? 0, totalPages, spreadOpts);
         const externalSpread = pageToSpreadIndex(externalPage, { ...spreadOpts, totalPages });
         if (!flippingRef.current && externalSpread !== displaySpread) {
             startFlip(displaySpread, externalSpread);
         }
-    }, [initialPage, totalPages, spreadOpts, displaySpread, startFlip]);
+    }, [initialPage, totalPages, spreadOpts, displaySpread, startFlip, handoff]);
 
     const navigate = useCallback(
         (direction) => {
@@ -863,6 +909,7 @@ export default function BookModel({
 
     const bind = useDrag(
         ({ down, movement: [mx], cancel, event }) => {
+            if (lockCoverInteraction) return;
             if (!down && Math.abs(mx) > 30) {
                 event?.stopPropagation?.();
                 if (mx > 0) handlePrevPage();
@@ -870,12 +917,13 @@ export default function BookModel({
                 cancel();
             }
         },
-        { filterTaps: true }
+        { filterTaps: true, enabled: !lockCoverInteraction }
     );
 
     const handleClick = (e) => {
         e.stopPropagation?.();
-        if (flippingRef.current) return;
+        if (lockCoverInteraction) return;
+        if (flippingRef.current || handoffRef.current || handoff) return;
         if (e.point) {
             if (e.point.x > 0) handleNextPage();
             else handlePrevPage();

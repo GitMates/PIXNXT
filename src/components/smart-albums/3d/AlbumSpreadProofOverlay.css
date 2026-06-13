@@ -1,0 +1,48 @@
+.ab-spread-proof-overlay {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(72vw, 880px);
+  max-height: 78%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ab-spread-proof-overlay__spread {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.ab-spread-proof-overlay .ab-photo-pin-layer {
+  pointer-events: auto;
+}
+
+.ab-spread-proof-overlay .ab-flip-page {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.ab-spread-proof-overlay .ab-grid-cell-photo,
+.ab-spread-proof-overlay .ab-page-photo,
+.ab-spread-proof-overlay .ab-pano-bleed img,
+.ab-spread-proof-overlay .ab-book-wrap-cover-img {
+  opacity: 0 !important;
+}
+
+.ab-spread-proof-overlay .ab-page-empty {
+  background: transparent !important;
+}
+
+.ab-spread-proof-overlay .ab-page-photo-wrap,
+.ab-spread-proof-overlay .ab-grid-cell {
+  background: transparent !important;
+}

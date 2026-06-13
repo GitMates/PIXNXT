@@ -841,6 +841,13 @@
   min-height: 320px;
 }
 
+.av-viewer-body--preview-book .ab-book-hybrid-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+}
+
 /* Shrink flipbook so footer stays on screen (override AlbumBook preview viewport sizing) */
 .av-page--preview.av-page--with-comments .ab-book-stage {
   min-height: 0 !important;
