@@ -6,7 +6,14 @@ import BookModel from './BookModel';
 import { getBook3dDimensions } from './book3dTextures';
 import './BookScene.css';
 
-export default function BookScene({ album, totalPages, initialPage, onPageChange, showSamples = false }) {
+export default function BookScene({
+    album,
+    totalPages,
+    initialPage,
+    onPageChange,
+    showSamples = false,
+    coversOnly = true,
+}) {
     const { height: bookHeight } = useMemo(() => getBook3dDimensions(album), [album]);
     const shadowY = -(bookHeight / 2 + 0.2);
 
@@ -47,6 +54,7 @@ export default function BookScene({ album, totalPages, initialPage, onPageChange
                         initialPage={initialPage}
                         onPageChange={onPageChange}
                         showSamples={showSamples}
+                        coversOnly={coversOnly}
                     />
                 </Suspense>
 

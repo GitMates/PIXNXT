@@ -321,6 +321,7 @@ export default function AlbumPreview({
                                 totalPages={totalPages}
                                 initialPage={bookPage}
                                 onPageChange={handleBookPageChange}
+                                coversOnly
                             />
                         ) : (
                             <AlbumBook

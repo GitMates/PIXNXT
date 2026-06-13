@@ -542,8 +542,18 @@ function isOpenSpread(spreadIndex, totalSpreads, spreadOpts) {
 }
 
 /** Layer layout matches 2D AlbumPageFlipAnimation (static + under + leaf). */
-function buildFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot, spreadOpts, totalPages) {
+function buildFlipLayout(
+    flip,
+    from,
+    to,
+    coverFrontSlot,
+    coverInsideSlot,
+    spreadOpts,
+    totalPages,
+    coversOnly = false
+) {
     const spreadLeft = (pageNum) => spreadLeftForPage(pageNum, spreadOpts, totalPages);
+    const coverSheetFront = coversOnly ? coverInsideSlot : coverFrontSlot;
 
     if (flip.mode === 'cover-open') {
         return {
@@ -553,7 +563,7 @@ function buildFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot, spread
             underRight: to.right,
             underRightPageNum: to.rightPageNum,
             sheetSide: 'right',
-            sheetFront: coverFrontSlot,
+            sheetFront: coverSheetFront,
             sheetBack: coverInsideSlot,
             sheetFrontPageNum: 1,
             sheetBackPageNum: to.leftPageNum,
@@ -652,6 +662,7 @@ export default function BookModel({
     initialPage,
     onPageChange,
     showSamples = false,
+    coversOnly = true,
 }) {
     const groupRef = useRef();
     const flippingRef = useRef(false);
@@ -741,10 +752,10 @@ export default function BookModel({
 
     const resolveSlot = useCallback(
         (pageNum) => {
-            if (!album) return { src: null };
+            if (!album || coversOnly) return { src: null };
             return resolveBook3dPageSlot(album, pageNum, totalPages, spreadOpts, { showSamples });
         },
-        [album, totalPages, spreadOpts, showSamples]
+        [album, totalPages, spreadOpts, showSamples, coversOnly]
     );
 
     const getSpreadSlots = useCallback(
@@ -775,20 +786,15 @@ export default function BookModel({
         [displaySpread, getSpreadSlots]
     );
 
-    const finishFlip = useCallback(
-        (toSpread) => {
-            flippingRef.current = false;
-            setDisplaySpread(toSpread);
-            setFlip(null);
-            flipApi.set({ rotY: 0 });
-        },
-        [flipApi]
-    );
+    const finishFlip = useCallback((toSpread) => {
+        flippingRef.current = false;
+        setFlip(null);
+        setDisplaySpread(toSpread);
+    }, []);
 
     const startFlip = useCallback(
         (fromSpread, toSpread) => {
             if (flippingRef.current || fromSpread === toSpread) return;
-            flippingRef.current = true;
 
             const forward = toSpread > fromSpread;
             let mode = 'page';
@@ -797,6 +803,16 @@ export default function BookModel({
             else if (fromSpread === 1 && toSpread === 0) mode = 'cover-close';
             else if (isClosedBackSpread(toSpread, totalSpreads, spreadOpts)) mode = 'back-close';
             else if (isClosedBackSpread(fromSpread, totalSpreads, spreadOpts)) mode = 'back-open';
+
+            // Inside pages are blank in coversOnly mode — snap past cover/back reveal flips.
+            if (coversOnly && (mode === 'cover-open' || mode === 'back-open')) {
+                flippingRef.current = false;
+                setFlip(null);
+                setDisplaySpread(toSpread);
+                return;
+            }
+
+            flippingRef.current = true;
 
             setFlip({ from: fromSpread, to: toSpread, mode, forward });
 
@@ -815,12 +831,12 @@ export default function BookModel({
             flipApi.start({
                 rotY: endRot,
                 config: FLIP_CONFIG,
-                onRest: (result) => {
-                    if (result.finished) finishFlip(toSpread);
+                onRest: () => {
+                    finishFlip(toSpread);
                 },
             });
         },
-        [finishFlip, flipApi, spreadOpts, totalSpreads]
+        [finishFlip, flipApi, spreadOpts, totalSpreads, coversOnly]
     );
 
     useEffect(() => {
@@ -877,9 +893,10 @@ export default function BookModel({
             coverFrontSlot,
             coverInsideSlot,
             spreadOpts,
-            totalPages
+            totalPages,
+            coversOnly
         );
-    }, [flip, getSpreadSlots, coverFrontSlot, coverInsideSlot, spreadOpts, totalPages]);
+    }, [flip, getSpreadSlots, coverFrontSlot, coverInsideSlot, spreadOpts, totalPages, coversOnly]);
 
     const showClosedIdle = !flip && (isClosedFront || isClosedBack);
     const showOpenIdle = !flip && isOpen;
