@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
+import { getProxiedMediaFetchUrl } from '../../../lib/r2MediaProxy';
 import { parseGridSizeAspect } from '../albumGridSize';
 import { getBookWrapSpineLayout } from '../bookWrapSpine';
 import { albumHasBlankCovers, albumUsesBookWrap } from '../albumSpreadUtils';
@@ -23,14 +24,6 @@ const blankTexture = (() => {
 const textureCache = new Map();
 const pendingLoads = new Map();
 
-function proxyUrl(src) {
-    if (!src) return null;
-    const r2PublicUrl = import.meta.env.VITE_R2_PUBLIC_URL;
-    if (r2PublicUrl && src.startsWith(r2PublicUrl)) {
-        return src.replace(r2PublicUrl, '/api/r2-media');
-    }
-    return src;
-}
 
 function finalizeTexture(tex) {
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -160,7 +153,7 @@ function configureTexture(tex, slot, layout, side, { mirrorX = false, pageAspect
 }
 
 function loadConfiguredTexture(src, config) {
-    const url = proxyUrl(src);
+    const url = getProxiedMediaFetchUrl(src);
     const key = textureCacheKey(src, {
         panoramic: config.slot?.panoramic,
         layout: config.layout,

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
-import BookHybridView from '../../components/smart-albums/3d/BookHybridView';
+import BookScene from '../../components/smart-albums/3d/BookScene';
 import {
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -338,14 +338,13 @@ export default function AlbumPreview({
                 <div className="av-preview-book-section">
                     <div className="av-viewer-body av-viewer-body--preview-book">
                         {is3D ? (
-                            <BookHybridView
-                                key={`${albumId}-preview-hybrid-r${photoRevision}`}
+                            <BookScene
+                                key={`${albumId}-preview-3d-r${photoRevision}`}
                                 album={albumForBook}
                                 totalPages={totalPages}
                                 initialPage={bookPage}
                                 onPageChange={handleBookPageChange}
                                 showSamples={false}
-                                albumBookProps={albumBookProps}
                             />
                         ) : (
                             <AlbumBook

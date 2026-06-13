@@ -10,9 +10,9 @@ export default function BookScene({
     album,
     totalPages,
     initialPage,
-    onTransitionComplete,
+    onPageChange,
     showSamples = false,
-    animateFromSpread = null,
+    coversOnly = false,
 }) {
     const { height: bookHeight } = useMemo(() => getBook3dDimensions(album), [album]);
     const shadowY = -(bookHeight / 2 + 0.2);
@@ -51,9 +51,9 @@ export default function BookScene({
                         album={album}
                         totalPages={totalPages}
                         initialPage={initialPage}
-                        onTransitionComplete={onTransitionComplete}
+                        onPageChange={onPageChange}
                         showSamples={showSamples}
-                        animateFromSpread={animateFromSpread}
+                        coversOnly={coversOnly}
                     />
                 </Suspense>
 

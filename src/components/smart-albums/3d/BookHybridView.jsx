@@ -152,9 +152,9 @@ export default function BookHybridView({
                         album={album}
                         totalPages={totalPages}
                         initialPage={sceneInitialPage}
-                        animateFromSpread={sceneFromSpread}
-                        onTransitionComplete={handleCoverTransitionComplete}
+                        onPageChange={handleCoverTransitionComplete}
                         showSamples={showSamples}
+                        coversOnly
                     />
                 </div>
 

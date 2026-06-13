@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { getProxiedMediaFetchUrl } from '../../../lib/r2MediaProxy';
 import { normalizePhotoTransform } from '../albumPageTransforms';
 
 const imageCache = new Map();
@@ -9,17 +10,8 @@ const pending = new Map();
 
 const TEX_W = 1024;
 
-function proxyUrl(src) {
-    if (!src) return null;
-    const r2PublicUrl = import.meta.env.VITE_R2_PUBLIC_URL;
-    if (r2PublicUrl && src.startsWith(r2PublicUrl)) {
-        return src.replace(r2PublicUrl, '/api/r2-media');
-    }
-    return src;
-}
-
 function loadImage(src) {
-    const url = proxyUrl(src);
+    const url = getProxiedMediaFetchUrl(src);
     const cached = imageCache.get(url);
     if (cached) return Promise.resolve(cached);
 
@@ -28,7 +20,9 @@ function loadImage(src) {
 
     const promise = new Promise((resolve, reject) => {
         const img = new Image();
-        img.crossOrigin = 'anonymous';
+        if (!url.startsWith('blob:') && !url.startsWith('data:')) {
+            img.crossOrigin = 'anonymous';
+        }
         img.onload = () => {
             imageCache.set(url, img);
             pending.delete(url);
