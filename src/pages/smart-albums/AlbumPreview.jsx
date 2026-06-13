@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
-import BookScene from '../../components/smart-albums/3d/BookScene';
+import BookHybridView from '../../components/smart-albums/3d/BookHybridView';
 import {
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -272,6 +272,29 @@ export default function AlbumPreview({
         [onPageChange, totalPages]
     );
 
+    const albumBookProps = useMemo(
+        () => ({
+            previewMode: true,
+            showSamples: false,
+            transformRevision: photoRevision,
+            proofSpotPicker: commentsEnabled || messagesEnabled,
+            spotCanComment: commentsEnabled,
+            spotCanSwap: messagesEnabled,
+            swapMarkMode: false,
+            pinMarkMode: false,
+            proofToolsHover: false,
+            placementMode: isWholeSpreadLayout(album?.grid_layout) ? 'whole' : 'single',
+            spreadCommentsBySpread: commentsEnabled ? spreadCommentsBySpread : null,
+        }),
+        [
+            photoRevision,
+            commentsEnabled,
+            messagesEnabled,
+            album?.grid_layout,
+            spreadCommentsBySpread,
+        ]
+    );
+
     return (
         <div className="av-page av-page--preview av-page--gallery-proof av-page--with-comments">
             <header className="av-preview-header">
@@ -315,13 +338,14 @@ export default function AlbumPreview({
                 <div className="av-preview-book-section">
                     <div className="av-viewer-body av-viewer-body--preview-book">
                         {is3D ? (
-                            <BookScene
-                                key={`${albumId}-preview-3d-r${photoRevision}`}
+                            <BookHybridView
+                                key={`${albumId}-preview-hybrid-r${photoRevision}`}
                                 album={albumForBook}
                                 totalPages={totalPages}
                                 initialPage={bookPage}
                                 onPageChange={handleBookPageChange}
-                                coversOnly
+                                showSamples={false}
+                                albumBookProps={albumBookProps}
                             />
                         ) : (
                             <AlbumBook
@@ -330,21 +354,7 @@ export default function AlbumPreview({
                                 totalPages={totalPages}
                                 initialPage={bookPage}
                                 onPageChange={handleBookPageChange}
-                                previewMode
-                                showSamples={false}
-                                transformRevision={photoRevision}
-                                proofSpotPicker={commentsEnabled || messagesEnabled}
-                                spotCanComment={commentsEnabled}
-                                spotCanSwap={messagesEnabled}
-                                swapMarkMode={false}
-                                pinMarkMode={false}
-                                proofToolsHover={false}
-                                placementMode={
-                                    isWholeSpreadLayout(album?.grid_layout) ? 'whole' : 'single'
-                                }
-                                spreadCommentsBySpread={
-                                    commentsEnabled ? spreadCommentsBySpread : null
-                                }
+                                {...albumBookProps}
                             />
                         )}
                     </div>

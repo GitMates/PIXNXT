@@ -1,0 +1,21 @@
+.ab-book-hybrid {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+}
+
+.ab-book-hybrid--cover {
+  flex: 1;
+  min-height: 320px;
+}
+
+.ab-book-hybrid-cover-stage {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+}
+
+.ab-book-hybrid-cover-stage .ab-book-scene {
+  height: 100%;
+}
