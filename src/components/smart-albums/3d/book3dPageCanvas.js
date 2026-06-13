@@ -194,7 +194,8 @@ function wrapCacheExtra(layout, side, transform, panelAspect) {
     const layoutKey = layout
         ? `${layout.spineStartFraction}:${layout.spineEndFraction}:${layout.spineFraction}`
         : '';
-    return `${side || ''}|${layoutKey}|${transformKey(transform)}|${panelAspect || ''}`;
+    const spineFlip = side === 'spine' ? 'inv' : '';
+    return `${side || ''}|${layoutKey}|${transformKey(transform)}|${panelAspect || ''}|${spineFlip}`;
 }
 
 export function getWrapCanvasTexture(src, layout, side, transform, panelAspect) {
@@ -212,6 +213,9 @@ export function getWrapCanvasTexture(src, layout, side, transform, panelAspect) 
     drawWrapSegment(ctx, null, texW, texH, layout, side, transform);
 
     const tex = makeCanvasTexture(canvas);
+    if (side === 'spine') {
+        applySpineTextureInvert(tex);
+    }
     textureCache.set(key, tex);
 
     loadImage(src)
@@ -233,6 +237,12 @@ function makeCanvasTexture(canvas) {
     tex.generateMipmaps = false;
     tex.needsUpdate = true;
     return tex;
+}
+
+/** Spine plane Y-rotation reverses U — flip so text reads correctly edge-on. */
+function applySpineTextureInvert(tex) {
+    tex.repeat.set(-1, 1);
+    tex.offset.set(1, 0);
 }
 
 let sharedBlank = null;
