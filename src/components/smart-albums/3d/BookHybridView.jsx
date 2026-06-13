@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../AlbumBook';
 import BookScene from './BookScene';
 import {
@@ -50,7 +50,7 @@ export function isCoverSpread(spreadIndex, totalSpreads) {
 }
 
 /**
- * Hybrid preview: 3D closed book on covers, 2D AlbumBook for inner pages and turns.
+ * Hybrid preview: 3D covers with open/close animation, 2D AlbumBook for inner spreads.
  */
 export default function BookHybridView({
     album,
@@ -70,31 +70,68 @@ export default function BookHybridView({
         [initialPage, spreadOpts, totalPages]
     );
 
-    const use3dCover = spreadOpts.hasCovers && isCoverSpread(spreadIndex, totalSpreads);
+    const [sceneBridge, setSceneBridge] = useState(null);
 
-    const prevNavDisabled = spreadIndex <= 0;
-    const nextNavDisabled = spreadIndex >= totalSpreads - 1;
+    useEffect(() => {
+        if (!sceneBridge) return;
+        if (initialPage === sceneBridge.targetPage) {
+            setSceneBridge(null);
+        }
+    }, [initialPage, sceneBridge]);
 
-    const goToSpread = useCallback(
-        (targetSpread) => {
-            if (targetSpread < 0 || targetSpread >= totalSpreads) return;
-            const { left } = getSpreadPages(targetSpread, totalPages, spreadOpts);
-            onPageChange?.(left);
+    const onCoverSpread = spreadOpts.hasCovers && isCoverSpread(spreadIndex, totalSpreads);
+    const show3dScene = onCoverSpread || sceneBridge != null;
+
+    const navLocked = sceneBridge != null;
+
+    const prevNavDisabled = navLocked || spreadIndex <= 0;
+    const nextNavDisabled = navLocked || spreadIndex >= totalSpreads - 1;
+
+    const handleCoverTransitionComplete = useCallback(
+        (pageIdx) => {
+            onPageChange?.(pageIdx);
         },
-        [onPageChange, spreadOpts, totalPages, totalSpreads]
+        [onPageChange]
+    );
+
+    const handleInnerPageChange = useCallback(
+        (pageIdx) => {
+            const nextSpread = pageToSpreadIndex(pageIdx, { ...spreadOpts, totalPages });
+            const closingFrontCover = spreadIndex === 1 && nextSpread === 0;
+            const closingBackCover =
+                spreadIndex === totalSpreads - 2 && nextSpread === totalSpreads - 1;
+
+            if (closingFrontCover || closingBackCover) {
+                setSceneBridge({ fromSpread: spreadIndex, targetPage: pageIdx });
+                return;
+            }
+
+            onPageChange?.(pageIdx);
+        },
+        [onPageChange, spreadIndex, spreadOpts, totalPages, totalSpreads]
     );
 
     const goPrev = useCallback(() => {
-        if (prevNavDisabled) return;
-        goToSpread(spreadIndex - 1);
-    }, [goToSpread, prevNavDisabled, spreadIndex]);
+        if (prevNavDisabled || !show3dScene) return;
+        if (spreadIndex === totalSpreads - 1) {
+            const { left } = getSpreadPages(totalSpreads - 2, totalPages, spreadOpts);
+            onPageChange?.(left);
+        }
+    }, [onPageChange, prevNavDisabled, show3dScene, spreadIndex, spreadOpts, totalPages, totalSpreads]);
 
     const goNext = useCallback(() => {
-        if (nextNavDisabled) return;
-        goToSpread(spreadIndex + 1);
-    }, [goToSpread, nextNavDisabled, spreadIndex]);
+        if (nextNavDisabled || !show3dScene) return;
+        if (spreadIndex === 0) {
+            const { left } = getSpreadPages(1, totalPages, spreadOpts);
+            onPageChange?.(left);
+        }
+    }, [nextNavDisabled, onPageChange, show3dScene, spreadIndex, spreadOpts, totalPages]);
 
-    if (use3dCover) {
+    const sceneInitialPage = sceneBridge?.targetPage ?? initialPage;
+    const sceneFromSpread = sceneBridge?.fromSpread ?? null;
+    const sceneKey = `${album?.id ?? 'album'}-3d-cover`;
+
+    if (show3dScene) {
         return (
             <div className="ab-book-hybrid ab-book-hybrid--cover ab-root ab-root--preview">
                 <button
@@ -111,12 +148,13 @@ export default function BookHybridView({
 
                 <div className="ab-book-hybrid-cover-stage">
                     <BookScene
+                        key={sceneKey}
                         album={album}
                         totalPages={totalPages}
-                        initialPage={initialPage}
-                        onPageChange={onPageChange}
+                        initialPage={sceneInitialPage}
+                        animateFromSpread={sceneFromSpread}
+                        onTransitionComplete={handleCoverTransitionComplete}
                         showSamples={showSamples}
-                        coversOnly
                     />
                 </div>
 
@@ -141,8 +179,9 @@ export default function BookHybridView({
                 album={album}
                 totalPages={totalPages}
                 initialPage={initialPage}
-                onPageChange={onPageChange}
+                onPageChange={handleInnerPageChange}
                 showSamples={showSamples}
+                coverHandoff3d
                 {...albumBookProps}
             />
         </div>

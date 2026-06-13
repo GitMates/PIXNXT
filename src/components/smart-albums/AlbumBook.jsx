@@ -181,6 +181,7 @@ const AlbumBook = ({
     proofSpotPicker = false,
     spotCanComment = false,
     spotCanSwap = false,
+    coverHandoff3d = false,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -644,6 +645,11 @@ const AlbumBook = ({
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
 
+        if (coverHandoff3d && album?.has_covers && spreadIndex === 1) {
+            onPageChange?.(0);
+            return;
+        }
+
         if (
             album?.has_covers &&
             spreadIndex === 1 &&
@@ -682,11 +688,17 @@ const AlbumBook = ({
 
         if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
         else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-    }, [album?.has_covers, beginEndRevealFlip, endCoverOnly, spreadIndex, spreadOpts, totalPages]);
+    }, [album?.has_covers, beginEndRevealFlip, coverHandoff3d, endCoverOnly, onPageChange, spreadIndex, spreadOpts, totalPages]);
 
     const flipNext = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
+
+        if (coverHandoff3d && album?.has_covers && spreadIndex === totalSpreads - 2) {
+            const { left } = getSpreadPages(totalSpreads - 1, totalPages, spreadOpts);
+            onPageChange?.(left);
+            return;
+        }
 
         if (album?.has_covers && spreadIndex === 0) {
             const current = api.getCurrentPageIndex();
@@ -724,7 +736,7 @@ const AlbumBook = ({
 
         if (typeof api.flipNext === 'function') api.flipNext(FLIP_CORNER);
         else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
-    }, [album?.has_covers, beginCoverRevealFlip, spreadIndex, spreadOpts, totalPages, totalSpreads]);
+    }, [album?.has_covers, beginCoverRevealFlip, coverHandoff3d, onPageChange, spreadIndex, spreadOpts, totalPages, totalSpreads]);
 
     useEffect(() => {
         if (!initialized || bookFlipping || coverClipTransition) return;

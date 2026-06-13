@@ -10,9 +10,9 @@ export default function BookScene({
     album,
     totalPages,
     initialPage,
-    onPageChange,
+    onTransitionComplete,
     showSamples = false,
-    coversOnly = true,
+    animateFromSpread = null,
 }) {
     const { height: bookHeight } = useMemo(() => getBook3dDimensions(album), [album]);
     const shadowY = -(bookHeight / 2 + 0.2);
@@ -31,7 +31,6 @@ export default function BookScene({
             >
                 <color attach="background" args={['#efefef']} />
 
-                {/* Soft fill — photos use unlit materials so lighting only affects boards/shadows */}
                 <ambientLight intensity={0.65} />
                 <directionalLight
                     castShadow
@@ -52,9 +51,9 @@ export default function BookScene({
                         album={album}
                         totalPages={totalPages}
                         initialPage={initialPage}
-                        onPageChange={onPageChange}
+                        onTransitionComplete={onTransitionComplete}
                         showSamples={showSamples}
-                        coversOnly={coversOnly}
+                        animateFromSpread={animateFromSpread}
                     />
                 </Suspense>
 
