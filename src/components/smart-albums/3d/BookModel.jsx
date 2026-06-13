@@ -385,7 +385,7 @@ function buildCoverFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot) {
             anchorLeft: to.left,
             underRight: to.right,
             sheetSide: 'right',
-            sheetFront: coverInsideSlot,
+            sheetFront: coverFrontSlot,
             sheetBack: coverInsideSlot,
         };
     }
@@ -569,13 +569,6 @@ export default function BookModel({
 
             const mode = resolveCoverFlipMode(fromSpread, toSpread, totalSpreads, spreadOpts);
             if (!mode) return;
-
-            // Opening transitions hand off to 2D AlbumBook — no blank 3D spread.
-            if (mode === 'cover-open' || mode === 'back-open') {
-                const { left } = getSpreadPages(toSpread, totalPages, spreadOpts);
-                onTransitionComplete?.(left);
-                return;
-            }
 
             flippingRef.current = true;
             flipModeRef.current = mode;

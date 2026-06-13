@@ -115,17 +115,17 @@ export default function BookHybridView({
         if (prevNavDisabled || !show3dScene) return;
         if (spreadIndex === totalSpreads - 1) {
             const { left } = getSpreadPages(totalSpreads - 2, totalPages, spreadOpts);
-            onPageChange?.(left);
+            setSceneBridge({ fromSpread: spreadIndex, targetPage: left });
         }
-    }, [onPageChange, prevNavDisabled, show3dScene, spreadIndex, spreadOpts, totalPages, totalSpreads]);
+    }, [prevNavDisabled, show3dScene, spreadIndex, spreadOpts, totalPages, totalSpreads]);
 
     const goNext = useCallback(() => {
         if (nextNavDisabled || !show3dScene) return;
         if (spreadIndex === 0) {
             const { left } = getSpreadPages(1, totalPages, spreadOpts);
-            onPageChange?.(left);
+            setSceneBridge({ fromSpread: spreadIndex, targetPage: left });
         }
-    }, [nextNavDisabled, onPageChange, show3dScene, spreadIndex, spreadOpts, totalPages]);
+    }, [nextNavDisabled, show3dScene, spreadIndex, spreadOpts, totalPages]);
 
     const sceneInitialPage = sceneBridge?.targetPage ?? initialPage;
     const sceneFromSpread = sceneBridge?.fromSpread ?? null;
