@@ -2,7 +2,8 @@ import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { useSpring, a } from '@react-spring/three';
 import { useDrag } from '@use-gesture/react';
 import * as THREE from 'three';
-import { resolveCoverImageSrc } from '../albumPagePhotos';
+import { resolveBookWrapSpreadSrc } from '../albumPagePhotos';
+import { getSpreadPhotoTransform, getPagePhotoTransform } from '../albumPageTransforms';
 import {
     getSpreadContext,
     getTotalSpreads,
@@ -10,23 +11,24 @@ import {
     pageToSpreadIndex,
     normalizeStoragePageIndex,
 } from '../albumSpreadUtils';
+import { getSpreadLeftPageIndex } from '../albumSpreadGrid';
 import { getBookWrapSpineLayout } from '../bookWrapSpine';
+import { SPINE_BOUNDS_CHANGED_EVENT } from '../albumSpineSettings';
 import {
     getBook3dDimensions,
-    getSpineWidth,
-    useBookTexture,
     shouldUseWrapCrop,
     isBlankCoverAlbum,
     HARDCOVER_GREEN,
     SPINE_DARK,
     PAGE_WHITE,
 } from './book3dTextures';
-import { resolveBook3dPageSlot, isPanoramicSpreadPair } from './book3dPageSlots';
-import { useCanvasPageTexture, useCanvasSpreadTexture } from './book3dPageCanvas';
+import { resolveBook3dPageSlot } from './book3dPageSlots';
+import { useCanvasPageTexture, useCanvasWrapTexture } from './book3dPageCanvas';
 
 const COVER_THICK = 0.045;
 const PAGE_Z = 0.012;
 const SPINE_MASK_W = 0.014;
+const SPINE_EMPTY = '#e4e7ec';
 const FLIP_LIFT = 0.022;
 const FLIP_CONFIG = { mass: 1, tension: 118, friction: 24 };
 /** Unlit — shows texture pixels exactly as in the 2D preview (no glare or color shift). */
@@ -48,7 +50,7 @@ function MatteMaterial({ color }) {
 }
 
 function PageEdgeMaterial() {
-    return <meshStandardMaterial color={PAGE_WHITE} roughness={0.92} metalness={0} />;
+    return <meshBasicMaterial color={PAGE_WHITE} toneMapped={false} />;
 }
 
 function ClosedBook({
@@ -62,6 +64,7 @@ function ClosedBook({
     hasFrontPhoto,
     hasBackPhoto,
     hasSpinePhoto,
+    showSpinePanel,
 }) {
     const totalDepth = pageDepth + COVER_THICK * 2;
     const boardPad = 0.012;
@@ -70,10 +73,11 @@ function ClosedBook({
     const halfCoverW = coverW / 2;
     const outerZ = pageDepth / 2 + COVER_THICK;
     const boardColor = blankCover ? HARDCOVER_GREEN : SPINE_DARK;
+    const spineFallback = showSpinePanel ? SPINE_EMPTY : SPINE_DARK;
 
     return (
         <group>
-            <mesh castShadow receiveShadow>
+            <mesh>
                 <boxGeometry args={[width, height, pageDepth]} />
                 <PageEdgeMaterial />
             </mesh>
@@ -95,7 +99,9 @@ function ClosedBook({
             >
                 <planeGeometry args={[totalDepth, coverH]} />
                 {hasSpinePhoto ? (
-                    <CoverPhotoMaterial map={spineTexture} />
+                    <CoverPhotoMaterial map={spineTexture} side={THREE.DoubleSide} />
+                ) : showSpinePanel ? (
+                    <meshBasicMaterial color={spineFallback} toneMapped={false} side={THREE.DoubleSide} />
                 ) : (
                     <MatteMaterial color={SPINE_DARK} />
                 )}
@@ -124,6 +130,19 @@ function ClosedBook({
             </mesh>
         </group>
     );
+}
+
+function resolveSlotTransform(albumId, slot, spreadLeft, pageNum) {
+    if (!albumId) return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+    if (slot?.panoramic != null && spreadLeft != null) {
+        return getSpreadPhotoTransform(albumId, spreadLeft);
+    }
+    if (pageNum != null) return getPagePhotoTransform(albumId, pageNum);
+    return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+}
+
+function spreadLeftForPage(pageNum, spreadOpts, totalPages) {
+    return getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
 }
 
 function wrapSideForSlot(slot) {
@@ -159,27 +178,11 @@ function SpineMask({ height }) {
     );
 }
 
-/** One continuous plane for whole-spread photos — no seam at the spine. */
-function PanoramicSpread({ src, width, height, pageAspect, opacity = 1, renderOrder = 0 }) {
-    const texture = useCanvasSpreadTexture(src, pageAspect);
-    const animated = typeof opacity !== 'number';
-
-    return (
-        <a.mesh position={[0, 0, PAGE_Z]} renderOrder={renderOrder}>
-            <planeGeometry args={[width * 2, height]} />
-            <a.meshBasicMaterial
-                map={texture}
-                toneMapped={false}
-                transparent={animated || opacity < 1}
-                opacity={opacity}
-                depthWrite={!animated && opacity >= 1}
-            />
-        </a.mesh>
-    );
-}
-
 function PageFace({
     slot,
+    pageNum,
+    spreadLeft,
+    albumId,
     width,
     height,
     pageAspect,
@@ -187,16 +190,24 @@ function PageFace({
     coverSrc,
     wrapLayout,
     useWrapCrop,
+    coverTransform,
     opacity = 1,
     renderOrder = 0,
 }) {
     const { layout, side: wrapSide } = resolveTextureCrop(slot, coverSrc, useWrapCrop, wrapLayout);
     const isWrapCover = Boolean(layout && wrapSide);
-    const canvasTexture = useCanvasPageTexture(isWrapCover ? { src: null } : slot, pageAspect);
-    const wrapTexture = useBookTexture(
-        isWrapCover ? slot : { src: null },
+    const transform = isWrapCover
+        ? coverTransform
+        : resolveSlotTransform(albumId, slot, spreadLeft, pageNum);
+    const canvasTexture = useCanvasPageTexture(isWrapCover ? { src: null } : slot, pageAspect, {
+        transform,
+    });
+    const wrapTexture = useCanvasWrapTexture(
+        isWrapCover ? slot?.src : null,
         isWrapCover ? layout : null,
-        isWrapCover ? wrapSide : null
+        isWrapCover ? wrapSide : null,
+        transform,
+        pageAspect
     );
     const texture = isWrapCover ? wrapTexture : canvasTexture;
     const hasPhoto = Boolean(slot?.src);
@@ -240,30 +251,47 @@ function FlippingSheet({
     rotY,
     frontSlot,
     backSlot,
+    frontPageNum,
+    backPageNum,
+    frontSpreadLeft,
+    backSpreadLeft,
+    albumId,
     coverSrc,
     wrapLayout,
     useWrapCrop,
+    coverTransform,
 }) {
     const xPivot = side === 'right' ? width / 2 : -width / 2;
     const frontCrop = resolveTextureCrop(frontSlot, coverSrc, useWrapCrop, wrapLayout);
     const backCrop = resolveTextureCrop(backSlot, coverSrc, useWrapCrop, wrapLayout);
     const frontWrap = Boolean(frontCrop.layout && frontCrop.side);
     const backWrap = Boolean(backCrop.layout && backCrop.side);
-    const frontCanvas = useCanvasPageTexture(frontWrap ? { src: null } : frontSlot, pageAspect);
-    // Back face uses BackSide — pre-mirror canvas so content reads correctly (matches prior mirrorX).
+    const frontTransform = frontWrap
+        ? coverTransform
+        : resolveSlotTransform(albumId, frontSlot, frontSpreadLeft, frontPageNum);
+    const backTransform = backWrap
+        ? coverTransform
+        : resolveSlotTransform(albumId, backSlot, backSpreadLeft, backPageNum);
+    const frontCanvas = useCanvasPageTexture(frontWrap ? { src: null } : frontSlot, pageAspect, {
+        transform: frontTransform,
+    });
     const backCanvas = useCanvasPageTexture(backWrap ? { src: null } : backSlot, pageAspect, {
         mirror: true,
+        transform: backTransform,
     });
-    const frontWrapTex = useBookTexture(
-        frontWrap ? frontSlot : { src: null },
+    const frontWrapTex = useCanvasWrapTexture(
+        frontWrap ? frontSlot?.src : null,
         frontWrap ? frontCrop.layout : null,
-        frontWrap ? frontCrop.side : null
+        frontWrap ? frontCrop.side : null,
+        frontTransform,
+        pageAspect
     );
-    const backWrapTex = useBookTexture(
-        backWrap ? backSlot : { src: null },
+    const backWrapTex = useCanvasWrapTexture(
+        backWrap ? backSlot?.src : null,
         backWrap ? backCrop.layout : null,
         backWrap ? backCrop.side : null,
-        { backFace: true, mirrorX: true }
+        backTransform,
+        pageAspect
     );
     const frontTexture = frontWrap ? frontWrapTex : frontCanvas;
     const backTexture = backWrap ? backWrapTex : backCanvas;
@@ -287,34 +315,29 @@ function FlippingSheet({
     );
 }
 
-function OpenSpread({
+function SpreadPages({
     leftSlot,
     rightSlot,
+    leftPageNum,
+    rightPageNum,
+    spreadLeft,
+    albumId,
     width,
     height,
     pageAspect,
     coverSrc,
     wrapLayout,
     useWrapCrop,
+    coverTransform,
+    renderOrder = 0,
 }) {
-    if (isPanoramicSpreadPair(leftSlot, rightSlot)) {
-        return (
-            <group>
-                <PanoramicSpread
-                    src={leftSlot.src}
-                    width={width}
-                    height={height}
-                    pageAspect={pageAspect}
-                />
-                <SpineMask height={height} />
-            </group>
-        );
-    }
-
     return (
-        <group>
+        <>
             <PageFace
                 slot={leftSlot}
+                pageNum={leftPageNum}
+                spreadLeft={spreadLeft}
+                albumId={albumId}
                 width={width}
                 height={height}
                 pageAspect={pageAspect}
@@ -322,9 +345,14 @@ function OpenSpread({
                 coverSrc={coverSrc}
                 wrapLayout={wrapLayout}
                 useWrapCrop={useWrapCrop}
+                coverTransform={coverTransform}
+                renderOrder={renderOrder}
             />
             <PageFace
                 slot={rightSlot}
+                pageNum={rightPageNum}
+                spreadLeft={spreadLeft}
+                albumId={albumId}
                 width={width}
                 height={height}
                 pageAspect={pageAspect}
@@ -332,6 +360,44 @@ function OpenSpread({
                 coverSrc={coverSrc}
                 wrapLayout={wrapLayout}
                 useWrapCrop={useWrapCrop}
+                coverTransform={coverTransform}
+                renderOrder={renderOrder}
+            />
+        </>
+    );
+}
+
+function OpenSpread({
+    leftSlot,
+    rightSlot,
+    leftPageNum,
+    rightPageNum,
+    spreadLeft,
+    albumId,
+    width,
+    height,
+    pageAspect,
+    coverSrc,
+    wrapLayout,
+    useWrapCrop,
+    coverTransform,
+}) {
+    return (
+        <group>
+            <SpreadPages
+                leftSlot={leftSlot}
+                rightSlot={rightSlot}
+                leftPageNum={leftPageNum}
+                rightPageNum={rightPageNum}
+                spreadLeft={spreadLeft}
+                albumId={albumId}
+                width={width}
+                height={height}
+                pageAspect={pageAspect}
+                coverSrc={coverSrc}
+                wrapLayout={wrapLayout}
+                useWrapCrop={useWrapCrop}
+                coverTransform={coverTransform}
             />
             <SpineMask height={height} />
         </group>
@@ -344,20 +410,36 @@ function FlipSpread({
     width,
     height,
     pageAspect,
+    albumId,
     coverSrc,
     wrapLayout,
     useWrapCrop,
+    coverTransform,
+    spreadOpts,
+    totalPages,
+    fromSpreadLeft,
+    toSpreadLeft,
 }) {
-    const underPair =
-        layout.underLeft &&
-        layout.underRight &&
-        isPanoramicSpreadPair(layout.underLeft, layout.underRight);
+    const anchorLeftSpreadLeft = layout.anchorLeftPageNum != null
+        ? spreadLeftForPage(layout.anchorLeftPageNum, spreadOpts, totalPages)
+        : fromSpreadLeft;
+    const anchorRightSpreadLeft = layout.anchorRightPageNum != null
+        ? spreadLeftForPage(layout.anchorRightPageNum, spreadOpts, totalPages)
+        : fromSpreadLeft;
+    const underSpreadLeft = layout.underLeftPageNum != null
+        ? spreadLeftForPage(layout.underLeftPageNum, spreadOpts, totalPages)
+        : layout.underRightPageNum != null
+          ? spreadLeftForPage(layout.underRightPageNum, spreadOpts, totalPages)
+          : toSpreadLeft;
 
     return (
         <group>
             {layout.anchorLeft && (
                 <PageFace
                     slot={layout.anchorLeft}
+                    pageNum={layout.anchorLeftPageNum}
+                    spreadLeft={anchorLeftSpreadLeft}
+                    albumId={albumId}
                     width={width}
                     height={height}
                     pageAspect={pageAspect}
@@ -365,12 +447,16 @@ function FlipSpread({
                     coverSrc={coverSrc}
                     wrapLayout={wrapLayout}
                     useWrapCrop={useWrapCrop}
+                    coverTransform={coverTransform}
                     renderOrder={1}
                 />
             )}
             {layout.anchorRight && (
                 <PageFace
                     slot={layout.anchorRight}
+                    pageNum={layout.anchorRightPageNum}
+                    spreadLeft={anchorRightSpreadLeft}
+                    albumId={albumId}
                     width={width}
                     height={height}
                     pageAspect={pageAspect}
@@ -378,46 +464,43 @@ function FlipSpread({
                     coverSrc={coverSrc}
                     wrapLayout={wrapLayout}
                     useWrapCrop={useWrapCrop}
+                    coverTransform={coverTransform}
                     renderOrder={1}
                 />
             )}
-            {underPair ? (
-                <PanoramicSpread
-                    src={layout.underLeft.src}
+            {layout.underLeft && (
+                <PageFace
+                    slot={layout.underLeft}
+                    pageNum={layout.underLeftPageNum}
+                    spreadLeft={underSpreadLeft}
+                    albumId={albumId}
                     width={width}
                     height={height}
                     pageAspect={pageAspect}
+                    side="left"
+                    coverSrc={coverSrc}
+                    wrapLayout={wrapLayout}
+                    useWrapCrop={useWrapCrop}
+                    coverTransform={coverTransform}
                     renderOrder={0}
                 />
-            ) : (
-                <>
-                    {layout.underLeft && (
-                        <PageFace
-                            slot={layout.underLeft}
-                            width={width}
-                            height={height}
-                            pageAspect={pageAspect}
-                            side="left"
-                            coverSrc={coverSrc}
-                            wrapLayout={wrapLayout}
-                            useWrapCrop={useWrapCrop}
-                            renderOrder={0}
-                        />
-                    )}
-                    {layout.underRight && (
-                        <PageFace
-                            slot={layout.underRight}
-                            width={width}
-                            height={height}
-                            pageAspect={pageAspect}
-                            side="right"
-                            coverSrc={coverSrc}
-                            wrapLayout={wrapLayout}
-                            useWrapCrop={useWrapCrop}
-                            renderOrder={0}
-                        />
-                    )}
-                </>
+            )}
+            {layout.underRight && (
+                <PageFace
+                    slot={layout.underRight}
+                    pageNum={layout.underRightPageNum}
+                    spreadLeft={underSpreadLeft}
+                    albumId={albumId}
+                    width={width}
+                    height={height}
+                    pageAspect={pageAspect}
+                    side="right"
+                    coverSrc={coverSrc}
+                    wrapLayout={wrapLayout}
+                    useWrapCrop={useWrapCrop}
+                    coverTransform={coverTransform}
+                    renderOrder={0}
+                />
             )}
             <FlippingSheet
                 width={width}
@@ -427,9 +510,15 @@ function FlipSpread({
                 rotY={rotY}
                 frontSlot={layout.sheetFront}
                 backSlot={layout.sheetBack}
+                frontPageNum={layout.sheetFrontPageNum}
+                backPageNum={layout.sheetBackPageNum}
+                frontSpreadLeft={layout.sheetFrontSpreadLeft}
+                backSpreadLeft={layout.sheetBackSpreadLeft}
+                albumId={albumId}
                 coverSrc={coverSrc}
                 wrapLayout={wrapLayout}
                 useWrapCrop={useWrapCrop}
+                coverTransform={coverTransform}
             />
             <SpineMask height={height} />
         </group>
@@ -453,17 +542,23 @@ function isOpenSpread(spreadIndex, totalSpreads, spreadOpts) {
 }
 
 /** Layer layout matches 2D AlbumPageFlipAnimation (static + under + leaf). */
-function buildFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot) {
-    const forward = flip.forward;
+function buildFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot, spreadOpts, totalPages) {
+    const spreadLeft = (pageNum) => spreadLeftForPage(pageNum, spreadOpts, totalPages);
 
     if (flip.mode === 'cover-open') {
         return {
             direction: 'forward',
             anchorLeft: to.left,
+            anchorLeftPageNum: to.leftPageNum,
             underRight: to.right,
+            underRightPageNum: to.rightPageNum,
             sheetSide: 'right',
             sheetFront: coverFrontSlot,
             sheetBack: coverInsideSlot,
+            sheetFrontPageNum: 1,
+            sheetBackPageNum: to.leftPageNum,
+            sheetFrontSpreadLeft: 0,
+            sheetBackSpreadLeft: spreadLeft(to.leftPageNum),
         };
     }
 
@@ -471,10 +566,16 @@ function buildFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot) {
         return {
             direction: 'backward',
             anchorLeft: from.left,
+            anchorLeftPageNum: from.leftPageNum,
             anchorRight: from.right,
+            anchorRightPageNum: from.rightPageNum,
             sheetSide: 'right',
             sheetFront: coverFrontSlot,
             sheetBack: coverInsideSlot,
+            sheetFrontPageNum: 1,
+            sheetBackPageNum: from.leftPageNum,
+            sheetFrontSpreadLeft: 0,
+            sheetBackSpreadLeft: spreadLeft(from.leftPageNum),
         };
     }
 
@@ -482,10 +583,16 @@ function buildFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot) {
         return {
             direction: 'forward',
             anchorLeft: from.left,
+            anchorLeftPageNum: from.leftPageNum,
             underRight: to.right,
+            underRightPageNum: to.rightPageNum,
             sheetSide: 'right',
             sheetFront: from.right,
             sheetBack: to.left,
+            sheetFrontPageNum: from.rightPageNum,
+            sheetBackPageNum: to.leftPageNum,
+            sheetFrontSpreadLeft: spreadLeft(from.rightPageNum),
+            sheetBackSpreadLeft: spreadLeft(to.leftPageNum),
         };
     }
 
@@ -493,31 +600,49 @@ function buildFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot) {
         return {
             direction: 'backward',
             anchorRight: from.right,
+            anchorRightPageNum: from.rightPageNum,
             underLeft: to.left,
+            underLeftPageNum: to.leftPageNum,
             sheetSide: 'left',
             sheetFront: from.left,
             sheetBack: to.right,
+            sheetFrontPageNum: from.leftPageNum,
+            sheetBackPageNum: to.rightPageNum,
+            sheetFrontSpreadLeft: spreadLeft(from.leftPageNum),
+            sheetBackSpreadLeft: spreadLeft(to.rightPageNum),
         };
     }
 
-    if (forward) {
+    if (flip.forward) {
         return {
             direction: 'forward',
             anchorLeft: from.left,
+            anchorLeftPageNum: from.leftPageNum,
             underRight: to.right,
+            underRightPageNum: to.rightPageNum,
             sheetSide: 'right',
             sheetFront: from.right,
             sheetBack: to.left,
+            sheetFrontPageNum: from.rightPageNum,
+            sheetBackPageNum: to.leftPageNum,
+            sheetFrontSpreadLeft: spreadLeft(from.rightPageNum),
+            sheetBackSpreadLeft: spreadLeft(to.leftPageNum),
         };
     }
 
     return {
         direction: 'backward',
         anchorRight: from.right,
+        anchorRightPageNum: from.rightPageNum,
         underLeft: to.left,
+        underLeftPageNum: to.leftPageNum,
         sheetSide: 'left',
         sheetFront: from.left,
         sheetBack: to.right,
+        sheetFrontPageNum: from.leftPageNum,
+        sheetBackPageNum: to.rightPageNum,
+        sheetFrontSpreadLeft: spreadLeft(from.leftPageNum),
+        sheetBackSpreadLeft: spreadLeft(to.rightPageNum),
     };
 }
 
@@ -544,20 +669,38 @@ export default function BookModel({
 
     const [displaySpread, setDisplaySpread] = useState(initialSpread);
     const [flip, setFlip] = useState(null);
+    const [spineBoundsTick, setSpineBoundsTick] = useState(0);
 
     const [{ rotY }, flipApi] = useSpring(() => ({ rotY: 0 }));
 
     const { width, height, aspect: pageAspect } = useMemo(() => getBook3dDimensions(album), [album]);
     const totalSpreads = useMemo(() => getTotalSpreads(totalPages, spreadOpts), [totalPages, spreadOpts]);
 
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onSpineBoundsChanged = (e) => {
+            if (e.detail?.albumId === album.id) setSpineBoundsTick((t) => t + 1);
+        };
+        window.addEventListener(SPINE_BOUNDS_CHANGED_EVENT, onSpineBoundsChanged);
+        return () => window.removeEventListener(SPINE_BOUNDS_CHANGED_EVENT, onSpineBoundsChanged);
+    }, [album?.id]);
+
     const wrapLayout = useMemo(() => {
         if (!album) return null;
         return getBookWrapSpineLayout(album);
-    }, [album]);
+    }, [album, spineBoundsTick]);
 
-    const coverSrc = useMemo(() => (album ? resolveCoverImageSrc(album) : null), [album]);
+    const coverSrc = useMemo(
+        () => (album ? resolveBookWrapSpreadSrc(album, { showSamples }) : null),
+        [album, showSamples]
+    );
+    const coverTransform = useMemo(
+        () => (album?.id ? getSpreadPhotoTransform(album.id, 0) : { x: 0, y: 0, scaleX: 1, scaleY: 1 }),
+        [album?.id]
+    );
     const blankCover = isBlankCoverAlbum(album);
     const useWrapCrop = shouldUseWrapCrop(album, coverSrc, wrapLayout);
+    const showSpinePanel = Boolean(useWrapCrop && wrapLayout?.hasSpine);
 
     const coverSlot = useMemo(() => ({ src: coverSrc }), [coverSrc]);
     const coverFrontSlot = useMemo(
@@ -565,27 +708,36 @@ export default function BookModel({
         [coverSrc]
     );
     const coverInsideSlot = useMemo(() => ({ src: null }), []);
-    const closedFrontTex = useBookTexture(
-        coverSlot,
+    const pageDepth = Math.max(0.14, (totalSpreads - 1) * 0.006 + 0.06);
+    const coverH = height + 0.012;
+    const spineBindingAspect = useMemo(() => {
+        const totalDepth = pageDepth + COVER_THICK * 2;
+        return totalDepth / coverH;
+    }, [pageDepth, coverH]);
+    const closedFrontTex = useCanvasWrapTexture(
+        useWrapCrop ? coverSrc : null,
         useWrapCrop ? wrapLayout : null,
-        useWrapCrop ? 'front' : null
+        useWrapCrop ? 'front' : null,
+        coverTransform,
+        pageAspect
     );
-    const closedBackTex = useBookTexture(
-        coverSlot,
+    const closedBackTex = useCanvasWrapTexture(
+        useWrapCrop ? coverSrc : null,
         useWrapCrop ? wrapLayout : null,
-        useWrapCrop ? 'back' : null
+        useWrapCrop ? 'back' : null,
+        coverTransform,
+        pageAspect
     );
-    const closedSpineTex = useBookTexture(
-        coverSlot,
+    const closedSpineTex = useCanvasWrapTexture(
+        useWrapCrop ? coverSrc : null,
         useWrapCrop ? wrapLayout : null,
-        useWrapCrop ? 'spine' : null
+        useWrapCrop ? 'spine' : null,
+        coverTransform,
+        spineBindingAspect
     );
     const hasFrontPhoto = Boolean(coverSrc);
     const hasBackPhoto = Boolean(coverSrc && useWrapCrop);
     const hasSpinePhoto = Boolean(coverSrc && useWrapCrop && wrapLayout?.hasSpine);
-
-    const spineWidth = useMemo(() => getSpineWidth(width, album), [width, album]);
-    const pageDepth = Math.max(0.14, (totalSpreads - 1) * 0.006 + 0.06);
 
     const resolveSlot = useCallback(
         (pageNum) => {
@@ -598,7 +750,13 @@ export default function BookModel({
     const getSpreadSlots = useCallback(
         (spreadIndex) => {
             const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
-            return { left: resolveSlot(left), right: resolveSlot(right) };
+            return {
+                left: resolveSlot(left),
+                right: resolveSlot(right),
+                leftPageNum: left,
+                rightPageNum: right,
+                spreadLeft: left,
+            };
         },
         [totalPages, spreadOpts, resolveSlot]
     );
@@ -712,8 +870,16 @@ export default function BookModel({
         if (!flip) return null;
         const from = getSpreadSlots(flip.from);
         const to = getSpreadSlots(flip.to);
-        return buildFlipLayout(flip, from, to, coverFrontSlot, coverInsideSlot);
-    }, [flip, getSpreadSlots, coverFrontSlot, coverInsideSlot]);
+        return buildFlipLayout(
+            flip,
+            from,
+            to,
+            coverFrontSlot,
+            coverInsideSlot,
+            spreadOpts,
+            totalPages
+        );
+    }, [flip, getSpreadSlots, coverFrontSlot, coverInsideSlot, spreadOpts, totalPages]);
 
     const showClosedIdle = !flip && (isClosedFront || isClosedBack);
     const showOpenIdle = !flip && isOpen;
@@ -726,7 +892,6 @@ export default function BookModel({
                         width={width}
                         height={height}
                         pageDepth={pageDepth}
-                        spineWidth={spineWidth}
                         frontTexture={closedFrontTex}
                         backTexture={closedBackTex}
                         spineTexture={closedSpineTex}
@@ -734,6 +899,7 @@ export default function BookModel({
                         hasFrontPhoto={hasFrontPhoto}
                         hasBackPhoto={hasBackPhoto}
                         hasSpinePhoto={hasSpinePhoto}
+                        showSpinePanel={showSpinePanel}
                     />
                 </a.group>
             )}
@@ -742,12 +908,17 @@ export default function BookModel({
                 <OpenSpread
                     leftSlot={displaySlots.left}
                     rightSlot={displaySlots.right}
+                    leftPageNum={displaySlots.leftPageNum}
+                    rightPageNum={displaySlots.rightPageNum}
+                    spreadLeft={displaySlots.spreadLeft}
+                    albumId={album?.id}
                     width={width}
                     height={height}
                     pageAspect={pageAspect}
                     coverSrc={coverSrc}
                     wrapLayout={wrapLayout}
                     useWrapCrop={useWrapCrop}
+                    coverTransform={coverTransform}
                 />
             )}
 
@@ -758,9 +929,15 @@ export default function BookModel({
                     width={width}
                     height={height}
                     pageAspect={pageAspect}
+                    albumId={album?.id}
                     coverSrc={coverSrc}
                     wrapLayout={wrapLayout}
                     useWrapCrop={useWrapCrop}
+                    coverTransform={coverTransform}
+                    spreadOpts={spreadOpts}
+                    totalPages={totalPages}
+                    fromSpreadLeft={getSpreadSlots(flip.from).spreadLeft}
+                    toSpreadLeft={getSpreadSlots(flip.to).spreadLeft}
                 />
             )}
         </a.group>
