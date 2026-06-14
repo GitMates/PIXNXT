@@ -1,6 +1,7 @@
 import React from 'react';
 
-export default function FramesPreview({ product, selectedFrame, currentAspect }) {
+export default function FramesPreview({ product, selectedFrame, currentAspect, photoUrl: propPhotoUrl }) {
+  const imageUrl = propPhotoUrl || product.image;
   return (
     <div className="composition-preview" style={{ width: '100%', height: 'auto', position: 'relative' }}>
       <div className="composition-preview__composition" style={{ 
@@ -22,7 +23,7 @@ export default function FramesPreview({ product, selectedFrame, currentAspect })
               className="composition-preview-box__image" 
               style={{ 
                 position: 'absolute', 
-                backgroundImage: `url(${product.image})`, 
+                backgroundImage: `url(${imageUrl})`, 
                 width: '100%', 
                 height: '100%', 
                 left: '0px', 

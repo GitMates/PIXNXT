@@ -45,10 +45,12 @@ export default function CartPage({
           {cartItems.length === 0 ? (
             <div className="cart-empty-message">Your cart is empty.</div>
           ) : (
-            cartItems.map((item) => (
-              <div key={item.id} className="cart-page-item">
-                <div className={`cart-item-image-wrapper product-card-${item.productId}`} style={{ '--frame-color': item.frame?.color || 'transparent' }}>
-                  <div className="product-image-box cart-item-product-image-box">
+            cartItems.map((item) => {
+              const isFramed = ['matted_frame', 'frames', 'float_frames', 'circular_frames', 'matted_collages'].includes(item.productId);
+              return (
+                <div key={item.id} className="cart-page-item">
+                  <div className={`cart-item-image-wrapper product-card-${item.productId} ${isFramed ? 'has-frame-size' : ''}`} style={{ '--frame-color': item.frame?.color || 'transparent' }}>
+                    <div className="product-image-box cart-item-product-image-box">
                     {item.productId === 'matted_collages' ? ( (() => {
                       const type = item.layout?.type || 'grid_2x2';
                       let w = 25;
@@ -247,21 +249,21 @@ export default function CartPage({
                       );
                     })() ) : item.productId === 'prints' ? (
                       <div className="prints-container">
-                        <img src={item.photo.url} alt={item.photo.name} className="print-img print-img-back" />
-                        <img src={item.photo.url} alt={item.photo.name} className="print-img print-img-front" />
+                        <img src={item.photo?.url} alt="" className="print-img print-img-back" />
+                        <img src={item.photo?.url} alt="" className="print-img print-img-front" />
                       </div>
                     ) : item.productId === 'print_pack' ? (
                       <div className="print-pack-container">
                         {[0, 1, 2, 3].map((i) => (
-                          <img key={i} src={item.photo.url} alt={item.photo.name} className={`print-pack-img img-${i}`} />
+                          <img key={i} src={item.photo?.url} alt="" className={`print-pack-img img-${i}`} />
                         ))}
                       </div>
                     ) : item.productId === 'deckled_prints' ? (
                       <div className="deckled-print-wrapper">
-                        <img src={item.photo.url} alt={item.photo.name} className="deckled-print-img" />
+                        <img src={item.photo?.url} alt="" className="deckled-print-img" />
                       </div>
                     ) : (
-                      <img src={item.photo.url} alt={item.photo.name} className="product-image" />
+                      <img src={item.photo?.url} alt="" className="product-image" />
                     )}
                   </div>
                 </div>
@@ -291,7 +293,8 @@ export default function CartPage({
                   ₹{(item.unitPrice * item.quantity).toFixed(2)}
                 </div>
               </div>
-            ))
+            );
+          })
           )}
         </div>
 

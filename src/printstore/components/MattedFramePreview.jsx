@@ -1,6 +1,7 @@
 import React from 'react';
 
-export default function MattedFramePreview({ product, selectedFrame, selectedSize, selectedPrintSize }) {
+export default function MattedFramePreview({ product, selectedFrame, selectedSize, selectedPrintSize, photoUrl: propPhotoUrl }) {
+  const imageUrl = propPhotoUrl || product.image;
   // Parse dimensions from labels like "13x18cm" or "8x8cm"
   const parseDims = (label, isPrint = false, frameLabel = null) => {
     if (!label) return { w: 20, h: 30 };
@@ -72,7 +73,7 @@ export default function MattedFramePreview({ product, selectedFrame, selectedSiz
               className="composition-preview-box__image" 
               style={{ 
                 position: 'absolute', 
-                backgroundImage: `url(${product.image})`, 
+                backgroundImage: `url(${imageUrl})`, 
                 width: '100%', 
                 height: '100%', 
                 left: '0px', 

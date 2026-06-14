@@ -16,7 +16,7 @@ import StoreFooter from './components/StoreFooter';
 import LeftSidebar from './components/LeftSidebar';
 import ProductDetailPage from './components/ProductDetailPage';
 import { MOCK_PHOTOS, MOCK_PRODUCTS } from './data/mockStoreData';
-import { ShoppingBag, Heart, X, Check, Upload, Bookmark } from 'lucide-react';
+import { ShoppingBag, Heart, X, Check, Upload, Bookmark, ChevronLeft, ChevronRight, MoreVertical } from 'lucide-react';
 import './PrintStore.css';
 
 export default function PrintStoreApp() {
@@ -43,6 +43,8 @@ export default function PrintStoreApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [hasPlacedOrder, setHasPlacedOrder] = useState(false);
   const [selectedProductType, setSelectedProductType] = useState('');
+  const [viewingPhoto, setViewingPhoto] = useState(null); // Photo currently open in lightbox
+  const [gallerySelectedPhoto, setGallerySelectedPhoto] = useState(null); // Photo selected from gallery for shop use
   
   // Shopping Cart States
   const [cartItems, setCartItems] = useState([]);
@@ -85,7 +87,9 @@ export default function PrintStoreApp() {
           // Trigger tab active transition
           if (currentScrollY >= shopTop - 200) {
             setActiveTab('shop');
-          } else {
+          } else if (!gallerySelectedPhoto) {
+            // Only auto-reset to gallery if user has NOT explicitly chosen a photo for the shop
+            // (gallerySelectedPhoto is set when navigating via the lightbox Shop button)
             setActiveTab('gallery');
           }
         }
@@ -93,7 +97,7 @@ export default function PrintStoreApp() {
     };
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [checkoutState, activeCollection, viewMode]);
+  }, [checkoutState, activeCollection, viewMode, gallerySelectedPhoto]);
 
   // ── Tab click handler ──
   const handleTabChange = (tab) => {
@@ -214,9 +218,9 @@ export default function PrintStoreApp() {
         (item) =>
           item.productId === newItem.productId &&
           item.photo?.id === newItem.photo?.id &&
-          item.size.id === newItem.size.id &&
-          item.frame.id === newItem.frame.id &&
-          item.paper.id === newItem.paper.id &&
+          item.size?.id === newItem.size?.id &&
+          item.frame?.id === newItem.frame?.id &&
+          item.paper?.id === newItem.paper?.id &&
           item.border === newItem.border
       );
 
@@ -390,11 +394,23 @@ export default function PrintStoreApp() {
           selectedProductForDetail ? (
             <ProductDetailPage
               product={selectedProductForDetail}
+              selectedPhotoUrl={gallerySelectedPhoto?.url}
               onBack={() => {
                 setSelectedProductForDetail(null);
                 window.scrollTo({ top: 0, behavior: 'instant' });
               }}
               onSelectPhotosForProduct={handleSelectPhotosForProduct}
+              onFinishAndPersonalize={(prod, options) => {
+                // Go directly to customizer with the gallery photo
+                const photoObj = gallerySelectedPhoto ? 
+                  MOCK_PHOTOS.find(p => p.url === gallerySelectedPhoto.url) || gallerySelectedPhoto : 
+                  MOCK_PHOTOS[0];
+                setActiveCustomizerProduct(prod);
+                setCustomizerPhoto([photoObj]);
+                setCustomizingProductOptions(options);
+                setSelectedProductForDetail(null);
+                window.scrollTo({ top: 0, behavior: 'instant' });
+              }}
             />
           ) : viewMode === 'tracking' ? (
             <TrackOrderPage />
@@ -403,6 +419,7 @@ export default function PrintStoreApp() {
             <div className="store-shopping-flow all-products-view">
               <AllProducts
                 products={MOCK_PRODUCTS}
+                selectedPhotoUrl={gallerySelectedPhoto?.url}
                 onSelectProduct={(prod) => {
                   setSelectedProductForDetail(prod);
                   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -412,29 +429,35 @@ export default function PrintStoreApp() {
           ) : (
             <div className="store-shopping-flow">
               {/* Gallery Section */}
-              <div ref={galleryRef} className="gallery-section-wrapper">
-                <PhotoGrid
-                  title={activeCollection === 'favorites' ? 'Favorites' : 'Portraits'}
-                  photos={getPhotosToDisplay()}
-                  favorites={favorites}
-                  onToggleFavorite={handleToggleFavorite}
-                  onBuyPrint={(photo) => handleOpenCustomizer(MOCK_PRODUCTS[0], photo)}
-                  isSelectionMode={isSelectionMode}
-                  selectedPhotos={selectedPhotos}
-                  onToggleSelectPhoto={handleToggleSelectPhoto}
-                  onSelectAll={() => {
-                    const allPhotoIds = getPhotosToDisplay().map(p => p.id);
-                    setSelectedPhotos(allPhotoIds);
-                  }}
-                  onDeselectAll={() => setSelectedPhotos([])}
-                />
-              </div>
+              {activeTab === 'gallery' && (
+                <div ref={galleryRef} className="gallery-section-wrapper">
+                  <PhotoGrid
+                    title={activeCollection === 'favorites' ? 'Favorites' : 'Portraits'}
+                    photos={getPhotosToDisplay()}
+                    favorites={favorites}
+                    onToggleFavorite={handleToggleFavorite}
+                    onBuyPrint={(photo) => handleOpenCustomizer(MOCK_PRODUCTS[0], photo)}
+                    isSelectionMode={isSelectionMode}
+                    selectedPhotos={selectedPhotos}
+                    onToggleSelectPhoto={handleToggleSelectPhoto}
+                    onViewPhoto={(photo) => {
+                      setViewingPhoto(photo);
+                    }}
+                    onSelectAll={() => {
+                      const allPhotoIds = getPhotosToDisplay().map(p => p.id);
+                      setSelectedPhotos(allPhotoIds);
+                    }}
+                    onDeselectAll={() => setSelectedPhotos([])}
+                  />
+                </div>
+              )}
 
               {/* Shop Section - displayed below portraits in gallery mode, or as target of Shop navigation */}
-              {activeCollection === 'portraits' && !isSelectionMode && (
+              {(activeTab === 'shop' || (activeTab === 'gallery' && activeCollection === 'portraits' && !isSelectionMode)) && (
                 <div ref={shopRef} className="shop-section-wrapper">
                   <ShopLanding
                     products={MOCK_PRODUCTS.slice(0, 3)} // Dibond, Matted, Gallery
+                    selectedPhotoUrl={gallerySelectedPhoto?.url}
                     onSelectProduct={(prod) => {
                       setSelectedProductForDetail(prod);
                       window.scrollTo({ top: 0, behavior: 'instant' });
@@ -484,6 +507,219 @@ export default function PrintStoreApp() {
         {!selectedProductForDetail && checkoutState !== 'cart' && checkoutState !== 'review' && checkoutState !== 'payment' && <StoreFooter />}
       </div>
 
+      {/* Photo Lightbox Viewer */}
+      {viewingPhoto && (() => {
+        const allPhotos = getPhotosToDisplay();
+        const currentIdx = allPhotos.findIndex(p => p.id === viewingPhoto.id);
+        const hasPrev = currentIdx > 0;
+        const hasNext = currentIdx < allPhotos.length - 1;
+        return (
+          <div className="photo-lightbox-overlay" onClick={() => setViewingPhoto(null)} style={{ background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, zIndex: 9999 }}>
+            
+            {/* Top Bar Header */}
+            <div 
+              className="lightbox-header-bar" 
+              onClick={(e) => e.stopPropagation()}
+              style={{ 
+                position: 'absolute', 
+                top: '16px', 
+                right: '24px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px',
+                zIndex: 100
+              }}
+            >
+              <button 
+                className="lightbox-icon-btn" 
+                style={{ 
+                  background: '#ffffff', 
+                  border: '1px solid rgba(0,0,0,0.1)', 
+                  borderRadius: '50%', 
+                  width: '38px', 
+                  height: '38px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer', 
+                  color: '#222',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  padding: '0'
+                }}
+              >
+                <MoreVertical size={20} />
+              </button>
+              <button 
+                className="lightbox-icon-btn" 
+                style={{ 
+                  background: '#ffffff', 
+                  border: '1px solid rgba(0,0,0,0.1)', 
+                  borderRadius: '50%', 
+                  width: '38px', 
+                  height: '38px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer', 
+                  color: '#222',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  padding: '0'
+                }}
+              >
+                <Upload size={20} />
+              </button>
+              <button 
+                className="lightbox-icon-btn" 
+                style={{ 
+                  background: '#ffffff', 
+                  border: '1px solid rgba(0,0,0,0.1)', 
+                  borderRadius: '50%', 
+                  width: '38px', 
+                  height: '38px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer', 
+                  color: '#222',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  padding: '0'
+                }}
+              >
+                <Bookmark size={20} />
+              </button>
+              <button 
+                className="lightbox-icon-btn" 
+                onClick={() => handleToggleFavorite(viewingPhoto.id)}
+                style={{ 
+                  background: '#ffffff', 
+                  border: '1px solid rgba(0,0,0,0.1)', 
+                  borderRadius: '50%', 
+                  width: '38px', 
+                  height: '38px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  cursor: 'pointer', 
+                  color: favorites.includes(viewingPhoto.id) ? '#e04f5f' : '#222',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  padding: '0'
+                }}
+              >
+                <Heart size={20} fill={favorites.includes(viewingPhoto.id) ? '#e04f5f' : 'none'} />
+              </button>
+              
+              <button
+                className="lightbox-shop-btn"
+                onClick={() => {
+                  // Save the photo for shop use
+                  setGallerySelectedPhoto(viewingPhoto);
+                  // Navigate to shop landing page
+                  setViewMode('landing');
+                  setActiveTab('shop');
+                  setSelectedProductForDetail(null);
+                  setCheckoutState('shopping');
+                  // Close the lightbox
+                  setViewingPhoto(null);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                style={{
+                  background: '#222222',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '8px 20px',
+                  borderRadius: '20px',
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                Shop
+              </button>
+              
+              <span style={{ height: '24px', width: '1px', backgroundColor: '#eaeaea', margin: '0 4px' }} />
+              
+              <button 
+                className="lightbox-icon-btn" 
+                onClick={() => setViewingPhoto(null)} 
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  cursor: 'pointer', 
+                  color: '#222', 
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {hasPrev && (
+              <button
+                className="lightbox-nav-btn prev"
+                onClick={(e) => { e.stopPropagation(); setViewingPhoto(allPhotos[currentIdx - 1]); }}
+                style={{
+                  position: 'absolute',
+                  left: '24px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: '#ffffff',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                  color: '#222',
+                  cursor: 'pointer',
+                  zIndex: 10
+                }}
+              >
+                <ChevronLeft size={24} strokeWidth={1.5} />
+              </button>
+            )}
+
+            <div className="lightbox-image-container" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '75vw', maxHeight: '85vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img key={viewingPhoto.id} src={viewingPhoto.url} alt={viewingPhoto.name} style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', boxShadow: '0 8px 24px rgba(0,0,0,0.1)' }} />
+            </div>
+
+            {hasNext && (
+              <button
+                className="lightbox-nav-btn next"
+                onClick={(e) => { e.stopPropagation(); setViewingPhoto(allPhotos[currentIdx + 1]); }}
+                style={{
+                  position: 'absolute',
+                  right: '24px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: '#ffffff',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '48px',
+                  height: '48px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+                  color: '#222',
+                  cursor: 'pointer',
+                  zIndex: 10
+                }}
+              >
+                <ChevronRight size={24} strokeWidth={1.5} />
+              </button>
+            )}
+          </div>
+        );
+      })()}
       {/* 4. Batch Actions Toolbar (Appears at bottom during selection) */}
       {isSelectionMode && activeTab === 'gallery' && (
         <div className="selection-toolbar-floating selection-toolbar-redesign">
@@ -512,17 +748,29 @@ export default function PrintStoreApp() {
               disabled={selectedPhotos.length === 0}
               onClick={() => {
                 if (selectedPhotos.length > 0) {
-                  // Animate the finish action
-                  const productToCustomize = customizingProduct || MOCK_PRODUCTS[0];
-                  handleOpenCustomizer(productToCustomize, selectedPhotos);
-                  setIsSelectionMode(false);
-                  setCustomizingProduct(null);
-                  setSelectedPhotos([]);
-                  setSelectedProductType('');
+                  if (!customizingProduct) {
+                    // Directly selecting from gallery - set the selected photo and go to Shop landing
+                    const photoId = selectedPhotos[0];
+                    const firstSelectedPhoto = MOCK_PHOTOS.find(p => p.id === photoId) || { id: photoId, url: photoId };
+                    setGallerySelectedPhoto(firstSelectedPhoto);
+                    setActiveTab('shop');
+                    setViewMode('landing');
+                    setCheckoutState('shopping');
+                    setIsSelectionMode(false);
+                    setSelectedPhotos([]);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  } else {
+                    // Normal customizing flow
+                    handleOpenCustomizer(customizingProduct, selectedPhotos);
+                    setIsSelectionMode(false);
+                    setCustomizingProduct(null);
+                    setSelectedPhotos([]);
+                    setSelectedProductType('');
+                  }
                 }
               }}
             >
-              Finish & Personalize
+              {customizingProduct ? 'Finish & Personalize' : 'Shop From This'}
             </button>
           </div>
         </div>

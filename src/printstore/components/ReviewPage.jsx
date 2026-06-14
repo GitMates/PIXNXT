@@ -92,226 +92,228 @@ export default function ReviewPage({
             {cartItems.length === 0 ? (
               <div className="cart-empty-message">Your cart is empty.</div>
             ) : (
-              cartItems.map((item) => (
-                <div key={item.id} className="cart-page-item review-page-item">
-                  <div className={`cart-item-image-wrapper product-card-${item.productId}`} style={{ '--frame-color': item.frame?.color || 'transparent' }}>
-                    <div className="product-image-box cart-item-product-image-box">
-                      {item.productId === 'matted_collages' ? ( (() => {
-                        const type = item.layout?.type || 'grid_2x2';
-                        let w = 25;
-                        let h = 25;
-                        const sizeMatch = item.size?.label?.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
-                        if (sizeMatch) {
-                          const d1 = parseFloat(sizeMatch[1]);
-                          const d2 = parseFloat(sizeMatch[2]);
-                          if (d1 !== d2) {
-                            const minD = Math.min(d1, d2);
-                            const maxD = Math.max(d1, d2);
-                            if (['grid_1x2_horizontal', 'grid_2x3'].includes(type)) {
-                              w = maxD;
-                              h = minD;
-                            } else if (['grid_2x1_vertical', 'grid_3x2', 'grid_1top_2bottom', 'grid_2top_1bottom', 'grid_1left_2right', 'grid_2left_1right'].includes(type)) {
-                              w = minD;
-                              h = maxD;
+              cartItems.map((item) => {
+                const isFramed = ['matted_frame', 'frames', 'float_frames', 'circular_frames', 'matted_collages'].includes(item.productId);
+                return (
+                  <div key={item.id} className="cart-page-item review-page-item">
+                    <div className={`cart-item-image-wrapper product-card-${item.productId} ${isFramed ? 'has-frame-size' : ''}`} style={{ '--frame-color': item.frame?.color || 'transparent' }}>
+                      <div className="product-image-box cart-item-product-image-box">
+                        {item.productId === 'matted_collages' ? ( (() => {
+                          const type = item.layout?.type || 'grid_2x2';
+                          let w = 25;
+                          let h = 25;
+                          const sizeMatch = item.size?.label?.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+                          if (sizeMatch) {
+                            const d1 = parseFloat(sizeMatch[1]);
+                            const d2 = parseFloat(sizeMatch[2]);
+                            if (d1 !== d2) {
+                              const minD = Math.min(d1, d2);
+                              const maxD = Math.max(d1, d2);
+                              if (['grid_1x2_horizontal', 'grid_2x3'].includes(type)) {
+                                w = maxD;
+                                h = minD;
+                              } else if (['grid_2x1_vertical', 'grid_3x2', 'grid_1top_2bottom', 'grid_2top_1bottom', 'grid_1left_2right', 'grid_2left_1right'].includes(type)) {
+                                w = minD;
+                                h = maxD;
+                              } else {
+                                w = d1;
+                                h = d2;
+                              }
                             } else {
                               w = d1;
                               h = d2;
                             }
-                          } else {
-                            w = d1;
-                            h = d2;
                           }
-                        }
 
-                        return (
-                          <div 
-                            className="product-card-matted_collages"
-                            style={{
-                              '--frame-color': item.frame?.color || '#111111',
-                              width: '100%',
-                              aspectRatio: `${w} / ${h}`,
-                              background: item.frame?.color || '#111111',
-                              padding: '5.5%',
-                              boxSizing: 'border-box',
-                              boxShadow: '0 8px 20px rgba(0,0,0,0.2)'
-                            }}
-                          >
+                          return (
                             <div 
-                              className="matted-frame-mat"
+                              className="product-card-matted_collages"
                               style={{
+                                '--frame-color': item.frame?.color || '#111111',
                                 width: '100%',
-                                height: '100%',
-                                backgroundColor: '#ffffff',
-                                padding: '12%',
-                                boxSizing: 'border-box'
+                                aspectRatio: `${w} / ${h}`,
+                                background: item.frame?.color || '#111111',
+                                padding: '5.5%',
+                                boxSizing: 'border-box',
+                                boxShadow: '0 8px 20px rgba(0,0,0,0.2)'
                               }}
                             >
-                              <div className="collage-grid-container" style={{
-                                display: 'grid',
-                                gridTemplateRows: (() => {
-                                  let gridTemplate = '1fr / 1fr';
-                                  switch(type) {
-                                    case 'grid_2x2':
-                                    case 'grid_2x2_landscape':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_1x2_horizontal':
-                                      gridTemplate = '1fr / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_3x2':
-                                      gridTemplate = 'repeat(3, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_2x3':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
-                                      break;
-                                    case 'grid_1top_2bottom':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_2top_1bottom':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_1left_2right':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_2left_1right':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_asymmetric_4':
-                                      gridTemplate = '2fr 1fr 2fr / 1fr 1fr';
-                                      break;
-                                    case 'grid_2x1_vertical':
-                                      gridTemplate = 'repeat(2, 1fr) / 1fr';
-                                      break;
-                                    case 'grid_1left_3right':
-                                      gridTemplate = 'repeat(3, 1fr) / 3fr 1fr';
-                                      break;
-                                    case 'grid_3top_1bottom':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
-                                      break;
-                                  }
-                                  return gridTemplate.split(' / ')[0];
-                                })(),
-                                gridTemplateColumns: (() => {
-                                  let gridTemplate = '1fr / 1fr';
-                                  switch(type) {
-                                    case 'grid_2x2':
-                                    case 'grid_2x2_landscape':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_1x2_horizontal':
-                                      gridTemplate = '1fr / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_3x2':
-                                      gridTemplate = 'repeat(3, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_2x3':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
-                                      break;
-                                    case 'grid_1top_2bottom':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_2top_1bottom':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_1left_2right':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_2left_1right':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
-                                      break;
-                                    case 'grid_asymmetric_4':
-                                      gridTemplate = '2fr 1fr 2fr / 1fr 1fr';
-                                      break;
-                                    case 'grid_2x1_vertical':
-                                      gridTemplate = 'repeat(2, 1fr) / 1fr';
-                                      break;
-                                    case 'grid_1left_3right':
-                                      gridTemplate = 'repeat(3, 1fr) / 3fr 1fr';
-                                      break;
-                                    case 'grid_3top_1bottom':
-                                      gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
-                                      break;
-                                  }
-                                  return gridTemplate.split(' / ')[1];
-                                })(),
-                            gap: '2px',
-                            width: '100%',
-                            height: '100%'
-                          }}>
-                            {(item.photos && item.photos.length > 0) ? (
-                              item.photos.map((p, index) => {
-                                const customStyle = (() => {
-                                  switch (item.layout?.type) {
-                                    case 'grid_1top_2bottom':
-                                      if (index === 0) return { gridColumn: 'span 2' };
-                                      break;
-                                    case 'grid_2top_1bottom':
-                                      if (index === 2) return { gridColumn: 'span 2' };
-                                      break;
-                                    case 'grid_1left_2right':
-                                      if (index === 0) return { gridRow: 'span 2' };
-                                      break;
-                                    case 'grid_2left_1right':
-                                      if (index === 1) return { gridRow: 'span 2' };
-                                      break;
-                                    case 'grid_asymmetric_4':
-                                      if (index === 0) return { gridRow: '1 / 3', gridColumn: '1' };
-                                      if (index === 1) return { gridRow: '3 / 4', gridColumn: '1' };
-                                      if (index === 2) return { gridRow: '1 / 2', gridColumn: '2' };
-                                      if (index === 3) return { gridRow: '2 / 4', gridColumn: '2' };
-                                      break;
-                                    case 'grid_1left_3right':
-                                      if (index === 0) return { gridRow: 'span 3' };
-                                      break;
-                                    case 'grid_3top_1bottom':
-                                      if (index === 3) return { gridColumn: 'span 3' };
-                                      break;
-                                  }
-                                  return {};
-                                })();
-                                return p ? (
-                                  <img 
-                                    key={index} 
-                                    src={p.url} 
-                                    alt={p.name} 
-                                    className="collage-grid-img" 
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', ...customStyle }} 
-                                  />
-                                ) : (
-                                  <div 
-                                    key={index}
-                                    className="collage-grid-img-empty" 
-                                    style={{ width: '100%', height: '100%', backgroundColor: '#e0e0e0', ...customStyle }} 
-                                  />
-                                );
-                              })
-                            ) : item.photo ? (
-                              <img src={item.photo.url} alt={item.photo.name} className="collage-grid-img" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            ) : null}
+                              <div 
+                                className="matted-frame-mat"
+                                style={{
+                                  width: '100%',
+                                  height: '100%',
+                                  backgroundColor: '#ffffff',
+                                  padding: '12%',
+                                  boxSizing: 'border-box'
+                                }}
+                              >
+                                <div className="collage-grid-container" style={{
+                                  display: 'grid',
+                                  gridTemplateRows: (() => {
+                                    let gridTemplate = '1fr / 1fr';
+                                    switch(type) {
+                                      case 'grid_2x2':
+                                      case 'grid_2x2_landscape':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_1x2_horizontal':
+                                        gridTemplate = '1fr / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_3x2':
+                                        gridTemplate = 'repeat(3, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_2x3':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+                                        break;
+                                      case 'grid_1top_2bottom':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_2top_1bottom':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_1left_2right':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_2left_1right':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_asymmetric_4':
+                                        gridTemplate = '2fr 1fr 2fr / 1fr 1fr';
+                                        break;
+                                      case 'grid_2x1_vertical':
+                                        gridTemplate = 'repeat(2, 1fr) / 1fr';
+                                        break;
+                                      case 'grid_1left_3right':
+                                        gridTemplate = 'repeat(3, 1fr) / 3fr 1fr';
+                                        break;
+                                      case 'grid_3top_1bottom':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+                                        break;
+                                    }
+                                    return gridTemplate.split(' / ')[0];
+                                  })(),
+                                  gridTemplateColumns: (() => {
+                                    let gridTemplate = '1fr / 1fr';
+                                    switch(type) {
+                                      case 'grid_2x2':
+                                      case 'grid_2x2_landscape':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_1x2_horizontal':
+                                        gridTemplate = '1fr / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_3x2':
+                                        gridTemplate = 'repeat(3, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_2x3':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+                                        break;
+                                      case 'grid_1top_2bottom':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_2top_1bottom':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_1left_2right':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_2left_1right':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(2, 1fr)';
+                                        break;
+                                      case 'grid_asymmetric_4':
+                                        gridTemplate = '2fr 1fr 2fr / 1fr 1fr';
+                                        break;
+                                      case 'grid_2x1_vertical':
+                                        gridTemplate = 'repeat(2, 1fr) / 1fr';
+                                        break;
+                                      case 'grid_1left_3right':
+                                        gridTemplate = 'repeat(3, 1fr) / 3fr 1fr';
+                                        break;
+                                      case 'grid_3top_1bottom':
+                                        gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+                                        break;
+                                    }
+                                    return gridTemplate.split(' / ')[1];
+                                  })(),
+                              gap: '2px',
+                              width: '100%',
+                              height: '100%'
+                            }}>
+                              {(item.photos && item.photos.length > 0) ? (
+                                item.photos.map((p, index) => {
+                                  const customStyle = (() => {
+                                    switch (item.layout?.type) {
+                                      case 'grid_1top_2bottom':
+                                        if (index === 0) return { gridColumn: 'span 2' };
+                                        break;
+                                      case 'grid_2top_1bottom':
+                                        if (index === 2) return { gridColumn: 'span 2' };
+                                        break;
+                                      case 'grid_1left_2right':
+                                        if (index === 0) return { gridRow: 'span 2' };
+                                        break;
+                                      case 'grid_2left_1right':
+                                        if (index === 1) return { gridRow: 'span 2' };
+                                        break;
+                                      case 'grid_asymmetric_4':
+                                        if (index === 0) return { gridRow: '1 / 3', gridColumn: '1' };
+                                        if (index === 1) return { gridRow: '3 / 4', gridColumn: '1' };
+                                        if (index === 2) return { gridRow: '1 / 2', gridColumn: '2' };
+                                        if (index === 3) return { gridRow: '2 / 4', gridColumn: '2' };
+                                        break;
+                                      case 'grid_1left_3right':
+                                        if (index === 0) return { gridRow: 'span 3' };
+                                        break;
+                                      case 'grid_3top_1bottom':
+                                        if (index === 3) return { gridColumn: 'span 3' };
+                                        break;
+                                    }
+                                    return {};
+                                  })();
+                                  return p ? (
+                                    <img 
+                                      key={index} 
+                                      src={p.url} 
+                                      alt={p.name} 
+                                      className="collage-grid-img" 
+                                      style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', ...customStyle }} 
+                                    />
+                                  ) : (
+                                    <div 
+                                      key={index}
+                                      className="collage-grid-img-empty" 
+                                      style={{ width: '100%', height: '100%', backgroundColor: '#e0e0e0', ...customStyle }} 
+                                    />
+                                  );
+                                })
+                              ) : item.photo ? (
+                                <img src={item.photo.url} alt={item.photo.name} className="collage-grid-img" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : null}
+                            </div>
                           </div>
                         </div>
+                        );
+                      })() ) : item.productId === 'prints' ? (
+                          <div className="prints-container">
+                            <img src={item.photo?.url} alt="" className="print-img print-img-back" />
+                            <img src={item.photo?.url} alt="" className="print-img print-img-front" />
+                          </div>
+                        ) : item.productId === 'print_pack' ? (
+                          <div className="print-pack-container">
+                            {[0, 1, 2, 3].map((i) => (
+                              <img key={i} src={item.photo?.url} alt="" className={`print-pack-img img-${i}`} />
+                            ))}
+                          </div>
+                        ) : item.productId === 'deckled_prints' ? (
+                          <div className="deckled-print-wrapper">
+                            <img src={item.photo?.url} alt="" className="deckled-print-img" />
+                          </div>
+                        ) : (
+                          <img src={item.photo?.url} alt="" className="product-image" />
+                        )}
                       </div>
-                      );
-                    })() ) : item.productId === 'prints' ? (
-                        <div className="prints-container">
-                          <img src={item.photo.url} alt={item.photo.name} className="print-img print-img-back" />
-                          <img src={item.photo.url} alt={item.photo.name} className="print-img print-img-front" />
-                        </div>
-                      ) : item.productId === 'print_pack' ? (
-                        <div className="print-pack-container">
-                          {[0, 1, 2, 3].map((i) => (
-                            <img key={i} src={item.photo.url} alt={item.photo.name} className={`print-pack-img img-${i}`} />
-                          ))}
-                        </div>
-                      ) : item.productId === 'deckled_prints' ? (
-                        <div className="deckled-print-wrapper">
-                          <img src={item.photo.url} alt={item.photo.name} className="deckled-print-img" />
-                        </div>
-                      ) : (
-                        <img src={item.photo.url} alt={item.photo.name} className="product-image" />
-                      )}
                     </div>
-                  </div>
                   
                   <div className="cart-item-info">
                     <h4 className="cart-item-title">{item.productName} ({item.quantity})</h4>
@@ -345,7 +347,8 @@ export default function ReviewPage({
                     </div>
                   </div>
                 </div>
-              ))
+              );
+            })
             )}
           </div>
         </div>

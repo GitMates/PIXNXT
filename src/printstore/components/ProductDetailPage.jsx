@@ -431,8 +431,10 @@ const DEFAULT_FALLBACK_DETAILS = {
   ]
 };
 
-export default function ProductDetailPage({ product, onBack, onSelectPhotosForProduct }) {
+export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, onSelectPhotosForProduct, onFinishAndPersonalize }) {
   const details = PRODUCT_DETAILS_MAP[product.id] || DEFAULT_FALLBACK_DETAILS;
+  // Use the gallery-selected photo if available, otherwise fall back to product's own image
+  const photoUrl = selectedPhotoUrl || product.image;
 
   const productSizes = product.id === 'matted_frame' 
     ? MATTED_FRAME_SIZES 
@@ -586,13 +588,24 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
   };
 
   const handleStartCustomizing = () => {
-    onSelectPhotosForProduct(product, {
-      size: selectedSize,
-      frame: selectedFrame,
-      paper: selectedPaper,
-      border: selectedBorder,
-      layout: selectedCollageLayout
-    });
+    if (selectedPhotoUrl && onFinishAndPersonalize) {
+      // Photo already selected from gallery — go directly to customizer
+      onFinishAndPersonalize(product, {
+        size: selectedSize,
+        frame: selectedFrame,
+        paper: selectedPaper,
+        border: selectedBorder,
+        layout: selectedCollageLayout
+      });
+    } else {
+      onSelectPhotosForProduct(product, {
+        size: selectedSize,
+        frame: selectedFrame,
+        paper: selectedPaper,
+        border: selectedBorder,
+        layout: selectedCollageLayout
+      });
+    }
   };
 
   const isLargeSize = selectedSize && !['size_20x20', 'size_20x25', 'size_20x30', 'size_25x25'].includes(selectedSize.id);
@@ -1374,7 +1387,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                               {[0, 1, 2, 3].map((i) => (
                                 <img 
                                   key={i} 
-                                  src={product.image || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200"} 
+                                  src={photoUrl || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200"} 
                                   alt="" 
                                   className={`print-pack-img img-${i}`} 
                                   style={{
@@ -1393,6 +1406,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                             selectedFrame={selectedFrame} 
                             selectedSize={selectedSize}
                             selectedPrintSize={selectedPrintSize}
+                            photoUrl={photoUrl}
                           />
                         ) : product.id === 'matted_collages' ? (() => {
                           const type = selectedCollageLayout?.type || 'grid_2x2';
@@ -1639,7 +1653,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                       filter: 'url(#slight-deckled-edge) drop-shadow(2px 6px 12px rgba(0,0,0,0.22))'
                                     }}>
                                       <img 
-                                        src={product.image}
+                                        src={photoUrl}
                                         alt=""
                                         className="float-frame-preview-photo"
                                         style={{ 
@@ -1665,7 +1679,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                       justifyContent: 'center'
                                     }}>
                                       <img 
-                                        src={product.image}
+                                        src={photoUrl}
                                         alt=""
                                         style={{ 
                                           width: '100%', 
@@ -1676,7 +1690,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                     </div>
                                   ) : product.id === 'panoramic_prints' ? (
                                     <img
-                                      src={product.image}
+                                      src={photoUrl}
                                       alt="Panoramic Print"
                                       style={{
                                         width: '100%',
@@ -1693,7 +1707,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                         position: 'absolute',
                                         top: '-5%', left: '-5%', right: '-5%', bottom: '-5%',
                                         backgroundColor: selectedWrap?.id === 'wrap_black' ? '#111111' : selectedWrap?.id === 'wrap_white' ? '#f7f7f7' : undefined,
-                                        backgroundImage: selectedWrap?.id === 'wrap_natural' || !selectedWrap ? `url(${product.image})` : 'none',
+                                        backgroundImage: selectedWrap?.id === 'wrap_natural' || !selectedWrap ? `url(${photoUrl})` : 'none',
                                         backgroundSize: 'cover',
                                         backgroundPosition: 'center',
                                         filter: selectedWrap?.id === 'wrap_natural' || !selectedWrap ? 'blur(8px) brightness(0.9)' : 'none',
@@ -1705,7 +1719,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                         position: 'absolute',
                                         width: 'calc(100% - 6px)', height: '100%',
                                         left: '3px', top: 0,
-                                        backgroundImage: `url(${product.image})`,
+                                        backgroundImage: `url(${photoUrl})`,
                                         backgroundSize: 'cover',
                                         backgroundPosition: 'center center',
                                         backgroundRepeat: 'no-repeat',
@@ -1739,7 +1753,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                       <div style={{
                                         width: '100%',
                                         height: '100%',
-                                        backgroundImage: `url(${product.image})`,
+                                        backgroundImage: `url(${photoUrl})`,
                                         backgroundSize: 'cover',
                                         backgroundPosition: 'center center',
                                         ...(product.id === 'acrylic_prints' && selectedFinishing?.id === 'finish_nonglare' && { filter: 'grayscale(0.3) brightness(1.1) contrast(0.85)' })
@@ -1753,7 +1767,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                       className="composition-preview-box__image" 
                                       style={{ 
                                         position: 'absolute', 
-                                        backgroundImage: `url(${product.image})`, 
+                                        backgroundImage: `url(${photoUrl})`, 
                                         width: '100%', 
                                         height: '100%', 
                                         left: '0px', 
@@ -1786,7 +1800,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                         width: selectedPrintSize === '35x35cm' ? '70%' : selectedPrintSize === '50x63cm' ? '85%' : selectedPrintSize === '40x60cm' ? '80%' : '100%',
                                         height: selectedPrintSize === '35x35cm' ? 'auto' : selectedPrintSize === '50x63cm' ? '65%' : selectedPrintSize === '40x60cm' ? '80%' : '100%',
                                         aspectRatio: selectedPrintSize === '35x35cm' ? '1 / 1' : 'auto',
-                                        backgroundImage: `url(${product.image})`,
+                                        backgroundImage: `url(${photoUrl})`,
                                         backgroundSize: 'cover',
                                         backgroundPosition: 'center center',
                                         boxShadow: selectedPrintSize === '55x76cm' ? 'none' : '0 2px 8px rgba(0,0,0,0.15)'
@@ -1825,7 +1839,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                         height: 'var(--cf-print-size, 50cqi)',
                                         position: 'absolute', zIndex: 1
                                       }}>
-                                        <img src={product.image} alt="" style={{
+                                        <img src={photoUrl} alt="" style={{
                                           width: '100%', height: '100%',
                                           objectFit: 'cover',
                                           borderRadius: '50%',
@@ -1894,7 +1908,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                         <div style={{
                                           width: '100%',
                                           height: '100%',
-                                          backgroundImage: `url(${product.image})`,
+                                          backgroundImage: `url(${photoUrl})`,
                                           backgroundSize: 'cover',
                                           backgroundPosition: 'center center'
                                         }}></div>
@@ -2030,7 +2044,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                                 width: '80%',
                                 height: '22%',
                                 backgroundColor: '#1a1a1a',
-                                backgroundImage: `url(${product.image})`,
+                                backgroundImage: `url(${photoUrl})`,
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center center',
                                 boxShadow: '0 2px 8px rgba(0,0,0,0.35)'
@@ -2552,6 +2566,25 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                         </div>
                       )}
 
+                      {selectedPhotoUrl && (
+                        <div style={{ 
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '12px 16px', marginTop: '16px',
+                          backgroundColor: '#f5f5f5', borderRadius: '6px', 
+                          fontSize: '14px', color: '#333'
+                        }}>
+                          <span>1 photo selected</span>
+                          <button 
+                            onClick={() => { if (onBack) onBack(); }}
+                            style={{ 
+                              background: 'none', border: 'none', cursor: 'pointer',
+                              fontSize: '14px', fontWeight: 500, color: '#333',
+                              textDecoration: 'underline', padding: 0
+                            }}
+                          >Clear selection</button>
+                        </div>
+                      )}
+
                       <div className="pt-form-conclude FRMC-4-1">
                         <div className="pt-form-alternatives">
                           <button 
@@ -2562,7 +2595,7 @@ export default function ProductDetailPage({ product, onBack, onSelectPhotosForPr
                           >
                             <div className="pt-button__content">
                               <div className="pt-button__inner">
-                                <span>Select photos</span>
+                                <span>{selectedPhotoUrl ? 'Finish & personalize' : 'Select photos'}</span>
                               </div>
                             </div>
                           </button>

@@ -10,6 +10,7 @@ export default function PhotoGrid({
   isSelectionMode,
   selectedPhotos,
   onToggleSelectPhoto,
+  onViewPhoto,
   onSelectAll,
   onDeselectAll
 }) {
@@ -95,7 +96,7 @@ export default function PhotoGrid({
             <div
               key={photo.id}
               className={`photo-grid-item ${isSelected ? 'selected' : ''}`}
-              onClick={(e) => isSelectionMode ? handlePhotoClick(e, photo) : onToggleSelectPhoto(photo.id)}
+              onClick={(e) => isSelectionMode ? handlePhotoClick(e, photo) : (onViewPhoto ? onViewPhoto(photo) : onToggleSelectPhoto(photo.id))}
               style={{
                 border: isSelected ? '3px solid #8BDFDD' : '1px solid #eaeaea',
                 transform: isSelected ? 'scale(0.97)' : 'none',

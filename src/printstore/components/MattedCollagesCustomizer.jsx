@@ -180,7 +180,7 @@ export default function MattedCollagesCustomizer({
       unitPrice: currentPrice,
       totalPrice: currentPrice * quantity,
       quantity: quantity
-    });
+    }, true);
     setShowCartModal(true);
     setShowWarningPopover(false);
   };
