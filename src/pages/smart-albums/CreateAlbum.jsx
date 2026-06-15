@@ -4,6 +4,7 @@ import { DatePicker } from '../../components/ui/DatePicker';
 import { addFilesToAlbumCollection } from '../../components/smart-albums/albumCollection';
 import { applyCollectionOrderToPages } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
+import { galleryService } from '../../services/gallery.service';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
     blankCoverSpreadGridSize,
@@ -29,7 +30,31 @@ import {
     moveFileInOrder,
     moveItemInOrder,
 } from '../../lib/uploadFileOrder';
+import {
+    collectionMatchesGallerySearch,
+    normalizeGallerySearchQuery,
+} from '../../utils/filterClientGallerySearch';
 import './CreateAlbum.css';
+
+function collectionEventDateValue(eventDate) {
+    if (!eventDate) return '';
+    const match = String(eventDate).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+    const parsed = new Date(eventDate);
+    if (Number.isNaN(parsed.getTime())) return '';
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, '0');
+    const day = String(parsed.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function formatSuggestionDate(eventDate) {
+    const value = collectionEventDateValue(eventDate);
+    if (!value) return 'No date';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return 'No date';
+    return parsed.toLocaleDateString();
+}
 
 async function detectCreateAlbumGridSizes(coverFile, photoFiles, gridLayout) {
     if (coverFile) {
@@ -200,6 +225,10 @@ const CreateAlbum = () => {
     const { user } = useAuth();
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
+    const [galleryCollections, setGalleryCollections] = useState([]);
+    const [nameSuggestOpen, setNameSuggestOpen] = useState(false);
+    const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+    const nameAutocompleteRef = useRef(null);
     const [coverFile, setCoverFile] = useState(null);
     const [coverPreview, setCoverPreview] = useState(null);
     const [coverDropActive, setCoverDropActive] = useState(false);
@@ -231,6 +260,102 @@ const CreateAlbum = () => {
             body.style.overflow = prevBodyOverflow;
         };
     }, []);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setGalleryCollections([]);
+            return undefined;
+        }
+
+        let cancelled = false;
+        galleryService
+            .getCollections(user.id)
+            .then((rows) => {
+                if (!cancelled) setGalleryCollections(rows || []);
+            })
+            .catch(() => {
+                if (!cancelled) setGalleryCollections([]);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
+
+    useEffect(() => {
+        const onDocDown = (e) => {
+            if (!nameAutocompleteRef.current?.contains(e.target)) {
+                setNameSuggestOpen(false);
+                setActiveSuggestionIndex(-1);
+            }
+        };
+        document.addEventListener('mousedown', onDocDown);
+        return () => document.removeEventListener('mousedown', onDocDown);
+    }, []);
+
+    const nameSuggestions = useMemo(() => {
+        const query = normalizeGallerySearchQuery(name);
+        if (!query || !galleryCollections.length) return [];
+        return galleryCollections
+            .filter((collection) => collectionMatchesGallerySearch(collection, query))
+            .slice(0, 8);
+    }, [name, galleryCollections]);
+
+    const showNameSuggestions =
+        nameSuggestOpen && name.trim().length > 0 && nameSuggestions.length > 0;
+
+    const handleNameChange = useCallback((e) => {
+        setName(e.target.value);
+        setNameSuggestOpen(true);
+        setActiveSuggestionIndex(-1);
+    }, []);
+
+    const handleSelectCollectionSuggestion = useCallback((collection) => {
+        setName(collection?.name || '');
+        setDate(collectionEventDateValue(collection?.event_date));
+        setNameSuggestOpen(false);
+        setActiveSuggestionIndex(-1);
+    }, []);
+
+    const handleNameKeyDown = useCallback(
+        (e) => {
+            if (!showNameSuggestions) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setActiveSuggestionIndex((prev) =>
+                    prev < nameSuggestions.length - 1 ? prev + 1 : 0
+                );
+                return;
+            }
+
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setActiveSuggestionIndex((prev) =>
+                    prev > 0 ? prev - 1 : nameSuggestions.length - 1
+                );
+                return;
+            }
+
+            if (e.key === 'Enter' && activeSuggestionIndex >= 0) {
+                e.preventDefault();
+                const selected = nameSuggestions[activeSuggestionIndex];
+                if (selected) handleSelectCollectionSuggestion(selected);
+                return;
+            }
+
+            if (e.key === 'Escape') {
+                setNameSuggestOpen(false);
+                setActiveSuggestionIndex(-1);
+            }
+        },
+        [
+            showNameSuggestions,
+            nameSuggestions,
+            activeSuggestionIndex,
+            handleSelectCollectionSuggestion,
+        ]
+    );
 
     const blankCovers = true;
     const includeCoverSpreads = true;
@@ -801,15 +926,72 @@ const CreateAlbum = () => {
                                 <label className="cc-label" htmlFor="album-name">
                                     Album Name
                                 </label>
-                                <input
-                                    id="album-name"
-                                    type="text"
-                                    className="cc-input"
-                                    placeholder="e.g. Wedding of Sarah & James"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    required
-                                />
+                                <div
+                                    className={`sa-name-autocomplete${
+                                        showNameSuggestions ? ' sa-name-autocomplete--open' : ''
+                                    }`}
+                                    ref={nameAutocompleteRef}
+                                >
+                                    <input
+                                        id="album-name"
+                                        type="text"
+                                        className="cc-input"
+                                        placeholder="e.g. Wedding of Sarah & James"
+                                        value={name}
+                                        onChange={handleNameChange}
+                                        onFocus={() => setNameSuggestOpen(true)}
+                                        onKeyDown={handleNameKeyDown}
+                                        autoComplete="off"
+                                        aria-autocomplete="list"
+                                        aria-expanded={showNameSuggestions}
+                                        aria-controls="album-name-suggestions"
+                                        required
+                                    />
+                                    {showNameSuggestions ? (
+                                        <div
+                                            id="album-name-suggestions"
+                                            className="sa-name-suggest-menu"
+                                            role="listbox"
+                                            aria-label="Client gallery collections"
+                                        >
+                                            {nameSuggestions.map((collection, index) => {
+                                                const isActive = index === activeSuggestionIndex;
+                                                return (
+                                                    <button
+                                                        key={collection.id}
+                                                        type="button"
+                                                        className={`sa-name-suggest-option${
+                                                            isActive
+                                                                ? ' sa-name-suggest-option--active'
+                                                                : ''
+                                                        }`}
+                                                        role="option"
+                                                        aria-selected={isActive}
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() =>
+                                                            handleSelectCollectionSuggestion(
+                                                                collection
+                                                            )
+                                                        }
+                                                    >
+                                                        <span className="sa-name-suggest-title">
+                                                            {collection.name}
+                                                        </span>
+                                                        <span className="sa-name-suggest-meta">
+                                                            {formatSuggestionDate(
+                                                                collection.event_date
+                                                            )}
+                                                        </span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : null}
+                                </div>
+                                <p className="sa-field-note">
+                                    Start typing to match a client gallery collection name or photo
+                                    filename — selecting one fills the event date too.
+                                </p>
                             </div>
 
                             <div className="cc-form-group">
