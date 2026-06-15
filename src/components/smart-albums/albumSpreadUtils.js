@@ -760,3 +760,23 @@ export function enumerateCoverCollectionPlacements(
 ) {
     return enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayout, blankCovers });
 }
+
+/** Inner spreads in page overview can be drag-reordered (not cover or back). */
+export function isDraggableOverviewSpread(spreadIndex, totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (totalPages <= 0) return false;
+    if (spreadOpts.hasCovers && spreadOpts.showCover && spreadIndex <= 0) return false;
+    if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) return false;
+    return spreadIndex >= 0 && spreadIndex < getTotalSpreads(totalPages, spreadOpts);
+}
+
+export function getDraggableOverviewSpreadIndices(totalPages, opts = {}) {
+    const totalSpreads = getTotalSpreads(totalPages, normalizeSpreadOpts(opts));
+    const indices = [];
+    for (let i = 0; i < totalSpreads; i += 1) {
+        if (isDraggableOverviewSpread(i, totalPages, opts)) {
+            indices.push(i);
+        }
+    }
+    return indices;
+}

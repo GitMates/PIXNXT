@@ -9,8 +9,10 @@ import {
     enumerateCoverCollectionPlacements,
     enumerateWholeSpreadBlankCoverPlacements,
     getAlbumSpreadOptions,
+    getDraggableOverviewSpreadIndices,
     getEndSpreadPageIndices,
     getLastSpreadInfo,
+    getSpreadPages,
     isCoverInsidePage,
     isEndHalfSpreadLeftPage,
     isInsideCoverSpreadLeft,
@@ -18,7 +20,9 @@ import {
     isWholeSpreadLayout,
     normalizeSpreadOpts,
 } from './albumSpreadUtils';
+import { readAlbumTransformBucket, writeAlbumTransformBucket } from './albumPageTransforms';
 import { computePageCountFromPhotoCount } from '../../pages/smart-albums/createAlbumLayout';
+import { moveItemInOrder } from '../../lib/uploadFileOrder';
 import {
     photoFillsWholeFromItem,
     resolvePhotoFillsWholeFlags,
@@ -1144,4 +1148,123 @@ export function autoPlaceCollectionItems(
         }
     }
     return placed;
+}
+
+function spreadTransformStorageKey(leftPage) {
+    return `spread:${leftPage}`;
+}
+
+function captureOverviewSpreadContent(photoAlbum, transformAlbum, spreadIndex, totalPages, spreadOpts) {
+    const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
+    const spreadKey = spreadStorageKey(left);
+    const transformSpreadKey = spreadTransformStorageKey(left);
+
+    return {
+        spread: photoAlbum[spreadKey] ?? null,
+        spreadTransform: transformAlbum[transformSpreadKey] ?? null,
+        leftPagePhoto: photoAlbum[String(left)] ?? null,
+        rightPagePhoto: right !== left ? photoAlbum[String(right)] ?? null : null,
+        leftPageTransform: transformAlbum[String(left)] ?? null,
+        rightPageTransform:
+            right !== left ? transformAlbum[String(right)] ?? null : null,
+    };
+}
+
+function clearOverviewSpreadSlot(photoAlbum, transformAlbum, spreadIndex, totalPages, spreadOpts) {
+    const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
+    const spreadKey = spreadStorageKey(left);
+    const transformSpreadKey = spreadTransformStorageKey(left);
+
+    delete photoAlbum[spreadKey];
+    delete transformAlbum[transformSpreadKey];
+    delete photoAlbum[String(left)];
+    delete transformAlbum[String(left)];
+    if (right !== left) {
+        delete photoAlbum[String(right)];
+        delete transformAlbum[String(right)];
+    }
+}
+
+function applyOverviewSpreadContent(
+    photoAlbum,
+    transformAlbum,
+    spreadIndex,
+    content,
+    totalPages,
+    spreadOpts
+) {
+    clearOverviewSpreadSlot(photoAlbum, transformAlbum, spreadIndex, totalPages, spreadOpts);
+    if (!content) return;
+
+    const { left, right } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
+    const spreadKey = spreadStorageKey(left);
+    const transformSpreadKey = spreadTransformStorageKey(left);
+
+    if (content.spread != null) photoAlbum[spreadKey] = content.spread;
+    if (content.spreadTransform != null) transformAlbum[transformSpreadKey] = content.spreadTransform;
+    if (content.leftPagePhoto != null) photoAlbum[String(left)] = content.leftPagePhoto;
+    if (content.rightPagePhoto != null && right !== left) {
+        photoAlbum[String(right)] = content.rightPagePhoto;
+    }
+    if (content.leftPageTransform != null) transformAlbum[String(left)] = content.leftPageTransform;
+    if (content.rightPageTransform != null && right !== left) {
+        transformAlbum[String(right)] = content.rightPageTransform;
+    }
+}
+
+/** Drag-reorder inner spreads in page overview (photos + pan/zoom). */
+export function reorderOverviewSpreads(
+    albumId,
+    fromSpreadIndex,
+    toSpreadIndex,
+    { totalPages, spreadOpts } = {}
+) {
+    if (!albumId || fromSpreadIndex === toSpreadIndex) return false;
+
+    const opts = spreadOpts ?? { showCover: true, hasCovers: true, blankCovers: false };
+    const draggable = getDraggableOverviewSpreadIndices(totalPages, opts);
+    const fromPos = draggable.indexOf(fromSpreadIndex);
+    const toPos = draggable.indexOf(toSpreadIndex);
+    if (fromPos < 0 || toPos < 0) return false;
+
+    const photoAll = readAll();
+    const photoAlbum = { ...(photoAll[albumId] || {}) };
+    const transformAlbum = readAlbumTransformBucket(albumId);
+
+    const snapshots = Object.fromEntries(
+        draggable.map((spreadIndex) => [
+            spreadIndex,
+            captureOverviewSpreadContent(
+                photoAlbum,
+                transformAlbum,
+                spreadIndex,
+                totalPages,
+                opts
+            ),
+        ])
+    );
+
+    const newOrder = moveItemInOrder(draggable, fromPos, toPos);
+
+    for (const spreadIndex of draggable) {
+        clearOverviewSpreadSlot(photoAlbum, transformAlbum, spreadIndex, totalPages, opts);
+    }
+
+    for (let i = 0; i < draggable.length; i += 1) {
+        applyOverviewSpreadContent(
+            photoAlbum,
+            transformAlbum,
+            draggable[i],
+            snapshots[newOrder[i]],
+            totalPages,
+            opts
+        );
+    }
+
+    photoAlbum.__revision = (photoAlbum.__revision || 0) + 1;
+    transformAlbum.__revision = (transformAlbum.__revision || 0) + 1;
+    photoAll[albumId] = photoAlbum;
+    writeAll(photoAll);
+    writeAlbumTransformBucket(albumId, transformAlbum);
+    return true;
 }

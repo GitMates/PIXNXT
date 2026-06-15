@@ -46,6 +46,7 @@ import {
     migrateMiskeyedInnerSpreadPhotos,
     migrateWholeSpreadPagePhotosToSpreadKeys,
     migrateWholeSpreadPhotoOffRightPage,
+    reorderOverviewSpreads,
     spreadHasWholeSpreadPhoto,
     placeCollectionItemOnPages,
     setPagePhotoFromCollectionItem,
@@ -1259,6 +1260,23 @@ export default function AlbumEditor({
         [albumId, syncCollectionOrderToSpreads, scheduleWorkspaceRefresh]
     );
 
+    const handleReorderOverviewSpread = useCallback(
+        (fromSpreadIndex, toSpreadIndex) => {
+            if (
+                !reorderOverviewSpreads(albumId, fromSpreadIndex, toSpreadIndex, {
+                    totalPages,
+                    spreadOpts,
+                })
+            ) {
+                return;
+            }
+            setTransformRevision(getTransformRevision(albumId));
+            scheduleWorkspaceRefresh();
+            showToast('Spread order updated.', { variant: 'success', duration: 3000 });
+        },
+        [albumId, totalPages, spreadOpts, scheduleWorkspaceRefresh, showToast]
+    );
+
     const handleApplyCollectionOrder = useCallback(() => {
         void syncCollectionOrderToSpreads().then((placed) => {
             if (placed > 0) {
@@ -1543,6 +1561,7 @@ export default function AlbumEditor({
                                 onAddPages={handleAddPagesFromOverview}
                                 canRemovePages={canRemovePages}
                                 onRemovePages={handleRemovePagesFromOverview}
+                                onReorderOverviewSpread={handleReorderOverviewSpread}
                                 pageCountBusy={pageCountBusy}
                                 onTransformChange={() => {
                                     setTransformRevision(getTransformRevision(albumId));

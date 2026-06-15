@@ -17,6 +17,7 @@ import {
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
+    isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
     isWholeSpreadLayout,
     normalizeStoragePageIndex,
@@ -111,7 +112,7 @@ function OverviewCoverPhoto({ src, placeholderClass = '' }) {
             />
         );
     }
-    return <img src={src} alt="" loading="lazy" />;
+    return <img src={src} alt="" loading="lazy" draggable={false} />;
 }
 
 function OverviewBookWrapSegment({ src, side, layout, transform }) {
@@ -172,6 +173,7 @@ const AlbumBook = ({
     onAddPages,
     canRemovePages = false,
     onRemovePages,
+    onReorderOverviewSpread,
     pageCountBusy = false,
     showGridComments = false,
     spreadCommentsBySpread = null,
@@ -267,6 +269,9 @@ const AlbumBook = ({
         return resolvedStorage === targetStorage;
     }, [initialPage, totalPages, spreadOpts]);
     const [overviewOpen, setOverviewOpen] = useState(false);
+    const overviewDragFromRef = useRef(null);
+    const overviewDidDragRef = useRef(false);
+    const [overviewDragOverIndex, setOverviewDragOverIndex] = useState(null);
     const [focusOpen, setFocusOpen] = useState(false);
     const [focusStartPage, setFocusStartPage] = useState(0);
     const focusPageRef = useRef(0);
@@ -486,6 +491,45 @@ const AlbumBook = ({
         },
         [totalPages, spreadOpts, onPageChange]
     );
+
+    const canDragOverviewSpreads = Boolean(editable && onReorderOverviewSpread && !pageCountBusy);
+
+    const handleOverviewSpreadDragStart = useCallback(
+        (spreadIndex) => {
+            if (!canDragOverviewSpreads) return;
+            if (!isDraggableOverviewSpread(spreadIndex, totalPages, spreadOpts)) return;
+            overviewDragFromRef.current = spreadIndex;
+            overviewDidDragRef.current = false;
+        },
+        [canDragOverviewSpreads, totalPages, spreadOpts]
+    );
+
+    const handleOverviewSpreadDragOver = useCallback(
+        (spreadIndex) => {
+            if (!canDragOverviewSpreads) return;
+            if (!isDraggableOverviewSpread(spreadIndex, totalPages, spreadOpts)) return;
+            setOverviewDragOverIndex(spreadIndex);
+        },
+        [canDragOverviewSpreads, totalPages, spreadOpts]
+    );
+
+    const handleOverviewSpreadDrop = useCallback(
+        (toSpreadIndex) => {
+            const fromSpreadIndex = overviewDragFromRef.current;
+            overviewDragFromRef.current = null;
+            setOverviewDragOverIndex(null);
+            if (!canDragOverviewSpreads || fromSpreadIndex == null) return;
+            if (fromSpreadIndex === toSpreadIndex) return;
+            overviewDidDragRef.current = true;
+            onReorderOverviewSpread?.(fromSpreadIndex, toSpreadIndex);
+        },
+        [canDragOverviewSpreads, onReorderOverviewSpread]
+    );
+
+    const handleOverviewSpreadDragEnd = useCallback(() => {
+        overviewDragFromRef.current = null;
+        setOverviewDragOverIndex(null);
+    }, []);
 
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
@@ -1462,6 +1506,11 @@ const AlbumBook = ({
                         </svg>
                     </button>
                     <div className="ab-overview-body" onClick={(e) => e.stopPropagation()}>
+                    {canDragOverviewSpreads ? (
+                        <p className="ab-overview-drag-hint">
+                            Drag inner spreads to reorder photos (cover and back stay fixed).
+                        </p>
+                    ) : null}
                     <div
                         className={`ab-overview-grid${
                             pageCountBusy ? ' ab-overview-grid--transitioning' : ''
@@ -1503,6 +1552,15 @@ const AlbumBook = ({
                             const showSpreadFull = Boolean(spreadSrc);
                             const isCurrent = overviewSpreadIndex === spreadIndex;
                             const spreadComments = spreadCommentsBySpread?.[overviewSpreadIndex] ?? null;
+                            const spreadDraggable =
+                                canDragOverviewSpreads &&
+                                isDraggableOverviewSpread(
+                                    overviewSpreadIndex,
+                                    totalPages,
+                                    spreadOpts
+                                );
+                            const spreadDragOver =
+                                spreadDraggable && overviewDragOverIndex === overviewSpreadIndex;
                             return (
                                 <button
                                     key={`spread-${overviewSpreadIndex}`}
@@ -1513,16 +1571,46 @@ const AlbumBook = ({
                                         isCurrent ? ' ab-overview-item--active' : ''
                                     }${
                                         spreadComments?.length ? ' ab-overview-item--has-comments' : ''
+                                    }${spreadDraggable ? ' ab-overview-item--draggable' : ''}${
+                                        spreadDragOver ? ' ab-overview-item--drag-over' : ''
                                     }`}
+                                    draggable={spreadDraggable}
                                     onClick={() => {
+                                        if (overviewDidDragRef.current) {
+                                            overviewDidDragRef.current = false;
+                                            return;
+                                        }
                                         goToPage(targetPage);
                                         setOverviewOpen(false);
                                     }}
+                                    onDragStart={(e) => {
+                                        if (!spreadDraggable) return;
+                                        e.stopPropagation();
+                                        e.dataTransfer.effectAllowed = 'move';
+                                        e.dataTransfer.setData(
+                                            'text/plain',
+                                            String(overviewSpreadIndex)
+                                        );
+                                        handleOverviewSpreadDragStart(overviewSpreadIndex);
+                                    }}
+                                    onDragOver={(e) => {
+                                        if (!spreadDraggable) return;
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleOverviewSpreadDragOver(overviewSpreadIndex);
+                                    }}
+                                    onDrop={(e) => {
+                                        if (!spreadDraggable) return;
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleOverviewSpreadDrop(overviewSpreadIndex);
+                                    }}
+                                    onDragEnd={handleOverviewSpreadDragEnd}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
                                         {showSpreadFull ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
-                                                <img src={spreadSrc} alt="" loading="lazy" />
+                                                <img src={spreadSrc} alt="" loading="lazy" draggable={false} />
                                             </span>
                                         ) : isCover && bookWrapSrc ? (
                                             <span className="ab-overview-page ab-overview-page--cover-single">
@@ -1554,7 +1642,7 @@ const AlbumBook = ({
                                             <>
                                                 <span className="ab-overview-page">
                                                     {leftSrc ? (
-                                                        <img src={leftSrc} alt="" loading="lazy" />
+                                                        <img src={leftSrc} alt="" loading="lazy" draggable={false} />
                                                     ) : (
                                                         <span className="ab-overview-placeholder" />
                                                     )}
@@ -1566,6 +1654,7 @@ const AlbumBook = ({
                                                                 src={rightSrc}
                                                                 alt=""
                                                                 loading="lazy"
+                                                                draggable={false}
                                                             />
                                                         ) : (
                                                             <span className="ab-overview-placeholder" />
