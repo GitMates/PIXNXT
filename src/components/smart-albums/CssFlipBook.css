@@ -1,0 +1,188 @@
+.css-flip-book-shell {
+  --book-h: min(50vh, 480px);
+  --book-w: min(50vw, 640px);
+  --page-w: calc(var(--book-w) / 2);
+  --css-flip-duration: 1.25s;
+  --css-flip-delay: 0.6s;
+
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+
+.css-flip-book-shell .css-flip-book {
+  width: var(--book-w);
+  height: var(--book-h);
+  position: relative;
+  perspective: calc(var(--book-w) * 1.5);
+}
+
+.css-flip-book-shell #book:before {
+  width: 1px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.1);
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  z-index: 6;
+  pointer-events: none;
+}
+
+.css-flip-book-shell .page {
+  width: 50%;
+  height: 100%;
+  background: #fff;
+  box-shadow: 5px 10px 10px rgba(0, 0, 0, 0.12);
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transition:
+    z-index 0.01s linear var(--css-flip-delay),
+    transform var(--css-flip-duration) linear;
+  transform-origin: 0% 50%;
+  z-index: 5;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.css-flip-book-shell .front,
+.css-flip-book-shell .back {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  transition: opacity 0.1s linear var(--css-flip-delay);
+  background: #fff;
+  overflow: hidden;
+}
+
+.css-flip-book-shell .front {
+  opacity: 1;
+}
+
+.css-flip-book-shell .back {
+  transform: scaleX(-1);
+}
+
+.css-flip-book-shell input {
+  visibility: hidden;
+  position: absolute;
+  pointer-events: none;
+}
+
+.css-flip-book-shell label {
+  width: 100%;
+  height: 100%;
+  z-index: 99;
+  position: absolute;
+  left: 0;
+  top: 0;
+  margin: 0;
+  padding: 0;
+}
+
+.css-flip-book-shell input:checked + .page {
+  transform: rotateY(-180deg);
+}
+
+.css-flip-book-shell input:checked + .page .front {
+  opacity: 0;
+}
+
+.css-flip-book-shell input:checked + .page .back {
+  opacity: 1;
+}
+
+.css-flip-book-shell #five:checked + .page {
+  z-index: 5;
+}
+
+.css-flip-book-shell #four:checked + .page {
+  z-index: 4;
+}
+
+.css-flip-book-shell #three:checked + .page {
+  z-index: 3;
+}
+
+.css-flip-book-shell #two:checked + .page {
+  z-index: 2;
+}
+
+.css-flip-book-shell #one:checked + .page {
+  z-index: 1;
+}
+
+.css-flip-book-cover {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #fff;
+}
+
+.css-flip-book-cover-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12%;
+  text-align: center;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(14px, 3.5vw, 28px);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: #fff;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+.css-flip-book-page-img,
+.css-flip-book-cover .ab-book-wrap-cover-img,
+.css-flip-book-cover .ab-book-wrap-spine-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+}
+
+.css-flip-book-page-empty {
+  width: 100%;
+  height: 100%;
+  background: #fff;
+}
+
+.css-flip-book-shell .css-flip-proof-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.css-flip-book-shell .css-flip-proof-layer > * {
+  pointer-events: auto;
+}
+
+/* Closed front cover: 3D book layer is visible; hide flat CSS pages until a flip starts. */
+.css-flip-book-shell.css-flip-book-shell--closed-cover:not(.css-flip-book-shell--flipping)
+  .css-flip-book {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.css-flip-book-shell.css-flip-book-shell--closed-cover:not(.css-flip-book-shell--flipping)
+  .css-flip-book label {
+  pointer-events: none;
+}

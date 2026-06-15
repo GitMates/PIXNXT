@@ -34,10 +34,10 @@ const COVER_OPTIONS = [
     { value: 'without', label: 'Covers without image (empty covers)' },
 ];
 
-const GRID_LAYOUT_OPTIONS = [
-    { value: 'two-page', label: 'Two-page grid (left + right)' },
-    { value: 'whole-spread', label: 'Whole-spread photo' },
-];
+// const GRID_LAYOUT_OPTIONS = [
+//     { value: 'two-page', label: 'Two-page grid (left + right)' },
+//     { value: 'whole-spread', label: 'Whole-spread photo' },
+// ];
 
 function CustomSelect({ id, value, options, onChange, placeholder = 'Select' }) {
     const [open, setOpen] = useState(false);
@@ -222,7 +222,7 @@ const CreateAlbum = () => {
     const [name, setName] = useState('');
     const [date, setDate] = useState('');
     const [coverMode, setCoverMode] = useState('with');
-    const [gridLayout, setGridLayout] = useState('two-page');
+    const [gridLayout] = useState('whole-spread');
     const [detectedGridSize, setDetectedGridSize] = useState('square');
     const [detectedSpreadGridSize, setDetectedSpreadGridSize] = useState(null);
 
@@ -745,18 +745,6 @@ const CreateAlbum = () => {
                                         ? 'First photo is the book wrap (full upload width). If it is wider than inner spreads, the center strip is the spine; outer portions are back and front covers. Other photos set the inner page grid.'
                                         : 'Blank front and back cover spreads (like Front cover), with all uploaded photos filling inner pages only.'}
                                 </p>
-                            </div>
-
-                            <div className="cc-form-group">
-                                <label className="cc-label" htmlFor="album-grid-layout">
-                                    Grid Layout
-                                </label>
-                                <CustomSelect
-                                    id="album-grid-layout"
-                                    value={gridLayout}
-                                    options={GRID_LAYOUT_OPTIONS}
-                                    onChange={setGridLayout}
-                                />
                             </div>
 
                             <p className="sa-field-note">
