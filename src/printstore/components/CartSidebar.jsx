@@ -1,5 +1,6 @@
 import React from 'react';
 import { X, Trash2, ArrowRight, ShoppingBag } from 'lucide-react';
+import { isSlotLandscape, adjustPhotoUrl } from '../data/mockStoreData';
 
 export default function CartSidebar({
   isOpen,
@@ -39,22 +40,52 @@ export default function CartSidebar({
               </button>
             </div>
           ) : (
-            cartItems.map((item) => (
-              <div key={item.id} className="cart-item">
-                {/* Photo Thumbnail */}
-                <div className="cart-item-photo-box" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#f7f7f7' }}>
-                  {item.productId === 'matted_collages' ? (
-                    <div 
-                      className="product-card-matted_collages"
-                      style={{
-                        '--frame-color': item.frame?.color || '#111111',
-                        width: '100%',
-                        height: '100%',
-                        background: item.frame?.color || '#111111',
-                        padding: '5.5%',
-                        boxSizing: 'border-box'
-                      }}
-                    >
+            cartItems.map((item) => {
+              const type = item.layout?.type || 'grid_2x2';
+              let w = 25;
+              let h = 25;
+              const sizeMatch = item.size?.label?.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+              if (sizeMatch) {
+                const d1 = parseFloat(sizeMatch[1]);
+                const d2 = parseFloat(sizeMatch[2]);
+                if (d1 !== d2) {
+                  const minD = Math.min(d1, d2);
+                  const maxD = Math.max(d1, d2);
+                  if (['grid_1x2_horizontal', 'grid_2x3', 'grid_2x2_landscape', 'grid_2x4', 'grid_2x5'].includes(type)) {
+                    w = maxD;
+                    h = minD;
+                  } else if (['grid_2x1_vertical', 'grid_3x2', 'grid_1top_2bottom', 'grid_2top_1bottom', 'grid_1left_2right', 'grid_2left_1right', 'grid_1left_3right', 'grid_3top_1bottom', 'grid_4x2', 'grid_5x2'].includes(type)) {
+                    w = minD;
+                    h = maxD;
+                  } else {
+                    w = d1;
+                    h = d2;
+                  }
+                } else {
+                  w = d1;
+                  h = d2;
+                }
+              }
+
+              return (
+                <div key={item.id} className="cart-item">
+                  {/* Photo Thumbnail */}
+                  <div className="cart-item-photo-box" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#f7f7f7' }}>
+                    {item.productId === 'matted_collages' ? (
+                      <div 
+                        className="product-card-matted_collages"
+                        style={{
+                          '--frame-color': item.frame?.color || '#111111',
+                          width: w >= h ? '100%' : 'auto',
+                          height: h >= w ? '100%' : 'auto',
+                          maxWidth: '100%',
+                          maxHeight: '100%',
+                          aspectRatio: `${w} / ${h}`,
+                          background: item.frame?.color || '#111111',
+                          padding: '5.5%',
+                          boxSizing: 'border-box'
+                        }}
+                      >
                       <div 
                         className="matted-frame-mat"
                         style={{
@@ -86,6 +117,12 @@ export default function CartSidebar({
                               case 'grid_2x1_vertical': gridTemplate = 'repeat(2, 1fr) / 1fr'; break;
                               case 'grid_1left_3right': gridTemplate = 'repeat(3, 1fr) / 3fr 1fr'; break;
                               case 'grid_3top_1bottom': gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)'; break;
+                              case 'grid_3x3': gridTemplate = 'repeat(3, 1fr) / repeat(3, 1fr)'; break;
+                              case 'grid_4x4': gridTemplate = 'repeat(4, 1fr) / repeat(4, 1fr)'; break;
+                              case 'grid_4x2': gridTemplate = 'repeat(4, 1fr) / repeat(2, 1fr)'; break;
+                              case 'grid_5x2': gridTemplate = 'repeat(5, 1fr) / repeat(2, 1fr)'; break;
+                              case 'grid_2x4': gridTemplate = 'repeat(2, 1fr) / repeat(4, 1fr)'; break;
+                              case 'grid_2x5': gridTemplate = 'repeat(2, 1fr) / repeat(5, 1fr)'; break;
                             }
                             return gridTemplate.split(' / ')[0];
                           })(),
@@ -108,6 +145,12 @@ export default function CartSidebar({
                               case 'grid_2x1_vertical': gridTemplate = 'repeat(2, 1fr) / 1fr'; break;
                               case 'grid_1left_3right': gridTemplate = 'repeat(3, 1fr) / 3fr 1fr'; break;
                               case 'grid_3top_1bottom': gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)'; break;
+                              case 'grid_3x3': gridTemplate = 'repeat(3, 1fr) / repeat(3, 1fr)'; break;
+                              case 'grid_4x4': gridTemplate = 'repeat(4, 1fr) / repeat(4, 1fr)'; break;
+                              case 'grid_4x2': gridTemplate = 'repeat(4, 1fr) / repeat(2, 1fr)'; break;
+                              case 'grid_5x2': gridTemplate = 'repeat(5, 1fr) / repeat(2, 1fr)'; break;
+                              case 'grid_2x4': gridTemplate = 'repeat(2, 1fr) / repeat(4, 1fr)'; break;
+                              case 'grid_2x5': gridTemplate = 'repeat(2, 1fr) / repeat(5, 1fr)'; break;
                             }
                             return gridTemplate.split(' / ')[1];
                           })(),
@@ -133,18 +176,18 @@ export default function CartSidebar({
                               }
                               return {};
                             })();
-                            return p ? (
-                              <img key={index} src={p.url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', ...customStyle }} />
-                            ) : (
-                              <div key={index} style={{ width: '100%', height: '100%', backgroundColor: '#e0e0e0', ...customStyle }} />
-                            );
+                             return p ? (
+                               <img key={index} src={adjustPhotoUrl(p.url, isSlotLandscape(item.layout?.type, index))} alt="" style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, objectFit: 'cover', objectPosition: 'center 20%', ...customStyle }} />
+                             ) : (
+                               <div key={index} style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, backgroundColor: '#e0e0e0', ...customStyle }} />
+                             );
                           })}
                         </div>
                       </div>
                     </div>
                   ) : (
                     <img
-                      src={item.photo?.url}
+                      src={item.editedPhotoUrl || item.photo?.url}
                       alt={item.photo?.name}
                       className="cart-item-photo-img"
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
@@ -196,7 +239,7 @@ export default function CartSidebar({
                   </div>
                 </div>
               </div>
-            ))
+            })
           )}
         </div>
 

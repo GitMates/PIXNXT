@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronLeft, Info, HelpCircle, Shield, Truck, Package, ChevronRight, Check, ChevronDown, ChevronUp, Crop } from 'lucide-react';
+import Cropper from 'react-easy-crop';
+import getCroppedImg from '../../lib/cropImageUtils';
 import { MOCK_SIZES, MOCK_PAPERS, MOCK_FRAMES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, PRINT_PACK_SIZES, DECKLED_PRINTS_SIZES, PANORAMIC_PRINTS_SIZES, CANVAS_SIZES, MOCK_WRAPS, FLOAT_FRAME_SIZES, PRINT_SIZES, ACRYLIC_PRINT_SIZES, MOCK_FINISHINGS, MATTED_COLLAGE_SIZES, MATTED_COLLAGE_LAYOUTS, MOCK_PHOTOS } from '../data/mockStoreData';
 
 import circularRoom from '../circular frames_files/0.webp';
@@ -433,8 +435,41 @@ const DEFAULT_FALLBACK_DETAILS = {
 
 export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, onSelectPhotosForProduct, onFinishAndPersonalize }) {
   const details = PRODUCT_DETAILS_MAP[product.id] || DEFAULT_FALLBACK_DETAILS;
-  // Use the gallery-selected photo if available, otherwise fall back to product's own image
-  const photoUrl = selectedPhotoUrl || product.image;
+  // Add crop/arrange image state
+  const [editedPhotoUrl, setEditedPhotoUrl] = useState(null);
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
+  const [crop, setCrop] = useState({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState(1);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
+
+  const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
+    setCroppedAreaPixels(croppedAreaPixels);
+  }, []);
+
+  const handleSaveCrop = async () => {
+    try {
+      const croppedImage = await getCroppedImg(
+        selectedPhotoUrl || product.image,
+        croppedAreaPixels,
+        0
+      );
+      setEditedPhotoUrl(croppedImage);
+      setIsCropModalOpen(false);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  // Add border thickness state
+  const [customBorderWidthCm, setCustomBorderWidthCm] = useState(0); // 0 means default
+  const [isCustomBorderDropdownOpen, setIsCustomBorderDropdownOpen] = useState(false);
+  const customBorderDropdownRef = useRef(null);
+
+  // Use the gallery-selected photo or the cropped one if available
+  const photoUrl = editedPhotoUrl || selectedPhotoUrl || product.image;
+
+  // True for all frame/mat products — used by border dropdown, Arrange Image button, and crop modal
+  const isFramed = ['matted_frame', 'frames', 'float_frames', 'circular_frames', 'matted_collages', 'gallery_board'].includes(product.id);
 
   const productSizes = product.id === 'matted_frame' 
     ? MATTED_FRAME_SIZES 
@@ -551,6 +586,9 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
       if (printSizeDropdownRef.current && !printSizeDropdownRef.current.contains(event.target)) {
         setIsPrintSizeDropdownOpen(false);
       }
+      if (customBorderDropdownRef.current && !customBorderDropdownRef.current.contains(event.target)) {
+        setIsCustomBorderDropdownOpen(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
@@ -595,7 +633,9 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
         frame: selectedFrame,
         paper: selectedPaper,
         border: selectedBorder,
-        layout: selectedCollageLayout
+        layout: selectedCollageLayout,
+        editedPhotoUrl: editedPhotoUrl || null,
+        customBorderWidthCm: customBorderWidthCm > 0 ? customBorderWidthCm : null
       });
     } else {
       onSelectPhotosForProduct(product, {
@@ -603,7 +643,9 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
         frame: selectedFrame,
         paper: selectedPaper,
         border: selectedBorder,
-        layout: selectedCollageLayout
+        layout: selectedCollageLayout,
+        editedPhotoUrl: editedPhotoUrl || null,
+        customBorderWidthCm: customBorderWidthCm > 0 ? customBorderWidthCm : null
       });
     }
   };
@@ -838,6 +880,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
   let containerTop = '15.05%';
   let containerWidth = '16.31%';
   let containerHeight = 'auto';
+  let collageAspect = null; // computed from layout-aware dimensions for matted_collages
 
   if (product.id === 'print_pack') {
     containerLeft = '58.2977%';
@@ -919,6 +962,10 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
       'mc_40x60', 'mc_50x50', 'mc_50x60', 'mc_50x76', 'mc_61x61'
     ];
     const largeWallSizes = ['mc_76x76', 'mc_76x102'];
+    // Compute the aspect ratio from the LAYOUT-aware dimensions (matches what the frame card actually renders)
+    const collageLayoutType = selectedCollageLayout?.type || 'grid_2x2';
+    const collageDimsForAspect = getCollageDimensions(selectedSize?.label, collageLayoutType);
+    collageAspect = collageDimsForAspect.w / collageDimsForAspect.h;
     if (largeWallSizes.includes(selectedSize?.id)) {
       containerLeft = '50%';
       containerTop = '15%';
@@ -1000,6 +1047,222 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
       containerWidth = '18.6422%';
     }
   }
+
+  const renderMeasurementScales = () => {
+    if (!isRoomPreview) return null;
+
+    let frameW = currentWidthCm;
+    let frameH = currentHeightCm;
+    let printW = frameW;
+    let printH = frameH;
+
+    const sf = sizeScaleFactor || 1;
+
+    const printSizeStr = selectedPrintSize || selectedSize?.printSize;
+    if (product.id === 'matted_frame' || product.id === 'frames') {
+      if (printSizeStr) {
+        const pMatch = printSizeStr.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
+        if (pMatch) {
+          printW = parseFloat(pMatch[1]);
+          printH = parseFloat(pMatch[2]);
+        } else if (printSizeStr.toLowerCase().includes('a3')) {
+          printW = 29.7;
+          printH = 42;
+        } else if (printSizeStr.toLowerCase().includes('a2')) {
+          printW = 42;
+          printH = 59.4;
+        }
+      }
+    } else if (product.id === 'float_frames') {
+      printW = ffPrintWidth;
+      printH = ffPrintHeight;
+    } else if (product.id === 'circular_frames') {
+      printW = cfPrintWidth;
+      printH = cfPrintWidth;
+    } else if (product.id === 'matted_collages') {
+      printW = parseFloat((frameW * 0.68).toFixed(1));
+      printH = parseFloat((frameH * 0.68).toFixed(1));
+    }
+
+    const isFramed = ['matted_frame', 'frames', 'float_frames', 'circular_frames', 'matted_collages'].includes(product.id);
+
+    // Border/mat widths — only used for label display, NOT for recalculating printW/printH
+    // The image stays at its actual selected print size; border is the mat around it.
+    let borderWcm = 0;
+    let borderHcm = 0;
+
+    if (customBorderWidthCm > 0) {
+      // User-set border: show it in label only. Image dimensions are unchanged.
+      borderWcm = customBorderWidthCm;
+      borderHcm = customBorderWidthCm;
+    } else if (product.id === 'matted_collages') {
+      borderWcm = parseFloat(((frameW - printW) / 2).toFixed(1));
+      borderHcm = parseFloat(((frameH - printH) / 2).toFixed(1));
+    }
+    const printW_Pct = (printW / frameW) * 100;
+    const printH_Pct = (printH / frameH) * 100;
+    const printLeft_Pct = (100 - printW_Pct) / 2;
+    const printTop_Pct = (100 - printH_Pct) / 2;
+
+    const lineStyle = {
+      position: 'absolute',
+      borderStyle: 'solid',
+      borderColor: '#555',
+      pointerEvents: 'none',
+      zIndex: 10
+    };
+
+    const labelStyle = {
+      position: 'absolute',
+      background: 'transparent',
+      fontSize: '11px',
+      fontFamily: 'Inter, sans-serif',
+      fontWeight: '600',
+      letterSpacing: '0.5px',
+      color: '#555',
+      whiteSpace: 'nowrap',
+      pointerEvents: 'none',
+      zIndex: 12,
+      textTransform: 'uppercase'
+    };
+
+    const tickStyle = {
+      position: 'absolute',
+      background: '#555',
+      pointerEvents: 'none',
+      zIndex: 11
+    };
+
+    // Calculate dynamic thickness/length to prevent fractional rendering issues
+    const lineWidth = Math.max(1, 1.5 / sf);
+    const tickLength = Math.max(6, 9 / sf);
+
+    // Labels
+    const inConv = (cm) => (cm / 2.54).toFixed(1);
+    
+    const topLabel = `Image: ${printW} CM / ${inConv(printW)} IN`;
+    const leftLabel = `Image: ${printH} CM / ${inConv(printH)} IN`;
+    
+    // Bottom label: when border set, show frame width + one-side border thickness
+    const bottomLabel = borderWcm > 0
+      ? `Frame: ${frameW} CM | Border: ${borderWcm} CM`
+      : `Frame: ${frameW} CM / ${inConv(frameW)} IN`;
+      
+    // Right label: only show frame height (no border text — avoid colliding with bottom label)
+    const rightLabel = `Frame: ${frameH} CM / ${inConv(frameH)} IN`;
+
+    const overlayStyle = {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      width: '100%',
+      pointerEvents: 'none',
+      zIndex: 999,
+      ...(product.id === 'matted_collages' && collageAspect ? {
+        aspectRatio: collageAspect
+      } : {
+        height: '100%'
+      })
+    };
+
+    const gap = 16 / sf;
+    const textGap = 12 / sf;
+
+    return (
+      <div className="measurement-scales-overlay" style={overlayStyle}>
+        {/* TOP: Print/Image Width */}
+        <div style={{
+          position: 'absolute',
+          top: `-${gap}px`,
+          left: `${isFramed ? printLeft_Pct : 0}%`,
+          width: `${isFramed ? printW_Pct : 100}%`,
+          height: 0,
+          pointerEvents: 'none',
+          overflow: 'visible'
+        }}>
+          {/* Solid line with ticks */}
+          <div style={{ ...lineStyle, left: 0, right: 0, top: 0, borderTopWidth: `${lineWidth}px` }}></div>
+          <div style={{ ...tickStyle, left: 0, top: `-${tickLength/2}px`, width: `${lineWidth}px`, height: `${tickLength}px` }}></div>
+          <div style={{ ...tickStyle, right: 0, top: `-${tickLength/2}px`, width: `${lineWidth}px`, height: `${tickLength}px` }}></div>
+          
+          {/* Label centered, then pushed OUT (up) */}
+          <div style={{ ...labelStyle, left: '50%', top: 0, transform: `translate(-50%, -50%) translateY(-${textGap}px) scale(${1 / sf})`, transformOrigin: 'center center' }}>
+            {topLabel}
+          </div>
+        </div>
+
+        {/* LEFT: Print/Image Height */}
+        <div style={{
+          position: 'absolute',
+          left: `-${gap}px`,
+          top: `${isFramed ? printTop_Pct : 0}%`,
+          height: `${isFramed ? printH_Pct : 100}%`,
+          width: 0,
+          pointerEvents: 'none',
+          overflow: 'visible'
+        }}>
+          {/* Solid line with ticks */}
+          <div style={{ ...lineStyle, top: 0, bottom: 0, left: 0, borderLeftWidth: `${lineWidth}px` }}></div>
+          <div style={{ ...tickStyle, top: 0, left: `-${tickLength/2}px`, height: `${lineWidth}px`, width: `${tickLength}px` }}></div>
+          <div style={{ ...tickStyle, bottom: 0, left: `-${tickLength/2}px`, height: `${lineWidth}px`, width: `${tickLength}px` }}></div>
+          
+          {/* Label centered, then pushed OUT (left). Rotate to read bottom-to-top */}
+          <div style={{ ...labelStyle, left: 0, top: '50%', transform: `translate(-50%, -50%) translateX(-${textGap}px) rotate(-90deg) scale(${1 / sf})`, transformOrigin: 'center center' }}>
+            {leftLabel}
+          </div>
+        </div>
+
+        {/* BOTTOM: Frame Width + Border */}
+        {isFramed && (
+          <>
+            <div style={{
+              position: 'absolute',
+              bottom: `-${gap}px`,
+              left: 0,
+              width: '100%',
+              height: 0,
+              pointerEvents: 'none',
+              overflow: 'visible'
+            }}>
+              {/* Solid line with ticks */}
+              <div style={{ ...lineStyle, left: 0, right: 0, top: 0, borderTopWidth: `${lineWidth}px` }}></div>
+              <div style={{ ...tickStyle, left: 0, top: `-${tickLength/2}px`, width: `${lineWidth}px`, height: `${tickLength}px` }}></div>
+              <div style={{ ...tickStyle, right: 0, top: `-${tickLength/2}px`, width: `${lineWidth}px`, height: `${tickLength}px` }}></div>
+              
+              {/* Label centered, then pushed OUT (down) */}
+              <div style={{ ...labelStyle, left: '50%', top: 0, transform: `translate(-50%, -50%) translateY(${textGap}px) scale(${1 / sf})`, transformOrigin: 'center center' }}>
+                {bottomLabel}
+              </div>
+            </div>
+
+            {/* RIGHT: Frame Height — hide when border is active to avoid label collision */}
+            {!borderWcm && (
+              <div style={{
+                position: 'absolute',
+                right: `-${gap}px`,
+                top: 0,
+                height: '100%',
+                width: 0,
+                pointerEvents: 'none',
+                overflow: 'visible'
+              }}>
+                {/* Solid line with ticks */}
+                <div style={{ ...lineStyle, top: 0, bottom: 0, left: 0, borderLeftWidth: `${lineWidth}px` }}></div>
+                <div style={{ ...tickStyle, top: 0, left: `-${tickLength/2}px`, height: `${lineWidth}px`, width: `${tickLength}px` }}></div>
+                <div style={{ ...tickStyle, bottom: 0, left: `-${tickLength/2}px`, height: `${lineWidth}px`, width: `${tickLength}px` }}></div>
+                
+                {/* Label centered, then pushed OUT (right). Rotate to read top-to-bottom */}
+                <div style={{ ...labelStyle, left: 0, top: '50%', transform: `translate(-50%, -50%) translateX(${textGap}px) rotate(90deg) scale(${1 / sf})`, transformOrigin: 'center center' }}>
+                  {rightLabel}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  };
+
 
   return (
     <div className="pdp-products-page">
@@ -1152,6 +1415,31 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
             <div ref={mediaRef} className="pdp-preview__media-set-view">
               <div className="media-set C-4-40-1-1">
                 <div className="media-set__preview" style={{ position: 'relative' }}>
+                  {/* Arrange Image Button */}
+                  {isFramed && (
+                    <button
+                      onClick={() => setIsCropModalOpen(true)}
+                      style={{
+                        position: 'absolute',
+                        top: '10px',
+                        left: '10px',
+                        zIndex: 1000,
+                        background: 'rgba(255,255,255,0.9)',
+                        color: '#333',
+                        border: '1px solid #ddd',
+                        padding: '6px 12px',
+                        borderRadius: '4px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                      }}
+                    >
+                      <Crop size={14} /> Arrange Image
+                    </button>
+                  )}
                   {isRoomPreview ? (
                     <div 
                       className="media-set-preview media-set-preview--animated" 
@@ -1166,10 +1454,13 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                         left: containerLeft, 
                         top: containerTop, 
                         width: containerWidth, 
-                        height: containerHeight, 
+                        height: product.id === 'matted_collages' ? 0 : containerHeight,
+                        paddingTop: product.id === 'matted_collages' && collageAspect
+                          ? `calc(${containerWidth} / ${collageAspect})`
+                          : undefined,
                         position: 'absolute',
                         transform: `scale(${sizeScaleFactor})`,
-                        transformOrigin: product.id === 'matted_collages' ? 'bottom center' : 'center center',
+                        transformOrigin: product.id === 'matted_collages' ? 'top center' : 'center center',
                         transition: 'transform 0.3s ease-in-out'
                       }}>
                         {product.id === 'matted_collages' ? (() => {
@@ -1309,13 +1600,13 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                               className="product-card-matted_collages" 
                               style={{ 
                                 '--frame-color': selectedFrame?.color || '#111111',
-                                width: '100%',
-                                aspectRatio: `${baseW} / ${baseH}`,
+                                position: 'absolute',
+                                top: 0, left: 0, right: 0, bottom: 0,
                                 background: selectedFrame?.color || '#111111',
                                 boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
                                 padding: '5.5%',
                                 boxSizing: 'border-box',
-                                position: 'relative'
+                                overflow: 'hidden'
                               }}
                             >
                               <div 
@@ -1325,7 +1616,8 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                                   height: '100%', 
                                   backgroundColor: '#ffffff',
                                   padding: '12%',
-                                  boxSizing: 'border-box'
+                                  boxSizing: 'border-box',
+                                  overflow: 'hidden'
                                 }}
                               >
                                   <div 
@@ -1336,7 +1628,9 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                                       gridTemplateColumns: gridTemplate.split(' / ')[1],
                                       gap: gapStr,
                                       width: '100%',
-                                      height: '100%'
+                                      height: '100%',
+                                      minHeight: 0,
+                                      minWidth: 0
                                     }}
                                   >
                                   {images.map((img, i) => {
@@ -1349,11 +1643,13 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                                         alt=""
                                         className="collage-grid-img"
                                         style={{
+                                          display: 'block',
                                           width: '100%',
                                           height: '100%',
+                                          minHeight: 0,
+                                          minWidth: 0,
                                           objectFit: 'cover',
                                           objectPosition: 'center 20%',
-                                          boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15)',
                                           ...customStyle
                                         }}
                                       />
@@ -1408,7 +1704,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                             selectedPrintSize={selectedPrintSize}
                             photoUrl={photoUrl}
                           />
-                        ) : product.id === 'matted_collages' ? (() => {
+                        ) : product.id === 'matted_collages_dead' ? (() => {
                           const type = selectedCollageLayout?.type || 'grid_2x2';
                           const collageDims = getCollageDimensions(selectedSize?.label, type);
                           let baseW = collageDims.w * 10;
@@ -1595,7 +1891,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                         })() : (
                           <div className="composition-preview" style={{ width: '100%', height: (product.id === 'print_pack' || product.id === 'matted_collages') ? '100%' : 'auto', position: 'relative' }}>
                             <div className="composition-preview__composition" style={{ 
-                              aspectRatio: (product.id === 'matted_frame' || product.id === 'matted_collages') ? '0.783494 / 1' : `${currentAspect.toFixed(6)} / 1`, 
+                              aspectRatio: product.id === 'matted_frame' ? '0.783494 / 1' : `${currentAspect.toFixed(6)} / 1`, 
                               width: product.id === 'circular_frames' ? cfVisualSize : '100%', 
                               margin: '0 auto',
                               height: (product.id === 'print_pack' || product.id === 'matted_collages') ? '100%' : 'auto', 
@@ -1787,28 +2083,76 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                                     <div className="dibond-print-shadow"></div>
                                   </div>
                                 </div>
-                              ) : product.id === 'matted_frame' || product.id === 'frames' ? (
-                                <div className="matted-frame-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
-                                  <div className="matted-frame-shadow" style={{ position: 'absolute', width: '100%', height: '100%', backgroundColor: selectedFrame?.color || '#111111', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <div className="matted-frame-mat" style={{ 
-                                      width: '90%', height: '90%', backgroundColor: '#fff',
-                                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                      boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.1)'
-                                    }}>
-                                      {/* Image inside the mat */}
+                              ) : product.id === 'matted_frame' || product.id === 'frames' ? (() => {
+                                  // Parse the actual print size selected (e.g. "8x13cm")
+                                  const pmatch = selectedPrintSize ? selectedPrintSize.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/) : null;
+                                  const printW = pmatch ? parseFloat(pmatch[1]) : currentWidthCm * 0.65;
+                                  const printH = pmatch ? parseFloat(pmatch[2]) : currentHeightCm * 0.72;
+
+                                  // Frame outer dimensions
+                                  const frameW = currentWidthCm;
+                                  const frameH = currentHeightCm;
+
+                                  // Border (mat width on each side)
+                                  const borderW = customBorderWidthCm > 0
+                                    ? customBorderWidthCm               // user-set border
+                                    : (frameW - printW) / 2;            // natural mat from print size
+                                  const borderH = customBorderWidthCm > 0
+                                    ? customBorderWidthCm
+                                    : (frameH - printH) / 2;
+
+                                  // Visual frame wood inset — fixed at ~8% (no real-world cm)
+                                  const WOOD_PCT = 8;
+
+                                  // Mat inner area after frame wood (as % of container)
+                                  const matInnerW = 100 - WOOD_PCT * 2;  // e.g. 84%
+                                  const matInnerH = 100 - WOOD_PCT * 2;  // e.g. 84%
+
+                                  // Border as % of mat inner area (so it scales with the mat, not the whole frame)
+                                  const bWpct = (borderW / frameW) * matInnerW;
+                                  const bHpct = (borderH / frameH) * matInnerH;
+
+                                  // Image insets from mat edges (%)
+                                  const imgTop = bHpct;
+                                  const imgLeft = bWpct;
+                                  const imgRight = bWpct;
+                                  const imgBottom = bHpct;
+
+                                  return (
+                                    <div className="matted-frame-pdp-overlay composition-preview__overlay"
+                                      style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
+                                      {/* Frame wood colour */}
                                       <div style={{
-                                        width: selectedPrintSize === '35x35cm' ? '70%' : selectedPrintSize === '50x63cm' ? '85%' : selectedPrintSize === '40x60cm' ? '80%' : '100%',
-                                        height: selectedPrintSize === '35x35cm' ? 'auto' : selectedPrintSize === '50x63cm' ? '65%' : selectedPrintSize === '40x60cm' ? '80%' : '100%',
-                                        aspectRatio: selectedPrintSize === '35x35cm' ? '1 / 1' : 'auto',
-                                        backgroundImage: `url(${photoUrl})`,
-                                        backgroundSize: 'cover',
-                                        backgroundPosition: 'center center',
-                                        boxShadow: selectedPrintSize === '55x76cm' ? 'none' : '0 2px 8px rgba(0,0,0,0.15)'
-                                      }}></div>
+                                        position: 'absolute', inset: 0,
+                                        backgroundColor: selectedFrame?.color || '#111111',
+                                        boxShadow: '0 8px 24px rgba(0,0,0,0.3)'
+                                      }}>
+                                        {/* White mat — fills interior after frame wood */}
+                                        <div style={{
+                                          position: 'absolute',
+                                          top: `${WOOD_PCT}%`, left: `${WOOD_PCT}%`,
+                                          right: `${WOOD_PCT}%`, bottom: `${WOOD_PCT}%`,
+                                          backgroundColor: '#fff',
+                                          boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.12)'
+                                        }}>
+                                          {/* Photo — inset by mat/border gap from mat edges */}
+                                          <div style={{
+                                            position: 'absolute',
+                                            top: `${imgTop}%`,
+                                            left: `${imgLeft}%`,
+                                            right: `${imgRight}%`,
+                                            bottom: `${imgBottom}%`,
+                                            backgroundImage: `url(${photoUrl})`,
+                                            backgroundSize: 'cover',
+                                            backgroundPosition: 'center center',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+                                          }} />
+                                        </div>
+                                      </div>
                                     </div>
-                                  </div>
-                                </div>
-                              ) : product.id === 'gallery_board' ? (
+                                  );
+                                })()
+ : product.id === 'gallery_board' ? (
                                 <div className="gallery-board-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, backgroundColor: '#fff', boxShadow: 'rgba(0, 0, 0, 0) 33px 33px 13px 0px, rgba(0, 0, 0, 0.01) 21px 21px 12px 0px, rgba(0, 0, 0, 0.05) 12px 12px 10px 0px, rgba(0, 0, 0, 0.09) 5px 5px 7px 0px, rgba(0, 0, 0, 0.1) 1px 1px 4px 0px' }}></div>
                               ) : product.id === 'circular_frames' ? (
                                 <div className="product-card-circular_frames composition-preview__overlay" style={{ 
@@ -1924,6 +2268,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                             </div>
                           </div>
                         )}
+                        {renderMeasurementScales()}
                       </div>
                     </div>
                   ) : (
@@ -2176,6 +2521,55 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                         </div>
                       </div>
 
+                      {/* Border Adjustment Dropdown */}
+                      {isFramed && (
+                        <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2" ref={customBorderDropdownRef}>
+                          <div className="FE-2-2">
+                            <div className="pt-dropdown-label">
+                              <div className="pt-dropdown-label-title">
+                                <span>Border Thickness</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="pt-dropdown-input">
+                            <div className={`custom-dropdown-wrapper full-width ${isCustomBorderDropdownOpen ? 'open' : ''}`}>
+                              <div 
+                                className="custom-dropdown-trigger"
+                                onClick={() => setIsCustomBorderDropdownOpen(prev => !prev)}
+                                style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                              >
+                                <span style={{ minWidth: '60px' }}>{customBorderWidthCm === 0 ? 'Default' : `${customBorderWidthCm} cm`}</span>
+                                {customBorderWidthCm > 0 ? (
+                                  <div style={{ flex: 1, height: `${customBorderWidthCm * 1.5}px`, background: '#333' }} />
+                                ) : (
+                                  <div style={{ flex: 1 }} />
+                                )}
+                                {isCustomBorderDropdownOpen ? <ChevronUp size={16} strokeWidth={2} /> : <ChevronDown size={16} strokeWidth={2} />}
+                              </div>
+                              {isCustomBorderDropdownOpen && (
+                                <div className="custom-dropdown-menu">
+                                  {[{label: 'Default', val: 0}, {label: '1 cm', val: 1}, {label: '2.5 cm', val: 2.5}, {label: '4 cm', val: 4}, {label: '6 cm', val: 6}].map((opt) => (
+                                    <div 
+                                      key={opt.val} 
+                                      className={`custom-dropdown-item ${customBorderWidthCm === opt.val ? 'active' : ''}`}
+                                      onClick={() => {
+                                        setCustomBorderWidthCm(opt.val);
+                                        setIsCustomBorderDropdownOpen(false);
+                                      }}
+                                      style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                                    >
+                                      <span style={{ minWidth: '60px' }}>{opt.label}</span>
+                                      {opt.val > 0 && (
+                                        <div style={{ flex: 1, height: `${Math.max(1, opt.val * 1.5)}px`, background: '#333' }} />
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
 
                       {product.id !== 'deckled_prints' && product.id !== 'float_frames' && (
@@ -2684,6 +3078,43 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
         </div>
         <div className="pdp-bottom-filler" style={{ height: '100px' }}></div>
       </div>
+      
+      {/* Image Arranger Modal */}
+      {isCropModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 99999,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            position: 'relative', width: '90%', height: '70%', background: '#333', borderRadius: '8px', overflow: 'hidden'
+          }}>
+            <Cropper
+              image={selectedPhotoUrl || product.image}
+              crop={crop}
+              zoom={zoom}
+              aspect={currentWidthCm && currentHeightCm ? currentWidthCm / currentHeightCm : 1}
+              onCropChange={setCrop}
+              onZoomChange={setZoom}
+              onCropComplete={onCropComplete}
+            />
+          </div>
+          <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
+            <button 
+              onClick={() => setIsCropModalOpen(false)}
+              style={{ padding: '10px 20px', background: '#555', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleSaveCrop}
+              style={{ padding: '10px 20px', background: '#a5967f', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer' }}
+            >
+              Save Changes
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

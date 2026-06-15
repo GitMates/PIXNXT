@@ -633,3 +633,24 @@ export const MOCK_WALLS = [
 //   { id: 'wall-3', label: 'Wall 3', url: '/printstore/wall3.webp' },
 //   { id: 'wall-4', label: 'Wall 4', url: '/printstore/wall4.webp' }
 // ];
+
+export const isSlotLandscape = (type, index) => {
+  if (!type) return false;
+  if (type === 'grid_1top_2bottom' && index === 0) return true;
+  if (type === 'grid_2top_1bottom' && index === 2) return true;
+  if (type === 'grid_3top_1bottom' && index === 3) return true;
+  if (type === 'grid_2x1_vertical') return true;
+  if (type === 'grid_4x2') return true;
+  if (type === 'grid_5x2') return true;
+  if (type === 'grid_2x2_landscape') return true;
+  return false;
+};
+
+export const adjustPhotoUrl = (url, isLandscape) => {
+  if (typeof url !== 'string') return url;
+  if (isLandscape) {
+    return url.replace('w=800&h=1200', 'w=1200&h=800');
+  } else {
+    return url.replace('w=1200&h=800', 'w=800&h=1200');
+  }
+};

@@ -13,6 +13,8 @@ export default function ProductCustomizer({
   initialPaper,
   initialBorder,
   initialLayout,
+  initialEditedPhotoUrl,
+  initialCustomBorderWidthCm,
   onAddToCart,
   onClose,
   onOpenCart,
@@ -182,7 +184,9 @@ export default function ProductCustomizer({
         layout: null,
         unitPrice: itemUnitPrice,
         totalPrice: itemUnitPrice * item.quantity,
-        quantity: item.quantity
+        quantity: item.quantity,
+        editedPhotoUrl: initialEditedPhotoUrl || null,
+        customBorderWidthCm: initialCustomBorderWidthCm || null
       }, true); // Always skip direct redirect to show cart modal
     });
 
@@ -190,6 +194,9 @@ export default function ProductCustomizer({
   };
 
   const selectedPhotoIds = items.map(item => item.photo?.id).filter(Boolean);
+
+  // Helper: prefer the user's cropped edit over the raw gallery URL
+  const getPhotoSrc = (item) => initialEditedPhotoUrl || item?.photo?.url || '';
 
   const renderVisualizerCard = (item, index) => {
     if (product.id === 'float_frames') {
@@ -225,7 +232,7 @@ export default function ProductCustomizer({
             }}>
               {item.photo ? (
                 <div className="single-image-wrapper" style={{ width: '100%', height: '100%', position: 'relative' }} onClick={() => handleOpenSidebarForSlot(index)}>
-                  <img src={item.photo.url} alt="" className="single-customizer-img" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${item.rotation}deg)` }} />
+                  <img src={getPhotoSrc(item)} alt="" className="single-customizer-img" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${item.rotation}deg)` }} />
                 </div>
               ) : (
                 <div className="single-empty-placeholder" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => handleOpenSidebarForSlot(index)}>
@@ -270,7 +277,7 @@ export default function ProductCustomizer({
             }}>
               {item.photo ? (
                 <div className="single-image-wrapper" style={{ width: '100%', height: '100%', position: 'relative' }} onClick={() => handleOpenSidebarForSlot(index)}>
-                  <img src={item.photo.url} alt="" className="single-customizer-img" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${item.rotation}deg)` }} />
+                  <img src={getPhotoSrc(item)} alt="" className="single-customizer-img" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: `rotate(${item.rotation}deg)` }} />
                 </div>
               ) : (
                 <div className="single-empty-placeholder" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => handleOpenSidebarForSlot(index)}>
@@ -301,7 +308,7 @@ export default function ProductCustomizer({
           <div className="product-image-box" style={{ margin: '0 !important' }}>
             {item.photo ? (
               <img 
-                src={item.photo.url} 
+                src={getPhotoSrc(item)} 
                 alt="" 
                 className="product-image" 
                 style={{ 
@@ -356,7 +363,7 @@ export default function ProductCustomizer({
               [0, 1, 2, 3].map((i) => (
                 <img
                   key={i}
-                  src={item.photo.url}
+                  src={getPhotoSrc(item)}
                   alt=""
                   className={`print-pack-img img-${i}`}
                   style={{
@@ -417,7 +424,7 @@ export default function ProductCustomizer({
             onClick={() => handleOpenSidebarForSlot(index)}
           >
             <img 
-              src={item.photo.url} 
+              src={getPhotoSrc(item)} 
               alt="" 
               className="single-customizer-img" 
               style={{ 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingCart, Trash2, Plus, ChevronLeft, Undo2, Redo2, HelpCircle, Image as ImageIcon } from 'lucide-react';
-import { MOCK_FRAMES, MOCK_PAPERS, MOCK_WALLS, MATTED_COLLAGE_SIZES, MATTED_COLLAGE_LAYOUTS } from '../data/mockStoreData';
+import { MOCK_FRAMES, MOCK_PAPERS, MOCK_WALLS, MATTED_COLLAGE_SIZES, MATTED_COLLAGE_LAYOUTS, isSlotLandscape, adjustPhotoUrl } from '../data/mockStoreData';
 import AddPhotosSidebar from './AddPhotosSidebar';
 
 export default function MattedCollagesCustomizer({
@@ -54,10 +54,10 @@ export default function MattedCollagesCustomizer({
     if (d1 !== d2) {
       const minD = Math.min(d1, d2);
       const maxD = Math.max(d1, d2);
-      if (['grid_1x2_horizontal', 'grid_2x3'].includes(selectedLayout?.type)) {
+      if (['grid_1x2_horizontal', 'grid_2x3', 'grid_2x2_landscape', 'grid_2x4', 'grid_2x5'].includes(selectedLayout?.type)) {
         currentWidthCm = maxD;
         currentHeightCm = minD;
-      } else if (['grid_2x1_vertical', 'grid_3x2', 'grid_1top_2bottom', 'grid_2top_1bottom', 'grid_1left_2right', 'grid_2left_1right'].includes(selectedLayout?.type)) {
+      } else if (['grid_2x1_vertical', 'grid_3x2', 'grid_1top_2bottom', 'grid_2top_1bottom', 'grid_1left_2right', 'grid_2left_1right', 'grid_1left_3right', 'grid_3top_1bottom', 'grid_4x2', 'grid_5x2'].includes(selectedLayout?.type)) {
         currentWidthCm = minD;
         currentHeightCm = maxD;
       } else {
@@ -395,7 +395,8 @@ export default function MattedCollagesCustomizer({
                   aspectRatio: `${currentWidthCm} / ${currentHeightCm}`,
                   padding: '5.5%', // Frame width
                   boxSizing: 'border-box',
-                  transition: 'all 0.3s ease'
+                  transition: 'all 0.3s ease',
+                  display: 'grid'
                 }}
               >
                 <div className="matted-frame-mat" style={{ 
@@ -404,7 +405,8 @@ export default function MattedCollagesCustomizer({
                   backgroundColor: '#fff',
                   boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.1)',
                   padding: '12%',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
+                  display: 'grid'
                 }}>
                   <div 
                     className="collage-grid-container" 
@@ -537,8 +539,7 @@ export default function MattedCollagesCustomizer({
                       gap: '2%',
                       width: '100%',
                       height: '100%'
-                    }}
-                  >
+                    }}>
                     {Array(totalSlots).fill(null).map((_, index) => {
                       const slot = gridItems[index];
                       const customStyle = (() => {
@@ -578,6 +579,8 @@ export default function MattedCollagesCustomizer({
                           style={{
                             width: '100%',
                             height: '100%',
+                            minWidth: 0,
+                            minHeight: 0,
                             position: 'relative',
                             cursor: 'pointer',
                             border: slot ? 'none' : '1.5px dashed #ccc',
@@ -591,8 +594,8 @@ export default function MattedCollagesCustomizer({
                           onClick={() => handleOpenSidebarForSlot(index)}
                         >
                           {slot ? (
-                            <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-                              <img src={slot.url} alt={`Slot ${index + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%' }} />
+                            <div style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, position: 'relative' }}>
+                              <img src={adjustPhotoUrl(slot.url, isSlotLandscape(selectedLayout?.type, index))} alt={`Slot ${index + 1}`} style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, objectFit: 'cover', objectPosition: 'center 20%' }} />
                               <button 
                                 className="remove-slot-item-btn" 
                                 style={{ position: 'absolute', top: 4, right: 4, zIndex: 10, padding: '4px', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyCentert: 'center' }}

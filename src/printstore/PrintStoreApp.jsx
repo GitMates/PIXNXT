@@ -789,6 +789,8 @@ export default function PrintStoreApp() {
             initialPaper={editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper}
             initialBorder={editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border}
             initialLayout={editingCartItemId ? editingCartItemOptions?.layout : customizingProductOptions?.layout}
+            initialEditedPhotoUrl={editingCartItemId ? editingCartItemOptions?.editedPhotoUrl : customizingProductOptions?.editedPhotoUrl}
+            initialCustomBorderWidthCm={editingCartItemId ? editingCartItemOptions?.customBorderWidthCm : customizingProductOptions?.customBorderWidthCm}
             onAddToCart={handleAddToCart}
             onClose={() => {
               const productToRestore = activeCustomizerProduct;
@@ -846,6 +848,8 @@ export default function PrintStoreApp() {
             initialPaper={editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper}
             initialBorder={editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border}
             initialLayout={editingCartItemId ? editingCartItemOptions?.layout : customizingProductOptions?.layout}
+            initialEditedPhotoUrl={editingCartItemId ? editingCartItemOptions?.editedPhotoUrl : customizingProductOptions?.editedPhotoUrl}
+            initialCustomBorderWidthCm={editingCartItemId ? editingCartItemOptions?.customBorderWidthCm : customizingProductOptions?.customBorderWidthCm}
             onAddToCart={handleAddToCart}
             onClose={() => {
               const productToRestore = activeCustomizerProduct;

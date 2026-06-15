@@ -1,6 +1,10 @@
 import React from 'react';
+import { adjustPhotoUrl } from '../data/mockStoreData';
 
 export default function MattedCollagesPreview({ product, selectedFrame, compositionWidth }) {
+  const img1 = product.image || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200";
+  const img2 = "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200";
+
   return (
     <div 
       className="product-card-matted_collages" 
@@ -45,23 +49,27 @@ export default function MattedCollagesPreview({ product, selectedFrame, composit
           }}
         >
           <img
-            src={product.image || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200"}
+            src={adjustPhotoUrl(img1, true)}
             alt=""
             className="collage-img"
             style={{
               width: '100%',
               height: 'calc(50% - 6px)',
+              minWidth: 0,
+              minHeight: 0,
               objectFit: 'cover',
               boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15)'
             }}
           />
           <img
-            src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200"
+            src={adjustPhotoUrl(img2, true)}
             alt=""
             className="collage-img"
             style={{
               width: '100%',
               height: 'calc(50% - 6px)',
+              minWidth: 0,
+              minHeight: 0,
               objectFit: 'cover',
               boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15)'
             }}

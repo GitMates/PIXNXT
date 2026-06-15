@@ -1,6 +1,7 @@
 import React from 'react';
 import { ChevronLeft, Trash2, Info, Plus } from 'lucide-react';
 import '../PrintStore.css';
+import { isSlotLandscape, adjustPhotoUrl } from '../data/mockStoreData';
 
 export default function CartPage({
   cartItems,
@@ -62,10 +63,10 @@ export default function CartPage({
                         if (d1 !== d2) {
                           const minD = Math.min(d1, d2);
                           const maxD = Math.max(d1, d2);
-                          if (['grid_1x2_horizontal', 'grid_2x3'].includes(type)) {
+                           if (['grid_1x2_horizontal', 'grid_2x3', 'grid_2x2_landscape', 'grid_2x4', 'grid_2x5'].includes(type)) {
                             w = maxD;
                             h = minD;
-                          } else if (['grid_2x1_vertical', 'grid_3x2', 'grid_1top_2bottom', 'grid_2top_1bottom', 'grid_1left_2right', 'grid_2left_1right'].includes(type)) {
+                          } else if (['grid_2x1_vertical', 'grid_3x2', 'grid_1top_2bottom', 'grid_2top_1bottom', 'grid_1left_2right', 'grid_2left_1right', 'grid_1left_3right', 'grid_3top_1bottom', 'grid_4x2', 'grid_5x2'].includes(type)) {
                             w = minD;
                             h = maxD;
                           } else {
@@ -83,12 +84,16 @@ export default function CartPage({
                           className="product-card-matted_collages"
                           style={{
                             '--frame-color': item.frame?.color || '#111111',
-                            width: '100%',
+                            width: w >= h ? '100%' : 'auto',
+                            height: h >= w ? '100%' : 'auto',
+                            maxWidth: '100%',
+                            maxHeight: '100%',
                             aspectRatio: `${w} / ${h}`,
                             background: item.frame?.color || '#111111',
                             padding: '5.5%',
                             boxSizing: 'border-box',
-                            boxShadow: '0 8px 20px rgba(0,0,0,0.2)'
+                            boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
+                            display: 'grid'
                           }}
                         >
                           <div 
@@ -98,11 +103,14 @@ export default function CartPage({
                               height: '100%',
                               backgroundColor: '#ffffff',
                               padding: '12%',
-                              boxSizing: 'border-box'
+                              boxSizing: 'border-box',
+                              display: 'grid'
                             }}
                           >
                             <div className="collage-grid-container" style={{
                               display: 'grid',
+                              width: '100%',
+                              height: '100%',
                               gridTemplateRows: (() => {
                                 let gridTemplate = '1fr / 1fr';
                                 switch(type) {
@@ -142,6 +150,24 @@ export default function CartPage({
                                     break;
                                   case 'grid_3top_1bottom':
                                     gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
+                                    break;
+                                  case 'grid_3x3':
+                                    gridTemplate = 'repeat(3, 1fr) / repeat(3, 1fr)';
+                                    break;
+                                  case 'grid_4x4':
+                                    gridTemplate = 'repeat(4, 1fr) / repeat(4, 1fr)';
+                                    break;
+                                  case 'grid_4x2':
+                                    gridTemplate = 'repeat(4, 1fr) / repeat(2, 1fr)';
+                                    break;
+                                  case 'grid_5x2':
+                                    gridTemplate = 'repeat(5, 1fr) / repeat(2, 1fr)';
+                                    break;
+                                  case 'grid_2x4':
+                                    gridTemplate = 'repeat(2, 1fr) / repeat(4, 1fr)';
+                                    break;
+                                  case 'grid_2x5':
+                                    gridTemplate = 'repeat(2, 1fr) / repeat(5, 1fr)';
                                     break;
                                 }
                                 return gridTemplate.split(' / ')[0];
@@ -186,12 +212,28 @@ export default function CartPage({
                                   case 'grid_3top_1bottom':
                                     gridTemplate = 'repeat(2, 1fr) / repeat(3, 1fr)';
                                     break;
+                                  case 'grid_3x3':
+                                    gridTemplate = 'repeat(3, 1fr) / repeat(3, 1fr)';
+                                    break;
+                                  case 'grid_4x4':
+                                    gridTemplate = 'repeat(4, 1fr) / repeat(4, 1fr)';
+                                    break;
+                                  case 'grid_4x2':
+                                    gridTemplate = 'repeat(4, 1fr) / repeat(2, 1fr)';
+                                    break;
+                                  case 'grid_5x2':
+                                    gridTemplate = 'repeat(5, 1fr) / repeat(2, 1fr)';
+                                    break;
+                                  case 'grid_2x4':
+                                    gridTemplate = 'repeat(2, 1fr) / repeat(4, 1fr)';
+                                    break;
+                                  case 'grid_2x5':
+                                    gridTemplate = 'repeat(2, 1fr) / repeat(5, 1fr)';
+                                    break;
                                 }
                                 return gridTemplate.split(' / ')[1];
                               })(),
-                            gap: '2px',
-                            width: '100%',
-                            height: '100%'
+                            gap: '2px'
                           }}>
                             {(item.photos && item.photos.length > 0) ? (
                               item.photos.map((p, index) => {
@@ -227,21 +269,21 @@ export default function CartPage({
                                 return p ? (
                                   <img 
                                     key={index} 
-                                    src={p.url} 
+                                    src={adjustPhotoUrl(p.url, isSlotLandscape(item.layout?.type, index))} 
                                     alt={p.name} 
                                     className="collage-grid-img" 
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 20%', ...customStyle }} 
+                                    style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, objectFit: 'cover', objectPosition: 'center 20%', ...customStyle }} 
                                   />
                                 ) : (
                                   <div 
                                     key={index}
                                     className="collage-grid-img-empty" 
-                                    style={{ width: '100%', height: '100%', backgroundColor: '#e0e0e0', ...customStyle }} 
+                                    style={{ width: '100%', height: '100%', minWidth: 0, minHeight: 0, backgroundColor: '#e0e0e0', ...customStyle }} 
                                   />
                                 );
                               })
                             ) : item.photo ? (
-                              <img src={item.photo.url} alt={item.photo.name} className="collage-grid-img" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              <img src={item.editedPhotoUrl || item.photo.url} alt={item.photo.name} className="collage-grid-img" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : null}
                           </div>
                         </div>
@@ -249,21 +291,21 @@ export default function CartPage({
                       );
                     })() ) : item.productId === 'prints' ? (
                       <div className="prints-container">
-                        <img src={item.photo?.url} alt="" className="print-img print-img-back" />
-                        <img src={item.photo?.url} alt="" className="print-img print-img-front" />
+                        <img src={item.editedPhotoUrl || item.photo?.url} alt="" className="print-img print-img-back" />
+                        <img src={item.editedPhotoUrl || item.photo?.url} alt="" className="print-img print-img-front" />
                       </div>
                     ) : item.productId === 'print_pack' ? (
                       <div className="print-pack-container">
                         {[0, 1, 2, 3].map((i) => (
-                          <img key={i} src={item.photo?.url} alt="" className={`print-pack-img img-${i}`} />
+                          <img key={i} src={item.editedPhotoUrl || item.photo?.url} alt="" className={`print-pack-img img-${i}`} />
                         ))}
                       </div>
                     ) : item.productId === 'deckled_prints' ? (
                       <div className="deckled-print-wrapper">
-                        <img src={item.photo?.url} alt="" className="deckled-print-img" />
+                        <img src={item.editedPhotoUrl || item.photo?.url} alt="" className="deckled-print-img" />
                       </div>
                     ) : (
-                      <img src={item.photo?.url} alt="" className="product-image" />
+                      <img src={item.editedPhotoUrl || item.photo?.url} alt="" className="product-image" />
                     )}
                   </div>
                 </div>
