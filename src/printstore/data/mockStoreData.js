@@ -289,7 +289,7 @@ export const CANVAS_SIZES = [
 ];
 
 export const MOCK_FRAMES = [
-  { id: "frame_none", label: "No Frame (Print Only)", priceModifier: 0, color: "transparent", colorThumb: null },
+  { id: "frame_none", label: "No Frame", priceModifier: 0, color: "transparent", colorThumb: null, floatFilter: "none" },
   { id: "frame_black", label: "Black", priceModifier: 20, color: "#111111", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_black.png", floatFilter: "brightness(0.15) saturate(0)" },
   { id: "frame_white", label: "White", priceModifier: 20, color: "#f7f7f7", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_white.png", floatFilter: "brightness(2.5) saturate(0)" },
   { id: "frame_barnwood", label: "Barnwood", priceModifier: 25, color: "#8a7f75", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_barnwood.png", floatFilter: "sepia(0.4) saturate(0.7) brightness(0.9)" },
@@ -607,7 +607,6 @@ export const MOCK_WALLS = [
 // ];
 
 // export const MOCK_FRAMES = [
-//   { id: "frame_none", label: "No Frame (Print Only)", priceModifier: 0, color: "transparent", colorThumb: null },
 //   { id: "frame_black", label: "Black", priceModifier: 20, color: "#111111", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_black.png", floatFilter: "brightness(0.15) saturate(0)" },
 //   { id: "frame_white", label: "White", priceModifier: 20, color: "#f7f7f7", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_white.png", floatFilter: "brightness(2.5) saturate(0)" },
 //   { id: "frame_barnwood", label: "Barnwood", priceModifier: 25, color: "#8a7f75", colorThumb: "https://pictimecloudaf-pub-g3csanfebyefg3dm.a02.azurefd.net/pictures/scripts/platform2/resources/stores/4/shop/data-structures/option-thumbs/color_lab-1_barnwood.png", floatFilter: "sepia(0.4) saturate(0.7) brightness(0.9)" },

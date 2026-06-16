@@ -16,7 +16,10 @@ export default function MattedCollagesCustomizer({
   onAddToCart,
   onClose,
   onOpenCart,
-  onBrowseGallery
+  onBrowseGallery,
+  customizerItems,
+  setCustomizerItems,
+  isDirectGallerySelection = true
 }) {
   const [selectedSize, setSelectedSize] = useState(
     initialSize || MATTED_COLLAGE_SIZES[0]
@@ -37,7 +40,11 @@ export default function MattedCollagesCustomizer({
 
   const totalSlots = selectedLayout?.photos || 4;
 
-  const [gridItems, setGridItems] = useState([]);
+  const [localItems, setLocalItems] = useState([]);
+  const gridItems = customizerItems !== undefined ? customizerItems : localItems;
+  const setGridItems = setCustomizerItems !== undefined ? setCustomizerItems : setLocalItems;
+  const [hasInitialized, setHasInitialized] = useState(false);
+
   const [activeSlotIndex, setActiveSlotIndex] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
@@ -73,6 +80,7 @@ export default function MattedCollagesCustomizer({
 
   // Pre-populate grid slots with photos passed from gallery
   useEffect(() => {
+    if (hasInitialized) return;
     let initialSlots = Array(totalSlots).fill(null);
     if (initialPhotos && initialPhotos.length > 0) {
       const nonNullPhotos = initialPhotos.filter(p => p !== null);
@@ -82,15 +90,17 @@ export default function MattedCollagesCustomizer({
         }
       }
       setSelectedPhotoIds(initialSlots.map(p => p.id));
+      setHasInitialized(true);
     } else if (photos && photos.length > 0) {
       const targetPhoto = photos.find(p => p.id === 'photo_6') || photos[0];
       for (let i = 0; i < totalSlots; i++) {
         initialSlots[i] = targetPhoto;
       }
       setSelectedPhotoIds(Array(totalSlots).fill(targetPhoto.id));
+      setHasInitialized(true);
     }
     setGridItems(initialSlots);
-  }, [initialPhotos, photos, totalSlots]);
+  }, [initialPhotos, photos, totalSlots, hasInitialized]);
 
   // Sync layout if size changes
   useEffect(() => {
@@ -121,7 +131,7 @@ export default function MattedCollagesCustomizer({
 
   const handleOpenSidebarForSlot = (index) => {
     if (onBrowseGallery) {
-      onBrowseGallery(gridItems.filter(Boolean));
+      onBrowseGallery(gridItems.filter(Boolean), index);
     } else {
       setActiveSlotIndex(index);
       setIsSidebarOpen(true);
@@ -691,7 +701,7 @@ export default function MattedCollagesCustomizer({
             <button 
               onClick={() => {
                 if (onBrowseGallery) {
-                  onBrowseGallery(gridItems.filter(Boolean));
+                  onBrowseGallery(gridItems.filter(Boolean), null);
                 } else {
                   setActiveSlotIndex(null);
                   setIsSidebarOpen(true);

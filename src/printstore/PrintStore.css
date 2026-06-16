@@ -896,7 +896,7 @@ body:has(.printstore-container) footer:not(.store-footer) {
 /* ── 4. Photo Grid ── */
 .photos-section {
   padding: 9rem 2rem 3rem 2rem; /* Increased top padding from 3rem to 9rem for breathing space */
-  max-width: 1500px; /* Accommodate exactly three 448.66px columns with gaps */
+  max-width: 1500px; /* Accommodate exactly three columns with gaps */
   margin: 0 auto;
 }
 
@@ -917,7 +917,7 @@ body:has(.printstore-container) footer:not(.store-footer) {
 
 .photo-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, 448.66px);
+  grid-template-columns: repeat(auto-fit, 300px);
   grid-gap: 1.5rem;
   justify-content: center;
 }
@@ -928,8 +928,8 @@ body:has(.printstore-container) footer:not(.store-footer) {
   background: #ffffff !important; /* Fully white background */
   border: 1px solid rgba(0, 0, 0, 0.05) !important; /* Clean thin subtle border */
   cursor: pointer;
-  width: 448.66px !important;
-  height: 672.1px !important;
+  width: 300px !important;
+  height: 450px !important;
 }
 
 .photo-grid-img {

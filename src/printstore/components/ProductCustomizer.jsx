@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingCart, Trash2, Plus, ChevronLeft, Undo2, Redo2, HelpCircle, Image as ImageIcon, RotateCw } from 'lucide-react';
-import { MOCK_SIZES, MOCK_FRAMES, MOCK_PAPERS, PRINT_PACK_SIZES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, FLOAT_FRAME_SIZES, ACRYLIC_PRINT_SIZES, MOCK_PHOTOS } from '../data/mockStoreData';
+import { ShoppingCart, Trash2, Plus, ChevronLeft, Undo2, Redo2, HelpCircle, Image as ImageIcon, RotateCw, Crop } from 'lucide-react';
+import { MOCK_SIZES, MOCK_FRAMES, MOCK_PAPERS, PRINT_PACK_SIZES, MATTED_FRAME_SIZES, GALLERY_BOARD_SIZES, CIRCULAR_FRAME_SIZES, FLOAT_FRAME_SIZES, ACRYLIC_PRINT_SIZES, DECKLED_PRINTS_SIZES, MOCK_PHOTOS } from '../data/mockStoreData';
 import AddPhotosSidebar from './AddPhotosSidebar';
+import Cropper from 'react-easy-crop';
+import getCroppedImg from '../../lib/cropImageUtils';
 
 export default function ProductCustomizer({
   product,
@@ -20,7 +22,10 @@ export default function ProductCustomizer({
   onOpenCart,
   onBrowseGallery,
   editingCartItemId,
-  editingCartItemOptions
+  editingCartItemOptions,
+  customizerItems,
+  setCustomizerItems,
+  isDirectGallerySelection = true
 }) {
   const productSizes = 
     product.id === 'print_pack' ? PRINT_PACK_SIZES :
@@ -30,6 +35,7 @@ export default function ProductCustomizer({
     product.id === 'circular_frames' ? CIRCULAR_FRAME_SIZES :
     product.id === 'float_frames' ? FLOAT_FRAME_SIZES :
     product.id === 'acrylic_prints' ? ACRYLIC_PRINT_SIZES :
+    product.id === 'deckled_prints' ? DECKLED_PRINTS_SIZES :
     MOCK_SIZES;
 
   const [selectedSize, setSelectedSize] = useState(
@@ -39,7 +45,11 @@ export default function ProductCustomizer({
   const [selectedBorder, setSelectedBorder] = useState(initialBorder || 'none');
 
   // List of customized items on the canvas
-  const [items, setItems] = useState([]);
+  const [localItems, setLocalItems] = useState([]);
+  const items = customizerItems !== undefined ? customizerItems : localItems;
+  const setItems = setCustomizerItems !== undefined ? setCustomizerItems : setLocalItems;
+  const [hasInitialized, setHasInitialized] = useState(false);
+
   const [activeSlotIndex, setActiveSlotIndex] = useState(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [showCartModal, setShowCartModal] = useState(false);
@@ -51,30 +61,40 @@ export default function ProductCustomizer({
 
   const handleContinueShopping = () => {
     setShowCartModal(false);
-    onClose();
+    onClose(items);
   };
 
   // Initialize workspace items from initialPhotos or default to a single slot
+  const isFramedProduct = ['frames', 'matted_frame', 'float_frames', 'circular_frames', 'matted_collages'].includes(product.id);
+  const getDefaultFrame = () => {
+    if (initialFrame) return initialFrame;
+    if (isFramedProduct) return MOCK_FRAMES.find(f => f.id === 'frame_black') || MOCK_FRAMES[1];
+    return MOCK_FRAMES.find(f => f.id === 'frame_none') || { id: 'frame_none', label: 'No Frame', priceModifier: 0, color: 'transparent' };
+  };
+
   useEffect(() => {
+    if (hasInitialized) return;
     if (initialPhotos && initialPhotos.length > 0) {
       setItems(initialPhotos.map((photo, idx) => ({
         id: `item_${idx}_${Date.now()}_${Math.random()}`,
         photo: photo,
         quantity: 1,
-        frame: initialFrame || MOCK_FRAMES.find(f => f.id === 'frame_black') || MOCK_FRAMES[1],
+        frame: getDefaultFrame(),
         rotation: 0
       })));
+      setHasInitialized(true);
     } else {
       const defaultPhoto = (photos && photos.length > 0) ? photos[0] : MOCK_PHOTOS[0];
       setItems([{
         id: `item_0_${Date.now()}`,
         photo: defaultPhoto,
         quantity: 1,
-        frame: initialFrame || MOCK_FRAMES.find(f => f.id === 'frame_black') || MOCK_FRAMES[1],
+        frame: getDefaultFrame(),
         rotation: 0
       }]);
+      setHasInitialized(true);
     }
-  }, [initialPhotos]);
+  }, [initialPhotos, hasInitialized]);
 
   // Compute aspect ratio based on selected size for dynamic layouts
   let currentAspect = 0.8;
@@ -84,6 +104,9 @@ export default function ProductCustomizer({
   if (sizeMatch) {
     currentWidthCm = parseFloat(sizeMatch[1]);
     currentHeightCm = parseFloat(sizeMatch[2]);
+    if (selectedSize?.label === '30x45cm') { currentWidthCm = 45; currentHeightCm = 30; }
+    else if (selectedSize?.label === '50x60cm') { currentWidthCm = 60; currentHeightCm = 50; }
+    else if (selectedSize?.label === '55x76cm') { currentWidthCm = 76; currentHeightCm = 55; }
     currentAspect = currentWidthCm / currentHeightCm;
   }
 
@@ -102,14 +125,19 @@ export default function ProductCustomizer({
   // Workspace actions
   const addItem = () => {
     const defaultPhoto = (photos && photos.length > 0) ? photos[0] : MOCK_PHOTOS[0];
-    const usedIds = items.map(item => item.photo?.id).filter(Boolean);
-    const unusedPhoto = photos.find(p => !usedIds.includes(p.id)) || defaultPhoto;
+    let photoToUse;
+    if (isDirectGallerySelection && initialPhotos && initialPhotos.length === 1) {
+      photoToUse = initialPhotos[0];
+    } else {
+      const usedIds = items.map(item => item.photo?.id).filter(Boolean);
+      photoToUse = photos.find(p => !usedIds.includes(p.id)) || defaultPhoto;
+    }
 
     setItems(prev => [
       ...prev,
       {
         id: `item_${prev.length}_${Date.now()}_${Math.random()}`,
-        photo: unusedPhoto,
+        photo: photoToUse,
         quantity: 1,
         frame: prev[prev.length - 1]?.frame || MOCK_FRAMES.find(f => f.id === 'frame_black') || MOCK_FRAMES[1],
         rotation: 0
@@ -141,7 +169,7 @@ export default function ProductCustomizer({
 
   const handleOpenSidebarForSlot = (index) => {
     if (onBrowseGallery) {
-      onBrowseGallery(items.map(item => item.photo).filter(Boolean));
+      onBrowseGallery(items.map(item => item.photo).filter(Boolean), index);
     } else {
       setActiveSlotIndex(index);
       setIsSidebarOpen(true);
@@ -196,7 +224,54 @@ export default function ProductCustomizer({
   const selectedPhotoIds = items.map(item => item.photo?.id).filter(Boolean);
 
   // Helper: prefer the user's cropped edit over the raw gallery URL
-  const getPhotoSrc = (item) => initialEditedPhotoUrl || item?.photo?.url || '';
+  const getPhotoSrc = (item) => item?.editedPhotoUrl || initialEditedPhotoUrl || item?.photo?.url || '';
+
+  // Crop Modal State
+  const [cropState, setCropState] = useState({
+    isOpen: false,
+    slotIndex: null,
+    crop: { x: 0, y: 0 },
+    zoom: 1,
+    croppedAreaPixels: null,
+  });
+
+  const onCropComplete = (croppedArea, croppedAreaPixels) => {
+    setCropState(prev => ({ ...prev, croppedAreaPixels }));
+  };
+
+  const handleSaveCrop = async () => {
+    if (!cropState.croppedAreaPixels || cropState.slotIndex === null) {
+      setCropState(prev => ({ ...prev, isOpen: false }));
+      return;
+    }
+    try {
+      const item = items[cropState.slotIndex];
+      const photoUrlToCrop = item.photo?.url || '';
+      if (!photoUrlToCrop) return;
+      const croppedImage = await getCroppedImg(
+        photoUrlToCrop,
+        cropState.croppedAreaPixels,
+        0
+      );
+      const updated = [...items];
+      updated[cropState.slotIndex].editedPhotoUrl = croppedImage;
+      setItems(updated);
+      setCropState(prev => ({ ...prev, isOpen: false }));
+    } catch (e) {
+      console.error("Cropping failed:", e);
+      setCropState(prev => ({ ...prev, isOpen: false }));
+    }
+  };
+
+  const openCropModal = (index) => {
+    setCropState({
+      isOpen: true,
+      slotIndex: index,
+      crop: { x: 0, y: 0 },
+      zoom: 1,
+      croppedAreaPixels: null
+    });
+  };
 
   const renderVisualizerCard = (item, index) => {
     if (product.id === 'float_frames') {
@@ -247,15 +322,27 @@ export default function ProductCustomizer({
 
     if (product.id === 'matted_frame' || product.id === 'frames') {
       const pmatch = selectedSize?.printSize ? selectedSize.printSize.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/) : null;
-      const printW = pmatch ? parseFloat(pmatch[1]) : currentWidthCm * 0.71;
-      const printH = pmatch ? parseFloat(pmatch[2]) : currentHeightCm * 0.80;
+      let printW = pmatch ? parseFloat(pmatch[1]) : currentWidthCm * 0.71;
+      let printH = pmatch ? parseFloat(pmatch[2]) : currentHeightCm * 0.80;
+
+      if (selectedSize?.printSize === '15x23cm' && (selectedSize.label === '30x45cm' || selectedSize.label === '35x35cm')) { printW = 23; printH = 15; }
+      else if (selectedSize?.printSize === '20x30cm' && (selectedSize.label === '50x50cm' || selectedSize.label === '50x60cm' || selectedSize.label === '55x76cm')) { printW = 30; printH = 20; }
+      else if (selectedSize?.printSize === '30x40cm' && selectedSize.label === '61x61cm') { printW = 40; printH = 30; }
+      else if (selectedSize?.printSize === '51x76cm' && selectedSize.label === '102x102cm') { printW = 76; printH = 51; }
+
+      const WOOD_PCT = 8;
+      const woodBorderW = currentWidthCm * (WOOD_PCT / 100);
+      const woodBorderH = currentHeightCm * (WOOD_PCT / 100);
+
+      const maxMatW = Math.max(0, (currentWidthCm - 5) / 2 - woodBorderW);
+      const maxMatH = Math.max(0, (currentHeightCm - 5) / 2 - woodBorderH);
 
       const borderW = initialCustomBorderWidthCm > 0
-        ? initialCustomBorderWidthCm
-        : (currentWidthCm - printW) / 2;
+        ? Math.min(initialCustomBorderWidthCm, maxMatW)
+        : (product.id === 'frames' ? 0 : Math.max(0, (currentWidthCm - printW) / 2 - woodBorderW));
       const borderH = initialCustomBorderWidthCm > 0
-        ? initialCustomBorderWidthCm
-        : (currentHeightCm - printH) / 2;
+        ? Math.min(initialCustomBorderWidthCm, maxMatH)
+        : (product.id === 'frames' ? 0 : Math.max(0, (currentHeightCm - printH) / 2 - woodBorderH));
 
       const matW = printW + 2 * borderW;
       const matH = printH + 2 * borderH;
@@ -267,6 +354,9 @@ export default function ProductCustomizer({
           className="customizer-frame-shadow-wrapper"
           style={{ 
             backgroundColor: item.frame?.color || '#111111', 
+            backgroundImage: item.frame?.colorThumb ? `url(${item.frame.colorThumb})` : 'none',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
             boxShadow: '0 12px 36px rgba(0,0,0,0.25)', 
             display: 'flex', 
             alignItems: 'center', 
@@ -410,6 +500,62 @@ export default function ProductCustomizer({
 
     // Default prints, acrylics, or dibonds
     const hasBorder = selectedBorder === 'white';
+
+    // Deckled prints — apply white border using customBorderWidthCm + deckled SVG filter
+    if (product.id === 'deckled_prints') {
+      const deckledPadding = initialCustomBorderWidthCm > 0
+        ? `${Math.round(initialCustomBorderWidthCm * 3.8)}px`
+        : (hasBorder ? '24px' : '6px');
+      return (
+        <div
+          className="customizer-frame-shadow-wrapper"
+          style={{
+            width: '257.27px',
+            height: '307.25px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxSizing: 'border-box',
+            background: 'transparent',
+            overflow: 'visible'
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              height: '100%',
+              backgroundColor: '#ffffff',
+              filter: 'url(#slight-deckled-edge) drop-shadow(2px 4px 8px rgba(0,0,0,0.18))',
+              padding: deckledPadding,
+              boxSizing: 'border-box',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer'
+            }}
+            onClick={() => handleOpenSidebarForSlot(index)}
+          >
+            {item.photo ? (
+              <img
+                src={getPhotoSrc(item)}
+                alt=""
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  transform: `rotate(${item.rotation}deg)`
+                }}
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' }}>
+                <ImageIcon size={32} strokeWidth={1.5} color="#888" />
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div 
         className="customizer-frame-shadow-wrapper"
@@ -464,7 +610,7 @@ export default function ProductCustomizer({
     <div className="product-customizer-fullscreen" style={{ background: '#f9f9f9', display: 'flex', flexDirection: 'column', height: '100vh', width: '100vw', position: 'fixed', top: 0, left: 0, zIndex: 200 }}>
       {/* Top Header Controls Bar */}
       <div className="customizer-top-bar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 1.5rem', height: '64px', background: 'white', borderBottom: '1px solid #eaeaea', position: 'relative', flexShrink: 0 }}>
-        <button className="customizer-back-btn" onClick={onClose} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-heading)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+        <button className="customizer-back-btn" onClick={() => onClose(items)} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'none', border: 'none', cursor: 'pointer', fontSize: '15px', fontWeight: 500, fontFamily: 'var(--font-heading)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
           <ChevronLeft size={20} />
           <span>{product.name}</span>
         </button>
@@ -540,7 +686,7 @@ export default function ProductCustomizer({
                         maxWidth: '90px'
                       }}
                     >
-                      {MOCK_FRAMES.map(f => (
+                      {MOCK_FRAMES.filter(f => f.id !== 'frame_none').map(f => (
                         <option key={f.id} value={f.id}>{f.label}</option>
                       ))}
                     </select>
@@ -569,6 +715,17 @@ export default function ProductCustomizer({
                   
                   <span style={{ color: '#ddd' }}>|</span>
                   
+                  {/* Crop Control */}
+                  <button 
+                    onClick={() => openCropModal(index)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#888' }}
+                    title="Arrange Image"
+                  >
+                    <Crop size={14} />
+                  </button>
+
+                  <span style={{ color: '#ddd' }}>|</span>
+
                   {/* Rotate Control */}
                   <button 
                     onClick={() => rotateItem(index)}
@@ -693,6 +850,42 @@ export default function ProductCustomizer({
               <button className="btn-outline" onClick={handleGoToCart}>Go to cart</button>
               <button className="btn-dark" onClick={handleContinueShopping}>Continue shopping</button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Image Arranger Modal */}
+      {cropState.isOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.85)', zIndex: 99999,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center'
+        }}>
+          <div style={{
+            position: 'relative', width: '90%', height: '70%', background: '#333', borderRadius: '8px', overflow: 'hidden'
+          }}>
+            <Cropper
+              image={items[cropState.slotIndex]?.photo?.url || ''}
+              crop={cropState.crop}
+              zoom={cropState.zoom}
+              aspect={product.id === 'float_frames' ? (ffPrintWidth / ffPrintHeight) : currentAspect}
+              onCropChange={(crop) => setCropState(prev => ({ ...prev, crop }))}
+              onZoomChange={(zoom) => setCropState(prev => ({ ...prev, zoom }))}
+              onCropComplete={onCropComplete}
+            />
+          </div>
+          <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
+            <button 
+              onClick={() => setCropState(prev => ({ ...prev, isOpen: false }))}
+              style={{ padding: '9px 19px', background: 'transparent', color: '#0d9488', borderRadius: '4px', border: '1px solid #0d9488', cursor: 'pointer', fontWeight: '500' }}
+            >
+              Cancel
+            </button>
+            <button 
+              onClick={handleSaveCrop}
+              style={{ padding: '10px 20px', background: '#0d9488', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: '500' }}
+            >
+              Save Changes
+            </button>
           </div>
         </div>
       )}

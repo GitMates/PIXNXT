@@ -36,7 +36,19 @@ export default function FramesPreview({ product, selectedFrame, currentAspect, p
         </div>
 
         <div className="matted-frame-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}>
-          <div className="matted-frame-shadow" style={{ position: 'absolute', width: '100%', height: '100%', backgroundColor: selectedFrame?.color || '#111111', boxShadow: '0 8px 24px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="matted-frame-shadow" style={{ 
+            position: 'absolute', 
+            width: '100%', 
+            height: '100%', 
+            backgroundColor: selectedFrame?.color || '#111111', 
+            backgroundImage: selectedFrame?.colorThumb ? `url(${selectedFrame.colorThumb})` : 'none',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.3)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center' 
+          }}>
             <div className="matted-frame-mat" style={{ width: '84%', height: '87%', backgroundColor: '#fff' }}></div>
           </div>
         </div>

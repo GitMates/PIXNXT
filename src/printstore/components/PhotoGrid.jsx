@@ -59,7 +59,7 @@ export default function PhotoGrid({
         gap: '12px', 
         marginBottom: '3rem', 
         position: 'relative',
-        justifyContent: 'flex-start'
+        justifyContent: 'center'
       }}>
         <h2 className="photos-section-title" style={{ margin: 0, textTransform: 'uppercase', fontSize: '18px', letterSpacing: '0.1em' }}>{title}</h2>
         <span className="items-count" style={{ fontSize: '14px', color: '#666' }}>{photos.length} items</span>

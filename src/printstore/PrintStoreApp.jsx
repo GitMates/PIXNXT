@@ -55,6 +55,9 @@ export default function PrintStoreApp() {
   const [editingCartItemId, setEditingCartItemId] = useState(null);
   const [editingCartItemOptions, setEditingCartItemOptions] = useState(null);
   const [previousViewState, setPreviousViewState] = useState(null);
+  const [customizerItems, setCustomizerItems] = useState([]);
+  const [customizerActiveSlotIndex, setCustomizerActiveSlotIndex] = useState(null);
+  const [isDirectGallerySelection, setIsDirectGallerySelection] = useState(true);
 
   // Refs for scroll-spy sections
   const galleryRef = useRef(null);
@@ -174,8 +177,33 @@ export default function PrintStoreApp() {
     setActiveCustomizerProduct(product);
     // Convert array of photo IDs or photo objects to an array of photo objects
     const photoObjects = photos.map(p => typeof p === 'string' ? MOCK_PHOTOS.find(mock => mock.id === p) : p).filter(Boolean);
-    // Default to first mock if empty for some reason
-    setCustomizerPhoto(photoObjects.length ? photoObjects : [MOCK_PHOTOS[0]]);
+    const finalPhotos = photoObjects.length ? photoObjects : [MOCK_PHOTOS[0]];
+    setCustomizerPhoto(finalPhotos);
+
+    if (customizerActiveSlotIndex !== null && customizerItems && customizerItems.length > 0) {
+      const updated = [...customizerItems];
+      if (photoObjects.length > 0) {
+        const currentSlotPhotoId = product.id === 'matted_collages' ? 
+          updated[customizerActiveSlotIndex]?.id : 
+          updated[customizerActiveSlotIndex]?.photo?.id;
+          
+        const newPhoto = photoObjects.find(p => p.id !== currentSlotPhotoId) || photoObjects[0];
+        if (newPhoto) {
+          if (product.id === 'matted_collages') {
+            updated[customizerActiveSlotIndex] = newPhoto;
+          } else {
+            updated[customizerActiveSlotIndex] = {
+              ...updated[customizerActiveSlotIndex],
+              photo: newPhoto
+            };
+          }
+        }
+      }
+      setCustomizerItems(updated);
+      setCustomizerActiveSlotIndex(null);
+    } else {
+      setCustomizerItems([]);
+    }
   };
 
   // ── Enter Selection Mode for a Product ──
@@ -184,6 +212,8 @@ export default function PrintStoreApp() {
     setCustomizingProductOptions(options);
     setIsSelectionMode(true);
     setSelectedPhotos([]);
+    setIsDirectGallerySelection(false);
+    setCustomizerItems([]);
     setSelectedProductForDetail(null);
     setActiveTab('gallery');
     setActiveCollection('portraits');
@@ -405,6 +435,8 @@ export default function PrintStoreApp() {
                 const photoObj = gallerySelectedPhoto ? 
                   MOCK_PHOTOS.find(p => p.url === gallerySelectedPhoto.url) || gallerySelectedPhoto : 
                   MOCK_PHOTOS[0];
+                setIsDirectGallerySelection(true);
+                setCustomizerItems([]);
                 setActiveCustomizerProduct(prod);
                 setCustomizerPhoto([photoObj]);
                 setCustomizingProductOptions(options);
@@ -792,6 +824,9 @@ export default function PrintStoreApp() {
             initialEditedPhotoUrl={editingCartItemId ? editingCartItemOptions?.editedPhotoUrl : customizingProductOptions?.editedPhotoUrl}
             initialCustomBorderWidthCm={editingCartItemId ? editingCartItemOptions?.customBorderWidthCm : customizingProductOptions?.customBorderWidthCm}
             onAddToCart={handleAddToCart}
+            customizerItems={customizerItems}
+            setCustomizerItems={setCustomizerItems}
+            isDirectGallerySelection={isDirectGallerySelection}
             onClose={() => {
               const productToRestore = activeCustomizerProduct;
               setActiveCustomizerProduct(null);
@@ -817,7 +852,7 @@ export default function PrintStoreApp() {
               setEditingCartItemOptions(null);
               openCart();
             }}
-            onBrowseGallery={(currentPhotos) => {
+            onBrowseGallery={(currentPhotos, slotIndex = null) => {
               setIsSelectionMode(true);
               setSelectedPhotos(currentPhotos.map(p => p.id));
               setCustomizingProduct(activeCustomizerProduct);
@@ -828,6 +863,8 @@ export default function PrintStoreApp() {
                 border: editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border,
                 layout: editingCartItemId ? editingCartItemOptions?.layout : customizingProductOptions?.layout
               });
+              setCustomizerActiveSlotIndex(slotIndex);
+              setIsDirectGallerySelection(false);
               setActiveCustomizerProduct(null);
               setCustomizerPhoto(null);
               setActiveTab('gallery');
@@ -851,7 +888,10 @@ export default function PrintStoreApp() {
             initialEditedPhotoUrl={editingCartItemId ? editingCartItemOptions?.editedPhotoUrl : customizingProductOptions?.editedPhotoUrl}
             initialCustomBorderWidthCm={editingCartItemId ? editingCartItemOptions?.customBorderWidthCm : customizingProductOptions?.customBorderWidthCm}
             onAddToCart={handleAddToCart}
-            onClose={() => {
+            customizerItems={customizerItems}
+            setCustomizerItems={setCustomizerItems}
+            isDirectGallerySelection={isDirectGallerySelection}
+            onClose={(customizerItems) => {
               const productToRestore = activeCustomizerProduct;
               setActiveCustomizerProduct(null);
               setCustomizerPhoto(null);
@@ -876,7 +916,7 @@ export default function PrintStoreApp() {
               setEditingCartItemOptions(null);
               openCart();
             }}
-            onBrowseGallery={(currentPhotos) => {
+            onBrowseGallery={(currentPhotos, slotIndex = null) => {
               setIsSelectionMode(true);
               setSelectedPhotos(currentPhotos.map(p => p.id));
               setCustomizingProduct(activeCustomizerProduct);
@@ -887,6 +927,8 @@ export default function PrintStoreApp() {
                 border: editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border,
                 layout: editingCartItemId ? editingCartItemOptions?.layout : customizingProductOptions?.layout
               });
+              setCustomizerActiveSlotIndex(slotIndex);
+              setIsDirectGallerySelection(false);
               setActiveCustomizerProduct(null);
               setCustomizerPhoto(null);
               setActiveTab('gallery');

@@ -364,7 +364,7 @@ export default function ReviewPage({
                   <div className="cart-item-info">
                     <h4 className="cart-item-title">{item.productName} ({item.quantity})</h4>
                     <p className="cart-item-meta">
-                      {item.size.label}, {item.frame.label !== 'No Frame (Print Only)' ? item.frame.label + ', ' : ''}{item.paper.label}
+                      {item.size.label}, {item.frame && item.frame.id !== 'frame_none' && item.frame.label !== 'No Frame' && item.frame.label !== 'No Frame (Print Only)' ? item.frame.label + ', ' : ''}{item.paper.label}
                       {item.layout && <>, Layout: {item.layout.icon?.replace(/_/g, ' ')} ({item.layout.photos} photos)</>}
                     </p>
                     <div className="cart-item-price-mobile">
