@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { useSpring, a } from '@react-spring/three';
 import { useDrag } from '@use-gesture/react';
 import * as THREE from 'three';
@@ -949,8 +949,31 @@ export default function BookModel({
     const showClosedIdle = !flip && (isClosedFront || isClosedBack);
     const showOpenIdle = !flip && isOpen;
 
+    useLayoutEffect(() => {
+        const root = groupRef.current;
+        if (!root || !lockCoverInteraction) return undefined;
+
+        const originals = [];
+        root.traverse((obj) => {
+            if (typeof obj.raycast === 'function') {
+                originals.push([obj, obj.raycast]);
+                obj.raycast = () => {};
+            }
+        });
+
+        return () => {
+            for (const [obj, fn] of originals) {
+                obj.raycast = fn;
+            }
+        };
+    }, [lockCoverInteraction, displaySpread, flip, showClosedIdle, showOpenIdle]);
+
     return (
-        <a.group ref={groupRef} {...bind()} onClick={handleClick}>
+        <a.group
+            ref={groupRef}
+            {...(lockCoverInteraction ? {} : bind())}
+            onClick={lockCoverInteraction ? undefined : handleClick}
+        >
             {showClosedIdle && (
                 <a.group rotation-y={closedRotY}>
                     <ClosedBook
