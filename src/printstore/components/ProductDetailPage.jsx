@@ -598,7 +598,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
 
   // Auto-sync print size when frame size changes for matted frames
   useEffect(() => {
-    if (product.id === 'matted_frame' && selectedSize?.printSize) {
+    if (['matted_frame', 'frames'].includes(product.id) && selectedSize?.printSize) {
       setSelectedPrintSize(selectedSize.printSize);
     }
     if (product.id === 'matted_collages' && MATTED_COLLAGE_LAYOUTS[selectedSize?.id]) {
@@ -740,7 +740,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
   let currentWidthCm = sizeMatch ? parseFloat(sizeMatch[1]) : 20;
   let currentHeightCm = sizeMatch ? parseFloat(sizeMatch[2]) : 30;
   
-  if (product.id === 'matted_frame') {
+  if (['matted_frame', 'frames'].includes(product.id)) {
     if (selectedSize?.label === '30x45cm') {
       currentWidthCm = 45;
       currentHeightCm = 30;
@@ -1696,12 +1696,13 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                               ))}
                             </div>
                           </div>
-                        ) : product.id === 'matted_frame' ? (
+                        ) : ['matted_frame', 'frames'].includes(product.id) ? (
                           <MattedFramePreview 
                             product={product} 
                             selectedFrame={selectedFrame} 
                             selectedSize={selectedSize}
                             selectedPrintSize={selectedPrintSize}
+                            customBorderWidthCm={customBorderWidthCm}
                             photoUrl={photoUrl}
                           />
                         ) : product.id === 'matted_collages_dead' ? (() => {
@@ -2506,7 +2507,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                                     className={`custom-dropdown-item ${selectedSize.id === size.id ? 'active' : ''}`}
                                     onClick={() => {
                                       setSelectedSize(size);
-                                      if (product.id === 'gallery_board' || product.id === 'matted_frame') {
+                                      if (['gallery_board', 'matted_frame', 'frames'].includes(product.id)) {
                                         setSelectedPrintSize(size.printSize);
                                       }
                                       setIsSizeDropdownOpen(false);
@@ -2573,7 +2574,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
 
 
                       {product.id !== 'deckled_prints' && product.id !== 'float_frames' && (
-                      <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2" ref={product.id === 'matted_frame' ? printSizeDropdownRef : paperDropdownRef}>
+                      <div className="pt-dropdown-input-field IF-2-2" data-component="IF-2-2" ref={['matted_frame', 'frames'].includes(product.id) ? printSizeDropdownRef : paperDropdownRef}>
                         <div className="FE-2-2">
                           <div className="pt-dropdown-label">
                             <div className="pt-dropdown-label-title">

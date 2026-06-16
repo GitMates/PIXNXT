@@ -1,7 +1,8 @@
 import React from 'react';
 
-export default function MattedFramePreview({ product, selectedFrame, selectedSize, selectedPrintSize, photoUrl: propPhotoUrl }) {
+export default function MattedFramePreview({ product, selectedFrame, selectedSize, selectedPrintSize, customBorderWidthCm, photoUrl: propPhotoUrl }) {
   const imageUrl = propPhotoUrl || product.image;
+
   // Parse dimensions from labels like "13x18cm" or "8x8cm"
   const parseDims = (label, isPrint = false, frameLabel = null) => {
     if (!label) return { w: 20, h: 30 };
@@ -25,8 +26,22 @@ export default function MattedFramePreview({ product, selectedFrame, selectedSiz
     return { w, h };
   };
 
-  const frameDims = parseDims(selectedSize?.label || '20x30cm', false);
+  const defaultFrameDims = parseDims(selectedSize?.label || '20x30cm', false);
   const printDims = parseDims(selectedPrintSize || '15x15cm', true, selectedSize?.label);
+
+  // Border (mat width on each side)
+  const borderW = customBorderWidthCm > 0
+    ? customBorderWidthCm
+    : (defaultFrameDims.w - printDims.w) / 2;
+  const borderH = customBorderWidthCm > 0
+    ? customBorderWidthCm
+    : (defaultFrameDims.h - printDims.h) / 2;
+
+  // Real frame outer dimensions
+  const frameDims = {
+    w: printDims.w + 2 * borderW,
+    h: printDims.h + 2 * borderH
+  };
 
   const frameAspect = frameDims.w / frameDims.h;
 
@@ -35,27 +50,29 @@ export default function MattedFramePreview({ product, selectedFrame, selectedSiz
   const matW = Math.max(0, frameDims.w - woodBorder * 2);
   const matH = Math.max(0, frameDims.h - woodBorder * 2);
   
-  // Mat percentages relative to full frame
+  // Mat percentages relative to the dynamic frameDims
   const matPctW = (matW / frameDims.w) * 100;
   const matPctH = (matH / frameDims.h) * 100;
 
-  // The print size is placed within the mat window
-  // But wait! The `composition-preview__printable-area` in the original code seems to be the image box.
-  // Actually, the print is centered in the frame.
-  // Print dimensions relative to the full frame:
+  // Print dimensions relative to the dynamic frameDims
   const printPctW = (printDims.w / frameDims.w) * 100;
   const printPctH = (printDims.h / frameDims.h) * 100;
   const printTop = ((frameDims.h - printDims.h) / 2 / frameDims.h) * 100;
   const printLeft = ((frameDims.w - printDims.w) / 2 / frameDims.w) * 100;
 
+  // Determine scale factor for the container width relative to the default frame dimensions,
+  // so the image size remains physically constant.
+  const containerWidthPct = (frameDims.w / defaultFrameDims.w) * 100;
+
   return (
     <div className="composition-preview" style={{ width: '100%', height: 'auto', position: 'relative' }}>
       <div className="composition-preview__composition" style={{ 
         aspectRatio: `${frameAspect} / 1`, 
-        width: '100%', 
+        width: `${containerWidthPct}%`, 
+        margin: '0 auto',
         height: 'auto', 
         position: 'relative',
-        transition: 'aspect-ratio 0.3s ease-in-out'
+        transition: 'aspect-ratio 0.3s ease-in-out, width 0.3s ease-in-out'
       }}>
         <div className="composition-preview__printable-area" style={{ 
           position: 'absolute',

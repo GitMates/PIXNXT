@@ -246,6 +246,22 @@ export default function ProductCustomizer({
     }
 
     if (product.id === 'matted_frame' || product.id === 'frames') {
+      const pmatch = selectedSize?.printSize ? selectedSize.printSize.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/) : null;
+      const printW = pmatch ? parseFloat(pmatch[1]) : currentWidthCm * 0.71;
+      const printH = pmatch ? parseFloat(pmatch[2]) : currentHeightCm * 0.80;
+
+      const borderW = initialCustomBorderWidthCm > 0
+        ? initialCustomBorderWidthCm
+        : (currentWidthCm - printW) / 2;
+      const borderH = initialCustomBorderWidthCm > 0
+        ? initialCustomBorderWidthCm
+        : (currentHeightCm - printH) / 2;
+
+      const matW = printW + 2 * borderW;
+      const matH = printH + 2 * borderH;
+      const imgPctW = (printW / matW) * 100;
+      const imgPctH = (printH / matH) * 100;
+
       return (
         <div 
           className="customizer-frame-shadow-wrapper"
@@ -268,8 +284,8 @@ export default function ProductCustomizer({
           }}>
             <div className="matted-frame-photo-container" style={{
               position: 'relative',
-              width: '71%', 
-              height: '80%', 
+              width: `${imgPctW}%`, 
+              height: `${imgPctH}%`, 
               backgroundColor: 'transparent',
               boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.2)',
               border: '1px solid rgba(0,0,0,0.05)',
