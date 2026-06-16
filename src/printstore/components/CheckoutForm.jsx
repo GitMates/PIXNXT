@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { CreditCard, ArrowLeft, CheckCircle } from 'lucide-react';
+import CartItemPreview from './CartItemPreview';
+
 
 export default function CheckoutForm({ cartItems, onOrderCompleted, onBackToShopping }) {
   const [formData, setFormData] = useState({
@@ -201,7 +203,11 @@ export default function CheckoutForm({ cartItems, onOrderCompleted, onBackToShop
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem', maxHeight: '300px', overflowY: 'auto' }}>
           {cartItems.map((item) => (
             <div key={item.id} style={{ display: 'flex', gap: '0.75rem', fontSize: '0.85rem' }}>
-              <img src={item.photo.url} alt={item.photo.name} style={{ width: '50px', height: '50px', objectFit: 'cover', border: '1px solid #eaeaea' }} />
+              <div style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#f7f7f7', border: '1px solid #eaeaea', flexShrink: 0 }}>
+                <div style={{ transform: 'scale(0.16)', transformOrigin: 'center center', width: '307.25px', height: '307.25px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <CartItemPreview item={item} />
+                </div>
+              </div>
               <div>
                 <div style={{ fontWeight: 500, color: '#111' }}>{item.productName}</div>
                 <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '2px' }}>

@@ -374,6 +374,12 @@ export default function PrintStoreApp() {
               setViewMode('all-products');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            onSelectProduct={(prod) => {
+              setSelectedProductForDetail(prod);
+              setCheckoutState('shopping');
+              setActiveTab('shop');
+              window.scrollTo({ top: 0, behavior: 'instant' });
+            }}
             customizingProduct={customizingProduct}
             onCancelCustomizing={handleCancelCustomizing}
           />

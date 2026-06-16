@@ -6363,3 +6363,135 @@ div.cart-item-image-wrapper.has-frame-size .cart-item-product-image-box {
   font-family: var(--font-heading);
   letter-spacing: 0.05em;
 }
+
+/* ── Shop Hover Dropdown ── */
+.store-shop-nav-container {
+  position: relative;
+}
+
+.shop-hover-dropdown {
+  position: fixed;
+  top: 76px; /* Right under the header */
+  left: 0;
+  right: 0;
+  width: 100vw;
+  background: var(--gallery-bg, rgba(255, 255, 255, 0.98)) !important;
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--gallery-border, rgba(0, 0, 0, 0.08)) !important;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+  padding: 24px 2rem;
+  box-sizing: border-box;
+  z-index: 101;
+  animation: slideDownDropdown 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.shop-hover-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -35px; /* Cover the gap to the header button */
+  left: 0;
+  right: 0;
+  height: 35px;
+  background: transparent;
+}
+
+@keyframes slideDownDropdown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.shop-dropdown-list {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  justify-content: flex-start;
+  align-items: center;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.shop-dropdown-list::-webkit-scrollbar {
+  height: 4px;
+}
+.shop-dropdown-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.shop-dropdown-list::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+}
+
+.shop-dropdown-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  min-width: 110px;
+  max-width: 140px;
+  padding: 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  text-decoration: none;
+}
+
+.shop-dropdown-item:hover {
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.shop-dropdown-item-img {
+  width: 80px;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease;
+}
+
+.shop-dropdown-item:hover .shop-dropdown-item-img {
+  transform: scale(1.04);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.shop-dropdown-item-name {
+  font-size: 11px;
+  font-weight: 500;
+  color: #333;
+  text-align: center;
+  font-family: var(--font-heading);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  width: 100%;
+}
+
+/* Collage slot controls overlay style */
+.collage-slot-item .slot-controls-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.collage-slot-item.has-content:hover .slot-controls-overlay {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.collage-slot-item .slot-controls-overlay button {
+  transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.collage-slot-item .slot-controls-overlay button:hover {
+  transform: scale(1.1);
+  background-color: #f0f0f0 !important;
+}

@@ -1714,7 +1714,10 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                                   backgroundColor: '#ffffff',
                                   padding: '12%',
                                   boxSizing: 'border-box',
-                                  overflow: 'hidden'
+                                  overflow: 'hidden',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center'
                                 }}
                               >
                                   <div 

@@ -1,4 +1,7 @@
+import React, { useState } from 'react';
 import { ShoppingCart, Menu, ChevronLeft } from 'lucide-react';
+import { MOCK_PRODUCTS } from '../data/mockStoreData';
+
 
 export default function StoreHeader({
   activeTab,
@@ -15,8 +18,11 @@ export default function StoreHeader({
   onOpenTrackOrder,
   hasPlacedOrder,
   customizingProduct,
-  onCancelCustomizing
+  onCancelCustomizing,
+  onSelectProduct
 }) {
+  const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
+
   if (customizingProduct) {
     return (
       <div className="store-header-wrapper">
@@ -56,12 +62,38 @@ export default function StoreHeader({
             >
               Gallery
             </button>
-            <button
-              className={`store-nav-btn ${activeTab === 'shop' ? 'active' : ''}`}
-              onClick={() => onNavigateToShop ? onNavigateToShop() : setActiveTab('shop')}
+            <div
+              className="store-shop-nav-container"
+              onMouseEnter={() => setIsShopDropdownOpen(true)}
+              onMouseLeave={() => setIsShopDropdownOpen(false)}
+              style={{ display: 'inline-block' }}
             >
-              Shop
-            </button>
+              <button
+                className={`store-nav-btn ${activeTab === 'shop' ? 'active' : ''}`}
+                onClick={() => onNavigateToShop ? onNavigateToShop() : setActiveTab('shop')}
+              >
+                Shop
+              </button>
+              {isShopDropdownOpen && (
+                <div className="shop-hover-dropdown">
+                  <div className="shop-dropdown-list">
+                    {MOCK_PRODUCTS.map((prod) => (
+                      <div 
+                        key={prod.id} 
+                        className="shop-dropdown-item"
+                        onClick={() => {
+                          if (onSelectProduct) onSelectProduct(prod);
+                          setIsShopDropdownOpen(false);
+                        }}
+                      >
+                        <img src={prod.image} alt={prod.name} className="shop-dropdown-item-img" />
+                        <span className="shop-dropdown-item-name">{prod.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </nav>
         </div>
 
