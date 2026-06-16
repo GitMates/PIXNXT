@@ -213,7 +213,8 @@ export default function ProductCustomizer({
         unitPrice: itemUnitPrice,
         totalPrice: itemUnitPrice * item.quantity,
         quantity: item.quantity,
-        editedPhotoUrl: initialEditedPhotoUrl || null,
+        editedPhotoUrl: item.editedPhotoUrl || initialEditedPhotoUrl || null,
+        rotation: item.rotation || 0,
         customBorderWidthCm: initialCustomBorderWidthCm || null
       }, true); // Always skip direct redirect to show cart modal
     });
