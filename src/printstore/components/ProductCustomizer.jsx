@@ -874,6 +874,29 @@ export default function ProductCustomizer({
               onCropComplete={onCropComplete}
             />
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '90%', maxWidth: '400px', margin: '20px auto 0 auto', color: 'white' }}>
+            <button 
+              onClick={() => setCropState(prev => ({ ...prev, zoom: Math.max(1, prev.zoom - 0.1) }))}
+              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '24px', padding: '0 12px' }}
+            >
+              -
+            </button>
+            <input 
+              type="range"
+              min={1}
+              max={3}
+              step={0.1}
+              value={cropState.zoom}
+              onChange={(e) => setCropState(prev => ({ ...prev, zoom: parseFloat(e.target.value) }))}
+              style={{ flex: 1, accentColor: '#0d9488', cursor: 'pointer' }}
+            />
+            <button 
+              onClick={() => setCropState(prev => ({ ...prev, zoom: Math.min(3, prev.zoom + 0.1) }))}
+              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '24px', padding: '0 12px' }}
+            >
+              +
+            </button>
+          </div>
           <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
             <button 
               onClick={() => setCropState(prev => ({ ...prev, isOpen: false }))}

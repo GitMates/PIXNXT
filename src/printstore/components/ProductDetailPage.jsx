@@ -3234,6 +3234,29 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
               onCropComplete={onCropComplete}
             />
           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', width: '90%', maxWidth: '400px', margin: '20px auto 0 auto', color: 'white' }}>
+            <button 
+              onClick={() => setZoom(z => Math.max(1, z - 0.1))}
+              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '24px', padding: '0 12px' }}
+            >
+              -
+            </button>
+            <input 
+              type="range"
+              min={1}
+              max={3}
+              step={0.1}
+              value={zoom}
+              onChange={(e) => setZoom(parseFloat(e.target.value))}
+              style={{ flex: 1, accentColor: '#0d9488', cursor: 'pointer' }}
+            />
+            <button 
+              onClick={() => setZoom(z => Math.min(3, z + 0.1))}
+              style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', fontSize: '24px', padding: '0 12px' }}
+            >
+              +
+            </button>
+          </div>
           <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
             <button 
               onClick={() => setIsCropModalOpen(false)}
