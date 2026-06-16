@@ -990,17 +990,35 @@ const AlbumBook = ({
                 originSlot: slot,
                 originPoint: null,
             });
+            if (previewMode) {
+                setSwapPickerOrigin(slot);
+            }
         },
-        [album?.id]
+        [album?.id, previewMode]
     );
 
     const handleSwapPick = useCallback(
         (secondSlot) => {
-            if (!album?.id || !swapPickerOrigin) return;
-            addSwapMark(album.id, swapPickerOrigin, secondSlot);
+            if (!album?.id || !secondSlot) return;
+            const originSlot = swapPickerOrigin || swapPinFlow?.originSlot;
+            if (!originSlot) return;
+            const pointA = swapPinFlow?.originPoint || {
+                xPct: 50,
+                yPct: 50,
+                pageNum: originSlot.pageNum,
+                cellId: originSlot.cellId ?? 0,
+            };
+            const pointB = {
+                xPct: 50,
+                yPct: 50,
+                pageNum: secondSlot.pageNum,
+                cellId: secondSlot.cellId ?? 0,
+            };
+            addSwapMark(album.id, originSlot, secondSlot, { pointA, pointB });
             setSwapPickerOrigin(null);
+            setSwapPinFlow(null);
         },
-        [album?.id, swapPickerOrigin]
+        [album?.id, swapPickerOrigin, swapPinFlow]
     );
 
     const handleSwapPinPlace = useCallback(
@@ -1018,6 +1036,9 @@ const AlbumBook = ({
                     originSlot: placement,
                     originPoint: placementPoint,
                 });
+                if (previewMode) {
+                    setSwapPickerOrigin(placement);
+                }
                 return;
             }
             const originSlot = swapPinFlow.originSlot;
@@ -1064,7 +1085,7 @@ const AlbumBook = ({
                 setSwapPinFlow(null);
             }
         },
-        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker]
+        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker, previewMode]
     );
 
     const getSwapMarkInfo = useCallback(
@@ -1752,8 +1773,12 @@ const AlbumBook = ({
                 originSlot={swapPickerOrigin}
                 swapMarks={swapMarks}
                 showSamples={showSamples}
+                bookAnchorRef={wrapRef}
                 onSelect={handleSwapPick}
-                onClose={() => setSwapPickerOrigin(null)}
+                onClose={() => {
+                    setSwapPickerOrigin(null);
+                    setSwapPinFlow(null);
+                }}
             />
 
             <AlbumPinComposer

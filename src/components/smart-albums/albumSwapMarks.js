@@ -494,6 +494,27 @@ export function inferSwapScopeFromSlot(slot) {
     return 'left';
 }
 
+/**
+ * Which side of the open book spread should show the swap picker.
+ * Click/hover on the left page → picker on the right; right page → picker on the left.
+ */
+export function getSwapPickerDockSide(originSlot) {
+    if (!originSlot) return null;
+
+    const label = String(originSlot.label || '');
+    if (/\bRight\b/i.test(label)) return 'left';
+    if (/\bLeft\b/i.test(label)) return 'right';
+
+    const originX = typeof originSlot.xPct === 'number' ? originSlot.xPct : null;
+    if (originX != null) {
+        return originX < 50 ? 'right' : 'left';
+    }
+
+    if (originSlot.cellId === 2) return 'left';
+    if (originSlot.cellId === 1) return 'right';
+    return 'right';
+}
+
 /** Which swap scopes to show in the execute modal (left / right / both, or both-only). */
 export function getAvailableSwapScopes(
     albumId,
