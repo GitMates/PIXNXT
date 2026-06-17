@@ -277,6 +277,30 @@
   flex-direction: column;
 }
 
+/* Book-anchored dock must win over generic modal sizing above */
+.ab-swap-modal.ab-swap-modal--book-anchor {
+  position: fixed;
+  z-index: 4601;
+  width: auto;
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  border-radius: 0;
+  padding: 0;
+  pointer-events: auto;
+  box-sizing: border-box;
+  overflow: hidden;
+  background: rgba(238, 240, 243, 0.52);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.ab-swap-modal.ab-swap-modal--book-anchor .ab-swap-modal-spread-list {
+  justify-content: flex-start;
+  padding-bottom: 28px;
+}
+
 .ab-swap-modal-close {
   position: absolute;
   top: 14px;

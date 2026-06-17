@@ -158,16 +158,10 @@ function getSwapPanelVerticalBounds(bookEl) {
         bookEl.closest('.ab-root');
     const bookRect = bookEl.getBoundingClientRect();
     const anchorRect = verticalAnchor?.getBoundingClientRect?.();
-    if (anchorRect?.height > 0) {
-        return {
-            top: anchorRect.top,
-            height: anchorRect.height,
-            bookHeight: bookRect.height,
-        };
-    }
+    const top = anchorRect?.height > 0 ? anchorRect.top : bookRect.top;
+
     return {
-        top: bookRect.top,
-        height: bookRect.height,
+        top,
         bookHeight: bookRect.height,
     };
 }
@@ -250,8 +244,8 @@ export default function AlbumSwapPickerModal({
 
             const base = {
                 top: vertical.top,
+                bottom: 0,
                 width: panelWidth,
-                height: vertical.height,
                 '--ab-swap-thumb-h': `${thumbHeight}px`,
                 '--ab-overview-thumb-h': `${thumbHeight}px`,
                 '--ab-overview-thumb-w': `${panelWidth - 36}px`,
