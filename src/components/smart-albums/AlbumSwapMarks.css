@@ -185,10 +185,27 @@
   pointer-events: auto;
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
   padding: 0;
   overflow: hidden;
-  background: transparent;
-  box-shadow: none;
+  background: rgba(238, 240, 243, 0.52);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.ab-swap-modal--book-anchor.ab-swap-modal--dock-left {
+  border-right: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow:
+    inset -1px 0 0 rgba(255, 255, 255, 0.5),
+    4px 0 28px rgba(0, 0, 0, 0.08);
+}
+
+.ab-swap-modal--book-anchor.ab-swap-modal--dock-right {
+  border-left: 1px solid rgba(255, 255, 255, 0.42);
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    -4px 0 28px rgba(0, 0, 0, 0.08);
 }
 
 .ab-swap-modal--book-spreads {
@@ -204,8 +221,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 14px;
-  padding: 0 12px;
+  justify-content: safe center;
+  gap: 18px;
+  padding: 20px 18px;
   scrollbar-width: none;
   -ms-overflow-style: none;
 }

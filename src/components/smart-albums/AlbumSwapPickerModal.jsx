@@ -150,6 +150,28 @@ function SwapSpreadThumb({ album, spreadIndex, totalPages, spreadOpts, showSampl
     );
 }
 
+function getSwapPanelVerticalBounds(bookEl) {
+    const verticalAnchor =
+        bookEl.closest('.av-preview-book-section') ||
+        bookEl.closest('.ae-canvas-stage') ||
+        bookEl.closest('.ab-book-stage') ||
+        bookEl.closest('.ab-root');
+    const bookRect = bookEl.getBoundingClientRect();
+    const anchorRect = verticalAnchor?.getBoundingClientRect?.();
+    if (anchorRect?.height > 0) {
+        return {
+            top: anchorRect.top,
+            height: anchorRect.height,
+            bookHeight: bookRect.height,
+        };
+    }
+    return {
+        top: bookRect.top,
+        height: bookRect.height,
+        bookHeight: bookRect.height,
+    };
+}
+
 export default function AlbumSwapPickerModal({
     open,
     album,
@@ -222,16 +244,17 @@ export default function AlbumSwapPickerModal({
             const rect = bookEl.getBoundingClientRect();
             if (!rect.width || !rect.height) return;
 
+            const vertical = getSwapPanelVerticalBounds(bookEl);
             const panelWidth = Math.round(rect.width / 2);
-            const thumbHeight = Math.round(rect.height * 0.44);
+            const thumbHeight = Math.round(vertical.bookHeight * 0.44);
 
             const base = {
-                top: rect.top,
+                top: vertical.top,
                 width: panelWidth,
-                height: rect.height,
+                height: vertical.height,
                 '--ab-swap-thumb-h': `${thumbHeight}px`,
                 '--ab-overview-thumb-h': `${thumbHeight}px`,
-                '--ab-overview-thumb-w': `${panelWidth - 24}px`,
+                '--ab-overview-thumb-w': `${panelWidth - 36}px`,
             };
 
             if (dockSide === 'left') {
@@ -272,6 +295,12 @@ export default function AlbumSwapPickerModal({
             <div
                 className={`ab-swap-modal ab-swap-modal--book-spreads${
                     useBookAnchor ? ' ab-swap-modal--book-anchor' : ''
+                }${
+                    useBookAnchor && dockSide === 'left'
+                        ? ' ab-swap-modal--dock-left'
+                        : useBookAnchor && dockSide === 'right'
+                          ? ' ab-swap-modal--dock-right'
+                          : ''
                 }`}
                 style={useBookAnchor ? panelStyle : undefined}
                 role="dialog"
