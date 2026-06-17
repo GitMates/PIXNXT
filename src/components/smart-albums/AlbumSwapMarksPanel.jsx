@@ -6,6 +6,7 @@ import {
     removeSwapMark,
     resolveSlotLabel,
 } from './albumSwapMarks';
+import ProofDoneButton from './ProofDoneButton';
 
 export default function AlbumSwapMarksPanel({
     albumId,
@@ -25,9 +26,12 @@ export default function AlbumSwapMarksPanel({
             new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
 
-    const handleOpenSlot = (mark, slotKey) => {
-        markSwapMarksSeen(albumId, [mark]);
+    const handleOpenSlot = (slotKey) => {
         onNavigateToSlotKey?.(slotKey);
+    };
+
+    const handleCompleteMark = (mark) => {
+        markSwapMarksSeen(albumId, [mark]);
     };
 
     if (!sortedMarks.length) {
@@ -72,6 +76,9 @@ export default function AlbumSwapMarksPanel({
                         ? new Date(mark.createdAt).toLocaleString()
                         : null;
                     const unseen = isSwapMarkUnseen(albumId, mark);
+                    const doneAria = unseen
+                        ? `Mark swap request ${labelA} with ${labelB} complete`
+                        : `Swap request ${labelA} with ${labelB} already complete`;
                     return (
                         <li
                             key={mark.id}
@@ -79,6 +86,16 @@ export default function AlbumSwapMarksPanel({
                                 unseen ? ' ae-proof-item--unseen' : ''
                             }`}
                         >
+                            <div className="ae-proof-item-top-right">
+                                <ProofDoneButton
+                                    completed={!unseen}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCompleteMark(mark);
+                                    }}
+                                    ariaLabel={doneAria}
+                                />
+                            </div>
                             <div className="ae-swap-marks-body">
                                 <span className="ae-swap-marks-header">
                                     Swap request
@@ -93,7 +110,7 @@ export default function AlbumSwapMarksPanel({
                                     <button
                                         type="button"
                                         className="ae-swap-marks-slot-chip"
-                                        onClick={() => handleOpenSlot(mark, mark.a)}
+                                        onClick={() => handleOpenSlot(mark.a)}
                                     >
                                         {labelA}
                                     </button>
@@ -103,7 +120,7 @@ export default function AlbumSwapMarksPanel({
                                     <button
                                         type="button"
                                         className="ae-swap-marks-slot-chip"
-                                        onClick={() => handleOpenSlot(mark, mark.b)}
+                                        onClick={() => handleOpenSlot(mark.b)}
                                     >
                                         {labelB}
                                     </button>
@@ -115,17 +132,18 @@ export default function AlbumSwapMarksPanel({
                                 ) : (
                                     <span className="ae-swap-marks-time" aria-hidden />
                                 )}
-                                <button
-                                    type="button"
-                                    className="ae-swap-marks-remove"
-                                    onClick={() => {
-                                        markSwapMarksSeen(albumId, [mark]);
-                                        removeSwapMark(albumId, mark.id);
-                                    }}
-                                    aria-label={`Remove swap request ${labelA} with ${labelB}`}
-                                >
-                                    Remove
-                                </button>
+                                <div className="ae-proof-item-actions">
+                                    <button
+                                        type="button"
+                                        className="ae-swap-marks-remove"
+                                        onClick={() => {
+                                            removeSwapMark(albumId, mark.id);
+                                        }}
+                                        aria-label={`Remove swap request ${labelA} with ${labelB}`}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
                             </div>
                         </li>
                     );
