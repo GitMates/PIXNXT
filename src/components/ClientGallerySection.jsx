@@ -31,7 +31,7 @@ const examplesData = [
 const ClientGallerySection = () => {
     return (
         <section className="bg-white py-24 md:py-32" id="products">
-            <Container>
+            <Container size="landing">
                 {/* Intro Hero-like section */}
                 <div className="grid grid-cols-1 gap-16 lg:grid-cols-2 lg:items-center">
                     <div className="max-w-2xl">

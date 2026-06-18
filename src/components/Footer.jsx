@@ -6,7 +6,7 @@ import { Container } from './ui/Container';
 const Footer = () => {
     return (
         <footer className="border-t border-zinc-100 bg-white py-16 md:py-24">
-            <Container>
+            <Container size="landing">
                 <div className="flex flex-col items-center justify-between gap-12 md:flex-row">
                     <div className="flex flex-col items-center gap-4 md:items-start">
                         <span className="text-xl font-bold tracking-tightest uppercase text-zinc-950">PIXNXT</span>

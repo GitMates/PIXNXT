@@ -18,7 +18,7 @@ const WorkflowSection = () => {
 
     return (
         <section className="bg-white py-24 md:py-32">
-            <Container>
+            <Container size="landing">
                 <div className="mb-16 max-w-2xl">
                     <Typography 
                       variant="label" 

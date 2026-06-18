@@ -20,8 +20,8 @@ const Hero = () => {
                 <source src="/hero-video.mp4" type="video/mp4" />
             </video>
 
-            <Container className="relative z-20 flex h-full items-center">
-                <div className="max-w-2xl">
+            <Container size="landing" className="relative z-20 flex h-full items-center justify-start">
+                <div className="w-full max-w-2xl xl:max-w-3xl">
                     <Typography 
                       variant="label" 
                       className="mb-6 block text-white/70 animate-fade-in"
@@ -31,7 +31,7 @@ const Hero = () => {
                     
                     <Typography 
                       variant="h1" 
-                      className="mb-8 text-white text-5xl md:text-7xl leading-[1.1]"
+                      className="mb-8 text-white text-5xl md:text-7xl xl:text-8xl leading-[1.1]"
                     >
                         Designed for photographers.<br />
                         Built to help you grow.

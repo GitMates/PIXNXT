@@ -30,7 +30,7 @@ const Header = () => {
           : "bg-transparent text-white"
       )}
     >
-      <Container className="flex items-center justify-between">
+      <Container size="landing" className="flex items-center justify-between">
         <div className="flex items-center">
           <Link to="/" className="group flex items-center gap-2">
             <span className={cn(

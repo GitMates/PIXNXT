@@ -12,7 +12,7 @@ const ParallaxProofing = () => {
             {/* Dark Overlay */}
             <div className="absolute inset-0 z-10 bg-black/40" />
 
-            <Container className="relative z-20 flex flex-col items-center md:items-end">
+            <Container size="landing" className="relative z-20 flex flex-col items-start md:items-end">
                 <div className="max-w-2xl text-white">
                     <Typography 
                       variant="h2" 
