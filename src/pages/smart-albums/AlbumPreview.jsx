@@ -26,8 +26,8 @@ import {
     groupRootCommentsBySpread,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
-import AlbumPreviewNotifications from '../../components/smart-albums/AlbumPreviewNotifications';
 import AlbumPreviewProofActions from '../../components/smart-albums/AlbumPreviewProofActions';
+import { galleryService } from '../../services/gallery.service';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import { useAuth } from '../../hooks/useAuth';
 import { countUnseenPhotoPins } from '../../components/smart-albums/albumPhotoPins';
@@ -126,6 +126,37 @@ export default function AlbumPreview({
     const [editingPinMessage, setEditingPinMessage] = useState('');
     const [swapMarks, setSwapMarks] = useState([]);
     const [imageReplacements, setImageReplacements] = useState([]);
+    const [businessName, setBusinessName] = useState(
+        () => album?.preview_data?.business_name?.trim() || ''
+    );
+
+    useEffect(() => {
+        const fromSnapshot = album?.preview_data?.business_name?.trim();
+        if (fromSnapshot) {
+            setBusinessName(fromSnapshot);
+            return undefined;
+        }
+
+        const photographerId = album?.photographer_id;
+        if (!photographerId) return undefined;
+
+        let cancelled = false;
+        galleryService
+            .getPhotographerProfile(photographerId)
+            .then((profile) => {
+                if (cancelled || !profile) return;
+                const name =
+                    profile.business_name?.trim() ||
+                    profile.display_name?.trim() ||
+                    [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
+                if (name) setBusinessName(name);
+            })
+            .catch(() => {});
+
+        return () => {
+            cancelled = true;
+        };
+    }, [album?.photographer_id, album?.preview_data?.business_name]);
 
     useEffect(() => {
         if (!messagesEnabled && sidebarTab === 'swap') {
@@ -334,15 +365,9 @@ export default function AlbumPreview({
     return (
         <div className="av-page av-page--preview av-page--gallery-proof av-page--with-comments">
             <header className="av-preview-header">
-                {clientPreview && commentsEnabled ? (
-                    <AlbumPreviewNotifications
-                        albumId={albumId}
-                        onSelectSpread={jumpToSpread}
-                        onOpenComments={() => handleSidebarTab('comments')}
-                    />
-                ) : (
-                    <span className="av-preview-header-btn" aria-hidden />
-                )}
+                <span className="av-preview-header-brand" title={businessName || undefined}>
+                    {businessName}
+                </span>
                 <div className="av-preview-header-title-wrap">
                     <h1 className="av-preview-header-title">{album?.name || 'Album'}</h1>
                     <button

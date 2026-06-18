@@ -4,6 +4,7 @@ import { deleteAlbumCollectionAssets } from '../components/smart-albums/albumCol
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
 import { buildAlbumPreviewSnapshot, getAlbumIdsWithLocalAssets, hydrateAlbumPreviewData } from '../components/smart-albums/albumPreviewData';
+import { galleryService } from './gallery.service';
 import { duplicateAlbumAssets } from '../components/smart-albums/albumDuplicate';
 
 
@@ -1096,6 +1097,16 @@ export const smartAlbumsService = {
   async syncAlbumPreviewData(photographerId, albumId) {
     const previewData = buildAlbumPreviewSnapshot(albumId);
     if (!previewData) return null;
+
+    try {
+      const profile = await galleryService.getPhotographerProfile(photographerId);
+      const businessName = profile?.business_name?.trim();
+      if (businessName) {
+        previewData.business_name = businessName;
+      }
+    } catch {
+      /* branding is optional */
+    }
 
     const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
       preview_data: previewData,
