@@ -995,6 +995,50 @@
   align-items: start;
 }
 
+.ae-collection-thumb-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.ae-collection-thumb-wrap--drag-over .ae-collection-thumb {
+  border-color: #8e44ad;
+  box-shadow: 0 0 0 2px rgba(142, 68, 173, 0.25);
+}
+
+.ae-collection-thumb-delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(22, 16, 29, 0.78);
+  color: #fff;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.ae-collection-thumb-wrap:hover .ae-collection-thumb-delete,
+.ae-collection-thumb-wrap:focus-within .ae-collection-thumb-delete {
+  opacity: 1;
+}
+
+.ae-collection-thumb-delete:hover:not(:disabled) {
+  background: #b42318;
+}
+
+.ae-collection-thumb-delete:disabled {
+  opacity: 0.4;
+  cursor: wait;
+}
+
 .ae-collection-thumb {
   position: relative;
   display: block;
@@ -1018,6 +1062,8 @@
   border-color: #8e44ad;
   box-shadow: 0 0 0 2px rgba(142, 68, 173, 0.25);
 }
+
+/* legacy — drag-over now on wrap */
 
 .ae-collection-thumb[draggable='true'] {
   cursor: grab;
@@ -1054,25 +1100,6 @@
   color: #6b6474;
 }
 
-.ae-btn-apply-order {
-  width: 100%;
-  margin: 10px 0 4px;
-  padding: 10px 14px;
-  border: 1px solid #cdb6df;
-  border-radius: 8px;
-  background: #fbf7ff;
-  color: #5b2d82;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s;
-}
-
-.ae-btn-apply-order:hover {
-  background: #f3e8ff;
-  border-color: #9b59b6;
-}
-
 .ae-collection-thumb img {
   display: block;
   width: 100%;
@@ -1087,6 +1114,36 @@
 .ae-upload-zone--compact {
   padding: 14px 16px;
   margin-bottom: 4px;
+}
+
+.ae-spread-actions {
+  margin-bottom: 14px;
+}
+
+.ae-spread-actions-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.ae-spread-actions-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.ae-upload-zone--spread {
+  min-height: 96px;
+  gap: 6px;
+  border-style: dashed;
+}
+
+.ae-upload-zone-icon {
+  color: #6b7280;
+  margin-bottom: 2px;
 }
 
 .ae-slot-picker--compact {

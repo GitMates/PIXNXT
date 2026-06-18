@@ -111,8 +111,9 @@ export default function AlbumEditorSidebar({
     album,
     totalPages,
     collectionItems = [],
-    onUploadToCollection,
+    onUploadForCurrentSpread,
     onPlaceCollectionItem,
+    onDeleteCollectionItem,
     onOpenPicker,
     onClearAllPhotos,
     uploading = false,
@@ -137,7 +138,6 @@ export default function AlbumEditorSidebar({
     onNavigateToPin = null,
     onNavigateToSwapSlotKey = null,
     onReorderCollectionItem = null,
-    onApplyCollectionOrder = null,
     proofSeenTick = 0,
 }) {
     const fileRef = useRef(null);
@@ -150,9 +150,9 @@ export default function AlbumEditorSidebar({
         (item) => !item.requiresCovers || album?.has_covers === true
     );
 
-    const handleFiles = (e) => {
+    const handleSpreadUpload = (e) => {
         const files = filesFromInput(e.target.files);
-        if (files.length) onUploadToCollection?.(files);
+        if (files.length) onUploadForCurrentSpread?.(files);
         e.target.value = '';
     };
 
@@ -278,8 +278,8 @@ export default function AlbumEditorSidebar({
                     <>
                         <h3 className="ae-panel-title">Collections</h3>
                         <p className="ae-panel-text">
-                            Upload photos here, then click a slot on the spread to choose which image
-                            to place.
+                            Upload a new photo for the spread you are viewing, or pick from the
+                            collection below.
                         </p>
                         {canSelectGrid && (
                             <p className="ae-selection-badge" role="status">
@@ -296,23 +296,49 @@ export default function AlbumEditorSidebar({
                                 )}
                             </p>
                         )}
-                        <input
-                            ref={fileRef}
-                            type="file"
-                            accept="image/*,application/pdf,.pdf"
-                            multiple
-                            className="ae-file-input"
-                            onChange={handleFiles}
-                        />
-                        <button
-                            type="button"
-                            className="ae-upload-zone"
-                            disabled={uploading}
-                            onClick={() => fileRef.current?.click()}
-                        >
-                            <span>{uploading ? 'Uploading…' : 'Upload to collection'}</span>
-                            <span className="ae-upload-hint">JPG, PNG, PDF · each PDF page becomes a photo</span>
-                        </button>
+                        <div className="ae-spread-actions">
+                            <div className="ae-spread-actions-header">
+                                <span className="ae-spread-actions-title">Current spread actions</span>
+                            </div>
+                            <input
+                                ref={fileRef}
+                                type="file"
+                                accept="image/*,application/pdf,.pdf"
+                                className="ae-file-input"
+                                onChange={handleSpreadUpload}
+                            />
+                            <button
+                                type="button"
+                                className="ae-upload-zone ae-upload-zone--spread"
+                                disabled={uploading || !canSelectGrid}
+                                onClick={() => fileRef.current?.click()}
+                            >
+                                <svg
+                                    className="ae-upload-zone-icon"
+                                    width="22"
+                                    height="22"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.75"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    aria-hidden
+                                >
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
+                                <span>
+                                    {uploading
+                                        ? 'Uploading…'
+                                        : 'Upload new photo for this spread'}
+                                </span>
+                                <span className="ae-upload-hint">
+                                    Replaces the photo on the spread you are viewing
+                                </span>
+                            </button>
+                        </div>
                         {canSelectGrid && (
                             <button
                                 type="button"
@@ -340,44 +366,76 @@ export default function AlbumEditorSidebar({
                             <>
                                 <div className="ae-collection-grid" role="list">
                                     {collectionItems.map((item, index) => (
-                                        <button
+                                        <div
                                             key={item.id}
-                                            type="button"
-                                            className={`ae-collection-thumb${
+                                            className={`ae-collection-thumb-wrap${
                                                 collectionDragOverIndex === index
-                                                    ? ' ae-collection-thumb--drag-over'
+                                                    ? ' ae-collection-thumb-wrap--drag-over'
                                                     : ''
                                             }`}
-                                            draggable
-                                            onClick={() => onPlaceCollectionItem?.(item.id)}
-                                            onDragStart={(e) => {
-                                                e.stopPropagation();
-                                                e.dataTransfer.effectAllowed = 'move';
-                                                handleCollectionDragStart(index);
-                                            }}
-                                            onDragOver={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleCollectionDragOver(index);
-                                            }}
-                                            onDrop={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleCollectionDrop(index);
-                                            }}
-                                            onDragEnd={handleCollectionDragEnd}
-                                            title={`${index + 1}. ${item.name || 'Photo'}`}
+                                            role="listitem"
                                         >
-                                            <span className="ae-collection-order" aria-hidden>
-                                                {index + 1}
-                                            </span>
-                                            <img
-                                                src={getCollectionItemDisplayUrl(item) || undefined}
-                                                alt=""
-                                                loading="lazy"
-                                                draggable={false}
-                                            />
-                                        </button>
+                                            <button
+                                                type="button"
+                                                className="ae-collection-thumb"
+                                                draggable
+                                                onClick={() => onPlaceCollectionItem?.(item.id)}
+                                                onDragStart={(e) => {
+                                                    e.stopPropagation();
+                                                    e.dataTransfer.effectAllowed = 'move';
+                                                    handleCollectionDragStart(index);
+                                                }}
+                                                onDragOver={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleCollectionDragOver(index);
+                                                }}
+                                                onDrop={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleCollectionDrop(index);
+                                                }}
+                                                onDragEnd={handleCollectionDragEnd}
+                                                title={`${index + 1}. ${item.name || 'Photo'} — click to place`}
+                                            >
+                                                <span className="ae-collection-order" aria-hidden>
+                                                    {index + 1}
+                                                </span>
+                                                <img
+                                                    src={
+                                                        getCollectionItemDisplayUrl(item) ||
+                                                        undefined
+                                                    }
+                                                    alt=""
+                                                    loading="lazy"
+                                                    draggable={false}
+                                                />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="ae-collection-thumb-delete"
+                                                aria-label={`Delete ${item.name || 'photo'}`}
+                                                title="Delete photo"
+                                                disabled={uploading}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onDeleteCollectionItem?.(item.id);
+                                                }}
+                                            >
+                                                <svg
+                                                    width="12"
+                                                    height="12"
+                                                    viewBox="0 0 24 24"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    strokeWidth="2"
+                                                    strokeLinecap="round"
+                                                    aria-hidden
+                                                >
+                                                    <path d="M18 6 6 18M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
                                     ))}
                                 </div>
                                 <p className="ae-collection-order-note">
@@ -388,13 +446,6 @@ export default function AlbumEditorSidebar({
                                           : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
                                     Drag thumbnails to reorder; spreads update automatically.
                                 </p>
-                                <button
-                                    type="button"
-                                    className="ae-btn-apply-order"
-                                    onClick={() => onApplyCollectionOrder?.()}
-                                >
-                                    Apply collection order to spreads
-                                </button>
                             </>
                         )}
                     </>

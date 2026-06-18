@@ -16,6 +16,16 @@ export function getSmartAlbumPreviewShareUrl(album) {
     return `${origin}/album-preview/${encodeURIComponent(id)}`;
 }
 
+/** True when the client share link toggle is on (default on). */
+export function isClientShareLinkEnabled(album) {
+    return album?.share_link_enabled !== false;
+}
+
+/** True when clients can open the public /album-preview link. */
+export function isClientShareLinkLive(album) {
+    return album?.status === 'published' && isClientShareLinkEnabled(album);
+}
+
 /** In-app preview path (opens in a new tab via openSmartAlbumPreview). */
 export function getSmartAlbumPreviewPath(albumId, page = 0) {
     const id = albumId?.id ?? albumId;

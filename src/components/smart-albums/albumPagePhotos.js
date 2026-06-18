@@ -395,6 +395,27 @@ export function getSpreadPlacementCollectionItemId(albumId, leftPage = 0) {
     return null;
 }
 
+export function getPagePlacementCollectionItemId(albumId, pageNum) {
+    if (!albumId || pageNum == null) return null;
+    const stored = getStoredPlacement(albumId, String(pageNum));
+    if (stored && typeof stored === 'object' && stored.collectionItemId) {
+        return stored.collectionItemId;
+    }
+    return null;
+}
+
+/** Collection item id currently placed on an editor slot (whole spread, page, or cell). */
+export function getSlotPlacementCollectionItemId(albumId, slot) {
+    if (!albumId || !slot) return null;
+    const left = slot.spreadLeft ?? slot.pageNum;
+    if (slot.whole) {
+        return getSpreadPlacementCollectionItemId(albumId, left);
+    }
+    const pageItemId = getPagePlacementCollectionItemId(albumId, slot.pageNum);
+    if (pageItemId) return pageItemId;
+    return getSpreadPlacementCollectionItemId(albumId, left);
+}
+
 /** Tag the collection item on spread:0 so it is excluded from inner-page auto-place. */
 export function syncCoverWrapRoleFromSpread(albumId) {
     if (!albumId) return false;

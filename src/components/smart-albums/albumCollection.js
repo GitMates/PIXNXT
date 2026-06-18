@@ -739,6 +739,79 @@ export function removeCollectionItem(albumId, itemId) {
     return true;
 }
 
+/** Replace a collection item's file in place (same id/sort order; does not grow the collection). */
+export async function replaceCollectionItemFile(albumId, itemId, file, { photographerId } = {}) {
+    if (!albumId || !itemId || !file || !isImageFile(file)) return null;
+    const item = getCollectionItem(albumId, itemId);
+    if (!item) return null;
+
+    const pathContext = await Promise.all([
+        getPhotographerPathFolder(photographerId),
+        getAlbumPathFolder(albumId),
+    ]).then(([photographerFolder, albumFolder]) => ({ photographerFolder, albumFolder }));
+
+    const prepared = await compressImageForUpload(file);
+    let width;
+    let height;
+    try {
+        const dims = await loadImageDimensionsFromFile(prepared);
+        width = dims?.width;
+        height = dims?.height;
+    } catch {
+        /* dimensions optional */
+    }
+
+    const sortIndex = readSortOrder(item, 0);
+    const uploaded = await uploadCollectionFile({
+        file: prepared,
+        sortIndex,
+        batchUploadTs: Date.now(),
+        pathContext,
+    });
+
+    const oldPath = item.storagePath;
+    const all = readAll();
+    const bucket = { ...(all[albumId] || {}) };
+    bucket.items = (bucket.items || []).map((entry) => {
+        if (entry.id !== itemId) return entry;
+        const next = {
+            ...entry,
+            name: file.name || entry.name || 'Photo',
+            dataUrl: uploaded.url,
+            storagePath: uploaded.path,
+            contentHash: undefined,
+        };
+        if (width > 0 && height > 0) {
+            next.width = width;
+            next.height = height;
+        }
+        return next;
+    });
+    persistCollectionBucket(all, albumId, bucket);
+
+    if (oldPath && oldPath !== uploaded.path) {
+        try {
+            await storageService.delete(oldPath);
+        } catch (err) {
+            console.warn('Could not delete replaced collection file from R2:', err);
+        }
+    }
+
+    return getCollectionItem(albumId, itemId);
+}
+
+/** Remove one collection item and delete its R2 object when present. */
+export async function deleteCollectionItemAsset(albumId, itemId) {
+    const item = getCollectionItem(albumId, itemId);
+    if (!item) return false;
+
+    if (item.storagePath) {
+        await storageService.delete(item.storagePath);
+    }
+
+    return removeCollectionItem(albumId, itemId);
+}
+
 /**
  * Deep-copy collection items into another album (re-uploads R2 objects under the target album path).
  * @returns {Map<string, string>} old collection item id → new id

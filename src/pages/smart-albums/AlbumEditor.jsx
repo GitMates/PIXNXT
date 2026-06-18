@@ -19,6 +19,8 @@ import {
 } from '../../lib/shareSmartAlbum';
 import {
     addFilesToAlbumCollection,
+    deleteCollectionItemAsset,
+    replaceCollectionItemFile,
     getAlbumCollection,
     getAlbumCollectionRevision,
     getAlbumLayoutPhotoCount,
@@ -31,11 +33,12 @@ import {
 import { insertAlbumStoragePages, removeAlbumStoragePages } from '../../components/smart-albums/albumPageStorage';
 import { shiftAlbumRemotePreviewPages } from '../../components/smart-albums/albumPreviewData';
 import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
-import { isPdfFile } from '../../lib/pdfToImages';
+import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
 import { filesFromInput } from '../../lib/uploadFileOrder';
 import {
     clearAllAlbumPagePhotos,
     clearCollectionItemPlacements,
+    getSlotPlacementCollectionItemId,
     getAlbumPhotoRevision,
     getSpreadPhotoOverride,
     migrateEndHalfSpreadToLeftPage,
@@ -144,6 +147,54 @@ function buildCellSelection(leftPage, cellId) {
 
 function buildCoverSelection() {
     return { mode: 'cover', leftPage: 0, cellId: null };
+}
+
+function slotFromCurrentSpread(
+    gridSelection,
+    gridEditSet,
+    bookPage,
+    totalPages,
+    spreadOpts,
+    album
+) {
+    if (!gridSelection) return null;
+
+    if (gridSelection.mode === 'cover') {
+        return {
+            pageNum: 0,
+            cellId: 0,
+            spreadLeft: 0,
+            label: albumHasBlankCovers(album) ? 'Cover' : 'Cover',
+        };
+    }
+
+    const left =
+        gridSelection.leftPage ??
+        getSpreadLeftForBookPage(bookPage, totalPages, spreadOpts);
+    const wantsWholeSpread =
+        gridEditSet === 'whole' ||
+        gridSelection.mode === 'spread' ||
+        isWholeSpreadLayout(album?.grid_layout) ||
+        isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
+
+    if (wantsWholeSpread) {
+        return {
+            pageNum: left,
+            cellId: 1,
+            spreadLeft: left,
+            whole: true,
+            label: 'Whole spread',
+        };
+    }
+
+    const cellId = gridSelection.cellId || 1;
+    const rightPage = Math.min(left + 1, Math.max(0, totalPages - 1));
+    return {
+        pageNum: cellId === 2 ? rightPage : left,
+        cellId,
+        spreadLeft: left,
+        whole: false,
+    };
 }
 
 function layoutToPlacementMode(layout) {
@@ -950,6 +1001,34 @@ export default function AlbumEditor({
         [albumId, showToast]
     );
 
+    const resolveSpreadReplacementItem = useCallback(
+        async (files, slot, { coverWrap = false } = {}) => {
+            const photographerId = user?.id ?? album?.photographer_id;
+            const previousItemId = getSlotPlacementCollectionItemId(albumId, slot);
+            const file = files[0];
+
+            if (previousItemId && file && isImageFile(file) && !isPdfFile(file)) {
+                const replaced = await replaceCollectionItemFile(albumId, previousItemId, file, {
+                    photographerId,
+                });
+                if (replaced) return replaced;
+            }
+
+            const added = await addFilesToAlbumCollection(albumId, files.slice(0, 1), {
+                photographerId,
+                skipDuplicateCheck: true,
+                coverWrap,
+            });
+            const replacementItem = added[0] || added.duplicateItems?.[0];
+            if (previousItemId && replacementItem?.id && previousItemId !== replacementItem.id) {
+                clearCollectionItemPlacements(albumId, previousItemId);
+                await deleteCollectionItemAsset(albumId, previousItemId);
+            }
+            return replacementItem;
+        },
+        [album?.photographer_id, albumId, user?.id]
+    );
+
     const handleReplaceFiles = useCallback(
         async (e) => {
             const files = filesFromInput(e.target.files);
@@ -967,18 +1046,14 @@ export default function AlbumEditor({
                         slot.label === 'Cover' ||
                         slot.label === 'Back cover' ||
                         slot.label === 'End cover');
-                const added = await addFilesToAlbumCollection(albumId, files, {
-                    photographerId: user?.id,
-                    skipDuplicateCheck: true,
+                const replacementItem = await resolveSpreadReplacementItem(files, slot, {
                     coverWrap: isCoverSlot,
                 });
-                const replacementItem = added[0] || added.duplicateItems?.[0];
                 if (!replacementItem?.id) {
                     showToast('No supported images in that file.', { variant: 'error', duration: 4000 });
                     return;
                 }
                 if (placeCollectionItemOnSlot(slot, replacementItem.id)) {
-                    await ensurePageCountForCollection();
                     scheduleWorkspaceRefresh();
                     showToast('Photo updated.', { variant: 'success', duration: 3500 });
                 } else {
@@ -996,7 +1071,7 @@ export default function AlbumEditor({
             albumId,
             user?.id,
             placeCollectionItemOnSlot,
-            ensurePageCountForCollection,
+            resolveSpreadReplacementItem,
             scheduleWorkspaceRefresh,
             showToast,
         ]
@@ -1229,6 +1304,80 @@ export default function AlbumEditor({
         }
     };
 
+    const handleUploadForCurrentSpread = useCallback(
+        async (files) => {
+            const slot = slotFromCurrentSpread(
+                gridSelection,
+                gridEditSet,
+                bookPage,
+                totalPages,
+                spreadOpts,
+                album
+            );
+            if (!slot) {
+                showToast('Flip to a spread first, then upload a photo.', {
+                    variant: 'info',
+                    duration: 4500,
+                });
+                return;
+            }
+            if (!files?.length) return;
+
+            setUploading(true);
+            if (files.some((f) => isPdfFile(f))) {
+                showToast('Converting PDF pages to images…', { variant: 'info', duration: 0 });
+            } else {
+                showToast('Uploading photo…', { variant: 'info', duration: 0 });
+            }
+
+            try {
+                const isCoverSlot =
+                    albumHasCoverSpreads(album) && gridSelection?.mode === 'cover';
+                const replacementItem = await resolveSpreadReplacementItem(files, slot, {
+                    coverWrap: isCoverSlot,
+                });
+                if (!replacementItem?.id) {
+                    showToast('No supported images in that file.', {
+                        variant: 'error',
+                        duration: 4000,
+                    });
+                    return;
+                }
+                if (placeCollectionItemOnSlot(slot, replacementItem.id)) {
+                    setCollectionRevision(getAlbumCollectionRevision(albumId));
+                    scheduleWorkspaceRefresh();
+                    showToast('Photo updated on current spread.', {
+                        variant: 'success',
+                        duration: 3500,
+                    });
+                } else {
+                    showToast('Could not place photo on this spread.', {
+                        variant: 'error',
+                        duration: 4000,
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Upload failed. Try again.', { variant: 'error', duration: 4000 });
+            } finally {
+                setUploading(false);
+            }
+        },
+        [
+            album,
+            albumId,
+            bookPage,
+            gridEditSet,
+            gridSelection,
+            placeCollectionItemOnSlot,
+            resolveSpreadReplacementItem,
+            scheduleWorkspaceRefresh,
+            showToast,
+            spreadOpts,
+            totalPages,
+        ]
+    );
+
     const handlePlaceCollectionItem = useCallback(
         (itemId) => {
             if (placeItemOnSpread(itemId)) {
@@ -1248,6 +1397,52 @@ export default function AlbumEditor({
             }
         },
         [placeItemOnSpread, scheduleWorkspaceRefresh, showToast, gridSelection?.mode]
+    );
+
+    const handleDeleteCollectionItem = useCallback(
+        async (itemId) => {
+            const item = getCollectionItem(albumId, itemId);
+            if (!item) return;
+            const label = item.name || 'this photo';
+            if (
+                !window.confirm(
+                    `Delete "${label}" from the collection and remove it from cloud storage?`
+                )
+            ) {
+                return;
+            }
+
+            setUploading(true);
+            try {
+                clearCollectionItemPlacements(albumId, itemId);
+                const removed = await deleteCollectionItemAsset(albumId, itemId);
+                if (!removed) {
+                    showToast('Could not delete photo.', {
+                        variant: 'error',
+                        duration: 4000,
+                    });
+                    return;
+                }
+                scheduleWorkspaceRefresh();
+                if (user?.id) {
+                    try {
+                        await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                    } catch (err) {
+                        console.warn('Could not sync album preview after delete:', err);
+                    }
+                }
+                showToast('Photo deleted.', { variant: 'success', duration: 3500 });
+            } catch (err) {
+                console.error(err);
+                showToast('Could not delete photo from cloud storage.', {
+                    variant: 'error',
+                    duration: 4500,
+                });
+            } finally {
+                setUploading(false);
+            }
+        },
+        [albumId, scheduleWorkspaceRefresh, showToast, user?.id]
     );
 
     const handleReorderCollectionItem = useCallback(
@@ -1276,20 +1471,6 @@ export default function AlbumEditor({
         },
         [albumId, totalPages, spreadOpts, scheduleWorkspaceRefresh, showToast]
     );
-
-    const handleApplyCollectionOrder = useCallback(() => {
-        void syncCollectionOrderToSpreads().then((placed) => {
-            if (placed > 0) {
-                scheduleWorkspaceRefresh();
-                showToast(
-                    `Placed ${placed} photo${placed === 1 ? '' : 's'} on spreads in collection order (1, 2, 3…).`,
-                    { variant: 'success', duration: 4500 }
-                );
-            } else {
-                showToast('No photos in the collection to place.', { variant: 'info', duration: 3500 });
-            }
-        });
-    }, [syncCollectionOrderToSpreads, scheduleWorkspaceRefresh, showToast]);
 
     const canAddPages = totalPages + pagesPerSpread <= maxPages;
     const canRemovePages =
@@ -1603,8 +1784,9 @@ export default function AlbumEditor({
                     album={album}
                     totalPages={totalPages}
                     collectionItems={collectionItems}
-                    onUploadToCollection={handleUploadToCollection}
+                    onUploadForCurrentSpread={handleUploadForCurrentSpread}
                     onPlaceCollectionItem={handlePlaceCollectionItem}
+                    onDeleteCollectionItem={handleDeleteCollectionItem}
                     onOpenPicker={openPicker}
                     onClearAllPhotos={handleClearAllPhotos}
                     uploading={uploading}
@@ -1632,7 +1814,6 @@ export default function AlbumEditor({
                     onNavigateToPin={handleNavigateToPin}
                     onNavigateToSwapSlotKey={handleNavigateToSwapSlotKey}
                     onReorderCollectionItem={handleReorderCollectionItem}
-                    onApplyCollectionOrder={handleApplyCollectionOrder}
                     proofSeenTick={proofSeenTick}
                 />
             </div>

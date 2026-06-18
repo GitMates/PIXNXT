@@ -3,6 +3,8 @@ import {
     getSmartAlbumPreviewShareUrl,
     getShareUrlWarning,
     getQrCodeImageUrl,
+    isClientShareLinkEnabled,
+    isClientShareLinkLive,
 } from '../../lib/shareSmartAlbum';
 import '../features/ClientGallery/CollectionShareModals.css';
 
@@ -56,14 +58,25 @@ export function AlbumPreviewLinkModal({ album, isOpen, onClose }) {
     if (!isOpen || !album) return null;
     const url = getSmartAlbumPreviewShareUrl(album);
     const warning = getShareUrlWarning(url);
+    const shareLinkDisabled = !isClientShareLinkEnabled(album);
+    const shareLinkLive = isClientShareLinkLive(album);
 
     return (
         <ModalShell title="GET DIRECT LINK" onClose={onClose}>
             <CopyField label="ALBUM PREVIEW URL" value={url} />
             {warning ? <p className="cgm-warning">{warning}</p> : null}
+            {shareLinkDisabled ? (
+                <p className="cgm-warning">
+                    Client share link is disabled in Settings. Turn it on before sharing this URL.
+                </p>
+            ) : null}
+            {!shareLinkLive && album?.status !== 'published' ? (
+                <p className="cgm-warning">The album must be published first.</p>
+            ) : null}
             <p className="cgm-hint">
-                Share this link to open the album preview with per-spread comments (read-only flipbook, no editor).
-                The album must be published first.
+                Share this link to open the album preview with per-spread comments (read-only
+                flipbook, no editor). The album must be published and the client share link must be
+                on.
             </p>
         </ModalShell>
     );
@@ -73,6 +86,8 @@ export function AlbumPreviewQrModal({ album, isOpen, onClose }) {
     if (!isOpen || !album) return null;
     const url = getSmartAlbumPreviewShareUrl(album);
     const warning = getShareUrlWarning(url);
+    const shareLinkDisabled = !isClientShareLinkEnabled(album);
+    const shareLinkLive = isClientShareLinkLive(album);
     const qrSrc = getQrCodeImageUrl(url, 220);
 
     return (
@@ -82,8 +97,17 @@ export function AlbumPreviewQrModal({ album, isOpen, onClose }) {
             </div>
             <CopyField label="ALBUM PREVIEW URL" value={url} />
             {warning ? <p className="cgm-warning">{warning}</p> : null}
+            {shareLinkDisabled ? (
+                <p className="cgm-warning">
+                    Client share link is disabled in Settings. Turn it on before sharing this QR code.
+                </p>
+            ) : null}
+            {!shareLinkLive && album?.status !== 'published' ? (
+                <p className="cgm-warning">The album must be published first.</p>
+            ) : null}
             <p className="cgm-hint">
-                Scan to open the album preview. The album must be published first.
+                Scan to open the album preview. The album must be published and the client share
+                link must be on.
             </p>
         </ModalShell>
     );

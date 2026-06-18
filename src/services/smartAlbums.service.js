@@ -189,6 +189,7 @@ function isMissingColumnError(error) {
     msg.includes('comments_enabled') ||
     msg.includes('replies_enabled') ||
     msg.includes('messages_enabled') ||
+    msg.includes('share_link_enabled') ||
     msg.includes('preview_data') ||
     msg.includes('grid_size') ||
     msg.includes('grid_layout') ||
@@ -235,6 +236,7 @@ const OPTIONAL_ALBUM_INSERT_COLUMNS = [
   'messages_enabled',
   'replies_enabled',
   'comments_enabled',
+  'share_link_enabled',
   'expiry_date',
   'category_tags',
   'is_starred',
@@ -257,6 +259,7 @@ const ALBUM_LIST_FIELDS = [
   'comments_enabled',
   'replies_enabled',
   'messages_enabled',
+  'share_link_enabled',
   'created_at',
   'updated_at',
   'client_approved_at',
@@ -298,6 +301,9 @@ function buildAlbumRowFromLocal(local, photographerId) {
   }
   if (settingsOvr.messages_enabled !== undefined) {
     row.messages_enabled = settingsOvr.messages_enabled;
+  }
+  if (settingsOvr.share_link_enabled !== undefined) {
+    row.share_link_enabled = settingsOvr.share_link_enabled;
   }
 
   return row;
@@ -414,6 +420,9 @@ function applySettingsOverrides(row, photographerId) {
   }
   if (ovr.messages_enabled !== undefined) {
     merged.messages_enabled = ovr.messages_enabled;
+  }
+  if (ovr.share_link_enabled !== undefined) {
+    merged.share_link_enabled = ovr.share_link_enabled;
   }
   if (ovr.status !== undefined) {
     merged.status = ovr.status;
@@ -533,6 +542,8 @@ function mapAlbumRow(row, photographerId) {
     replies_enabled: withSettings.replies_enabled !== false,
 
     messages_enabled: withSettings.messages_enabled !== false,
+
+    share_link_enabled: withSettings.share_link_enabled !== false,
 
     photo_count: withSettings.photo_count ?? 0,
 
@@ -658,6 +669,12 @@ async function syncLocalAlbumSettingsToSupabase(photographerId, remoteRows) {
     }
     if (ovr.messages_enabled !== undefined && ovr.messages_enabled !== row.messages_enabled) {
       payload.messages_enabled = ovr.messages_enabled;
+    }
+    if (
+      ovr.share_link_enabled !== undefined &&
+      ovr.share_link_enabled !== row.share_link_enabled
+    ) {
+      payload.share_link_enabled = ovr.share_link_enabled;
     }
     if (Object.keys(payload).length <= 1) continue;
 
@@ -1017,6 +1034,9 @@ export const smartAlbumsService = {
     if (patch.messages_enabled !== undefined) {
       settingsPatch.messages_enabled = patch.messages_enabled;
     }
+    if (patch.share_link_enabled !== undefined) {
+      settingsPatch.share_link_enabled = patch.share_link_enabled;
+    }
     if (patch.status !== undefined) {
       settingsPatch.status = patch.status;
     }
@@ -1287,6 +1307,7 @@ export const smartAlbumsService = {
       comments_enabled: source.comments_enabled,
       replies_enabled: source.replies_enabled,
       messages_enabled: source.messages_enabled,
+      share_link_enabled: source.share_link_enabled,
       status: source.status === 'published' ? 'published' : 'draft',
     });
 

@@ -24,9 +24,11 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
     const commentsOn = album?.comments_enabled !== false;
     const swapsOn = album?.messages_enabled !== false;
     const published = album?.status === 'published';
+    const shareLinkOn = album?.share_link_enabled !== false;
     const [commentsBusy, setCommentsBusy] = useState(false);
     const [swapsBusy, setSwapsBusy] = useState(false);
     const [publishBusy, setPublishBusy] = useState(false);
+    const [shareLinkBusy, setShareLinkBusy] = useState(false);
 
     const handleCommentsToggle = async () => {
         if (!photographerId || !album?.id || commentsBusy) return;
@@ -83,6 +85,25 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
             alert('Could not update swap settings.');
         } finally {
             setSwapsBusy(false);
+        }
+    };
+
+    const handleShareLinkToggle = async () => {
+        if (!photographerId || !album?.id || shareLinkBusy) return;
+        const next = !shareLinkOn;
+        setShareLinkBusy(true);
+        try {
+            const updated = await smartAlbumsService.updateAlbumClientSettings(
+                photographerId,
+                album.id,
+                { share_link_enabled: next }
+            );
+            onUpdated?.(updated);
+        } catch (e) {
+            console.error(e);
+            alert('Could not update share link settings. Run the latest database migration if needed.');
+        } finally {
+            setShareLinkBusy(false);
         }
     };
 
@@ -180,8 +201,8 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
                     <span className="asc-settings-row-label">Publish for clients</span>
                     <span className="asc-settings-row-desc">
                         {published
-                            ? 'Share link is live — clients can open the album preview'
-                            : 'Share link is off until you publish'}
+                            ? 'Album is published and ready for client proofing'
+                            : 'Album stays in draft until you publish'}
                     </span>
                 </div>
                 <div className="asc-settings-row-control">
@@ -201,6 +222,32 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
                 </div>
             </div>
 
+            <div className="asc-settings-row">
+                <div className="asc-settings-row-main">
+                    <span className="asc-settings-row-label">Client share link</span>
+                    <span className="asc-settings-row-desc">
+                        {shareLinkOn
+                            ? 'Clients can open the album with your share link'
+                            : 'Share link is disabled — clients cannot open the public preview'}
+                    </span>
+                </div>
+                <div className="asc-settings-row-control">
+                    <span
+                        className={`asc-settings-status${shareLinkOn ? ' asc-settings-status--on' : ''}`}
+                    >
+                        {shareLinkBusy ? '…' : shareLinkOn ? 'On' : 'Off'}
+                    </span>
+                    <SettingsSwitch
+                        id="asc-share-link-enabled"
+                        checked={shareLinkOn}
+                        busy={shareLinkBusy}
+                        disabled={!photographerId}
+                        onChange={handleShareLinkToggle}
+                        label="Enable client share link"
+                    />
+                </div>
+            </div>
+
             {published && !commentsOn && (
                 <p className="asc-settings-hint">
                     Album is published, but comments are off. Clients can view spreads but cannot
@@ -210,6 +257,12 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
             {published && !swapsOn && (
                 <p className="asc-settings-hint">
                     Swap requests are off. Clients can view spreads but cannot create swaps.
+                </p>
+            )}
+            {published && !shareLinkOn && (
+                <p className="asc-settings-hint">
+                    Album is published, but the client share link is off. Clients cannot open the
+                    public preview until you turn the link back on.
                 </p>
             )}
         </div>
