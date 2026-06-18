@@ -184,6 +184,8 @@ const AlbumBook = ({
     spotCanComment = false,
     spotCanSwap = false,
     coverHandoff3d = false,
+    onBookReady,
+    hideNav = false,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -268,6 +270,10 @@ const AlbumBook = ({
         });
         return resolvedStorage === targetStorage;
     }, [initialPage, totalPages, spreadOpts]);
+
+    const notifyBookReady = useCallback(() => {
+        onBookReady?.();
+    }, [onBookReady]);
     const [overviewOpen, setOverviewOpen] = useState(false);
     const overviewDragFromRef = useRef(null);
     const overviewDidDragRef = useRef(false);
@@ -1370,6 +1376,7 @@ const AlbumBook = ({
                     </div>,
                     document.body
                 )}
+            {!hideNav ? (
             <button
                 type="button"
                 ref={prevNavRef}
@@ -1384,6 +1391,7 @@ const AlbumBook = ({
                     <polyline points="15 18 9 12 15 6" />
                 </svg>
             </button>
+            ) : null}
 
             <div className="ab-book-stage" ref={stageOuterRef}>
                 <div className="ab-book-stage-inner" ref={stageRef} aria-hidden="true" />
@@ -1464,6 +1472,7 @@ const AlbumBook = ({
                             requestAnimationFrame(() => {
                                 requestAnimationFrame(() => {
                                     syncFlipbookToUrlPage();
+                                    notifyBookReady();
                                 });
                             });
                         }}
@@ -1520,6 +1529,7 @@ const AlbumBook = ({
 
             </div>
 
+            {!hideNav ? (
             <button
                 type="button"
                 ref={nextNavRef}
@@ -1534,6 +1544,7 @@ const AlbumBook = ({
                     <polyline points="9 18 15 12 9 6" />
                 </svg>
             </button>
+            ) : null}
 
             {overviewOpen &&
                 createPortal(

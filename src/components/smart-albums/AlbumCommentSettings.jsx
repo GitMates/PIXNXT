@@ -27,7 +27,6 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
     const shareLinkOn = album?.share_link_enabled !== false;
     const [commentsBusy, setCommentsBusy] = useState(false);
     const [swapsBusy, setSwapsBusy] = useState(false);
-    const [publishBusy, setPublishBusy] = useState(false);
     const [shareLinkBusy, setShareLinkBusy] = useState(false);
 
     const handleCommentsToggle = async () => {
@@ -46,26 +45,6 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
             alert('Could not update comment settings.');
         } finally {
             setCommentsBusy(false);
-        }
-    };
-
-    const handlePublishToggle = async () => {
-        if (!photographerId || !album?.id || publishBusy) return;
-        const next = !published;
-        const status = next ? 'published' : 'draft';
-        setPublishBusy(true);
-        try {
-            const updated = await smartAlbumsService.updateAlbumClientSettings(
-                photographerId,
-                album.id,
-                { status }
-            );
-            onUpdated?.(updated);
-        } catch (e) {
-            console.error(e);
-            alert('Could not update publish status. Run the latest database migration if needed.');
-        } finally {
-            setPublishBusy(false);
         }
     };
 
@@ -192,32 +171,6 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
                         disabled={!photographerId}
                         onChange={handleSwapsToggle}
                         label="Allow swap requests on album preview"
-                    />
-                </div>
-            </div>
-
-            <div className="asc-settings-row">
-                <div className="asc-settings-row-main">
-                    <span className="asc-settings-row-label">Publish for clients</span>
-                    <span className="asc-settings-row-desc">
-                        {published
-                            ? 'Album is published and ready for client proofing'
-                            : 'Album stays in draft until you publish'}
-                    </span>
-                </div>
-                <div className="asc-settings-row-control">
-                    <span
-                        className={`asc-settings-status${published ? ' asc-settings-status--on' : ''}`}
-                    >
-                        {publishBusy ? '…' : published ? 'On' : 'Off'}
-                    </span>
-                    <SettingsSwitch
-                        id="asc-publish-album"
-                        checked={published}
-                        busy={publishBusy}
-                        disabled={!photographerId}
-                        onChange={handlePublishToggle}
-                        label="Publish album for clients"
                     />
                 </div>
             </div>

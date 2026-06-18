@@ -247,6 +247,7 @@ export default function AlbumEditor({
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
+    const [publishBusy, setPublishBusy] = useState(false);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const [proofSeenTick, setProofSeenTick] = useState(0);
@@ -1525,6 +1526,30 @@ export default function AlbumEditor({
         showToast('Removed all images from the album.', { duration: 3500 });
     }, [albumId, totalPages, bumpWorkspace, showToast]);
 
+    const published = album?.status === 'published';
+
+    const handlePublishToggle = useCallback(async () => {
+        if (!user?.id || !albumId || publishBusy) return;
+        const next = !published;
+        const status = next ? 'published' : 'draft';
+        setPublishBusy(true);
+        try {
+            const updated = await smartAlbumsService.updateAlbumClientSettings(user.id, albumId, {
+                status,
+            });
+            onAlbumUpdate?.(updated);
+            showToast(
+                next ? 'Album published for clients.' : 'Album moved to draft.',
+                { variant: 'success', duration: 3500 }
+            );
+        } catch (e) {
+            console.error(e);
+            showToast('Could not update publish status.', { variant: 'error', duration: 4000 });
+        } finally {
+            setPublishBusy(false);
+        }
+    }, [user?.id, albumId, published, publishBusy, onAlbumUpdate, showToast]);
+
     const spreadEdit = activePanel === 'edit';
     const coverEditMode = activePanel === 'cover' && albumHasCoverSpreads(album);
 
@@ -1626,6 +1651,20 @@ export default function AlbumEditor({
                         <span className="ae-topbar-eyebrow">Smart album · Edit</span>
                         <h1 className="ae-topbar-title">{album.name}</h1>
                     </div>
+                    <button
+                        type="button"
+                        className={`ae-status-badge${published ? ' ae-status-badge--published' : ''}`}
+                        onClick={handlePublishToggle}
+                        disabled={!user?.id || publishBusy}
+                        aria-busy={publishBusy}
+                        title={
+                            published
+                                ? 'Click to move album to draft'
+                                : 'Click to publish album for clients'
+                        }
+                    >
+                        {publishBusy ? '…' : published ? 'Published' : 'Draft'}
+                    </button>
                 </div>
                 <div className="ae-topbar-right">
                     <button

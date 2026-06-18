@@ -669,12 +669,14 @@ export default function BookModel({
     pageWorldDims = null,
     handoff = null,
     onHandoffComplete,
+    onHandoffBlendStart,
     lockCoverInteraction = false,
 }) {
     const groupRef = useRef();
     const flippingRef = useRef(false);
     const handoffRef = useRef(null);
     const handoffStartedRef = useRef(false);
+    const blendStartedRef = useRef(false);
     const spreadOpts = useMemo(() => getSpreadContext(album, totalPages), [album, totalPages]);
 
     const normalizedInitial = useMemo(
@@ -846,21 +848,35 @@ export default function BookModel({
                 endRot = Math.PI;
             }
 
+            const blendMode =
+                mode === 'cover-open' || mode === 'back-open' ? mode : null;
+
             flipApi.set({ rotY: startRot });
             flipApi.start({
                 rotY: endRot,
                 config: FLIP_CONFIG,
+                onChange: (result) => {
+                    if (!blendMode || blendStartedRef.current || !handoffRef.current) return;
+                    const currentRotY = result.value.rotY;
+                    const progress = opening
+                        ? (currentRotY + Math.PI) / Math.PI
+                        : Math.abs(currentRotY) / Math.PI;
+                    if (progress < 0.68) return;
+                    blendStartedRef.current = true;
+                    onHandoffBlendStart?.(handoffRef.current);
+                },
                 onRest: () => {
                     finishFlip(toSpread);
                 },
             });
         },
-        [finishFlip, flipApi, spreadOpts, totalSpreads, onFlipStateChange]
+        [finishFlip, flipApi, onHandoffBlendStart, spreadOpts, totalSpreads, onFlipStateChange]
     );
 
     useEffect(() => {
         handoffRef.current = handoff;
         handoffStartedRef.current = false;
+        blendStartedRef.current = false;
     }, [handoff]);
 
     useEffect(() => {
@@ -947,7 +963,8 @@ export default function BookModel({
     }, [flip, getSpreadSlots, coverFrontSlot, coverInsideSlot, spreadOpts, totalPages, coversOnly]);
 
     const showClosedIdle = !flip && (isClosedFront || isClosedBack);
-    const showOpenIdle = !flip && isOpen;
+    // coversOnly hands inner spreads to the 2D book — skip blank open-spread idle
+    const showOpenIdle = !flip && isOpen && !coversOnly;
 
     useLayoutEffect(() => {
         const root = groupRef.current;

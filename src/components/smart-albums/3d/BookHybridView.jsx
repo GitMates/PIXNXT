@@ -1,4 +1,4 @@
-import React, { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AlbumBook from '../AlbumBook';
 import BookScene from './BookScene';
 import useAlbumBookLayoutDims from '../useAlbumBookLayoutDims';
@@ -50,6 +50,10 @@ const NavNextIcon = () => (
 export function isCoverSpread(spreadIndex, totalSpreads) {
     return spreadIndex <= 0 || spreadIndex >= totalSpreads - 1;
 }
+
+const COVER_FADE_MS = 380;
+const OPEN_REVEAL_MS = 520;
+const CLOSE_EXIT_MS = 880;
 
 /**
  * Hybrid preview: 3D cover open/close animation hands off to 2D AlbumBook inner spreads.
@@ -119,11 +123,68 @@ export default function BookHybridView({
     const resolvedPageWorldDims = pageWorldDims ?? latchedWorldDimsRef.current;
 
     const [handoff, setHandoff] = useState(null);
-    const [innerRevealKey, setInnerRevealKey] = useState(0);
+    const [coverFading, setCoverFading] = useState(false);
+    const [postOpenBlend, setPostOpenBlend] = useState(false);
+    const [innerBookReady, setInnerBookReady] = useState(false);
+    const [blendTargetPage, setBlendTargetPage] = useState(null);
+    const coverFadeTimerRef = useRef(null);
+    const revealTimerRef = useRef(null);
+
+    useEffect(() => () => {
+        if (coverFadeTimerRef.current) window.clearTimeout(coverFadeTimerRef.current);
+        if (revealTimerRef.current) window.clearTimeout(revealTimerRef.current);
+    }, []);
 
     const onCoverSpread = spreadOpts.hasCovers && isCoverSpread(spreadIndex, totalSpreads);
-    const show3dScene = onCoverSpread || handoff != null;
-    const navLocked = handoff != null;
+    const isOpeningHandoff =
+        handoff?.mode === 'cover-open' || handoff?.mode === 'back-open';
+    const isClosingHandoff =
+        handoff?.mode === 'cover-close' || handoff?.mode === 'back-close';
+    const show3dScene = onCoverSpread || handoff != null || coverFading || postOpenBlend;
+    const showInner = !onCoverSpread || isClosingHandoff || postOpenBlend || isOpeningHandoff;
+    const navLocked = handoff != null || postOpenBlend || isClosingHandoff;
+    const innerInitialPage = blendTargetPage ?? handoff?.targetPage ?? initialPage;
+    const innerPreloading =
+        (isOpeningHandoff && !postOpenBlend) || (postOpenBlend && !innerBookReady);
+    const innerRevealing = postOpenBlend && innerBookReady;
+    const showCoverNav = onCoverSpread && !showInner;
+    const hideInnerNav =
+        innerPreloading || innerRevealing || isClosingHandoff || isOpeningHandoff;
+
+    const startCoverFade = useCallback(() => {
+        setCoverFading(true);
+        if (coverFadeTimerRef.current) window.clearTimeout(coverFadeTimerRef.current);
+        coverFadeTimerRef.current = window.setTimeout(() => {
+            coverFadeTimerRef.current = null;
+            setCoverFading(false);
+        }, COVER_FADE_MS);
+    }, []);
+
+    const startInnerReveal = useCallback(() => {
+        setPostOpenBlend((active) => {
+            if (active) return true;
+            if (revealTimerRef.current) window.clearTimeout(revealTimerRef.current);
+            revealTimerRef.current = window.setTimeout(() => {
+                revealTimerRef.current = null;
+                setPostOpenBlend(false);
+                setBlendTargetPage(null);
+            }, OPEN_REVEAL_MS);
+            return true;
+        });
+    }, []);
+
+    const handleHandoffBlendStart = useCallback(
+        (handoffData) => {
+            if (handoffData?.mode === 'cover-open' || handoffData?.mode === 'back-open') {
+                startCoverFade();
+            }
+        },
+        [startCoverFade]
+    );
+
+    const handleInnerBookReady = useCallback(() => {
+        setInnerBookReady(true);
+    }, []);
 
     const prevNavDisabled = navLocked || spreadIndex <= 0;
     const nextNavDisabled = navLocked || spreadIndex >= totalSpreads - 1;
@@ -132,11 +193,12 @@ export default function BookHybridView({
         (pageIdx, mode) => {
             setHandoff(null);
             if (mode === 'cover-open' || mode === 'back-open') {
-                setInnerRevealKey((k) => k + 1);
+                setBlendTargetPage(pageIdx);
+                startInnerReveal();
             }
             onPageChange?.(pageIdx);
         },
-        [onPageChange]
+        [onPageChange, startInnerReveal]
     );
 
     const handleCoverTransitionComplete = useCallback(
@@ -149,6 +211,10 @@ export default function BookHybridView({
     );
 
     const beginHandoff = useCallback((mode, fromSpread, targetPage) => {
+        if (mode === 'cover-open' || mode === 'back-open') {
+            setInnerBookReady(false);
+            setBlendTargetPage(targetPage);
+        }
         setHandoff({ mode, fromSpread, targetPage });
     }, []);
 
@@ -201,6 +267,29 @@ export default function BookHybridView({
     const sceneKey = `${album?.id ?? 'album'}-3d-cover`;
     const placementMode = albumBookProps?.placementMode ?? 'single';
 
+    const coverLayerClassName = [
+        'ab-book-hybrid',
+        'ab-book-hybrid--cover',
+        'ab-root',
+        'ab-root--preview',
+        handoff ? 'ab-book-hybrid--handoff' : '',
+        coverFading || postOpenBlend ? 'ab-book-hybrid--cover-exit' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    const innerLayerClassName = [
+        'ab-book-hybrid',
+        'ab-book-hybrid--inner',
+        innerPreloading ? 'ab-book-hybrid--inner-preload' : '',
+        innerRevealing ? 'ab-book-hybrid--inner-reveal' : '',
+        isClosingHandoff ? 'ab-book-hybrid--inner-exit' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    const innerLayerKey = `${album?.id ?? 'album'}-hybrid-inner`;
+
     return (
         <div className="ab-book-hybrid-shell" ref={shellRef}>
             <div className="ab-book-hybrid-measure ab-root ab-root--preview" aria-hidden="true">
@@ -209,71 +298,99 @@ export default function BookHybridView({
                 </div>
             </div>
 
-            {show3dScene ? (
-                <div
-                    className={`ab-book-hybrid ab-book-hybrid--cover ab-root ab-root--preview${
-                        handoff ? ' ab-book-hybrid--handoff' : ''
-                    }`}
-                >
-                    <button
-                        type="button"
-                        className={`ab-nav ab-nav--prev${
-                            !prevNavDisabled ? ' ab-nav--enabled' : ''
-                        }`}
-                        onClick={goPrev}
-                        disabled={prevNavDisabled}
-                        aria-label="Previous page"
+            <div
+                className={`ab-book-hybrid-stack${
+                    show3dScene && showInner ? ' ab-book-hybrid-stack--blending' : ''
+                }`}
+            >
+                {show3dScene ? (
+                    <div
+                        className={coverLayerClassName}
+                        style={
+                            coverFading || postOpenBlend
+                                ? {
+                                      '--ab-hybrid-cover-fade-ms': `${COVER_FADE_MS}ms`,
+                                  }
+                                : undefined
+                        }
                     >
-                        <NavPrevIcon />
-                    </button>
+                        {showCoverNav ? (
+                            <button
+                                type="button"
+                                className={`ab-nav ab-nav--prev${
+                                    !prevNavDisabled ? ' ab-nav--enabled' : ''
+                                }`}
+                                onClick={goPrev}
+                                disabled={prevNavDisabled}
+                                aria-label="Previous page"
+                            >
+                                <NavPrevIcon />
+                            </button>
+                        ) : null}
 
-                    <div className="ab-book-stage">
-                        <div className="ab-book-hybrid-cover-stage">
-                            <BookScene
-                                key={sceneKey}
-                                album={album}
-                                totalPages={totalPages}
-                                initialPage={sceneInitialPage}
-                                onPageChange={handleCoverTransitionComplete}
-                                showSamples={showSamples}
-                                coversOnly
-                                placementMode={placementMode}
-                                pageWorldDims={resolvedPageWorldDims}
-                                handoff={handoff}
-                                onHandoffComplete={handleHandoffComplete}
-                                lockCoverInteraction
-                            />
+                        <div className="ab-book-stage">
+                            <div className="ab-book-hybrid-cover-stage">
+                                <BookScene
+                                    key={sceneKey}
+                                    album={album}
+                                    totalPages={totalPages}
+                                    initialPage={sceneInitialPage}
+                                    onPageChange={handleCoverTransitionComplete}
+                                    showSamples={showSamples}
+                                    coversOnly
+                                    placementMode={placementMode}
+                                    pageWorldDims={resolvedPageWorldDims}
+                                    handoff={handoff}
+                                    onHandoffComplete={handleHandoffComplete}
+                                    onHandoffBlendStart={handleHandoffBlendStart}
+                                    lockCoverInteraction
+                                    enableOrbit={false}
+                                />
+                            </div>
                         </div>
-                    </div>
 
-                    <button
-                        type="button"
-                        className={`ab-nav ab-nav--next${
-                            !nextNavDisabled ? ' ab-nav--enabled' : ''
-                        }`}
-                        onClick={goNext}
-                        disabled={nextNavDisabled}
-                        aria-label="Next page"
+                        {showCoverNav ? (
+                            <button
+                                type="button"
+                                className={`ab-nav ab-nav--next${
+                                    !nextNavDisabled ? ' ab-nav--enabled' : ''
+                                }`}
+                                onClick={goNext}
+                                disabled={nextNavDisabled}
+                                aria-label="Next page"
+                            >
+                                <NavNextIcon />
+                            </button>
+                        ) : null}
+                    </div>
+                ) : null}
+
+                {showInner ? (
+                    <div
+                        key={innerLayerKey}
+                        className={innerLayerClassName}
+                        style={
+                            isClosingHandoff
+                                ? { '--ab-hybrid-blend-ms': `${CLOSE_EXIT_MS}ms` }
+                                : innerRevealing
+                                  ? { '--ab-hybrid-blend-ms': `${OPEN_REVEAL_MS}ms` }
+                                  : undefined
+                        }
                     >
-                        <NavNextIcon />
-                    </button>
-                </div>
-            ) : (
-                <div
-                    key={`inner-${innerRevealKey}`}
-                    className="ab-book-hybrid ab-book-hybrid--inner ab-book-hybrid--inner-reveal"
-                >
-                    <AlbumBook
-                        album={album}
-                        totalPages={totalPages}
-                        initialPage={initialPage}
-                        onPageChange={handleInnerPageChange}
-                        showSamples={showSamples}
-                        coverHandoff3d
-                        {...albumBookProps}
-                    />
-                </div>
-            )}
+                        <AlbumBook
+                            album={album}
+                            totalPages={totalPages}
+                            initialPage={innerInitialPage}
+                            onPageChange={handleInnerPageChange}
+                            onBookReady={handleInnerBookReady}
+                            showSamples={showSamples}
+                            coverHandoff3d
+                            hideNav={hideInnerNav}
+                            {...albumBookProps}
+                        />
+                    </div>
+                ) : null}
+            </div>
         </div>
     );
 }

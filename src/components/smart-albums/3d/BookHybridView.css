@@ -1,94 +1,316 @@
 .ab-book-hybrid-shell {
+
   position: relative;
+
   flex: 1;
+
   width: 100%;
+
   height: 100%;
+
   min-height: 0;
+
   display: flex;
+
   flex-direction: column;
+
 }
+
+
 
 /* Hidden sizing grid — same footprint as AlbumBook, never unmounted */
+
 .ab-book-hybrid-measure {
+
   position: absolute;
+
   inset: 0;
+
   visibility: hidden;
+
   pointer-events: none;
+
   z-index: 0;
+
 }
+
+
 
 .ab-book-hybrid-measure .ab-book-stage {
+
   height: 100%;
+
 }
+
+
+
+.ab-book-hybrid-stack {
+
+  position: relative;
+
+  z-index: 1;
+
+  width: 100%;
+
+  height: 100%;
+
+  min-height: 320px;
+
+  flex: 1;
+
+  min-height: 0;
+
+}
+
+
 
 .ab-book-hybrid {
-  position: relative;
-  z-index: 1;
+
   width: 100%;
+
   height: 100%;
-  min-height: 320px;
-  flex: 1;
+
   min-height: 0;
+
 }
+
+
 
 .ab-book-hybrid--cover {
+
   display: flex;
+
   align-items: center;
+
 }
+
+
+
+.ab-book-hybrid-stack--blending .ab-book-hybrid--cover {
+
+  position: absolute;
+
+  inset: 0;
+
+  z-index: 1;
+
+}
+
+
 
 .ab-book-hybrid--inner {
+
   display: flex;
+
   flex-direction: column;
+
   min-height: 0;
+
 }
+
+
+
+.ab-book-hybrid-stack--blending .ab-book-hybrid--inner {
+
+  position: absolute;
+
+  inset: 0;
+
+  z-index: 2;
+
+}
+
+
 
 .ab-book-hybrid--inner > .ab-root {
+
   flex: 1;
+
   min-height: 0;
+
 }
+
+
 
 .ab-book-hybrid-cover-stage {
+
   position: absolute;
+
   inset: 0;
+
   display: flex;
+
   align-items: center;
+
   justify-content: center;
+
   z-index: 1;
+
 }
+
+
 
 .ab-book-hybrid-cover-stage .ab-book-scene {
+
   width: 100%;
+
   height: 100%;
+
   min-height: 0;
+
 }
+
+
 
 .ab-book-hybrid--cover .ab-book-stage {
+
   position: relative;
+
   flex: 1;
+
   width: 100%;
+
   height: 100%;
+
   min-height: 0;
+
 }
 
+
+
 .ab-book-hybrid--handoff {
+
+  pointer-events: none;
+
+}
+
+
+
+.ab-book-hybrid--handoff .ab-nav {
+
+  pointer-events: auto;
+
+}
+
+
+
+.ab-book-hybrid-stack--blending .ab-book-hybrid--inner-preload,
+.ab-book-hybrid-stack--blending .ab-book-hybrid--inner-exit,
+.ab-book-hybrid-stack--blending .ab-book-hybrid--inner-reveal {
   pointer-events: none;
 }
 
-.ab-book-hybrid--handoff .ab-nav {
-  pointer-events: auto;
+/* Mount the 2D book invisibly while the 3D cover is still opening */
+.ab-book-hybrid--inner-preload {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
+/* 3D cover → 2D inner: crossfade once the flat book is ready */
 .ab-book-hybrid--inner-reveal {
-  animation: ab-hybrid-inner-reveal 0.42s ease-out;
+  visibility: visible;
+  animation: ab-hybrid-inner-reveal var(--ab-hybrid-blend-ms, 520ms) cubic-bezier(0.22, 1, 0.36, 1);
+  animation-fill-mode: both;
 }
+
+.ab-book-hybrid--cover-exit {
+  animation: ab-hybrid-cover-exit var(--ab-hybrid-cover-fade-ms, 380ms) cubic-bezier(0.4, 0, 0.2, 1)
+    forwards;
+  pointer-events: none;
+}
+
+/* 2D inner → 3D cover: fade the flat spread while the 3D book closes underneath */
+.ab-book-hybrid--inner-exit {
+
+  animation: ab-hybrid-inner-exit var(--ab-hybrid-blend-ms, 880ms) cubic-bezier(0.4, 0, 0.2, 1)
+
+    forwards;
+
+}
+
+
 
 @keyframes ab-hybrid-inner-reveal {
   from {
     opacity: 0;
-    transform: scale(0.985);
+    transform: scale(0.992);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
   }
 }
+
+
+
+@keyframes ab-hybrid-inner-exit {
+
+  0% {
+
+    opacity: 1;
+
+    transform: scale(1);
+
+  }
+
+
+
+  35% {
+
+    opacity: 0.92;
+
+    transform: scale(0.995);
+
+  }
+
+
+
+  100% {
+
+    opacity: 0;
+
+    transform: scale(0.985);
+
+  }
+
+}
+
+
+
+@keyframes ab-hybrid-cover-exit {
+
+  from {
+
+    opacity: 1;
+
+  }
+
+
+
+  to {
+
+    opacity: 0;
+
+  }
+
+}
+
+
+
+@media (prefers-reduced-motion: reduce) {
+  .ab-book-hybrid--inner-preload,
+  .ab-book-hybrid--inner-reveal,
+  .ab-book-hybrid--inner-exit,
+  .ab-book-hybrid--cover-exit {
+    animation-duration: 0.01ms;
+  }
+
+  .ab-book-hybrid--inner-preload {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+

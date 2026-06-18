@@ -297,6 +297,7 @@ export default function BookScene({
     matchAlbumBookLayout = false,
     handoff = null,
     onHandoffComplete,
+    onHandoffBlendStart,
     lockCoverInteraction = false,
     enableOrbit = true,
 }) {
@@ -391,6 +392,7 @@ export default function BookScene({
                         pageWorldDims={resolvedWorldDims}
                         handoff={handoff}
                         onHandoffComplete={onHandoffComplete}
+                        onHandoffBlendStart={onHandoffBlendStart}
                         lockCoverInteraction={lockCoverInteraction}
                     />
                 </Suspense>

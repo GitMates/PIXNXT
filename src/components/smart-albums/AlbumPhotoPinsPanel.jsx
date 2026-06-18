@@ -7,6 +7,7 @@ import {
 } from './albumPhotoPins';
 import { getSlotLabel } from './albumSwapMarks';
 import ProofDoneButton from './ProofDoneButton';
+import ProofPanelStats from './ProofPanelStats';
 
 function pinSlotLabel(pin, gridLayout, totalPages, album) {
     const whole = gridLayout === 'whole-spread' && pin.pageNum > 0;
@@ -53,19 +54,11 @@ export default function AlbumPhotoPinsPanel({
     return (
         <div className={`ae-swap-marks ae-photo-pins-panel${isPanel ? ' ae-swap-marks--panel' : ''}`}>
             {isPanel && (
-                <p
-                    className={`ae-swap-marks-count${
-                        unseenCount > 0 ? ' ae-swap-marks-count--unseen' : ''
-                    }`}
-                    role="status"
-                >
-                    {pins.length} comment{pins.length === 1 ? '' : 's'}
-                    {unseenCount > 0 && (
-                        <span className="ae-proof-new-pill">
-                            {unseenCount} new
-                        </span>
-                    )}
-                </p>
+                <ProofPanelStats
+                    unresolved={unseenCount}
+                    total={sortedPins.length}
+                    totalLabel="Total comments"
+                />
             )}
             <ul className="ae-swap-marks-list">
                 {sortedPins.map((pin) => {

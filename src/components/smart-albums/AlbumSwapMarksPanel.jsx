@@ -9,6 +9,7 @@ import {
     resolveSlotLabel,
 } from './albumSwapMarks';
 import ProofDoneButton from './ProofDoneButton';
+import ProofPanelStats from './ProofPanelStats';
 
 export default function AlbumSwapMarksPanel({
     albumId,
@@ -69,19 +70,11 @@ export default function AlbumSwapMarksPanel({
                 </>
             )}
             {isPanel && (
-                <p
-                    className={`ae-swap-marks-count${
-                        unseenCount > 0 ? ' ae-swap-marks-count--unseen' : ''
-                    }`}
-                    role="status"
-                >
-                    {sortedMarks.length} swap request{sortedMarks.length === 1 ? '' : 's'}
-                    {unseenCount > 0 && (
-                        <span className="ae-proof-new-pill">
-                            {unseenCount} new
-                        </span>
-                    )}
-                </p>
+                <ProofPanelStats
+                    unresolved={unseenCount}
+                    total={sortedMarks.length}
+                    totalLabel="Total swaps"
+                />
             )}
             <ul className="ae-swap-marks-list">
                 {sortedMarks.map((mark) => {

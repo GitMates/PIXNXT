@@ -51,6 +51,47 @@
   text-overflow: ellipsis;
 }
 
+.ae-status-badge {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 6px 14px;
+  margin-left: 4px;
+  border: 1px solid transparent;
+  border-radius: 20px;
+  background: #f2f3f4;
+  color: #333;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.ae-status-badge:hover:not(:disabled) {
+  background: #e8eaeb;
+}
+
+.ae-status-badge:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.ae-status-badge--published {
+  background: rgba(139, 223, 221, 0.15);
+  color: #111;
+  border-color: #8bdfdd;
+}
+
+.ae-status-badge--published:hover:not(:disabled) {
+  background: rgba(139, 223, 221, 0.25);
+  border-color: #8bdfdd;
+}
+
 .ae-topbar-right {
   display: flex;
   align-items: center;
