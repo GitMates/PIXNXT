@@ -20,6 +20,7 @@ import {
     getSwapPickerDockSide,
     slotsMatch,
 } from './albumSwapMarks';
+import { placementFromSwapThumbClick } from '../../lib/photoSpotPoint';
 import './AlbumSwapMarks.css';
 import './AlbumBook.css';
 
@@ -198,19 +199,28 @@ export default function AlbumSwapPickerModal({
             const targetSlot = pickSwapTargetSlot(availableSlots, originSlot);
             const isOrigin = spreadSlots.some((slot) => slotsMatch(slot, originSlot));
             const disabled = !targetSlot;
+            const { left: spreadLeft } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
+            const isCover = spreadOpts.hasCovers && spreadIndex === 0;
+            const isEnd = isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
+            const spreadSrc =
+                !isCover && !isEnd ? getSpreadPhotoOverride(albumId, spreadLeft) : null;
+            const wholeSpread = gridLayout === 'whole-spread';
 
             return {
                 spreadIndex,
+                spreadLeft,
                 spreadSlots,
                 targetSlot,
                 isOrigin,
                 disabled,
                 label: spreadOverviewLabel(spreadIndex, totalPages, spreadOpts),
-                isCover: spreadOpts.hasCovers && spreadIndex === 0,
-                isEnd: isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts),
+                isCover,
+                isEnd,
+                showSpreadFull: Boolean(spreadSrc),
+                wholeSpread,
             };
         }).filter(Boolean);
-    }, [totalSpreads, slots, totalPages, spreadOpts, originSlot]);
+    }, [totalSpreads, slots, totalPages, spreadOpts, originSlot, gridLayout, albumId]);
 
     useLayoutEffect(() => {
         if (!open || !originSlot) {
@@ -296,12 +306,15 @@ export default function AlbumSwapPickerModal({
                     {spreadRows.map(
                         ({
                             spreadIndex,
+                            spreadLeft,
                             targetSlot,
                             isOrigin,
                             disabled,
                             label,
                             isCover,
                             isEnd,
+                            showSpreadFull,
+                            wholeSpread,
                         }) => (
                             <button
                                 key={`swap-spread-${spreadIndex}`}
@@ -312,7 +325,16 @@ export default function AlbumSwapPickerModal({
                                     isOrigin ? ' ab-overview-item--active' : ''
                                 }`}
                                 disabled={disabled}
-                                onClick={() => targetSlot && onSelect?.(targetSlot)}
+                                onClick={(e) => {
+                                    if (!targetSlot) return;
+                                    const placement = placementFromSwapThumbClick(e, targetSlot, {
+                                        spreadLeft,
+                                        wholeSpread,
+                                        totalPages,
+                                        showSpreadFull,
+                                    });
+                                    onSelect?.(placement);
+                                }}
                             >
                                 <SwapSpreadThumb
                                     album={album}

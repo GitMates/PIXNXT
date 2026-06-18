@@ -2,55 +2,10 @@ import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState
 import { createPortal } from 'react-dom';
 import {
     findPinLayerImage,
-    photoSpotFromPointer,
-    photoSpotToLayerPercent,
+    pinPointFromPointer,
+    pinPointToClient,
 } from '../../lib/photoSpotPoint';
 import { useAlbumBookPageContext } from './AlbumBookPageContext';
-
-function useLayerPinPosition(layerRef, xPct, yPct) {
-    const [position, setPosition] = useState(() => ({ xPct, yPct }));
-
-    useLayoutEffect(() => {
-        const layer = layerRef?.current;
-        if (!layer) {
-            setPosition({ xPct, yPct });
-            return undefined;
-        }
-
-        const update = () => {
-            const img = findPinLayerImage(layer);
-            setPosition(photoSpotToLayerPercent(xPct, yPct, layer, img));
-        };
-
-        update();
-        const img = findPinLayerImage(layer);
-        img?.addEventListener('load', update);
-        const raf = window.requestAnimationFrame(update);
-        window.addEventListener('resize', update);
-        window.addEventListener('scroll', update, true);
-        return () => {
-            window.cancelAnimationFrame(raf);
-            img?.removeEventListener('load', update);
-            window.removeEventListener('resize', update);
-            window.removeEventListener('scroll', update, true);
-        };
-    }, [layerRef, xPct, yPct]);
-
-    return position;
-}
-
-function layerPointToClient(layerRef, xPct, yPct) {
-    const layer = layerRef?.current;
-    if (!layer) return null;
-    const img = findPinLayerImage(layer);
-    const layerPct = photoSpotToLayerPercent(xPct, yPct, layer, img);
-    const rect = layer.getBoundingClientRect();
-    if (!rect.width || !rect.height) return null;
-    return {
-        left: rect.left + (rect.width * layerPct.xPct) / 100,
-        top: rect.top + (rect.height * layerPct.yPct) / 100,
-    };
-}
 
 const SPOT_DRAFT_OPEN_EVENT = 'album-spot-draft-open';
 const SPOT_PIN_OPEN_EVENT = 'album-spot-pin-open';
@@ -136,7 +91,7 @@ function PinPopover({ markerRef, layerRef, pin, isSwap, allowRemove, onRemove })
             return;
         }
 
-        const point = layerPointToClient(layerRef, pin.xPct, pin.yPct);
+        const point = pinPointToClient(layerRef?.current, pin.xPct, pin.yPct);
         if (!point) return;
         const popoverHeight = popoverRef.current?.offsetHeight ?? 88;
         const pinOffset = 32;
@@ -194,7 +149,6 @@ function PinPopover({ markerRef, layerRef, pin, isSwap, allowRemove, onRemove })
 
 function PinMarker({ layerRef, pin, open, onToggle, onRemove, allowRemove }) {
     const markerRef = useRef(null);
-    const displayPos = useLayerPinPosition(layerRef, pin.xPct, pin.yPct);
     const isSwap = pin?.type === 'swap';
     const isComment = !isSwap;
     const swapGroup = isSwap ? String(pin?.swapGroup || '') : '';
@@ -204,7 +158,7 @@ function PinMarker({ layerRef, pin, open, onToggle, onRemove, allowRemove }) {
     return (
         <div
             className={`ab-photo-pin${open ? ' ab-photo-pin--open' : ''}${isComment ? ' ab-photo-pin--comment' : ''}${isSwap ? ' ab-photo-pin--swap' : ''}${isSwap && swapToneIndex != null ? ` ab-photo-pin--swap-group-${swapToneIndex}` : ''}`}
-            style={{ left: `${displayPos.xPct}%`, top: `${displayPos.yPct}%` }}
+            style={{ left: `${pin.xPct}%`, top: `${pin.yPct}%` }}
         >
             <button
                 ref={markerRef}
@@ -255,7 +209,7 @@ function SpotInlineCommentComposer({ layerRef, xPct, yPct, onSave, onClose }) {
     }, []);
 
     const updateAnchor = useCallback(() => {
-        const point = layerPointToClient(layerRef, xPct, yPct);
+        const point = pinPointToClient(layerRef?.current, xPct, yPct);
         if (!point) return;
         setAnchor(point);
 
@@ -351,7 +305,7 @@ function SpotActionPicker({ layerRef, xPct, yPct, canComment, canSwap, onComment
     const both = showComment && showSwap;
 
     const updateAnchor = useCallback(() => {
-        const point = layerPointToClient(layerRef, xPct, yPct);
+        const point = pinPointToClient(layerRef?.current, xPct, yPct);
         if (!point) return;
         setAnchor(point);
         setFlipBelow(point.top < SPOT_PICKER_ABOVE_OFFSET + 8);
@@ -495,7 +449,7 @@ export default function AlbumPhotoPinLayer({
         e.preventDefault();
         const layer = layerRef.current;
         const img = findPinLayerImage(layer);
-        const { xPct, yPct } = photoSpotFromPointer(e.clientX, e.clientY, layer, img);
+        const { xPct, yPct } = pinPointFromPointer(e.clientX, e.clientY, layer, img);
         if (spotPickerActive) {
             setSpotCommentComposer(null);
             setOpenPinId(null);

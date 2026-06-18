@@ -1003,6 +1003,26 @@ const AlbumBook = ({
             const originSlot = swapPickerOrigin || swapPinFlow?.originSlot;
             if (!originSlot) return;
 
+            const hasThumbPoint =
+                Number.isFinite(secondSlot.xPct) && Number.isFinite(secondSlot.yPct);
+
+            if (previewMode && swapPinFlow?.originPoint && hasThumbPoint) {
+                const pointB = {
+                    xPct: secondSlot.xPct,
+                    yPct: secondSlot.yPct,
+                    pageNum: secondSlot.pageNum,
+                    cellId: secondSlot.cellId ?? 0,
+                };
+                addSwapMark(album.id, originSlot, secondSlot, {
+                    pointA: swapPinFlow.originPoint,
+                    pointB,
+                });
+                setSwapPickerOrigin(null);
+                setSwapPinFlow(null);
+                goToPage(secondSlot.pageNum ?? originSlot.pageNum);
+                return;
+            }
+
             if (previewMode && swapPinFlow?.originPoint) {
                 setSwapPinFlow((prev) =>
                     prev
@@ -1013,6 +1033,7 @@ const AlbumBook = ({
                         : prev
                 );
                 setSwapPickerOrigin(null);
+                goToPage(secondSlot.pageNum ?? originSlot.pageNum);
                 return;
             }
 
@@ -1023,16 +1044,19 @@ const AlbumBook = ({
                 cellId: originSlot.cellId ?? 0,
             };
             const pointB = {
-                xPct: 50,
-                yPct: 50,
+                xPct: hasThumbPoint ? secondSlot.xPct : 50,
+                yPct: hasThumbPoint ? secondSlot.yPct : 50,
                 pageNum: secondSlot.pageNum,
                 cellId: secondSlot.cellId ?? 0,
             };
             addSwapMark(album.id, originSlot, secondSlot, { pointA, pointB });
             setSwapPickerOrigin(null);
             setSwapPinFlow(null);
+            if (hasThumbPoint) {
+                goToPage(secondSlot.pageNum ?? originSlot.pageNum);
+            }
         },
-        [album?.id, swapPickerOrigin, swapPinFlow, previewMode]
+        [album?.id, swapPickerOrigin, swapPinFlow, previewMode, goToPage]
     );
 
     const handleSwapPinPlace = useCallback(

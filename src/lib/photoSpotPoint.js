@@ -125,3 +125,112 @@ export function photoSpotToLayerPercent(xPct, yPct, layerEl, imgEl) {
     yPct: clampPercent(((cy - layer.top) / layer.height) * 100),
   };
 }
+
+function hasImageTransform(img) {
+  if (!img) return false;
+  const t = getComputedStyle(img).transform;
+  return Boolean(t && t !== 'none');
+}
+
+/**
+ * Pin tip position as layer percentages (0–100).
+ * Cover photos use the exact click position; contain / transforms use photo mapping.
+ */
+export function pinPointFromPointer(clientX, clientY, layerEl, imgEl) {
+  const layer = layerEl?.getBoundingClientRect?.();
+  if (!layer?.width || !layer?.height) {
+    return { xPct: 50, yPct: 50 };
+  }
+
+  const img = imgEl || findPinLayerImage(layerEl);
+  if (
+    img &&
+    (getImageObjectFit(img) === 'contain' || hasImageTransform(img))
+  ) {
+    const spot = photoSpotFromPointer(clientX, clientY, layerEl, img);
+    return photoSpotToLayerPercent(spot.xPct, spot.yPct, layerEl, img);
+  }
+
+  return {
+    xPct: clampPercent(((clientX - layer.left) / layer.width) * 100),
+    yPct: clampPercent(((clientY - layer.top) / layer.height) * 100),
+  };
+}
+
+/** Client pixel position for a stored layer pin percent. */
+export function pinPointToClient(layerEl, xPct, yPct) {
+  const layer = layerEl?.getBoundingClientRect?.();
+  if (!layer?.width || !layer?.height) return null;
+  return {
+    left: layer.left + (clampPercent(xPct) / 100) * layer.width,
+    top: layer.top + (clampPercent(yPct) / 100) * layer.height,
+  };
+}
+
+function spreadPhotoPercentToHalfPlacement(
+  spreadXPct,
+  spreadYPct,
+  spreadLeft,
+  totalPages,
+  baseSlot
+) {
+  const isRight = spreadXPct >= 50;
+  const rightPage = Math.min(spreadLeft + 1, Math.max(0, totalPages - 1));
+  return {
+    ...baseSlot,
+    pageNum: isRight ? rightPage : spreadLeft,
+    cellId: isRight ? 2 : 1,
+    xPct: clampPercent(isRight ? (spreadXPct - 50) * 2 : spreadXPct * 2),
+    yPct: clampPercent(spreadYPct),
+  };
+}
+
+/**
+ * Map a click on a swap-picker spread thumbnail to a book placement.
+ */
+export function placementFromSwapThumbClick(
+  event,
+  targetSlot,
+  { spreadLeft, wholeSpread, totalPages, showSpreadFull }
+) {
+  if (!targetSlot) return null;
+  const img = event.target instanceof Element ? event.target.closest('img') : null;
+  if (!img) {
+    return {
+      ...targetSlot,
+      xPct: 50,
+      yPct: 50,
+      pageNum: targetSlot.pageNum,
+      cellId: targetSlot.cellId ?? 0,
+    };
+  }
+
+  const pageEl = img.closest('.ab-overview-page');
+  const thumbEl = img.closest('.ab-overview-thumb');
+  const layerEl = pageEl || thumbEl || img.parentElement;
+  const spot = pinPointFromPointer(event.clientX, event.clientY, layerEl, img);
+
+  if (showSpreadFull && wholeSpread) {
+    return spreadPhotoPercentToHalfPlacement(
+      spot.xPct,
+      spot.yPct,
+      spreadLeft,
+      totalPages,
+      targetSlot
+    );
+  }
+
+  const pages = thumbEl?.querySelectorAll('.ab-overview-page');
+  const pageIndex =
+    pages && pageEl ? Array.from(pages).findIndex((node) => node === pageEl) : 0;
+  const isRight = pageIndex === 1;
+  const rightPage = Math.min(spreadLeft + 1, Math.max(0, totalPages - 1));
+
+  return {
+    ...targetSlot,
+    pageNum: isRight ? rightPage : spreadLeft,
+    cellId: isRight ? 2 : 1,
+    xPct: spot.xPct,
+    yPct: spot.yPct,
+  };
+}
