@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-    countUnseenSwapMarks,
     getSlotLabel,
     isSwapMarkUnseen,
     markSwapMarksSeen,
@@ -9,7 +8,6 @@ import {
     resolveSlotLabel,
 } from './albumSwapMarks';
 import ProofDoneButton from './ProofDoneButton';
-import ProofPanelStats from './ProofPanelStats';
 
 export default function AlbumSwapMarksPanel({
     albumId,
@@ -23,8 +21,6 @@ export default function AlbumSwapMarksPanel({
 }) {
     const isPanel = variant === 'panel';
     void seenTick;
-
-    const unseenCount = countUnseenSwapMarks(albumId, marks);
 
     const sortedMarks = [...marks].sort(
         (a, b) =>
@@ -68,13 +64,6 @@ export default function AlbumSwapMarksPanel({
                         Swap pairs currently requested in this album.
                     </p>
                 </>
-            )}
-            {isPanel && (
-                <ProofPanelStats
-                    unresolved={unseenCount}
-                    total={sortedMarks.length}
-                    totalLabel="Total swaps"
-                />
             )}
             <ul className="ae-swap-marks-list">
                 {sortedMarks.map((mark) => {

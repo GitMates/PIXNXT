@@ -5,6 +5,7 @@ import { countUnseenPhotoPins } from './albumPhotoPins';
 import { countUnseenSwapMarks } from './albumSwapMarks';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
+import ProofPanelStats from './ProofPanelStats';
 import { getCollectionItemDisplayUrl } from './albumCollection';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
 import { getSlotLabel } from './albumSwapMarks';
@@ -237,6 +238,11 @@ export default function AlbumEditorSidebar({
                 {activePanel === 'swap' && (
                     <>
                         <h3 className="ae-panel-title">Swap</h3>
+                        <ProofPanelStats
+                            unresolved={unseenSwapCount}
+                            total={swapMarks.length}
+                            totalLabel="Total swaps"
+                        />
                         <p className="ae-panel-text">
                             Hover a photo on the spread and click Swap to mark two positions. Once
                             marked, the pair is locked until you unlock it here.
@@ -257,6 +263,11 @@ export default function AlbumEditorSidebar({
                 {activePanel === 'pin' && (
                     <>
                         <h3 className="ae-panel-title">Comment</h3>
+                        <ProofPanelStats
+                            unresolved={unseenPinCount}
+                            total={photoPins.length}
+                            totalLabel="Total comments"
+                        />
                         <p className="ae-panel-text">
                             Client photo comments appear here. To add comments, use the album preview
                             — open the Comment tab, then click a photo.

@@ -25,9 +25,12 @@ import {
     getAlbumCollectionRevision,
     getAlbumLayoutPhotoCount,
     getCollectionItem,
+    getCollectionItemDisplayUrl,
     isCoverWrapCollectionItem,
+    isSupersededCollectionItem,
     loadAlbumAssetsFromCloud,
     markCollectionItemAsCoverWrap,
+    markCollectionItemSuperseded,
     reorderCollectionItems,
 } from '../../components/smart-albums/albumCollection';
 import { insertAlbumStoragePages, removeAlbumStoragePages } from '../../components/smart-albums/albumPageStorage';
@@ -114,6 +117,7 @@ import {
     PHOTO_PINS_CHANGED_EVENT,
     PHOTO_PINS_SEEN_CHANGED_EVENT,
 } from '../../components/smart-albums/albumPhotoPins';
+import { trackSpreadImageReplacement } from '../../components/smart-albums/albumImageReplacements';
 import {
     COMMENTS_CHANGED_EVENT,
     groupRootCommentsBySpread,
@@ -262,7 +266,7 @@ export default function AlbumEditor({
     const [coverTextRevision, setCoverTextRevision] = useState(0);
 
     const collectionItems = useMemo(
-        () => getAlbumCollection(albumId),
+        () => getAlbumCollection(albumId).filter((item) => !isSupersededCollectionItem(item)),
         [albumId, collectionRevision]
     );
 
@@ -453,8 +457,10 @@ export default function AlbumEditor({
         if (!albumId || !album || !user?.id) return 0;
         const items = getAlbumCollection(albumId);
         const placementItems = albumHasBlankCovers(album)
-            ? items.filter((item) => !isCoverWrapCollectionItem(item))
-            : items;
+            ? items.filter(
+                  (item) => !isCoverWrapCollectionItem(item) && !isSupersededCollectionItem(item)
+              )
+            : items.filter((item) => !isSupersededCollectionItem(item));
         if (!placementItems.length && !items.some(isCoverWrapCollectionItem)) return 0;
 
         const spreadOpts = getAlbumSpreadOptions(album, {
@@ -888,6 +894,10 @@ export default function AlbumEditor({
     const placeCollectionItemOnSlot = useCallback(
         (slot, itemId) => {
             if (!slot || !itemId) return false;
+            const previousItemId = getSlotPlacementCollectionItemId(albumId, slot);
+            const previousItem = previousItemId ? getCollectionItem(albumId, previousItemId) : null;
+            const previousUrl = getCollectionItemDisplayUrl(previousItem);
+            let placed = false;
             if (
                 albumHasCoverSpreads(album) &&
                 (slot.pageNum === 0 ||
@@ -897,7 +907,7 @@ export default function AlbumEditor({
                     slot.label === 'End cover')
             ) {
                 const right = Math.min(1, totalPages - 1);
-                const placed = setSpreadPhotoFromCollectionItem(albumId, 0, itemId, right, {
+                placed = setSpreadPhotoFromCollectionItem(albumId, 0, itemId, right, {
                     totalPages,
                     spreadOpts,
                 });
@@ -907,36 +917,44 @@ export default function AlbumEditor({
                     }
                     markCollectionItemAsCoverWrap(albumId, itemId);
                 }
-                return placed;
+            } else if (slot.pageNum === 0) {
+                placed = setPagePhotoFromCollectionItem(albumId, 0, itemId);
+            } else {
+                const left = slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
+                const useWholeSpread =
+                    slot.whole ||
+                    isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
+                if (useWholeSpread) {
+                    const right = getSpreadRightPageIndex(left, totalPages);
+                    placed = setSpreadPhotoFromCollectionItem(albumId, left, itemId, right, {
+                        totalPages,
+                        spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
+                    });
+                } else if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
+                    placed = setPagePhotoFromCollectionItem(albumId, left, itemId, {
+                        clearSpreadForLeft: left,
+                    });
+                } else {
+                    const photoIndex = getProofCellPhotoIndex(
+                        slot.pageNum,
+                        slot.cellId || 1,
+                        totalPages,
+                        spreadCtx
+                    );
+                    placed = setPagePhotoFromCollectionItem(albumId, photoIndex, itemId, {
+                        clearSpreadForLeft: left,
+                    });
+                }
             }
-            if (slot.pageNum === 0) {
-                return setPagePhotoFromCollectionItem(albumId, 0, itemId);
-            }
-            const left = slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
-            const useWholeSpread =
-                slot.whole ||
-                isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
-            if (useWholeSpread) {
-                const right = getSpreadRightPageIndex(left, totalPages);
-                return setSpreadPhotoFromCollectionItem(albumId, left, itemId, right, {
+            if (placed) {
+                trackSpreadImageReplacement(albumId, slot, itemId, {
+                    album,
                     totalPages,
-                    spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
+                    previousItemId,
+                    previousUrl,
                 });
             }
-            if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
-                return setPagePhotoFromCollectionItem(albumId, left, itemId, {
-                    clearSpreadForLeft: left,
-                });
-            }
-            const photoIndex = getProofCellPhotoIndex(
-                slot.pageNum,
-                slot.cellId || 1,
-                totalPages,
-                spreadCtx
-            );
-            return setPagePhotoFromCollectionItem(albumId, photoIndex, itemId, {
-                clearSpreadForLeft: left,
-            });
+            return placed;
         },
         [album, albumId, totalPages, spreadCtx, spreadOpts]
     );
@@ -1006,13 +1024,26 @@ export default function AlbumEditor({
         async (files, slot, { coverWrap = false } = {}) => {
             const photographerId = user?.id ?? album?.photographer_id;
             const previousItemId = getSlotPlacementCollectionItemId(albumId, slot);
+            const previousItem = previousItemId ? getCollectionItem(albumId, previousItemId) : null;
+            const previousUrl = getCollectionItemDisplayUrl(previousItem);
             const file = files[0];
 
             if (previousItemId && file && isImageFile(file) && !isPdfFile(file)) {
                 const replaced = await replaceCollectionItemFile(albumId, previousItemId, file, {
                     photographerId,
+                    preserveOldFile: true,
                 });
-                if (replaced) return replaced;
+                if (replaced) {
+                    if (previousUrl) {
+                        trackSpreadImageReplacement(albumId, slot, replaced.id, {
+                            album,
+                            totalPages,
+                            previousItemId,
+                            previousUrl,
+                        });
+                    }
+                    return replaced;
+                }
             }
 
             const added = await addFilesToAlbumCollection(albumId, files.slice(0, 1), {
@@ -1021,13 +1052,24 @@ export default function AlbumEditor({
                 coverWrap,
             });
             const replacementItem = added[0] || added.duplicateItems?.[0];
-            if (previousItemId && replacementItem?.id && previousItemId !== replacementItem.id) {
-                clearCollectionItemPlacements(albumId, previousItemId);
-                await deleteCollectionItemAsset(albumId, previousItemId);
+            if (!replacementItem?.id) return null;
+
+            if (previousItemId && previousUrl) {
+                trackSpreadImageReplacement(albumId, slot, replacementItem.id, {
+                    album,
+                    totalPages,
+                    previousItemId,
+                    previousUrl,
+                });
+                if (previousItemId !== replacementItem.id) {
+                    clearCollectionItemPlacements(albumId, previousItemId);
+                    markCollectionItemSuperseded(albumId, previousItemId);
+                }
             }
+
             return replacementItem;
         },
-        [album?.photographer_id, albumId, user?.id]
+        [album, album?.photographer_id, albumId, totalPages, user?.id]
     );
 
     const handleReplaceFiles = useCallback(
@@ -1056,6 +1098,13 @@ export default function AlbumEditor({
                 }
                 if (placeCollectionItemOnSlot(slot, replacementItem.id)) {
                     scheduleWorkspaceRefresh();
+                    if (user?.id) {
+                        try {
+                            await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                        } catch (err) {
+                            console.warn('Could not sync album preview after replace:', err);
+                        }
+                    }
                     showToast('Photo updated.', { variant: 'success', duration: 3500 });
                 } else {
                     showToast('Could not place photo.', { variant: 'error', duration: 4000 });
@@ -1193,9 +1242,24 @@ export default function AlbumEditor({
             const item = getCollectionItem(albumId, itemId);
             if (!item || (!item.dataUrl && !item.storagePath) || !gridSelection) return false;
 
+            const slot = slotFromCurrentSpread(
+                gridSelection,
+                gridEditSet,
+                bookPage,
+                totalPages,
+                spreadOpts,
+                album
+            );
+            const previousItemId = slot
+                ? getSlotPlacementCollectionItemId(albumId, slot)
+                : null;
+            const previousItem = previousItemId ? getCollectionItem(albumId, previousItemId) : null;
+            const previousUrl = getCollectionItemDisplayUrl(previousItem);
+            let placed = false;
+
             if (albumHasCoverSpreads(album) && gridSelection.mode === 'cover') {
                 const right = Math.min(1, totalPages - 1);
-                const placed = setSpreadPhotoFromCollectionItem(albumId, 0, itemId, right, {
+                placed = setSpreadPhotoFromCollectionItem(albumId, 0, itemId, right, {
                     totalPages,
                     spreadOpts,
                 });
@@ -1205,68 +1269,90 @@ export default function AlbumEditor({
                     }
                     markCollectionItemAsCoverWrap(albumId, itemId);
                 }
-                return placed;
+            } else {
+                const left = gridSelection.leftPage;
+                const endHalfLeft = isEndHalfSpreadLeftPage(left, totalPages, spreadOpts);
+
+                if (
+                    endHalfLeft &&
+                    gridSelection.mode !== 'cover' &&
+                    !isWholeSpreadLayout(album?.grid_layout)
+                ) {
+                    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+                    placed = setPagePhotoFromCollectionItem(albumId, endLeft, item.id, {
+                        clearSpreadForLeft: endLeft,
+                    });
+                } else {
+                    const wantsWholeSpread =
+                        gridEditSet === 'whole' ||
+                        gridSelection.mode === 'spread' ||
+                        isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
+
+                    if (wantsWholeSpread) {
+                        const isWholeAlbum = isWholeSpreadLayout(album?.grid_layout);
+                        if (!isWholeAlbum && endHalfLeft) {
+                            placed = setPagePhotoFromCollectionItem(albumId, left, item.id, {
+                                clearSpreadForLeft: left,
+                            });
+                        } else if (!isWholeAlbum && isInsideCoverSpreadLeft(left, totalPages)) {
+                            placed = setPagePhotoFromCollectionItem(albumId, 2, item.id, {
+                                clearSpreadForLeft: left,
+                            });
+                        } else if (isWholeAlbum && albumHasBlankCovers(album)) {
+                            if (isInsideCoverSpreadLeft(left, totalPages, spreadOpts)) {
+                                placed = setPagePhotoFromCollectionItem(albumId, 3, item.id, {
+                                    clearSpreadForLeft: left,
+                                });
+                            } else if (isPreBackHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
+                                placed = setPagePhotoFromCollectionItem(albumId, left, item.id, {
+                                    clearSpreadForLeft: left,
+                                });
+                            } else {
+                                const right = getSpreadRightPageIndex(left, totalPages);
+                                placed = setSpreadPhotoFromCollectionItem(albumId, left, item.id, right, {
+                                    totalPages,
+                                    spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
+                                });
+                            }
+                        } else {
+                            const right = getSpreadRightPageIndex(left, totalPages);
+                            placed = setSpreadPhotoFromCollectionItem(albumId, left, item.id, right, {
+                                totalPages,
+                                spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
+                            });
+                        }
+                    } else {
+                        const targets = placementTargets;
+                        if (targets.length) {
+                            placed =
+                                placeCollectionItemOnPages(albumId, item.id, targets, {
+                                    spreadLeftPage: gridSelection.leftPage,
+                                }) > 0;
+                        }
+                    }
+                }
             }
 
-            const left = gridSelection.leftPage;
-            const endHalfLeft = isEndHalfSpreadLeftPage(left, totalPages, spreadOpts);
-
-            if (
-                endHalfLeft &&
-                gridSelection.mode !== 'cover' &&
-                !isWholeSpreadLayout(album?.grid_layout)
-            ) {
-                const { left: endLeft } = getEndSpreadPageIndices(totalPages);
-                return setPagePhotoFromCollectionItem(albumId, endLeft, item.id, {
-                    clearSpreadForLeft: endLeft,
-                });
-            }
-
-            const wantsWholeSpread =
-                gridEditSet === 'whole' ||
-                gridSelection.mode === 'spread' ||
-                isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
-
-            if (wantsWholeSpread) {
-                const isWholeAlbum = isWholeSpreadLayout(album?.grid_layout);
-                if (!isWholeAlbum && endHalfLeft) {
-                    return setPagePhotoFromCollectionItem(albumId, left, item.id, {
-                        clearSpreadForLeft: left,
-                    });
-                }
-                if (!isWholeAlbum && isInsideCoverSpreadLeft(left, totalPages)) {
-                    return setPagePhotoFromCollectionItem(albumId, 2, item.id, {
-                        clearSpreadForLeft: left,
-                    });
-                }
-                if (isWholeAlbum && albumHasBlankCovers(album)) {
-                    if (isInsideCoverSpreadLeft(left, totalPages, spreadOpts)) {
-                        return setPagePhotoFromCollectionItem(albumId, 3, item.id, {
-                            clearSpreadForLeft: left,
-                        });
-                    }
-                    if (isPreBackHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
-                        return setPagePhotoFromCollectionItem(albumId, left, item.id, {
-                            clearSpreadForLeft: left,
-                        });
-                    }
-                }
-                const right = getSpreadRightPageIndex(left, totalPages);
-                return setSpreadPhotoFromCollectionItem(albumId, left, item.id, right, {
+            if (placed && slot) {
+                trackSpreadImageReplacement(albumId, slot, itemId, {
+                    album,
                     totalPages,
-                    spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
+                    previousItemId,
+                    previousUrl,
                 });
             }
-
-            const targets = placementTargets;
-            if (!targets.length) return false;
-            return (
-                placeCollectionItemOnPages(albumId, item.id, targets, {
-                    spreadLeftPage: gridSelection.leftPage,
-                }) > 0
-            );
+            return placed;
         },
-        [albumId, album, gridSelection, gridEditSet, placementTargets, totalPages, spreadOpts]
+        [
+            albumId,
+            album,
+            bookPage,
+            gridSelection,
+            gridEditSet,
+            placementTargets,
+            totalPages,
+            spreadOpts,
+        ]
     );
 
     const handleUploadToCollection = async (files) => {
@@ -1347,6 +1433,13 @@ export default function AlbumEditor({
                 if (placeCollectionItemOnSlot(slot, replacementItem.id)) {
                     setCollectionRevision(getAlbumCollectionRevision(albumId));
                     scheduleWorkspaceRefresh();
+                    if (user?.id) {
+                        try {
+                            await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                        } catch (err) {
+                            console.warn('Could not sync album preview after upload:', err);
+                        }
+                    }
                     showToast('Photo updated on current spread.', {
                         variant: 'success',
                         duration: 3500,
@@ -1380,10 +1473,17 @@ export default function AlbumEditor({
     );
 
     const handlePlaceCollectionItem = useCallback(
-        (itemId) => {
+        async (itemId) => {
             if (placeItemOnSpread(itemId)) {
                 scheduleWorkspaceRefresh();
                 setPickerOpen(false);
+                if (user?.id) {
+                    try {
+                        await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                    } catch (err) {
+                        console.warn('Could not sync album preview after place:', err);
+                    }
+                }
                 showToast(
                     gridSelection?.mode === 'cover'
                         ? 'Photo placed on cover.'
@@ -1397,7 +1497,7 @@ export default function AlbumEditor({
                 });
             }
         },
-        [placeItemOnSpread, scheduleWorkspaceRefresh, showToast, gridSelection?.mode]
+        [placeItemOnSpread, scheduleWorkspaceRefresh, showToast, gridSelection?.mode, user?.id, albumId]
     );
 
     const handleDeleteCollectionItem = useCallback(

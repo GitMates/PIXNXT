@@ -1,13 +1,11 @@
 import React from 'react';
 import {
-    countUnseenPhotoPins,
     isPhotoPinUnseen,
     markPhotoPinsSeen,
     removePhotoPin,
 } from './albumPhotoPins';
 import { getSlotLabel } from './albumSwapMarks';
 import ProofDoneButton from './ProofDoneButton';
-import ProofPanelStats from './ProofPanelStats';
 
 function pinSlotLabel(pin, gridLayout, totalPages, album) {
     const whole = gridLayout === 'whole-spread' && pin.pageNum > 0;
@@ -26,8 +24,6 @@ export default function AlbumPhotoPinsPanel({
 }) {
     const isPanel = variant === 'panel';
     void seenTick;
-
-    const unseenCount = countUnseenPhotoPins(albumId, pins);
 
     const handleOpenPin = (pin) => {
         onNavigateToPin?.(pin);
@@ -53,13 +49,6 @@ export default function AlbumPhotoPinsPanel({
 
     return (
         <div className={`ae-swap-marks ae-photo-pins-panel${isPanel ? ' ae-swap-marks--panel' : ''}`}>
-            {isPanel && (
-                <ProofPanelStats
-                    unresolved={unseenCount}
-                    total={sortedPins.length}
-                    totalLabel="Total comments"
-                />
-            )}
             <ul className="ae-swap-marks-list">
                 {sortedPins.map((pin) => {
                     const slot = pinSlotLabel(pin, gridLayout, totalPages, album);

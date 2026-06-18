@@ -933,6 +933,39 @@
   flex: 1;
 }
 
+.ae-proof-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin: 0 0 12px;
+}
+
+.ae-proof-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.ae-proof-stat-value {
+  display: block;
+  font-size: 28px;
+  font-weight: 700;
+  color: #111;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ae-proof-stat-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
 .ae-page-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;

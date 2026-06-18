@@ -1,5 +1,6 @@
 import { getAlbumCollection } from './albumCollection';
 import { spliceIndexedPhotoMap } from './albumPageStorage';
+import { serializeImageReplacementsForSnapshot } from './albumImageReplacements';
 
 const PHOTOS_KEY = 'pixnxt_album_page_photos';
 const REMOTE_CACHE = new Map();
@@ -120,6 +121,7 @@ export function buildAlbumPreviewSnapshot(albumId) {
         collection,
         pages,
         revision: localPages.__revision ?? 0,
+        image_replacements: serializeImageReplacementsForSnapshot(albumId),
     };
     snapshot.cover_url = deriveCoverUrlFromSnapshot(snapshot);
     return snapshot;

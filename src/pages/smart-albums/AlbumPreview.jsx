@@ -32,6 +32,12 @@ import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import { useAuth } from '../../hooks/useAuth';
 import { countUnseenPhotoPins } from '../../components/smart-albums/albumPhotoPins';
 import { countUnseenSwapMarks } from '../../components/smart-albums/albumSwapMarks';
+import {
+    getImageReplacements,
+    IMAGE_REPLACEMENTS_CHANGED_EVENT,
+    removeImageReplacement,
+} from '../../components/smart-albums/albumImageReplacements';
+import { smartAlbumsService } from '../../services/smartAlbums.service';
 import './AlbumViewer.css';
 import './AlbumEditor.css';
 
@@ -60,7 +66,7 @@ const IconSwap = () => (
 const PREVIEW_NAV = [
     { id: 'comments', label: 'Comment', icon: IconComments },
     { id: 'swap', label: 'Swap', icon: IconSwap },
-    { id: 'collections', label: 'Collections', icon: IconCollection },
+    { id: 'review-summary', label: 'Review Summary', icon: IconCollection },
 ];
 
 /**
@@ -119,6 +125,7 @@ export default function AlbumPreview({
     const [editingPinId, setEditingPinId] = useState(null);
     const [editingPinMessage, setEditingPinMessage] = useState('');
     const [swapMarks, setSwapMarks] = useState([]);
+    const [imageReplacements, setImageReplacements] = useState([]);
 
     useEffect(() => {
         if (!messagesEnabled && sidebarTab === 'swap') {
@@ -163,6 +170,19 @@ export default function AlbumPreview({
         window.addEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapChanged);
         return () => window.removeEventListener(SWAP_MARKS_CHANGED_EVENT, onSwapChanged);
     }, [albumId]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const loadReplacements = () => setImageReplacements(getImageReplacements(albumId));
+        loadReplacements();
+        const onReplacementsChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            loadReplacements();
+        };
+        window.addEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
+        return () =>
+            window.removeEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
+    }, [albumId, photoRevision]);
 
     useEffect(() => {
         if (!albumId || !commentsEnabled) return undefined;
@@ -224,6 +244,7 @@ export default function AlbumPreview({
     );
     const visibleCommentCount = albumCommentCount + photoCommentItems.length;
     const swapMarksCount = swapMarks.length;
+    const imageReplacementCount = imageReplacements.length;
     const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
     const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
     const swapItems = useMemo(
@@ -270,6 +291,21 @@ export default function AlbumPreview({
             onPageChange?.(targetPage);
         },
         [onPageChange, totalPages]
+    );
+
+    const handleRemoveImageReplacement = useCallback(
+        async (replacementId) => {
+            if (!albumId || !replacementId) return;
+            if (!removeImageReplacement(albumId, replacementId)) return;
+            if (isPhotographer && user?.id) {
+                try {
+                    await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                } catch (err) {
+                    console.warn('Could not sync after removing photo change:', err);
+                }
+            }
+        },
+        [albumId, isPhotographer, user?.id]
     );
 
     const albumBookProps = useMemo(
@@ -609,14 +645,105 @@ export default function AlbumPreview({
                                     </>
                                 ) : (
                                     <>
-                                        <h3 className="ae-panel-title">Collections</h3>
+                                        <h3 className="ae-panel-title">Review Summary</h3>
                                         <p className="ae-panel-text">
-                                            Manage photos from the editor
+                                            {visibleCommentCount} comment
+                                            {visibleCommentCount === 1 ? '' : 's'} · {swapMarksCount}{' '}
+                                            swap{swapMarksCount === 1 ? '' : 's'} ·{' '}
+                                            {imageReplacementCount} photo change
+                                            {imageReplacementCount === 1 ? '' : 's'}
                                         </p>
-                                        <p className="ae-panel-text ae-panel-text--muted">
-                                            Collection tools are available in Album Studio. Use this
-                                            preview for proofing.
-                                        </p>
+                                        <div className="av-preview-sidebar-comments av-preview-sidebar-replacements">
+                                            {imageReplacementCount === 0 ? (
+                                                <p className="av-preview-sidebar-text ae-panel-text--muted">
+                                                    No photo changes yet. When your photographer
+                                                    updates a spread image, the before and after
+                                                    photos appear here.
+                                                </p>
+                                            ) : (
+                                                imageReplacements.map((replacement) => {
+                                                    const createdAtLabel = replacement.createdAt
+                                                        ? new Date(
+                                                              replacement.createdAt
+                                                          ).toLocaleString()
+                                                        : null;
+                                                    return (
+                                                        <article
+                                                            key={replacement.id}
+                                                            className="av-preview-sidebar-replacement"
+                                                        >
+                                                            <button
+                                                                type="button"
+                                                                className="av-preview-sidebar-replacement-link"
+                                                                onClick={() =>
+                                                                    jumpToSpread(
+                                                                        replacement.spreadIndex
+                                                                    )
+                                                                }
+                                                            >
+                                                                <p className="av-preview-sidebar-replacement-label">
+                                                                    {replacement.slotLabel}
+                                                                </p>
+                                                            </button>
+                                                            <div className="av-preview-sidebar-replacement-pair">
+                                                                <div className="av-preview-sidebar-replacement-shot">
+                                                                    <span className="av-preview-sidebar-replacement-shot-tag">
+                                                                        Before
+                                                                    </span>
+                                                                    <img
+                                                                        src={replacement.previousUrl}
+                                                                        alt=""
+                                                                        draggable={false}
+                                                                    />
+                                                                </div>
+                                                                <span
+                                                                    className="av-preview-sidebar-replacement-arrow"
+                                                                    aria-hidden
+                                                                >
+                                                                    →
+                                                                </span>
+                                                                <div className="av-preview-sidebar-replacement-shot">
+                                                                    <span className="av-preview-sidebar-replacement-shot-tag av-preview-sidebar-replacement-shot-tag--new">
+                                                                        Now
+                                                                    </span>
+                                                                    <img
+                                                                        src={replacement.newUrl}
+                                                                        alt=""
+                                                                        draggable={false}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                            <div className="av-preview-sidebar-replacement-footer">
+                                                                {createdAtLabel ? (
+                                                                    <time
+                                                                        className="av-preview-sidebar-replacement-time"
+                                                                        dateTime={replacement.createdAt}
+                                                                    >
+                                                                        {createdAtLabel}
+                                                                    </time>
+                                                                ) : (
+                                                                    <span
+                                                                        className="av-preview-sidebar-replacement-time"
+                                                                        aria-hidden
+                                                                    />
+                                                                )}
+                                                                <button
+                                                                    type="button"
+                                                                    className="av-preview-sidebar-swap-remove"
+                                                                    onClick={() =>
+                                                                        handleRemoveImageReplacement(
+                                                                            replacement.id
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            </div>
+                                                        </article>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
                                     </>
                                 )}
                         </div>
