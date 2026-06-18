@@ -25,6 +25,11 @@ import PublicAlbumPreview from './pages/smart-albums/PublicAlbumPreview';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
+import MobileGallery from './pages/mobile-gallery/MobileGallery';
+import CreateMobileGallery from './pages/mobile-gallery/CreateMobileGallery';
+import MobileGalleryEditor from './pages/mobile-gallery/MobileGalleryEditor';
+import PublicMobileGallery from './pages/mobile-gallery/PublicMobileGallery';
+import PreviewMobileGallery from './pages/mobile-gallery/PreviewMobileGallery';
 
 function App() {
   const host = window.location.hostname;
@@ -92,6 +97,7 @@ function App() {
     location.pathname === '/collections' ||
     location.pathname.startsWith('/gallery/') ||
     location.pathname.startsWith('/album-preview/') ||
+    location.pathname.startsWith('/mobile-gallery') ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
   if (activeSlug) {
@@ -150,6 +156,11 @@ function App() {
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
           <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
+          <Route path="/mobile-gallery" element={<ProtectedRoute><MobileGallery /></ProtectedRoute>} />
+          <Route path="/mobile-gallery/create" element={<ProtectedRoute><CreateMobileGallery /></ProtectedRoute>} />
+          <Route path="/mobile-gallery/:id/:tab" element={<ProtectedRoute><MobileGalleryEditor /></ProtectedRoute>} />
+          <Route path="/mobile-gallery/view/:slug" element={<PublicMobileGallery />} />
+          <Route path="/mobile-gallery/preview/:slug" element={<PreviewMobileGallery />} />
           <Route path="/ref/:code" element={<ReferralRedirect />} />
         </Routes>
 

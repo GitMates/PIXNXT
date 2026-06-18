@@ -158,6 +158,15 @@ const SidebarLayout = ({ children }) => {
                                         <span className="text-xs text-[#888] leading-[1.4]">Better way to share, deliver, proof and sell</span>
                                     </div>
                                 </div>
+                                <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]" onClick={() => { navigate('/mobile-gallery'); setShowAppDropdown(false); }}>
+                                    <div className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0 bg-[#f0fafa]">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#44aaa7" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-[17px] font-semibold text-[#111]">Mobile Gallery App</span>
+                                        <span className="text-xs text-[#888] leading-[1.4]">Simple, personalized mobile photo albums</span>
+                                    </div>
+                                </div>
                                 <div className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]" onClick={() => { navigate('/smart-albums'); setShowAppDropdown(false); }}>
                                     <img src={smartAlbumPng} alt="Smart Albums" className="w-11 h-11 object-contain shrink-0 mix-blend-multiply" />
                                     <div className="flex flex-col gap-0.5">
