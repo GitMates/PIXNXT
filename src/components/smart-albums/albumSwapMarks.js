@@ -28,6 +28,24 @@ export function parseSlotKey(key) {
     return { pageNum, cellId: cellId ?? 0 };
 }
 
+/** Whole-spread marks are stored on the left slot key but render on both halves. */
+function swapSlotLookupKeys(
+    pageNum,
+    cellId = 0,
+    { gridLayout = 'two-page', spreadLeft = null, totalPages = 0, album = null } = {}
+) {
+    const keys = [makeSlotKey(pageNum, cellId)];
+    if (gridLayout === 'whole-spread' && pageNum > 0) {
+        const spreadCtx = getSpreadContext(album, totalPages);
+        const left =
+            spreadLeft ??
+            getSpreadLeftPageIndex(pageNum, { ...spreadCtx, totalPages });
+        const canonical = makeSlotKey(left, 1);
+        if (!keys.includes(canonical)) keys.push(canonical);
+    }
+    return keys;
+}
+
 function readAll() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -397,11 +415,20 @@ export function getSwapMarkForSlot(
     { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page', album = null, totalPages = 0 } = {}
 ) {
     const key = makeSlotKey(pageNum, cellId);
+    const lookupKeys = swapSlotLookupKeys(pageNum, cellId, {
+        gridLayout,
+        spreadLeft,
+        totalPages,
+        album,
+    });
 
-    const mark = [...(marks || [])].reverse().find((m) => m.a === key || m.b === key);
+    const mark = [...(marks || [])]
+        .reverse()
+        .find((m) => lookupKeys.some((slotKey) => m.a === slotKey || m.b === slotKey));
     if (!mark) return null;
 
-    const isA = mark.a === key;
+    const matchedKey = lookupKeys.find((slotKey) => mark.a === slotKey || mark.b === slotKey);
+    const isA = mark.a === matchedKey;
     const labelOpts = { album, totalPages };
     const slotLabel = slotLabelForMarkKey(
         key,
@@ -439,15 +466,23 @@ export function getSwapMarksForSlot(
     { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page', album = null, totalPages = 0 } = {}
 ) {
     const key = makeSlotKey(pageNum, cellId);
+    const lookupKeys = swapSlotLookupKeys(pageNum, cellId, {
+        gridLayout,
+        spreadLeft,
+        totalPages,
+        album,
+    });
     const labelOpts = { album, totalPages };
 
     return (marks || []).flatMap((mark) => {
-        const isA = mark.a === key;
-        const isB = mark.b === key;
-        if (!isA && !isB) return [];
+        const matchedKey = lookupKeys.find((slotKey) => mark.a === slotKey || mark.b === slotKey);
+        if (!matchedKey) return [];
 
-        const marksForPair = (marks || []).filter(
-            (m) => m.a === key || m.b === key
+        const isA = mark.a === matchedKey;
+        const isB = mark.b === matchedKey;
+
+        const marksForPair = (marks || []).filter((m) =>
+            lookupKeys.some((slotKey) => m.a === slotKey || m.b === slotKey)
         );
         const markIndex = marksForPair.findIndex((m) => m.id === mark.id);
         const markNum = markIndex >= 0 ? markIndex + 1 : marksForPair.length;

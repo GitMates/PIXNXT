@@ -1002,6 +1002,20 @@ const AlbumBook = ({
             if (!album?.id || !secondSlot) return;
             const originSlot = swapPickerOrigin || swapPinFlow?.originSlot;
             if (!originSlot) return;
+
+            if (previewMode && swapPinFlow?.originPoint) {
+                setSwapPinFlow((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              targetSlot: secondSlot,
+                          }
+                        : prev
+                );
+                setSwapPickerOrigin(null);
+                return;
+            }
+
             const pointA = swapPinFlow?.originPoint || {
                 xPct: 50,
                 yPct: 50,
@@ -1018,7 +1032,7 @@ const AlbumBook = ({
             setSwapPickerOrigin(null);
             setSwapPinFlow(null);
         },
-        [album?.id, swapPickerOrigin, swapPinFlow]
+        [album?.id, swapPickerOrigin, swapPinFlow, previewMode]
     );
 
     const handleSwapPinPlace = useCallback(
