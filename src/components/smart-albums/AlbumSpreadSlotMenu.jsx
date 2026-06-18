@@ -10,11 +10,11 @@ export default function AlbumSpreadSlotMenu({
     canSwap = true,
     swapHint = 'Any left or right photo',
     canRemoveSpread = false,
-    canDeleteSpread = false,
     onReplace,
     onChooseFromCollection,
+    onCoverText,
+    hasCoverText = false,
     onRemovePhotos,
-    onDeleteSpread,
     onSwap,
     onClose,
 }) {
@@ -103,6 +103,27 @@ export default function AlbumSpreadSlotMenu({
                         </button>
                     ) : null}
 
+                    {onCoverText ? (
+                        <button
+                            type="button"
+                            className="ab-slot-menu-item"
+                            role="menuitem"
+                            onClick={onCoverText}
+                        >
+                            <span className="ab-slot-menu-icon" aria-hidden>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                    <path d="M4 7V4h16v3" />
+                                    <path d="M9 20h6" />
+                                    <path d="M12 4v16" />
+                                </svg>
+                            </span>
+                            <span className="ab-slot-menu-text">
+                                <strong>{hasCoverText ? 'Edit text message' : 'Add text message'}</strong>
+                                <small>Title or note on front cover</small>
+                            </span>
+                        </button>
+                    ) : null}
+
                     {canSwap && hasPhoto ? (
                         <button type="button" className="ab-slot-menu-item" role="menuitem" onClick={onSwap}>
                             <span className="ab-slot-menu-icon" aria-hidden>
@@ -132,26 +153,6 @@ export default function AlbumSpreadSlotMenu({
                             <span className="ab-slot-menu-text">
                                 <strong>Remove photos</strong>
                                 <small>Clear this spread&apos;s images</small>
-                            </span>
-                        </button>
-                    ) : null}
-
-                    {canDeleteSpread ? (
-                        <button
-                            type="button"
-                            className="ab-slot-menu-item ab-slot-menu-item--danger"
-                            role="menuitem"
-                            onClick={onDeleteSpread}
-                        >
-                            <span className="ab-slot-menu-icon" aria-hidden>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <polyline points="3 6 5 6 21 6" />
-                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                                </svg>
-                            </span>
-                            <span className="ab-slot-menu-text">
-                                <strong>Delete spread</strong>
-                                <small>Remove 2 pages from album</small>
                             </span>
                         </button>
                     ) : null}

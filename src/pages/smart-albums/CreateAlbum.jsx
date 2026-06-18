@@ -6,6 +6,7 @@ import { applyCollectionOrderToPages } from '../../components/smart-albums/album
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
+    blankCoverSpreadGridSize,
     detectGridSizesFromFiles,
     formatGridSizeLabelForLayout,
 } from '../../components/smart-albums/albumGridSize';
@@ -29,8 +30,8 @@ import {
 import './CreateAlbum.css';
 
 const COVER_OPTIONS = [
-    { value: 'with', label: 'Front & end cover' },
-    { value: 'without', label: 'No covers' },
+    { value: 'with', label: 'Covers with image (in uploaded image first image is take it has cover)' },
+    { value: 'without', label: 'Covers without image (empty covers)' },
 ];
 
 const GRID_LAYOUT_OPTIONS = [
@@ -109,6 +110,7 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
     onDrop,
     onDragEnd,
     isDragOver,
+    roleLabel = null,
 }) {
     const imgRef = useRef(null);
     const [imageLoaded, setImageLoaded] = useState(false);
@@ -153,6 +155,11 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
             <span className="sa-preview-order" aria-hidden>
                 {index + 1}
             </span>
+            {roleLabel ? (
+                <span className="sa-preview-role" aria-hidden>
+                    {roleLabel}
+                </span>
+            ) : null}
             <button
                 type="button"
                 className="sa-preview-remove"
@@ -231,7 +238,22 @@ const CreateAlbum = () => {
     const [createProgress, setCreateProgress] = useState(null);
     const [error, setError] = useState(null);
 
-    const includeCovers = coverMode === 'with';
+    useEffect(() => {
+        const html = document.documentElement;
+        const body = document.body;
+        const prevHtmlOverflow = html.style.overflow;
+        const prevBodyOverflow = body.style.overflow;
+        html.style.overflow = '';
+        body.style.overflow = '';
+        return () => {
+            html.style.overflow = prevHtmlOverflow;
+            body.style.overflow = prevBodyOverflow;
+        };
+    }, []);
+
+    const useBookWrap = coverMode === 'with';
+    const blankCovers = coverMode === 'without';
+    const includeCoverSpreads = true;
 
     const resolvedGridLayout = gridLayout;
     const gridLayoutForDetection = gridLayout;
@@ -242,14 +264,16 @@ const CreateAlbum = () => {
     const layoutPreview = useMemo(() => {
         if (!displayPhotoCount) return null;
         const pageCount = computePageCountFromPhotoCount(displayPhotoCount, {
-            includeCovers,
+            includeCovers: includeCoverSpreads,
+            blankCovers,
             gridLayout: resolvedGridLayout,
         });
         return describeAlbumLayout(displayPhotoCount, pageCount, {
-            includeCovers,
+            includeCovers: includeCoverSpreads,
+            blankCovers,
             gridLayout: resolvedGridLayout,
         });
-    }, [displayPhotoCount, includeCovers, resolvedGridLayout]);
+    }, [displayPhotoCount, blankCovers, includeCoverSpreads, resolvedGridLayout]);
 
     const setProgress = (next) => {
         setCreateProgress(next);
@@ -361,6 +385,8 @@ const CreateAlbum = () => {
                 countExpandedUploadPhotos(photoFiles).catch(() => photoFiles.length),
                 detectGridSizesFromFiles(photoFiles, {
                     gridLayout: gridLayoutForDetection,
+                    hasCovers: includeCoverSpreads,
+                    blankCovers,
                 }).catch(() => ({ pageGridSize: 'square', spreadGridSize: null })),
             ])
                 .then(([count, gridSizes]) => {
@@ -395,7 +421,7 @@ const CreateAlbum = () => {
                 clearTimeout(analysisTimeoutId);
             }
         };
-    }, [photoFiles, gridLayoutForDetection]);
+    }, [photoFiles, gridLayoutForDetection, includeCoverSpreads, blankCovers]);
 
     const analyzingUploads = photoCountBusy || gridSizeBusy;
     const animatePreviewCards = previewSlots.length <= 12;
@@ -479,13 +505,19 @@ const CreateAlbum = () => {
                 );
                 const gridSizes = await detectGridSizesFromFiles(photoFiles, {
                     gridLayout: finalGridLayout,
+                    hasCovers: includeCoverSpreads,
+                    blankCovers,
                 });
                 finalGridSize = gridSizes.pageGridSize;
                 finalSpreadGridSize = gridSizes.spreadGridSize;
             }
+            if (blankCovers && !finalSpreadGridSize) {
+                finalSpreadGridSize = blankCoverSpreadGridSize(finalGridSize);
+            }
 
             const finalPageCount = computePageCountFromPhotoCount(photoCount, {
-                includeCovers,
+                includeCovers: includeCoverSpreads,
+                blankCovers,
                 gridLayout: finalGridLayout,
             });
 
@@ -504,7 +536,8 @@ const CreateAlbum = () => {
                 grid_size: finalGridSize,
                 spread_grid_size: finalSpreadGridSize,
                 grid_layout: finalGridLayout,
-                has_covers: includeCovers,
+                has_covers: includeCoverSpreads,
+                blank_covers: blankCovers,
             });
 
             if (photoFiles.length > 0) {
@@ -543,9 +576,9 @@ const CreateAlbum = () => {
 
                 setProgress({
                     label: 'Placing photos on spreads…',
-                    detail: includeCovers
+                    detail: useBookWrap
                         ? 'Setting cover and auto-filling grid slots.'
-                        : 'Auto-filling pages from your uploads.',
+                        : 'Auto-filling inner pages from your uploads.',
                     current: 0,
                     total: 0,
                 });
@@ -563,7 +596,8 @@ const CreateAlbum = () => {
                     displayPhotoCount
                 );
                 const requiredPageCount = computePageCountFromPhotoCount(effectivePhotoCount, {
-                    includeCovers,
+                    includeCovers: includeCoverSpreads,
+                    blankCovers,
                     gridLayout: finalGridLayout,
                 });
 
@@ -576,11 +610,12 @@ const CreateAlbum = () => {
                     );
                 }
 
-                const placed = applyCollectionOrderToPages(
+                const placed = await applyCollectionOrderToPages(
                     album.id,
                     {
                         ...albumForPlace,
-                        has_covers: includeCovers,
+                        has_covers: includeCoverSpreads,
+                        blank_covers: blankCovers,
                         grid_layout: finalGridLayout,
                         page_count: requiredPageCount,
                     },
@@ -706,9 +741,9 @@ const CreateAlbum = () => {
                                     onChange={setCoverMode}
                                 />
                                 <p className="sa-field-note">
-                                    {includeCovers
-                                        ? 'First photo on the front cover right page (left blank); last photo on the end cover left page (right blank). Middle photos fill inner pages.'
-                                        : 'All uploaded photos fill pages in order — no dedicated cover spreads.'}
+                                    {useBookWrap
+                                        ? 'First photo is the book wrap (full upload width). If it is wider than inner spreads, the center strip is the spine; outer portions are back and front covers. Other photos set the inner page grid.'
+                                        : 'Blank front and back cover spreads (like Front cover), with all uploaded photos filling inner pages only.'}
                                 </p>
                             </div>
 
@@ -853,20 +888,27 @@ const CreateAlbum = () => {
                                             '--sa-preview-count': previewSlots.length,
                                         }}
                                     >
-                                        {previewSlots.map((preview, index) => (
-                                            <UploadPreviewCard
-                                                key={preview.id}
-                                                preview={{ ...preview, index }}
-                                                index={index}
-                                                onRemove={handleRemovePreview}
-                                                animateIn={animatePreviewCards}
-                                                onDragStart={handlePreviewDragStart}
-                                                onDragOver={handlePreviewDragOver}
-                                                onDrop={handlePreviewDrop}
-                                                onDragEnd={handlePreviewDragEnd}
-                                                isDragOver={dragOverIndex === index}
-                                            />
-                                        ))}
+                                        {previewSlots.map((preview, index) => {
+                                            let roleLabel = null;
+                                            if (useBookWrap && index === 0) {
+                                                roleLabel = 'Book wrap';
+                                            }
+                                            return (
+                                                <UploadPreviewCard
+                                                    key={preview.id}
+                                                    preview={{ ...preview, index }}
+                                                    index={index}
+                                                    onRemove={handleRemovePreview}
+                                                    animateIn={animatePreviewCards}
+                                                    onDragStart={handlePreviewDragStart}
+                                                    onDragOver={handlePreviewDragOver}
+                                                    onDrop={handlePreviewDrop}
+                                                    onDragEnd={handlePreviewDragEnd}
+                                                    isDragOver={dragOverIndex === index}
+                                                    roleLabel={roleLabel}
+                                                />
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             ) : (

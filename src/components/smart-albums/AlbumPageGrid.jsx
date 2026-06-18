@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getAlbumCollection } from './albumCollection';
+import { getAlbumLayoutPhotoCount } from './albumCollection';
 import { getGridSlotPhoto, getPagePhotoOverride, hasGridSlotPhoto } from './albumPagePhotos';
 import {
     getPagePhotoTransform,
@@ -12,11 +12,15 @@ import { getProofCellPhotoIndex, getSpreadLeftPageIndex } from './albumSpreadGri
 import {
     getAlbumSpreadOptions,
     isEndHalfSpreadLeftPage,
+    isFrontCoverSpreadLeft,
     isInsideCoverSpreadLeft,
+    isPreBackHalfSpreadLeftPage,
+    isWholeSpreadLayout,
 } from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
+import { useAlbumBookPageContext } from './AlbumBookPageContext';
 import './AlbumPhotoPins.css';
 import { makeSlotKey } from './albumSwapMarks';
 
@@ -120,21 +124,41 @@ export default function AlbumPageGrid({
     onPinRemove,
     onActivatePinMode,
     proofToolsHover = true,
+    spotActionPicker = false,
+    spotCanComment = false,
+    spotCanSwap = false,
 }) {
+    const ctx = useAlbumBookPageContext();
+    const liveSpotActionPicker = spotActionPicker || Boolean(ctx.spotActionPicker);
+    const liveSpotCanComment = spotCanComment || Boolean(ctx.spotCanComment);
+    const liveSpotCanSwap = spotCanSwap || Boolean(ctx.spotCanSwap);
+    const liveOnPinSave = ctx.onPinSave;
     const albumId = albumIdProp ?? album?.id;
     void photoRevision;
     void transformRevision;
-    const collectionCount = albumId ? getAlbumCollection(albumId).length : 0;
+    const collectionCount = albumId ? getAlbumLayoutPhotoCount(albumId, album) : 0;
     const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
     const spreadCtx = { ...spreadOpts, totalPages };
     const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);
     const endHalfSpreadLeft = isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
-    const insideCoverSpread = isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts);
+    const isWholeSpreadAlbum = isWholeSpreadLayout(album?.grid_layout);
+    const spreadWholePhoto = Boolean(albumId && getSpreadPhotoOverride(albumId, spreadLeft));
+    const insideCoverSpread =
+        isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts) &&
+        (!isWholeSpreadAlbum || !spreadWholePhoto);
+    const preBackHalfSpread =
+        isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts) &&
+        (!isWholeSpreadAlbum || !spreadWholePhoto);
+    const frontCoverSpread = isFrontCoverSpreadLeft(spreadLeft, spreadOpts);
     const inSelectedSpread =
         selectionLeftPage != null && selectionLeftPage === spreadLeft;
     const selectWholeSpread = selectionMode === 'spread' && inSelectedSpread;
     const wholePlacement =
-        placementMode === 'whole' && !endHalfSpreadLeft && !insideCoverSpread;
+        placementMode === 'whole' &&
+        !endHalfSpreadLeft &&
+        !insideCoverSpread &&
+        !preBackHalfSpread &&
+        !frontCoverSpread;
     const wholeSpread = wholePlacement;
     const useSelectCells = editable && !spreadEdit;
     const CellTag = useSelectCells ? 'button' : 'div';
@@ -142,18 +166,45 @@ export default function AlbumPageGrid({
     const buildSwapSlot = (photoIndex, cellId) => {
         const spreadNum = Math.floor((spreadLeft - 1) / 2) + 1;
         if (wholePlacement) {
+            const isRightHalf = pageNum > spreadLeft || cellId === 2;
+            const halfPage = isRightHalf
+                ? Math.min(spreadLeft + 1, Math.max(0, totalPages - 1))
+                : spreadLeft;
+            const halfCell = isRightHalf ? 2 : 1;
             return {
-                pageNum: spreadLeft,
-                cellId: 1,
+                pageNum: halfPage,
+                cellId: halfCell,
                 spreadLeft,
                 whole: true,
-                label: `Spread ${spreadNum} · Whole`,
+                label: `Spread ${spreadNum} · ${isRightHalf ? 'Right' : 'Left'}`,
             };
         }
         const label =
             cellId === 1 ? `Spread ${spreadNum} · Left` : `Spread ${spreadNum} · Right`;
         return { pageNum: photoIndex, cellId, spreadLeft, label };
     };
+
+    const swapPointOnThisHalf = (point, halfPage, halfCell) => {
+        if (!point || !wholePlacement) return true;
+        const ptPage = point.pageNum ?? halfPage;
+        const ptCell = point.cellId ?? halfCell;
+        return ptPage === halfPage && ptCell === halfCell;
+    };
+
+    /** Whole-spread pano: tint both halves when either side has a swap mark. */
+    const spreadPanoSwapMark = (() => {
+        if (!wholePlacement || !getSwapMarkInfo) return null;
+        const rightPage = Math.min(spreadLeft + 1, Math.max(0, totalPages - 1));
+        for (const [halfPage, halfCell] of [
+            [spreadLeft, 1],
+            [rightPage, 2],
+        ]) {
+            const idx = getProofCellPhotoIndex(halfPage, halfCell, totalPages, spreadCtx);
+            const info = getSwapMarkInfo(idx, halfCell, spreadLeft);
+            if (info) return info;
+        }
+        return null;
+    })();
 
     return (
         <div
@@ -224,24 +275,28 @@ export default function AlbumPageGrid({
                     : null;
                 const swapMarkInfo = getSwapMarkInfo?.(photoIndex, cell.id, spreadLeft);
                 const swapMarkInfos =
-                    swapMarkMode && getSwapMarkInfos
+                    (swapMarkMode || liveSpotActionPicker) && getSwapMarkInfos
                         ? getSwapMarkInfos(photoIndex, cell.id, spreadLeft)
                         : swapMarkInfo
                           ? [swapMarkInfo]
                           : [];
-                const canSwap = swapMarkMode && Boolean(src);
-                const proofTools = (swapMarkMode || pinMarkMode) && Boolean(src);
+                const canSwap = (swapMarkMode || liveSpotActionPicker) && Boolean(src);
+                const proofTools =
+                    (swapMarkMode || pinMarkMode) && Boolean(src) && !liveSpotActionPicker;
                 const slotPins =
-                    pinMarkMode && getPinsForSlot
+                    (pinMarkMode || liveSpotActionPicker) && getPinsForSlot
                         ? getPinsForSlot(photoIndex, cell.id, spreadLeft)
                         : [];
-                const markedClass = swapMarkInfo
+                const activeSwapMark =
+                    swapMarkInfo ||
+                    (panoramic != null && spreadPanoSwapMark ? spreadPanoSwapMark : null);
+                const markedClass = activeSwapMark
                     ? ` ab-grid-cell--swap-marked${
-                          swapMarkInfo.locked !== false ? ' ab-grid-cell--swap-locked' : ''
+                          activeSwapMark.locked !== false ? ' ab-grid-cell--swap-locked' : ''
                       }`
                     : '';
                 const swapPins = swapMarkInfos
-                    .filter((info) => info?.point)
+                    .filter((info) => info?.point && swapPointOnThisHalf(info.point, pageNum, cell.id))
                     .map((info) => ({
                         id: `swap-pin-${info.pinKey || info.markId}-${photoIndex}-${cell.id}`,
                         xPct: info.point.xPct,
@@ -260,7 +315,8 @@ export default function AlbumPageGrid({
                     isOriginSlot &&
                     swapPinTargetStep &&
                     swapPinOriginPoint?.xPct != null &&
-                    swapPinOriginPoint?.yPct != null
+                    swapPinOriginPoint?.yPct != null &&
+                    swapPointOnThisHalf(swapPinOriginPoint, pageNum, cell.id)
                 ) {
                     swapPins.push({
                         id: `swap-pin-live-${slotKey}`,
@@ -371,6 +427,31 @@ export default function AlbumPageGrid({
                                 });
                             }}
                             onRemovePin={onPinRemove}
+                            onSaveSpotComment={
+                                liveSpotActionPicker && liveOnPinSave
+                                    ? (xPct, yPct, message) => {
+                                          let targetPage = photoIndex;
+                                          let targetCell = cell.id;
+                                          if (wholePlacement) {
+                                              targetPage =
+                                                  cell.id === 2 ? spreadLeft + 1 : spreadLeft;
+                                              targetCell = cell.id;
+                                          }
+                                          liveOnPinSave({
+                                              pageNum: targetPage,
+                                              cellId: targetCell,
+                                              spreadLeft,
+                                              xPct,
+                                              yPct,
+                                              label: buildSwapSlot(photoIndex, cell.id).label,
+                                              message,
+                                          });
+                                      }
+                                    : null
+                            }
+                            spotActionPicker={liveSpotActionPicker}
+                            spotCanComment={liveSpotCanComment}
+                            spotCanSwap={liveSpotCanSwap && canSwap}
                         >
                             {spreadEdit && hasPhoto ? (
                                 <EditableGridPhoto

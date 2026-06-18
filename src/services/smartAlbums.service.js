@@ -262,6 +262,10 @@ const ALBUM_LIST_FIELDS = [
   'expiry_date',
   'created_at',
   'updated_at',
+  'client_approved_at',
+  'client_approved_by',
+  'client_changes_submitted_at',
+  'client_changes_submitted_by',
 ].join(', ');
 
 function buildAlbumRowFromLocal(local, photographerId) {
@@ -515,6 +519,16 @@ function mapAlbumRow(row, photographerId) {
         if (withSettings.has_covers === false) return false;
         if (withSettings.has_covers === true) return true;
         return true;
+    })(),
+
+    blank_covers: (() => {
+        if (
+            gridOverrides != null &&
+            Object.prototype.hasOwnProperty.call(gridOverrides, 'blank_covers')
+        ) {
+            return gridOverrides.blank_covers === true;
+        }
+        return withSettings.blank_covers === true;
     })(),
 
     comments_enabled: withSettings.comments_enabled !== false,
@@ -851,6 +865,7 @@ export const smartAlbumsService = {
     spread_grid_size = null,
     grid_layout = 'two-page',
     has_covers = true,
+    blank_covers = false,
   }) {
 
     const trimmedName = normalizeAlbumName(name);
@@ -892,6 +907,7 @@ export const smartAlbumsService = {
         grid_size: payload.grid_size,
         grid_layout: payload.grid_layout,
         has_covers: has_covers === true,
+        blank_covers: blank_covers === true,
         spread_grid_size: spread_grid_size || null,
       });
       removeLocalAlbum(photographer_id, data.id);
@@ -929,11 +945,17 @@ export const smartAlbumsService = {
           grid_size: payload.grid_size,
           grid_layout: payload.grid_layout,
           has_covers: has_covers === true,
+          blank_covers: blank_covers === true,
           spread_grid_size: spread_grid_size || null,
         });
 
         return mapAlbumRow(
-            { ...album, has_covers: has_covers === true, spread_grid_size: spread_grid_size || null },
+            {
+                ...album,
+                has_covers: has_covers === true,
+                blank_covers: blank_covers === true,
+                spread_grid_size: spread_grid_size || null,
+            },
             photographer_id
         );
 
@@ -1070,10 +1092,13 @@ export const smartAlbumsService = {
 
     if (error) {
       console.warn('syncAlbumPreviewData:', error.message);
+      hydrateAlbumPreviewData(albumId, previewData);
       return previewData;
     }
 
-    return data?.preview_data ?? previewData;
+    const synced = data?.preview_data ?? previewData;
+    hydrateAlbumPreviewData(albumId, synced);
+    return synced;
   },
 
   async updateAlbumDetails(photographerId, albumId, patch) {
@@ -1254,6 +1279,7 @@ export const smartAlbumsService = {
       grid_size: source.grid_size,
       grid_layout: source.grid_layout,
       has_covers: source.has_covers === true,
+      blank_covers: source.blank_covers === true,
     });
 
     await duplicateAlbumAssets(albumId, copy.id, photographerId);

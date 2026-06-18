@@ -3,6 +3,8 @@
 /* Slightly larger type, fields, and previews on the create-album flow */
 .sa-create-page {
   background: #f8f7fb;
+  min-height: 100vh;
+  overflow-y: auto;
 }
 
 .sa-create-page .cc-header-title {
@@ -501,6 +503,23 @@
   color: #fff;
   font-size: 12px;
   font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.sa-preview-role {
+  position: absolute;
+  top: 9px;
+  right: 9px;
+  z-index: 4;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(91, 45, 130, 0.92);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   line-height: 1;
   pointer-events: none;
 }

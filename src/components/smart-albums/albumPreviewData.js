@@ -164,3 +164,28 @@ export function getRemotePagePhoto(albumId, key) {
     if (!remote?.pages || key == null) return null;
     return remote.pages[String(key)] ?? null;
 }
+
+/** Drop page/spread keys from the in-memory preview cache (keeps UI + reload in sync). */
+export function deleteRemotePreviewPageKeys(albumId, keys) {
+    if (!albumId || !keys?.length) return false;
+    const remote = REMOTE_CACHE.get(albumId);
+    if (!remote?.pages) return false;
+
+    const pages = { ...remote.pages };
+    let changed = false;
+    for (const key of keys) {
+        const k = String(key);
+        if (k in pages) {
+            delete pages[k];
+            changed = true;
+        }
+    }
+    if (!changed) return false;
+
+    hydrateAlbumPreviewData(albumId, {
+        ...remote,
+        pages,
+        revision: (remote.revision || 0) + 1,
+    });
+    return true;
+}

@@ -8,15 +8,14 @@ import {
     removeAlbumStoragePages,
 } from '../../components/smart-albums/albumPageStorage';
 import {
-    captureEndCoverPlacement,
     mergeRemotePreviewPagesIntoLocal,
     migrateInsideCoverSpreadToPageTwo,
     migrateEndHalfSpreadToLeftPage,
-    migrateFrontCoverSpreadToPageOne,
+    migrateBackCoverUsesBookWrap,
+    migrateFrontCoverToFullSpread,
     migrateMiskeyedInnerSpreadPhotos,
     migrateWholeSpreadPagePhotosToSpreadKeys,
     migrateWholeSpreadPhotoOffRightPage,
-    restoreEndCoverPlacement,
 } from '../../components/smart-albums/albumPagePhotos';
 import {
     migrateInsideCoverSpreadTransform,
@@ -28,6 +27,7 @@ import {
     getPageInsertIndex,
     getPageRemoveIndex,
     getTotalSpreads,
+    normalizeStoragePageIndex,
 } from '../../components/smart-albums/albumSpreadUtils';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
@@ -35,12 +35,13 @@ import {
     hydrateAlbumPreviewData,
     shiftAlbumRemotePreviewPages,
 } from '../../components/smart-albums/albumPreviewData';
+import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
 
-export function parseUrlPage(raw, totalPages, _spreadOpts) {
+export function parseUrlPage(raw, totalPages, spreadOpts = {}) {
     if (raw == null || raw === '') return 0;
     let n = parseInt(raw, 10);
     if (Number.isNaN(n)) return 0;
-    return Math.max(0, Math.min(totalPages - 1, n));
+    return normalizeStoragePageIndex(n, totalPages, spreadOpts);
 }
 
 /** Preview = client-facing album only (final output). */
@@ -106,8 +107,11 @@ export function useAlbumWorkspace() {
                         migrateWholeSpreadPagePhotosToSpreadKeys(albumId, pages, data);
                     }
                     if (albumSpreadOpts.hasCovers) {
-                        migrateFrontCoverSpreadToPageOne(albumId);
-                        migrateInsideCoverSpreadToPageTwo(albumId, pages);
+                        migrateFrontCoverToFullSpread(albumId);
+                        if (data?.blank_covers !== true) {
+                            migrateBackCoverUsesBookWrap(albumId, pages, data);
+                        }
+                        migrateInsideCoverSpreadToPageTwo(albumId, pages, data);
                         migrateInsideCoverSpreadTransform(albumId);
                     }
                     if (albumSpreadOpts.hasCovers) {
@@ -177,18 +181,13 @@ export function useAlbumWorkspace() {
                     const insertAt = getPageInsertIndex(current, albumSpreadOpts);
                     insertAlbumStoragePages(albumId, insertAt, countDelta);
                     shiftAlbumRemotePreviewPages(albumId, insertAt, countDelta);
+                    shiftAlbumPhotoPins(albumId, insertAt, countDelta);
                 } else if (countDelta < 0) {
                     const removeCount = -countDelta;
                     const removeAt = getPageRemoveIndex(current, removeCount, albumSpreadOpts);
-                    const endCapture = albumSpreadOpts.hasCovers
-                        ? captureEndCoverPlacement(albumId, current)
-                        : null;
                     removeAlbumStoragePages(albumId, removeAt, removeCount);
                     shiftAlbumRemotePreviewPages(albumId, removeAt, -removeCount);
-                    if (albumSpreadOpts.hasCovers) {
-                        restoreEndCoverPlacement(albumId, next, endCapture);
-                        migrateEndHalfSpreadToLeftPage(albumId, next);
-                    }
+                    shiftAlbumPhotoPins(albumId, removeAt, -removeCount);
                 }
 
                 const updated = await smartAlbumsService.updateAlbumPageCount(
@@ -199,19 +198,17 @@ export function useAlbumWorkspace() {
                 setAlbum(updated);
 
                 const urlPage = parseUrlPage(searchParams.get('page'), current, albumSpreadOpts);
-                const { left: endLeft } = getEndSpreadPageIndices(next);
-                const { left: oldEndLeft } = getEndSpreadPageIndices(current);
                 let clamped = Math.min(urlPage, next - 1);
                 if (countDelta > 0) {
-                    const insertAt = getPageInsertIndex(current);
+                    const insertAt = getPageInsertIndex(current, albumSpreadOpts);
                     clamped = parseUrlPage(insertAt, next, albumSpreadOpts);
                 } else if (countDelta < 0) {
-                    const removeAt = getPageRemoveIndex(current, -countDelta);
+                    const removeAt = getPageRemoveIndex(current, -countDelta, albumSpreadOpts);
                     const removeEnd = removeAt - countDelta;
                     if (urlPage >= removeAt && urlPage < removeEnd) {
-                        clamped = endLeft;
-                    } else if (urlPage >= oldEndLeft) {
-                        clamped = endLeft;
+                        clamped = Math.max(0, removeAt - 1);
+                    } else if (urlPage >= removeEnd) {
+                        clamped = Math.min(urlPage + countDelta, next - 1);
                     }
                 }
                 if (clamped !== urlPage) {

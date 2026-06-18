@@ -6,11 +6,14 @@ import { countUnseenSwapMarks } from './albumSwapMarks';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { getCollectionItemDisplayUrl } from './albumCollection';
+import { formatAlbumGridSizeDisplay } from './albumGridSize';
+import { getSlotLabel } from './albumSwapMarks';
 import {
-    formatAlbumGridSizeDisplay,
-    formatGridLayoutLabel,
-} from './albumGridSize';
-import { isCoverInsidePage, isEndHalfSpreadLeftPage } from './albumSpreadUtils';
+    albumHasBlankCovers,
+    albumUsesBookWrap,
+    isEndHalfSpreadLeftPage,
+    isInsideCoverSpreadLeft,
+} from './albumSpreadUtils';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -41,8 +44,16 @@ const IconSettings = () => (
     </svg>
 );
 
-const NAV = [
+const IconEditCover = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+);
+
+const NAV_BASE = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
+    { id: 'cover', label: 'Edit cover', icon: IconEditCover, requiresCovers: true },
     { id: 'swap', label: 'Swap', icon: IconSwap },
     { id: 'pin', label: 'Comment', icon: IconComments },
     { id: 'comments', label: 'Setting', icon: IconSettings },
@@ -53,7 +64,7 @@ const GRID_LAYOUT_LABELS = {
     'whole-spread': 'Whole-spread photo',
 };
 
-function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, spreadOpts) {
+function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, spreadOpts, album) {
     const hasCovers = spreadOpts?.hasCovers === true;
     if (!canSelectGrid) {
         return hasCovers
@@ -61,20 +72,28 @@ function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, sp
             : 'Select a spread to place photos.';
     }
     if (hasCovers && gridSelection?.mode === 'cover') {
-        return 'Cover page';
+        return spreadOpts?.blankCovers
+            ? 'Cover · back · spine · front'
+            : 'Book wrap (front + back)';
     }
     if (
         gridSelection?.leftPage != null &&
-        isCoverInsidePage(gridSelection.leftPage, totalPages) &&
+        isInsideCoverSpreadLeft(gridSelection.leftPage, totalPages, spreadOpts) &&
         gridSelection.cellId === 2
     ) {
-        return 'Inside cover · right page';
+        return getSlotLabel(
+            gridSelection.leftPage + 1,
+            2,
+            false,
+            totalPages,
+            album
+        );
     }
     if (
         gridSelection?.leftPage != null &&
         isEndHalfSpreadLeftPage(gridSelection.leftPage, totalPages, spreadOpts)
     ) {
-        return 'Last spread · left page only';
+        return getSlotLabel(gridSelection.leftPage, 1, false, totalPages, album);
     }
     if (gridEditSet === 'whole' || gridSelection?.mode === 'spread') {
         return 'Whole grid · one photo across both pages';
@@ -127,6 +146,9 @@ export default function AlbumEditorSidebar({
     void proofSeenTick;
     const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
     const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
+    const navItems = NAV_BASE.filter(
+        (item) => !item.requiresCovers || album?.has_covers === true
+    );
 
     const handleFiles = (e) => {
         const files = filesFromInput(e.target.files);
@@ -158,50 +180,44 @@ export default function AlbumEditorSidebar({
         setCollectionDragOverIndex(null);
     }, []);
 
+    const albumSpreadMeta = `${totalPages} pages · ${pagesPerSpread}-page spreads`;
+
     return (
         <aside className="ae-sidebar">
-            <div className="ae-sidebar-head">
-                <p className="ae-sidebar-label">Album studio</p>
-                <h2 className="ae-sidebar-title">{album?.name || 'Album'}</h2>
-                <p className="ae-sidebar-meta">
-                    {totalPages} pages · {formatGridLayoutLabel(album?.grid_layout)}
-                </p>
-            </div>
-
-            <nav className="ae-nav" aria-label="Editor tools">
-                {NAV.map(({ id, label, icon: Icon }) => (
+            <nav className="ae-nav-rail" aria-label="Editor tools">
+                {navItems.map(({ id, label, icon: Icon }) => (
                     <button
                         key={id}
                         type="button"
-                        className={`ae-nav-btn${activePanel === id ? ' ae-nav-btn--active' : ''}`}
+                        className={`ae-nav-rail-btn${activePanel === id ? ' ae-nav-rail-btn--active' : ''}`}
                         onClick={() => onPanelChange(id)}
+                        aria-label={label}
+                        aria-current={activePanel === id ? 'true' : undefined}
+                        title={label}
                     >
-                        <span className="ae-nav-icon">
+                        <span className="ae-nav-rail-icon">
                             <Icon />
                         </span>
-                        <span className="ae-nav-label">
-                            {label}
-                            {id === 'swap' && swapMarks.length > 0 && (
-                                <span
-                                    className={`ae-nav-badge${
-                                        unseenSwapCount > 0 ? ' ae-nav-badge--unseen' : ''
-                                    }`}
-                                    aria-hidden
-                                >
-                                    {unseenSwapCount > 0 ? unseenSwapCount : swapMarks.length}
-                                </span>
-                            )}
-                            {id === 'pin' && photoPins.length > 0 && (
-                                <span
-                                    className={`ae-nav-badge ae-nav-badge--pin${
-                                        unseenPinCount > 0 ? ' ae-nav-badge--unseen' : ''
-                                    }`}
-                                    aria-hidden
-                                >
-                                    {unseenPinCount > 0 ? unseenPinCount : photoPins.length}
-                                </span>
-                            )}
-                        </span>
+                        {id === 'swap' && swapMarks.length > 0 && (
+                            <span
+                                className={`ae-nav-rail-badge${
+                                    unseenSwapCount > 0 ? ' ae-nav-rail-badge--unseen' : ''
+                                }`}
+                                aria-hidden
+                            >
+                                {unseenSwapCount > 0 ? unseenSwapCount : swapMarks.length}
+                            </span>
+                        )}
+                        {id === 'pin' && photoPins.length > 0 && (
+                            <span
+                                className={`ae-nav-rail-badge ae-nav-rail-badge--pin${
+                                    unseenPinCount > 0 ? ' ae-nav-rail-badge--unseen' : ''
+                                }`}
+                                aria-hidden
+                            >
+                                {unseenPinCount > 0 ? unseenPinCount : photoPins.length}
+                            </span>
+                        )}
                     </button>
                 ))}
             </nav>
@@ -245,6 +261,8 @@ export default function AlbumEditorSidebar({
                         </p>
                         <AlbumPhotoPinsPanel
                             albumId={albumId}
+                            album={album}
+                            totalPages={totalPages}
                             pins={photoPins}
                             gridLayout={album?.grid_layout || 'two-page'}
                             variant="panel"
@@ -268,7 +286,11 @@ export default function AlbumEditorSidebar({
                                     gridSelection,
                                     canSelectGrid,
                                     totalPages,
-                                    { hasCovers: album?.has_covers === true }
+                                    {
+                                        hasCovers: album?.has_covers === true,
+                                        blankCovers: albumHasBlankCovers(album),
+                                    },
+                                    album
                                 )}
                             </p>
                         )}
@@ -298,17 +320,22 @@ export default function AlbumEditorSidebar({
                                 Choose photo for current slot
                             </button>
                         )}
-                        {collectionItems.length === 0 ? (
-                            <p className="ae-panel-text ae-panel-text--muted ae-collection-count">
-                                No photos yet — upload above.
-                            </p>
-                        ) : (
+                        <div className="ae-panel-status-row">
+                            <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
+                            <span
+                                className={`ae-panel-status-count${
+                                    collectionItems.length === 0 ? ' ae-panel-status-count--muted' : ''
+                                }`}
+                            >
+                                {collectionItems.length === 0
+                                    ? 'No photos yet'
+                                    : `${collectionItems.length} photo${
+                                          collectionItems.length === 1 ? '' : 's'
+                                      } ready`}
+                            </span>
+                        </div>
+                        {collectionItems.length > 0 && (
                             <>
-                                <p className="ae-collection-count">
-                                    {collectionItems.length} photo
-                                    {collectionItems.length === 1 ? '' : 's'} ready · order 1–
-                                    {collectionItems.length}
-                                </p>
                                 <div className="ae-collection-grid" role="list">
                                     {collectionItems.map((item, index) => (
                                         <button
@@ -352,9 +379,11 @@ export default function AlbumEditorSidebar({
                                     ))}
                                 </div>
                                 <p className="ae-collection-order-note">
-                                    {album?.has_covers === true
-                                        ? 'Order 1 → front cover (right page). Last order number → end cover (left page). Middle photos fill inner pages.'
-                                        : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
+                                    {albumUsesBookWrap(album)
+                                        ? 'Order 1 → book wrap (front right + back left). Photos 2+ fill inner pages in order.'
+                                        : albumHasBlankCovers(album)
+                                          ? 'Blank front & back covers. All photos fill inner pages in upload order.'
+                                          : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
                                     Drag thumbnails to reorder; spreads update automatically.
                                 </p>
                                 <button
@@ -418,6 +447,57 @@ export default function AlbumEditorSidebar({
                         >
                             Remove all images from album
                         </button>
+                    </>
+                )}
+
+                {activePanel === 'cover' && (
+                    <>
+                        <h3 className="ae-panel-title">Edit cover</h3>
+                        {albumHasBlankCovers(album) ? (
+                            <>
+                                <p className="ae-panel-text">
+                                    Covers start blank. Choose a wide photo for back, spine, and
+                                    front — or leave empty for a plain cover spread.
+                                </p>
+                                <p className="ae-selection-badge" role="status">
+                                    Cover · back · spine · front
+                                </p>
+                                <button
+                                    type="button"
+                                    className="ae-btn-picker"
+                                    onClick={() => onOpenPicker?.()}
+                                >
+                                    Choose cover photo
+                                </button>
+                                <p className="ae-panel-text ae-panel-text--muted">
+                                    Upload in Collections first, then pick a photo here. If the
+                                    image is wider than inner spreads, drag the red spine lines to
+                                    adjust width.
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <p className="ae-panel-text">
+                                    Book wrap (photo 1) is wider than inner spreads. The center strip
+                                    is the spine; outer portions are back and front covers (not
+                                    shown on spine in the flipbook).
+                                </p>
+                                <p className="ae-selection-badge" role="status">
+                                    Book wrap · back · spine · front
+                                </p>
+                                <button
+                                    type="button"
+                                    className="ae-btn-picker"
+                                    onClick={() => onOpenPicker?.()}
+                                >
+                                    Choose book wrap photo
+                                </button>
+                                <p className="ae-panel-text ae-panel-text--muted">
+                                    Upload in Collections first — order 1 is used here. Drag the red
+                                    spine lines on each side of the spine to adjust its width.
+                                </p>
+                            </>
+                        )}
                     </>
                 )}
 

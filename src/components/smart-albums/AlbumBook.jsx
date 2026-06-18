@@ -10,13 +10,19 @@ import {
 } from './albumPagePhotos';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
+    flipbookIndexToStoragePage,
     getAlbumSpreadOptions,
+    getEndSpreadPageIndices,
+    getFlipbookStoragePages,
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
     isEndHalfSpreadIndex,
+    isWholeSpreadLayout,
+    normalizeStoragePageIndex,
     pageToSpreadIndex,
     spreadIndexToPage,
+    storagePageToFlipbookIndex,
 } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import SpreadGridComments from './SpreadGridComments';
@@ -47,10 +53,17 @@ import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
 import { parseGridSizeAspect } from './albumGridSize';
 import { AlbumBookPageContext } from './AlbumBookPageContext';
+import { installSafePageFlip } from './pageFlipSafe';
+import { albumHasBlankCovers, albumUsesBookWrap } from './albumSpreadUtils';
+import { getBookWrapSpineLayout } from './bookWrapSpine';
+import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
+import { getSpreadPhotoTransform } from './albumPageTransforms';
+import BookWrapSpineImage from './BookWrapSpineImage';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
-const FLIP_TIME_MS = 800;
+const FLIP_TIME_MS = 900;
+const FLIP_CORNER = 'bottom';
 const BOOK_PAGE_HEIGHT_MIN = 300;
 const BOOK_PAGE_HEIGHT_MAX = 520;
 const BOOK_PAGE_HEIGHT_SCALE = 0.93;
@@ -101,6 +114,23 @@ function OverviewCoverPhoto({ src, placeholderClass = '' }) {
     return <img src={src} alt="" loading="lazy" />;
 }
 
+function OverviewBookWrapSegment({ src, side, layout, transform }) {
+    if (!src) {
+        return <span className="ab-overview-placeholder ab-overview-placeholder--cover" />;
+    }
+    return (
+        <span className="ab-overview-wrap-crop">
+            <BookWrapSpineImage
+                src={src}
+                side={side}
+                layout={layout}
+                transform={transform}
+                className="ab-book-wrap-cover-img ab-overview-wrap-img"
+            />
+        </span>
+    );
+}
+
 function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const albumId = album?.id;
     const spreadOpts = getSpreadContext(album, totalPages);
@@ -113,7 +143,7 @@ function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     const cellId = pageNum === spreadLeft ? 1 : 2;
     const spreadCtx = getSpreadContext(album, totalPages);
     const slot = getGridSlotPhoto(albumId, pageNum, cellId, spreadLeft, totalPages, {
-        wholeSpread: album?.grid_layout === 'whole-spread',
+        wholeSpread: isWholeSpreadLayout(album?.grid_layout),
         spreadOpts: spreadCtx,
     });
     return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);
@@ -148,6 +178,9 @@ const AlbumBook = ({
     swapMarkMode = false,
     pinMarkMode = false,
     proofToolsHover = true,
+    proofSpotPicker = false,
+    spotCanComment = false,
+    spotCanSwap = false,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -183,28 +216,59 @@ const AlbumBook = ({
         () => ({ ...spreadOpts, totalPages }),
         [spreadOpts, totalPages]
     );
+    const [spineBoundsTick, setSpineBoundsTick] = useState(0);
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onChanged = (e) => {
+            if (e.detail?.albumId === album.id) setSpineBoundsTick((t) => t + 1);
+        };
+        window.addEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
+        return () => window.removeEventListener(SPINE_BOUNDS_CHANGED_EVENT, onChanged);
+    }, [album?.id]);
+    const bookWrapSpineLayout = useMemo(() => {
+        if (album?.has_covers !== true) return null;
+        if (albumHasBlankCovers(album) && !getSpreadPhotoOverride(album?.id, 0)) {
+            return null;
+        }
+        if (!albumUsesBookWrap(album) && !albumHasBlankCovers(album)) return null;
+        return getBookWrapSpineLayout(album);
+    }, [album, spineBoundsTick]);
+    const coverTransform = useMemo(() => {
+        if (!album?.id || album?.has_covers !== true) {
+            return { x: 0, y: 0, scaleX: 1, scaleY: 1 };
+        }
+        void transformRevision;
+        return getSpreadPhotoTransform(album.id, 0);
+    }, [album?.id, album?.has_covers, transformRevision]);
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return false;
-        const target = Math.max(0, Math.min(totalPages - 1, initialPage));
+        const targetStorage = normalizeStoragePageIndex(initialPage, totalPages, spreadOpts);
+        const targetFlip = storagePageToFlipbookIndex(targetStorage, totalPages, spreadOpts);
         syncingPageRef.current = true;
-        const current = api.getCurrentPageIndex();
-        if (current !== target) {
-            api.turnToPage(target);
+        const currentFlip = api.getCurrentPageIndex();
+        if (currentFlip !== targetFlip) {
+            api.turnToPage(targetFlip);
             api.update();
         }
-        const resolved = api.getCurrentPageIndex();
-        setPageIndex(resolved);
+        const resolvedStorage = flipbookIndexToStoragePage(
+            api.getCurrentPageIndex(),
+            totalPages,
+            spreadOpts
+        );
+        setPageIndex(resolvedStorage);
         requestAnimationFrame(() => {
             requestAnimationFrame(() => {
                 syncingPageRef.current = false;
             });
         });
-        return resolved === target;
-    }, [initialPage, totalPages]);
+        return resolvedStorage === targetStorage;
+    }, [initialPage, totalPages, spreadOpts]);
     const [overviewOpen, setOverviewOpen] = useState(false);
     const [focusOpen, setFocusOpen] = useState(false);
+    const [focusStartPage, setFocusStartPage] = useState(0);
+    const focusPageRef = useRef(0);
 
     const flipBookStructuralKey = useMemo(
         () =>
@@ -272,14 +336,18 @@ const AlbumBook = ({
         if (userNavigatedRef.current || isFlippingRef.current) return false;
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return false;
-        const target = Math.max(0, Math.min(totalPages - 1, initialPage));
-        const current = api.getCurrentPageIndex();
+        const target = normalizeStoragePageIndex(initialPage, totalPages, spreadOpts);
+        const current = flipbookIndexToStoragePage(
+            api.getCurrentPageIndex(),
+            totalPages,
+            spreadOpts
+        );
         if (current === target) {
             setPageIndex((prev) => (prev === target ? prev : target));
             return true;
         }
         return applyInitialPage();
-    }, [applyInitialPage, initialPage, totalPages]);
+    }, [applyInitialPage, initialPage, spreadOpts, totalPages]);
 
     useLayoutEffect(() => {
         if (!initialized || !stableDims) return undefined;
@@ -401,11 +469,11 @@ const AlbumBook = ({
 
     const goToPage = useCallback(
         (pageNum) => {
-            const clamped = Math.max(0, Math.min(totalPages - 1, pageNum));
+            const clamped = normalizeStoragePageIndex(pageNum, totalPages, spreadOpts);
             syncingPageRef.current = true;
             const api = bookRef.current?.pageFlip?.();
             if (api?.getFlipController?.()) {
-                api.turnToPage(clamped);
+                api.turnToPage(storagePageToFlipbookIndex(clamped, totalPages, spreadOpts));
             }
             setPageIndex(clamped);
             onPageChange?.(clamped);
@@ -415,17 +483,60 @@ const AlbumBook = ({
                 });
             });
         },
-        [totalPages, onPageChange]
+        [totalPages, spreadOpts, onPageChange]
     );
 
     const atStart = spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
-
-    const syncNavDisabled = useCallback(() => {
-        const flipping = isFlippingRef.current;
-        if (prevNavRef.current) prevNavRef.current.disabled = atStart || flipping;
-        if (nextNavRef.current) nextNavRef.current.disabled = atEnd || flipping;
-    }, [atStart, atEnd]);
+    const frontCoverOnly = album?.has_covers === true && spreadIndex === 0;
+    const endCoverOnly =
+        album?.has_covers === true &&
+        isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
+    const [coverClipTransition, setCoverClipTransition] = useState(null);
+    const [coverRevealOpen, setCoverRevealOpen] = useState(false);
+    const [endClipTransition, setEndClipTransition] = useState(null);
+    const [endRevealOpen, setEndRevealOpen] = useState(false);
+    const [bookFlipping, setBookFlipping] = useState(false);
+    const prevNavDisabled = atStart || bookFlipping;
+    const nextNavDisabled = atEnd || bookFlipping;
+    const showCoverClip =
+        album?.has_covers === true &&
+        (frontCoverOnly ||
+            coverClipTransition != null ||
+            (bookFlipping && spreadIndex === 0));
+    const lastSpreadIndex = Math.max(0, totalSpreads - 1);
+    const preBackSpreadIndex = Math.max(0, totalSpreads - 2);
+    const showEndClip =
+        album?.has_covers === true &&
+        (endCoverOnly ||
+            endClipTransition != null ||
+            (bookFlipping && spreadIndex === lastSpreadIndex));
+    const coverWrapClassName = useMemo(() => {
+        if (showCoverClip) {
+            let cls = ' ab-flipbook-wrap--front-cover-only';
+            if (coverClipTransition) cls += ' ab-flipbook-wrap--front-cover-transition';
+            if (coverClipTransition === 'reveal' && coverRevealOpen) {
+                cls += ' ab-flipbook-wrap--front-cover-reveal';
+            }
+            return cls;
+        }
+        if (showEndClip) {
+            let cls = ' ab-flipbook-wrap--end-cover-only';
+            if (endClipTransition) cls += ' ab-flipbook-wrap--end-cover-transition';
+            if (endClipTransition === 'reveal' && endRevealOpen) {
+                cls += ' ab-flipbook-wrap--end-cover-reveal';
+            }
+            return cls;
+        }
+        return '';
+    }, [
+        showCoverClip,
+        showEndClip,
+        coverClipTransition,
+        coverRevealOpen,
+        endClipTransition,
+        endRevealOpen,
+    ]);
 
     const setFlippingUi = useCallback((flipping) => {
         rootRef.current?.classList.toggle('ab-root--flipping', flipping);
@@ -434,19 +545,50 @@ const AlbumBook = ({
         wrapRef.current?.classList.toggle('ab-flipbook-wrap--flipping', flipping);
     }, []);
 
+    /** Let clip-path transition paint its start frame before the page curl runs. */
+    const beginCoverRevealFlip = useCallback((api) => {
+        setCoverClipTransition('reveal');
+        setCoverRevealOpen(false);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (wrapRef.current) void wrapRef.current.offsetWidth;
+                setCoverRevealOpen(true);
+                requestAnimationFrame(() => {
+                    if (typeof api.flipNext === 'function') api.flipNext(FLIP_CORNER);
+                    else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
+                });
+            });
+        });
+    }, []);
+
+    const beginEndRevealFlip = useCallback((api) => {
+        setEndClipTransition('reveal');
+        setEndRevealOpen(false);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                if (wrapRef.current) void wrapRef.current.offsetWidth;
+                setEndRevealOpen(true);
+                requestAnimationFrame(() => {
+                    if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
+                    else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
+                });
+            });
+        });
+    }, []);
+
     const handleFlip = useCallback(
         (e) => {
             // Ignore programmatic sync flips, but accept user-driven page turns.
             if (syncingPageRef.current && !isFlippingRef.current) return;
-            const idx = e.data;
+            const storageIdx = flipbookIndexToStoragePage(e.data, totalPages, spreadOpts);
             syncingPageRef.current = false;
             userNavigatedRef.current = true;
             requestAnimationFrame(() => {
-                setPageIndex(idx);
-                onPageChange?.(idx);
+                setPageIndex(storageIdx);
+                onPageChange?.(storageIdx);
             });
         },
-        [onPageChange]
+        [onPageChange, totalPages, spreadOpts]
     );
 
     const handleBookUpdate = useCallback(() => {
@@ -460,26 +602,163 @@ const AlbumBook = ({
         (e) => {
             const flipping = e.data === 'flipping';
             isFlippingRef.current = flipping;
+            setBookFlipping(flipping);
             setFlippingUi(flipping);
-            syncNavDisabled();
+
+            if (!flipping) {
+                const api = bookRef.current?.pageFlip?.();
+                if (api?.getFlipController?.()) {
+                    const storageIdx = flipbookIndexToStoragePage(
+                        api.getCurrentPageIndex(),
+                        totalPages,
+                        spreadOpts
+                    );
+                    setPageIndex(storageIdx);
+                    onPageChange?.(storageIdx);
+                }
+                if (coverClipTransition || endClipTransition) {
+                    requestAnimationFrame(() => {
+                        setCoverClipTransition(null);
+                        setCoverRevealOpen(false);
+                        setEndClipTransition(null);
+                        setEndRevealOpen(false);
+                    });
+                }
+            }
         },
-        [setFlippingUi, syncNavDisabled]
+        [coverClipTransition, endClipTransition, onPageChange, setFlippingUi, spreadOpts, totalPages]
     );
+
+    useEffect(() => {
+        if (!bookFlipping) return undefined;
+        const timer = window.setTimeout(() => {
+            if (!isFlippingRef.current) return;
+            isFlippingRef.current = false;
+            setBookFlipping(false);
+            setFlippingUi(false);
+        }, FLIP_TIME_MS + 150);
+        return () => window.clearTimeout(timer);
+    }, [bookFlipping, setFlippingUi]);
 
     const flipPrev = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
-        // Some builds of pageflip are picky about flipPrev(direction).
-        if (typeof api.flipPrev === 'function') api.flipPrev();
+
+        if (
+            album?.has_covers &&
+            spreadIndex === 1 &&
+            flipbookIndexToStoragePage(api.getCurrentPageIndex(), totalPages, spreadOpts) === 2
+        ) {
+            setCoverClipTransition('hide');
+            setCoverRevealOpen(false);
+            requestAnimationFrame(() => {
+                if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
+                else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
+            });
+            return;
+        }
+
+        if (album?.has_covers && endCoverOnly) {
+            const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+            const current = flipbookIndexToStoragePage(
+                api.getCurrentPageIndex(),
+                totalPages,
+                spreadOpts
+            );
+            if (current > endLeft) {
+                syncingPageRef.current = true;
+                api.turnToPage(storagePageToFlipbookIndex(endLeft, totalPages, spreadOpts));
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        syncingPageRef.current = false;
+                        beginEndRevealFlip(api);
+                    });
+                });
+                return;
+            }
+            beginEndRevealFlip(api);
+            return;
+        }
+
+        if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
         else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-    }, []);
+    }, [album?.has_covers, beginEndRevealFlip, endCoverOnly, spreadIndex, spreadOpts, totalPages]);
 
     const flipNext = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
-        if (typeof api.flipNext === 'function') api.flipNext();
+
+        if (album?.has_covers && spreadIndex === 0) {
+            const current = api.getCurrentPageIndex();
+            if (current < 1) {
+                syncingPageRef.current = true;
+                api.turnToPage(1);
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(() => {
+                        syncingPageRef.current = false;
+                        beginCoverRevealFlip(api);
+                    });
+                });
+                return;
+            }
+            beginCoverRevealFlip(api);
+            return;
+        }
+
+        if (album?.has_covers && spreadIndex === totalSpreads - 2) {
+            const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+            const current = flipbookIndexToStoragePage(
+                api.getCurrentPageIndex(),
+                totalPages,
+                spreadOpts
+            );
+            if (current === endLeft - 1) {
+                setEndClipTransition('hide');
+                requestAnimationFrame(() => {
+                    if (typeof api.flipNext === 'function') api.flipNext(FLIP_CORNER);
+                    else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
+                });
+                return;
+            }
+        }
+
+        if (typeof api.flipNext === 'function') api.flipNext(FLIP_CORNER);
         else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
-    }, []);
+    }, [album?.has_covers, beginCoverRevealFlip, spreadIndex, spreadOpts, totalPages, totalSpreads]);
+
+    useEffect(() => {
+        if (!initialized || bookFlipping || coverClipTransition) return;
+        if (!album?.has_covers || spreadIndex !== 0) return;
+        if (userNavigatedRef.current || isFlippingRef.current) return;
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return;
+        const current = api.getCurrentPageIndex();
+        if (current === 0) return;
+        if (current !== 1) return;
+        syncingPageRef.current = true;
+        api.turnToPage(0);
+        setPageIndex(0);
+        onPageChange?.(0);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                syncingPageRef.current = false;
+            });
+        });
+    }, [
+        album?.has_covers,
+        bookFlipping,
+        coverClipTransition,
+        initialized,
+        onPageChange,
+        spreadIndex,
+    ]);
+
+    useEffect(() => {
+        if (bookFlipping || spreadIndex !== preBackSpreadIndex) return;
+        if (!endClipTransition) return;
+        setEndClipTransition(null);
+        setEndRevealOpen(false);
+    }, [bookFlipping, spreadIndex, preBackSpreadIndex, endClipTransition]);
 
     useEffect(() => {
         const onKey = (e) => {
@@ -494,10 +773,6 @@ const AlbumBook = ({
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [flipPrev, flipNext]);
-
-    useEffect(() => {
-        syncNavDisabled();
-    }, [atStart, atEnd, syncNavDisabled]);
 
     useEffect(() => {
         if (!overviewOpen) return undefined;
@@ -521,10 +796,11 @@ const AlbumBook = ({
     }, [overviewOpen]);
 
     useEffect(() => {
-        const maxPage = Math.max(0, totalPages - 1);
-        if (pageIndex <= maxPage) return;
-        goToPage(maxPage);
-    }, [totalPages, pageIndex, goToPage]);
+        const maxPage = normalizeStoragePageIndex(totalPages - 1, totalPages, spreadOpts);
+        const normalized = normalizeStoragePageIndex(pageIndex, totalPages, spreadOpts);
+        if (normalized === pageIndex) return;
+        goToPage(normalized);
+    }, [totalPages, pageIndex, spreadOpts, goToPage]);
 
     useEffect(() => {
         setSwapMarks(getSwapMarks(album?.id));
@@ -621,6 +897,11 @@ const AlbumBook = ({
 
     useEffect(() => {
         if (!previewMode) return;
+        if (proofSpotPicker) {
+            setPinModeActive(false);
+            setPinComposer(null);
+            return;
+        }
         if (pinMarkMode) {
             setPinModeActive(true);
             setSwapPinFlow(null);
@@ -628,7 +909,7 @@ const AlbumBook = ({
         }
         setPinModeActive(false);
         setPinComposer(null);
-    }, [previewMode, pinMarkMode]);
+    }, [previewMode, pinMarkMode, proofSpotPicker]);
 
     useEffect(() => {
         if (!previewMode) return;
@@ -676,7 +957,7 @@ const AlbumBook = ({
                 cellId: placement.cellId ?? 0,
             };
             if (!swapPinFlow) {
-                if (!swapMarkMode) return;
+                if (!swapMarkMode && !proofSpotPicker) return;
                 setSwapPinFlow({
                     originSlot: placement,
                     originPoint: placementPoint,
@@ -727,7 +1008,7 @@ const AlbumBook = ({
                 setSwapPinFlow(null);
             }
         },
-        [album?.id, swapPinFlow, swapMarkMode]
+        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker]
     );
 
     const getSwapMarkInfo = useCallback(
@@ -772,6 +1053,14 @@ const AlbumBook = ({
         [album?.id, pinComposer]
     );
 
+    const handlePinSaveDirect = useCallback(
+        (placement) => {
+            if (!album?.id || !placement?.message?.trim()) return;
+            addPhotoPin(album.id, placement);
+        },
+        [album?.id]
+    );
+
     const handlePinRemove = useCallback(
         (pinId) => {
             if (!album?.id) return;
@@ -782,24 +1071,19 @@ const AlbumBook = ({
 
     const closeFocusView = useCallback(() => {
         setFocusOpen(false);
-    }, []);
+        goToPage(focusPageRef.current);
+    }, [goToPage]);
 
     const openFocusView = useCallback(() => {
         setOverviewOpen(false);
+        focusPageRef.current = pageIndex;
+        setFocusStartPage(pageIndex);
         setFocusOpen(true);
-    }, []);
+    }, [pageIndex]);
 
-    const handleFocusPageChange = useCallback(
-        (idx) => {
-            setPageIndex(idx);
-            onPageChange?.(idx);
-            const api = bookRef.current?.pageFlip?.();
-            if (api?.getFlipController?.() && api.getCurrentPageIndex() !== idx) {
-                api.turnToPage(idx);
-            }
-        },
-        [onPageChange]
-    );
+    const handleFocusPageChange = useCallback((idx) => {
+        focusPageRef.current = idx;
+    }, []);
 
     const pageContextValue = useMemo(
         () => ({
@@ -818,7 +1102,9 @@ const AlbumBook = ({
             getSwapMarkInfo,
             getSwapMarkInfos,
             onSwapRequest: handleSwapRequest,
-            swapPinModeActive: previewMode ? swapMarkMode : Boolean(swapPinFlow),
+            swapPinModeActive: previewMode
+                ? swapMarkMode || Boolean(swapPinFlow)
+                : Boolean(swapPinFlow),
             swapPinOriginKey: swapPinFlow
                 ? makeSlotKey(
                       swapPinFlow.originSlot.pageNum,
@@ -832,9 +1118,13 @@ const AlbumBook = ({
             pinModeActive: isPinModeOn,
             getPinsForSlot: getSlotPins,
             onPinPlace: handlePinPlace,
+            onPinSave: handlePinSaveDirect,
             onPinRemove: handlePinRemove,
             onActivatePinMode: handleActivatePinMode,
             proofToolsHover,
+            spotActionPicker: proofSpotPicker,
+            spotCanComment,
+            spotCanSwap,
         }),
         [
             gridSelection?.leftPage,
@@ -860,8 +1150,12 @@ const AlbumBook = ({
             getSwapMarkInfos,
             getSlotPins,
             handlePinPlace,
+            handlePinSaveDirect,
             handlePinRemove,
             handleActivatePinMode,
+            proofSpotPicker,
+            spotCanComment,
+            spotCanSwap,
         ]
     );
 
@@ -871,7 +1165,9 @@ const AlbumBook = ({
         if (isPinModeOn && pinMarkMode) {
             return { text: 'Click to place comment', swap: false };
         }
-        const swapActive = previewMode ? swapMarkMode : Boolean(swapPinFlow);
+        const swapActive = previewMode
+            ? swapMarkMode || Boolean(swapPinFlow)
+            : Boolean(swapPinFlow);
         if (!swapActive) return null;
         if (swapPinFlow?.originPoint) {
             return { text: 'Click target spot to complete swap', swap: true };
@@ -907,7 +1203,7 @@ const AlbumBook = ({
 
     const pages = useMemo(
         () =>
-            Array.from({ length: totalPages }, (_, pageNum) => (
+            getFlipbookStoragePages(totalPages, spreadOpts).map((pageNum) => (
                 <AlbumFlipPage
                     key={`page-${pageNum}`}
                     album={album}
@@ -923,6 +1219,7 @@ const AlbumBook = ({
         [
             album,
             totalPages,
+            spreadOpts,
             editable,
             spreadEdit,
             placementMode,
@@ -957,9 +1254,11 @@ const AlbumBook = ({
             <button
                 type="button"
                 ref={prevNavRef}
-                className="ab-nav ab-nav--prev"
+                className={`ab-nav ab-nav--prev${
+                    !prevNavDisabled ? ' ab-nav--enabled' : ''
+                }`}
                 onClick={flipPrev}
-                disabled={atStart}
+                disabled={prevNavDisabled}
                 aria-label="Previous page"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
@@ -971,23 +1270,38 @@ const AlbumBook = ({
                 <div className="ab-book-stage-inner" ref={stageRef} aria-hidden="true" />
                 <div className="ab-flip-escape" ref={escapeRef}>
                 <div
-                    className="ab-spread-display"
-                    style={bookDims ? { width: bookDims.width * 2 } : undefined}
-                >
-                <div
-                    className="ab-spread-book-block"
+                    className={`ab-spread-display${
+                        showCoverClip ? ' ab-spread-display--front-cover-clip' : ''
+                    }${showEndClip ? ' ab-spread-display--end-cover-clip' : ''}`}
                     style={
                         bookDims
-                            ? { width: bookDims.width * 2 }
+                            ? {
+                                  width: bookDims.width * 2,
+                              }
                             : undefined
                     }
                 >
                 <div
-                    className="ab-flipbook-wrap"
+                    className={`ab-spread-book-block${
+                        showCoverClip ? ' ab-spread-book-block--front-cover-clip' : ''
+                    }${showEndClip ? ' ab-spread-book-block--end-cover-clip' : ''}`}
+                    style={
+                        bookDims
+                            ? {
+                                  width: bookDims.width * 2,
+                              }
+                            : undefined
+                    }
+                >
+                <div
+                    className={`ab-flipbook-wrap${coverWrapClassName}`}
                     ref={wrapRef}
                     style={
                         bookDims
-                            ? { width: bookDims.width * 2, height: bookDims.height }
+                            ? {
+                                  width: bookDims.width * 2,
+                                  height: bookDims.height,
+                              }
                             : undefined
                     }
                 >
@@ -1011,7 +1325,7 @@ const AlbumBook = ({
                         minHeight={bookDims.height}
                         maxHeight={bookDims.height}
                         drawShadow
-                        maxShadowOpacity={0.5}
+                        maxShadowOpacity={0.42}
                         flippingTime={FLIP_TIME_MS}
                         usePortrait={false}
                         useMouseEvents={clickToFlip}
@@ -1019,13 +1333,15 @@ const AlbumBook = ({
                         showCover={false}
                         showPageCorners={clickToFlip}
                         disableFlipByClick
-                        startPage={initialPage}
+                        startPage={storagePageToFlipbookIndex(initialPage, totalPages, spreadOpts)}
                         clickEventForward={false}
                         onFlip={handleFlip}
                         onChangeState={handleChangeState}
                         onInit={() => {
                             syncingPageRef.current = true;
                             setInitialized(true);
+                            const api = bookRef.current?.pageFlip?.();
+                            installSafePageFlip(api, { totalPages, spreadOpts });
                             requestAnimationFrame(() => {
                                 requestAnimationFrame(() => {
                                     syncFlipbookToUrlPage();
@@ -1088,9 +1404,11 @@ const AlbumBook = ({
             <button
                 type="button"
                 ref={nextNavRef}
-                className="ab-nav ab-nav--next"
+                className={`ab-nav ab-nav--next${
+                    !nextNavDisabled ? ' ab-nav--enabled' : ''
+                }`}
                 onClick={flipNext}
-                disabled={atEnd}
+                disabled={nextNavDisabled}
                 aria-label="Next page"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round">
@@ -1161,15 +1479,16 @@ const AlbumBook = ({
                                 totalPages,
                                 spreadOpts
                             );
-                            const spreadSrc = !isCover
+                            const spreadSrc = !isCover && !isEndSpread
                                 ? getSpreadPhotoOverride(album?.id, left)
                                 : null;
-                            const coverPhotoSrc = isCover
-                                ? resolveCoverImageSrc(album, { showSamples })
-                                : null;
-                            const endCoverSrc = leftSrc || spreadSrc;
+                            const bookWrapSrc =
+                                isCover || isEndSpread
+                                    ? getSpreadPhotoOverride(album?.id, 0) ||
+                                      resolveCoverImageSrc(album, { showSamples })
+                                    : null;
                             const isEndHalf = isEndSpread;
-                            const showSpreadFull = Boolean(spreadSrc && !isCover && !isEndSpread);
+                            const showSpreadFull = Boolean(spreadSrc);
                             const isCurrent = overviewSpreadIndex === spreadIndex;
                             const spreadComments = spreadCommentsBySpread?.[overviewSpreadIndex] ?? null;
                             return (
@@ -1178,7 +1497,9 @@ const AlbumBook = ({
                                     type="button"
                                     className={`ab-overview-item${
                                         isCover ? ' ab-overview-item--cover' : ''
-                                    }${isCurrent ? ' ab-overview-item--active' : ''}${
+                                    }${isEndSpread ? ' ab-overview-item--back' : ''}${
+                                        isCurrent ? ' ab-overview-item--active' : ''
+                                    }${
                                         spreadComments?.length ? ' ab-overview-item--has-comments' : ''
                                     }`}
                                     onClick={() => {
@@ -1191,26 +1512,32 @@ const AlbumBook = ({
                                             <span className="ab-overview-page ab-overview-page--spread-full">
                                                 <img src={spreadSrc} alt="" loading="lazy" />
                                             </span>
+                                        ) : isCover && bookWrapSrc ? (
+                                            <span className="ab-overview-page ab-overview-page--cover-single">
+                                                <OverviewBookWrapSegment
+                                                    src={bookWrapSrc}
+                                                    side="front"
+                                                    layout={bookWrapSpineLayout}
+                                                    transform={coverTransform}
+                                                />
+                                            </span>
                                         ) : isCover ? (
-                                            <>
-                                                <span
-                                                    className="ab-overview-page ab-overview-page--cover-blank"
-                                                    aria-hidden
+                                            <span className="ab-overview-page ab-overview-page--cover-single">
+                                                <OverviewCoverPhoto src={rightSrc || leftSrc} />
+                                            </span>
+                                        ) : isEndHalf && bookWrapSrc ? (
+                                            <span className="ab-overview-page ab-overview-page--end-single">
+                                                <OverviewBookWrapSegment
+                                                    src={bookWrapSrc}
+                                                    side="back"
+                                                    layout={bookWrapSpineLayout}
+                                                    transform={coverTransform}
                                                 />
-                                                <span className="ab-overview-page ab-overview-page--cover-right">
-                                                    <OverviewCoverPhoto src={coverPhotoSrc} />
-                                                </span>
-                                            </>
+                                            </span>
                                         ) : isEndHalf ? (
-                                            <>
-                                                <span className="ab-overview-page ab-overview-page--end-left">
-                                                    <OverviewCoverPhoto src={endCoverSrc} />
-                                                </span>
-                                                <span
-                                                    className="ab-overview-page ab-overview-page--cover-blank"
-                                                    aria-hidden
-                                                />
-                                            </>
+                                            <span className="ab-overview-page ab-overview-page--end-single">
+                                                <OverviewCoverPhoto src={leftSrc} />
+                                            </span>
                                         ) : (
                                             <>
                                                 <span className="ab-overview-page">
@@ -1246,7 +1573,7 @@ const AlbumBook = ({
                                         {isCover
                                             ? 'Cover'
                                             : isEndSpread
-                                              ? 'End'
+                                              ? 'Back'
                                               : spreadOpts.hasCovers
                                                 ? overviewSpreadIndex
                                                 : overviewSpreadIndex + 1}
@@ -1271,7 +1598,7 @@ const AlbumBook = ({
                                         <span className="ab-overview-add-plus">+</span>
                                     </span>
                                     <span className="ab-overview-label">
-                                        {pageCountBusy ? 'Adding...' : 'Add page'}
+                                        {pageCountBusy ? 'Adding...' : 'Add spread'}
                                     </span>
                                 </button>
                             )}
@@ -1291,7 +1618,7 @@ const AlbumBook = ({
                                         </span>
                                     </span>
                                     <span className="ab-overview-label">
-                                        {pageCountBusy ? 'Removing...' : 'Remove page'}
+                                        {pageCountBusy ? 'Removing...' : 'Remove spread'}
                                     </span>
                                 </button>
                             )}
@@ -1306,9 +1633,11 @@ const AlbumBook = ({
                 <AlbumFocusView
                     album={album}
                     totalPages={totalPages}
-                    startPage={pageIndex}
+                    startPage={focusStartPage}
+                    placementMode={placementMode}
                     showSamples={showSamples}
                     transformRevision={transformRevision}
+                    photoRevision={photoRevision}
                     onPageChange={handleFocusPageChange}
                     onClose={closeFocusView}
                 />
@@ -1327,7 +1656,7 @@ const AlbumBook = ({
             />
 
             <AlbumPinComposer
-                open={Boolean(pinComposer)}
+                open={Boolean(pinComposer) && !proofSpotPicker}
                 slotLabel={pinComposer?.label}
                 onSave={handlePinSave}
                 onClose={() => setPinComposer(null)}

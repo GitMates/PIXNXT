@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../../hooks/useAuth';
+import { PasswordField } from './PasswordField';
 
 /**
  * Login Form component for authenticating users.
@@ -44,14 +45,11 @@ export const LoginForm = ({ onSuccess, onToggle }) => {
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-gray-700">Password</label>
-        <input
-          type="password"
+        <label htmlFor="login-password" className="text-sm font-medium text-gray-700">Password</label>
+        <PasswordField
+          id="login-password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="••••••••"
-          className="px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-          required
         />
       </div>
 

@@ -3,11 +3,13 @@ import { smartAlbumsService } from './smartAlbums.service';
 
 const LOCAL_KEY = 'pixnxt_smart_album_comments_local';
 const SEEN_KEY = 'pixnxt_smart_album_comments_seen';
+const GUEST_SEEN_KEY = 'pixnxt_smart_album_guest_comments_seen';
 const SUBMITTED_KEY = 'pixnxt_smart_album_comments_submitted';
 const GUEST_KEY_PREFIX = 'pixnxt_album_guest_';
 
 export const COMMENTS_CHANGED_EVENT = 'pixnxt-album-comments-changed';
 export const COMMENTS_SEEN_CHANGED_EVENT = 'pixnxt-album-comments-seen-changed';
+export const GUEST_COMMENTS_SEEN_CHANGED_EVENT = 'pixnxt-album-guest-comments-seen-changed';
 
 export function notifyCommentsChanged(albumId) {
     try {
@@ -69,6 +71,56 @@ export function markCommentsSeen(albumId, comments) {
     notifyCommentsSeenChanged(albumId);
 }
 
+function readGuestSeen() {
+    try {
+        const raw = localStorage.getItem(GUEST_SEEN_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeGuestSeen(data) {
+    try {
+        localStorage.setItem(GUEST_SEEN_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+export function notifyGuestCommentsSeenChanged(albumId) {
+    try {
+        window.dispatchEvent(
+            new CustomEvent(GUEST_COMMENTS_SEEN_CHANGED_EVENT, { detail: { albumId } })
+        );
+    } catch {
+        /* ignore */
+    }
+}
+
+/** True when the client has not viewed a photographer comment/reply since its last update. */
+export function isGuestCommentUnseen(albumId, comment) {
+    if (!albumId || !comment?.id || comment.author_type !== 'photographer') return false;
+    const seenAt = readGuestSeen()[albumId]?.[comment.id];
+    if (!seenAt) return true;
+    const stamp = comment.updated_at || comment.created_at;
+    if (!stamp) return false;
+    return new Date(stamp).getTime() > new Date(seenAt).getTime();
+}
+
+export function markGuestCommentsSeen(albumId, comments) {
+    if (!albumId || !comments?.length) return;
+    const all = readGuestSeen();
+    const bucket = { ...(all[albumId] || {}) };
+    const now = new Date().toISOString();
+    comments.forEach((comment) => {
+        if (comment?.id) bucket[comment.id] = now;
+    });
+    all[albumId] = bucket;
+    writeGuestSeen(all);
+    notifyGuestCommentsSeenChanged(albumId);
+}
+
 function readSubmitted() {
     try {
         const raw = localStorage.getItem(SUBMITTED_KEY);
@@ -96,6 +148,7 @@ export function markCommentsSubmitted(albumId) {
     const all = readSubmitted();
     all[albumId] = new Date().toISOString();
     writeSubmitted(all);
+    notifyCommentsChanged(albumId);
 }
 
 /** Short preview for sidebar comment cards (first N words). */
