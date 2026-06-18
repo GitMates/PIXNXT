@@ -1697,6 +1697,13 @@
   color: #1e40af;
 }
 
+.ab-overview-item--current:not(.ab-overview-item--active) .ab-overview-thumb {
+  border-color: #fff;
+  box-shadow:
+    0 0 0 2px rgba(255, 255, 255, 0.95),
+    0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
 .ab-overview-item:hover:not(:disabled) .ab-overview-thumb {
   border-color: rgba(0, 0, 0, 0.22);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.1);

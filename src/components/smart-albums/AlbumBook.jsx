@@ -1009,26 +1009,6 @@ const AlbumBook = ({
             const originSlot = swapPickerOrigin || swapPinFlow?.originSlot;
             if (!originSlot) return;
 
-            const hasThumbPoint =
-                Number.isFinite(secondSlot.xPct) && Number.isFinite(secondSlot.yPct);
-
-            if (previewMode && swapPinFlow?.originPoint && hasThumbPoint) {
-                const pointB = {
-                    xPct: secondSlot.xPct,
-                    yPct: secondSlot.yPct,
-                    pageNum: secondSlot.pageNum,
-                    cellId: secondSlot.cellId ?? 0,
-                };
-                addSwapMark(album.id, originSlot, secondSlot, {
-                    pointA: swapPinFlow.originPoint,
-                    pointB,
-                });
-                setSwapPickerOrigin(null);
-                setSwapPinFlow(null);
-                goToPage(secondSlot.pageNum ?? originSlot.pageNum);
-                return;
-            }
-
             if (previewMode && swapPinFlow?.originPoint) {
                 setSwapPinFlow((prev) =>
                     prev
@@ -1039,9 +1019,11 @@ const AlbumBook = ({
                         : prev
                 );
                 setSwapPickerOrigin(null);
-                goToPage(secondSlot.pageNum ?? originSlot.pageNum);
                 return;
             }
+
+            const hasThumbPoint =
+                Number.isFinite(secondSlot.xPct) && Number.isFinite(secondSlot.yPct);
 
             const pointA = swapPinFlow?.originPoint || {
                 xPct: 50,
@@ -1058,11 +1040,22 @@ const AlbumBook = ({
             addSwapMark(album.id, originSlot, secondSlot, { pointA, pointB });
             setSwapPickerOrigin(null);
             setSwapPinFlow(null);
-            if (hasThumbPoint) {
+            if (secondSlot.spreadIndex != null) {
+                goToPage(
+                    spreadIndexToPage(secondSlot.spreadIndex, { ...spreadOpts, totalPages })
+                );
+            } else if (hasThumbPoint) {
                 goToPage(secondSlot.pageNum ?? originSlot.pageNum);
             }
         },
-        [album?.id, swapPickerOrigin, swapPinFlow, previewMode, goToPage]
+        [album?.id, swapPickerOrigin, swapPinFlow, previewMode, goToPage, spreadOpts, totalPages]
+    );
+
+    const handleSwapSpreadNavigate = useCallback(
+        (spreadIndex) => {
+            goToPage(spreadIndexToPage(spreadIndex, { ...spreadOpts, totalPages }));
+        },
+        [goToPage, spreadOpts, totalPages]
     );
 
     const handleSwapPinPlace = useCallback(
@@ -1827,6 +1820,9 @@ const AlbumBook = ({
                 swapMarks={swapMarks}
                 showSamples={showSamples}
                 bookAnchorRef={wrapRef}
+                currentSpreadIndex={spreadIndex}
+                navigateOnlyOnPick={Boolean(swapPinFlow?.originPoint)}
+                onNavigateToSpread={handleSwapSpreadNavigate}
                 onSelect={handleSwapPick}
                 onClose={() => {
                     setSwapPickerOrigin(null);

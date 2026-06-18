@@ -174,6 +174,9 @@ export default function AlbumSwapPickerModal({
     swapMarks = [],
     showSamples = false,
     bookAnchorRef = null,
+    currentSpreadIndex = null,
+    navigateOnlyOnPick = false,
+    onNavigateToSpread = null,
     onSelect,
     onClose,
 }) {
@@ -315,7 +318,10 @@ export default function AlbumSwapPickerModal({
                             isEnd,
                             showSpreadFull,
                             wholeSpread,
-                        }) => (
+                        }) => {
+                            const isCurrent =
+                                currentSpreadIndex != null && spreadIndex === currentSpreadIndex;
+                            return (
                             <button
                                 key={`swap-spread-${spreadIndex}`}
                                 type="button"
@@ -323,17 +329,22 @@ export default function AlbumSwapPickerModal({
                                     isCover ? ' ab-overview-item--cover' : ''
                                 }${isEnd ? ' ab-overview-item--back' : ''}${
                                     isOrigin ? ' ab-overview-item--active' : ''
-                                }`}
-                                disabled={disabled}
+                                }${isCurrent ? ' ab-overview-item--current' : ''}`}
+                                disabled={!navigateOnlyOnPick && disabled}
                                 onClick={(e) => {
+                                    onNavigateToSpread?.(spreadIndex);
                                     if (!targetSlot) return;
+                                    if (navigateOnlyOnPick) {
+                                        onSelect?.({ ...targetSlot, spreadIndex });
+                                        return;
+                                    }
                                     const placement = placementFromSwapThumbClick(e, targetSlot, {
                                         spreadLeft,
                                         wholeSpread,
                                         totalPages,
                                         showSpreadFull,
                                     });
-                                    onSelect?.(placement);
+                                    onSelect?.({ ...placement, spreadIndex });
                                 }}
                             >
                                 <SwapSpreadThumb
@@ -350,7 +361,8 @@ export default function AlbumSwapPickerModal({
                                     ) : null}
                                 </span>
                             </button>
-                        )
+                            );
+                        }
                     )}
                 </div>
             </div>
