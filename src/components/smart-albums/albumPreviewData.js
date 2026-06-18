@@ -155,6 +155,17 @@ export function getRemotePreviewData(albumId) {
     return REMOTE_CACHE.get(albumId) || null;
 }
 
+/** Keep in-memory preview replacement list aligned with local edits (e.g. dismiss in Review Summary). */
+export function patchRemotePreviewImageReplacements(albumId, replacements) {
+    if (!albumId) return;
+    const remote = REMOTE_CACHE.get(albumId);
+    if (!remote) return;
+    REMOTE_CACHE.set(albumId, {
+        ...remote,
+        image_replacements: Array.isArray(replacements) ? replacements : [],
+    });
+}
+
 export function getRemoteCollectionItem(albumId, itemId) {
     const remote = getRemotePreviewData(albumId);
     if (!remote?.collection || !itemId) return null;

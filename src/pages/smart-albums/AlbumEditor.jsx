@@ -894,9 +894,6 @@ export default function AlbumEditor({
     const placeCollectionItemOnSlot = useCallback(
         (slot, itemId) => {
             if (!slot || !itemId) return false;
-            const previousItemId = getSlotPlacementCollectionItemId(albumId, slot);
-            const previousItem = previousItemId ? getCollectionItem(albumId, previousItemId) : null;
-            const previousUrl = getCollectionItemDisplayUrl(previousItem);
             let placed = false;
             if (
                 albumHasCoverSpreads(album) &&
@@ -945,14 +942,6 @@ export default function AlbumEditor({
                         clearSpreadForLeft: left,
                     });
                 }
-            }
-            if (placed) {
-                trackSpreadImageReplacement(albumId, slot, itemId, {
-                    album,
-                    totalPages,
-                    previousItemId,
-                    previousUrl,
-                });
             }
             return placed;
         },

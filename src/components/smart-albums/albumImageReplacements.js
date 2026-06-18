@@ -3,7 +3,7 @@ import {
     getGridSlotPhoto,
     getSlotPlacementCollectionItemId,
 } from './albumPagePhotos';
-import { getRemotePreviewData } from './albumPreviewData';
+import { getRemotePreviewData, patchRemotePreviewImageReplacements } from './albumPreviewData';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import { getSpreadContext, pageToSpreadIndex } from './albumSpreadUtils';
 import { getSlotLabel, makeSlotKey } from './albumSwapMarks';
@@ -108,9 +108,14 @@ function buildReplacementRecord(albumId, slot, newItemId, { album, totalPages, p
 export function getImageReplacements(albumId) {
     if (!albumId) return [];
     const local = readAll()[albumId];
+    if (Array.isArray(local)) {
+        return [...local].sort(
+            (a, b) =>
+                new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+    }
     const remote = getRemotePreviewData(albumId)?.image_replacements;
-    const rows = Array.isArray(local) && local.length ? local : remote || [];
-    return [...rows].sort(
+    return [...(remote || [])].sort(
         (a, b) =>
             new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
@@ -119,9 +124,18 @@ export function getImageReplacements(albumId) {
 export function addImageReplacement(albumId, record) {
     if (!albumId || !record) return null;
     const all = readAll();
-    const bucket = [...(all[albumId] || []), record];
+    const bucket = [...(all[albumId] || [])];
+    const duplicate = bucket.find(
+        (row) =>
+            row.slotKey === record.slotKey &&
+            row.previousUrl === record.previousUrl &&
+            row.newUrl === record.newUrl
+    );
+    if (duplicate) return duplicate;
+    bucket.push(record);
     all[albumId] = bucket;
     writeAll(all);
+    patchRemotePreviewImageReplacements(albumId, bucket);
     notify(albumId);
     return record;
 }
@@ -163,6 +177,7 @@ export function removeImageReplacement(albumId, replacementId) {
     if (next.length === bucket.length) return false;
     all[albumId] = next;
     writeAll(all);
+    patchRemotePreviewImageReplacements(albumId, next);
     notify(albumId);
     return true;
 }
