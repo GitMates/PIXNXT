@@ -1,8 +1,10 @@
 import React from 'react';
 import {
     countUnseenSwapMarks,
+    getSlotLabel,
     isSwapMarkUnseen,
     markSwapMarksSeen,
+    parseSlotKey,
     removeSwapMark,
     resolveSlotLabel,
 } from './albumSwapMarks';
@@ -10,6 +12,8 @@ import ProofDoneButton from './ProofDoneButton';
 
 export default function AlbumSwapMarksPanel({
     albumId,
+    album = null,
+    totalPages = 0,
     marks = [],
     gridLayout = 'two-page',
     variant = 'embedded',
@@ -32,6 +36,17 @@ export default function AlbumSwapMarksPanel({
 
     const handleCompleteMark = (mark) => {
         markSwapMarksSeen(albumId, [mark]);
+    };
+
+    const labelForSlotKey = (key, storedLabel) => {
+        if (album && totalPages > 0) {
+            const { pageNum, cellId } = parseSlotKey(key);
+            const whole =
+                (gridLayout === 'whole-spread' && pageNum > 0) ||
+                /\b(Whole|Both)\b/i.test(storedLabel || '');
+            return getSlotLabel(pageNum, cellId, whole, totalPages, album);
+        }
+        return storedLabel || resolveSlotLabel(key, gridLayout);
     };
 
     if (!sortedMarks.length) {
@@ -70,8 +85,8 @@ export default function AlbumSwapMarksPanel({
             )}
             <ul className="ae-swap-marks-list">
                 {sortedMarks.map((mark) => {
-                    const labelA = mark.labelA || resolveSlotLabel(mark.a, gridLayout);
-                    const labelB = mark.labelB || resolveSlotLabel(mark.b, gridLayout);
+                    const labelA = labelForSlotKey(mark.a, mark.labelA);
+                    const labelB = labelForSlotKey(mark.b, mark.labelB);
                     const createdAtLabel = mark.createdAt
                         ? new Date(mark.createdAt).toLocaleString()
                         : null;

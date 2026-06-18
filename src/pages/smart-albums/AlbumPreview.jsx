@@ -234,18 +234,18 @@ export default function AlbumPreview({
                     const slotB = parseSlotKey(mark.b);
                     const spreadA = pageToSpreadIndex(slotA.pageNum, { showCover: true, totalPages });
                     const spreadB = pageToSpreadIndex(slotB.pageNum, { showCover: true, totalPages });
-                    const wholeA = isWholeSpreadLayout(album?.grid_layout) && slotA.pageNum > 0;
-                    const wholeB = isWholeSpreadLayout(album?.grid_layout) && slotB.pageNum > 0;
+                    const wholeA =
+                        (isWholeSpreadLayout(album?.grid_layout) && slotA.pageNum > 0) ||
+                        /\b(Whole|Both)\b/i.test(mark.labelA || '');
+                    const wholeB =
+                        (isWholeSpreadLayout(album?.grid_layout) && slotB.pageNum > 0) ||
+                        /\b(Whole|Both)\b/i.test(mark.labelB || '');
                     return {
                         ...mark,
                         spreadA,
                         spreadB,
-                        labelA:
-                            mark.labelA ||
-                            getSlotLabel(slotA.pageNum, slotA.cellId, wholeA, totalPages, album),
-                        labelB:
-                            mark.labelB ||
-                            getSlotLabel(slotB.pageNum, slotB.cellId, wholeB, totalPages, album),
+                        labelA: getSlotLabel(slotA.pageNum, slotA.cellId, wholeA, totalPages, album),
+                        labelB: getSlotLabel(slotB.pageNum, slotB.cellId, wholeB, totalPages, album),
                     };
                 })
                 .sort(

@@ -353,7 +353,11 @@ export function getSlotLabel(pageNum, cellId = 0, whole = false, totalPages = 99
         if (pageNum === endLeft && cid === 1) return 'Back cover';
         if (isInsideCoverLeftPage(pageNum, totalPages, spreadOpts)) return 'Inside cover';
         if (isInsideCoverRightPage(pageNum, totalPages, spreadOpts)) {
-            return cid === 2 ? 'Spread 1 · Right' : 'Inside cover';
+            const spreadNum = spreadNumberFromLeftPage(
+                getSpreadLeftPageIndex(pageNum, spreadCtx),
+                spreadOpts
+            );
+            return cid === 2 ? `Spread ${spreadNum} · Right` : 'Inside cover';
         }
         if (isPreBackHalfSpreadLeftPage(pageNum, totalPages, spreadOpts)) {
             const spreadNum = spreadNumberFromLeftPage(pageNum, spreadCtx);
@@ -374,12 +378,23 @@ export function resolveSlotLabel(key, gridLayout = 'two-page') {
     return getSlotLabel(pageNum, cellId, whole);
 }
 
+function slotLabelForMarkKey(key, storedLabel, gridLayout, { album, totalPages } = {}) {
+    if (album && totalPages > 0) {
+        const { pageNum, cellId } = parseSlotKey(key);
+        const whole =
+            (gridLayout === 'whole-spread' && pageNum > 0) ||
+            /\b(Whole|Both)\b/i.test(storedLabel || '');
+        return getSlotLabel(pageNum, cellId, whole, totalPages, album);
+    }
+    return storedLabel || resolveSlotLabel(key, gridLayout);
+}
+
 /** Swap mark details for a grid slot, including the paired slot label. */
 export function getSwapMarkForSlot(
     marks,
     pageNum,
     cellId = 0,
-    { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page' } = {}
+    { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page', album = null, totalPages = 0 } = {}
 ) {
     const key = makeSlotKey(pageNum, cellId);
 
@@ -387,12 +402,20 @@ export function getSwapMarkForSlot(
     if (!mark) return null;
 
     const isA = mark.a === key;
-    const slotLabel =
-        (isA ? mark.labelA : mark.labelB) ||
-        resolveSlotLabel(key, gridLayout);
-    const partnerLabel =
-        (isA ? mark.labelB : mark.labelA) ||
-        resolveSlotLabel(isA ? mark.b : mark.a, gridLayout);
+    const labelOpts = { album, totalPages };
+    const slotLabel = slotLabelForMarkKey(
+        key,
+        isA ? mark.labelA : mark.labelB,
+        gridLayout,
+        labelOpts
+    );
+    const partnerKey = isA ? mark.b : mark.a;
+    const partnerLabel = slotLabelForMarkKey(
+        partnerKey,
+        isA ? mark.labelB : mark.labelA,
+        gridLayout,
+        labelOpts
+    );
     const point = isA ? mark.pointA : mark.pointB;
     const pinLabel = isA ? 'A' : 'B';
 
@@ -413,9 +436,10 @@ export function getSwapMarksForSlot(
     marks,
     pageNum,
     cellId = 0,
-    { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page' } = {}
+    { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page', album = null, totalPages = 0 } = {}
 ) {
     const key = makeSlotKey(pageNum, cellId);
+    const labelOpts = { album, totalPages };
 
     return (marks || []).flatMap((mark) => {
         const isA = mark.a === key;
@@ -430,12 +454,11 @@ export function getSwapMarksForSlot(
 
         const mapEndpoint = (endpointLabel) => {
             const endpointIsA = endpointLabel === 'A';
-            const slotLabel =
-                (endpointIsA ? mark.labelA : mark.labelB) ||
-                resolveSlotLabel(key, gridLayout);
-            const partnerLabel =
-                (endpointIsA ? mark.labelB : mark.labelA) ||
-                resolveSlotLabel(endpointIsA ? mark.b : mark.a, gridLayout);
+            const slotStored = endpointIsA ? mark.labelA : mark.labelB;
+            const partnerStored = endpointIsA ? mark.labelB : mark.labelA;
+            const partnerKey = endpointIsA ? mark.b : mark.a;
+            const slotLabel = slotLabelForMarkKey(key, slotStored, gridLayout, labelOpts);
+            const partnerLabel = slotLabelForMarkKey(partnerKey, partnerStored, gridLayout, labelOpts);
             const point = endpointIsA ? mark.pointA : mark.pointB;
             const pinLabel =
                 marksForPair.length > 1 ? `${endpointLabel}${markNum}` : endpointLabel;

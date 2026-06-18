@@ -76,10 +76,10 @@ export function getSpreadContext(album, totalPages, { collectionCount } = {}) {
 
 /** 1-based spread number for UI labels from a spread's left page index. */
 export function spreadNumberFromLeftPage(leftPage, opts = {}) {
-    const { hasCovers } = normalizeSpreadOpts(opts);
-    if (leftPage <= 0 && !hasCovers) return 1;
-    if (!hasCovers) return Math.floor(leftPage / 2) + 1;
-    return Math.floor((leftPage - 1) / 2) + 1;
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const totalPages = opts.totalPages ?? 0;
+    const spreadIndex = pageToSpreadIndex(leftPage, { ...spreadOpts, totalPages });
+    return spreadIndex + 1;
 }
 
 export function normalizeSpreadOpts(opts = {}) {

@@ -17,9 +17,7 @@ import {
 import { getSampleImageForPage } from './sampleAlbumImages';
 import {
     enumerateAlbumPhotoSlots,
-    getLockedSlotKeys,
     getSwapPickerDockSide,
-    makeSlotKey,
     slotsMatch,
 } from './albumSwapMarks';
 import './AlbumSwapMarks.css';
@@ -70,7 +68,7 @@ function pickSwapTargetSlot(availableSlots, originSlot) {
 function spreadOverviewLabel(spreadIndex, totalPages, spreadOpts) {
     if (spreadOpts.hasCovers && spreadIndex === 0) return 'Cover';
     if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) return 'Back';
-    if (spreadOpts.hasCovers) return String(spreadIndex);
+    // Match flipbook counter (e.g. 3/6) — 1-based spread ordinal in the full album.
     return String(spreadIndex + 1);
 }
 
@@ -189,7 +187,6 @@ export default function AlbumSwapPickerModal({
         () => enumerateAlbumPhotoSlots(totalPages, gridLayout, spreadOpts, album),
         [totalPages, gridLayout, spreadOpts, album]
     );
-    const lockedKeys = useMemo(() => getLockedSlotKeys(swapMarks), [swapMarks]);
     const dockSide = getSwapPickerDockSide(originSlot);
     const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
 
@@ -197,15 +194,9 @@ export default function AlbumSwapPickerModal({
         return Array.from({ length: totalSpreads }, (_, spreadIndex) => {
             if (!isInnerSwapSpread(spreadIndex, totalPages, spreadOpts)) return null;
             const spreadSlots = slotsForSpread(spreadIndex, slots, totalPages, spreadOpts);
-            const availableSlots = spreadSlots.filter((slot) => {
-                const slotKey = makeSlotKey(slot.pageNum, slot.cellId);
-                if (slotsMatch(slot, originSlot)) return false;
-                if (lockedKeys.has(slotKey)) return false;
-                return true;
-            });
+            const availableSlots = spreadSlots.filter((slot) => !slotsMatch(slot, originSlot));
             const targetSlot = pickSwapTargetSlot(availableSlots, originSlot);
             const isOrigin = spreadSlots.some((slot) => slotsMatch(slot, originSlot));
-            const isLocked = spreadSlots.length > 0 && !targetSlot && !isOrigin;
             const disabled = !targetSlot;
 
             return {
@@ -213,14 +204,13 @@ export default function AlbumSwapPickerModal({
                 spreadSlots,
                 targetSlot,
                 isOrigin,
-                isLocked,
                 disabled,
                 label: spreadOverviewLabel(spreadIndex, totalPages, spreadOpts),
                 isCover: spreadOpts.hasCovers && spreadIndex === 0,
                 isEnd: isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts),
             };
         }).filter(Boolean);
-    }, [totalSpreads, slots, totalPages, spreadOpts, originSlot, lockedKeys]);
+    }, [totalSpreads, slots, totalPages, spreadOpts, originSlot]);
 
     useLayoutEffect(() => {
         if (!open || !originSlot) {
@@ -308,7 +298,6 @@ export default function AlbumSwapPickerModal({
                             spreadIndex,
                             targetSlot,
                             isOrigin,
-                            isLocked,
                             disabled,
                             label,
                             isCover,
@@ -321,7 +310,7 @@ export default function AlbumSwapPickerModal({
                                     isCover ? ' ab-overview-item--cover' : ''
                                 }${isEnd ? ' ab-overview-item--back' : ''}${
                                     isOrigin ? ' ab-overview-item--active' : ''
-                                }${isLocked ? ' ab-swap-modal-spread-item--locked' : ''}`}
+                                }`}
                                 disabled={disabled}
                                 onClick={() => targetSlot && onSelect?.(targetSlot)}
                             >
@@ -336,9 +325,6 @@ export default function AlbumSwapPickerModal({
                                     {label}
                                     {isOrigin ? (
                                         <span className="ab-swap-modal-item-badge">Selected</span>
-                                    ) : null}
-                                    {isLocked ? (
-                                        <span className="ab-swap-modal-item-badge">Locked</span>
                                     ) : null}
                                 </span>
                             </button>

@@ -16,6 +16,7 @@ import {
     isInsideCoverSpreadLeft,
     isPreBackHalfSpreadLeftPage,
     isWholeSpreadLayout,
+    spreadNumberFromLeftPage,
 } from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
 import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
@@ -164,7 +165,7 @@ export default function AlbumPageGrid({
     const CellTag = useSelectCells ? 'button' : 'div';
 
     const buildSwapSlot = (photoIndex, cellId) => {
-        const spreadNum = Math.floor((spreadLeft - 1) / 2) + 1;
+        const spreadNum = spreadNumberFromLeftPage(spreadLeft, spreadCtx);
         if (wholePlacement) {
             const isRightHalf = pageNum > spreadLeft || cellId === 2;
             const halfPage = isRightHalf

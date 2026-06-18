@@ -243,6 +243,8 @@ export default function AlbumEditorSidebar({
                         </p>
                         <AlbumSwapMarksPanel
                             albumId={albumId}
+                            album={album}
+                            totalPages={totalPages}
                             marks={swapMarks}
                             gridLayout={album?.grid_layout || 'two-page'}
                             variant="panel"

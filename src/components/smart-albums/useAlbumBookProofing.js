@@ -175,8 +175,10 @@ export default function useAlbumBookProofing({
                 placementMode,
                 spreadLeft,
                 gridLayout: album?.grid_layout || 'two-page',
+                album,
+                totalPages: album?.page_count ?? 0,
             }),
-        [swapMarks, placementMode, album?.grid_layout]
+        [swapMarks, placementMode, album]
     );
 
     const getSwapMarkInfos = useCallback(
@@ -185,8 +187,10 @@ export default function useAlbumBookProofing({
                 placementMode,
                 spreadLeft,
                 gridLayout: album?.grid_layout || 'two-page',
+                album,
+                totalPages: album?.page_count ?? 0,
             }),
-        [swapMarks, placementMode, album?.grid_layout]
+        [swapMarks, placementMode, album]
     );
 
     const getSlotPins = useCallback(
