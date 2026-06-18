@@ -471,6 +471,23 @@ export function slotsMatch(a, b) {
     return a.pageNum === b.pageNum && (a.cellId ?? 0) === (b.cellId ?? 0);
 }
 
+/** Whether a click placement belongs to the swap target chosen in the swap book. */
+export function placementMatchesTargetSlot(placement, targetSlot, totalPages, album = null) {
+    if (!placement || !targetSlot) return false;
+    if (slotsMatch(placement, targetSlot)) return true;
+    const spreadCtx = getSpreadContext(album, totalPages);
+    const placementLeft =
+        placement.spreadLeft ??
+        getSpreadLeftPageIndex(placement.pageNum, { ...spreadCtx, totalPages });
+    const targetLeft =
+        targetSlot.spreadLeft ??
+        getSpreadLeftPageIndex(targetSlot.pageNum, { ...spreadCtx, totalPages });
+    if (targetSlot.whole || targetSlot.swapScope === 'both') {
+        return placementLeft === targetLeft;
+    }
+    return false;
+}
+
 /** Spread uses one full-bleed image (spread storage, not separate left/right pages). */
 export function spreadHasWholeGridPhoto(
     albumId,

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { clientPointToLayerPinPct } from './albumPhotoPinCoords';
 import { useAlbumBookPageContext } from './AlbumBookPageContext';
 
 const SPOT_DRAFT_OPEN_EVENT = 'album-spot-draft-open';
@@ -451,10 +452,9 @@ export default function AlbumPhotoPinLayer({
         }
         e.stopPropagation();
         e.preventDefault();
-        const rect = layerRef.current.getBoundingClientRect();
-        if (!rect.width || !rect.height) return;
-        const xPct = ((e.clientX - rect.left) / rect.width) * 100;
-        const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+        const pct = clientPointToLayerPinPct(layerRef.current, e.clientX, e.clientY);
+        if (!pct) return;
+        const { xPct, yPct } = pct;
         if (spotPickerActive) {
             setSpotCommentComposer(null);
             setOpenPinId(null);

@@ -39,6 +39,7 @@ import {
     getSwapMarkForSlot,
     getSwapMarks,
     makeSlotKey,
+    placementMatchesTargetSlot,
     slotsMatch,
     SWAP_MARKS_CHANGED_EVENT,
 } from './albumSwapMarks';
@@ -1008,17 +1009,16 @@ const AlbumBook = ({
                 pageNum: originSlot.pageNum,
                 cellId: originSlot.cellId ?? 0,
             };
-            const pointB = {
-                xPct: 50,
-                yPct: 50,
-                pageNum: secondSlot.pageNum,
-                cellId: secondSlot.cellId ?? 0,
-            };
-            addSwapMark(album.id, originSlot, secondSlot, { pointA, pointB });
             setSwapPickerOrigin(null);
-            setSwapPinFlow(null);
+            setSwapPinFlow({
+                originSlot,
+                originPoint: pointA,
+                pendingTargetSlot: secondSlot,
+            });
+            const targetPage = secondSlot.spreadLeft ?? secondSlot.pageNum;
+            goToPage(targetPage);
         },
-        [album?.id, swapPickerOrigin, swapPinFlow]
+        [album?.id, swapPickerOrigin, swapPinFlow, goToPage]
     );
 
     const handleSwapPinPlace = useCallback(
@@ -1042,6 +1042,28 @@ const AlbumBook = ({
                 return;
             }
             const originSlot = swapPinFlow.originSlot;
+
+            if (swapPinFlow.pendingTargetSlot && swapPinFlow.originPoint) {
+                if (
+                    !placementMatchesTargetSlot(
+                        placement,
+                        swapPinFlow.pendingTargetSlot,
+                        totalPages,
+                        album
+                    )
+                ) {
+                    return;
+                }
+                const mark = addSwapMark(album.id, originSlot, swapPinFlow.pendingTargetSlot, {
+                    pointA: swapPinFlow.originPoint,
+                    pointB: placementPoint,
+                });
+                if (mark) {
+                    setSwapPinFlow(null);
+                    setSwapPickerOrigin(null);
+                }
+                return;
+            }
 
             if (!swapPinFlow.originPoint) {
                 if (slotsMatch(originSlot, placement)) {
@@ -1085,7 +1107,7 @@ const AlbumBook = ({
                 setSwapPinFlow(null);
             }
         },
-        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker, previewMode]
+        [album?.id, album, swapPinFlow, swapMarkMode, proofSpotPicker, previewMode, totalPages]
     );
 
     const getSwapMarkInfo = useCallback(
@@ -1188,7 +1210,8 @@ const AlbumBook = ({
                       swapPinFlow.originSlot.cellId ?? 0
                   )
                 : null,
-            swapPinTargetStep: Boolean(swapPinFlow?.originPoint),
+            swapPinTargetStep:
+                Boolean(swapPinFlow?.originPoint) || Boolean(swapPinFlow?.pendingTargetSlot),
             swapPinOriginPoint: swapPinFlow?.originPoint || null,
             onPlaceSwapPin: handleSwapPinPlace,
             pinMarkMode,
