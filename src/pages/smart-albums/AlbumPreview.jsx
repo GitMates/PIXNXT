@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import BookHybridView from '../../components/smart-albums/3d/BookHybridView';
+import BookSceneWithProofing from '../../components/smart-albums/3d/BookSceneWithProofing';
 import {
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -399,15 +400,28 @@ export default function AlbumPreview({
                 <div className="av-preview-book-section">
                     <div className="av-viewer-body av-viewer-body--preview-book">
                         {is3D ? (
-                            <BookHybridView
-                                key={`${albumId}-hybrid-r${photoRevision}`}
-                                album={albumForBook}
-                                totalPages={totalPages}
-                                initialPage={bookPage}
-                                onPageChange={handleBookPageChange}
-                                showSamples={false}
-                                albumBookProps={albumBookProps}
-                            />
+                            albumForBook?.has_covers ? (
+                                <BookHybridView
+                                    key={`${albumId}-hybrid-r${photoRevision}`}
+                                    album={albumForBook}
+                                    totalPages={totalPages}
+                                    initialPage={bookPage}
+                                    onPageChange={handleBookPageChange}
+                                    showSamples={false}
+                                    albumBookProps={albumBookProps}
+                                />
+                            ) : (
+                                <BookSceneWithProofing
+                                    key={`${albumId}-3d-r${photoRevision}`}
+                                    album={albumForBook}
+                                    totalPages={totalPages}
+                                    initialPage={bookPage}
+                                    onPageChange={handleBookPageChange}
+                                    showSamples={false}
+                                    albumBookProps={albumBookProps}
+                                    photoRevision={photoRevision}
+                                />
+                            )
                         ) : (
                             <AlbumBook
                                 key={`${albumId}-preview`}

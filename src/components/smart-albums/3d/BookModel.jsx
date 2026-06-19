@@ -533,12 +533,12 @@ function isClosedBackSpread(spreadIndex, totalSpreads, spreadOpts) {
     );
 }
 
-function isClosedFrontSpread(spreadIndex) {
-    return spreadIndex === 0;
+function isClosedFrontSpread(spreadIndex, spreadOpts) {
+    return spreadOpts?.hasCovers === true && spreadIndex === 0;
 }
 
 function isOpenSpread(spreadIndex, totalSpreads, spreadOpts) {
-    return !isClosedFrontSpread(spreadIndex) && !isClosedBackSpread(spreadIndex, totalSpreads, spreadOpts);
+    return !isClosedFrontSpread(spreadIndex, spreadOpts) && !isClosedBackSpread(spreadIndex, totalSpreads, spreadOpts);
 }
 
 /** Layer layout matches 2D AlbumPageFlipAnimation (static + under + leaf). */
@@ -792,7 +792,7 @@ export default function BookModel({
     );
 
     const isClosedBack = isClosedBackSpread(displaySpread, totalSpreads, spreadOpts);
-    const isClosedFront = isClosedFrontSpread(displaySpread);
+    const isClosedFront = isClosedFrontSpread(displaySpread, spreadOpts);
     const isOpen = isOpenSpread(displaySpread, totalSpreads, spreadOpts);
 
     const { closedRotY } = useSpring({
@@ -827,8 +827,8 @@ export default function BookModel({
             const forward = toSpread > fromSpread;
             let mode = 'page';
 
-            if (fromSpread === 0 && toSpread === 1) mode = 'cover-open';
-            else if (fromSpread === 1 && toSpread === 0) mode = 'cover-close';
+            if (spreadOpts.hasCovers && fromSpread === 0 && toSpread === 1) mode = 'cover-open';
+            else if (spreadOpts.hasCovers && fromSpread === 1 && toSpread === 0) mode = 'cover-close';
             else if (isClosedBackSpread(toSpread, totalSpreads, spreadOpts)) mode = 'back-close';
             else if (isClosedBackSpread(fromSpread, totalSpreads, spreadOpts)) mode = 'back-open';
 

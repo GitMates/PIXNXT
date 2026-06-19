@@ -856,6 +856,19 @@
   min-height: 320px;
 }
 
+.av-viewer-body--preview-book .ab-book-scene-with-proofing {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+}
+
+.av-viewer-body--preview-book .ab-book-scene-with-proofing__stage {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
 .av-viewer-body--preview-book .ab-book-hybrid-shell {
   flex: 1 1 auto;
   min-height: 0;
