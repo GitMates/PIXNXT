@@ -13,7 +13,6 @@ import {
 } from './albumPageTransforms';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import AlbumPageGrid from './AlbumPageGrid';
-import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
 import './AlbumPhotoPins.css';
 import { getSlotLabel } from './albumSwapMarks';
@@ -579,7 +578,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                             <div className="ab-page-empty" aria-hidden />
                         )}
                     </AlbumPhotoPinLayer>
-                    {!previewMode && <AlbumSwapMarkBadge markInfo={insideCoverSwapMarkInfo} />}
                 </HalfSpreadWrapTag>
             </div>
         );
@@ -731,7 +729,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                             <div className="ab-page-empty" aria-hidden />
                         )}
                     </AlbumPhotoPinLayer>
-                    {!previewMode && <AlbumSwapMarkBadge markInfo={preBackSwapMarkInfo} />}
                 </HalfSpreadWrapTag>
             </div>
         );
@@ -979,7 +976,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                             <div className="ab-page-empty" aria-hidden />
                         )}
                     </AlbumPhotoPinLayer>
-                    {!previewMode && <AlbumSwapMarkBadge markInfo={endCoverSwapMarkInfo} />}
                 </div>
             </div>
         );
@@ -1122,7 +1118,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                             <div className="ab-page-empty" aria-hidden />
                         )}
                     </AlbumPhotoPinLayer>
-                    {!previewMode && <AlbumSwapMarkBadge markInfo={coverSwapMarkInfo} />}
                 </PageWrapTag>
             </div>
         );
@@ -1258,7 +1253,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         </div>
                     ) : null}
                 </AlbumPhotoPinLayer>
-                {!previewMode && <AlbumSwapMarkBadge markInfo={coverSwapMarkInfo} />}
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#f5c518" stroke="#f5c518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

@@ -12,6 +12,7 @@ import {
     storagePageToFlipbookIndex,
 } from './albumSpreadUtils';
 import { installSafePageFlip } from './pageFlipSafe';
+import { getFullscreenElement, onFullscreenChange } from '../../lib/fullscreenUtils';
 import './AlbumBook.css';
 import { parseGridSizeAspect } from './albumGridSize';
 
@@ -21,9 +22,11 @@ function getFocusBookDimensions(gridSize = 'square') {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const aspect = parseGridSizeAspect(gridSize);
-    const spreadWidth = w;
+    const padX = 72;
+    const padY = 56;
+    const spreadWidth = Math.max(320, w - padX * 2);
     const maxPageWidth = spreadWidth / 2;
-    const pageHeight = Math.floor(Math.min(h, maxPageWidth / aspect));
+    const pageHeight = Math.floor(Math.min(h - padY * 2, maxPageWidth / aspect));
     const pageWidth = Math.floor(pageHeight * aspect);
     return {
         width: Math.max(160, pageWidth),
@@ -43,6 +46,7 @@ export default function AlbumFocusView({
     onClose,
 }) {
     const bookRef = useRef(null);
+    const rootRef = useRef(null);
     const prevNavRef = useRef(null);
     const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
@@ -80,6 +84,19 @@ export default function AlbumFocusView({
             document.body.style.overflow = prevBodyOverflow;
         };
     }, []);
+
+    const handleClose = useCallback(() => {
+        onClose?.();
+    }, [onClose]);
+
+    useEffect(() => {
+        const removeListener = onFullscreenChange(() => {
+            if (!getFullscreenElement()) {
+                onClose?.();
+            }
+        });
+        return removeListener;
+    }, [onClose]);
 
     const syncNavDisabled = useCallback(() => {
         const flipping = isFlippingRef.current;
@@ -126,7 +143,7 @@ export default function AlbumFocusView({
         const onKey = (e) => {
             if (e.key === 'Escape') {
                 e.preventDefault();
-                onClose?.();
+                handleClose();
             } else if (e.key === 'ArrowLeft') {
                 e.preventDefault();
                 flipPrev();
@@ -137,7 +154,7 @@ export default function AlbumFocusView({
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [flipPrev, flipNext, onClose]);
+    }, [flipPrev, flipNext, handleClose]);
 
     const pages = useMemo(
         () =>
@@ -161,16 +178,17 @@ export default function AlbumFocusView({
 
     return createPortal(
         <div
+            ref={rootRef}
             className="ab-focus-view"
             role="dialog"
             aria-modal="true"
             aria-label="Full screen album view"
-            onClick={onClose}
+            onClick={handleClose}
         >
             <button
                 type="button"
                 className="ab-focus-close"
-                onClick={onClose}
+                onClick={handleClose}
                 aria-label="Close full screen view"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

@@ -19,7 +19,6 @@ import {
     spreadNumberFromLeftPage,
 } from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
-import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
 import { useAlbumBookPageContext } from './AlbumBookPageContext';
 import './AlbumPhotoPins.css';
@@ -479,7 +478,6 @@ export default function AlbumPageGrid({
                                 />
                             )}
                         </AlbumPhotoPinLayer>
-                        {!previewMode && <AlbumSwapMarkBadge markInfo={swapMarkInfo} />}
                         {useSelectCells && !hasPhoto && (
                             <span className="ab-grid-cell-add">
                                 <span className="ab-grid-cell-add-icon">+</span>

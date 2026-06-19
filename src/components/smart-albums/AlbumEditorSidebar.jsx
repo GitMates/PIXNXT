@@ -113,6 +113,7 @@ export default function AlbumEditorSidebar({
     totalPages,
     collectionItems = [],
     onUploadForCurrentSpread,
+    onUploadForCover,
     onPlaceCollectionItem,
     onDeleteCollectionItem,
     onOpenPicker,
@@ -142,6 +143,7 @@ export default function AlbumEditorSidebar({
     proofSeenTick = 0,
 }) {
     const fileRef = useRef(null);
+    const coverFileRef = useRef(null);
     const collectionDragFromRef = useRef(null);
     const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
     void proofSeenTick;
@@ -156,6 +158,30 @@ export default function AlbumEditorSidebar({
         if (files.length) onUploadForCurrentSpread?.(files);
         e.target.value = '';
     };
+
+    const handleCoverUpload = (e) => {
+        const files = filesFromInput(e.target.files);
+        if (files.length) onUploadForCover?.(files);
+        e.target.value = '';
+    };
+
+    const CoverUploadIcon = () => (
+        <svg
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+        >
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="17 8 12 3 7 8" />
+            <line x1="12" y1="3" x2="12" y2="15" />
+        </svg>
+    );
 
     const handleCollectionDragStart = useCallback((index) => {
         collectionDragFromRef.current = index;
@@ -350,28 +376,8 @@ export default function AlbumEditorSidebar({
                                 </span>
                             </button>
                         </div>
-                        {canSelectGrid && (
-                            <button
-                                type="button"
-                                className="ae-btn-picker"
-                                onClick={() => onOpenPicker?.()}
-                            >
-                                Choose photo for current slot
-                            </button>
-                        )}
                         <div className="ae-panel-status-row">
                             <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
-                            <span
-                                className={`ae-panel-status-count${
-                                    collectionItems.length === 0 ? ' ae-panel-status-count--muted' : ''
-                                }`}
-                            >
-                                {collectionItems.length === 0
-                                    ? 'No photos yet'
-                                    : `${collectionItems.length} photo${
-                                          collectionItems.length === 1 ? '' : 's'
-                                      } ready`}
-                            </span>
                         </div>
                         {collectionItems.length > 0 && (
                             <>
@@ -526,17 +532,37 @@ export default function AlbumEditorSidebar({
                                 <p className="ae-selection-badge" role="status">
                                     Cover · back · spine · front
                                 </p>
-                                <button
-                                    type="button"
-                                    className="ae-btn-picker"
-                                    onClick={() => onOpenPicker?.()}
-                                >
-                                    Choose cover photo
-                                </button>
+                                <div className="ae-cover-upload">
+                                    <span className="ae-cover-upload-label">Cover image</span>
+                                    <input
+                                        ref={coverFileRef}
+                                        type="file"
+                                        accept="image/*,application/pdf,.pdf"
+                                        className="ae-file-input"
+                                        onChange={handleCoverUpload}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="ae-upload-zone ae-upload-zone--cover"
+                                        disabled={uploading}
+                                        onClick={() => coverFileRef.current?.click()}
+                                    >
+                                        <span className="ae-cover-upload-icon">
+                                            <CoverUploadIcon />
+                                        </span>
+                                        <strong>
+                                            {uploading
+                                                ? 'Uploading…'
+                                                : 'Choose cover image or PDF'}
+                                        </strong>
+                                        <small>
+                                            One wide image for back, spine, and front · optional
+                                        </small>
+                                    </button>
+                                </div>
                                 <p className="ae-panel-text ae-panel-text--muted">
-                                    Upload in Collections first, then pick a photo here. If the
-                                    image is wider than inner spreads, drag the red spine lines to
-                                    adjust width.
+                                    If the image is wider than inner spreads, drag the red spine
+                                    lines to adjust width.
                                 </p>
                             </>
                         ) : (
@@ -549,16 +575,37 @@ export default function AlbumEditorSidebar({
                                 <p className="ae-selection-badge" role="status">
                                     Book wrap · back · spine · front
                                 </p>
-                                <button
-                                    type="button"
-                                    className="ae-btn-picker"
-                                    onClick={() => onOpenPicker?.()}
-                                >
-                                    Choose book wrap photo
-                                </button>
+                                <div className="ae-cover-upload">
+                                    <span className="ae-cover-upload-label">Cover image</span>
+                                    <input
+                                        ref={coverFileRef}
+                                        type="file"
+                                        accept="image/*,application/pdf,.pdf"
+                                        className="ae-file-input"
+                                        onChange={handleCoverUpload}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="ae-upload-zone ae-upload-zone--cover"
+                                        disabled={uploading}
+                                        onClick={() => coverFileRef.current?.click()}
+                                    >
+                                        <span className="ae-cover-upload-icon">
+                                            <CoverUploadIcon />
+                                        </span>
+                                        <strong>
+                                            {uploading
+                                                ? 'Uploading…'
+                                                : 'Choose cover image or PDF'}
+                                        </strong>
+                                        <small>
+                                            One wide image for back, spine, and front
+                                        </small>
+                                    </button>
+                                </div>
                                 <p className="ae-panel-text ae-panel-text--muted">
-                                    Upload in Collections first — order 1 is used here. Drag the red
-                                    spine lines on each side of the spine to adjust its width.
+                                    Drag the red spine lines on each side of the spine to adjust
+                                    its width.
                                 </p>
                             </>
                         )}

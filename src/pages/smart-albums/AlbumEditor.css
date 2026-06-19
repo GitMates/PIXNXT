@@ -936,34 +936,57 @@
 .ae-proof-stats {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 24px;
-  margin: 0 0 12px;
+  gap: 10px;
+  margin: 0 0 16px;
 }
 
 .ae-proof-stat {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 72px;
+  padding: 14px 8px 12px;
+  border-radius: 10px;
+  background: #fafbfc;
+  border: 1px solid #e8eaed;
+  text-align: center;
+}
+
+.ae-proof-stat--active {
+  background: linear-gradient(180deg, #fffbeb 0%, #fff9f0 100%);
+  border-color: #fde68a;
 }
 
 .ae-proof-stat-value {
   display: block;
-  font-size: 28px;
-  font-weight: 700;
+  font-family: var(--heading-font, 'Playfair Display', Georgia, 'Times New Roman', serif);
+  font-size: 32px;
+  font-weight: 600;
   color: #111;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.ae-proof-stat--active .ae-proof-stat-value {
+  color: #92400e;
 }
 
 .ae-proof-stat-label {
   display: block;
-  font-size: 11px;
+  max-width: 100%;
+  font-size: 10px;
   font-weight: 600;
   color: #9ca3af;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  line-height: 1.2;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+}
+
+.ae-proof-stat--active .ae-proof-stat-label {
+  color: #b45309;
 }
 
 .ae-page-stats {
@@ -1220,6 +1243,61 @@
   margin-bottom: 2px;
 }
 
+.ae-cover-upload {
+  margin-bottom: 12px;
+}
+
+.ae-cover-upload-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.ae-upload-zone--cover {
+  min-height: 120px;
+  gap: 10px;
+  padding: 22px 18px;
+  border: 1.5px dashed #cdb6df;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #fbf7ff 0%, #fff 100%);
+  color: #4f3d5c;
+  text-align: center;
+}
+
+.ae-upload-zone--cover:hover:not(:disabled) {
+  border-color: #9b59b6;
+  background: #fbf4ff;
+}
+
+.ae-cover-upload-icon {
+  width: 44px;
+  height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: #efe2f8;
+  color: #8e44ad;
+}
+
+.ae-upload-zone--cover strong {
+  font-size: 15px;
+  font-weight: 700;
+  color: #17111c;
+  line-height: 1.3;
+}
+
+.ae-upload-zone--cover small {
+  font-size: 12px;
+  font-weight: 400;
+  color: #817789;
+  line-height: 1.35;
+}
+
 .ae-slot-picker--compact {
   margin-bottom: 12px;
 }
@@ -1268,6 +1346,12 @@
   display: flex;
   flex-direction: column;
   overflow: visible;
+}
+
+.ae-canvas-stage .ab-spread-display > .ab-spread-controls {
+  position: relative;
+  z-index: 30;
+  pointer-events: auto;
 }
 
 .ae-canvas-stage .ab-root {

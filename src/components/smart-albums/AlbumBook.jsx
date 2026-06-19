@@ -59,6 +59,10 @@ import { albumHasBlankCovers, albumUsesBookWrap } from './albumSpreadUtils';
 import { getBookWrapSpineLayout } from './bookWrapSpine';
 import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
 import { getSpreadPhotoTransform } from './albumPageTransforms';
+import {
+    exitDocumentFullscreen,
+    requestElementFullscreen,
+} from '../../lib/fullscreenUtils';
 import BookWrapSpineImage from './BookWrapSpineImage';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
@@ -281,6 +285,7 @@ const AlbumBook = ({
     const [focusOpen, setFocusOpen] = useState(false);
     const [focusStartPage, setFocusStartPage] = useState(0);
     const focusPageRef = useRef(0);
+    const focusClosingRef = useRef(false);
 
     const flipBookStructuralKey = useMemo(
         () =>
@@ -1187,17 +1192,27 @@ const AlbumBook = ({
         [album?.id]
     );
 
-    const closeFocusView = useCallback(() => {
+    const closeFocusView = useCallback(async () => {
+        if (focusClosingRef.current) return;
+        focusClosingRef.current = true;
         setFocusOpen(false);
+        await exitDocumentFullscreen();
         goToPage(focusPageRef.current);
+        focusClosingRef.current = false;
     }, [goToPage]);
 
-    const openFocusView = useCallback(() => {
-        setOverviewOpen(false);
-        focusPageRef.current = pageIndex;
-        setFocusStartPage(pageIndex);
-        setFocusOpen(true);
-    }, [pageIndex]);
+    const openFocusView = useCallback(
+        async (e) => {
+            e?.preventDefault?.();
+            e?.stopPropagation?.();
+            setOverviewOpen(false);
+            focusPageRef.current = pageIndex;
+            setFocusStartPage(pageIndex);
+            await requestElementFullscreen(document.documentElement);
+            setFocusOpen(true);
+        },
+        [pageIndex]
+    );
 
     const handleFocusPageChange = useCallback((idx) => {
         focusPageRef.current = idx;

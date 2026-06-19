@@ -344,7 +344,7 @@ export default function BookHybridView({
                                     onHandoffComplete={handleHandoffComplete}
                                     onHandoffBlendStart={handleHandoffBlendStart}
                                     lockCoverInteraction
-                                    enableOrbit={false}
+                                    enableOrbit
                                 />
                             </div>
                         </div>

@@ -153,6 +153,13 @@ function buildCoverSelection() {
     return { mode: 'cover', leftPage: 0, cellId: null };
 }
 
+const COVER_UPLOAD_SLOT = {
+    pageNum: 0,
+    cellId: 0,
+    spreadLeft: 0,
+    label: 'Cover',
+};
+
 function slotFromCurrentSpread(
     gridSelection,
     gridEditSet,
@@ -1461,6 +1468,62 @@ export default function AlbumEditor({
         ]
     );
 
+    const handleUploadForCover = useCallback(
+        async (files) => {
+            if (!files?.length) return;
+
+            setUploading(true);
+            if (files.some((f) => isPdfFile(f))) {
+                showToast('Converting PDF pages to images…', { variant: 'info', duration: 0 });
+            } else {
+                showToast('Uploading cover…', { variant: 'info', duration: 0 });
+            }
+
+            try {
+                const replacementItem = await resolveSpreadReplacementItem(files, COVER_UPLOAD_SLOT, {
+                    coverWrap: true,
+                });
+                if (!replacementItem?.id) {
+                    showToast('No supported images in that file.', {
+                        variant: 'error',
+                        duration: 4000,
+                    });
+                    return;
+                }
+                if (placeCollectionItemOnSlot(COVER_UPLOAD_SLOT, replacementItem.id)) {
+                    setCollectionRevision(getAlbumCollectionRevision(albumId));
+                    scheduleWorkspaceRefresh();
+                    if (user?.id) {
+                        try {
+                            await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
+                        } catch (err) {
+                            console.warn('Could not sync album preview after cover upload:', err);
+                        }
+                    }
+                    showToast('Cover photo updated.', { variant: 'success', duration: 3500 });
+                } else {
+                    showToast('Could not place photo on cover.', {
+                        variant: 'error',
+                        duration: 4000,
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Upload failed. Try again.', { variant: 'error', duration: 4000 });
+            } finally {
+                setUploading(false);
+            }
+        },
+        [
+            albumId,
+            placeCollectionItemOnSlot,
+            resolveSpreadReplacementItem,
+            scheduleWorkspaceRefresh,
+            showToast,
+            user?.id,
+        ]
+    );
+
     const handlePlaceCollectionItem = useCallback(
         async (itemId) => {
             if (placeItemOnSpread(itemId)) {
@@ -1913,6 +1976,7 @@ export default function AlbumEditor({
                     totalPages={totalPages}
                     collectionItems={collectionItems}
                     onUploadForCurrentSpread={handleUploadForCurrentSpread}
+                    onUploadForCover={handleUploadForCover}
                     onPlaceCollectionItem={handlePlaceCollectionItem}
                     onDeleteCollectionItem={handleDeleteCollectionItem}
                     onOpenPicker={openPicker}
