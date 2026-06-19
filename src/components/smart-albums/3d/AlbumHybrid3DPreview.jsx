@@ -26,21 +26,28 @@ export default function AlbumHybrid3DPreview({
     );
     const onCover = spreadIndex <= 0;
     const openingRef = useRef(false);
+    const closingRef = useRef(false);
     const [phase, setPhase] = useState(() => (onCover ? 'cover' : 'book'));
 
     useEffect(() => {
-        if (openingRef.current) return;
+        if (openingRef.current || closingRef.current) return;
         setPhase(onCover ? 'cover' : 'book');
     }, [onCover]);
 
     const openBook = useCallback(() => {
-        if (openingRef.current || phase !== 'cover') return;
+        if (openingRef.current || closingRef.current || phase !== 'cover') return;
         openingRef.current = true;
         setPhase('opening');
     }, [phase]);
 
+    const handleCoverHideTo3DStart = useCallback(() => {
+        closingRef.current = true;
+        setPhase('closing');
+    }, []);
+
     const returnToCover = useCallback(() => {
         openingRef.current = false;
+        closingRef.current = false;
         onPageChange?.(0);
         setPhase('cover');
     }, [onPageChange]);
@@ -63,17 +70,23 @@ export default function AlbumHybrid3DPreview({
     }, [openBook, phase]);
 
     useEffect(() => {
-        if (phase !== 'opening') return undefined;
+        if (phase !== 'opening' && phase !== 'closing') return undefined;
         const timer = window.setTimeout(() => {
-            if (!openingRef.current) return;
-            openingRef.current = false;
-            setPhase('book');
+            if (phase === 'opening' && openingRef.current) {
+                openingRef.current = false;
+                setPhase('book');
+            }
+            if (phase === 'closing' && closingRef.current) {
+                closingRef.current = false;
+                onPageChange?.(0);
+                setPhase('cover');
+            }
         }, FLIP_TIME_MS + 400);
         return () => window.clearTimeout(timer);
-    }, [phase]);
+    }, [onPageChange, phase]);
 
     const coverVisible = phase === 'cover';
-    const bookVisible = phase === 'opening' || phase === 'book';
+    const bookVisible = phase !== 'cover';
 
     return (
         <div className="ab-hybrid-3d-preview ab-hybrid-3d-preview--stacked">
@@ -107,6 +120,7 @@ export default function AlbumHybrid3DPreview({
                     external3DCover
                     coverRevealFrom3D={phase === 'opening'}
                     onCoverRevealFrom3DComplete={handleCoverRevealFrom3DComplete}
+                    onCoverHideTo3DStart={handleCoverHideTo3DStart}
                     onExternalCoverRequest={returnToCover}
                     {...albumBookProps}
                 />

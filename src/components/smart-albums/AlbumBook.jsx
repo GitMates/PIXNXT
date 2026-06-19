@@ -187,6 +187,7 @@ const AlbumBook = ({
     coverRevealFrom3D = false,
     coverRevealDelayMs = 0,
     onCoverRevealFrom3DComplete,
+    onCoverHideTo3DStart,
     onExternalCoverRequest,
 }) => {
     const bookRef = useRef(null);
@@ -538,26 +539,28 @@ const AlbumBook = ({
 
     const atStart = external3DCover ? false : spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
-    const frontCoverOnly =
-        album?.has_covers === true &&
-        spreadIndex === 0 &&
-        (!external3DCover || coverRevealFrom3D);
     const endCoverOnly =
         album?.has_covers === true &&
         isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
     const [coverClipTransition, setCoverClipTransition] = useState(null);
     const [coverRevealOpen, setCoverRevealOpen] = useState(false);
+    const [coverHideTo3DActive, setCoverHideTo3DActive] = useState(false);
     const [endClipTransition, setEndClipTransition] = useState(null);
     const [endRevealOpen, setEndRevealOpen] = useState(false);
     const [bookFlipping, setBookFlipping] = useState(false);
+    const frontCoverOnly =
+        album?.has_covers === true &&
+        spreadIndex === 0 &&
+        (!external3DCover || coverRevealFrom3D || coverHideTo3DActive);
     const prevNavDisabled = bookFlipping || (!external3DCover && spreadIndex <= 0);
     const nextNavDisabled = atEnd || bookFlipping;
     const showCoverClip =
         album?.has_covers === true &&
-        (!external3DCover || coverRevealFrom3D) &&
+        (!external3DCover || coverRevealFrom3D || coverHideTo3DActive) &&
         (frontCoverOnly ||
             coverClipTransition != null ||
             coverRevealFrom3D ||
+            coverHideTo3DActive ||
             (bookFlipping && spreadIndex === 0));
     const lastSpreadIndex = Math.max(0, totalSpreads - 1);
     const preBackSpreadIndex = Math.max(0, totalSpreads - 2);
@@ -602,6 +605,7 @@ const AlbumBook = ({
 
     const coverRevealFrom3DStartedRef = useRef(false);
     const coverRevealFrom3DDoneRef = useRef(false);
+    const coverHideTo3DRef = useRef(false);
 
     /** Let clip-path transition paint its start frame before the page curl runs. */
     const beginCoverRevealFlip = useCallback((api) => {
@@ -618,6 +622,21 @@ const AlbumBook = ({
             });
         });
     }, []);
+
+    const beginCoverHideTo3DFlip = useCallback(
+        (api) => {
+            onCoverHideTo3DStart?.();
+            coverHideTo3DRef.current = true;
+            setCoverHideTo3DActive(true);
+            setCoverClipTransition('hide');
+            setCoverRevealOpen(false);
+            requestAnimationFrame(() => {
+                if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
+                else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
+            });
+        },
+        [onCoverHideTo3DStart]
+    );
 
     const beginEndRevealFlip = useCallback((api) => {
         setEndClipTransition('reveal');
@@ -754,6 +773,14 @@ const AlbumBook = ({
                         coverRevealFrom3DDoneRef.current = true;
                         onCoverRevealFrom3DComplete?.();
                     }
+                    if (
+                        coverHideTo3DRef.current &&
+                        pageToSpreadIndex(storageIdx, spreadCtx) <= 0
+                    ) {
+                        coverHideTo3DRef.current = false;
+                        setCoverHideTo3DActive(false);
+                        onExternalCoverRequest?.();
+                    }
                 }
                 if (coverClipTransition || endClipTransition) {
                     requestAnimationFrame(() => {
@@ -765,7 +792,7 @@ const AlbumBook = ({
                 }
             }
         },
-        [coverClipTransition, coverRevealFrom3D, endClipTransition, onCoverRevealFrom3DComplete, onPageChange, setFlippingUi, spreadCtx, spreadOpts, totalPages]
+        [coverClipTransition, coverRevealFrom3D, endClipTransition, onCoverRevealFrom3DComplete, onExternalCoverRequest, onPageChange, setFlippingUi, spreadCtx, spreadOpts, totalPages]
     );
 
     useEffect(() => {
@@ -788,6 +815,15 @@ const AlbumBook = ({
             album?.has_covers &&
             spreadIndex === 1
         ) {
+            const current = flipbookIndexToStoragePage(
+                api.getCurrentPageIndex(),
+                totalPages,
+                spreadOpts
+            );
+            if (current >= 2) {
+                beginCoverHideTo3DFlip(api);
+                return;
+            }
             onExternalCoverRequest?.();
             return;
         }
@@ -830,7 +866,7 @@ const AlbumBook = ({
 
         if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
         else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-    }, [album?.has_covers, beginEndRevealFlip, endCoverOnly, external3DCover, onExternalCoverRequest, onPageChange, spreadIndex, spreadOpts, totalPages]);
+    }, [album?.has_covers, beginCoverHideTo3DFlip, beginEndRevealFlip, endCoverOnly, external3DCover, onExternalCoverRequest, onPageChange, spreadIndex, spreadOpts, totalPages]);
 
     const flipNext = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
