@@ -385,7 +385,6 @@ export default function BookScene({
     showSamples = false,
     pageWorldDims = null,
     onCoverOpen,
-    coverOpening = false,
 }) {
     const sceneWrapRef = useRef(null);
     const orbitDragRef = useRef(false);
@@ -402,14 +401,12 @@ export default function BookScene({
         <div
             className={`ab-book-scene ab-book-scene--orbit${
                 onCoverOpen ? ' ab-book-scene--openable' : ''
-            }${coverOpening ? ' ab-book-scene--cover-opening' : ''}`}
+            }`}
             ref={sceneWrapRef}
         >
-            {!coverOpening ? (
-                <p className="ab-book-scene-orbit-hint">
-                    {onCoverOpen ? 'Click cover to open · Drag to rotate' : 'Drag to rotate'}
-                </p>
-            ) : null}
+            <p className="ab-book-scene-orbit-hint">
+                {onCoverOpen ? 'Click cover to open · Drag to rotate' : 'Drag to rotate'}
+            </p>
             <Canvas
                 shadows={{ enabled: true, type: THREE.PCFShadowMap }}
                 dpr={[1, 2]}
@@ -447,7 +444,6 @@ export default function BookScene({
                         showSamples={showSamples}
                         pageWorldDims={pageWorldDims}
                         onCoverOpen={onCoverOpen ? handleCoverOpen : undefined}
-                        coverOpening={coverOpening}
                     />
                 </Suspense>
 
@@ -460,8 +456,8 @@ export default function BookScene({
                     color="#1a1a1a"
                 />
 
-                <BookArcballControls orbitDragRef={orbitDragRef} enabled={!coverOpening} />
-                {onCoverOpen && !coverOpening ? (
+                <BookArcballControls orbitDragRef={orbitDragRef} />
+                {onCoverOpen ? (
                     <CoverOpenPointerHandler
                         onCoverOpen={handleCoverOpen}
                         orbitDragRef={orbitDragRef}

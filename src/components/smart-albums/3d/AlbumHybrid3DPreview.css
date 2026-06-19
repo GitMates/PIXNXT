@@ -7,10 +7,6 @@
   flex-direction: column;
 }
 
-.ab-hybrid-3d-preview--cover {
-  animation: ab-hybrid-3d-fade-in 280ms ease-out;
-}
-
 .ab-hybrid-3d-preview--stacked {
   position: relative;
   overflow: hidden;
@@ -25,9 +21,11 @@
   background: #efefef;
 }
 
-.ab-hybrid-3d-cover-layer--out {
+.ab-hybrid-3d-cover-layer--hidden {
+  opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  animation: ab-hybrid-cover-layer-out var(--ab-cover-crossfade-ms, 320ms) ease-out forwards;
+  z-index: 0;
 }
 
 .ab-hybrid-3d-book-layer {
@@ -39,47 +37,9 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+.ab-hybrid-3d-book-layer--hidden {
   opacity: 0;
-}
-
-.ab-hybrid-3d-book-layer--in {
-  animation: ab-hybrid-book-layer-in var(--ab-cover-crossfade-ms, 320ms) ease-out forwards;
   pointer-events: none;
-}
-
-.ab-hybrid-3d-preview--opening .ab-hybrid-3d-book-layer {
-  opacity: 1;
-}
-
-.ab-hybrid-3d-preview--book .ab-hybrid-3d-book-layer,
-.ab-hybrid-3d-preview:not(.ab-hybrid-3d-preview--opening) .ab-hybrid-3d-book-layer {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-@keyframes ab-hybrid-3d-fade-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes ab-hybrid-cover-layer-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
-
-@keyframes ab-hybrid-book-layer-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
 }

@@ -5,6 +5,7 @@
   min-height: 320px;
   background: #efefef;
   touch-action: none;
+  overflow: hidden;
 }
 
 .ab-book-scene--orbit {

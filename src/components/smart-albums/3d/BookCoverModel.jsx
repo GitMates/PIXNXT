@@ -1,6 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
-import { useFrame } from '@react-three/fiber';
 import { resolveBookWrapSpreadSrc } from '../albumPagePhotos';
 import { getSpreadPhotoTransform } from '../albumPageTransforms';
 import { getSpreadContext, getTotalSpreads } from '../albumSpreadUtils';
@@ -18,11 +17,6 @@ import { useCanvasWrapTexture } from './book3dPageCanvas';
 
 const COVER_THICK = 0.045;
 const SPINE_EMPTY = '#e4e7ec';
-const COVER_OPEN_MS = 900;
-
-function easeOutCubic(t) {
-    return 1 - (1 - t) ** 3;
-}
 
 function CoverPhotoMaterial({ map, side = THREE.FrontSide }) {
     return (
@@ -50,10 +44,7 @@ function ClosedBook({
     hasBackPhoto,
     hasSpinePhoto,
     showSpinePanel,
-    coverOpening = false,
 }) {
-    const hingeRef = useRef();
-    const openingStartRef = useRef(null);
     const totalDepth = pageDepth + COVER_THICK * 2;
     const boardPad = 0.012;
     const coverW = width + boardPad;
@@ -62,22 +53,6 @@ function ClosedBook({
     const outerZ = pageDepth / 2 + COVER_THICK;
     const boardColor = blankCover ? HARDCOVER_GREEN : SPINE_DARK;
     const spineFallback = showSpinePanel ? SPINE_EMPTY : SPINE_DARK;
-    const hingeX = -halfCoverW;
-
-    useFrame(() => {
-        const hinge = hingeRef.current;
-        if (!hinge) return;
-        if (!coverOpening) {
-            hinge.rotation.y = 0;
-            openingStartRef.current = null;
-            return;
-        }
-        if (openingStartRef.current == null) {
-            openingStartRef.current = performance.now();
-        }
-        const t = Math.min(1, (performance.now() - openingStartRef.current) / COVER_OPEN_MS);
-        hinge.rotation.y = -easeOutCubic(t) * Math.PI;
-    });
 
     return (
         <group>
@@ -86,25 +61,10 @@ function ClosedBook({
                 <PageEdgeMaterial />
             </mesh>
 
-            <group ref={hingeRef} position={[hingeX, 0, 0]}>
-                <mesh position={[halfCoverW, 0, outerZ - COVER_THICK / 2]} castShadow>
-                    <boxGeometry args={[coverW, coverH, COVER_THICK]} />
-                    <MatteMaterial color={boardColor} />
-                </mesh>
-
-                <mesh
-                    position={[halfCoverW, 0, outerZ + 0.002]}
-                    castShadow
-                    userData={{ isFrontCover: true }}
-                >
-                    <planeGeometry args={[coverW, coverH]} />
-                    {hasFrontPhoto ? (
-                        <CoverPhotoMaterial map={frontTexture} />
-                    ) : (
-                        <MatteMaterial color={boardColor} />
-                    )}
-                </mesh>
-            </group>
+            <mesh position={[0, 0, outerZ - COVER_THICK / 2]} castShadow>
+                <boxGeometry args={[coverW, coverH, COVER_THICK]} />
+                <MatteMaterial color={boardColor} />
+            </mesh>
 
             <mesh position={[0, 0, -(outerZ - COVER_THICK / 2)]} castShadow>
                 <boxGeometry args={[coverW, coverH, COVER_THICK]} />
@@ -123,6 +83,19 @@ function ClosedBook({
                     <meshBasicMaterial color={spineFallback} toneMapped={false} side={THREE.DoubleSide} />
                 ) : (
                     <MatteMaterial color={SPINE_DARK} />
+                )}
+            </mesh>
+
+            <mesh
+                position={[0, 0, outerZ + 0.002]}
+                castShadow
+                userData={{ isFrontCover: true }}
+            >
+                <planeGeometry args={[coverW, coverH]} />
+                {hasFrontPhoto ? (
+                    <CoverPhotoMaterial map={frontTexture} />
+                ) : (
+                    <MatteMaterial color={boardColor} />
                 )}
             </mesh>
 
@@ -149,7 +122,6 @@ export default function BookCoverModel({
     showSamples = false,
     pageWorldDims = null,
     onCoverOpen,
-    coverOpening = false,
 }) {
     const groupRef = useRef();
     const spreadOpts = useMemo(() => getSpreadContext(album, totalPages), [album, totalPages]);
@@ -252,7 +224,6 @@ export default function BookCoverModel({
                 hasBackPhoto={Boolean(coverSrc && useWrapCrop)}
                 hasSpinePhoto={Boolean(coverSrc && useWrapCrop && wrapLayout?.hasSpine)}
                 showSpinePanel={showSpinePanel}
-                coverOpening={coverOpening}
             />
         </group>
     );

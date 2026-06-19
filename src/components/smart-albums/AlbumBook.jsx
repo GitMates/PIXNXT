@@ -652,6 +652,35 @@ const AlbumBook = ({
             requestAnimationFrame(() => {
                 requestAnimationFrame(() => {
                     if (wrapRef.current) void wrapRef.current.offsetWidth;
+
+                    const resetToCover = () => {
+                        syncingPageRef.current = true;
+                        api.turnToPage(storagePageToFlipbookIndex(0, totalPages, spreadOpts));
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                syncingPageRef.current = false;
+                                syncingPageRef.current = true;
+                                api.turnToPage(1);
+                                requestAnimationFrame(() => {
+                                    requestAnimationFrame(() => {
+                                        syncingPageRef.current = false;
+                                        beginCoverRevealFlip(api);
+                                    });
+                                });
+                            });
+                        });
+                    };
+
+                    const currentStorage = flipbookIndexToStoragePage(
+                        api.getCurrentPageIndex(),
+                        totalPages,
+                        spreadOpts
+                    );
+                    if (currentStorage !== 0) {
+                        resetToCover();
+                        return;
+                    }
+
                     const current = api.getCurrentPageIndex();
                     if (current < 1) {
                         syncingPageRef.current = true;
@@ -676,7 +705,7 @@ const AlbumBook = ({
         }
         const timer = window.setTimeout(runReveal, delay);
         return () => window.clearTimeout(timer);
-    }, [beginCoverRevealFlip, coverRevealDelayMs, coverRevealFrom3D, initialized, stableDims]);
+    }, [beginCoverRevealFlip, coverRevealDelayMs, coverRevealFrom3D, initialized, stableDims, spreadOpts, totalPages]);
 
     const handleFlip = useCallback(
         (e) => {

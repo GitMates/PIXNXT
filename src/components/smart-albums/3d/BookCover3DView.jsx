@@ -11,7 +11,6 @@ export default function BookCover3DView({
     totalPages,
     showSamples = false,
     onCoverOpen,
-    coverOpening = false,
 }) {
     const shellRef = useRef(null);
     const stageRef = useRef(null);
@@ -77,7 +76,6 @@ export default function BookCover3DView({
                             showSamples={showSamples}
                             pageWorldDims={resolvedPageWorldDims}
                             onCoverOpen={onCoverOpen}
-                            coverOpening={coverOpening}
                         />
                     </div>
                 </div>

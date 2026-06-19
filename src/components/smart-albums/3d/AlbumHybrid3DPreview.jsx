@@ -4,8 +4,6 @@ import { pageToSpreadIndex } from '../albumSpreadUtils';
 import BookCover3DView from './BookCover3DView';
 import './AlbumHybrid3DPreview.css';
 
-/** Crossfade from 3D cover before the 2D page curl (matches Pixieset-style flip timing). */
-const COVER_CROSSFADE_MS = 320;
 const FLIP_TIME_MS = 900;
 
 /** 3D front cover; inner spreads use the 2D flipbook without leaving preview mode. */
@@ -70,16 +68,21 @@ export default function AlbumHybrid3DPreview({
             if (!openingRef.current) return;
             openingRef.current = false;
             setPhase('book');
-        }, COVER_CROSSFADE_MS + FLIP_TIME_MS + 400);
+        }, FLIP_TIME_MS + 400);
         return () => window.clearTimeout(timer);
     }, [phase]);
 
-    const showCoverLayer = phase === 'cover' || phase === 'opening';
-    const showBookLayer = phase === 'opening' || phase === 'book';
+    const coverVisible = phase === 'cover';
+    const bookVisible = phase === 'opening' || phase === 'book';
 
-    if (!showBookLayer && showCoverLayer) {
-        return (
-            <div className="ab-hybrid-3d-preview ab-hybrid-3d-preview--cover">
+    return (
+        <div className="ab-hybrid-3d-preview ab-hybrid-3d-preview--stacked">
+            <div
+                className={`ab-hybrid-3d-cover-layer${
+                    coverVisible ? '' : ' ab-hybrid-3d-cover-layer--hidden'
+                }`}
+                aria-hidden={!coverVisible}
+            >
                 <BookCover3DView
                     key={`${album?.id ?? 'album'}-cover-3d-r${photoRevision}`}
                     album={album}
@@ -88,52 +91,26 @@ export default function AlbumHybrid3DPreview({
                     onCoverOpen={openBook}
                 />
             </div>
-        );
-    }
 
-    return (
-        <div
-            className={`ab-hybrid-3d-preview ab-hybrid-3d-preview--stacked${
-                phase === 'opening' ? ' ab-hybrid-3d-preview--opening' : ''
-            }`}
-            style={{ '--ab-cover-crossfade-ms': `${COVER_CROSSFADE_MS}ms` }}
-        >
-            {showCoverLayer ? (
-                <div
-                    className={`ab-hybrid-3d-cover-layer${
-                        phase === 'opening' ? ' ab-hybrid-3d-cover-layer--out' : ''
-                    }`}
-                    aria-hidden={phase !== 'cover'}
-                >
-                    <BookCover3DView
-                        album={album}
-                        totalPages={totalPages}
-                        showSamples={showSamples}
-                    />
-                </div>
-            ) : null}
-
-            {showBookLayer ? (
-                <div
-                    className={`ab-hybrid-3d-book-layer${
-                        phase === 'opening' ? ' ab-hybrid-3d-book-layer--in' : ''
-                    }`}
-                >
-                    <AlbumBook
-                        key={`${album?.id ?? 'album'}-hybrid-book-r${photoRevision}`}
-                        album={album}
-                        totalPages={totalPages}
-                        initialPage={phase === 'opening' ? 0 : bookPage}
-                        onPageChange={onPageChange}
-                        external3DCover
-                        coverRevealFrom3D={phase === 'opening'}
-                        coverRevealDelayMs={COVER_CROSSFADE_MS}
-                        onCoverRevealFrom3DComplete={handleCoverRevealFrom3DComplete}
-                        onExternalCoverRequest={returnToCover}
-                        {...albumBookProps}
-                    />
-                </div>
-            ) : null}
+            <div
+                className={`ab-hybrid-3d-book-layer${
+                    bookVisible ? '' : ' ab-hybrid-3d-book-layer--hidden'
+                }`}
+                aria-hidden={!bookVisible}
+            >
+                <AlbumBook
+                    key={`${album?.id ?? 'album'}-hybrid-book-r${photoRevision}`}
+                    album={album}
+                    totalPages={totalPages}
+                    initialPage={bookPage}
+                    onPageChange={onPageChange}
+                    external3DCover
+                    coverRevealFrom3D={phase === 'opening'}
+                    onCoverRevealFrom3DComplete={handleCoverRevealFrom3DComplete}
+                    onExternalCoverRequest={returnToCover}
+                    {...albumBookProps}
+                />
+            </div>
         </div>
     );
 }
