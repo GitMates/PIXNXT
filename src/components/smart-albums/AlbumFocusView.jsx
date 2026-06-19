@@ -64,7 +64,8 @@ export default function AlbumFocusView({
     const spreadCtx = { ...spreadOpts, totalPages };
     const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
     const spreadIndex = pageToSpreadIndex(pageIndex, spreadCtx);
-    const atStart = spreadIndex <= 0;
+    const currentFlipIndex = storagePageToFlipbookIndex(pageIndex, totalPages, spreadOpts);
+    const atStart = currentFlipIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
 
     useEffect(() => {
@@ -124,9 +125,23 @@ export default function AlbumFocusView({
             const flipping = e.data === 'flipping';
             isFlippingRef.current = flipping;
             setBookFlipping(flipping);
+
+            if (!flipping) {
+                const api = bookRef.current?.pageFlip?.();
+                if (api?.getFlipController?.()) {
+                    const storageIdx = flipbookIndexToStoragePage(
+                        api.getCurrentPageIndex(),
+                        totalPages,
+                        spreadOpts
+                    );
+                    setPageIndex(storageIdx);
+                    onPageChange?.(storageIdx);
+                }
+            }
+
             syncNavDisabled();
         },
-        [syncNavDisabled]
+        [onPageChange, spreadOpts, syncNavDisabled, totalPages]
     );
 
     const flipPrev = useCallback(() => {

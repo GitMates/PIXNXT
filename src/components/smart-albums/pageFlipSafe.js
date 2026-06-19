@@ -1,18 +1,23 @@
 import {
     flipbookIndexToStoragePage,
+    getFlipbookPageCount,
     getTotalSpreads,
     pageToSpreadIndex,
 } from './albumSpreadUtils';
 
 /**
- * page-flip showNext() can increment past the last spread and crash in showSpread().
- * Guard flip APIs using our spread index math (matches HTMLFlipBook showCover={false}).
+ * page-flip showNext() can increment past the last leaf and crash in showSpread().
+ * Next is limited by spread (last spread); prev by flip leaf (cover uses multiple leaves).
  */
 export function installSafePageFlip(api, { totalPages, spreadOpts }) {
     if (!api || api.__pixnxtSafeFlip) return api;
 
     const spreadCtx = { ...spreadOpts, totalPages };
     const maxSpreadIndex = Math.max(0, getTotalSpreads(totalPages, spreadOpts) - 1);
+    const maxFlipIndex = Math.max(0, getFlipbookPageCount(totalPages, spreadOpts) - 1);
+
+    const currentFlipIndex = () =>
+        Math.max(0, Math.min(maxFlipIndex, Math.floor(Number(api.getCurrentPageIndex()) || 0)));
 
     const spreadIndex = () => {
         const storagePage = flipbookIndexToStoragePage(
@@ -34,8 +39,8 @@ export function installSafePageFlip(api, { totalPages, spreadOpts }) {
 
     wrap('turnToNextPage', () => spreadIndex() >= maxSpreadIndex);
     wrap('flipNext', () => spreadIndex() >= maxSpreadIndex);
-    wrap('turnToPrevPage', () => spreadIndex() <= 0);
-    wrap('flipPrev', () => spreadIndex() <= 0);
+    wrap('turnToPrevPage', () => currentFlipIndex() <= 0);
+    wrap('flipPrev', () => currentFlipIndex() <= 0);
 
     api.__pixnxtSafeFlip = true;
     return api;

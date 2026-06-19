@@ -542,7 +542,8 @@ const AlbumBook = ({
         setOverviewDragOverIndex(null);
     }, []);
 
-    const atStart = spreadIndex <= 0;
+    const currentFlipIndex = storagePageToFlipbookIndex(pageIndex, totalPages, spreadOpts);
+    const atStart = currentFlipIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
     const frontCoverOnly = album?.has_covers === true && spreadIndex === 0;
     const endCoverOnly =
