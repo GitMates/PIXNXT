@@ -1166,7 +1166,7 @@
   padding: 0;
   border-radius: 0;
   box-shadow: none;
-  pointer-events: auto;
+  pointer-events: none;
 }
 
 .ab-control-icon {
@@ -1762,13 +1762,9 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  background: #121212;
+  background: #ececec;
   overflow: hidden;
   cursor: zoom-out;
-}
-
-.ab-focus-view:fullscreen {
-  background: #0a0a0a;
 }
 
 .ab-focus-close {
@@ -1831,7 +1827,7 @@
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 3203;
+  z-index: 2;
 }
 
 .ab-focus-nav.ab-nav--prev {

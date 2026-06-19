@@ -264,48 +264,21 @@ async function buildCollectionWorkItems(files) {
 /** Collection item used only for the optional book-wrap cover — not an inner-page photo. */
 export const COVER_WRAP_ROLE = 'cover-wrap';
 
-/** Replaced spread photo kept for review history — excluded from layout page count. */
-export const SUPERSEDED_ROLE = 'superseded';
-
 export function isCoverWrapCollectionItem(item) {
     return item?.role === COVER_WRAP_ROLE;
 }
 
-export function isSupersededCollectionItem(item) {
-    return item?.role === SUPERSEDED_ROLE;
-}
-
 export function getInnerAlbumCollection(albumId) {
-    return getAlbumCollection(albumId).filter(
-        (item) => !isCoverWrapCollectionItem(item) && !isSupersededCollectionItem(item)
-    );
+    return getAlbumCollection(albumId).filter((item) => !isCoverWrapCollectionItem(item));
 }
 
 /** Collection size used for page-count and inner spread placement (excludes optional cover-wrap on blank covers). */
 export function getAlbumLayoutPhotoCount(albumId, album = null) {
     if (!albumId) return 0;
-    const active = getAlbumCollection(albumId).filter((item) => !isSupersededCollectionItem(item));
     if (album?.blank_covers === true) {
-        return active.filter((item) => !isCoverWrapCollectionItem(item)).length;
+        return getInnerAlbumCollection(albumId).length;
     }
-    return active.length;
-}
-
-export function markCollectionItemSuperseded(albumId, itemId) {
-    if (!albumId || !itemId) return false;
-    const all = readAll();
-    const bucket = all[albumId];
-    if (!bucket?.items?.length) return false;
-    let changed = false;
-    const items = bucket.items.map((item) => {
-        if (item.id !== itemId) return item;
-        if (item.role === SUPERSEDED_ROLE) return item;
-        changed = true;
-        return { ...item, role: SUPERSEDED_ROLE };
-    });
-    if (!changed) return false;
-    persistCollectionBucket(all, albumId, { ...bucket, items });
-    return true;
+    return getAlbumCollection(albumId).length;
 }
 
 export function markCollectionItemAsCoverWrap(albumId, itemId) {
@@ -767,12 +740,7 @@ export function removeCollectionItem(albumId, itemId) {
 }
 
 /** Replace a collection item's file in place (same id/sort order; does not grow the collection). */
-export async function replaceCollectionItemFile(
-    albumId,
-    itemId,
-    file,
-    { photographerId, preserveOldFile = false } = {}
-) {
+export async function replaceCollectionItemFile(albumId, itemId, file, { photographerId } = {}) {
     if (!albumId || !itemId || !file || !isImageFile(file)) return null;
     const item = getCollectionItem(albumId, itemId);
     if (!item) return null;
@@ -821,7 +789,7 @@ export async function replaceCollectionItemFile(
     });
     persistCollectionBucket(all, albumId, bucket);
 
-    if (oldPath && oldPath !== uploaded.path && !preserveOldFile) {
+    if (oldPath && oldPath !== uploaded.path) {
         try {
             await storageService.delete(oldPath);
         } catch (err) {
