@@ -184,6 +184,9 @@ const AlbumBook = ({
     spotCanComment = false,
     spotCanSwap = false,
     external3DCover = false,
+    coverRevealFrom3D = false,
+    coverRevealDelayMs = 0,
+    onCoverRevealFrom3DComplete,
     onExternalCoverRequest,
 }) => {
     const bookRef = useRef(null);
@@ -536,7 +539,9 @@ const AlbumBook = ({
     const atStart = external3DCover ? false : spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
     const frontCoverOnly =
-        album?.has_covers === true && spreadIndex === 0 && !external3DCover;
+        album?.has_covers === true &&
+        spreadIndex === 0 &&
+        (!external3DCover || coverRevealFrom3D);
     const endCoverOnly =
         album?.has_covers === true &&
         isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
@@ -549,9 +554,10 @@ const AlbumBook = ({
     const nextNavDisabled = atEnd || bookFlipping;
     const showCoverClip =
         album?.has_covers === true &&
-        !external3DCover &&
+        (!external3DCover || coverRevealFrom3D) &&
         (frontCoverOnly ||
             coverClipTransition != null ||
+            coverRevealFrom3D ||
             (bookFlipping && spreadIndex === 0));
     const lastSpreadIndex = Math.max(0, totalSpreads - 1);
     const preBackSpreadIndex = Math.max(0, totalSpreads - 2);
@@ -594,6 +600,9 @@ const AlbumBook = ({
         wrapRef.current?.classList.toggle('ab-flipbook-wrap--flipping', flipping);
     }, []);
 
+    const coverRevealFrom3DStartedRef = useRef(false);
+    const coverRevealFrom3DDoneRef = useRef(false);
+
     /** Let clip-path transition paint its start frame before the page curl runs. */
     const beginCoverRevealFlip = useCallback((api) => {
         setCoverClipTransition('reveal');
@@ -624,6 +633,50 @@ const AlbumBook = ({
             });
         });
     }, []);
+
+    useEffect(() => {
+        coverRevealFrom3DStartedRef.current = false;
+        coverRevealFrom3DDoneRef.current = false;
+    }, [flipBookMountKey, coverRevealFrom3D]);
+
+    useEffect(() => {
+        if (!coverRevealFrom3D || !initialized || !stableDims || coverRevealFrom3DStartedRef.current) {
+            return undefined;
+        }
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return undefined;
+
+        const runReveal = () => {
+            if (coverRevealFrom3DStartedRef.current) return;
+            coverRevealFrom3DStartedRef.current = true;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (wrapRef.current) void wrapRef.current.offsetWidth;
+                    const current = api.getCurrentPageIndex();
+                    if (current < 1) {
+                        syncingPageRef.current = true;
+                        api.turnToPage(1);
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                syncingPageRef.current = false;
+                                beginCoverRevealFlip(api);
+                            });
+                        });
+                        return;
+                    }
+                    beginCoverRevealFlip(api);
+                });
+            });
+        };
+
+        const delay = Math.max(0, coverRevealDelayMs);
+        if (delay === 0) {
+            runReveal();
+            return undefined;
+        }
+        const timer = window.setTimeout(runReveal, delay);
+        return () => window.clearTimeout(timer);
+    }, [beginCoverRevealFlip, coverRevealDelayMs, coverRevealFrom3D, initialized, stableDims]);
 
     const handleFlip = useCallback(
         (e) => {
@@ -664,6 +717,14 @@ const AlbumBook = ({
                     );
                     setPageIndex(storageIdx);
                     onPageChange?.(storageIdx);
+                    if (
+                        coverRevealFrom3D &&
+                        !coverRevealFrom3DDoneRef.current &&
+                        pageToSpreadIndex(storageIdx, spreadCtx) >= 1
+                    ) {
+                        coverRevealFrom3DDoneRef.current = true;
+                        onCoverRevealFrom3DComplete?.();
+                    }
                 }
                 if (coverClipTransition || endClipTransition) {
                     requestAnimationFrame(() => {
@@ -675,7 +736,7 @@ const AlbumBook = ({
                 }
             }
         },
-        [coverClipTransition, endClipTransition, onPageChange, setFlippingUi, spreadOpts, totalPages]
+        [coverClipTransition, coverRevealFrom3D, endClipTransition, onCoverRevealFrom3DComplete, onPageChange, setFlippingUi, spreadCtx, spreadOpts, totalPages]
     );
 
     useEffect(() => {
