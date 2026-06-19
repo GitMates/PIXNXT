@@ -1,18 +1,23 @@
-import React, { Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { ArcballControls, ContactShadows } from '@react-three/drei';
-import BookModel from './BookModel';
+import BookCoverModel from './BookCoverModel';
 import {
     BOOK_SCENE_CAMERA_DISTANCE,
     BOOK_SCENE_CAMERA_FOV,
-    pagePxToBook3dWorld,
 } from '../albumBookDimensions';
 import { getBook3dDimensions } from './book3dTextures';
 import './BookScene.css';
 
 const ORBIT_RETURN_MS = 520;
 const PATH_SAMPLE_EPSILON = 1e-5;
+const COVER_OPEN_DRAG_PX = 10;
+const COVER_OPEN_DRAG_PX_SQ = COVER_OPEN_DRAG_PX * COVER_OPEN_DRAG_PX;
+const COVER_ORBIT_DRAG_EPSILON = 0.02;
+
+const _pointer = new THREE.Vector2();
+const _raycaster = new THREE.Raycaster();
 
 const _fromPos = new THREE.Vector3();
 const _fromQuat = new THREE.Quaternion();
@@ -118,7 +123,90 @@ function sampleReversePath(path, progress, outCameraMatrix, outGizmoMatrix) {
     return true;
 }
 
-function BookArcballControls() {
+function orbitMatricesMeaningfullyDiffer(a, b) {
+    a.decompose(_fromPos, _fromQuat, _fromScale);
+    b.decompose(_toPos, _toQuat, _toScale);
+
+    return (
+        _fromPos.distanceToSquared(_toPos) > COVER_ORBIT_DRAG_EPSILON ** 2 ||
+        Math.abs(_fromQuat.dot(_toQuat)) < 0.995 ||
+        _fromScale.distanceToSquared(_toScale) > COVER_ORBIT_DRAG_EPSILON ** 2
+    );
+}
+
+function markOrbitDragIfNeeded(path, orbitDragRef) {
+    if (!orbitDragRef || orbitDragRef.current || path.length < 2) return;
+    const first = path[0];
+    const last = path[path.length - 1];
+    if (
+        orbitMatricesMeaningfullyDiffer(first.camera, last.camera) ||
+        orbitMatricesMeaningfullyDiffer(first.gizmo, last.gizmo)
+    ) {
+        orbitDragRef.current = true;
+    }
+}
+
+function CoverOpenPointerHandler({ onCoverOpen, orbitDragRef }) {
+    const { camera, scene, gl } = useThree();
+    const pointerStartRef = useRef(null);
+    const pointerIdRef = useRef(null);
+
+    useEffect(() => {
+        if (!onCoverOpen) return undefined;
+        const el = gl.domElement;
+
+        const resetPointer = () => {
+            pointerStartRef.current = null;
+            pointerIdRef.current = null;
+        };
+
+        const onPointerDown = (event) => {
+            if (event.button !== 0) return;
+            pointerIdRef.current = event.pointerId;
+            pointerStartRef.current = { x: event.clientX, y: event.clientY };
+        };
+
+        const onPointerUp = (event) => {
+            if (event.button !== 0) return;
+            if (pointerIdRef.current !== event.pointerId) return;
+            const start = pointerStartRef.current;
+            resetPointer();
+            if (!start || orbitDragRef.current) return;
+
+            const dx = event.clientX - start.x;
+            const dy = event.clientY - start.y;
+            if (dx * dx + dy * dy > COVER_OPEN_DRAG_PX_SQ) return;
+
+            const rect = el.getBoundingClientRect();
+            if (!rect.width || !rect.height) return;
+
+            _pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            _pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            _raycaster.setFromCamera(_pointer, camera);
+
+            const hits = _raycaster.intersectObjects(scene.children, true);
+            const hitCover = hits.some(
+                (hit) => hit.object?.userData?.isFrontCover === true
+            );
+            if (hitCover) {
+                onCoverOpen();
+            }
+        };
+
+        el.addEventListener('pointerdown', onPointerDown);
+        el.addEventListener('pointerup', onPointerUp);
+        el.addEventListener('pointercancel', resetPointer);
+        return () => {
+            el.removeEventListener('pointerdown', onPointerDown);
+            el.removeEventListener('pointerup', onPointerUp);
+            el.removeEventListener('pointercancel', resetPointer);
+        };
+    }, [camera, gl, onCoverOpen, orbitDragRef, scene]);
+
+    return null;
+}
+
+function BookArcballControls({ orbitDragRef }) {
     const controlsRef = useRef(null);
     const invalidate = useThree((state) => state.invalidate);
     const draggingRef = useRef(false);
@@ -213,19 +301,23 @@ function BookArcballControls() {
     const handleStart = useCallback(() => {
         cancelReturn();
         draggingRef.current = true;
+        if (orbitDragRef) orbitDragRef.current = false;
         dragPathRef.current = [];
 
         const controls = controlsRef.current;
         if (controls) {
             recordPathSample(controls);
         }
-    }, [cancelReturn, recordPathSample]);
+    }, [cancelReturn, orbitDragRef, recordPathSample]);
 
     const handleChange = useCallback(() => {
         if (!draggingRef.current || returningRef.current) return;
         const controls = controlsRef.current;
-        if (controls) recordPathSample(controls);
-    }, [recordPathSample]);
+        if (controls) {
+            recordPathSample(controls);
+            markOrbitDragIfNeeded(dragPathRef.current, orbitDragRef);
+        }
+    }, [orbitDragRef, recordPathSample]);
 
     const handleEnd = useCallback(() => {
         draggingRef.current = false;
@@ -285,69 +377,31 @@ function BookArcballControls() {
 export default function BookScene({
     album,
     totalPages,
-    initialPage,
-    onPageChange,
     showSamples = false,
-    coversOnly = false,
-    placementMode = 'single',
-    onDisplaySpreadChange,
-    onFlipStateChange,
-    pageLayoutDims = null,
     pageWorldDims = null,
-    matchAlbumBookLayout = false,
-    handoff = null,
-    onHandoffComplete,
-    onHandoffBlendStart,
-    lockCoverInteraction = false,
-    enableOrbit = true,
+    onCoverOpen,
 }) {
     const sceneWrapRef = useRef(null);
-    const [canvasHeight, setCanvasHeight] = useState(0);
-    const latchedWorldDimsRef = useRef(null);
-
-    useLayoutEffect(() => {
-        const el = sceneWrapRef.current;
-        if (!el) return undefined;
-        const update = () => setCanvasHeight(el.clientHeight);
-        update();
-        const ro = new ResizeObserver(update);
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, []);
-
-    const derivedWorldDims = useMemo(() => {
-        if (pageWorldDims) return pageWorldDims;
-        if (!pageLayoutDims || !canvasHeight) return null;
-        return pagePxToBook3dWorld(
-            pageLayoutDims.width,
-            pageLayoutDims.height,
-            canvasHeight,
-            {
-                fovDeg: BOOK_SCENE_CAMERA_FOV,
-                cameraDistance: BOOK_SCENE_CAMERA_DISTANCE,
-            }
-        );
-    }, [pageWorldDims, pageLayoutDims, canvasHeight]);
-
-    useLayoutEffect(() => {
-        if (derivedWorldDims) {
-            latchedWorldDimsRef.current = derivedWorldDims;
-        }
-    }, [derivedWorldDims]);
-
-    const resolvedWorldDims =
-        derivedWorldDims ??
-        (matchAlbumBookLayout ? latchedWorldDimsRef.current : null);
-
+    const orbitDragRef = useRef(false);
     const fallbackDims = useMemo(() => getBook3dDimensions(album), [album]);
-    const bookHeight = resolvedWorldDims?.height ?? fallbackDims.height;
+    const bookHeight = pageWorldDims?.height ?? fallbackDims.height;
     const shadowY = -(bookHeight / 2 + 0.2);
 
+    const handleCoverOpen = useCallback(() => {
+        if (orbitDragRef.current || !onCoverOpen) return;
+        onCoverOpen();
+    }, [onCoverOpen]);
+
     return (
-        <div className={`ab-book-scene${enableOrbit ? ' ab-book-scene--orbit' : ''}`} ref={sceneWrapRef}>
-            {enableOrbit ? (
-                <p className="ab-book-scene-orbit-hint">Drag to rotate</p>
-            ) : null}
+        <div
+            className={`ab-book-scene ab-book-scene--orbit${
+                onCoverOpen ? ' ab-book-scene--openable' : ''
+            }`}
+            ref={sceneWrapRef}
+        >
+            <p className="ab-book-scene-orbit-hint">
+                {onCoverOpen ? 'Click cover to open · Drag to rotate' : 'Drag to rotate'}
+            </p>
             <Canvas
                 shadows={{ enabled: true, type: THREE.PCFShadowMap }}
                 dpr={[1, 2]}
@@ -379,21 +433,12 @@ export default function BookScene({
                 />
 
                 <Suspense fallback={null}>
-                    <BookModel
+                    <BookCoverModel
                         album={album}
                         totalPages={totalPages}
-                        initialPage={initialPage}
-                        onPageChange={onPageChange}
                         showSamples={showSamples}
-                        coversOnly={coversOnly}
-                        placementMode={placementMode}
-                        onDisplaySpreadChange={onDisplaySpreadChange}
-                        onFlipStateChange={onFlipStateChange}
-                        pageWorldDims={resolvedWorldDims}
-                        handoff={handoff}
-                        onHandoffComplete={onHandoffComplete}
-                        onHandoffBlendStart={onHandoffBlendStart}
-                        lockCoverInteraction={lockCoverInteraction}
+                        pageWorldDims={pageWorldDims}
+                        onCoverOpen={onCoverOpen ? handleCoverOpen : undefined}
                     />
                 </Suspense>
 
@@ -406,7 +451,13 @@ export default function BookScene({
                     color="#1a1a1a"
                 />
 
-                {enableOrbit ? <BookArcballControls /> : null}
+                <BookArcballControls orbitDragRef={orbitDragRef} />
+                {onCoverOpen ? (
+                    <CoverOpenPointerHandler
+                        onCoverOpen={handleCoverOpen}
+                        orbitDragRef={orbitDragRef}
+                    />
+                ) : null}
             </Canvas>
         </div>
     );

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
-import BookHybridView from '../../components/smart-albums/3d/BookHybridView';
-import BookSceneWithProofing from '../../components/smart-albums/3d/BookSceneWithProofing';
+import AlbumHybrid3DPreview from '../../components/smart-albums/3d/AlbumHybrid3DPreview';
 import {
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -371,13 +370,15 @@ export default function AlbumPreview({
                 </span>
                 <div className="av-preview-header-title-wrap">
                     <h1 className="av-preview-header-title">{album?.name || 'Album'}</h1>
-                    <button
-                        type="button"
-                        className="av-preview-view-toggle"
-                        onClick={() => setIs3D(!is3D)}
-                    >
-                        {is3D ? 'Switch to 2D' : 'View in 3D'}
-                    </button>
+                    {albumForBook?.has_covers ? (
+                        <button
+                            type="button"
+                            className="av-preview-view-toggle"
+                            onClick={() => setIs3D(!is3D)}
+                        >
+                            {is3D ? 'Switch to 2D' : 'View in 3D'}
+                        </button>
+                    ) : null}
                 </div>
                 {clientPreview ? (
                     <AlbumPreviewProofActions
@@ -399,29 +400,15 @@ export default function AlbumPreview({
                 <div className="av-preview-main">
                 <div className="av-preview-book-section">
                     <div className="av-viewer-body av-viewer-body--preview-book">
-                        {is3D ? (
-                            albumForBook?.has_covers ? (
-                                <BookHybridView
-                                    key={`${albumId}-hybrid-r${photoRevision}`}
-                                    album={albumForBook}
-                                    totalPages={totalPages}
-                                    initialPage={bookPage}
-                                    onPageChange={handleBookPageChange}
-                                    showSamples={false}
-                                    albumBookProps={albumBookProps}
-                                />
-                            ) : (
-                                <BookSceneWithProofing
-                                    key={`${albumId}-3d-r${photoRevision}`}
-                                    album={albumForBook}
-                                    totalPages={totalPages}
-                                    initialPage={bookPage}
-                                    onPageChange={handleBookPageChange}
-                                    showSamples={false}
-                                    albumBookProps={albumBookProps}
-                                    photoRevision={photoRevision}
-                                />
-                            )
+                        {is3D && albumForBook?.has_covers ? (
+                            <AlbumHybrid3DPreview
+                                album={albumForBook}
+                                totalPages={totalPages}
+                                bookPage={bookPage}
+                                onPageChange={handleBookPageChange}
+                                photoRevision={photoRevision}
+                                albumBookProps={albumBookProps}
+                            />
                         ) : (
                             <AlbumBook
                                 key={`${albumId}-preview`}

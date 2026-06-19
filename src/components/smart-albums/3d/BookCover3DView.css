@@ -1,0 +1,52 @@
+.ab-book-cover-3d-shell {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ab-book-cover-3d-measure {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ab-book-cover-3d-measure .ab-book-stage {
+  height: 100%;
+}
+
+.ab-book-cover-3d {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.ab-book-cover-3d .ab-book-stage {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.ab-book-cover-3d-stage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.ab-book-cover-3d-stage .ab-book-scene {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}

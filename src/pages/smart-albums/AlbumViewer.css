@@ -856,20 +856,14 @@
   min-height: 320px;
 }
 
-.av-viewer-body--preview-book .ab-book-scene-with-proofing {
+.av-viewer-body--preview-book .ab-book-cover-3d-shell {
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
   width: 100%;
 }
 
-.av-viewer-body--preview-book .ab-book-scene-with-proofing__stage {
-  flex: 1;
-  min-height: 0;
-  height: 100%;
-}
-
-.av-viewer-body--preview-book .ab-book-hybrid-shell {
+.av-viewer-body--preview-book .ab-hybrid-3d-preview {
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;

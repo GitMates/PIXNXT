@@ -11,7 +11,11 @@
   cursor: grab;
 }
 
-.ab-book-scene--orbit:active {
+.ab-book-scene--openable {
+  cursor: pointer;
+}
+
+.ab-book-scene--openable:active {
   cursor: grabbing;
 }
 

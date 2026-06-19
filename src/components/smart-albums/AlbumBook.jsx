@@ -183,9 +183,8 @@ const AlbumBook = ({
     proofSpotPicker = false,
     spotCanComment = false,
     spotCanSwap = false,
-    coverHandoff3d = false,
-    onBookReady,
-    hideNav = false,
+    external3DCover = false,
+    onExternalCoverRequest,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -271,9 +270,6 @@ const AlbumBook = ({
         return resolvedStorage === targetStorage;
     }, [initialPage, totalPages, spreadOpts]);
 
-    const notifyBookReady = useCallback(() => {
-        onBookReady?.();
-    }, [onBookReady]);
     const [overviewOpen, setOverviewOpen] = useState(false);
     const overviewDragFromRef = useRef(null);
     const overviewDidDragRef = useRef(false);
@@ -537,9 +533,10 @@ const AlbumBook = ({
         setOverviewDragOverIndex(null);
     }, []);
 
-    const atStart = spreadIndex <= 0;
+    const atStart = external3DCover ? false : spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
-    const frontCoverOnly = album?.has_covers === true && spreadIndex === 0;
+    const frontCoverOnly =
+        album?.has_covers === true && spreadIndex === 0 && !external3DCover;
     const endCoverOnly =
         album?.has_covers === true &&
         isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
@@ -548,10 +545,11 @@ const AlbumBook = ({
     const [endClipTransition, setEndClipTransition] = useState(null);
     const [endRevealOpen, setEndRevealOpen] = useState(false);
     const [bookFlipping, setBookFlipping] = useState(false);
-    const prevNavDisabled = atStart || bookFlipping;
+    const prevNavDisabled = bookFlipping || (!external3DCover && spreadIndex <= 0);
     const nextNavDisabled = atEnd || bookFlipping;
     const showCoverClip =
         album?.has_covers === true &&
+        !external3DCover &&
         (frontCoverOnly ||
             coverClipTransition != null ||
             (bookFlipping && spreadIndex === 0));
@@ -695,8 +693,12 @@ const AlbumBook = ({
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
 
-        if (coverHandoff3d && album?.has_covers && spreadIndex === 1) {
-            onPageChange?.(0);
+        if (
+            external3DCover &&
+            album?.has_covers &&
+            spreadIndex === 1
+        ) {
+            onExternalCoverRequest?.();
             return;
         }
 
@@ -738,19 +740,13 @@ const AlbumBook = ({
 
         if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
         else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-    }, [album?.has_covers, beginEndRevealFlip, coverHandoff3d, endCoverOnly, onPageChange, spreadIndex, spreadOpts, totalPages]);
+    }, [album?.has_covers, beginEndRevealFlip, endCoverOnly, external3DCover, onExternalCoverRequest, onPageChange, spreadIndex, spreadOpts, totalPages]);
 
     const flipNext = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
 
-        if (coverHandoff3d && album?.has_covers && spreadIndex === totalSpreads - 2) {
-            const { left } = getSpreadPages(totalSpreads - 1, totalPages, spreadOpts);
-            onPageChange?.(left);
-            return;
-        }
-
-        if (album?.has_covers && spreadIndex === 0) {
+        if (album?.has_covers && spreadIndex === 0 && !external3DCover) {
             const current = api.getCurrentPageIndex();
             if (current < 1) {
                 syncingPageRef.current = true;
@@ -786,11 +782,11 @@ const AlbumBook = ({
 
         if (typeof api.flipNext === 'function') api.flipNext(FLIP_CORNER);
         else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
-    }, [album?.has_covers, beginCoverRevealFlip, coverHandoff3d, onPageChange, spreadIndex, spreadOpts, totalPages, totalSpreads]);
+    }, [album?.has_covers, beginCoverRevealFlip, external3DCover, onPageChange, spreadIndex, spreadOpts, totalPages, totalSpreads]);
 
     useEffect(() => {
         if (!initialized || bookFlipping || coverClipTransition) return;
-        if (!album?.has_covers || spreadIndex !== 0) return;
+        if (!album?.has_covers || spreadIndex !== 0 || external3DCover) return;
         if (userNavigatedRef.current || isFlippingRef.current) return;
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
@@ -810,6 +806,7 @@ const AlbumBook = ({
         album?.has_covers,
         bookFlipping,
         coverClipTransition,
+        external3DCover,
         initialized,
         onPageChange,
         spreadIndex,
@@ -1369,7 +1366,6 @@ const AlbumBook = ({
                     </div>,
                     document.body
                 )}
-            {!hideNav ? (
             <button
                 type="button"
                 ref={prevNavRef}
@@ -1384,7 +1380,6 @@ const AlbumBook = ({
                     <polyline points="15 18 9 12 15 6" />
                 </svg>
             </button>
-            ) : null}
 
             <div className="ab-book-stage" ref={stageOuterRef}>
                 <div className="ab-book-stage-inner" ref={stageRef} aria-hidden="true" />
@@ -1465,7 +1460,6 @@ const AlbumBook = ({
                             requestAnimationFrame(() => {
                                 requestAnimationFrame(() => {
                                     syncFlipbookToUrlPage();
-                                    notifyBookReady();
                                 });
                             });
                         }}
@@ -1522,7 +1516,6 @@ const AlbumBook = ({
 
             </div>
 
-            {!hideNav ? (
             <button
                 type="button"
                 ref={nextNavRef}
@@ -1537,7 +1530,6 @@ const AlbumBook = ({
                     <polyline points="9 18 15 12 9 6" />
                 </svg>
             </button>
-            ) : null}
 
             {overviewOpen &&
                 createPortal(
