@@ -521,18 +521,6 @@ export default function AlbumEditorSidebar({
                                 <p className="ae-selection-badge" role="status">
                                     Cover · back · spine · front
                                 </p>
-                                <button
-                                    type="button"
-                                    className="ae-btn-picker"
-                                    onClick={() => onOpenPicker?.()}
-                                >
-                                    Choose cover photo
-                                </button>
-                                <p className="ae-panel-text ae-panel-text--muted">
-                                    Upload in Collections first, then pick a photo here. If the
-                                    image is wider than inner spreads, drag the red spine lines to
-                                    adjust width.
-                                </p>
                             </>
                         ) : (
                             <>
@@ -544,19 +532,56 @@ export default function AlbumEditorSidebar({
                                 <p className="ae-selection-badge" role="status">
                                     Book wrap · back · spine · front
                                 </p>
-                                <button
-                                    type="button"
-                                    className="ae-btn-picker"
-                                    onClick={() => onOpenPicker?.()}
-                                >
-                                    Choose book wrap photo
-                                </button>
-                                <p className="ae-panel-text ae-panel-text--muted">
-                                    Upload in Collections first — order 1 is used here. Drag the red
-                                    spine lines on each side of the spine to adjust its width.
-                                </p>
                             </>
                         )}
+                        <div className="ae-spread-actions">
+                            <div className="ae-spread-actions-header">
+                                <span className="ae-spread-actions-title">Current cover actions</span>
+                            </div>
+                            <input
+                                ref={fileRef}
+                                type="file"
+                                accept="image/*,application/pdf,.pdf"
+                                className="ae-file-input"
+                                onChange={handleSpreadUpload}
+                            />
+                            <button
+                                type="button"
+                                className="ae-upload-zone ae-upload-zone--spread"
+                                disabled={uploading || !canSelectGrid}
+                                onClick={() => fileRef.current?.click()}
+                            >
+                                <svg
+                                    className="ae-upload-zone-icon"
+                                    width="22"
+                                    height="22"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.75"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    aria-hidden
+                                >
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
+                                <span>
+                                    {uploading
+                                        ? 'Uploading…'
+                                        : 'Upload new photo for this cover'}
+                                </span>
+                                <span className="ae-upload-hint">
+                                    Replaces the photo on the cover you are viewing
+                                </span>
+                            </button>
+                        </div>
+                        <p className="ae-panel-text ae-panel-text--muted">
+                            {albumHasBlankCovers(album)
+                                ? 'If the image is wider than inner spreads, drag the red spine lines to adjust width.'
+                                : 'Upload replaces the book wrap photo. Drag the red spine lines on each side of the spine to adjust its width.'}
+                        </p>
                     </>
                 )}
 

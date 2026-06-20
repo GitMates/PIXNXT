@@ -1486,15 +1486,25 @@ export default function AlbumEditor({
                 if (placeCollectionItemOnSlot(slot, replacementItem.id, before)) {
                     setCollectionRevision(getAlbumCollectionRevision(albumId));
                     scheduleWorkspaceRefresh();
-                    showToast('Photo updated on current spread.', {
-                        variant: 'success',
-                        duration: 3500,
-                    });
+                    showToast(
+                        isCoverSlot
+                            ? 'Photo updated on cover.'
+                            : 'Photo updated on current spread.',
+                        {
+                            variant: 'success',
+                            duration: 3500,
+                        }
+                    );
                 } else {
-                    showToast('Could not place photo on this spread.', {
-                        variant: 'error',
-                        duration: 4000,
-                    });
+                    showToast(
+                        isCoverSlot
+                            ? 'Could not place photo on this cover.'
+                            : 'Could not place photo on this spread.',
+                        {
+                            variant: 'error',
+                            duration: 4000,
+                        }
+                    );
                 }
             } catch (err) {
                 console.error(err);
