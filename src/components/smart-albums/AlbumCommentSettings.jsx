@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import { formatAlbumGridSizeDisplay, formatGridLayoutLabel } from './albumGridSize';
+import { formatAlbumGridSizeDisplay } from './albumGridSize';
 import './AlbumSpreadComments.css';
 
 function SettingsSwitch({ id, checked, disabled, busy, onChange, label }) {
@@ -99,33 +99,7 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
                     </div>
                     <span className="asc-settings-value">{formatAlbumGridSizeDisplay(album)}</span>
                 </div>
-                <div className="asc-settings-row asc-settings-row--info">
-                    <div className="asc-settings-row-main">
-                        <span className="asc-settings-row-label">Covers</span>
-                        <span className="asc-settings-row-desc">Set when the album was created</span>
-                    </div>
-                    <span className="asc-settings-value">
-                        {album?.has_covers === true
-                            ? album?.blank_covers
-                                ? 'Blank covers'
-                                : 'Front cover'
-                            : 'No covers'}
-                    </span>
-                </div>
-                <div className="asc-settings-row asc-settings-row--info">
-                    <div className="asc-settings-row-main">
-                        <span className="asc-settings-row-label">Grid layout</span>
-                        <span className="asc-settings-row-desc">Locked at creation</span>
-                    </div>
-                    <span className="asc-settings-value">
-                        {formatGridLayoutLabel(album?.grid_layout)}
-                    </span>
-                </div>
             </div>
-
-            <p className="asc-settings-note asc-settings-note--lead">
-                Control client proofing on the shared preview link. Comments are saved per spread.
-            </p>
 
             <div className="asc-settings-row">
                 <div className="asc-settings-row-main">

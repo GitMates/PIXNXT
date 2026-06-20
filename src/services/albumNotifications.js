@@ -393,7 +393,7 @@ export function getNotificationPanel(item) {
         case NOTIFICATION_TYPES.PHOTO_COMMENT:
             return 'pin';
         case NOTIFICATION_TYPES.SWAP:
-            return 'swap';
+            return 'pin';
         case NOTIFICATION_TYPES.SPREAD_COMMENT:
         case NOTIFICATION_TYPES.CLIENT_REPLY:
         case NOTIFICATION_TYPES.COMMENTS_SIGNED:

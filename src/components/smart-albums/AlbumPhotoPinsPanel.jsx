@@ -40,11 +40,7 @@ export default function AlbumPhotoPinsPanel({
 
     if (!sortedPins.length) {
         if (!isPanel) return null;
-        return (
-            <p className="ae-panel-text ae-panel-text--muted ae-swap-marks-empty">
-                No comments yet. Use album preview — hover a photo and click Comment.
-            </p>
-        );
+        return null;
     }
 
     return (

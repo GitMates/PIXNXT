@@ -48,11 +48,7 @@ export default function AlbumSwapMarksPanel({
 
     if (!sortedMarks.length) {
         if (!isPanel) return null;
-        return (
-            <p className="ae-panel-text ae-panel-text--muted ae-swap-marks-empty">
-                No swap requests yet. Hover a placed photo on the spread and click Swap to mark a pair.
-            </p>
-        );
+        return null;
     }
 
     return (

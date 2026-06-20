@@ -35,13 +35,6 @@ const IconComments = () => (
     </svg>
 );
 
-const IconSwap = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M7 16V4M7 4 3 8M7 4l4 4" />
-        <path d="M17 8v12M17 20l4-4M17 20l-4-4" />
-    </svg>
-);
-
 const IconSettings = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <circle cx="12" cy="12" r="3" />
@@ -59,7 +52,6 @@ const IconEditCover = () => (
 const NAV_BASE = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
     { id: 'cover', label: 'Edit cover', icon: IconEditCover, requiresCovers: true },
-    { id: 'swap', label: 'Swap', icon: IconSwap },
     { id: 'pin', label: 'Comment', icon: IconComments },
     { id: 'comments', label: 'Setting', icon: IconSettings },
 ];
@@ -156,8 +148,9 @@ export default function AlbumEditorSidebar({
         spreadCommentsBySpread
     );
     const totalSpreadCommentCount = countSpreadComments(spreadCommentsBySpread);
-    const totalCommentCount = photoPins.length + totalSpreadCommentCount;
-    const unresolvedCommentCount = unseenPinCount + unseenSpreadCommentCount;
+    const totalCommentCount = photoPins.length + totalSpreadCommentCount + swapMarks.length;
+    const unresolvedCommentCount = unseenPinCount + unseenSpreadCommentCount + unseenSwapCount;
+    const swapsEnabled = album?.messages_enabled !== false;
     const navItems = NAV_BASE.filter(
         (item) => !item.requiresCovers || album?.has_covers === true
     );
@@ -210,16 +203,6 @@ export default function AlbumEditorSidebar({
                         <span className="ae-nav-rail-icon">
                             <Icon />
                         </span>
-                        {id === 'swap' && swapMarks.length > 0 && (
-                            <span
-                                className={`ae-nav-rail-badge${
-                                    unseenSwapCount > 0 ? ' ae-nav-rail-badge--unseen' : ''
-                                }`}
-                                aria-hidden
-                            >
-                                {unseenSwapCount > 0 ? unseenSwapCount : swapMarks.length}
-                            </span>
-                        )}
                         {id === 'pin' && totalCommentCount > 0 && (
                             <span
                                 className={`ae-nav-rail-badge ae-nav-rail-badge--pin${
@@ -250,31 +233,6 @@ export default function AlbumEditorSidebar({
                     </>
                 )}
 
-                {activePanel === 'swap' && (
-                    <>
-                        <h3 className="ae-panel-title">Swap</h3>
-                        <ProofPanelStats
-                            unresolved={unseenSwapCount}
-                            total={swapMarks.length}
-                            totalLabel="Total swaps"
-                        />
-                        <p className="ae-panel-text">
-                            Hover a photo on the spread and click Swap to mark two positions. Once
-                            marked, the pair is locked until you unlock it here.
-                        </p>
-                        <AlbumSwapMarksPanel
-                            albumId={albumId}
-                            album={album}
-                            totalPages={totalPages}
-                            marks={swapMarks}
-                            gridLayout={album?.grid_layout || 'two-page'}
-                            variant="panel"
-                            seenTick={proofSeenTick}
-                            onNavigateToSlotKey={onNavigateToSwapSlotKey}
-                        />
-                    </>
-                )}
-
                 {activePanel === 'pin' && (
                     <>
                         <h3 className="ae-panel-title">Comment</h3>
@@ -284,9 +242,15 @@ export default function AlbumEditorSidebar({
                             totalLabel="Total comments"
                         />
                         <p className="ae-panel-text">
-                            Client photo comments appear here. To add comments, use the album preview
-                            — open the Comment tab, then click a photo.
+                            Client photo comments and swap requests appear here. To add comments,
+                            use the album preview — open the Comment tab, then click a photo. Hover
+                            a photo on the spread and click Swap to mark a pair.
                         </p>
+                        {!photoPins.length && (!swapsEnabled || !swapMarks.length) ? (
+                            <p className="ae-panel-text ae-panel-text--muted ae-swap-marks-empty">
+                                No comments or swap requests yet.
+                            </p>
+                        ) : null}
                         <AlbumPhotoPinsPanel
                             albumId={albumId}
                             album={album}
@@ -297,6 +261,18 @@ export default function AlbumEditorSidebar({
                             onNavigateToPin={onNavigateToPin}
                             seenTick={proofSeenTick}
                         />
+                        {swapsEnabled ? (
+                            <AlbumSwapMarksPanel
+                                albumId={albumId}
+                                album={album}
+                                totalPages={totalPages}
+                                marks={swapMarks}
+                                gridLayout={album?.grid_layout || 'two-page'}
+                                variant="panel"
+                                seenTick={proofSeenTick}
+                                onNavigateToSlotKey={onNavigateToSwapSlotKey}
+                            />
+                        ) : null}
                     </>
                 )}
 

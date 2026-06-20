@@ -57,16 +57,8 @@ const IconComments = () => (
     </svg>
 );
 
-const IconSwap = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M7 16V4M7 4 3 8M7 4l4 4" />
-        <path d="M17 8v12M17 20l4-4M17 20l-4-4" />
-    </svg>
-);
-
 const PREVIEW_NAV = [
     { id: 'comments', label: 'Comment', icon: IconComments },
-    { id: 'swap', label: 'Swap', icon: IconSwap },
     { id: 'review-summary', label: 'Review Summary', icon: IconCollection },
 ];
 
@@ -212,12 +204,6 @@ export default function AlbumPreview({
         };
     }, [album?.photographer_id, album?.preview_data?.business_name]);
 
-    useEffect(() => {
-        if (!messagesEnabled && sidebarTab === 'swap') {
-            setSidebarTab('comments');
-        }
-    }, [messagesEnabled, sidebarTab]);
-
     const loadSpreadComments = useCallback(async () => {
         if (!albumId || !commentsEnabled) return;
         try {
@@ -327,11 +313,18 @@ export default function AlbumPreview({
             ),
         [spreadCommentsBySpread]
     );
-    const visibleCommentCount = albumCommentCount + photoCommentItems.length;
     const swapMarksCount = swapMarks.length;
     const imageReplacementCount = imageReplacements.length;
     const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
     const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
+    const visibleCommentCount =
+        albumCommentCount +
+        photoCommentItems.length +
+        (messagesEnabled ? swapMarksCount : 0);
+    const previewFeedbackCount =
+        photoCommentItems.length + (messagesEnabled ? swapMarksCount : 0);
+    const previewUnseenCount =
+        unseenPinCount + (messagesEnabled ? unseenSwapCount : 0);
     const swapItems = useMemo(
         () =>
             (swapMarks || [])
@@ -469,9 +462,7 @@ export default function AlbumPreview({
 
                     <aside className="ae-sidebar av-preview-sidebar" aria-label="Preview tools">
                         <nav className="ae-nav-rail av-preview-nav-rail" aria-label="Preview panels">
-                            {PREVIEW_NAV.map(({ id, label, icon: Icon }) => {
-                                const disabled = id === 'swap' && !messagesEnabled;
-                                return (
+                            {PREVIEW_NAV.map(({ id, label, icon: Icon }) => (
                                     <button
                                         key={id}
                                         type="button"
@@ -481,45 +472,27 @@ export default function AlbumPreview({
                                         onClick={() => handleSidebarTab(id)}
                                         aria-label={label}
                                         aria-current={sidebarTab === id ? 'true' : undefined}
-                                        title={
-                                            disabled ? 'Swaps are disabled for this album' : label
-                                        }
-                                        disabled={disabled}
+                                        title={label}
                                     >
                                         <span className="ae-nav-rail-icon">
                                             <Icon />
                                         </span>
-                                        {id === 'comments' && photoPins.length > 0 && (
+                                        {id === 'comments' && previewFeedbackCount > 0 && (
                                             <span
                                                 className={`ae-nav-rail-badge ae-nav-rail-badge--pin${
-                                                    unseenPinCount > 0
+                                                    previewUnseenCount > 0
                                                         ? ' ae-nav-rail-badge--unseen'
                                                         : ''
                                                 }`}
                                                 aria-hidden
                                             >
-                                                {unseenPinCount > 0
-                                                    ? unseenPinCount
-                                                    : photoPins.length}
-                                            </span>
-                                        )}
-                                        {id === 'swap' && swapMarks.length > 0 && (
-                                            <span
-                                                className={`ae-nav-rail-badge${
-                                                    unseenSwapCount > 0
-                                                        ? ' ae-nav-rail-badge--unseen'
-                                                        : ''
-                                                }`}
-                                                aria-hidden
-                                            >
-                                                {unseenSwapCount > 0
-                                                    ? unseenSwapCount
-                                                    : swapMarks.length}
+                                                {previewUnseenCount > 0
+                                                    ? previewUnseenCount
+                                                    : previewFeedbackCount}
                                             </span>
                                         )}
                                     </button>
-                                );
-                            })}
+                                ))}
                         </nav>
 
                         <div className="ae-panel av-preview-sidebar-panel">
@@ -531,9 +504,10 @@ export default function AlbumPreview({
                                         {visibleCommentCount === 1 ? '' : 's'} in album
                                     </p>
                                     <div className="av-preview-sidebar-comments">
-                                            {photoCommentItems.length === 0 ? (
+                                            {photoCommentItems.length === 0 &&
+                                            (!messagesEnabled || swapItems.length === 0) ? (
                                                 <p className="av-preview-sidebar-text">
-                                                    No photo comments yet.
+                                                    No photo comments or swap requests yet.
                                                 </p>
                                             ) : (
                                                 <>
@@ -639,77 +613,72 @@ export default function AlbumPreview({
                                                             )}
                                                         </article>
                                                     ))}
-                                                </>
-                                            )}
-                                        </div>
-                                    </>
-                                ) : sidebarTab === 'swap' ? (
-                                    <>
-                                        <h3 className="ae-panel-title">Swap</h3>
-                                        <p className="ae-panel-text">
-                                            {swapMarksCount > 0
-                                                ? `${swapMarksCount} locked swap request${swapMarksCount === 1 ? '' : 's'}`
-                                                : 'No swap requests yet'}
-                                        </p>
-                                        <div className="av-preview-sidebar-comments">
-                                            {swapItems.length === 0 ? (
-                                                <p className="av-preview-sidebar-text">
-                                                    No swap requests yet.
-                                                </p>
-                                            ) : (
-                                                <>
-                                                    {swapItems.map((item) => {
-                                                        const createdAtLabel = item.createdAt
-                                                            ? new Date(item.createdAt).toLocaleString()
-                                                            : null;
-                                                        return (
-                                                        <article
-                                                            key={item.id}
-                                                            className="av-preview-sidebar-comment av-preview-sidebar-comment--swap"
-                                                        >
-                                                            <p className="av-preview-sidebar-comment-author">
-                                                                Swap request
-                                                            </p>
-                                                            <div className="av-preview-sidebar-swap-route">
-                                                                <button
-                                                                    type="button"
-                                                                    className="av-preview-sidebar-swap-chip"
-                                                                    onClick={() => jumpToSpread(item.spreadA)}
-                                                                >
-                                                                    {item.labelA}
-                                                                </button>
-                                                                <span className="av-preview-sidebar-swap-arrow" aria-hidden>
-                                                                    ↔
-                                                                </span>
-                                                                <button
-                                                                    type="button"
-                                                                    className="av-preview-sidebar-swap-chip"
-                                                                    onClick={() => jumpToSpread(item.spreadB)}
-                                                                >
-                                                                    {item.labelB}
-                                                                </button>
-                                                            </div>
-                                                            <div className="av-preview-sidebar-swap-footer">
-                                                                {createdAtLabel ? (
-                                                                    <span className="av-preview-sidebar-swap-time">
-                                                                        {createdAtLabel}
-                                                                    </span>
-                                                                ) : (
-                                                                    <span className="av-preview-sidebar-swap-time" aria-hidden />
-                                                                )}
-                                                                <button
-                                                                    type="button"
-                                                                    className="av-preview-sidebar-swap-remove"
-                                                                    onClick={() =>
-                                                                        removeSwapMark(albumId, item.id)
-                                                                    }
-                                                                >
-                                                                    Remove
-                                                                </button>
-                                                            </div>
-                                                        </article>
-                                                        );
-                                                    })}
+                                                    {messagesEnabled
+                                                        ? swapItems.map((item) => {
+                                                              const createdAtLabel = item.createdAt
+                                                                  ? new Date(
+                                                                        item.createdAt
+                                                                    ).toLocaleString()
+                                                                  : null;
+                                                              return (
+                                                                  <article
+                                                                      key={item.id}
+                                                                      className="av-preview-sidebar-comment av-preview-sidebar-comment--swap"
+                                                                  >
+                                                                      <p className="av-preview-sidebar-comment-author">
+                                                                          Swap request
+                                                                      </p>
+                                                                      <div className="av-preview-sidebar-swap-route">
+                                                                          <button
+                                                                              type="button"
+                                                                              className="av-preview-sidebar-swap-chip"
+                                                                              onClick={() =>
+                                                                                  jumpToSpread(item.spreadA)
+                                                                              }
+                                                                          >
+                                                                              {item.labelA}
+                                                                          </button>
+                                                                          <span
+                                                                              className="av-preview-sidebar-swap-arrow"
+                                                                              aria-hidden
+                                                                          >
+                                                                              ↔
+                                                                          </span>
+                                                                          <button
+                                                                              type="button"
+                                                                              className="av-preview-sidebar-swap-chip"
+                                                                              onClick={() =>
+                                                                                  jumpToSpread(item.spreadB)
+                                                                              }
+                                                                          >
+                                                                              {item.labelB}
+                                                                          </button>
+                                                                      </div>
+                                                                      <div className="av-preview-sidebar-swap-footer">
+                                                                          {createdAtLabel ? (
+                                                                              <span className="av-preview-sidebar-swap-time">
+                                                                                  {createdAtLabel}
+                                                                              </span>
+                                                                          ) : (
+                                                                              <span
+                                                                                  className="av-preview-sidebar-swap-time"
+                                                                                  aria-hidden
+                                                                              />
+                                                                          )}
+                                                                          <button
+                                                                              type="button"
+                                                                              className="av-preview-sidebar-swap-remove"
+                                                                              onClick={() =>
+                                                                                  removeSwapMark(albumId, item.id)
+                                                                              }
+                                                                          >
+                                                                              Remove
+                                                                          </button>
+                                                                      </div>
+                                                                  </article>
+                                                              );
+                                                          })
+                                                        : null}
                                                 </>
                                             )}
                                         </div>

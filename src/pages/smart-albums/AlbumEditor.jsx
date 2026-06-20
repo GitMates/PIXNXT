@@ -757,8 +757,10 @@ export default function AlbumEditor({
 
     useEffect(() => {
         const panel = searchParams.get('panel');
-        const validPanels = ['collections', 'cover', 'swap', 'pin', 'comments', 'grid', 'edit', 'pages'];
-        if (panel && validPanels.includes(panel)) {
+        const validPanels = ['collections', 'cover', 'pin', 'comments', 'grid', 'edit', 'pages'];
+        if (panel === 'swap') {
+            setActivePanel('pin');
+        } else if (panel && validPanels.includes(panel)) {
             setActivePanel(panel);
         }
     }, [searchParams]);
