@@ -10,7 +10,7 @@ import {
 import { getBook3dDimensions } from './book3dTextures';
 import './BookScene.css';
 
-const ORBIT_RETURN_MS = 520;
+const ORBIT_RETURN_MS = 1100;
 const PATH_SAMPLE_EPSILON = 1e-5;
 const COVER_OPEN_DRAG_PX = 10;
 const COVER_OPEN_DRAG_PX_SQ = COVER_OPEN_DRAG_PX * COVER_OPEN_DRAG_PX;
@@ -28,8 +28,8 @@ const _toScale = new THREE.Vector3();
 const _lerpCamMatrix = new THREE.Matrix4();
 const _lerpGizmoMatrix = new THREE.Matrix4();
 
-function easeOutCubic(t) {
-    return 1 - (1 - t) ** 3;
+function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2;
 }
 
 function lerpMatrices(fromMatrix, toMatrix, amount, targetMatrix) {
@@ -109,8 +109,7 @@ function sampleReversePath(path, progress, outCameraMatrix, outGizmoMatrix) {
         return true;
     }
 
-    const eased = easeOutCubic(progress);
-    const segmentPos = eased * (path.length - 1);
+    const segmentPos = progress * (path.length - 1);
     const segmentIndex = Math.min(Math.floor(segmentPos), path.length - 2);
     const segmentT = segmentPos - segmentIndex;
     const fromIndex = path.length - 1 - segmentIndex;
@@ -351,11 +350,12 @@ function BookArcballControls({ orbitDragRef, enabled = true }) {
 
         const elapsed = performance.now() - returnStartRef.current;
         const progress = Math.min(1, elapsed / ORBIT_RETURN_MS);
+        const easedProgress = easeInOutCubic(progress);
 
         if (
             sampleReversePath(
                 dragPathRef.current,
-                progress,
+                easedProgress,
                 _lerpCamMatrix,
                 _lerpGizmoMatrix
             )
@@ -363,7 +363,7 @@ function BookArcballControls({ orbitDragRef, enabled = true }) {
             applyControlsMatrices(controls, _lerpCamMatrix, _lerpGizmoMatrix);
         }
 
-        camera.zoom = THREE.MathUtils.lerp(fromZoomRef.current, controls._zoom0, progress);
+        camera.zoom = THREE.MathUtils.lerp(fromZoomRef.current, controls._zoom0, easedProgress);
         camera.updateProjectionMatrix();
         controls.dispatchEvent({ type: 'change' });
         invalidate();
