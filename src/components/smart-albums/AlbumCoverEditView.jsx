@@ -12,7 +12,7 @@ import {
     SPINE_BOUNDS_CHANGED_EVENT,
 } from './albumSpineSettings';
 import BookWrapSpineImage from './BookWrapSpineImage';
-import { COVER_TEXT_CHANGED_EVENT, getAlbumCoverText } from './albumCoverText';
+import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
 import './AlbumCoverEditView.css';
 
 const PAGE_HEIGHT_MIN = 300;
@@ -123,8 +123,8 @@ export default function AlbumCoverEditView({
 
     const coverText = useMemo(() => {
         void coverTextTick;
-        return albumId ? getAlbumCoverText(albumId) : '';
-    }, [albumId, coverTextTick]);
+        return resolveFrontCoverDisplayText(album, albumId);
+    }, [album, albumId, coverTextTick]);
 
     const isBlankCoverAlbum = album?.blank_covers === true;
     const spineVisible = spineLayout.hasSpine && showSpine;
@@ -393,10 +393,17 @@ export default function AlbumCoverEditView({
                                 layout={spineLayout}
                                 transform={transform}
                             />
+                        ) : coverText ? (
+                            <div
+                                className="ab-cover-text-message ab-cover-text-message--on-blank"
+                                aria-hidden
+                            >
+                                {coverText}
+                            </div>
                         ) : (
                             <div className="ab-cover-edit-view__empty" aria-hidden />
                         )}
-                        {coverText ? (
+                        {coverText && src ? (
                             <div className="ab-cover-text-message" aria-hidden>
                                 {coverText}
                             </div>

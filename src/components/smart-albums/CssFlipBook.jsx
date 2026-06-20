@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { photoTransformStyle } from './albumPageTransforms';
 import { getBookWrapSpineLayout } from './bookWrapSpine';
 import BookWrapSpineImage from './BookWrapSpineImage';
-import { COVER_TEXT_CHANGED_EVENT, getAlbumCoverText } from './albumCoverText';
+import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
 import { parseGridSizeAspect } from './albumGridSize';
 import {
     CSS_FLIP_SHEETS,
@@ -19,6 +19,15 @@ export function isCoverSpread(spreadIndex) {
 
 function PageFace({ face, spineLayout, coverText, showCoverText }) {
     if (!face?.src) {
+        if (face?.kind === 'cover-front' && showCoverText && coverText) {
+            return (
+                <div className="css-flip-book-cover css-flip-book-cover--blank">
+                    <div className="ab-cover-text-message ab-cover-text-message--on-blank">
+                        {coverText}
+                    </div>
+                </div>
+            );
+        }
         return <div className="css-flip-book-page-empty" aria-hidden />;
     }
 
@@ -124,7 +133,7 @@ export default function CssFlipBook({
     }, [album, totalPages, showSamples]);
 
     void coverTextTick;
-    const coverText = albumId ? getAlbumCoverText(albumId) : '';
+    const coverText = resolveFrontCoverDisplayText(album, albumId);
     const flippedIds = cssFlipCountToCheckboxIds(flipCount);
 
     useEffect(() => {

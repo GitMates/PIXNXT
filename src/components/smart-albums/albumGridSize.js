@@ -25,6 +25,61 @@ const PRESET_MATCH_TOLERANCE = 0.06;
 /** Photo must be at least this wide vs a 2-page spread to count as whole-spread. */
 export const WHOLE_SPREAD_FILL_RATIO = 0.92;
 
+/** 2× max on-screen page height — sharp on retina without storing excess pixels. */
+export const UPLOAD_PIXEL_SCALE = 2;
+
+/**
+ * Max pixel width/height for uploaded photos based on album grid and layout.
+ * Sized to match the largest slot the image can fill (page, spread, or cover wrap).
+ */
+export function getAlbumUploadPixelTarget(
+    album,
+    { coverWrap = false, wholeSpread = false, pageOnly = false } = {}
+) {
+    const pageGridSize = album?.grid_size || 'square';
+    const gridLayout = album?.grid_layout || 'two-page';
+    const spreadGridSize =
+        album?.spread_grid_size ?? spreadGridSizeFromPageGrid(pageGridSize, gridLayout);
+    const pageHeight = Math.round(BOOK_PAGE_HEIGHT_MAX * UPLOAD_PIXEL_SCALE);
+    const pageAspect = parseGridSizeAspect(pageGridSize);
+
+    if (coverWrap) {
+        const wrapAspect = albumHasBlankCovers(album)
+            ? blankCoverWrapAspect(pageGridSize)
+            : parseGridSizeAspect(spreadGridSize || pageGridSize);
+        return {
+            maxWidth: Math.round(pageHeight * wrapAspect),
+            maxHeight: pageHeight,
+        };
+    }
+
+    if (!pageOnly && (wholeSpread || isWholeSpreadLayout(gridLayout))) {
+        const spreadAspect = spreadGridSize
+            ? parseGridSizeAspect(spreadGridSize)
+            : spreadAspectFromPageGrid(pageGridSize);
+        return {
+            maxWidth: Math.round(pageHeight * spreadAspect),
+            maxHeight: pageHeight,
+        };
+    }
+
+    return {
+        maxWidth: Math.round(pageHeight * pageAspect),
+        maxHeight: pageHeight,
+    };
+}
+
+/** Pixel budget for a specific editor slot (page vs whole spread vs cover). */
+export function getSlotUploadPixelTarget(album, slot, { coverWrap = false } = {}) {
+    if (coverWrap || slot?.pageNum === 0) {
+        return getAlbumUploadPixelTarget(album, { coverWrap: true });
+    }
+    if (slot?.whole) {
+        return getAlbumUploadPixelTarget(album, { wholeSpread: true });
+    }
+    return getAlbumUploadPixelTarget(album, { pageOnly: true });
+}
+
 /** Full-upload aspect needed to span both pages (page grid × 2). */
 export function spreadAspectFromPageGrid(pageGridSize = 'square') {
     const pageAspect = parseGridSizeAspect(pageGridSize);

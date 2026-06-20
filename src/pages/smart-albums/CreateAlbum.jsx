@@ -10,6 +10,7 @@ import {
     blankCoverSpreadGridSize,
     detectGridSizesFromFiles,
     formatGridSizeLabelForLayout,
+    getAlbumUploadPixelTarget,
     gridSizeFromDimensions,
     loadImageDimensionsFromFile,
 } from '../../components/smart-albums/albumGridSize';
@@ -748,6 +749,13 @@ const CreateAlbum = () => {
             });
 
             if (coverFile || photoFiles.length > 0) {
+                const uploadAlbumMeta = {
+                    grid_size: finalGridSize,
+                    spread_grid_size: finalSpreadGridSize,
+                    grid_layout: finalGridLayout,
+                    blank_covers: blankCovers,
+                };
+
                 if (coverFile) {
                     setProgress({
                         label: 'Uploading cover image…',
@@ -759,6 +767,10 @@ const CreateAlbum = () => {
                         photographerId: user.id,
                         skipDuplicateCheck: true,
                         coverWrap: true,
+                        album: uploadAlbumMeta,
+                        compressionTarget: getAlbumUploadPixelTarget(uploadAlbumMeta, {
+                            coverWrap: true,
+                        }),
                     });
                 }
 
@@ -767,6 +779,8 @@ const CreateAlbum = () => {
                     added = await addFilesToAlbumCollection(album.id, photoFiles, {
                         photographerId: user.id,
                         skipDuplicateCheck: true,
+                        album: uploadAlbumMeta,
+                        compressionTarget: getAlbumUploadPixelTarget(uploadAlbumMeta),
                         onProgress: ({ phase, message, current, total }) => {
                             if (phase === 'preparing') {
                                 setProgress({

@@ -27,6 +27,14 @@ export default function AlbumListCoverThumb({ album, alt = '' }) {
     );
 
     if (!src) {
+        const title = String(album?.name ?? '').trim();
+        if (album?.has_covers === true && album?.blank_covers === true && title) {
+            return (
+                <div className="cg-style-38 sa-album-thumb-placeholder sa-album-thumb-placeholder--title">
+                    <span className="sa-album-thumb-title">{title}</span>
+                </div>
+            );
+        }
         return (
             <div className="cg-style-38 sa-album-thumb-placeholder">
                 <svg

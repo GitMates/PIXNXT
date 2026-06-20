@@ -1,6 +1,7 @@
 import { storageService } from '../../services/storage.service';
 import { expandUploadFilesToImages, isImageFile, isPdfFile } from '../../lib/pdfToImages';
 import { compressImageForUpload } from '../../lib/prepareUploadFile';
+import { getAlbumUploadPixelTarget } from './albumGridSize';
 import { moveFileInOrder } from '../../lib/uploadFileOrder';
 import { supabase } from '../../lib/supabase/client';
 import {
@@ -488,7 +489,14 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
 export async function addFilesToAlbumCollection(
     albumId,
     files,
-    { photographerId, onProgress, skipDuplicateCheck = false, coverWrap = false } = {}
+    {
+        photographerId,
+        onProgress,
+        skipDuplicateCheck = false,
+        coverWrap = false,
+        album = null,
+        compressionTarget = null,
+    } = {}
 ) {
     if (!albumId || !files?.length) return [];
 
@@ -537,6 +545,10 @@ export async function addFilesToAlbumCollection(
                   ])
           );
 
+    const pixelTarget =
+        compressionTarget ??
+        (album ? getAlbumUploadPixelTarget(album, { coverWrap }) : null);
+
     const optimizeTotal = workItems.length;
     const prepared = await runWithConcurrency(workItems, COMPRESS_CONCURRENCY, async (item, index) => {
         if (item.kind === 'file') {
@@ -546,7 +558,7 @@ export async function addFilesToAlbumCollection(
                 current: index,
                 total: optimizeTotal,
             });
-            const file = await compressImageForUpload(item.file);
+            const file = await compressImageForUpload(item.file, pixelTarget || undefined);
             const contentHash = skipDuplicateCheck ? null : await hashFile(file);
             return {
                 kind: 'file',
@@ -740,7 +752,12 @@ export function removeCollectionItem(albumId, itemId) {
 }
 
 /** Replace a collection item's file in place (same id/sort order; does not grow the collection). */
-export async function replaceCollectionItemFile(albumId, itemId, file, { photographerId } = {}) {
+export async function replaceCollectionItemFile(
+    albumId,
+    itemId,
+    file,
+    { photographerId, compressionTarget = null } = {}
+) {
     if (!albumId || !itemId || !file || !isImageFile(file)) return null;
     const item = getCollectionItem(albumId, itemId);
     if (!item) return null;
@@ -750,7 +767,7 @@ export async function replaceCollectionItemFile(albumId, itemId, file, { photogr
         getAlbumPathFolder(albumId),
     ]).then(([photographerFolder, albumFolder]) => ({ photographerFolder, albumFolder }));
 
-    const prepared = await compressImageForUpload(file);
+    const prepared = await compressImageForUpload(file, compressionTarget || undefined);
     let width;
     let height;
     try {

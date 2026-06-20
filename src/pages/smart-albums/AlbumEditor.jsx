@@ -61,7 +61,7 @@ import {
     resolveBookWrapSpreadSrc,
     syncCoverWrapRoleFromSpread,
 } from '../../components/smart-albums/albumPagePhotos';
-import { loadImageAspectFromUrl } from '../../components/smart-albums/albumGridSize';
+import { getSlotUploadPixelTarget, loadImageAspectFromUrl } from '../../components/smart-albums/albumGridSize';
 import {
     clearSpreadPhotos,
     swapPhotoSlots,
@@ -1086,10 +1086,12 @@ export default function AlbumEditor({
                 album,
             });
             const file = files[0];
+            const compressionTarget = getSlotUploadPixelTarget(album, slot, { coverWrap });
 
             if (previousItemId && file && isImageFile(file) && !isPdfFile(file)) {
                 const replaced = await replaceCollectionItemFile(albumId, previousItemId, file, {
                     photographerId,
+                    compressionTarget,
                 });
                 if (replaced) return replaced;
             }
@@ -1098,6 +1100,8 @@ export default function AlbumEditor({
                 photographerId,
                 skipDuplicateCheck: true,
                 coverWrap,
+                album,
+                compressionTarget,
             });
             const replacementItem = added[0] || added.duplicateItems?.[0];
             if (previousItemId && replacementItem?.id && previousItemId !== replacementItem.id) {
@@ -1402,6 +1406,7 @@ export default function AlbumEditor({
         try {
             const added = await addFilesToAlbumCollection(albumId, files, {
                 photographerId: album?.photographer_id,
+                album,
             });
             const skippedDuplicates = added.skippedDuplicates || 0;
             if (added.length > 0) {

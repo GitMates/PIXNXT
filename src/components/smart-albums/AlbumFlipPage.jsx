@@ -25,7 +25,7 @@ import {
     isProofRightGridPage,
 } from './albumSpreadGrid';
 import { getAlbumLayoutPhotoCount } from './albumCollection';
-import { COVER_TEXT_CHANGED_EVENT, getAlbumCoverText } from './albumCoverText';
+import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
 import {
     getAlbumSpreadOptions,
     getEndSpreadPageRole,
@@ -340,7 +340,9 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const isFrontCoverRightPage = coverLayoutOpts.hasCovers && pageNum === 1;
     void coverTextTick;
     const coverText =
-        isFrontCoverRightPage && albumId ? getAlbumCoverText(albumId) : '';
+        isFrontCoverRightPage
+            ? resolveFrontCoverDisplayText(album, albumId)
+            : '';
     const coverPlacementMode = placementMode;
     const showStar = pageNum === 1 && album?.is_starred;
     const canSelectCover = isFrontCoverRightPage && editable && !spreadEdit;
@@ -1244,10 +1246,17 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 showSamples={showSamples}
                             />
                         )
+                    ) : isFrontCoverRightPage && coverText ? (
+                        <div
+                            className="ab-cover-text-message ab-cover-text-message--on-blank"
+                            aria-hidden
+                        >
+                            {coverText}
+                        </div>
                     ) : (
                         <div className="ab-page-empty" aria-hidden />
                     )}
-                    {coverText ? (
+                    {coverText && src ? (
                         <div className="ab-cover-text-message" aria-hidden>
                             {coverText}
                         </div>
