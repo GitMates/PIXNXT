@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AlbumBook from '../AlbumBook';
 import { pageToSpreadIndex } from '../albumSpreadUtils';
 import useAlbumBookLayoutDims from '../useAlbumBookLayoutDims';
@@ -23,6 +23,7 @@ export default function AlbumHybrid3DPreview({
     const bookLayerRef = useRef(null);
     const measureStageRef = useRef(null);
     const closingTimerRef = useRef(null);
+    const closingAnimateRef = useRef(false);
 
     const layoutStructuralKey = useMemo(
         () =>
@@ -52,6 +53,7 @@ export default function AlbumHybrid3DPreview({
     const [phase, setPhase] = useState(() => (onCover ? 'cover' : 'book'));
     const [coverAtSpread, setCoverAtSpread] = useState(false);
     const [coverHandoff, setCoverHandoff] = useState(false);
+    const [coverSnap, setCoverSnap] = useState(false);
     const [coverShiftPx, setCoverShiftPx] = useState(null);
 
     useEffect(() => {
@@ -79,58 +81,80 @@ export default function AlbumHybrid3DPreview({
         }
         if (pageDims?.width) return pageDims.width / 2;
         return 0;
-    }, [pageDims?.width]);
+    }, [pageDims]);
 
     const resetCoverMotion = useCallback(() => {
         setCoverAtSpread(false);
         setCoverHandoff(false);
+        setCoverSnap(false);
         setCoverShiftPx(null);
+        closingAnimateRef.current = false;
     }, []);
 
     const openBook = useCallback(() => {
         if (openingRef.current || closingRef.current || phase !== 'cover') return;
         openingRef.current = true;
+        closingAnimateRef.current = false;
         resetCoverMotion();
         setPhase('opening');
-    }, [phase, resetCoverMotion]);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                setCoverShiftPx(measureCoverShift());
+                requestAnimationFrame(() => {
+                    setCoverAtSpread(true);
+                });
+            });
+        });
+    }, [measureCoverShift, phase, resetCoverMotion]);
 
+    /** Hide 3D during the 2D page flip back (mirror of opening handoff). */
     const handleCoverHideTo3DStart = useCallback(() => {
-        closingRef.current = true;
-        setCoverHandoff(false);
-        setCoverShiftPx(measureCoverShift());
-        setCoverAtSpread(true);
-        setPhase('closing');
-    }, [measureCoverShift]);
-
-    const returnToCover = useCallback(() => {
-        openingRef.current = false;
-        setCoverHandoff(false);
-        setCoverAtSpread(false);
         if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+        closingRef.current = true;
+        closingAnimateRef.current = false;
+        setPhase('closing');
+        setCoverSnap(false);
+        setCoverAtSpread(false);
+        setCoverHandoff(true);
+    }, []);
+
+    /** After 2D flip lands on cover: reveal 3D at right page, slide to center. */
+    const handleCoverHideFlipComplete = useCallback(() => {
+        if (closingAnimateRef.current) return;
+        closingAnimateRef.current = true;
+        closingRef.current = true;
+        setPhase('closing');
+
+        if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+
+        const shift = measureCoverShift();
+        setCoverShiftPx(shift);
+        setCoverSnap(true);
+        setCoverHandoff(false);
+        setCoverAtSpread(true);
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                setCoverSnap(false);
+                setCoverAtSpread(false);
+            });
+        });
+
         closingTimerRef.current = window.setTimeout(() => {
             closingRef.current = false;
+            closingAnimateRef.current = false;
             onPageChange?.(0);
             setPhase('cover');
             resetCoverMotion();
             closingTimerRef.current = null;
         }, COVER_MOVE_MS);
-    }, [onPageChange, resetCoverMotion]);
+    }, [measureCoverShift, onPageChange, resetCoverMotion]);
 
     const handleCoverRevealFrom3DComplete = useCallback(() => {
         openingRef.current = false;
         setPhase('book');
         resetCoverMotion();
     }, [resetCoverMotion]);
-
-    useLayoutEffect(() => {
-        if (phase !== 'opening') return;
-        setCoverShiftPx(measureCoverShift());
-        requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-                setCoverAtSpread(true);
-            });
-        });
-    }, [measureCoverShift, phase]);
 
     useEffect(() => {
         if (phase !== 'opening') return undefined;
@@ -160,6 +184,7 @@ export default function AlbumHybrid3DPreview({
             }
             if (phase === 'closing' && closingRef.current) {
                 closingRef.current = false;
+                closingAnimateRef.current = false;
                 onPageChange?.(0);
                 setPhase('cover');
                 resetCoverMotion();
@@ -174,6 +199,7 @@ export default function AlbumHybrid3DPreview({
     const coverLayerClassName = [
         'ab-hybrid-3d-cover-layer',
         coverAtSpread ? 'ab-hybrid-3d-cover-layer--at-spread' : '',
+        coverSnap ? 'ab-hybrid-3d-cover-layer--snap' : '',
         coverHandoff ? 'ab-hybrid-3d-cover-layer--handoff' : '',
         coverFullyHidden ? 'ab-hybrid-3d-cover-layer--hidden' : '',
     ]
@@ -210,7 +236,7 @@ export default function AlbumHybrid3DPreview({
                     album={album}
                     totalPages={totalPages}
                     showSamples={showSamples}
-                    onCoverOpen={openBook}
+                    onCoverOpen={phase === 'cover' ? openBook : undefined}
                 />
             </div>
 
@@ -231,9 +257,10 @@ export default function AlbumHybrid3DPreview({
                     external3DCover
                     coverRevealFrom3D={phase === 'opening'}
                     coverRevealDelayMs={COVER_MOVE_MS}
+                    coverHideTo3D={phase === 'closing'}
                     onCoverRevealFrom3DComplete={handleCoverRevealFrom3DComplete}
                     onCoverHideTo3DStart={handleCoverHideTo3DStart}
-                    onExternalCoverRequest={returnToCover}
+                    onExternalCoverRequest={handleCoverHideFlipComplete}
                 />
             </div>
         </div>

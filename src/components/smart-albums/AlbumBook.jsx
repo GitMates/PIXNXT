@@ -186,6 +186,7 @@ const AlbumBook = ({
     external3DCover = false,
     coverRevealFrom3D = false,
     coverRevealDelayMs = 0,
+    coverHideTo3D = false,
     onCoverRevealFrom3DComplete,
     onCoverHideTo3DStart,
     onExternalCoverRequest,
@@ -548,19 +549,22 @@ const AlbumBook = ({
     const [endClipTransition, setEndClipTransition] = useState(null);
     const [endRevealOpen, setEndRevealOpen] = useState(false);
     const [bookFlipping, setBookFlipping] = useState(false);
+    const externalCoverClipActive =
+        coverRevealFrom3D || coverHideTo3DActive || coverHideTo3D;
     const frontCoverOnly =
         album?.has_covers === true &&
         spreadIndex === 0 &&
-        (!external3DCover || coverRevealFrom3D || coverHideTo3DActive);
+        (!external3DCover || externalCoverClipActive);
     const prevNavDisabled = bookFlipping || (!external3DCover && spreadIndex <= 0);
     const nextNavDisabled = atEnd || bookFlipping;
     const showCoverClip =
         album?.has_covers === true &&
-        (!external3DCover || coverRevealFrom3D || coverHideTo3DActive) &&
+        (!external3DCover || externalCoverClipActive) &&
         (frontCoverOnly ||
             coverClipTransition != null ||
             coverRevealFrom3D ||
             coverHideTo3DActive ||
+            coverHideTo3D ||
             (bookFlipping && spreadIndex === 0));
     const lastSpreadIndex = Math.max(0, totalSpreads - 1);
     const preBackSpreadIndex = Math.max(0, totalSpreads - 2);

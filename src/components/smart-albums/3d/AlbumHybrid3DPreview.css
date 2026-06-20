@@ -45,6 +45,10 @@
   transform: translateX(var(--ab-cover-shift-x));
 }
 
+.ab-hybrid-3d-cover-layer--snap {
+  transition: none !important;
+}
+
 .ab-hybrid-3d-cover-layer--handoff {
   opacity: 0;
   pointer-events: none;
