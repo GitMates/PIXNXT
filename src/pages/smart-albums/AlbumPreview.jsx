@@ -672,16 +672,16 @@ export default function AlbumPreview({
                                 ) : (
                                     <>
                                         <h3 className="ae-panel-title">Review Summary</h3>
-                                        <p className="ae-panel-text">
-                                            {visibleCommentCount} comment
-                                            {visibleCommentCount === 1 ? '' : 's'} · {swapMarksCount}{' '}
-                                            swap{swapMarksCount === 1 ? '' : 's'} ·{' '}
-                                            {imageReplacementCount} photo change
-                                            {imageReplacementCount === 1 ? '' : 's'}
+                                        <p className="av-preview-summary-meta">
+                                            <span>{visibleCommentCount} comment{visibleCommentCount === 1 ? '' : 's'}</span>
+                                            <span className="av-preview-summary-meta-dot" aria-hidden>·</span>
+                                            <span>{swapMarksCount} swap{swapMarksCount === 1 ? '' : 's'}</span>
+                                            <span className="av-preview-summary-meta-dot" aria-hidden>·</span>
+                                            <span>{imageReplacementCount} photo change{imageReplacementCount === 1 ? '' : 's'}</span>
                                         </p>
                                         <div className="av-preview-sidebar-comments av-preview-sidebar-replacements">
                                             {imageReplacementCount === 0 ? (
-                                                <p className="av-preview-sidebar-text ae-panel-text--muted">
+                                                <p className="av-preview-sidebar-empty">
                                                     No photo changes yet. When your photographer
                                                     updates a spread image, the before and after
                                                     photos appear here.
@@ -700,43 +700,71 @@ export default function AlbumPreview({
                                                         >
                                                             <button
                                                                 type="button"
-                                                                className="av-preview-sidebar-replacement-link"
+                                                                className="av-preview-sidebar-replacement-head"
                                                                 onClick={() =>
                                                                     jumpToSpread(
                                                                         replacement.spreadIndex
                                                                     )
                                                                 }
                                                             >
-                                                                <p className="av-preview-sidebar-replacement-label">
+                                                                <span className="av-preview-sidebar-replacement-label">
                                                                     {replacement.slotLabel}
-                                                                </p>
+                                                                </span>
+                                                                <span className="av-preview-sidebar-replacement-go">
+                                                                    View spread
+                                                                    <svg
+                                                                        width="14"
+                                                                        height="14"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill="none"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2"
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                        aria-hidden
+                                                                    >
+                                                                        <polyline points="9 18 15 12 9 6" />
+                                                                    </svg>
+                                                                </span>
                                                             </button>
                                                             <div className="av-preview-sidebar-replacement-pair">
-                                                                <div className="av-preview-sidebar-replacement-shot">
+                                                                <div className="av-preview-sidebar-replacement-shot av-preview-sidebar-replacement-shot--before">
+                                                                    <img
+                                                                        src={replacement.previousUrl}
+                                                                        alt="Before photo change"
+                                                                        draggable={false}
+                                                                    />
                                                                     <span className="av-preview-sidebar-replacement-shot-tag">
                                                                         Before
                                                                     </span>
-                                                                    <img
-                                                                        src={replacement.previousUrl}
-                                                                        alt=""
-                                                                        draggable={false}
-                                                                    />
                                                                 </div>
-                                                                <span
+                                                                <div
                                                                     className="av-preview-sidebar-replacement-arrow"
                                                                     aria-hidden
                                                                 >
-                                                                    →
-                                                                </span>
-                                                                <div className="av-preview-sidebar-replacement-shot">
+                                                                    <svg
+                                                                        width="16"
+                                                                        height="16"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill="none"
+                                                                        stroke="currentColor"
+                                                                        strokeWidth="2"
+                                                                        strokeLinecap="round"
+                                                                        strokeLinejoin="round"
+                                                                    >
+                                                                        <line x1="5" y1="12" x2="19" y2="12" />
+                                                                        <polyline points="12 5 19 12 12 19" />
+                                                                    </svg>
+                                                                </div>
+                                                                <div className="av-preview-sidebar-replacement-shot av-preview-sidebar-replacement-shot--now">
+                                                                    <img
+                                                                        src={replacement.newUrl}
+                                                                        alt="Updated photo"
+                                                                        draggable={false}
+                                                                    />
                                                                     <span className="av-preview-sidebar-replacement-shot-tag av-preview-sidebar-replacement-shot-tag--new">
                                                                         Now
                                                                     </span>
-                                                                    <img
-                                                                        src={replacement.newUrl}
-                                                                        alt=""
-                                                                        draggable={false}
-                                                                    />
                                                                 </div>
                                                             </div>
                                                             <div className="av-preview-sidebar-replacement-footer">
@@ -755,7 +783,7 @@ export default function AlbumPreview({
                                                                 )}
                                                                 <button
                                                                     type="button"
-                                                                    className="av-preview-sidebar-swap-remove"
+                                                                    className="av-preview-sidebar-replacement-remove"
                                                                     onClick={() =>
                                                                         handleRemoveImageReplacement(
                                                                             replacement.id

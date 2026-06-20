@@ -308,6 +308,53 @@
   font-size: 12px;
 }
 
+.ae-proof-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  margin: 0 0 16px;
+  padding: 4px 2px 14px;
+  border-bottom: 1px solid #ececec;
+}
+
+.ae-proof-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ae-proof-stat-value {
+  font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
+  font-size: 34px;
+  font-weight: 600;
+  line-height: 1;
+  color: #1f1f1f;
+  letter-spacing: -0.02em;
+}
+
+.ae-proof-stat--active .ae-proof-stat-value {
+  color: #111;
+}
+
+.ae-proof-stat-label {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.ae-panel-comments-feed {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #ececec;
+}
+
+.ae-panel-comments-feed .asc-feed-stats {
+  display: none;
+}
+
 .ae-swap-marks {
   margin: 0 0 14px;
   padding: 10px 12px;

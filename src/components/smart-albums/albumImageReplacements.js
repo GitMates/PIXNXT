@@ -76,7 +76,7 @@ function buildReplacementRecord(albumId, slot, newItemId, { album, totalPages, p
     const newUrl = resolveItemUrl(albumId, newItemId);
 
     if (!prevUrl || !newUrl) return null;
-    if (prevUrl === newUrl && prevId === newItemId) return null;
+    if (prevUrl === newUrl) return null;
 
     const spreadOpts = getSpreadContext(album, totalPages);
     const spreadLeft =
@@ -103,6 +103,15 @@ function buildReplacementRecord(albumId, slot, newItemId, { album, totalPages, p
         newUrl,
         createdAt: new Date().toISOString(),
     };
+}
+
+/** Snapshot slot image before a placement overwrites it (for review-summary tracking). */
+export function captureSlotImageBeforeReplace(albumId, slot, album, totalPages) {
+    if (!albumId || !slot) return null;
+    const previousItemId = getSlotPlacementCollectionItemId(albumId, slot);
+    const previousUrl = getSlotImageUrl(albumId, slot, album, totalPages, previousItemId);
+    if (!previousItemId && !previousUrl) return null;
+    return { previousItemId: previousItemId || null, previousUrl: previousUrl || null };
 }
 
 export function getImageReplacements(albumId) {

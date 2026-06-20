@@ -98,6 +98,10 @@ import {
     spreadIndexToPage,
 } from '../../components/smart-albums/albumSpreadUtils';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
+import {
+    captureSlotImageBeforeReplace,
+    trackSpreadImageReplacement,
+} from '../../components/smart-albums/albumImageReplacements';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
 import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
 import {
@@ -116,6 +120,7 @@ import {
 } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
+    COMMENTS_SEEN_CHANGED_EVENT,
     groupRootCommentsBySpread,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
@@ -600,9 +605,11 @@ export default function AlbumEditor({
         };
         window.addEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, bumpSeen);
         window.addEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, bumpSeen);
+        window.addEventListener(COMMENTS_SEEN_CHANGED_EVENT, bumpSeen);
         return () => {
             window.removeEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, bumpSeen);
             window.removeEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, bumpSeen);
+            window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, bumpSeen);
         };
     }, [albumId]);
 
@@ -886,8 +893,24 @@ export default function AlbumEditor({
     );
 
     const placeCollectionItemOnSlot = useCallback(
-        (slot, itemId) => {
+        (slot, itemId, replacementBefore = null) => {
             if (!slot || !itemId) return false;
+            const before =
+                replacementBefore ??
+                captureSlotImageBeforeReplace(albumId, slot, album, totalPages);
+
+            const trackReplacement = (placed) => {
+                if (placed && before) {
+                    trackSpreadImageReplacement(albumId, slot, itemId, {
+                        album,
+                        totalPages,
+                        previousItemId: before.previousItemId,
+                        previousUrl: before.previousUrl,
+                    });
+                }
+                return placed;
+            };
+
             if (
                 albumHasCoverSpreads(album) &&
                 (slot.pageNum === 0 ||
@@ -907,10 +930,10 @@ export default function AlbumEditor({
                     }
                     markCollectionItemAsCoverWrap(albumId, itemId);
                 }
-                return placed;
+                return trackReplacement(placed);
             }
             if (slot.pageNum === 0) {
-                return setPagePhotoFromCollectionItem(albumId, 0, itemId);
+                return trackReplacement(setPagePhotoFromCollectionItem(albumId, 0, itemId));
             }
             const left = slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
             const useWholeSpread =
@@ -918,15 +941,19 @@ export default function AlbumEditor({
                 isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
             if (useWholeSpread) {
                 const right = getSpreadRightPageIndex(left, totalPages);
-                return setSpreadPhotoFromCollectionItem(albumId, left, itemId, right, {
-                    totalPages,
-                    spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
-                });
+                return trackReplacement(
+                    setSpreadPhotoFromCollectionItem(albumId, left, itemId, right, {
+                        totalPages,
+                        spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
+                    })
+                );
             }
             if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
-                return setPagePhotoFromCollectionItem(albumId, left, itemId, {
-                    clearSpreadForLeft: left,
-                });
+                return trackReplacement(
+                    setPagePhotoFromCollectionItem(albumId, left, itemId, {
+                        clearSpreadForLeft: left,
+                    })
+                );
             }
             const photoIndex = getProofCellPhotoIndex(
                 slot.pageNum,
@@ -934,9 +961,11 @@ export default function AlbumEditor({
                 totalPages,
                 spreadCtx
             );
-            return setPagePhotoFromCollectionItem(albumId, photoIndex, itemId, {
-                clearSpreadForLeft: left,
-            });
+            return trackReplacement(
+                setPagePhotoFromCollectionItem(albumId, photoIndex, itemId, {
+                    clearSpreadForLeft: left,
+                })
+            );
         },
         [album, albumId, totalPages, spreadCtx, spreadOpts]
     );
@@ -1047,6 +1076,12 @@ export default function AlbumEditor({
                         slot.label === 'Cover' ||
                         slot.label === 'Back cover' ||
                         slot.label === 'End cover');
+                const before = captureSlotImageBeforeReplace(
+                    albumId,
+                    slot,
+                    album,
+                    totalPages
+                );
                 const replacementItem = await resolveSpreadReplacementItem(files, slot, {
                     coverWrap: isCoverSlot,
                 });
@@ -1054,7 +1089,7 @@ export default function AlbumEditor({
                     showToast('No supported images in that file.', { variant: 'error', duration: 4000 });
                     return;
                 }
-                if (placeCollectionItemOnSlot(slot, replacementItem.id)) {
+                if (placeCollectionItemOnSlot(slot, replacementItem.id, before)) {
                     scheduleWorkspaceRefresh();
                     showToast('Photo updated.', { variant: 'success', duration: 3500 });
                 } else {
@@ -1193,6 +1228,29 @@ export default function AlbumEditor({
             const item = getCollectionItem(albumId, itemId);
             if (!item || (!item.dataUrl && !item.storagePath) || !gridSelection) return false;
 
+            const slot = slotFromCurrentSpread(
+                gridSelection,
+                gridEditSet,
+                bookPage,
+                totalPages,
+                spreadOpts,
+                album
+            );
+            const before = slot
+                ? captureSlotImageBeforeReplace(albumId, slot, album, totalPages)
+                : null;
+            const finish = (placed) => {
+                if (placed && slot && before) {
+                    trackSpreadImageReplacement(albumId, slot, itemId, {
+                        album,
+                        totalPages,
+                        previousItemId: before.previousItemId,
+                        previousUrl: before.previousUrl,
+                    });
+                }
+                return placed;
+            };
+
             if (albumHasCoverSpreads(album) && gridSelection.mode === 'cover') {
                 const right = Math.min(1, totalPages - 1);
                 const placed = setSpreadPhotoFromCollectionItem(albumId, 0, itemId, right, {
@@ -1205,7 +1263,7 @@ export default function AlbumEditor({
                     }
                     markCollectionItemAsCoverWrap(albumId, itemId);
                 }
-                return placed;
+                return finish(placed);
             }
 
             const left = gridSelection.leftPage;
@@ -1217,9 +1275,11 @@ export default function AlbumEditor({
                 !isWholeSpreadLayout(album?.grid_layout)
             ) {
                 const { left: endLeft } = getEndSpreadPageIndices(totalPages);
-                return setPagePhotoFromCollectionItem(albumId, endLeft, item.id, {
-                    clearSpreadForLeft: endLeft,
-                });
+                return finish(
+                    setPagePhotoFromCollectionItem(albumId, endLeft, item.id, {
+                        clearSpreadForLeft: endLeft,
+                    })
+                );
             }
 
             const wantsWholeSpread =
@@ -1230,43 +1290,57 @@ export default function AlbumEditor({
             if (wantsWholeSpread) {
                 const isWholeAlbum = isWholeSpreadLayout(album?.grid_layout);
                 if (!isWholeAlbum && endHalfLeft) {
-                    return setPagePhotoFromCollectionItem(albumId, left, item.id, {
-                        clearSpreadForLeft: left,
-                    });
+                    return finish(
+                        setPagePhotoFromCollectionItem(albumId, left, item.id, {
+                            clearSpreadForLeft: left,
+                        })
+                    );
                 }
                 if (!isWholeAlbum && isInsideCoverSpreadLeft(left, totalPages)) {
-                    return setPagePhotoFromCollectionItem(albumId, 2, item.id, {
-                        clearSpreadForLeft: left,
-                    });
+                    return finish(
+                        setPagePhotoFromCollectionItem(albumId, 2, item.id, {
+                            clearSpreadForLeft: left,
+                        })
+                    );
                 }
                 if (isWholeAlbum && albumHasBlankCovers(album)) {
                     if (isInsideCoverSpreadLeft(left, totalPages, spreadOpts)) {
-                        return setPagePhotoFromCollectionItem(albumId, 3, item.id, {
-                            clearSpreadForLeft: left,
-                        });
+                        return finish(
+                            setPagePhotoFromCollectionItem(albumId, 3, item.id, {
+                                clearSpreadForLeft: left,
+                            })
+                        );
                     }
                     if (isPreBackHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
-                        return setPagePhotoFromCollectionItem(albumId, left, item.id, {
-                            clearSpreadForLeft: left,
-                        });
+                        return finish(
+                            setPagePhotoFromCollectionItem(albumId, left, item.id, {
+                                clearSpreadForLeft: left,
+                            })
+                        );
                     }
                 }
-                const right = getSpreadRightPageIndex(left, totalPages);
-                return setSpreadPhotoFromCollectionItem(albumId, left, item.id, right, {
-                    totalPages,
-                    spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
-                });
+                return placeCollectionItemOnSlot(slot, itemId);
             }
 
             const targets = placementTargets;
             if (!targets.length) return false;
-            return (
+            return finish(
                 placeCollectionItemOnPages(albumId, item.id, targets, {
                     spreadLeftPage: gridSelection.leftPage,
                 }) > 0
             );
         },
-        [albumId, album, gridSelection, gridEditSet, placementTargets, totalPages, spreadOpts]
+        [
+            albumId,
+            album,
+            bookPage,
+            gridSelection,
+            gridEditSet,
+            placementTargets,
+            placeCollectionItemOnSlot,
+            totalPages,
+            spreadOpts,
+        ]
     );
 
     const handleUploadToCollection = async (files) => {
@@ -1334,6 +1408,12 @@ export default function AlbumEditor({
             try {
                 const isCoverSlot =
                     albumHasCoverSpreads(album) && gridSelection?.mode === 'cover';
+                const before = captureSlotImageBeforeReplace(
+                    albumId,
+                    slot,
+                    album,
+                    totalPages
+                );
                 const replacementItem = await resolveSpreadReplacementItem(files, slot, {
                     coverWrap: isCoverSlot,
                 });
@@ -1344,7 +1424,7 @@ export default function AlbumEditor({
                     });
                     return;
                 }
-                if (placeCollectionItemOnSlot(slot, replacementItem.id)) {
+                if (placeCollectionItemOnSlot(slot, replacementItem.id, before)) {
                     setCollectionRevision(getAlbumCollectionRevision(albumId));
                     scheduleWorkspaceRefresh();
                     showToast('Photo updated on current spread.', {
@@ -1604,6 +1684,8 @@ export default function AlbumEditor({
         ]
     );
     const showGridComments = activePanel === 'comments';
+    const loadProofSpreadComments =
+        activePanel === 'pin' || activePanel === 'comments';
     const loadSpreadComments = useCallback(async () => {
         if (!albumId) return;
         try {
@@ -1615,9 +1697,9 @@ export default function AlbumEditor({
     }, [albumId]);
 
     useEffect(() => {
-        if (!showGridComments) return;
+        if (!loadProofSpreadComments || !albumId) return;
         loadSpreadComments();
-    }, [showGridComments, loadSpreadComments]);
+    }, [loadProofSpreadComments, albumId, loadSpreadComments]);
 
     useEffect(() => {
         if (!showGridComments || !albumId) return undefined;
@@ -1849,6 +1931,7 @@ export default function AlbumEditor({
                     onRemovePages={handleRemovePages}
                     swapMarks={swapMarks}
                     photoPins={photoPins}
+                    spreadCommentsBySpread={spreadCommentsBySpread}
                     albumId={albumId}
                     onNavigateToPin={handleNavigateToPin}
                     onNavigateToSwapSlotKey={handleNavigateToSwapSlotKey}

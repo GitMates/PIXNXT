@@ -235,6 +235,17 @@ export function countMeaningfulComments(comments) {
     return (comments || []).filter(hasCommentBody).length;
 }
 
+/** Root spread comments grouped by spread index (see groupRootCommentsBySpread). */
+export function countSpreadComments(spreadCommentsBySpread) {
+    return countMeaningfulComments(Object.values(spreadCommentsBySpread || {}).flat());
+}
+
+export function countUnseenSpreadComments(albumId, spreadCommentsBySpread) {
+    return Object.values(spreadCommentsBySpread || {})
+        .flat()
+        .filter((comment) => isCommentUnseen(albumId, comment)).length;
+}
+
 function mapRow(row) {
     return {
         id: row.id,

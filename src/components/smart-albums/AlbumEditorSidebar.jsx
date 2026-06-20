@@ -3,6 +3,11 @@ import { filesFromInput } from '../../lib/uploadFileOrder';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
 import { countUnseenPhotoPins } from './albumPhotoPins';
 import { countUnseenSwapMarks } from './albumSwapMarks';
+import {
+    countSpreadComments,
+    countUnseenSpreadComments,
+} from '../../services/smartAlbumComments.service';
+import ProofPanelStats from './ProofPanelStats';
 import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
 import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { getCollectionItemDisplayUrl } from './albumCollection';
@@ -134,6 +139,7 @@ export default function AlbumEditorSidebar({
     commentsFeed = null,
     swapMarks = [],
     photoPins = [],
+    spreadCommentsBySpread = null,
     albumId = null,
     onNavigateToPin = null,
     onNavigateToSwapSlotKey = null,
@@ -146,6 +152,13 @@ export default function AlbumEditorSidebar({
     void proofSeenTick;
     const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
     const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
+    const unseenSpreadCommentCount = countUnseenSpreadComments(
+        albumId,
+        spreadCommentsBySpread
+    );
+    const totalSpreadCommentCount = countSpreadComments(spreadCommentsBySpread);
+    const totalCommentCount = photoPins.length + totalSpreadCommentCount;
+    const unresolvedCommentCount = unseenPinCount + unseenSpreadCommentCount;
     const navItems = NAV_BASE.filter(
         (item) => !item.requiresCovers || album?.has_covers === true
     );
@@ -208,14 +221,18 @@ export default function AlbumEditorSidebar({
                                 {unseenSwapCount > 0 ? unseenSwapCount : swapMarks.length}
                             </span>
                         )}
-                        {id === 'pin' && photoPins.length > 0 && (
+                        {id === 'pin' && totalCommentCount > 0 && (
                             <span
                                 className={`ae-nav-rail-badge ae-nav-rail-badge--pin${
-                                    unseenPinCount > 0 ? ' ae-nav-rail-badge--unseen' : ''
+                                    unresolvedCommentCount > 0
+                                        ? ' ae-nav-rail-badge--unseen'
+                                        : ''
                                 }`}
                                 aria-hidden
                             >
-                                {unseenPinCount > 0 ? unseenPinCount : photoPins.length}
+                                {unresolvedCommentCount > 0
+                                    ? unresolvedCommentCount
+                                    : totalCommentCount}
                             </span>
                         )}
                     </button>
@@ -237,6 +254,11 @@ export default function AlbumEditorSidebar({
                 {activePanel === 'swap' && (
                     <>
                         <h3 className="ae-panel-title">Swap</h3>
+                        <ProofPanelStats
+                            unresolved={unseenSwapCount}
+                            total={swapMarks.length}
+                            totalLabel="Total swaps"
+                        />
                         <p className="ae-panel-text">
                             Hover a photo on the spread and click Swap to mark two positions. Once
                             marked, the pair is locked until you unlock it here.
@@ -257,6 +279,11 @@ export default function AlbumEditorSidebar({
                 {activePanel === 'pin' && (
                     <>
                         <h3 className="ae-panel-title">Comment</h3>
+                        <ProofPanelStats
+                            unresolved={unresolvedCommentCount}
+                            total={totalCommentCount}
+                            totalLabel="Total comments"
+                        />
                         <p className="ae-panel-text">
                             Client photo comments appear here. To add comments, use the album preview
                             — open the Comment tab, then click a photo.
@@ -271,6 +298,9 @@ export default function AlbumEditorSidebar({
                             onNavigateToPin={onNavigateToPin}
                             seenTick={proofSeenTick}
                         />
+                        {commentsFeed ? (
+                            <div className="ae-panel-comments-feed">{commentsFeed}</div>
+                        ) : null}
                     </>
                 )}
 
