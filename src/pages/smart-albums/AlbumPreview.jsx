@@ -7,7 +7,6 @@ import {
     getTotalSpreads,
     isWholeSpreadLayout,
     getAlbumSpreadOptions,
-    formatSpreadDisplayLabel,
 } from '../../components/smart-albums/albumSpreadUtils';
 import { getSlotLabel } from '../../components/smart-albums/albumSwapMarks';
 import {
@@ -22,7 +21,6 @@ import {
 } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
-    countMeaningfulComments,
     groupRootCommentsBySpread,
     isGuestCommentUnseen,
     markGuestCommentsSeen,
@@ -30,7 +28,7 @@ import {
 } from '../../services/smartAlbumComments.service';
 import AlbumPreviewProofActions from '../../components/smart-albums/AlbumPreviewProofActions';
 import AlbumPreviewSpreadFeed from '../../components/smart-albums/AlbumPreviewSpreadFeed';
-import { buildSpreadFeedbackFeed, feedItemSortTime } from '../../components/smart-albums/spreadFeedbackFeed';
+import { buildSpreadFeedbackFeed } from '../../components/smart-albums/spreadFeedbackFeed';
 import ProofPanelStats from '../../components/smart-albums/ProofPanelStats';
 import { galleryService } from '../../services/gallery.service';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
@@ -308,13 +306,6 @@ export default function AlbumPreview({
                 ),
         [photoPins, totalPages, album, spreadOpts]
     );
-    const albumCommentCount = useMemo(
-        () =>
-            countMeaningfulComments(
-                Object.values(spreadCommentsBySpread || {}).flat()
-            ),
-        [spreadCommentsBySpread]
-    );
     const photographerMessages = useMemo(
         () =>
             Object.values(spreadCommentsBySpread || {})
@@ -329,13 +320,8 @@ export default function AlbumPreview({
         ? photographerMessages.filter((c) => isGuestCommentUnseen(albumId, c)).length
         : 0;
     const swapMarksCount = swapMarks.length;
-    const imageReplacementCount = imageReplacements.length;
     const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
     const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
-    const visibleCommentCount =
-        albumCommentCount +
-        photoCommentItems.length +
-        (messagesEnabled ? swapMarksCount : 0);
     const previewFeedbackCount =
         photoCommentItems.length +
         (clientPreview ? photographerMessages.length : 0) +
@@ -416,63 +402,22 @@ export default function AlbumPreview({
         visiblePhotographerMessages.filter((c) => isGuestCommentUnseen(albumId, c)).length +
         (messagesEnabled ? countUnseenSwapMarks(albumId, visibleSwapItems) : 0);
 
-    const reviewSummaryBySpread = useMemo(() => {
-        const spreadSet = new Set();
-        imageReplacements.forEach((replacement) =>
-            spreadSet.add(Number(replacement.spreadIndex ?? 0))
-        );
-        photoCommentItems.forEach((pin) => spreadSet.add(pin.spreadIndex));
-        if (clientPreview) {
-            photographerMessages.forEach((comment) => spreadSet.add(comment.spread_index));
-        }
-        if (messagesEnabled) {
-            swapItems.forEach((item) => {
-                spreadSet.add(item.spreadA);
-                spreadSet.add(item.spreadB);
-            });
-        }
+    const visibleImageReplacements = useMemo(
+        () =>
+            imageReplacements
+                .filter((replacement) => replacement.spreadIndex === spreadIndex)
+                .sort(
+                    (a, b) =>
+                        new Date(a.createdAt || 0).getTime() -
+                        new Date(b.createdAt || 0).getTime()
+                ),
+        [imageReplacements, spreadIndex]
+    );
 
-        return [...spreadSet]
-            .sort((a, b) => a - b)
-            .map((spreadIdx) => {
-                const replacements = imageReplacements
-                    .filter((replacement) => (replacement.spreadIndex ?? 0) === spreadIdx)
-                    .sort(
-                        (a, b) =>
-                            feedItemSortTime(a.createdAt) - feedItemSortTime(b.createdAt)
-                    );
-                const feed = buildSpreadFeedbackFeed({
-                    photographerMessages: clientPreview
-                        ? photographerMessages.filter(
-                              (comment) => comment.spread_index === spreadIdx
-                          )
-                        : [],
-                    photoPins: photoCommentItems.filter((pin) => pin.spreadIndex === spreadIdx),
-                    swapMarks: messagesEnabled
-                        ? swapItems.filter(
-                              (item) =>
-                                  item.spreadA === spreadIdx || item.spreadB === spreadIdx
-                          )
-                        : [],
-                    includeSwaps: messagesEnabled,
-                });
-                return {
-                    spreadIndex: spreadIdx,
-                    spreadLabel: formatSpreadDisplayLabel(spreadIdx, spreadOpts),
-                    feed,
-                    replacements,
-                };
-            })
-            .filter((group) => group.feed.length > 0 || group.replacements.length > 0);
-    }, [
-        imageReplacements,
-        photoCommentItems,
-        photographerMessages,
-        swapItems,
-        clientPreview,
-        messagesEnabled,
-        spreadOpts,
-    ]);
+    const spreadReviewCommentCount =
+        visiblePhotoCommentItems.length + visiblePhotographerMessages.length;
+    const spreadReviewSwapCount = messagesEnabled ? visibleSwapItems.length : 0;
+    const spreadReviewReplacementCount = visibleImageReplacements.length;
 
     const handleSidebarTab = useCallback((tab) => {
         setSidebarTab(tab);
@@ -668,180 +613,137 @@ export default function AlbumPreview({
                                     <div className="av-preview-sidebar-scroll av-preview-sidebar-scroll--summary">
                                         <h3 className="ae-panel-title">Review Summary</h3>
                                         <p className="av-preview-summary-meta">
-                                            <span>{visibleCommentCount} comment{visibleCommentCount === 1 ? '' : 's'}</span>
-                                            <span className="av-preview-summary-meta-dot" aria-hidden>·</span>
-                                            <span>{swapMarksCount} swap{swapMarksCount === 1 ? '' : 's'}</span>
-                                            <span className="av-preview-summary-meta-dot" aria-hidden>·</span>
-                                            <span>{imageReplacementCount} photo change{imageReplacementCount === 1 ? '' : 's'}</span>
+                                            <span>
+                                                {spreadReviewCommentCount} comment
+                                                {spreadReviewCommentCount === 1 ? '' : 's'}
+                                            </span>
+                                            <span className="av-preview-summary-meta-dot" aria-hidden>
+                                                ·
+                                            </span>
+                                            <span>
+                                                {spreadReviewSwapCount} swap
+                                                {spreadReviewSwapCount === 1 ? '' : 's'}
+                                            </span>
+                                            <span className="av-preview-summary-meta-dot" aria-hidden>
+                                                ·
+                                            </span>
+                                            <span>
+                                                {spreadReviewReplacementCount} photo change
+                                                {spreadReviewReplacementCount === 1 ? '' : 's'}
+                                            </span>
                                         </p>
-                                        {reviewSummaryBySpread.length === 0 ? (
+                                        {spreadReviewReplacementCount === 0 ? (
                                             <p className="av-preview-sidebar-empty">
-                                                No comments, swap requests, or photo changes yet.
+                                                No photo changes on this spread yet. When your
+                                                photographer updates an image here, the before and
+                                                after photos appear below.
                                             </p>
                                         ) : (
-                                            reviewSummaryBySpread.map((group) => (
-                                                <section
-                                                    key={group.spreadIndex}
-                                                    className="av-preview-summary-spread"
-                                                >
-                                                    <button
-                                                        type="button"
-                                                        className="av-preview-summary-spread-title"
-                                                        onClick={() =>
-                                                            jumpToSpread(group.spreadIndex)
-                                                        }
+                                            visibleImageReplacements.map((replacement) => {
+                                                const createdAtLabel = replacement.createdAt
+                                                    ? new Date(
+                                                          replacement.createdAt
+                                                      ).toLocaleString()
+                                                    : null;
+                                                return (
+                                                    <article
+                                                        key={replacement.id}
+                                                        className="av-preview-sidebar-replacement"
                                                     >
-                                                        {group.spreadLabel}
-                                                    </button>
-                                                    {group.feed.length > 0 ? (
-                                                        <div className="av-preview-summary-spread-feed">
-                                                            <AlbumPreviewSpreadFeed
-                                                                feed={group.feed}
+                                                        <button
+                                                            type="button"
+                                                            className="av-preview-sidebar-replacement-head"
+                                                            onClick={() =>
+                                                                jumpToSpread(
+                                                                    replacement.spreadIndex
+                                                                )
+                                                            }
+                                                        >
+                                                            <span className="av-preview-sidebar-replacement-label">
+                                                                {replacement.slotLabel}
+                                                            </span>
+                                                            <span className="av-preview-sidebar-replacement-go">
+                                                                View spread
+                                                                <svg
+                                                                    width="14"
+                                                                    height="14"
+                                                                    viewBox="0 0 24 24"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="2"
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    aria-hidden
+                                                                >
+                                                                    <polyline points="9 18 15 12 9 6" />
+                                                                </svg>
+                                                            </span>
+                                                        </button>
+                                                        <div className="av-preview-sidebar-replacement-pair">
+                                                            <ReplacementPreviewImage
                                                                 albumId={albumId}
-                                                                businessName={businessName}
-                                                                spreadOpts={spreadOpts}
-                                                                editingPinId={editingPinId}
-                                                                editingPinMessage={editingPinMessage}
-                                                                onEditPinStart={(pin) => {
-                                                                    setEditingPinId(pin.id);
-                                                                    setEditingPinMessage(
-                                                                        pin.message
-                                                                    );
-                                                                }}
-                                                                onEditPinCancel={() => {
-                                                                    setEditingPinId(null);
-                                                                    setEditingPinMessage('');
-                                                                }}
-                                                                onEditPinMessageChange={
-                                                                    setEditingPinMessage
-                                                                }
-                                                                onEditPinSave={() => {
-                                                                    setEditingPinId(null);
-                                                                    setEditingPinMessage('');
-                                                                }}
-                                                                onJumpToSpread={jumpToSpread}
-                                                                onRemoveSwap={(id) =>
-                                                                    removeSwapMark(albumId, id)
-                                                                }
+                                                                url={replacement.previousUrl}
+                                                                itemId={replacement.previousItemId}
+                                                                alt="Before photo change"
+                                                                variant="before"
+                                                                tagLabel="Before"
+                                                            />
+                                                            <div
+                                                                className="av-preview-sidebar-replacement-arrow"
+                                                                aria-hidden
+                                                            >
+                                                                <svg
+                                                                    width="16"
+                                                                    height="16"
+                                                                    viewBox="0 0 24 24"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="2"
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                >
+                                                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                                                    <polyline points="12 5 19 12 12 19" />
+                                                                </svg>
+                                                            </div>
+                                                            <ReplacementPreviewImage
+                                                                albumId={albumId}
+                                                                url={replacement.newUrl}
+                                                                itemId={replacement.newItemId}
+                                                                alt="Updated photo"
+                                                                variant="now"
+                                                                tagLabel="Now"
                                                             />
                                                         </div>
-                                                    ) : null}
-                                                    {group.replacements.map((replacement) => {
-                                                        const createdAtLabel = replacement.createdAt
-                                                            ? new Date(
-                                                                  replacement.createdAt
-                                                              ).toLocaleString()
-                                                            : null;
-                                                        return (
-                                                            <article
-                                                                key={replacement.id}
-                                                                className="av-preview-sidebar-replacement"
-                                                            >
-                                                                <button
-                                                                    type="button"
-                                                                    className="av-preview-sidebar-replacement-head"
-                                                                    onClick={() =>
-                                                                        jumpToSpread(
-                                                                            replacement.spreadIndex
-                                                                        )
-                                                                    }
+                                                        <div className="av-preview-sidebar-replacement-footer">
+                                                            {createdAtLabel ? (
+                                                                <time
+                                                                    className="av-preview-sidebar-replacement-time"
+                                                                    dateTime={replacement.createdAt}
                                                                 >
-                                                                    <span className="av-preview-sidebar-replacement-label">
-                                                                        {replacement.slotLabel}
-                                                                    </span>
-                                                                    <span className="av-preview-sidebar-replacement-go">
-                                                                        View spread
-                                                                        <svg
-                                                                            width="14"
-                                                                            height="14"
-                                                                            viewBox="0 0 24 24"
-                                                                            fill="none"
-                                                                            stroke="currentColor"
-                                                                            strokeWidth="2"
-                                                                            strokeLinecap="round"
-                                                                            strokeLinejoin="round"
-                                                                            aria-hidden
-                                                                        >
-                                                                            <polyline points="9 18 15 12 9 6" />
-                                                                        </svg>
-                                                                    </span>
-                                                                </button>
-                                                                <div className="av-preview-sidebar-replacement-pair">
-                                                                    <ReplacementPreviewImage
-                                                                        albumId={albumId}
-                                                                        url={replacement.previousUrl}
-                                                                        itemId={
-                                                                            replacement.previousItemId
-                                                                        }
-                                                                        alt="Before photo change"
-                                                                        variant="before"
-                                                                        tagLabel="Before"
-                                                                    />
-                                                                    <div
-                                                                        className="av-preview-sidebar-replacement-arrow"
-                                                                        aria-hidden
-                                                                    >
-                                                                        <svg
-                                                                            width="16"
-                                                                            height="16"
-                                                                            viewBox="0 0 24 24"
-                                                                            fill="none"
-                                                                            stroke="currentColor"
-                                                                            strokeWidth="2"
-                                                                            strokeLinecap="round"
-                                                                            strokeLinejoin="round"
-                                                                        >
-                                                                            <line
-                                                                                x1="5"
-                                                                                y1="12"
-                                                                                x2="19"
-                                                                                y2="12"
-                                                                            />
-                                                                            <polyline points="12 5 19 12 12 19" />
-                                                                        </svg>
-                                                                    </div>
-                                                                    <ReplacementPreviewImage
-                                                                        albumId={albumId}
-                                                                        url={replacement.newUrl}
-                                                                        itemId={replacement.newItemId}
-                                                                        alt="Updated photo"
-                                                                        variant="now"
-                                                                        tagLabel="Now"
-                                                                    />
-                                                                </div>
-                                                                <div className="av-preview-sidebar-replacement-footer">
-                                                                    {createdAtLabel ? (
-                                                                        <time
-                                                                            className="av-preview-sidebar-replacement-time"
-                                                                            dateTime={
-                                                                                replacement.createdAt
-                                                                            }
-                                                                        >
-                                                                            {createdAtLabel}
-                                                                        </time>
-                                                                    ) : (
-                                                                        <span
-                                                                            className="av-preview-sidebar-replacement-time"
-                                                                            aria-hidden
-                                                                        />
-                                                                    )}
-                                                                    <button
-                                                                        type="button"
-                                                                        className="av-preview-sidebar-replacement-remove"
-                                                                        onClick={() =>
-                                                                            handleRemoveImageReplacement(
-                                                                                replacement.id
-                                                                            )
-                                                                        }
-                                                                    >
-                                                                        Remove
-                                                                    </button>
-                                                                </div>
-                                                            </article>
-                                                        );
-                                                    })}
-                                                </section>
-                                            ))
+                                                                    {createdAtLabel}
+                                                                </time>
+                                                            ) : (
+                                                                <span
+                                                                    className="av-preview-sidebar-replacement-time"
+                                                                    aria-hidden
+                                                                />
+                                                            )}
+                                                            <button
+                                                                type="button"
+                                                                className="av-preview-sidebar-replacement-remove"
+                                                                onClick={() =>
+                                                                    handleRemoveImageReplacement(
+                                                                        replacement.id
+                                                                    )
+                                                                }
+                                                            >
+                                                                Remove
+                                                            </button>
+                                                        </div>
+                                                    </article>
+                                                );
+                                            })
                                         )}
                                     </div>
                                 )}

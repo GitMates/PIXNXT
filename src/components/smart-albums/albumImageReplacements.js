@@ -166,7 +166,7 @@ function buildReplacementRecord(albumId, slot, newItemId, { album, totalPages, p
         id: `repl-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
         slotKey: makeSlotKey(slot.pageNum, slot.cellId ?? 0),
         slotLabel,
-        spreadIndex: pageToSpreadIndex(slot.pageNum, { showCover: true, totalPages }),
+        spreadIndex: pageToSpreadIndex(spreadLeft, { ...spreadOpts, totalPages }),
         pageNum: slot.pageNum,
         cellId: slot.cellId ?? 0,
         whole,
