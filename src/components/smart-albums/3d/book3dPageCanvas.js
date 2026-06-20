@@ -252,6 +252,73 @@ function blankTex() {
     return sharedBlank;
 }
 
+const BLANK_COVER_BG = '#ffffff';
+const BLANK_COVER_TEXT = '#374151';
+
+function blankCoverTitleCacheKey(title, panelAspect) {
+    return `blank-title:${title}:${panelAspect}`;
+}
+
+function drawBlankCoverTitle(ctx, text, texW, texH) {
+    const upper = text.toUpperCase();
+    const maxWidth = texW * 0.82;
+    let fontSize = Math.min(texW * 0.14, texH * 0.12, 72);
+    while (fontSize > 14) {
+        ctx.font = `600 ${fontSize}px Georgia, "Times New Roman", serif`;
+        if (ctx.measureText(upper).width <= maxWidth) break;
+        fontSize -= 2;
+    }
+    ctx.fillStyle = BLANK_COVER_TEXT;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(upper, texW / 2, texH / 2);
+}
+
+/** White front panel + centered album title — matches 2D blank cover edit view. */
+export function createBlankCoverTitleTexture(title, panelAspect = 1) {
+    const trimmed = String(title || '').trim();
+    if (!trimmed) return null;
+
+    const aspect = panelAspect > 0 ? panelAspect : 1;
+    const key = blankCoverTitleCacheKey(trimmed, aspect);
+    const cached = textureCache.get(key);
+    if (cached) return cached;
+
+    const texW = TEX_W;
+    const texH = Math.round(texW / aspect) || TEX_W;
+    const canvas = document.createElement('canvas');
+    canvas.width = texW;
+    canvas.height = texH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = BLANK_COVER_BG;
+    ctx.fillRect(0, 0, texW, texH);
+    drawBlankCoverTitle(ctx, trimmed, texW, texH);
+
+    const tex = makeCanvasTexture(canvas);
+    tex.__pixnxtLoaded = true;
+    textureCache.set(key, tex);
+    return tex;
+}
+
+export function useBlankCoverTitleTexture(title, panelAspect) {
+    const invalidate = useThree((state) => state.invalidate);
+    const [texture, setTexture] = useState(() => blankTex());
+
+    useEffect(() => {
+        const trimmed = String(title || '').trim();
+        if (!trimmed || !(panelAspect > 0)) {
+            setTexture(blankTex());
+            return undefined;
+        }
+        const tex = createBlankCoverTitleTexture(trimmed, panelAspect) || blankTex();
+        setTexture(tex);
+        invalidate();
+        return undefined;
+    }, [title, panelAspect, invalidate]);
+
+    return texture;
+}
+
 export function getPageCanvasTexture(slot, pageAspect, { mirror = false, transform = null } = {}) {
     if (!slot?.src) return null;
     const key = cacheKey(
