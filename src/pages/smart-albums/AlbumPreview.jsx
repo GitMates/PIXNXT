@@ -140,7 +140,6 @@ export default function AlbumPreview({
     const { user } = useAuth();
     const { toast, showToast, clearToast } = useAppToast(4500);
     const [bookPage, setBookPage] = useState(initialPage);
-    const [is3D, setIs3D] = useState(true);
 
     useEffect(() => {
         setBookPage(initialPage);
@@ -425,15 +424,6 @@ export default function AlbumPreview({
                 </span>
                 <div className="av-preview-header-title-wrap">
                     <h1 className="av-preview-header-title">{album?.name || 'Album'}</h1>
-                    {albumForBook?.has_covers ? (
-                        <button
-                            type="button"
-                            className="av-preview-view-toggle"
-                            onClick={() => setIs3D(!is3D)}
-                        >
-                            {is3D ? 'Switch to 2D' : 'View in 3D'}
-                        </button>
-                    ) : null}
                 </div>
                 {clientPreview ? (
                     <AlbumPreviewProofActions
@@ -455,7 +445,7 @@ export default function AlbumPreview({
                 <div className="av-preview-main">
                 <div className="av-preview-book-section">
                     <div className="av-viewer-body av-viewer-body--preview-book">
-                        {is3D && albumForBook?.has_covers ? (
+                        {albumForBook?.has_covers ? (
                             <AlbumHybrid3DPreview
                                 album={albumForBook}
                                 totalPages={totalPages}

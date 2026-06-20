@@ -322,58 +322,62 @@ export default function AlbumEditorSidebar({
                                 )}
                             </p>
                         )}
-                        <div className="ae-spread-actions">
-                            <div className="ae-spread-actions-header">
-                                <span className="ae-spread-actions-title">Current spread actions</span>
-                            </div>
-                            <input
-                                ref={fileRef}
-                                type="file"
-                                accept="image/*,application/pdf,.pdf"
-                                className="ae-file-input"
-                                onChange={handleSpreadUpload}
-                            />
-                            <button
-                                type="button"
-                                className="ae-upload-zone ae-upload-zone--spread"
-                                disabled={uploading || !canSelectGrid}
-                                onClick={() => fileRef.current?.click()}
-                            >
-                                <svg
-                                    className="ae-upload-zone-icon"
-                                    width="22"
-                                    height="22"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.75"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    aria-hidden
-                                >
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                    <polyline points="17 8 12 3 7 8" />
-                                    <line x1="12" y1="3" x2="12" y2="15" />
-                                </svg>
-                                <span>
-                                    {uploading
-                                        ? 'Uploading…'
-                                        : 'Upload new photo for this spread'}
-                                </span>
-                                <span className="ae-upload-hint">
-                                    Replaces the photo on the spread you are viewing
-                                </span>
-                            </button>
-                        </div>
-                        {canSelectGrid && (
-                            <button
-                                type="button"
-                                className="ae-btn-picker"
-                                onClick={() => onOpenPicker?.()}
-                            >
-                                Choose photo for current slot
-                            </button>
-                        )}
+                        {gridSelection?.mode !== 'cover' ? (
+                            <>
+                                <div className="ae-spread-actions">
+                                    <div className="ae-spread-actions-header">
+                                        <span className="ae-spread-actions-title">Current spread actions</span>
+                                    </div>
+                                    <input
+                                        ref={fileRef}
+                                        type="file"
+                                        accept="image/*,application/pdf,.pdf"
+                                        className="ae-file-input"
+                                        onChange={handleSpreadUpload}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="ae-upload-zone ae-upload-zone--spread"
+                                        disabled={uploading || !canSelectGrid}
+                                        onClick={() => fileRef.current?.click()}
+                                    >
+                                        <svg
+                                            className="ae-upload-zone-icon"
+                                            width="22"
+                                            height="22"
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            strokeWidth="1.75"
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            aria-hidden
+                                        >
+                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                            <polyline points="17 8 12 3 7 8" />
+                                            <line x1="12" y1="3" x2="12" y2="15" />
+                                        </svg>
+                                        <span>
+                                            {uploading
+                                                ? 'Uploading…'
+                                                : 'Upload new photo for this spread'}
+                                        </span>
+                                        <span className="ae-upload-hint">
+                                            Replaces the photo on the spread you are viewing
+                                        </span>
+                                    </button>
+                                </div>
+                                {canSelectGrid ? (
+                                    <button
+                                        type="button"
+                                        className="ae-btn-picker"
+                                        onClick={() => onOpenPicker?.()}
+                                    >
+                                        Choose photo for current slot
+                                    </button>
+                                ) : null}
+                            </>
+                        ) : null}
                         <div className="ae-panel-status-row">
                             <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
                             <span
