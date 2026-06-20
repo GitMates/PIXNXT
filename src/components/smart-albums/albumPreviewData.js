@@ -102,6 +102,7 @@ export function buildAlbumPreviewSnapshot(albumId) {
         name: item.name || 'Photo',
         dataUrl: item.dataUrl || null,
         storagePath: item.storagePath || null,
+        size_bytes: Number(item.size_bytes) || 0,
         sortOrder:
             typeof item.sortOrder === 'number' && Number.isFinite(item.sortOrder)
                 ? item.sortOrder
@@ -122,6 +123,7 @@ export function buildAlbumPreviewSnapshot(albumId) {
         pages,
         revision: localPages.__revision ?? 0,
         image_replacements: serializeImageReplacementsForSnapshot(albumId),
+        storage_bytes: collection.reduce((sum, item) => sum + (Number(item.size_bytes) || 0), 0),
     };
     snapshot.cover_url = deriveCoverUrlFromSnapshot(snapshot);
     return snapshot;

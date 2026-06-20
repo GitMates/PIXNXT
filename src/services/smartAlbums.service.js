@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase/client';
 import { categoryTagsToDb } from '../lib/categoryTags';
-import { deleteAlbumCollectionAssets } from '../components/smart-albums/albumCollection';
+import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../components/smart-albums/albumCollection';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
 import { buildAlbumPreviewSnapshot, getAlbumIdsWithLocalAssets, hydrateAlbumPreviewData } from '../components/smart-albums/albumPreviewData';
@@ -193,6 +193,7 @@ function isMissingColumnError(error) {
     msg.includes('preview_data') ||
     msg.includes('grid_size') ||
     msg.includes('grid_layout') ||
+    msg.includes('storage_bytes') ||
 
     (msg.includes('column') && msg.includes('does not exist'))
 
@@ -242,6 +243,7 @@ const OPTIONAL_ALBUM_INSERT_COLUMNS = [
   'is_starred',
   'grid_layout',
   'grid_size',
+  'storage_bytes',
 ];
 
 /** List view only — omit heavy preview_data JSON blobs. */
@@ -266,6 +268,7 @@ const ALBUM_LIST_FIELDS = [
   'client_approved_by',
   'client_changes_submitted_at',
   'client_changes_submitted_by',
+  'storage_bytes',
 ].join(', ');
 
 function buildAlbumRowFromLocal(local, photographerId) {
@@ -553,6 +556,8 @@ function mapAlbumRow(row, photographerId) {
 
       starredFromOverride !== undefined ? starredFromOverride : (withSettings.is_starred ?? false),
 
+    storage_bytes: Number(withSettings.storage_bytes) || 0,
+
   };
 
 }
@@ -638,6 +643,7 @@ async function syncLocalAlbumAssetsToSupabase(photographerId) {
     const { error } = await updateAlbumRowResilient(photographerId, albumId, {
       preview_data: previewData,
       cover_image_url: previewData.cover_url || null,
+      storage_bytes: getAlbumCollectionStorageBytes(albumId),
     });
 
     if (error) {
@@ -710,9 +716,19 @@ function findLocalAlbum(photographerId, albumId) {
 
 
 
+function enrichAlbumStorageBytes(album) {
+  if (!album?.id) return album;
+  const localBytes = getAlbumCollectionStorageBytes(album.id);
+  const remoteBytes = Number(album.storage_bytes) || 0;
+  return {
+    ...album,
+    storage_bytes: Math.max(localBytes, remoteBytes),
+  };
+}
+
 function mergeAlbumRows(remoteRows, photographerId) {
 
-  const remote = (remoteRows || []).map((r) => mapAlbumRow(r, photographerId));
+  const remote = (remoteRows || []).map((r) => enrichAlbumStorageBytes(mapAlbumRow(r, photographerId)));
 
   const remoteIds = new Set(remote.map((a) => a.id));
 
@@ -720,7 +736,7 @@ function mergeAlbumRows(remoteRows, photographerId) {
 
     .filter((a) => !remoteIds.has(a.id))
 
-    .map((r) => mapAlbumRow(r, photographerId));
+    .map((r) => enrichAlbumStorageBytes(mapAlbumRow(r, photographerId)));
 
   return [...localOnly, ...remote];
 

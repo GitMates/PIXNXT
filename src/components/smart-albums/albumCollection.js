@@ -316,6 +316,23 @@ export function getAlbumCollection(albumId) {
     return sortCollectionItems(Array.isArray(remote?.collection) ? remote.collection : []);
 }
 
+export function sumCollectionStorageBytes(items) {
+    return (items || []).reduce((sum, item) => sum + (Number(item?.size_bytes) || 0), 0);
+}
+
+/** Bytes stored for one album — local collection, else preview snapshot. */
+export function getAlbumCollectionStorageBytes(albumId) {
+    if (!albumId) return 0;
+    const localItems = readAll()[albumId]?.items;
+    if (Array.isArray(localItems) && localItems.length > 0) {
+        return sumCollectionStorageBytes(localItems);
+    }
+    const remote = getRemotePreviewData(albumId);
+    const remoteTotal = Number(remote?.storage_bytes);
+    if (Number.isFinite(remoteTotal) && remoteTotal > 0) return remoteTotal;
+    return sumCollectionStorageBytes(remote?.collection);
+}
+
 export function getAlbumCollectionRevision(albumId) {
     if (!albumId) return 0;
     const localRev = readAll()[albumId]?.__revision;
@@ -334,7 +351,7 @@ function displayNameFromStoragePath(storagePath) {
     return base.replace(/^\d+-\d+-/, '').replace(/\.[^.]+$/, '') || 'Photo';
 }
 
-function collectionItemFromR2Key(key, index) {
+function collectionItemFromR2Key(key, index, sizeBytes = 0) {
     const sortKey = storagePathSortKey(key);
     const sortOrder = sortKey ? sortKey[0] * 100000 + sortKey[1] : index;
     return {
@@ -344,6 +361,7 @@ function collectionItemFromR2Key(key, index) {
         storagePath: key,
         sortOrder,
         createdAt: sortOrder,
+        ...(sizeBytes > 0 ? { size_bytes: sizeBytes } : {}),
     };
 }
 
@@ -388,20 +406,20 @@ async function listR2CollectionItems(albumId, photographerId) {
     ]);
     const prefix = ['users', photographerFolder, 'smart-album', albumFolder, ''].join('/');
     try {
-        const keys = await storageService.listByPrefix(prefix);
-        return keys
-            .filter((key) => /\.(jpe?g|png|webp|gif)$/i.test(key))
+        const objects = await storageService.listByPrefix(prefix);
+        return objects
+            .filter(({ key }) => /\.(jpe?g|png|webp|gif)$/i.test(key))
             .sort((a, b) => {
-                const ka = storagePathSortKey(a);
-                const kb = storagePathSortKey(b);
+                const ka = storagePathSortKey(a.key);
+                const kb = storagePathSortKey(b.key);
                 if (ka && kb) {
                     const byBatch = ka[0] - kb[0];
                     if (byBatch !== 0) return byBatch;
                     return ka[1] - kb[1];
                 }
-                return a.localeCompare(b);
+                return a.key.localeCompare(b.key);
             })
-            .map((key, index) => collectionItemFromR2Key(key, index));
+            .map(({ key, size }, index) => collectionItemFromR2Key(key, index, size));
     } catch (error) {
         console.warn('Could not list R2 album collection:', error?.message || error);
         return [];
@@ -662,6 +680,10 @@ export async function addFilesToAlbumCollection(
                     nameKey: entry.nameKey,
                     sortOrder,
                     createdAt: batchUploadTs + entry.sortIndex,
+                    size_bytes:
+                        entry.kind === 'file'
+                            ? Number(entry.file?.size) || 0
+                            : 0,
                     ...(coverWrap ? { role: COVER_WRAP_ROLE } : {}),
                     ...(width > 0 && height > 0 ? { width, height } : {}),
                 };
@@ -797,6 +819,7 @@ export async function replaceCollectionItemFile(
             dataUrl: uploaded.url,
             storagePath: uploaded.path,
             contentHash: undefined,
+            size_bytes: Number(prepared?.size) || 0,
         };
         if (width > 0 && height > 0) {
             next.width = width;
@@ -873,6 +896,7 @@ export async function duplicateAlbumCollection(sourceAlbumId, targetAlbumId, pho
                 });
                 copied.dataUrl = uploaded.url;
                 copied.storagePath = uploaded.path;
+                copied.size_bytes = Number(item.size_bytes) || 0;
             } catch (error) {
                 console.warn(
                     'Could not re-upload collection item for duplicate:',

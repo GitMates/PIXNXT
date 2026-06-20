@@ -7,6 +7,7 @@ import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu
 import AlbumListCoverThumb from '../../components/smart-albums/AlbumListCoverThumb';
 import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
 import EditAlbumModal from '../../components/smart-albums/EditAlbumModal';
+import { formatStorageBytes } from '../../utils/formatStorageBytes';
 import '../ClientGallery.css';
 import './SmartAlbums.css';
 
@@ -509,6 +510,9 @@ const AlbumsList = ({ starredOnly = false }) => {
                                             <span className="cg-style-46">·</span>
                                             <span>{formatAlbumDate(album.event_date)}</span>
                                         </div>
+                                        <span className="cg-style-80" title="Storage used by this album">
+                                            {formatStorageBytes(album.storage_bytes)}
+                                        </span>
                                     </div>
                                 </div>
                             </div>
