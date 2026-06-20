@@ -1002,8 +1002,7 @@ const CreateAlbum = () => {
 
                         <section className="sa-create-card">
                             <div className="sa-section-heading">
-                                <span>Locked layout</span>
-                                <small>Cannot be changed after creation</small>
+                                <span>Upload Cover image</span>
                             </div>
 
                             <div className="cc-form-group">
@@ -1067,24 +1066,6 @@ const CreateAlbum = () => {
                                     </div>
                                 )}
                             </div>
-
-                            <p className="sa-field-note">
-                                Layout is locked after the album is created.
-                                    {(displayPhotoCount > 0 || hasCoverImage) && !analyzingUploads ? (
-                                    <>
-                                        {' '}
-                                        Detected grid:{' '}
-                                        {formatGridSizeLabelForLayout(
-                                            detectedGridSize,
-                                            gridLayoutForDetection,
-                                            { spreadGridSize: detectedSpreadGridSize }
-                                        )}
-                                        .
-                                    </>
-                                ) : (
-                                    <> Grid size is detected from your uploads.</>
-                                )}
-                            </p>
                         </section>
 
                         <section className="sa-create-card sa-create-card--upload">

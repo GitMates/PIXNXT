@@ -164,6 +164,12 @@ function CoverOpenPointerHandler({ onCoverOpen, orbitDragRef }) {
             if (event.button !== 0) return;
             pointerIdRef.current = event.pointerId;
             pointerStartRef.current = { x: event.clientX, y: event.clientY };
+            if (orbitDragRef) orbitDragRef.current = false;
+            try {
+                el.setPointerCapture(event.pointerId);
+            } catch {
+                /* ignore */
+            }
         };
 
         const onPointerUp = (event) => {
@@ -171,7 +177,12 @@ function CoverOpenPointerHandler({ onCoverOpen, orbitDragRef }) {
             if (pointerIdRef.current !== event.pointerId) return;
             const start = pointerStartRef.current;
             resetPointer();
-            if (!start || orbitDragRef.current) return;
+            try {
+                el.releasePointerCapture(event.pointerId);
+            } catch {
+                /* ignore */
+            }
+            if (!start) return;
 
             const dx = event.clientX - start.x;
             const dy = event.clientY - start.y;
@@ -193,11 +204,11 @@ function CoverOpenPointerHandler({ onCoverOpen, orbitDragRef }) {
             }
         };
 
-        el.addEventListener('pointerdown', onPointerDown);
+        el.addEventListener('pointerdown', onPointerDown, { capture: true });
         el.addEventListener('pointerup', onPointerUp);
         el.addEventListener('pointercancel', resetPointer);
         return () => {
-            el.removeEventListener('pointerdown', onPointerDown);
+            el.removeEventListener('pointerdown', onPointerDown, { capture: true });
             el.removeEventListener('pointerup', onPointerUp);
             el.removeEventListener('pointercancel', resetPointer);
         };
@@ -362,6 +373,7 @@ function BookArcballControls({ orbitDragRef, enabled = true }) {
             controls.enabled = true;
             returningRef.current = false;
             dragPathRef.current = [];
+            if (orbitDragRef) orbitDragRef.current = false;
         }
     });
 
@@ -393,7 +405,7 @@ export default function BookScene({
     const shadowY = -(bookHeight / 2 + 0.2);
 
     const handleCoverOpen = useCallback(() => {
-        if (orbitDragRef.current || !onCoverOpen) return;
+        if (!onCoverOpen) return;
         onCoverOpen();
     }, [onCoverOpen]);
 
@@ -404,9 +416,6 @@ export default function BookScene({
             }`}
             ref={sceneWrapRef}
         >
-            <p className="ab-book-scene-orbit-hint">
-                {onCoverOpen ? 'Click cover to open · Drag to rotate' : 'Drag to rotate'}
-            </p>
             <Canvas
                 shadows={{ enabled: true, type: THREE.PCFShadowMap }}
                 dpr={[1, 2]}

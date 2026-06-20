@@ -57,6 +57,12 @@ export default function AlbumHybrid3DPreview({
     const [coverShiftPx, setCoverShiftPx] = useState(null);
 
     useEffect(() => {
+        if (phase !== 'cover') return;
+        openingRef.current = false;
+        closingRef.current = false;
+    }, [phase]);
+
+    useEffect(() => {
         if (openingRef.current || closingRef.current) return;
         setPhase(onCover ? 'cover' : 'book');
     }, [onCover]);
