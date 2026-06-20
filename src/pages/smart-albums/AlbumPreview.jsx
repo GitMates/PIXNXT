@@ -6,6 +6,8 @@ import {
     spreadIndexToPage,
     getTotalSpreads,
     isWholeSpreadLayout,
+    getAlbumSpreadOptions,
+    formatSpreadDisplayLabel,
 } from '../../components/smart-albums/albumSpreadUtils';
 import { getSlotLabel } from '../../components/smart-albums/albumSwapMarks';
 import {
@@ -17,16 +19,19 @@ import {
 import {
     PHOTO_PINS_CHANGED_EVENT,
     getPhotoPins,
-    removePhotoPin,
-    updatePhotoPin,
 } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
     countMeaningfulComments,
     groupRootCommentsBySpread,
+    isGuestCommentUnseen,
+    markGuestCommentsSeen,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import AlbumPreviewProofActions from '../../components/smart-albums/AlbumPreviewProofActions';
+import AlbumPreviewSpreadFeed from '../../components/smart-albums/AlbumPreviewSpreadFeed';
+import { buildSpreadFeedbackFeed, feedItemSortTime } from '../../components/smart-albums/spreadFeedbackFeed';
+import ProofPanelStats from '../../components/smart-albums/ProofPanelStats';
 import { galleryService } from '../../services/gallery.service';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import { useAuth } from '../../hooks/useAuth';
@@ -158,11 +163,12 @@ export default function AlbumPreview({
     const isPhotographer = Boolean(
         !clientPreview && user?.id && album?.photographer_id === user.id
     );
+    const spreadOpts = useMemo(() => getAlbumSpreadOptions(album), [album]);
     const spreadIndex = useMemo(
-        () => pageToSpreadIndex(bookPage, { showCover: true, totalPages }),
-        [bookPage, totalPages]
+        () => pageToSpreadIndex(bookPage, { ...spreadOpts, totalPages }),
+        [bookPage, spreadOpts, totalPages]
     );
-    const spreadCount = getTotalSpreads(totalPages, { showCover: true });
+    const spreadCount = getTotalSpreads(totalPages, spreadOpts);
     const commentsEnabled = album?.comments_enabled !== false;
     const messagesEnabled = album?.messages_enabled !== false;
     const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
@@ -272,16 +278,12 @@ export default function AlbumPreview({
         [onPageChange]
     );
 
-    const spreadLabel =
-        spreadIndex <= 0
-            ? 'Cover'
-            : `Spread ${spreadIndex} of ${Math.max(0, spreadCount - 1)}`;
     const photoCommentItems = useMemo(
         () =>
             (photoPins || [])
                 .map((pin) => {
                     const pinSpreadIndex = pageToSpreadIndex(pin.pageNum, {
-                        showCover: true,
+                        ...spreadOpts,
                         totalPages,
                     });
                     const wholePin =
@@ -304,7 +306,7 @@ export default function AlbumPreview({
                         new Date(b.createdAt || 0).getTime() -
                         new Date(a.createdAt || 0).getTime()
                 ),
-        [photoPins, totalPages]
+        [photoPins, totalPages, album, spreadOpts]
     );
     const albumCommentCount = useMemo(
         () =>
@@ -313,6 +315,19 @@ export default function AlbumPreview({
             ),
         [spreadCommentsBySpread]
     );
+    const photographerMessages = useMemo(
+        () =>
+            Object.values(spreadCommentsBySpread || {})
+                .flat()
+                .filter(
+                    (c) =>
+                        c.author_type === 'photographer' && String(c.body || '').trim()
+                ),
+        [spreadCommentsBySpread]
+    );
+    const unseenPhotographerMessageCount = clientPreview
+        ? photographerMessages.filter((c) => isGuestCommentUnseen(albumId, c)).length
+        : 0;
     const swapMarksCount = swapMarks.length;
     const imageReplacementCount = imageReplacements.length;
     const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
@@ -322,17 +337,21 @@ export default function AlbumPreview({
         photoCommentItems.length +
         (messagesEnabled ? swapMarksCount : 0);
     const previewFeedbackCount =
-        photoCommentItems.length + (messagesEnabled ? swapMarksCount : 0);
+        photoCommentItems.length +
+        (clientPreview ? photographerMessages.length : 0) +
+        (messagesEnabled ? swapMarksCount : 0);
     const previewUnseenCount =
-        unseenPinCount + (messagesEnabled ? unseenSwapCount : 0);
+        unseenPinCount +
+        unseenPhotographerMessageCount +
+        (messagesEnabled ? unseenSwapCount : 0);
     const swapItems = useMemo(
         () =>
             (swapMarks || [])
                 .map((mark) => {
                     const slotA = parseSlotKey(mark.a);
                     const slotB = parseSlotKey(mark.b);
-                    const spreadA = pageToSpreadIndex(slotA.pageNum, { showCover: true, totalPages });
-                    const spreadB = pageToSpreadIndex(slotB.pageNum, { showCover: true, totalPages });
+                    const spreadA = pageToSpreadIndex(slotA.pageNum, { ...spreadOpts, totalPages });
+                    const spreadB = pageToSpreadIndex(slotB.pageNum, { ...spreadOpts, totalPages });
                     const wholeA =
                         (isWholeSpreadLayout(album?.grid_layout) && slotA.pageNum > 0) ||
                         /\b(Whole|Both)\b/i.test(mark.labelA || '');
@@ -352,23 +371,129 @@ export default function AlbumPreview({
                         new Date(b.createdAt || 0).getTime() -
                         new Date(a.createdAt || 0).getTime()
                 ),
-        [swapMarks, totalPages, album]
+        [swapMarks, totalPages, album, spreadOpts]
     );
+
+    const visiblePhotoCommentItems = useMemo(
+        () => photoCommentItems.filter((pin) => pin.spreadIndex === spreadIndex),
+        [photoCommentItems, spreadIndex]
+    );
+
+    const visibleSwapItems = useMemo(
+        () =>
+            swapItems.filter(
+                (item) => item.spreadA === spreadIndex || item.spreadB === spreadIndex
+            ),
+        [swapItems, spreadIndex]
+    );
+
+    const visiblePhotographerMessages = useMemo(() => {
+        const rows = spreadCommentsBySpread?.[spreadIndex] || [];
+        return rows.filter(
+            (c) => c.author_type === 'photographer' && String(c.body || '').trim()
+        );
+    }, [spreadCommentsBySpread, spreadIndex]);
+
+    const visibleSpreadFeed = useMemo(
+        () =>
+            buildSpreadFeedbackFeed({
+                photographerMessages: visiblePhotographerMessages,
+                photoPins: visiblePhotoCommentItems,
+                swapMarks: visibleSwapItems,
+                includeSwaps: messagesEnabled,
+            }),
+        [
+            visiblePhotographerMessages,
+            visiblePhotoCommentItems,
+            visibleSwapItems,
+            messagesEnabled,
+        ]
+    );
+
+    const spreadFeedbackCount = visibleSpreadFeed.length;
+    const spreadFeedbackUnresolved =
+        countUnseenPhotoPins(albumId, visiblePhotoCommentItems) +
+        visiblePhotographerMessages.filter((c) => isGuestCommentUnseen(albumId, c)).length +
+        (messagesEnabled ? countUnseenSwapMarks(albumId, visibleSwapItems) : 0);
+
+    const reviewSummaryBySpread = useMemo(() => {
+        const spreadSet = new Set();
+        imageReplacements.forEach((replacement) =>
+            spreadSet.add(Number(replacement.spreadIndex ?? 0))
+        );
+        photoCommentItems.forEach((pin) => spreadSet.add(pin.spreadIndex));
+        if (clientPreview) {
+            photographerMessages.forEach((comment) => spreadSet.add(comment.spread_index));
+        }
+        if (messagesEnabled) {
+            swapItems.forEach((item) => {
+                spreadSet.add(item.spreadA);
+                spreadSet.add(item.spreadB);
+            });
+        }
+
+        return [...spreadSet]
+            .sort((a, b) => a - b)
+            .map((spreadIdx) => {
+                const replacements = imageReplacements
+                    .filter((replacement) => (replacement.spreadIndex ?? 0) === spreadIdx)
+                    .sort(
+                        (a, b) =>
+                            feedItemSortTime(a.createdAt) - feedItemSortTime(b.createdAt)
+                    );
+                const feed = buildSpreadFeedbackFeed({
+                    photographerMessages: clientPreview
+                        ? photographerMessages.filter(
+                              (comment) => comment.spread_index === spreadIdx
+                          )
+                        : [],
+                    photoPins: photoCommentItems.filter((pin) => pin.spreadIndex === spreadIdx),
+                    swapMarks: messagesEnabled
+                        ? swapItems.filter(
+                              (item) =>
+                                  item.spreadA === spreadIdx || item.spreadB === spreadIdx
+                          )
+                        : [],
+                    includeSwaps: messagesEnabled,
+                });
+                return {
+                    spreadIndex: spreadIdx,
+                    spreadLabel: formatSpreadDisplayLabel(spreadIdx, spreadOpts),
+                    feed,
+                    replacements,
+                };
+            })
+            .filter((group) => group.feed.length > 0 || group.replacements.length > 0);
+    }, [
+        imageReplacements,
+        photoCommentItems,
+        photographerMessages,
+        swapItems,
+        clientPreview,
+        messagesEnabled,
+        spreadOpts,
+    ]);
 
     const handleSidebarTab = useCallback((tab) => {
         setSidebarTab(tab);
     }, []);
 
+    useEffect(() => {
+        if (!clientPreview || !albumId || sidebarTab !== 'comments') return;
+        if (!visiblePhotographerMessages.length) return;
+        markGuestCommentsSeen(albumId, visiblePhotographerMessages);
+    }, [clientPreview, albumId, sidebarTab, spreadIndex, visiblePhotographerMessages]);
+
     const jumpToSpread = useCallback(
         (targetSpreadIndex) => {
             const targetPage = spreadIndexToPage(targetSpreadIndex, {
-                showCover: true,
+                ...spreadOpts,
                 totalPages,
             });
             setBookPage(targetPage);
             onPageChange?.(targetPage);
         },
-        [onPageChange, totalPages]
+        [onPageChange, totalPages, spreadOpts]
     );
 
     const handleRemoveImageReplacement = useCallback(
@@ -499,187 +624,43 @@ export default function AlbumPreview({
                             {sidebarTab === 'comments' ? (
                                 <>
                                     <h3 className="ae-panel-title">Comment</h3>
-                                    <p className="ae-panel-text">
-                                        {visibleCommentCount} comment
-                                        {visibleCommentCount === 1 ? '' : 's'} in album
-                                    </p>
+                                    <ProofPanelStats
+                                        unresolved={spreadFeedbackUnresolved}
+                                        total={spreadFeedbackCount}
+                                        totalLabel="On this spread"
+                                        compact
+                                    />
                                     <div className="av-preview-sidebar-comments">
-                                            {photoCommentItems.length === 0 &&
-                                            (!messagesEnabled || swapItems.length === 0) ? (
+                                            {spreadFeedbackCount === 0 ? (
                                                 <p className="av-preview-sidebar-text">
-                                                    No photo comments or swap requests yet.
+                                                    No comments or swap requests on this spread yet.
                                                 </p>
                                             ) : (
-                                                <>
-                                                    {photoCommentItems.map((pin) => (
-                                                        <article
-                                                            key={pin.id}
-                                                            className="av-preview-sidebar-comment av-preview-sidebar-comment--pin"
-                                                        >
-                                                            {editingPinId === pin.id ? (
-                                                                <div className="av-preview-sidebar-comment-edit">
-                                                                    <p className="av-preview-sidebar-comment-author">
-                                                                        Photo comment · {pin.spreadLabel}
-                                                                    </p>
-                                                                    <textarea
-                                                                        className="av-preview-sidebar-comment-input"
-                                                                        value={editingPinMessage}
-                                                                        onChange={(e) =>
-                                                                            setEditingPinMessage(e.target.value)
-                                                                        }
-                                                                    />
-                                                                    <div className="av-preview-sidebar-comment-actions">
-                                                                        <button
-                                                                            type="button"
-                                                                            className="av-preview-sidebar-comment-action"
-                                                                            onClick={() => {
-                                                                                setEditingPinId(null);
-                                                                                setEditingPinMessage('');
-                                                                            }}
-                                                                        >
-                                                                            Cancel
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="av-preview-sidebar-comment-action av-preview-sidebar-comment-action--primary"
-                                                                            onClick={() => {
-                                                                                const updated = updatePhotoPin(
-                                                                                    albumId,
-                                                                                    pin.id,
-                                                                                    {
-                                                                                        message:
-                                                                                            editingPinMessage,
-                                                                                    }
-                                                                                );
-                                                                                if (updated) {
-                                                                                    setEditingPinId(null);
-                                                                                    setEditingPinMessage('');
-                                                                                }
-                                                                            }}
-                                                                        >
-                                                                            Save
-                                                                        </button>
-                                                                    </div>
-                                                                </div>
-                                                            ) : (
-                                                                <>
-                                                                    <button
-                                                                        type="button"
-                                                                        className="av-preview-sidebar-comment-link"
-                                                                        onClick={() => jumpToSpread(pin.spreadIndex)}
-                                                                    >
-                                                                        <p className="av-preview-sidebar-comment-author">
-                                                                            Photo comment · {pin.spreadLabel}
-                                                                        </p>
-                                                                    </button>
-                                                                    <div
-                                                                        className="av-preview-sidebar-comment-body"
-                                                                        role="button"
-                                                                        tabIndex={0}
-                                                                        onClick={() => jumpToSpread(pin.spreadIndex)}
-                                                                        onKeyDown={(e) => {
-                                                                            if (e.key === 'Enter' || e.key === ' ') {
-                                                                                e.preventDefault();
-                                                                                jumpToSpread(pin.spreadIndex);
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        {pin.message}
-                                                                    </div>
-                                                                    <div className="av-preview-sidebar-comment-actions">
-                                                                        <button
-                                                                            type="button"
-                                                                            className="av-preview-sidebar-comment-action"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                setEditingPinId(pin.id);
-                                                                                setEditingPinMessage(pin.message);
-                                                                            }}
-                                                                        >
-                                                                            Edit
-                                                                        </button>
-                                                                        <button
-                                                                            type="button"
-                                                                            className="av-preview-sidebar-comment-delete"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                removePhotoPin(albumId, pin.id);
-                                                                            }}
-                                                                        >
-                                                                            Delete
-                                                                        </button>
-                                                                    </div>
-                                                                </>
-                                                            )}
-                                                        </article>
-                                                    ))}
-                                                    {messagesEnabled
-                                                        ? swapItems.map((item) => {
-                                                              const createdAtLabel = item.createdAt
-                                                                  ? new Date(
-                                                                        item.createdAt
-                                                                    ).toLocaleString()
-                                                                  : null;
-                                                              return (
-                                                                  <article
-                                                                      key={item.id}
-                                                                      className="av-preview-sidebar-comment av-preview-sidebar-comment--swap"
-                                                                  >
-                                                                      <p className="av-preview-sidebar-comment-author">
-                                                                          Swap request
-                                                                      </p>
-                                                                      <div className="av-preview-sidebar-swap-route">
-                                                                          <button
-                                                                              type="button"
-                                                                              className="av-preview-sidebar-swap-chip"
-                                                                              onClick={() =>
-                                                                                  jumpToSpread(item.spreadA)
-                                                                              }
-                                                                          >
-                                                                              {item.labelA}
-                                                                          </button>
-                                                                          <span
-                                                                              className="av-preview-sidebar-swap-arrow"
-                                                                              aria-hidden
-                                                                          >
-                                                                              ↔
-                                                                          </span>
-                                                                          <button
-                                                                              type="button"
-                                                                              className="av-preview-sidebar-swap-chip"
-                                                                              onClick={() =>
-                                                                                  jumpToSpread(item.spreadB)
-                                                                              }
-                                                                          >
-                                                                              {item.labelB}
-                                                                          </button>
-                                                                      </div>
-                                                                      <div className="av-preview-sidebar-swap-footer">
-                                                                          {createdAtLabel ? (
-                                                                              <span className="av-preview-sidebar-swap-time">
-                                                                                  {createdAtLabel}
-                                                                              </span>
-                                                                          ) : (
-                                                                              <span
-                                                                                  className="av-preview-sidebar-swap-time"
-                                                                                  aria-hidden
-                                                                              />
-                                                                          )}
-                                                                          <button
-                                                                              type="button"
-                                                                              className="av-preview-sidebar-swap-remove"
-                                                                              onClick={() =>
-                                                                                  removeSwapMark(albumId, item.id)
-                                                                              }
-                                                                          >
-                                                                              Remove
-                                                                          </button>
-                                                                      </div>
-                                                                  </article>
-                                                              );
-                                                          })
-                                                        : null}
-                                                </>
+                                                <AlbumPreviewSpreadFeed
+                                                    feed={visibleSpreadFeed}
+                                                    albumId={albumId}
+                                                    businessName={businessName}
+                                                    spreadOpts={spreadOpts}
+                                                    editingPinId={editingPinId}
+                                                    editingPinMessage={editingPinMessage}
+                                                    onEditPinStart={(pin) => {
+                                                        setEditingPinId(pin.id);
+                                                        setEditingPinMessage(pin.message);
+                                                    }}
+                                                    onEditPinCancel={() => {
+                                                        setEditingPinId(null);
+                                                        setEditingPinMessage('');
+                                                    }}
+                                                    onEditPinMessageChange={setEditingPinMessage}
+                                                    onEditPinSave={() => {
+                                                        setEditingPinId(null);
+                                                        setEditingPinMessage('');
+                                                    }}
+                                                    onJumpToSpread={jumpToSpread}
+                                                    onRemoveSwap={(id) =>
+                                                        removeSwapMark(albumId, id)
+                                                    }
+                                                />
                                             )}
                                         </div>
                                     </>
@@ -693,118 +674,174 @@ export default function AlbumPreview({
                                             <span className="av-preview-summary-meta-dot" aria-hidden>·</span>
                                             <span>{imageReplacementCount} photo change{imageReplacementCount === 1 ? '' : 's'}</span>
                                         </p>
-                                        {imageReplacementCount === 0 ? (
+                                        {reviewSummaryBySpread.length === 0 ? (
                                             <p className="av-preview-sidebar-empty">
-                                                No photo changes yet. When your photographer
-                                                updates a spread image, the before and after
-                                                photos appear here.
+                                                No comments, swap requests, or photo changes yet.
                                             </p>
                                         ) : (
-                                            imageReplacements.map((replacement) => {
-                                                const createdAtLabel = replacement.createdAt
-                                                    ? new Date(
-                                                          replacement.createdAt
-                                                      ).toLocaleString()
-                                                    : null;
-                                                return (
-                                                    <article
-                                                        key={replacement.id}
-                                                        className="av-preview-sidebar-replacement"
+                                            reviewSummaryBySpread.map((group) => (
+                                                <section
+                                                    key={group.spreadIndex}
+                                                    className="av-preview-summary-spread"
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        className="av-preview-summary-spread-title"
+                                                        onClick={() =>
+                                                            jumpToSpread(group.spreadIndex)
+                                                        }
                                                     >
-                                                        <button
-                                                            type="button"
-                                                            className="av-preview-sidebar-replacement-head"
-                                                            onClick={() =>
-                                                                jumpToSpread(
-                                                                    replacement.spreadIndex
-                                                                )
-                                                            }
-                                                        >
-                                                            <span className="av-preview-sidebar-replacement-label">
-                                                                {replacement.slotLabel}
-                                                            </span>
-                                                            <span className="av-preview-sidebar-replacement-go">
-                                                                View spread
-                                                                <svg
-                                                                    width="14"
-                                                                    height="14"
-                                                                    viewBox="0 0 24 24"
-                                                                    fill="none"
-                                                                    stroke="currentColor"
-                                                                    strokeWidth="2"
-                                                                    strokeLinecap="round"
-                                                                    strokeLinejoin="round"
-                                                                    aria-hidden
-                                                                >
-                                                                    <polyline points="9 18 15 12 9 6" />
-                                                                </svg>
-                                                            </span>
-                                                        </button>
-                                                        <div className="av-preview-sidebar-replacement-pair">
-                                                            <ReplacementPreviewImage
+                                                        {group.spreadLabel}
+                                                    </button>
+                                                    {group.feed.length > 0 ? (
+                                                        <div className="av-preview-summary-spread-feed">
+                                                            <AlbumPreviewSpreadFeed
+                                                                feed={group.feed}
                                                                 albumId={albumId}
-                                                                url={replacement.previousUrl}
-                                                                itemId={replacement.previousItemId}
-                                                                alt="Before photo change"
-                                                                variant="before"
-                                                                tagLabel="Before"
-                                                            />
-                                                            <div
-                                                                className="av-preview-sidebar-replacement-arrow"
-                                                                aria-hidden
-                                                            >
-                                                                <svg
-                                                                    width="16"
-                                                                    height="16"
-                                                                    viewBox="0 0 24 24"
-                                                                    fill="none"
-                                                                    stroke="currentColor"
-                                                                    strokeWidth="2"
-                                                                    strokeLinecap="round"
-                                                                    strokeLinejoin="round"
-                                                                >
-                                                                    <line x1="5" y1="12" x2="19" y2="12" />
-                                                                    <polyline points="12 5 19 12 12 19" />
-                                                                </svg>
-                                                            </div>
-                                                            <ReplacementPreviewImage
-                                                                albumId={albumId}
-                                                                url={replacement.newUrl}
-                                                                itemId={replacement.newItemId}
-                                                                alt="Updated photo"
-                                                                variant="now"
-                                                                tagLabel="Now"
-                                                            />
-                                                        </div>
-                                                        <div className="av-preview-sidebar-replacement-footer">
-                                                            {createdAtLabel ? (
-                                                                <time
-                                                                    className="av-preview-sidebar-replacement-time"
-                                                                    dateTime={replacement.createdAt}
-                                                                >
-                                                                    {createdAtLabel}
-                                                                </time>
-                                                            ) : (
-                                                                <span
-                                                                    className="av-preview-sidebar-replacement-time"
-                                                                    aria-hidden
-                                                                />
-                                                            )}
-                                                            <button
-                                                                type="button"
-                                                                className="av-preview-sidebar-replacement-remove"
-                                                                onClick={() =>
-                                                                    handleRemoveImageReplacement(
-                                                                        replacement.id
-                                                                    )
+                                                                businessName={businessName}
+                                                                spreadOpts={spreadOpts}
+                                                                editingPinId={editingPinId}
+                                                                editingPinMessage={editingPinMessage}
+                                                                onEditPinStart={(pin) => {
+                                                                    setEditingPinId(pin.id);
+                                                                    setEditingPinMessage(
+                                                                        pin.message
+                                                                    );
+                                                                }}
+                                                                onEditPinCancel={() => {
+                                                                    setEditingPinId(null);
+                                                                    setEditingPinMessage('');
+                                                                }}
+                                                                onEditPinMessageChange={
+                                                                    setEditingPinMessage
                                                                 }
-                                                            >
-                                                                Remove
-                                                            </button>
+                                                                onEditPinSave={() => {
+                                                                    setEditingPinId(null);
+                                                                    setEditingPinMessage('');
+                                                                }}
+                                                                onJumpToSpread={jumpToSpread}
+                                                                onRemoveSwap={(id) =>
+                                                                    removeSwapMark(albumId, id)
+                                                                }
+                                                            />
                                                         </div>
-                                                    </article>
-                                                );
-                                            })
+                                                    ) : null}
+                                                    {group.replacements.map((replacement) => {
+                                                        const createdAtLabel = replacement.createdAt
+                                                            ? new Date(
+                                                                  replacement.createdAt
+                                                              ).toLocaleString()
+                                                            : null;
+                                                        return (
+                                                            <article
+                                                                key={replacement.id}
+                                                                className="av-preview-sidebar-replacement"
+                                                            >
+                                                                <button
+                                                                    type="button"
+                                                                    className="av-preview-sidebar-replacement-head"
+                                                                    onClick={() =>
+                                                                        jumpToSpread(
+                                                                            replacement.spreadIndex
+                                                                        )
+                                                                    }
+                                                                >
+                                                                    <span className="av-preview-sidebar-replacement-label">
+                                                                        {replacement.slotLabel}
+                                                                    </span>
+                                                                    <span className="av-preview-sidebar-replacement-go">
+                                                                        View spread
+                                                                        <svg
+                                                                            width="14"
+                                                                            height="14"
+                                                                            viewBox="0 0 24 24"
+                                                                            fill="none"
+                                                                            stroke="currentColor"
+                                                                            strokeWidth="2"
+                                                                            strokeLinecap="round"
+                                                                            strokeLinejoin="round"
+                                                                            aria-hidden
+                                                                        >
+                                                                            <polyline points="9 18 15 12 9 6" />
+                                                                        </svg>
+                                                                    </span>
+                                                                </button>
+                                                                <div className="av-preview-sidebar-replacement-pair">
+                                                                    <ReplacementPreviewImage
+                                                                        albumId={albumId}
+                                                                        url={replacement.previousUrl}
+                                                                        itemId={
+                                                                            replacement.previousItemId
+                                                                        }
+                                                                        alt="Before photo change"
+                                                                        variant="before"
+                                                                        tagLabel="Before"
+                                                                    />
+                                                                    <div
+                                                                        className="av-preview-sidebar-replacement-arrow"
+                                                                        aria-hidden
+                                                                    >
+                                                                        <svg
+                                                                            width="16"
+                                                                            height="16"
+                                                                            viewBox="0 0 24 24"
+                                                                            fill="none"
+                                                                            stroke="currentColor"
+                                                                            strokeWidth="2"
+                                                                            strokeLinecap="round"
+                                                                            strokeLinejoin="round"
+                                                                        >
+                                                                            <line
+                                                                                x1="5"
+                                                                                y1="12"
+                                                                                x2="19"
+                                                                                y2="12"
+                                                                            />
+                                                                            <polyline points="12 5 19 12 12 19" />
+                                                                        </svg>
+                                                                    </div>
+                                                                    <ReplacementPreviewImage
+                                                                        albumId={albumId}
+                                                                        url={replacement.newUrl}
+                                                                        itemId={replacement.newItemId}
+                                                                        alt="Updated photo"
+                                                                        variant="now"
+                                                                        tagLabel="Now"
+                                                                    />
+                                                                </div>
+                                                                <div className="av-preview-sidebar-replacement-footer">
+                                                                    {createdAtLabel ? (
+                                                                        <time
+                                                                            className="av-preview-sidebar-replacement-time"
+                                                                            dateTime={
+                                                                                replacement.createdAt
+                                                                            }
+                                                                        >
+                                                                            {createdAtLabel}
+                                                                        </time>
+                                                                    ) : (
+                                                                        <span
+                                                                            className="av-preview-sidebar-replacement-time"
+                                                                            aria-hidden
+                                                                        />
+                                                                    )}
+                                                                    <button
+                                                                        type="button"
+                                                                        className="av-preview-sidebar-replacement-remove"
+                                                                        onClick={() =>
+                                                                            handleRemoveImageReplacement(
+                                                                                replacement.id
+                                                                            )
+                                                                        }
+                                                                    >
+                                                                        Remove
+                                                                    </button>
+                                                                </div>
+                                                            </article>
+                                                        );
+                                                    })}
+                                                </section>
+                                            ))
                                         )}
                                     </div>
                                 )}

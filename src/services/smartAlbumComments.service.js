@@ -872,7 +872,7 @@ export function groupCommentsBySpread(comments) {
         .sort(([a], [b]) => a - b)
         .map(([spreadIndex, rows]) => ({
             spreadIndex,
-            spreadLabel: spreadIndex <= 0 ? 'Cover' : `Spread ${spreadIndex}`,
+            spreadLabel: spreadIndex <= 0 ? 'Cover' : `Spread ${Number(spreadIndex) + 1}`,
             threads: groupCommentsByThread(rows),
         }));
 }

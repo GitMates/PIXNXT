@@ -82,6 +82,15 @@ export function spreadNumberFromLeftPage(leftPage, opts = {}) {
     return spreadIndex + 1;
 }
 
+/** Human-readable spread label matching flipbook counter (e.g. "2/6" → "Spread 2"). */
+export function formatSpreadDisplayLabel(spreadIndex, opts = {}) {
+    const idx = Number(spreadIndex);
+    if (!Number.isFinite(idx)) return 'Spread';
+    const { hasCovers } = normalizeSpreadOpts(opts);
+    if (hasCovers && idx <= 0) return 'Cover';
+    return `Spread ${idx + 1}`;
+}
+
 export function normalizeSpreadOpts(opts = {}) {
     const blankCovers = opts.blankCovers === true;
     if (typeof opts.hasCovers === 'boolean') {

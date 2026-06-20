@@ -1,15 +1,15 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { filesFromInput } from '../../lib/uploadFileOrder';
-import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
+import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import { countUnseenPhotoPins } from './albumPhotoPins';
-import { countUnseenSwapMarks } from './albumSwapMarks';
+import { countUnseenSwapMarks, parseSlotKey } from './albumSwapMarks';
 import {
     countSpreadComments,
     countUnseenSpreadComments,
 } from '../../services/smartAlbumComments.service';
+import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
+import EditorSpreadFeedbackFeed from './EditorSpreadFeedbackFeed';
 import ProofPanelStats from './ProofPanelStats';
-import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
-import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
 import { getCollectionItemDisplayUrl } from './albumCollection';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
 import { getSlotLabel } from './albumSwapMarks';
@@ -18,6 +18,7 @@ import {
     albumUsesBookWrap,
     isEndHalfSpreadLeftPage,
     isInsideCoverSpreadLeft,
+    pageToSpreadIndex,
 } from './albumSpreadUtils';
 
 const IconCollection = () => (
@@ -117,6 +118,7 @@ export default function AlbumEditorSidebar({
     gridEditSet = 'single',
     onGridEditSetChange,
     gridSelection = null,
+    bookPage = 0,
     onSelectCell,
     canSelectGrid = false,
     spreadCount = 1,
@@ -132,6 +134,7 @@ export default function AlbumEditorSidebar({
     photoPins = [],
     spreadCommentsBySpread = null,
     albumId = null,
+    photographerName = 'Photographer',
     onNavigateToPin = null,
     onNavigateToSwapSlotKey = null,
     onReorderCollectionItem = null,
@@ -151,6 +154,55 @@ export default function AlbumEditorSidebar({
     const totalCommentCount = photoPins.length + totalSpreadCommentCount + swapMarks.length;
     const unresolvedCommentCount = unseenPinCount + unseenSpreadCommentCount + unseenSwapCount;
     const swapsEnabled = album?.messages_enabled !== false;
+
+    const spreadOpts = useMemo(
+        () => ({ hasCovers: album?.has_covers === true, showCover: true }),
+        [album?.has_covers]
+    );
+
+    const currentSpreadIndex = useMemo(() => {
+        const left =
+            gridSelection?.leftPage ??
+            getSpreadLeftPageIndex(bookPage, { ...spreadOpts, totalPages });
+        return pageToSpreadIndex(left, { ...spreadOpts, totalPages });
+    }, [gridSelection?.leftPage, bookPage, spreadOpts, totalPages]);
+
+    const visiblePhotoPins = useMemo(
+        () =>
+            photoPins.filter(
+                (pin) =>
+                    pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages }) ===
+                    currentSpreadIndex
+            ),
+        [photoPins, currentSpreadIndex, spreadOpts, totalPages]
+    );
+
+    const visibleSwapMarks = useMemo(
+        () =>
+            swapMarks.filter((mark) => {
+                const a = parseSlotKey(mark.a);
+                const b = parseSlotKey(mark.b);
+                const idxA = pageToSpreadIndex(a.pageNum, { ...spreadOpts, totalPages });
+                const idxB = pageToSpreadIndex(b.pageNum, { ...spreadOpts, totalPages });
+                return idxA === currentSpreadIndex || idxB === currentSpreadIndex;
+            }),
+        [swapMarks, currentSpreadIndex, spreadOpts, totalPages]
+    );
+
+    const visibleSentMessages = useMemo(() => {
+        const rows = spreadCommentsBySpread?.[currentSpreadIndex] || [];
+        return rows.filter(
+            (c) => c.author_type === 'photographer' && String(c.body || '').trim()
+        );
+    }, [spreadCommentsBySpread, currentSpreadIndex]);
+
+    const spreadPanelCount =
+        visiblePhotoPins.length +
+        visibleSentMessages.length +
+        (swapsEnabled ? visibleSwapMarks.length : 0);
+    const spreadPanelUnresolved =
+        countUnseenPhotoPins(albumId, visiblePhotoPins) +
+        (swapsEnabled ? countUnseenSwapMarks(albumId, visibleSwapMarks) : 0);
     const navItems = NAV_BASE.filter(
         (item) => !item.requiresCovers || album?.has_covers === true
     );
@@ -159,6 +211,66 @@ export default function AlbumEditorSidebar({
         const files = filesFromInput(e.target.files);
         if (files.length) onUploadForCurrentSpread?.(files);
         e.target.value = '';
+    };
+
+    const renderSpreadUploadActions = (showPicker = true) => {
+        if (gridSelection?.mode === 'cover') return null;
+        return (
+            <>
+                <div className="ae-spread-actions">
+                    <div className="ae-spread-actions-header">
+                        <span className="ae-spread-actions-title">Current spread actions</span>
+                    </div>
+                    <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*,application/pdf,.pdf"
+                        className="ae-file-input"
+                        onChange={handleSpreadUpload}
+                    />
+                    <button
+                        type="button"
+                        className="ae-upload-zone ae-upload-zone--spread"
+                        disabled={uploading || !canSelectGrid}
+                        onClick={() => fileRef.current?.click()}
+                    >
+                        <svg
+                            className="ae-upload-zone-icon"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.75"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                        >
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <span>
+                            {uploading
+                                ? 'Uploading…'
+                                : 'Upload new photo for this spread'}
+                        </span>
+                        <span className="ae-upload-hint">
+                            Replaces the photo on the spread you are viewing
+                        </span>
+                    </button>
+                </div>
+                {showPicker && canSelectGrid ? (
+                    <button
+                        type="button"
+                        className="ae-btn-picker"
+                        onClick={() => onOpenPicker?.()}
+                    >
+                        Choose photo for current slot
+                    </button>
+                ) : null}
+            </>
+        );
     };
 
     const handleCollectionDragStart = useCallback((index) => {
@@ -221,7 +333,7 @@ export default function AlbumEditorSidebar({
                 ))}
             </nav>
 
-            <div className="ae-panel">
+            <div className={`ae-panel${activePanel === 'pin' ? ' ae-panel--pin' : ''}`}>
                 {activePanel === 'comments' && (
                     <>
                         <h3 className="ae-panel-title">Settings</h3>
@@ -234,54 +346,56 @@ export default function AlbumEditorSidebar({
                 )}
 
                 {activePanel === 'pin' && (
-                    <>
-                        <h3 className="ae-panel-title">Comment</h3>
-                        <ProofPanelStats
-                            unresolved={unresolvedCommentCount}
-                            total={totalCommentCount}
-                            totalLabel="Total comments"
-                        />
-                        <p className="ae-panel-text">
-                            Client photo comments and swap requests appear here. To add comments,
-                            use the album preview — open the Comment tab, then click a photo. Hover
-                            a photo on the spread and click Swap to mark a pair.
-                        </p>
-                        {!photoPins.length && (!swapsEnabled || !swapMarks.length) ? (
-                            <p className="ae-panel-text ae-panel-text--muted ae-swap-marks-empty">
-                                No comments or swap requests yet.
-                            </p>
-                        ) : null}
-                        <AlbumPhotoPinsPanel
-                            albumId={albumId}
-                            album={album}
-                            totalPages={totalPages}
-                            pins={photoPins}
-                            gridLayout={album?.grid_layout || 'two-page'}
-                            variant="panel"
-                            onNavigateToPin={onNavigateToPin}
-                            seenTick={proofSeenTick}
-                        />
-                        {swapsEnabled ? (
-                            <AlbumSwapMarksPanel
+                    <div className="ae-panel-pin-layout">
+                        <div className="ae-panel-pin-body">
+                            <h3 className="ae-panel-title">Comment</h3>
+                            <ProofPanelStats
+                                unresolved={spreadPanelUnresolved}
+                                total={spreadPanelCount}
+                                totalLabel="On this spread"
+                                compact
+                            />
+                            {spreadPanelCount === 0 ? (
+                                <p className="ae-panel-text ae-panel-text--muted ae-swap-marks-empty">
+                                    No comments or swap requests on this spread yet.
+                                </p>
+                            ) : null}
+                            <EditorSpreadFeedbackFeed
                                 albumId={albumId}
                                 album={album}
                                 totalPages={totalPages}
-                                marks={swapMarks}
                                 gridLayout={album?.grid_layout || 'two-page'}
-                                variant="panel"
-                                seenTick={proofSeenTick}
+                                photographerMessages={visibleSentMessages}
+                                photoPins={visiblePhotoPins}
+                                swapMarks={visibleSwapMarks}
+                                swapsEnabled={swapsEnabled}
+                                photographerName={photographerName}
+                                hasCovers={album?.has_covers === true}
+                                onNavigateToPin={onNavigateToPin}
                                 onNavigateToSlotKey={onNavigateToSwapSlotKey}
+                                seenTick={proofSeenTick}
                             />
+                        </div>
+                        {gridSelection?.mode !== 'cover' ? (
+                            <div className="ae-panel-pin-footer">
+                                <EditorSpreadMessageCompose
+                                    albumId={albumId}
+                                    spreadIndex={currentSpreadIndex}
+                                    authorName={photographerName}
+                                    disabled={!albumId}
+                                />
+                                {renderSpreadUploadActions(false)}
+                            </div>
                         ) : null}
-                    </>
+                    </div>
                 )}
 
                 {activePanel === 'collections' && (
                     <>
                         <h3 className="ae-panel-title">Collections</h3>
                         <p className="ae-panel-text">
-                            Upload a new photo for the spread you are viewing, or pick from the
-                            collection below.
+                            Pick from the collection below to place photos on the spread you are
+                            viewing.
                         </p>
                         {canSelectGrid && (
                             <p className="ae-selection-badge" role="status">
@@ -298,62 +412,6 @@ export default function AlbumEditorSidebar({
                                 )}
                             </p>
                         )}
-                        {gridSelection?.mode !== 'cover' ? (
-                            <>
-                                <div className="ae-spread-actions">
-                                    <div className="ae-spread-actions-header">
-                                        <span className="ae-spread-actions-title">Current spread actions</span>
-                                    </div>
-                                    <input
-                                        ref={fileRef}
-                                        type="file"
-                                        accept="image/*,application/pdf,.pdf"
-                                        className="ae-file-input"
-                                        onChange={handleSpreadUpload}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="ae-upload-zone ae-upload-zone--spread"
-                                        disabled={uploading || !canSelectGrid}
-                                        onClick={() => fileRef.current?.click()}
-                                    >
-                                        <svg
-                                            className="ae-upload-zone-icon"
-                                            width="22"
-                                            height="22"
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            strokeWidth="1.75"
-                                            strokeLinecap="round"
-                                            strokeLinejoin="round"
-                                            aria-hidden
-                                        >
-                                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                            <polyline points="17 8 12 3 7 8" />
-                                            <line x1="12" y1="3" x2="12" y2="15" />
-                                        </svg>
-                                        <span>
-                                            {uploading
-                                                ? 'Uploading…'
-                                                : 'Upload new photo for this spread'}
-                                        </span>
-                                        <span className="ae-upload-hint">
-                                            Replaces the photo on the spread you are viewing
-                                        </span>
-                                    </button>
-                                </div>
-                                {canSelectGrid ? (
-                                    <button
-                                        type="button"
-                                        className="ae-btn-picker"
-                                        onClick={() => onOpenPicker?.()}
-                                    >
-                                        Choose photo for current slot
-                                    </button>
-                                ) : null}
-                            </>
-                        ) : null}
                         <div className="ae-panel-status-row">
                             <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
                             <span

@@ -127,6 +127,7 @@ import {
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import { useAuth } from '../../hooks/useAuth';
+import { getUserDisplayLabel } from '../../lib/userInitials';
 import { computePageCountFromPhotoCount } from './createAlbumLayout';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import './AlbumEditor.css';
@@ -296,6 +297,7 @@ export default function AlbumEditor({
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const { user } = useAuth();
+    const photographerDisplayName = getUserDisplayLabel(user);
     const [activePanel, setActivePanel] = useState('collections');
     const { toast, showToast, clearToast } = useAppToast(4000);
     const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
@@ -1771,13 +1773,13 @@ export default function AlbumEditor({
     }, [loadProofSpreadComments, albumId, loadSpreadComments]);
 
     useEffect(() => {
-        if (!showGridComments || !albumId) return undefined;
+        if (!loadProofSpreadComments || !albumId) return undefined;
         const onChanged = (e) => {
             if (e.detail?.albumId === albumId) loadSpreadComments();
         };
         window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
         return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-    }, [showGridComments, albumId, loadSpreadComments]);
+    }, [loadProofSpreadComments, albumId, loadSpreadComments]);
 
     const pickerSubtitle =
         collectionItems.length > 0
@@ -1883,20 +1885,6 @@ export default function AlbumEditor({
 
             <div className="ae-body">
                 <main className="ae-canvas">
-                    <div className="ae-canvas-chrome">
-                        <span className="ae-canvas-label">
-                            {coverEditMode ? 'Cover editor' : 'Spread editor'}
-                        </span>
-                        <span className="ae-canvas-hint">
-                            {coverEditMode
-                                ? albumHasBlankCovers(album)
-                                    ? 'Back · spine · front cover · click to choose an optional cover photo'
-                                    : 'Back · spine · front from book wrap · click a cover to change photo'
-                                : spreadEdit
-                                  ? 'Drag photo to move · drag each edge to zoom · hover a photo to mark a swap'
-                                  : 'Click a photo or slot for options · use Collections to upload'}
-                        </span>
-                    </div>
                     <div
                         className={`ae-canvas-stage${
                             spreadEdit ? ' ae-canvas-stage--edit' : ''
@@ -1974,6 +1962,7 @@ export default function AlbumEditor({
                     gridEditSet={gridEditSet}
                     onGridEditSetChange={handleGridEditSetChange}
                     gridSelection={gridSelection}
+                    bookPage={bookPage}
                     onSelectCell={(cellId) => {
                         const left =
                             gridSelection?.leftPage ??
@@ -1993,6 +1982,7 @@ export default function AlbumEditor({
                     photoPins={photoPins}
                     spreadCommentsBySpread={spreadCommentsBySpread}
                     albumId={albumId}
+                    photographerName={photographerDisplayName}
                     onNavigateToPin={handleNavigateToPin}
                     onNavigateToSwapSlotKey={handleNavigateToSwapSlotKey}
                     onReorderCollectionItem={handleReorderCollectionItem}
