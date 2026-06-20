@@ -544,6 +544,17 @@
   align-self: stretch;
 }
 
+.av-preview-sidebar--comments-only {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.av-preview-sidebar--comments-only .av-preview-sidebar-panel {
+  flex: 1;
+  min-height: 0;
+}
+
 .av-preview-sidebar .ae-panel {
   padding-top: 0;
   overflow: hidden;
@@ -593,6 +604,10 @@
   gap: 8px;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.av-preview-sidebar-comments .av-preview-sidebar-replacement {
+  margin: 0;
 }
 
 .av-preview-sidebar-scroll {

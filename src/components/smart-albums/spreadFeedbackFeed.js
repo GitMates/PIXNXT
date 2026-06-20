@@ -8,6 +8,7 @@ export function buildSpreadFeedbackFeed({
     photographerMessages = [],
     photoPins = [],
     swapMarks = [],
+    imageReplacements = [],
     includeSwaps = true,
 }) {
     const items = [];
@@ -40,6 +41,15 @@ export function buildSpreadFeedbackFeed({
             });
         });
     }
+
+    imageReplacements.forEach((replacement) => {
+        items.push({
+            kind: 'image-replacement',
+            id: `repl-${replacement.id}`,
+            sortAt: feedItemSortTime(replacement.createdAt),
+            replacement,
+        });
+    });
 
     return items.sort((a, b) => a.sortAt - b.sortAt);
 }

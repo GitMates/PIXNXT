@@ -5,7 +5,7 @@ import {
 } from '../../services/smartAlbumComments.service';
 import { formatSpreadDisplayLabel } from './albumSpreadUtils';
 import { removePhotoPin, updatePhotoPin } from './albumPhotoPins';
-import { removeSwapMark } from './albumSwapMarks';
+import AlbumPreviewReplacementCard from './AlbumPreviewReplacementCard';
 
 export default function AlbumPreviewSpreadFeed({
     feed = [],
@@ -20,6 +20,7 @@ export default function AlbumPreviewSpreadFeed({
     onEditPinSave,
     onJumpToSpread,
     onRemoveSwap,
+    onRemoveReplacement,
 }) {
     if (!feed.length) return null;
 
@@ -153,6 +154,18 @@ export default function AlbumPreviewSpreadFeed({
                                 </>
                             )}
                         </article>
+                    );
+                }
+
+                if (item.kind === 'image-replacement') {
+                    return (
+                        <AlbumPreviewReplacementCard
+                            key={item.id}
+                            albumId={albumId}
+                            replacement={item.replacement}
+                            onJumpToSpread={onJumpToSpread}
+                            onRemove={onRemoveReplacement}
+                        />
                     );
                 }
 
