@@ -757,7 +757,7 @@ body:has(.printstore-container) footer:not(.store-footer) {
 
 .cover-hero-image {
   width: 100%;
-  height: calc(100% - 40px) !important; /* Gap at the bottom of the image */
+  height: 100% !important;
   object-fit: cover;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12) !important; /* Soft shadow */
 }
@@ -895,8 +895,8 @@ body:has(.printstore-container) footer:not(.store-footer) {
 
 /* ── 4. Photo Grid ── */
 .photos-section {
-  padding: 9rem 2rem 3rem 2rem; /* Increased top padding from 3rem to 9rem for breathing space */
-  max-width: 1500px; /* Accommodate exactly three columns with gaps */
+  padding: 9rem 3rem 3rem 3rem; /* Tighter margins for breathing space */
+  max-width: 100% !important; /* Expand full width */
   margin: 0 auto;
 }
 
@@ -916,20 +916,34 @@ body:has(.printstore-container) footer:not(.store-footer) {
 }
 
 .photo-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, 300px);
-  grid-gap: 1.5rem;
-  justify-content: center;
+  display: block;
+  column-width: 190px;
+  column-gap: 8px;
+  width: 100%;
 }
 
 .photo-grid-item {
+  display: inline-block;
+  width: 100% !important;
+  margin-bottom: 8px;
+  break-inside: avoid;
+  box-sizing: border-box;
+  
   position: relative;
   overflow: hidden;
   background: #ffffff !important; /* Fully white background */
   border: 1px solid rgba(0, 0, 0, 0.05) !important; /* Clean thin subtle border */
   cursor: pointer;
-  width: 300px !important;
-  height: 450px !important;
+  aspect-ratio: 3 / 4 !important;
+}
+
+.photo-grid-column .photo-grid-item {
+  margin-bottom: 0 !important;
+}
+
+.photo-grid-item.landscape {
+  aspect-ratio: 3 / 2 !important;
+  height: auto !important;
 }
 
 .photo-grid-img {
@@ -2704,10 +2718,10 @@ div.customizer-grid-item[class*="product-card-"] {
   padding: 2.2rem !important;
 }
 .product-card-dibond .product-image {
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15), 0 5px 15px rgba(0, 0, 0, 0.08) !important; /* Soft shadow */
+  box-shadow: none !important; /* Soft shadow removed */
   width: auto;
   height: 100% !important;
-  object-fit: contain;
+  object-fit: cover;
   border: none !important;
 }
 
@@ -2724,14 +2738,12 @@ div.customizer-grid-item[class*="product-card-"] {
   box-shadow: 
     0 0 0 8px #ffffff, /* Medium outer 8px white frame border */
     0 0 0 9px rgba(0, 0, 0, 0.05), /* Outer edge outline of frame */
-    inset 0 3px 6px rgba(0, 0, 0, 0.06), /* Inner bevel depth shadow inside frame */
-    0 20px 45px rgba(0, 0, 0, 0.18), /* Outer frame drop shadow */
-    0 5px 15px rgba(0, 0, 0, 0.08) !important;
+    inset 0 3px 6px rgba(0, 0, 0, 0.06) !important; /* Inner bevel depth shadow inside frame, outer shadows removed */
   outline: 1px solid rgba(0, 0, 0, 0.12) !important; /* Inner thin border line around photo */
   outline-offset: -25px !important;
   width: auto;
   height: calc(100% - 32px) !important; /* Visual offset to compensate for 16px border spread */
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .product-card-gallery_board {
@@ -2745,14 +2757,12 @@ div.customizer-grid-item[class*="product-card-"] {
   padding: 24px; /* White mat board border padding */
   border: 1px solid rgba(0, 0, 0, 0.09) !important; /* Outer edge of the board */
   box-shadow: 
-    inset 0 3px 6px rgba(0, 0, 0, 0.06), /* Inner bevel depth shadow */
-    0 15px 35px rgba(0, 0, 0, 0.12), 
-    0 5px 15px rgba(0, 0, 0, 0.06) !important; /* Soft drop shadow under the board */
+    inset 0 3px 6px rgba(0, 0, 0, 0.06) !important; /* Soft drop shadow under the board removed */
   outline: 1px solid rgba(0, 0, 0, 0.12) !important; /* Inner border line around photo */
   outline-offset: -25px !important;
   width: auto;
   height: 100% !important;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 /* ── product framing visual overrides ── */
@@ -2764,10 +2774,10 @@ div.customizer-grid-item[class*="product-card-"] {
   background: #f8f8f8 !important;
 }
 .product-card-dibond .product-image {
-  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15), 0 5px 15px rgba(0, 0, 0, 0.08) !important; /* Soft shadow */
+  box-shadow: none !important; /* Soft shadow removed */
   width: auto;
   height: 100% !important;
-  object-fit: contain;
+  object-fit: cover;
   border: none !important;
 }
 
@@ -2785,14 +2795,12 @@ div.customizer-grid-item[class*="product-card-"] {
   box-shadow: 
     0 0 0 8px var(--frame-color, #ffffff), /* Medium outer 8px white frame border */
     0 0 0 9px rgba(0, 0, 0, 0.05), /* Outer edge outline of frame */
-    inset 0 3px 6px rgba(0, 0, 0, 0.06), /* Inner bevel depth shadow inside frame */
-    0 18px 40px rgba(0, 0, 0, 0.18), /* Outer frame drop shadow */
-    0 5px 12px rgba(0, 0, 0, 0.08) !important;
+    inset 0 3px 6px rgba(0, 0, 0, 0.06) !important; /* Outer frame drop shadow removed */
   outline: 1px solid rgba(0, 0, 0, 0.12) !important; /* Inner thin border line around photo */
   outline-offset: -21px !important;
   width: auto;
   height: calc(100% - 16px) !important; /* Visual offset to compensate for border spread */
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .product-card-gallery_board {
@@ -2807,14 +2815,12 @@ div.customizer-grid-item[class*="product-card-"] {
   padding: 20px; /* White mat board border padding */
   border: 1px solid rgba(0, 0, 0, 0.09) !important; /* Outer edge of the board */
   box-shadow: 
-    inset 0 3px 6px rgba(0, 0, 0, 0.06), /* Inner bevel depth shadow */
-    0 12px 30px rgba(0, 0, 0, 0.12), 
-    0 4px 10px rgba(0, 0, 0, 0.06) !important; /* Soft drop shadow under the board */
+    inset 0 3px 6px rgba(0, 0, 0, 0.06) !important; /* Soft drop shadow under the board removed */
   outline: 1px solid rgba(0, 0, 0, 0.12) !important; /* Inner border line around photo */
   outline-offset: -21px !important;
   width: auto;
   height: 100% !important;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .product-card-frames {
@@ -2830,12 +2836,10 @@ div.customizer-grid-item[class*="product-card-"] {
   box-shadow: 
     0 0 0 6px var(--frame-color, #ffffff), /* Dynamic Wooden Frame (big border 1) */
     0 0 0 7px rgba(0, 0, 0, 0.05), /* Outer edge line of wood frame */
-    inset 0 3px 6px rgba(0, 0, 0, 0.06), /* Inner bevel depth shadow inside frame */
-    0 18px 40px rgba(0, 0, 0, 0.16), /* Soft drop shadow */
-    0 5px 12px rgba(0, 0, 0, 0.08) !important;
+    inset 0 3px 6px rgba(0, 0, 0, 0.06) !important; /* Soft drop shadow removed */
   width: auto;
   height: calc(100% - 12px) !important; /* Visual offset to compensate for 6px border spread */
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .product-card-canvas {
@@ -2852,11 +2856,10 @@ div.customizer-grid-item[class*="product-card-"] {
   border-bottom: none !important;
   box-shadow: 
     6px 6px 0px rgba(0, 0, 0, 0.18),     /* hard offset canvas side depth shadow */
-    10px 14px 28px rgba(0, 0, 0, 0.18),   /* soft ambient shadow below canvas */
-    2px 2px 0px rgba(0, 0, 0, 0.08) !important;
+    2px 2px 0px rgba(0, 0, 0, 0.08) !important; /* Soft ambient shadow removed */
   width: auto !important;
   height: 100% !important;
-  object-fit: contain;
+  object-fit: cover;
 }
 
 .product-card-acrylic_prints {
@@ -2876,8 +2879,7 @@ div.customizer-grid-item[class*="product-card-"] {
   border: 1px solid rgba(255, 255, 255, 0.45) !important;
   border-bottom: 4px solid rgba(0, 0, 0, 0.25) !important; /* 3D bottom glass thickness edge */
   box-shadow: 
-    0 15px 35px rgba(0, 0, 0, 0.18),
-    inset 0 -4px 0px rgba(255, 255, 255, 0.3) !important; /* Glossy edge thickness reflection */
+    inset 0 -4px 0px rgba(255, 255, 255, 0.3) !important; /* Outer shadow removed, glossy edge thickness reflection kept */
   filter: contrast(1.04) brightness(1.01);
 }
 /* Glossy glare reflection effect overlay */
@@ -2906,8 +2908,7 @@ div.customizer-grid-item[class*="product-card-"] {
     0 0 0 16px var(--frame-color, #ffffff), /* Thick outer wood frame */
     0 0 0 17px rgba(0, 0, 0, 0.05), /* Outer edge outline of frame */
     inset 0 0 0 1px rgba(0, 0, 0, 0.03), /* Extra inner crisp separation */
-    inset 0 3px 7px rgba(0, 0, 0, 0.08), /* Deeper inner bevel shadow on the mat */
-    0 20px 40px rgba(0, 0, 0, 0.16) !important; /* Outer shadow below the frame */
+    inset 0 3px 7px rgba(0, 0, 0, 0.08) !important; /* Outer shadow below the frame removed */
   margin: 2rem auto !important; /* Centered inside card */
   border-radius: 0px !important; /* Make corners sharp */
   box-sizing: border-box;
@@ -2962,8 +2963,7 @@ div.customizer-grid-item[class*="product-card-"] {
   box-shadow: 
     inset 0 0 0 1px rgba(0, 0, 0, 0.15), /* Inner dark separation line at frame edge */
     inset 0 3px 6px rgba(0, 0, 0, 0.08), /* Inner bevel depth shadow inside frame */
-    0 0 0 1px rgba(0, 0, 0, 0.05), /* Thin outer highlight outline */
-    0 22px 45px rgba(0, 0, 0, 0.18) !important; /* Soft drop shadow below frame */
+    0 0 0 1px rgba(0, 0, 0, 0.05) !important; /* Soft drop shadow below frame removed */
   margin: 1.5rem auto !important; /* Centered inside card */
   border-radius: 1px;
   box-sizing: border-box;
@@ -2978,12 +2978,19 @@ div.customizer-grid-item[class*="product-card-"] {
   padding: 12px !important; /* White border around B&W photo */
   width: auto !important;
   height: 72% !important; /* Sized to float nicely inside the thick border frame */
-  object-fit: contain !important;
+  object-fit: cover !important;
   border: none !important;
   box-shadow: none !important;
   /* Apply deckled rough edge and drop-shadow under the floating paper */
   filter: url(#deckled-edge) drop-shadow(4px 8px 12px rgba(0, 0, 0, 0.18)) !important;
   transition: transform 0.4s ease !important;
+}
+.product-card-float_frames .product-image.landscape-image {
+  width: 76% !important;
+  height: auto !important;
+}
+body.crop-modal-active .scroll-to-top-btn {
+  display: none !important;
 }
 .product-card-float_frames:hover .product-image {
   transform: scale(1.03) !important;
@@ -3010,9 +3017,7 @@ div.customizer-grid-item[class*="product-card-"] {
     0 0 0 14px var(--frame-color, #ffffff), /* Outer thick white wooden frame border (big border 1) */
     0 0 0 15px rgba(0, 0, 0, 0.05), /* Outer highlight border line of frame */
     inset 0 0 0 1px rgba(0, 0, 0, 0.03), /* Subtle mat inner cutout line */
-    inset 0 3px 6px rgba(0, 0, 0, 0.06), /* Inner bevel depth shadow inside frame */
-    0 18px 40px rgba(0, 0, 0, 0.16), /* Soft frame drop shadow */
-    0 5px 12px rgba(0, 0, 0, 0.08) !important;
+    inset 0 3px 6px rgba(0, 0, 0, 0.06) !important; /* Soft frame drop shadow removed */
   display: flex !important;
   flex-direction: column !important;
   gap: 12px !important; /* Small gap in between the stacked photos */
@@ -3565,13 +3570,15 @@ div.customizer-grid-item[class*="product-card-"] {
 /* ── Mobile and Tablet Responsiveness ── */
 @media (max-width: 500px) {
   .photo-grid {
-    grid-template-columns: 1fr !important;
+    display: block !important;
+    column-count: 1 !important;
     padding: 0 1rem !important;
   }
   .photo-grid-item {
     width: 100% !important;
     height: auto !important;
-    aspect-ratio: 2 / 3 !important;
+    aspect-ratio: 3 / 4 !important;
+    margin-bottom: 12px !important;
   }
   .products-grid, .all-products-view .products-grid {
     grid-template-columns: 1fr !important;
@@ -5998,6 +6005,101 @@ div.cart-item-image-wrapper.has-frame-size .cart-item-product-image-box {
   background: #fff;
   border-bottom: 1px solid #eee;
   margin: 0 -40px;
+  text-align: center; /* Centered track your order text */
+}
+
+/* ── Custom Segmented Tab Controller & Collapsible Cards ── */
+.segmented-control-container {
+  display: flex;
+  justify-content: center;
+  margin: 1.5rem 0 2.5rem 0;
+}
+
+.segmented-control {
+  position: relative;
+  display: flex;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 30px;
+  padding: 4px;
+  width: 100%;
+  max-width: 480px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.03);
+}
+
+.segmented-control-slider {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  background: #111111; /* Dark charcoal active selector color */
+  border-radius: 26px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+
+.segmented-control-tab {
+  flex: 1;
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6b7280;
+  cursor: pointer;
+  z-index: 2;
+  position: relative;
+  outline: none;
+  transition: color 0.3s ease;
+  font-family: inherit;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.segmented-control-tab.active {
+  color: #ffffff !important;
+}
+
+.order-collapsible-card {
+  background: #ffffff;
+  border: 1px solid #eaeaea;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+  overflow: hidden;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02);
+}
+
+.order-collapsible-card:hover {
+  border-color: #d1d5db;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.04);
+}
+
+.order-collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 1.5rem;
+  cursor: pointer;
+  background: #fafafa;
+  user-select: none;
+  transition: background-color 0.2s ease;
+}
+
+.order-collapsible-header:hover {
+  background: #f5f5f5;
+}
+
+.order-collapsible-header-left {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.order-collapsible-header-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
 }
 
 .track-order-header-page h2 {
@@ -6494,4 +6596,186 @@ div.cart-item-image-wrapper.has-frame-size .cart-item-product-image-box {
 .collage-slot-item .slot-controls-overlay button:hover {
   transform: scale(1.1);
   background-color: #f0f0f0 !important;
+}
+
+/* Responsive media queries for mobile views */
+@media (max-width: 768px) {
+  /* 1. Cart Page Container */
+  .cart-page-container {
+    padding: 0 16px 24px !important;
+  }
+  
+  .cart-page-container .pdp-products-page__header {
+    margin: 0 -16px !important;
+  }
+
+  .cart-page-content {
+    flex-direction: column !important;
+    gap: 30px !important;
+    padding-top: 20px !important;
+  }
+
+  .cart-summary-column {
+    width: 100% !important;
+  }
+
+  .cart-page-item {
+    flex-direction: column !important;
+    align-items: center !important;
+    text-align: center !important;
+    gap: 16px !important;
+    padding: 24px 0 !important;
+  }
+
+  .cart-item-info {
+    padding: 0 !important;
+    align-items: center !important;
+  }
+
+  .cart-quantity-control {
+    margin-bottom: 12px !important;
+  }
+
+  .cart-item-price {
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    align-self: center !important;
+  }
+
+  /* 2. Photo Selection Bottom Bar Toolbar */
+  .selection-toolbar-floating {
+    width: calc(100% - 32px) !important;
+    height: auto !important;
+    padding: 12px 16px !important;
+    bottom: 1rem !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+    border-radius: 12px !important;
+    box-sizing: border-box !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+  }
+
+  .selection-toolbar-left {
+    justify-content: center !important;
+    width: 100% !important;
+    gap: 8px !important;
+  }
+
+  .selection-toolbar-right {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+
+  .finish-personalize-btn {
+    width: 100% !important;
+    text-align: center !important;
+    padding: 12px 20px !important;
+  }
+
+  /* 3. Customizer Workspace Layout & Top Bar */
+  .customizer-top-bar {
+    padding: 0 12px !important;
+    height: 56px !important;
+    gap: 4px !important;
+  }
+
+  .customizer-back-btn {
+    font-size: 13px !important;
+  }
+
+  .customizer-back-btn span {
+    display: none !important; /* Hide back button text on mobile, show only arrow */
+  }
+
+  .customizer-actions-right {
+    gap: 8px !important;
+  }
+
+  .customizer-actions-right .icon-action-btn {
+    display: none !important; /* Hide Undo/Redo/Help on mobile to free up space */
+  }
+
+  .customizer-actions-right .cart-icon-wrapper svg {
+    width: 18px !important;
+    height: 18px !important;
+  }
+
+  .customizer-actions-right div[style*="text-align: right"] {
+    display: none !important; /* Hide header price to prevent wrap clutter */
+  }
+
+  .customizer-actions-right button:last-child {
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+  }
+
+  .customizer-actions-right button:last-child span.add-to-cart-text {
+    display: none !important; /* Hide "Add to cart" text, show only ShoppingCart icon */
+  }
+
+  /* Customizer Workspace Grid & Cards stack one by one down */
+  .customizer-workspace {
+    flex-direction: column !important;
+  }
+
+  .customizer-workspace-grid {
+    flex-direction: column !important;
+    align-items: center !important;
+    padding: 20px 10px !important;
+    gap: 32px !important;
+  }
+
+  .customizer-frame-shadow-wrapper,
+  .customizer-placeholder-box {
+    width: min(85vw, calc(40vh * var(--aspect-ratio, 1))) !important;
+    height: min(calc(85vw / var(--aspect-ratio, 1)), 40vh) !important;
+    max-width: calc(100vw - 48px) !important;
+  }
+
+  .customizer-item-adjuster {
+    gap: 8px !important;
+    font-size: 12px !important;
+  }
+
+  .customizer-item-adjuster select {
+    font-size: 12px !important;
+    max-width: 80px !important;
+  }
+
+  /* 4. Circular Frames Responsive Scaling */
+  .product-card-circular_frames {
+    width: min(75vw, 280px) !important;
+    height: min(75vw, 280px) !important;
+    transform: scale(calc(min(75vw, 280px) / 280)) !important;
+    transform-origin: center !important;
+  }
+
+  /* 5. Checkout Form Layout */
+  .checkout-section {
+    flex-direction: column !important;
+    gap: 2.5rem !important;
+    padding: 2rem 16px !important;
+  }
+
+  .checkout-main,
+  .checkout-sidebar {
+    width: 100% !important;
+  }
+
+  .checkout-sidebar {
+    border-left: none !important;
+    border-top: 1px solid var(--gallery-border, #eaeaea) !important;
+    padding-left: 0 !important;
+    padding-top: 2rem !important;
+  }
+
+  .checkout-form-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+
+  .checkout-form-col-span-2 {
+    grid-column: span 1 !important;
+  }
 }

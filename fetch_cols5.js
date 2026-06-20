@@ -11,7 +11,8 @@ envFile.split('\n').forEach(line => {
 const supabase = createClient(env.VITE_SUPABASE_URL, env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY);
 
 async function main() {
-    const { data, error } = await supabase.from('photographers').select('id, homepage_slug, email');
-    console.log(data);
+    const { data, error } = await supabase.from('products').select('*').limit(1);
+    console.log("Products data:", data);
+    console.log("Products error:", error);
 }
 main();

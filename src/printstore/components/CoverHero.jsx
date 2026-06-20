@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import { ChevronDown } from 'lucide-react';
 
-export default function CoverHero({ onExplore }) {
+export default function CoverHero({ onExplore, photographer }) {
   const leftRef = useRef(null);
   const rightRef = useRef(null);
 
@@ -42,7 +42,7 @@ export default function CoverHero({ onExplore }) {
             wordWrap: 'break-word'
           }}
         >
-          Kharthik Baskaran
+          {photographer?.display_name || ''}
         </h1>
       </div>
 
@@ -50,7 +50,7 @@ export default function CoverHero({ onExplore }) {
       <div className="cover-hero-right" ref={rightRef}>
         <img
           src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=1200&h=1800"
-          alt="Kharthik Hero Portrait"
+          alt={`${photographer?.display_name || 'Photographer'} Hero Portrait`}
           className="cover-hero-image"
         />
 

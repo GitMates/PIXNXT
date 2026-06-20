@@ -480,6 +480,17 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
   const [croppedAreaPixels, setCroppedAreaPixels] = useState(null);
   const [isEditOptionsOpen, setIsEditOptionsOpen] = useState(false);
 
+  useEffect(() => {
+    if (isCropModalOpen) {
+      document.body.classList.add('crop-modal-active');
+    } else {
+      document.body.classList.remove('crop-modal-active');
+    }
+    return () => {
+      document.body.classList.remove('crop-modal-active');
+    };
+  }, [isCropModalOpen]);
+
   const onCropComplete = useCallback((croppedArea, croppedAreaPixels) => {
     setCroppedAreaPixels(croppedAreaPixels);
   }, []);
@@ -514,7 +525,9 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
   // True for all frame/mat products — used by border dropdown, Arrange Image button, and crop modal
   const isFramed = ['matted_frame', 'frames', 'float_frames', 'circular_frames', 'matted_collages', 'gallery_board', 'deckled_prints'].includes(product.id);
 
-  const productSizes = product.id === 'matted_frame' 
+  const productSizes = 
+    (product?.options?.sizes && product.options.sizes.length > 0) ? product.options.sizes :
+    product.id === 'matted_frame' 
     ? MATTED_FRAME_SIZES 
     : product.id === 'frames'
     ? MATTED_FRAME_SIZES
@@ -539,9 +552,17 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
     : product.id === 'matted_collages'
     ? MATTED_COLLAGE_SIZES
     : MOCK_SIZES;
+
+  const productFrames = 
+    (product?.options?.frames && product.options.frames.length > 0) ? product.options.frames : MOCK_FRAMES;
+
+  const activeFrames = productFrames.filter(f => f.enabled !== false);
+
+  const productPapers = 
+    (product?.options?.papers && product.options.papers.length > 0) ? product.options.papers : MOCK_PAPERS;
   const [selectedSize, setSelectedSize] = useState(productSizes[0]);
   const [selectedCollageLayout, setSelectedCollageLayout] = useState(null);
-  const [selectedPaper, setSelectedPaper] = useState(MOCK_PAPERS[0]);
+  const [selectedPaper, setSelectedPaper] = useState(productPapers[0]);
   const [selectedFinishing, setSelectedFinishing] = useState(MOCK_FINISHINGS[0]);
   const [selectedWrap, setSelectedWrap] = useState(MOCK_WRAPS[0]);
   const [isSizeDropdownOpen, setIsSizeDropdownOpen] = useState(false);
@@ -578,9 +599,9 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
   const printSizeDropdownRef = useRef(null);
   const [selectedFrame, setSelectedFrame] = useState(() => {
     const hasFrameOpts = (product.id.includes('frame') || product.id.includes('collage') || product.id === 'frames') && product.id !== 'panoramic_prints';
-    if (!hasFrameOpts) return MOCK_FRAMES.find(f => f.id === 'frame_none') || MOCK_FRAMES[0];
-    if (product.id === 'float_frames') return MOCK_FRAMES.find(f => f.id === 'frame_graphite') || MOCK_FRAMES[0];
-    return MOCK_FRAMES.find(f => f.id === 'frame_lightwood') || MOCK_FRAMES[0];
+    if (!hasFrameOpts) return activeFrames.find(f => f.id === 'frame_none') || MOCK_FRAMES.find(f => f.id === 'frame_none') || MOCK_FRAMES[0];
+    if (product.id === 'float_frames') return activeFrames.find(f => f.id === 'frame_graphite') || activeFrames[0] || MOCK_FRAMES.find(f => f.id === 'frame_graphite') || MOCK_FRAMES[0];
+    return activeFrames.find(f => f.id === 'frame_lightwood') || activeFrames[0] || MOCK_FRAMES.find(f => f.id === 'frame_lightwood') || MOCK_FRAMES[0];
   });
   const [selectedWall, setSelectedWall] = useState(WALL_OPTIONS[0]);
   const [selectedLayout, setSelectedLayout] = useState(LAYOUT_OPTIONS[0]);
@@ -986,9 +1007,9 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
       containerWidth = '14%';
       containerHeight = 'auto';
     } else {
-      containerLeft = '15.15%';
-      containerTop = '15.05%';
-      containerWidth = '16.31%';
+      containerLeft = '38.1825%';
+      containerTop = '39.6483%';
+      containerWidth = '15.875%';
       containerHeight = 'auto';
     }
   } else if (product.id === 'acrylic_prints') {
@@ -1566,13 +1587,12 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                           let gridTemplate = '1fr / 1fr';
                           let images = [];
                           
-                          const imgs = MOCK_PHOTOS.map(p => p.url);
-                          const defaultImg1 = imgs[5] || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200";
-                          const defaultImg2 = defaultImg1;
-                          const defaultImg3 = defaultImg1;
-                          const defaultImg4 = defaultImg1;
-                          const defaultImg5 = defaultImg1;
-                          const defaultImg6 = defaultImg1;
+                          const defaultImg1 = photoUrl;
+                          const defaultImg2 = photoUrl;
+                          const defaultImg3 = photoUrl;
+                          const defaultImg4 = photoUrl;
+                          const defaultImg5 = photoUrl;
+                          const defaultImg6 = photoUrl;
 
                           switch(type) {
                             case 'grid_2x2':
@@ -2795,7 +2815,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                               </div>
                               {isPaperDropdownOpen && (
                                 <div className="custom-dropdown-menu">
-                                  {(product.id === 'dibond' ? MOCK_PAPERS.filter(p => p.id !== 'paper_glossy') : product.id === 'print_pack' ? MOCK_PAPERS.filter(p => p.id === 'paper_matte' || p.id === 'paper_semi_gloss') : MOCK_PAPERS).map((paper) => (
+                                  {(product.id === 'dibond' ? productPapers.filter(p => p.id !== 'paper_glossy') : product.id === 'print_pack' ? productPapers.filter(p => p.id === 'paper_matte' || p.id === 'paper_semi_gloss') : productPapers).map((paper) => (
                                     <div 
                                       key={paper.id} 
                                       className={`custom-dropdown-item ${selectedPaper.id === paper.id ? 'active' : ''}`}
@@ -2877,7 +2897,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                               scrollbarWidth: 'none',
                               msOverflowStyle: 'none'
                             }}>
-                              {MOCK_FRAMES.filter(f => f.id !== 'frame_none').map((frame) => {
+                              {activeFrames.filter(f => f.id !== 'frame_none').map((frame) => {
                                 let renderColor = frame.color;
                                 let renderName = frame.label;
                                 const isSelected = selectedFrame.id === frame.id;
@@ -3087,21 +3107,19 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                         }}>
                           <span>1 photo selected</span>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            {isFramed && (
-                              <button 
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setIsCropModalOpen(true);
-                                }}
-                                style={{
-                                  background: '#0d9488', color: 'white', border: 'none', cursor: 'pointer',
-                                  fontSize: '13px', fontWeight: 500, padding: '6px 12px', borderRadius: '4px',
-                                  display: 'flex', alignItems: 'center', gap: '6px'
-                                }}
-                              >
-                                <Crop size={14} /> Arrange Image
-                              </button>
-                            )}
+                            <button 
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setIsCropModalOpen(true);
+                              }}
+                              style={{
+                                background: '#0d9488', color: 'white', border: 'none', cursor: 'pointer',
+                                fontSize: '13px', fontWeight: 500, padding: '6px 12px', borderRadius: '4px',
+                                display: 'flex', alignItems: 'center', gap: '6px'
+                              }}
+                            >
+                              <Crop size={14} /> Arrange Image
+                            </button>
                             <button 
                               onClick={() => { if (onBack) onBack(); }}
                               style={{ 

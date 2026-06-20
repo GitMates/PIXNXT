@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Heart, ZoomIn, Check } from 'lucide-react';
 
 export default function PhotoGrid({
@@ -15,6 +15,23 @@ export default function PhotoGrid({
   onDeselectAll
 }) {
   const [flyingPhoto, setFlyingPhoto] = useState(null);
+
+  // Dynamic column count state
+  const [columnCount, setColumnCount] = useState(5);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const w = window.innerWidth;
+      if (w < 500) setColumnCount(1);
+      else if (w < 768) setColumnCount(2);
+      else if (w < 1024) setColumnCount(3);
+      else if (w < 1280) setColumnCount(4);
+      else setColumnCount(5);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const handlePhotoClick = (e, photo) => {
     const isSelected = selectedPhotos.includes(photo.id);
@@ -87,73 +104,135 @@ export default function PhotoGrid({
         )}
       </div>
 
-      <div className="photo-grid">
-        {photos.map((photo) => {
-          const isFavorited = favorites.includes(photo.id);
-          const isSelected = selectedPhotos.includes(photo.id);
+      {(() => {
+        // Greedy column distribution algorithm
+        const columns = Array.from({ length: columnCount }, () => []);
+        const heights = Array.from({ length: columnCount }, () => 0);
 
-          return (
-            <div
-              key={photo.id}
-              className={`photo-grid-item ${isSelected ? 'selected' : ''}`}
-              onClick={(e) => isSelectionMode ? handlePhotoClick(e, photo) : (onViewPhoto ? onViewPhoto(photo) : onToggleSelectPhoto(photo.id))}
-              style={{
-                border: isSelected ? '3px solid #8BDFDD' : '1px solid #eaeaea',
-                transform: isSelected ? 'scale(0.97)' : 'none',
-                transition: 'all 0.2s ease',
-                position: 'relative'
-              }}
-            >
-              <img
-                src={photo.url}
-                alt={photo.name}
-                className="photo-grid-img"
-              />
+        photos.forEach(photo => {
+          const isLandscape = photo.aspectRatio === '3:2';
+          let minColIdx = 0;
+          let minHeight = heights[0];
 
-              {/* Selection Checkmark - Visible at all times in selection mode */}
-              {isSelectionMode && (
-                <div 
-                  className="card-select-wrapper"
-                  style={{
-                    position: 'absolute',
-                    bottom: '16px',
-                    right: '16px',
-                    zIndex: 15,
-                    pointerEvents: 'auto'
-                  }}
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <button
-                    className={`card-select-btn ${isSelected ? 'selected' : ''}`}
-                    style={{
-                      background: isSelected ? '#ffffff' : 'transparent',
-                      border: '2.5px solid white',
-                      borderRadius: '50%',
-                      width: '28px',
-                      height: '28px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                      cursor: 'pointer',
-                      padding: 0
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handlePhotoClick(e, photo);
-                    }}
-                    aria-label="Select photo"
-                  >
-                    {isSelected && (
-                      <Check size={16} strokeWidth={3} color="#222222" />
-                    )}
-                  </button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+          if (isLandscape) {
+            // Find all columns that already end with a landscape image
+            const candidateCols = [];
+            columns.forEach((col, idx) => {
+              if (col.length > 0) {
+                const lastPhoto = col[col.length - 1];
+                if (lastPhoto.aspectRatio === '3:2') {
+                  candidateCols.push(idx);
+                }
+              }
+            });
+
+            if (candidateCols.length > 0) {
+              // Pick the candidate column with the minimum height
+              minColIdx = candidateCols[0];
+              minHeight = heights[minColIdx];
+              for (let i = 1; i < candidateCols.length; i++) {
+                const idx = candidateCols[i];
+                if (heights[idx] < minHeight) {
+                  minHeight = heights[idx];
+                  minColIdx = idx;
+                }
+              }
+            } else {
+              // Standard greedy column choice (scan left-to-right)
+              for (let i = 1; i < columnCount; i++) {
+                if (heights[i] < minHeight) {
+                  minHeight = heights[i];
+                  minColIdx = i;
+                }
+              }
+            }
+          } else {
+            // Portrait photo: standard greedy choice (scan left-to-right)
+            for (let i = 1; i < columnCount; i++) {
+              if (heights[i] < minHeight) {
+                minHeight = heights[i];
+                minColIdx = i;
+              }
+            }
+          }
+
+          columns[minColIdx].push(photo);
+          heights[minColIdx] += isLandscape ? 160 : 320;
+        });
+
+        return (
+          <div className="photo-grid" style={{ display: 'flex', gap: '8px' }}>
+            {columns.map((columnPhotos, colIdx) => (
+              <div key={colIdx} className="photo-grid-column" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px', minWidth: 0 }}>
+                {columnPhotos.map((photo) => {
+                  const isSelected = selectedPhotos.includes(photo.id);
+
+                  return (
+                    <div
+                      key={photo.id}
+                      className={`photo-grid-item ${isSelected ? 'selected' : ''} ${photo.aspectRatio === '3:2' ? 'landscape' : ''}`}
+                      onClick={(e) => isSelectionMode ? handlePhotoClick(e, photo) : (onViewPhoto ? onViewPhoto(photo) : onToggleSelectPhoto(photo.id))}
+                      style={{
+                        border: isSelected ? '3px solid #8BDFDD' : '1px solid #eaeaea',
+                        transform: isSelected ? 'scale(0.97)' : 'none',
+                        transition: 'all 0.2s ease',
+                        position: 'relative'
+                      }}
+                    >
+                      <img
+                        src={photo.url}
+                        alt={photo.name}
+                        className="photo-grid-img"
+                      />
+
+                      {/* Selection Checkmark - Visible at all times in selection mode */}
+                      {isSelectionMode && (
+                        <div 
+                          className="card-select-wrapper"
+                          style={{
+                            position: 'absolute',
+                            bottom: '16px',
+                            right: '16px',
+                            zIndex: 15,
+                            pointerEvents: 'auto'
+                          }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            className={`card-select-btn ${isSelected ? 'selected' : ''}`}
+                            style={{
+                              background: isSelected ? '#ffffff' : 'transparent',
+                              border: '2.5px solid white',
+                              borderRadius: '50%',
+                              width: '28px',
+                              height: '28px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                              cursor: 'pointer',
+                              padding: 0
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handlePhotoClick(e, photo);
+                            }}
+                            aria-label="Select photo"
+                          >
+                            {isSelected && (
+                              <Check size={16} strokeWidth={3} color="#222222" />
+                            )}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Flying Photo Animation Overlay */}
       {flyingPhoto && (

@@ -201,7 +201,7 @@ export default function CartItemPreview({ item }) {
       <div 
         className="customizer-frame-shadow-wrapper"
         style={{ 
-          backgroundColor: item.frame?.color || '#333333', 
+          backgroundColor: item.frame?.color || '#111111', 
           backgroundImage: item.frame?.colorThumb ? `url(${item.frame.colorThumb})` : 'none',
           backgroundSize: 'cover',
           backgroundPosition: 'center',
@@ -211,13 +211,14 @@ export default function CartItemPreview({ item }) {
           justifyContent: 'center',
           width: '257.27px',
           height: '307.25px',
-          padding: '20px',
+          padding: '12px',
           boxSizing: 'border-box'
         }}
       >
-        <div className="float-frame-inner" style={{ 
-          width: '100%', height: '100%', backgroundColor: 'transparent',
-          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        <div className="float-frame-mat" style={{ 
+          width: '94%', height: '94%', backgroundColor: '#fdfdfd',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: 'inset 0 2px 6px rgba(0,0,0,0.1)'
         }}>
           <div className="float-frame-photo-container" style={{
             position: 'relative',

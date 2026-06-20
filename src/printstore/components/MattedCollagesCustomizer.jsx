@@ -23,13 +23,24 @@ export default function MattedCollagesCustomizer({
   setCustomizerItems,
   isDirectGallerySelection = true
 }) {
+  const productFrames = 
+    (product?.options?.frames && product.options.frames.length > 0) ? product.options.frames : MOCK_FRAMES;
+
+  const activeFrames = productFrames.filter(f => f.enabled !== false);
+
+  const productPapers = 
+    (product?.options?.papers && product.options.papers.length > 0) ? product.options.papers : MOCK_PAPERS;
+
+  const productSizes = 
+    (product?.options?.sizes && product.options.sizes.length > 0) ? product.options.sizes : MATTED_COLLAGE_SIZES;
+
   const [selectedSize, setSelectedSize] = useState(
-    initialSize || MATTED_COLLAGE_SIZES[0]
+    initialSize || productSizes[0]
   );
   const [selectedFrame, setSelectedFrame] = useState(
-    initialFrame || MOCK_FRAMES.find(f => f.id === 'frame_lightwood') || MOCK_FRAMES[1]
+    initialFrame || activeFrames.find(f => f.id === 'frame_lightwood') || activeFrames[0] || MOCK_FRAMES.find(f => f.id === 'frame_lightwood') || MOCK_FRAMES[1]
   );
-  const [selectedPaper, setSelectedPaper] = useState(initialPaper || MOCK_PAPERS[0]);
+  const [selectedPaper, setSelectedPaper] = useState(initialPaper || productPapers[0]);
   const [selectedBorder, setSelectedBorder] = useState(initialBorder || 'none');
   const [selectedLayout, setSelectedLayout] = useState(() => {
     if (initialLayout) return initialLayout;
@@ -623,7 +634,7 @@ export default function MattedCollagesCustomizer({
             }}
           >
             <ShoppingCart size={16} />
-            <span>Add to cart</span>
+            <span className="add-to-cart-text">Add to cart</span>
           </button>
         </div>
 
@@ -728,7 +739,7 @@ export default function MattedCollagesCustomizer({
           </div>
 
           {/* Wall / Frame Area */}
-          <div style={{ display: 'flex', flex: 1, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '40px', padding: '40px', boxSizing: 'border-box', overflowY: 'auto' }}>
+          <div className="customizer-workspace-grid" style={{ display: 'flex', flex: 1, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '40px', padding: '40px', boxSizing: 'border-box', overflowY: 'auto' }}>
             {collagesList.map((collage, collageIndex) => {
               const sizeMatch = collage.size?.label?.match(/(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)/);
               let wCm = 25, hCm = 25;
@@ -763,6 +774,7 @@ export default function MattedCollagesCustomizer({
                       backgroundPosition: 'center',
                       boxShadow: '0 12px 36px rgba(0,0,0,0.25)', 
                       height: '45vh',
+                      '--aspect-ratio': currentAspect,
                       width: `calc(45vh * ${currentAspect})`,
                       aspectRatio: `${wCm} / ${hCm}`,
                       padding: '5.5%', // Frame width
@@ -1074,14 +1086,14 @@ export default function MattedCollagesCustomizer({
                   </div>
 
                   {/* Info & Adjuster Underneath Frame */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '14px', color: '#555', marginTop: '8px' }}>
+                  <div className="customizer-item-adjuster" style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '14px', color: '#555', marginTop: '8px' }}>
                     <span style={{ fontWeight: 500 }}>{collage.size?.label}</span>
                     <span style={{ color: '#ccc' }}>|</span>
 
                     <select
                       value={collage.frame?.id}
                       onChange={(e) => {
-                        const fr = MOCK_FRAMES.find(f => f.id === e.target.value);
+                        const fr = activeFrames.find(f => f.id === e.target.value) || MOCK_FRAMES.find(f => f.id === e.target.value);
                         updateCollageFrame(collageIndex, fr);
                       }}
                       style={{
@@ -1096,7 +1108,7 @@ export default function MattedCollagesCustomizer({
                         maxWidth: '90px'
                       }}
                     >
-                      {MOCK_FRAMES.filter(f => f.id !== 'frame_none').map(f => (
+                      {activeFrames.filter(f => f.id !== 'frame_none').map(f => (
                         <option key={f.id} value={f.id}>{f.label}</option>
                       ))}
                     </select>
@@ -1132,6 +1144,7 @@ export default function MattedCollagesCustomizer({
 
             {/* Right Side: Dashed Placeholder Box */}
             <div 
+              className="customizer-placeholder-box"
               style={{
                 height: '45vh',
                 width: `calc(45vh * ${currentAspect})`,
@@ -1144,7 +1157,8 @@ export default function MattedCollagesCustomizer({
                 background: 'rgba(255,255,255,0.4)',
                 cursor: 'pointer',
                 boxSizing: 'border-box',
-                flexShrink: 0
+                flexShrink: 0,
+                '--aspect-ratio': currentAspect
               }}
               onClick={addCollage}
             >

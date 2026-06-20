@@ -3,16 +3,34 @@ import { CreditCard, ArrowLeft, CheckCircle } from 'lucide-react';
 import CartItemPreview from './CartItemPreview';
 
 
-export default function CheckoutForm({ cartItems, onOrderCompleted, onBackToShopping }) {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    address: '',
-    city: '',
-    zip: '',
-    cardNumber: '',
-    expiry: '',
-    cvv: ''
+export default function CheckoutForm({ cartItems, onOrderCompleted, onPlaceOrder, onBackToShopping, photographer }) {
+  const [formData, setFormData] = useState(() => {
+    try {
+      const cached = localStorage.getItem('pixnxt_printstore_address');
+      if (cached) {
+        const addr = JSON.parse(cached);
+        return {
+          name: addr.recipientName || addr.accountName || '',
+          email: addr.email || '',
+          address: addr.street || '',
+          city: addr.city || '',
+          zip: addr.zipCode || '',
+          cardNumber: '',
+          expiry: '',
+          cvv: ''
+        };
+      }
+    } catch (e) {}
+    return {
+      name: '',
+      email: '',
+      address: '',
+      city: '',
+      zip: '',
+      cardNumber: '',
+      expiry: '',
+      cvv: ''
+    };
   });
 
   const [submitting, setSubmitting] = useState(false);
@@ -22,7 +40,7 @@ export default function CheckoutForm({ cartItems, onOrderCompleted, onBackToShop
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name || !formData.email || !formData.address || !formData.cardNumber) {
       alert("Please fill in the required fields (Name, Email, Address, Card Number).");
@@ -30,11 +48,34 @@ export default function CheckoutForm({ cartItems, onOrderCompleted, onBackToShop
     }
 
     setSubmitting(true);
-    // Mock processing payment
-    setTimeout(() => {
+    try {
+      try {
+        localStorage.setItem('pixnxt_printstore_address', JSON.stringify({
+          recipientName: formData.name,
+          accountName: formData.name,
+          email: formData.email,
+          street: formData.address,
+          city: formData.city,
+          zipCode: formData.zip,
+          country: 'India',
+          phoneNumber: '',
+          sameBilling: true
+        }));
+      } catch (e) {}
+
+      if (onPlaceOrder) {
+        await onPlaceOrder(formData);
+        onOrderCompleted();
+      } else {
+        // Mock processing payment
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        onOrderCompleted();
+      }
+    } catch (err) {
+      console.error("Order submission error:", err);
+    } finally {
       setSubmitting(false);
-      onOrderCompleted();
-    }, 1500);
+    }
   };
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
@@ -88,7 +129,7 @@ export default function CheckoutForm({ cartItems, onOrderCompleted, onBackToShop
                 name="email"
                 required
                 className="form-input"
-                placeholder="kbaskaran@example.com"
+                placeholder={photographer?.email ? `e.g. ${photographer.email}` : "your.email@example.com"}
                 value={formData.email}
                 onChange={handleInputChange}
               />

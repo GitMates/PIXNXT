@@ -1,4 +1,5 @@
 import React from 'react';
+import { MOCK_PHOTOS } from '../data/mockStoreData';
 
 export default function AllProducts({ products, selectedPhotoUrl, onSelectProduct }) {
   const defaultImg = selectedPhotoUrl || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200";
@@ -44,8 +45,11 @@ export default function AllProducts({ products, selectedPhotoUrl, onSelectProduc
     }
 
     // Default for dibond, gallery_board, canvas, acrylic_prints, circular_frames, float_frames, matted_frame, frames
+    const isFloatFrame = product.id === 'float_frames';
+    const photoObj = MOCK_PHOTOS.find(p => p.url === defaultImg);
+    const isLandscape = photoObj ? photoObj.aspectRatio === '3:2' : (defaultImg && defaultImg.includes('w=1200&h=800'));
     return (
-      <img src={defaultImg} alt={product.name} className="product-image" />
+      <img src={defaultImg} alt={product.name} className={`product-image${isFloatFrame && isLandscape ? ' landscape-image' : ''}`} />
     );
   };
 

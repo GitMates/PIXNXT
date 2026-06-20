@@ -53,10 +53,10 @@ export default function CartPage({
               return (
                 <div key={item.id} className="cart-page-item">
                   <div className={`cart-item-image-wrapper product-card-${item.productId} ${isFramed ? 'has-frame-size' : ''}`} style={{ '--frame-color': item.frame?.color || 'transparent' }}>
-                    <div className="product-image-box cart-item-product-image-box">
-                    <CartItemPreview item={item} />
+                    <div className="cart-item-product-image-box">
+                      <CartItemPreview item={item} />
+                    </div>
                   </div>
-                </div>
                 
                 <div className="cart-item-info">
                   <h4 className="cart-item-title">{item.productName} ({item.quantity})</h4>
@@ -96,7 +96,11 @@ export default function CartPage({
               <span className="summary-total-value">₹{estimatedTotal.toFixed(2)} INR</span>
             </div>
             
-            <button className="continue-shipping-btn" onClick={onContinueToShipping}>
+            <button 
+              className="continue-shipping-btn" 
+              onClick={onContinueToShipping}
+              disabled={cartItems.length === 0}
+            >
               Continue to shipping
             </button>
             

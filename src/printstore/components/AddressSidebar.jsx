@@ -28,6 +28,8 @@ export default function AddressSidebar({ isOpen, onClose, onSaveAddress, initial
   useEffect(() => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const isEmailValid = emailRegex.test(formData.email);
+    const isZipValid = /^\d{6}$/.test(formData.zipCode);
+    const isPhoneValid = /^\d{10}$/.test(formData.phoneNumber);
     
     // Check required fields
     const requiredFilled = 
@@ -35,10 +37,11 @@ export default function AddressSidebar({ isOpen, onClose, onSaveAddress, initial
       isEmailValid &&
       formData.recipientName.trim() !== '' &&
       formData.street.trim() !== '' &&
+      formData.addressLine2.trim() !== '' &&
       formData.city.trim() !== '' &&
       formData.country.trim() !== '' &&
-      formData.zipCode.trim() !== '' &&
-      formData.phoneNumber.trim() !== '';
+      isZipValid &&
+      isPhoneValid;
 
     setIsValid(requiredFilled);
   }, [formData]);
@@ -88,7 +91,7 @@ export default function AddressSidebar({ isOpen, onClose, onSaveAddress, initial
             <p className="section-subtext">We use this to identify your order.</p>
             
             <div className="form-group">
-              <label>Full name</label>
+              <label>Full name *</label>
               <input 
                 type="text" 
                 value={formData.accountName}
@@ -98,13 +101,16 @@ export default function AddressSidebar({ isOpen, onClose, onSaveAddress, initial
             </div>
             
             <div className="form-group">
-              <label>Email</label>
+              <label>Email *</label>
               <input 
                 type="email" 
                 value={formData.email}
                 onChange={handleEmail}
                 placeholder="email@example.com"
               />
+              {formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) && (
+                <p className="field-error" style={{ color: '#d32f2f', fontSize: '11px', marginTop: '4px' }}>Please enter a valid email address.</p>
+              )}
             </div>
           </div>
           
@@ -112,7 +118,7 @@ export default function AddressSidebar({ isOpen, onClose, onSaveAddress, initial
             <h3 className="section-title">Shipping address</h3>
             
             <div className="form-group">
-              <label>Recipient's full name</label>
+              <label>Recipient's full name *</label>
               <input 
                 type="text" 
                 value={formData.recipientName}
@@ -123,7 +129,7 @@ export default function AddressSidebar({ isOpen, onClose, onSaveAddress, initial
             </div>
             
             <div className="form-group">
-              <label>Street and Number</label>
+              <label>Street and Number *</label>
               <input 
                 type="text" 
                 value={formData.street}
@@ -132,7 +138,7 @@ export default function AddressSidebar({ isOpen, onClose, onSaveAddress, initial
             </div>
             
             <div className="form-group">
-              <label>Address line 2 (Optional)</label>
+              <label>Address line 2 *</label>
               <input 
                 type="text" 
                 value={formData.addressLine2}
@@ -142,7 +148,7 @@ export default function AddressSidebar({ isOpen, onClose, onSaveAddress, initial
             </div>
             
             <div className="form-group">
-              <label>City</label>
+              <label>City *</label>
               <input 
                 type="text" 
                 value={formData.city}
@@ -151,7 +157,7 @@ export default function AddressSidebar({ isOpen, onClose, onSaveAddress, initial
             </div>
             
             <div className="form-group">
-              <label>Country</label>
+              <label>Country *</label>
               <select 
                 value={formData.country}
                 onChange={(e) => setFormData({ ...formData, country: e.target.value })}
@@ -165,35 +171,33 @@ export default function AddressSidebar({ isOpen, onClose, onSaveAddress, initial
             </div>
             
             <div className="form-group">
-              <label>Zip Code</label>
+              <label>Zip Code *</label>
               <input 
                 type="text" 
                 value={formData.zipCode}
-                onChange={(e) => handleNumbersOnly(e, 'zipCode', 10)}
+                onChange={(e) => handleNumbersOnly(e, 'zipCode', 6)}
+                placeholder="6 digits"
               />
+              {formData.zipCode && formData.zipCode.length !== 6 && (
+                <p className="field-error" style={{ color: '#d32f2f', fontSize: '11px', marginTop: '4px' }}>Zip code must be exactly 6 digits.</p>
+              )}
             </div>
             
             <div className="form-group">
-              <label>Phone Number</label>
+              <label>Phone Number *</label>
               <input 
                 type="text" 
                 value={formData.phoneNumber}
-                onChange={(e) => handleNumbersOnly(e, 'phoneNumber', 15)}
+                onChange={(e) => handleNumbersOnly(e, 'phoneNumber', 10)}
+                placeholder="10 digits"
               />
+              {formData.phoneNumber && formData.phoneNumber.length !== 10 && (
+                <p className="field-error" style={{ color: '#d32f2f', fontSize: '11px', marginTop: '4px' }}>Phone number must be exactly 10 digits.</p>
+              )}
             </div>
           </div>
           
-          <div className="form-section">
-            <h3 className="section-title">Billing address</h3>
-            <label className="checkbox-label">
-              <input 
-                type="checkbox" 
-                checked={formData.sameBilling}
-                onChange={(e) => setFormData({ ...formData, sameBilling: e.target.checked })}
-              />
-              Use the same details as the shipping address
-            </label>
-          </div>
+          {/* Billing address details automatically match shipping details */}
         </div>
         
         <div className="address-sidebar-footer">

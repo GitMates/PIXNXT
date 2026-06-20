@@ -19,7 +19,9 @@ export default function StoreHeader({
   hasPlacedOrder,
   customizingProduct,
   onCancelCustomizing,
-  onSelectProduct
+  onSelectProduct,
+  photographer,
+  products = []
 }) {
   const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
 
@@ -77,7 +79,7 @@ export default function StoreHeader({
               {isShopDropdownOpen && (
                 <div className="shop-hover-dropdown">
                   <div className="shop-dropdown-list">
-                    {MOCK_PRODUCTS.map((prod) => (
+                    {(products && products.length > 0 ? products : MOCK_PRODUCTS).map((prod) => (
                       <div 
                         key={prod.id} 
                         className="shop-dropdown-item"
@@ -108,15 +110,7 @@ export default function StoreHeader({
             </button>
           )}
 
-          {/* Select Button - Only show on gallery tab */}
-          {activeTab === 'gallery' && (
-            <button
-              className={`store-header-action-btn select-text-btn ${isSelectionMode ? 'active' : ''}`}
-              onClick={() => setIsSelectionMode(!isSelectionMode)}
-            >
-              {isSelectionMode ? 'Selecting' : 'Select'}
-            </button>
-          )}
+
 
           {/* Cart Icon with badge count - always rendered to prevent shaking */}
           <button 
@@ -141,7 +135,7 @@ export default function StoreHeader({
 
           {/* Photographer Branding */}
           <div className="store-photographer-logo">
-            Kbaskaran
+            {photographer?.display_name || ''}
           </div>
         </div>
       </header>

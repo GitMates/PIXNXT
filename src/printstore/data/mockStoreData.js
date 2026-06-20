@@ -34,6 +34,18 @@ export const MOCK_PHOTOS = [
     name: "Portrait 6",
     url: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200",
     aspectRatio: "2:3"
+  },
+  {
+    id: "photo_7",
+    name: "Landscape 1",
+    url: "https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&q=80&w=1200&h=800",
+    aspectRatio: "3:2"
+  },
+  {
+    id: "photo_8",
+    name: "Landscape 2",
+    url: "https://images.unsplash.com/photo-1607190074257-dd4b7af0309f?auto=format&fit=crop&q=80&w=1200&h=800",
+    aspectRatio: "3:2"
   }
 ];
 

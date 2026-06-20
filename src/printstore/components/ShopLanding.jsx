@@ -1,4 +1,5 @@
 import React from 'react';
+import { MOCK_PHOTOS } from '../data/mockStoreData';
 
 export default function ShopLanding({ products, selectedPhotoUrl, onSelectProduct, onExploreAll }) {
   const defaultImg = selectedPhotoUrl || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200";
@@ -40,7 +41,19 @@ export default function ShopLanding({ products, selectedPhotoUrl, onSelectProduc
                   <img src={selectedPhotoUrl || product.image} alt={product.name} className="deckled-print-img" />
                 </div>
               ) : (
-                <img src={selectedPhotoUrl || product.image} alt={product.name} className="product-image" />
+                (() => {
+                  const defaultImg = selectedPhotoUrl || product.image;
+                  const isFloatFrame = product.id === 'float_frames';
+                  const photoObj = MOCK_PHOTOS.find(p => p.url === defaultImg);
+                  const isLandscape = photoObj ? photoObj.aspectRatio === '3:2' : (defaultImg && defaultImg.includes('w=1200&h=800'));
+                  return (
+                    <img 
+                      src={defaultImg} 
+                      alt={product.name} 
+                      className={`product-image${isFloatFrame && isLandscape ? ' landscape-image' : ''}`} 
+                    />
+                  );
+                })()
               )}
             </div>
             <div className="product-info">

@@ -6,7 +6,9 @@ import CartItemPreview from './CartItemPreview';
 export default function PaymentPage({
   cartItems,
   onBack,
-  onPaymentSuccess
+  onPaymentSuccess,
+  onPlaceOrder,
+  shippingAddress
 }) {
   const [paymentMethod, setPaymentMethod] = useState('Credit Card');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -18,6 +20,7 @@ export default function PaymentPage({
   const estimatedTotal = itemsTotal + shipping + taxes;
 
   const [isSuccess, setIsSuccess] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     email: '',
     cardNumber: '',
@@ -27,7 +30,7 @@ export default function PaymentPage({
   });
   const [errors, setErrors] = useState({});
 
-  const handlePayNow = () => {
+  const handlePayNow = async () => {
     if (paymentMethod === 'Credit Card') {
       const newErrors = {};
       if (!formData.email) newErrors.email = 'Required';
@@ -49,10 +52,29 @@ export default function PaymentPage({
     }
 
     setErrors({});
-    setIsSuccess(true);
-    setTimeout(() => {
-      if (onPaymentSuccess) onPaymentSuccess();
-    }, 2500);
+    setSubmitting(true);
+
+    try {
+      if (onPlaceOrder) {
+        await onPlaceOrder({
+          name: shippingAddress?.recipientName || shippingAddress?.accountName || '',
+          email: shippingAddress?.email || formData.email,
+          address: shippingAddress?.street || '',
+          city: shippingAddress?.city || '',
+          zip: shippingAddress?.zipCode || ''
+        });
+      }
+
+      setIsSuccess(true);
+      setTimeout(() => {
+        if (onPaymentSuccess) onPaymentSuccess();
+      }, 2500);
+    } catch (err) {
+      console.error('Failed to place order:', err);
+      setErrors({ submit: 'Failed to place order. Please try again.' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -175,8 +197,9 @@ export default function PaymentPage({
                     <option value="UK">United Kingdom</option>
                   </select>
                 </div>
-                <button className="pay-now-btn" onClick={handlePayNow}>
-                  Pay now
+                {errors.submit && <div style={{ color: '#d32f2f', marginBottom: '8px', fontSize: '0.85rem' }}>{errors.submit}</div>}
+                <button className="pay-now-btn" onClick={handlePayNow} disabled={submitting}>
+                  {submitting ? 'Placing order…' : 'Pay now'}
                 </button>
               </div>
             ) : (
@@ -193,8 +216,9 @@ export default function PaymentPage({
                     <p>Scan with any UPI App</p>
                   </div>
                 </div>
-                <button className="pay-now-btn" onClick={handlePayNow}>
-                  Confirm Payment
+                {errors.submit && <div style={{ color: '#d32f2f', marginBottom: '8px', fontSize: '0.85rem' }}>{errors.submit}</div>}
+                <button className="pay-now-btn" onClick={handlePayNow} disabled={submitting}>
+                  {submitting ? 'Placing order…' : 'Confirm Payment'}
                 </button>
               </div>
             )}

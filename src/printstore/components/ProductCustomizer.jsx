@@ -28,6 +28,7 @@ export default function ProductCustomizer({
   isDirectGallerySelection = true
 }) {
   const productSizes = 
+    (product?.options?.sizes && product.options.sizes.length > 0) ? product.options.sizes :
     product.id === 'print_pack' ? PRINT_PACK_SIZES :
     product.id === 'matted_frame' ? MATTED_FRAME_SIZES :
     product.id === 'frames' ? MATTED_FRAME_SIZES :
@@ -38,10 +39,18 @@ export default function ProductCustomizer({
     product.id === 'deckled_prints' ? DECKLED_PRINTS_SIZES :
     MOCK_SIZES;
 
+  const productFrames = 
+    (product?.options?.frames && product.options.frames.length > 0) ? product.options.frames : MOCK_FRAMES;
+
+  const activeFrames = productFrames.filter(f => f.enabled !== false);
+
+  const productPapers = 
+    (product?.options?.papers && product.options.papers.length > 0) ? product.options.papers : MOCK_PAPERS;
+
   const [selectedSize, setSelectedSize] = useState(
     initialSize || productSizes[0]
   );
-  const [selectedPaper, setSelectedPaper] = useState(initialPaper || MOCK_PAPERS[0]);
+  const [selectedPaper, setSelectedPaper] = useState(initialPaper || productPapers[0]);
   const [selectedBorder, setSelectedBorder] = useState(initialBorder || 'none');
 
   // List of customized items on the canvas
@@ -68,8 +77,8 @@ export default function ProductCustomizer({
   const isFramedProduct = ['frames', 'matted_frame', 'float_frames', 'circular_frames', 'matted_collages'].includes(product.id);
   const getDefaultFrame = () => {
     if (initialFrame) return initialFrame;
-    if (isFramedProduct) return MOCK_FRAMES.find(f => f.id === 'frame_black') || MOCK_FRAMES[1];
-    return MOCK_FRAMES.find(f => f.id === 'frame_none') || { id: 'frame_none', label: 'No Frame', priceModifier: 0, color: 'transparent' };
+    if (isFramedProduct) return activeFrames.find(f => f.id === 'frame_black') || activeFrames[0] || MOCK_FRAMES.find(f => f.id === 'frame_black') || MOCK_FRAMES[1];
+    return activeFrames.find(f => f.id === 'frame_none') || MOCK_FRAMES.find(f => f.id === 'frame_none') || { id: 'frame_none', label: 'No Frame', priceModifier: 0, color: 'transparent' };
   };
 
   useEffect(() => {
@@ -139,7 +148,7 @@ export default function ProductCustomizer({
         id: `item_${prev.length}_${Date.now()}_${Math.random()}`,
         photo: photoToUse,
         quantity: 1,
-        frame: prev[prev.length - 1]?.frame || MOCK_FRAMES.find(f => f.id === 'frame_black') || MOCK_FRAMES[1],
+        frame: prev[prev.length - 1]?.frame || activeFrames.find(f => f.id === 'frame_black') || activeFrames[0] || MOCK_FRAMES.find(f => f.id === 'frame_black') || MOCK_FRAMES[1],
         rotation: 0
       }
     ]);
@@ -288,7 +297,8 @@ export default function ProductCustomizer({
             width: '257.27px',
             height: '307.25px',
             padding: '12px',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            '--aspect-ratio': 257.27 / 307.25
           }}
         >
           <div className="float-frame-mat" style={{ 
@@ -365,7 +375,8 @@ export default function ProductCustomizer({
             width: '257.27px',
             height: '307.25px',
             padding: '16px',
-            boxSizing: 'border-box'
+            boxSizing: 'border-box',
+            '--aspect-ratio': 257.27 / 307.25
           }}
         >
           <div className="matted-frame-mat" style={{ 
@@ -461,7 +472,8 @@ export default function ProductCustomizer({
             background: '#f8f8f8',
             padding: '1.5rem',
             overflow: 'visible',
-            cursor: 'pointer'
+            cursor: 'pointer',
+            '--aspect-ratio': 257.27 / 307.25
           }}
           onClick={() => handleOpenSidebarForSlot(index)}
         >
@@ -518,7 +530,8 @@ export default function ProductCustomizer({
             justifyContent: 'center',
             boxSizing: 'border-box',
             background: 'transparent',
-            overflow: 'visible'
+            overflow: 'visible',
+            '--aspect-ratio': 257.27 / 307.25
           }}
         >
           <div
@@ -570,7 +583,8 @@ export default function ProductCustomizer({
           justifyContent: 'center',
           boxSizing: 'border-box',
           backgroundColor: '#fff',
-          overflow: 'hidden'
+          overflow: 'hidden',
+          '--aspect-ratio': 257.27 / 307.25
         }}
       >
         {item.photo ? (
@@ -643,12 +657,10 @@ export default function ProductCustomizer({
               fontWeight: 500,
               cursor: 'pointer',
               display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
             }}
           >
             <ShoppingCart size={16} />
-            <span>Add to cart</span>
+            <span className="add-to-cart-text">Add to cart</span>
           </button>
         </div>
       </div>
@@ -657,20 +669,20 @@ export default function ProductCustomizer({
       <div className="customizer-workspace" style={{ display: 'flex', flex: 1, overflow: 'hidden', minWidth: 0, width: '100%' }}>
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1, position: 'relative', minWidth: 0, width: '100%', overflow: 'hidden' }}>
           {/* Wall / Frame Layout Container */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', alignContent: items.length > 2 ? 'flex-start' : 'center', justifyContent: 'center', gap: '40px', padding: '40px', boxSizing: 'border-box', overflowY: 'auto', overflowX: 'hidden', width: '100%' }}>
+          <div className="customizer-workspace-grid" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start', alignContent: items.length > 2 ? 'flex-start' : 'center', justifyContent: 'center', gap: '40px', padding: '40px', boxSizing: 'border-box', overflowY: 'auto', overflowX: 'hidden', width: '100%' }}>
             {/* Customized Frame Cards */}
             {items.map((item, index) => (
-              <div key={item.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+               <div key={item.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
                 {/* Visualizer Frame */}
                 {renderVisualizerCard(item, index)}
 
                 {/* Card Controls Panel underneath each card */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: '#555' }}>
+                <div className="customizer-item-adjuster" style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: '#555' }}>
                   {['frames', 'matted_frame', 'float_frames', 'circular_frames'].includes(product.id) ? (
                     <select
                       value={item.frame?.id}
                       onChange={(e) => {
-                        const fr = MOCK_FRAMES.find(f => f.id === e.target.value);
+                        const fr = activeFrames.find(f => f.id === e.target.value) || MOCK_FRAMES.find(f => f.id === e.target.value);
                         const updated = [...items];
                         updated[index].frame = fr;
                         setItems(updated);
@@ -687,7 +699,7 @@ export default function ProductCustomizer({
                         maxWidth: '90px'
                       }}
                     >
-                      {MOCK_FRAMES.filter(f => f.id !== 'frame_none').map(f => (
+                      {activeFrames.filter(f => f.id !== 'frame_none').map(f => (
                         <option key={f.id} value={f.id}>{f.label}</option>
                       ))}
                     </select>

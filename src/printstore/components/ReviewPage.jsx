@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ChevronLeft, Trash2, Info, Plus, Calendar, Edit2 } from 'lucide-react';
 import AddressSidebar from './AddressSidebar';
 import '../PrintStore.css';
 import { isSlotLandscape, adjustPhotoUrl } from '../data/mockStoreData';
 import CartItemPreview from './CartItemPreview';
+import { supabase } from '../../lib/supabase/client';
 
 
 export default function ReviewPage({
@@ -11,10 +12,72 @@ export default function ReviewPage({
   onUpdateQuantity,
   onRemoveItem,
   onBack,
-  onContinueToPayment
+  onContinueToPayment,
+  sessionId,
+  initialAddress
 }) {
   const [isAddressSidebarOpen, setIsAddressSidebarOpen] = useState(false);
-  const [shippingAddress, setShippingAddress] = useState(null);
+  const [shippingAddress, setShippingAddress] = useState(() => {
+    if (initialAddress) return initialAddress;
+    try {
+      const cached = localStorage.getItem('pixnxt_printstore_address');
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    async function loadSavedAddress() {
+      // If we already have a shipping address (from props or localStorage), do not query/overwrite it
+      if (shippingAddress && shippingAddress.street) return;
+
+      let query = supabase
+        .from('printstore_orders')
+        .select('shipping_address, customer_name, customer_email, created_at')
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      let hasFilter = false;
+
+      if (sessionId) {
+        query = query.eq('session_id', sessionId);
+        hasFilter = true;
+      } else {
+        try {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user?.email) {
+            query = query.eq('customer_email', userData.user.email);
+            hasFilter = true;
+          }
+        } catch (e) {}
+      }
+
+      if (!hasFilter) return;
+
+      const { data, error } = await query;
+      if (error || !data || data.length === 0) return;
+
+      const order = data[0];
+      const dbAddress = {
+        accountName: order.customer_name,
+        email: order.customer_email,
+        recipientName: order.customer_name,
+        street: order.shipping_address?.address || '',
+        city: order.shipping_address?.city || '',
+        zipCode: order.shipping_address?.zip || '',
+        country: order.shipping_address?.country || 'India',
+        phoneNumber: '',
+        sameBilling: true
+      };
+
+      setShippingAddress(dbAddress);
+      try {
+        localStorage.setItem('pixnxt_printstore_address', JSON.stringify(dbAddress));
+      } catch (e) {}
+    }
+    loadSavedAddress();
+  }, [sessionId]);
 
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const itemsTotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
@@ -23,6 +86,9 @@ export default function ReviewPage({
 
   const handleSaveAddress = (addressData) => {
     setShippingAddress(addressData);
+    try {
+      localStorage.setItem('pixnxt_printstore_address', JSON.stringify(addressData));
+    } catch (e) {}
     setIsAddressSidebarOpen(false);
   };
 
@@ -100,7 +166,7 @@ export default function ReviewPage({
                 return (
                   <div key={item.id} className="cart-page-item review-page-item">
                     <div className={`cart-item-image-wrapper product-card-${item.productId} ${isFramed ? 'has-frame-size' : ''}`} style={{ '--frame-color': item.frame?.color || 'transparent' }}>
-                      <div className="product-image-box cart-item-product-image-box">
+                      <div className="cart-item-product-image-box">
                          <CartItemPreview item={item} />
                       </div>
                     </div>
@@ -153,8 +219,8 @@ export default function ReviewPage({
             
             <button 
               className="continue-shipping-btn" 
-              onClick={onContinueToPayment}
-              disabled={!shippingAddress}
+              onClick={() => onContinueToPayment(shippingAddress)}
+              disabled={!shippingAddress || cartItems.length === 0}
             >
               Continue to payment
             </button>

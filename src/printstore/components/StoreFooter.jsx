@@ -1,18 +1,21 @@
 import React from 'react';
 import { Mail } from 'lucide-react';
 
-export default function StoreFooter() {
+export default function StoreFooter({ photographer }) {
+  const photographerName = photographer?.display_name || '';
+  const email = photographer?.email || '';
+
   return (
     <footer className="store-footer">
       {/* Photographer Name */}
       <div className="footer-branding">
-        Kbaskaran
+        {photographerName}
       </div>
 
       {/* Social / Contact email icon */}
       <button
         className="footer-social-btn"
-        onClick={() => window.open('mailto:kbaskaran@example.com')}
+        onClick={() => window.open(`mailto:${email}`)}
         aria-label="Send Email to Photographer"
       >
         <Mail size={16} />

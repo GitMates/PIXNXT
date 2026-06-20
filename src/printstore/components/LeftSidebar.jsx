@@ -1,9 +1,52 @@
-import React from 'react';
-import { X, Upload, FlaskConical } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { X, Upload, FlaskConical, LayoutDashboard, Eye, ShoppingCart, Package } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { supabase } from '../../lib/supabase/client';
 
-export default function LeftSidebar({ isOpen, onClose, isLoggedIn, onToggleLogin }) {
+export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart, onGoToOrders, photographer }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [photographerName, setPhotographerName] = useState(photographer?.display_name || '');
+
+  useEffect(() => {
+    if (photographer?.display_name) {
+      setPhotographerName(photographer.display_name);
+    }
+  }, [photographer]);
+
+  useEffect(() => {
+    async function fetchPhotographerName() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: photoProfile } = await supabase
+            .from('photographers')
+            .select('display_name')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (photoProfile?.display_name) {
+            setPhotographerName(photoProfile.display_name);
+          }
+        } else {
+          // As a fallback, get first photographer in database
+          const { data: photoProfiles } = await supabase
+            .from('photographers')
+            .select('display_name')
+            .limit(1);
+          if (photoProfiles?.[0]?.display_name) {
+            setPhotographerName(photoProfiles[0].display_name);
+          }
+        }
+      } catch (err) {
+        console.error("Error loading photographer name:", err);
+      }
+    }
+
+    if (isOpen && !photographer?.display_name) {
+      fetchPhotographerName();
+    }
+  }, [isOpen, photographer]);
+
   if (!isOpen) return null;
 
   const handleShareClick = () => {
@@ -14,6 +57,31 @@ export default function LeftSidebar({ isOpen, onClose, isLoggedIn, onToggleLogin
   const handleGoToLab = () => {
     onClose();
     navigate('/lab');
+  };
+
+  const handleGoToDashboard = () => {
+    onClose();
+    navigate('/dashboard');
+  };
+
+  const handleSeeGallery = () => {
+    onClose();
+    const slug = searchParams.get('slug') || searchParams.get('collection');
+    if (slug) {
+      navigate(`/gallery/${slug}`);
+    } else if (onSeeGallery) {
+      onSeeGallery();
+    }
+  };
+
+  const handleGoToCart = () => {
+    onClose();
+    if (onGoToCart) onGoToCart();
+  };
+
+  const handleGoToOrders = () => {
+    onClose();
+    if (onGoToOrders) onGoToOrders();
   };
 
   return (
@@ -31,12 +99,30 @@ export default function LeftSidebar({ isOpen, onClose, isLoggedIn, onToggleLogin
         </div>
 
         {/* Branding Photographer Title */}
-        <h3 className="menu-drawer-title">Kharthik Baskaran</h3>
+        <h3 className="menu-drawer-title">{photographerName}</h3>
 
-        {/* Share gallery button */}
-        <button className="menu-drawer-share-btn" onClick={handleShareClick}>
-          <Upload size={18} strokeWidth={1.5} />
-          <span>Share gallery</span>
+        {/* See Gallery button */}
+        <button className="menu-drawer-share-btn" onClick={handleSeeGallery}>
+          <Eye size={18} strokeWidth={1.5} />
+          <span>See gallery</span>
+        </button>
+
+        {/* Go to my orders button */}
+        <button className="menu-drawer-share-btn" onClick={handleGoToOrders} style={{ marginTop: '10px' }}>
+          <Package size={18} strokeWidth={1.5} />
+          <span>Go to my orders</span>
+        </button>
+
+        {/* Go to cart button */}
+        <button className="menu-drawer-share-btn" onClick={handleGoToCart} style={{ marginTop: '10px' }}>
+          <ShoppingCart size={18} strokeWidth={1.5} />
+          <span>Go to cart</span>
+        </button>
+
+        {/* Go to dashboard button */}
+        <button className="menu-drawer-share-btn" onClick={handleGoToDashboard} style={{ marginTop: '10px' }}>
+          <LayoutDashboard size={18} strokeWidth={1.5} />
+          <span>Go to dashboard</span>
         </button>
 
         {/* See Lab button */}
@@ -45,50 +131,11 @@ export default function LeftSidebar({ isOpen, onClose, isLoggedIn, onToggleLogin
           <span>See lab</span>
         </button>
 
-        <hr className="menu-drawer-divider" />
-
-        {/* Auth details panel */}
-        {isLoggedIn ? (
-          <div>
-            <div className="menu-drawer-login-text" style={{ color: '#111111', fontWeight: 500 }}>
-              Logged in as Kbaskaran
-            </div>
-            <div className="menu-drawer-login-text" style={{ fontSize: '0.8rem', marginTop: '-0.5rem' }}>
-              kbaskaran@example.com
-            </div>
-            <button 
-              className="menu-drawer-login-btn" 
-              style={{ background: '#ff3b30 !important', marginTop: '1rem' }} 
-              onClick={() => {
-                onToggleLogin();
-                alert("Logged out of account!");
-              }}
-            >
-              Log out
-            </button>
-          </div>
-        ) : (
-          <div>
-            <p className="menu-drawer-login-text">
-              Log in to access your account, view orders and related galleries
-            </p>
-            <button 
-              className="menu-drawer-login-btn" 
-              onClick={() => {
-                onToggleLogin();
-                alert("Successfully logged in as Kbaskaran!");
-              }}
-            >
-              Log in
-            </button>
-            <div className="menu-drawer-signup-text">
-              Don't have an account? 
-              <span className="menu-drawer-signup-link" onClick={() => alert("Redirecting to sign up... (Mock Action)")}>
-                Sign up
-              </span>
-            </div>
-          </div>
-        )}
+        {/* Share gallery button */}
+        <button className="menu-drawer-share-btn" onClick={handleShareClick} style={{ marginTop: '10px' }}>
+          <Upload size={18} strokeWidth={1.5} />
+          <span>Share gallery</span>
+        </button>
       </div>
     </div>
   );
