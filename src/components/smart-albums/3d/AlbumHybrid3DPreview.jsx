@@ -5,6 +5,7 @@ import BookCover3DView from './BookCover3DView';
 import './AlbumHybrid3DPreview.css';
 
 const FLIP_TIME_MS = 900;
+const COVER_ALIGN_MS = 650;
 
 /** 3D front cover; inner spreads use the 2D flipbook without leaving preview mode. */
 export default function AlbumHybrid3DPreview({
@@ -37,7 +38,7 @@ export default function AlbumHybrid3DPreview({
     const openBook = useCallback(() => {
         if (openingRef.current || closingRef.current || phase !== 'cover') return;
         openingRef.current = true;
-        setPhase('opening');
+        setPhase('aligning');
     }, [phase]);
 
     const handleCoverHideTo3DStart = useCallback(() => {
@@ -49,7 +50,7 @@ export default function AlbumHybrid3DPreview({
         openingRef.current = false;
         closingRef.current = false;
         onPageChange?.(0);
-        setPhase('cover');
+        setPhase('unaligning');
     }, [onPageChange]);
 
     const handleCoverRevealFrom3DComplete = useCallback(() => {
@@ -70,6 +71,18 @@ export default function AlbumHybrid3DPreview({
     }, [openBook, phase]);
 
     useEffect(() => {
+        if (phase !== 'aligning') return undefined;
+        const timer = window.setTimeout(() => setPhase('opening'), COVER_ALIGN_MS);
+        return () => window.clearTimeout(timer);
+    }, [phase]);
+
+    useEffect(() => {
+        if (phase !== 'unaligning') return undefined;
+        const timer = window.setTimeout(() => setPhase('cover'), COVER_ALIGN_MS);
+        return () => window.clearTimeout(timer);
+    }, [phase]);
+
+    useEffect(() => {
         if (phase !== 'opening' && phase !== 'closing') return undefined;
         const timer = window.setTimeout(() => {
             if (phase === 'opening' && openingRef.current) {
@@ -79,20 +92,35 @@ export default function AlbumHybrid3DPreview({
             if (phase === 'closing' && closingRef.current) {
                 closingRef.current = false;
                 onPageChange?.(0);
-                setPhase('cover');
+                setPhase('unaligning');
             }
         }, FLIP_TIME_MS + 400);
         return () => window.clearTimeout(timer);
     }, [onPageChange, phase]);
 
-    const coverVisible = phase === 'cover';
-    const bookVisible = phase !== 'cover';
+    const coverShifted =
+        phase === 'aligning' || phase === 'opening' || phase === 'closing';
+    const coverFading = phase === 'opening';
+    const coverVisible =
+        phase === 'cover' ||
+        phase === 'aligning' ||
+        phase === 'opening' ||
+        phase === 'closing' ||
+        phase === 'unaligning';
+    const bookVisible = phase !== 'cover' && phase !== 'unaligning';
+    const bookAligned = phase === 'aligning' || phase === 'closing';
 
     return (
-        <div className="ab-hybrid-3d-preview ab-hybrid-3d-preview--stacked">
+        <div
+            className={`ab-hybrid-3d-preview ab-hybrid-3d-preview--stacked${
+                coverShifted ? ' ab-hybrid-3d-preview--aligned' : ''
+            }`}
+        >
             <div
                 className={`ab-hybrid-3d-cover-layer${
                     coverVisible ? '' : ' ab-hybrid-3d-cover-layer--hidden'
+                }${coverShifted ? ' ab-hybrid-3d-cover-layer--shifted' : ''}${
+                    coverFading ? ' ab-hybrid-3d-cover-layer--fading' : ''
                 }`}
                 aria-hidden={!coverVisible}
             >
@@ -108,7 +136,7 @@ export default function AlbumHybrid3DPreview({
             <div
                 className={`ab-hybrid-3d-book-layer${
                     bookVisible ? '' : ' ab-hybrid-3d-book-layer--hidden'
-                }`}
+                }${bookAligned ? ' ab-hybrid-3d-book-layer--aligned' : ''}`}
                 aria-hidden={!bookVisible}
             >
                 <AlbumBook
@@ -118,6 +146,7 @@ export default function AlbumHybrid3DPreview({
                     initialPage={bookPage}
                     onPageChange={onPageChange}
                     external3DCover
+                    coverAlignFrom3D={bookAligned}
                     coverRevealFrom3D={phase === 'opening'}
                     onCoverRevealFrom3DComplete={handleCoverRevealFrom3DComplete}
                     onCoverHideTo3DStart={handleCoverHideTo3DStart}

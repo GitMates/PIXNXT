@@ -184,6 +184,7 @@ const AlbumBook = ({
     spotCanComment = false,
     spotCanSwap = false,
     external3DCover = false,
+    coverAlignFrom3D = false,
     coverRevealFrom3D = false,
     coverRevealDelayMs = 0,
     onCoverRevealFrom3DComplete,
@@ -551,16 +552,17 @@ const AlbumBook = ({
     const frontCoverOnly =
         album?.has_covers === true &&
         spreadIndex === 0 &&
-        (!external3DCover || coverRevealFrom3D || coverHideTo3DActive);
+        (!external3DCover || coverRevealFrom3D || coverHideTo3DActive || coverAlignFrom3D);
     const prevNavDisabled = bookFlipping || (!external3DCover && spreadIndex <= 0);
     const nextNavDisabled = atEnd || bookFlipping;
     const showCoverClip =
         album?.has_covers === true &&
-        (!external3DCover || coverRevealFrom3D || coverHideTo3DActive) &&
+        (!external3DCover || coverRevealFrom3D || coverHideTo3DActive || coverAlignFrom3D) &&
         (frontCoverOnly ||
             coverClipTransition != null ||
             coverRevealFrom3D ||
             coverHideTo3DActive ||
+            coverAlignFrom3D ||
             (bookFlipping && spreadIndex === 0));
     const lastSpreadIndex = Math.max(0, totalSpreads - 1);
     const preBackSpreadIndex = Math.max(0, totalSpreads - 2);
@@ -657,6 +659,24 @@ const AlbumBook = ({
         coverRevealFrom3DStartedRef.current = false;
         coverRevealFrom3DDoneRef.current = false;
     }, [flipBookMountKey, coverRevealFrom3D]);
+
+    useEffect(() => {
+        if (!coverAlignFrom3D || !initialized || !stableDims) return undefined;
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return undefined;
+
+        const current = api.getCurrentPageIndex();
+        if (current >= 1) return undefined;
+
+        syncingPageRef.current = true;
+        api.turnToPage(1);
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                syncingPageRef.current = false;
+            });
+        });
+        return undefined;
+    }, [coverAlignFrom3D, initialized, stableDims]);
 
     useEffect(() => {
         if (!coverRevealFrom3D || !initialized || !stableDims || coverRevealFrom3DStartedRef.current) {
