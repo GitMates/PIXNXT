@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import AlbumBook from '../AlbumBook';
 import { pageToSpreadIndex } from '../albumSpreadUtils';
+import useAlbumBookLayoutDims from '../useAlbumBookLayoutDims';
 import BookCover3DView from './BookCover3DView';
 import './AlbumHybrid3DPreview.css';
 
 const FLIP_TIME_MS = 900;
-const COVER_ALIGN_MS = 650;
+const COVER_MOVE_MS = 480;
 
 /** 3D front cover; inner spreads use the 2D flipbook without leaving preview mode. */
 export default function AlbumHybrid3DPreview({
@@ -17,6 +18,26 @@ export default function AlbumHybrid3DPreview({
     photoRevision = 0,
     albumBookProps = {},
 }) {
+    const previewRef = useRef(null);
+    const coverLayerRef = useRef(null);
+    const bookLayerRef = useRef(null);
+    const measureStageRef = useRef(null);
+    const closingTimerRef = useRef(null);
+
+    const layoutStructuralKey = useMemo(
+        () =>
+            `${album?.id ?? 'album'}-${album?.grid_size || 'square'}-${
+                album?.grid_layout || 'two-page'
+            }-${totalPages}`,
+        [album?.grid_layout, album?.grid_size, album?.id, totalPages]
+    );
+    const pageDims = useAlbumBookLayoutDims(
+        measureStageRef,
+        previewRef,
+        album?.grid_size,
+        layoutStructuralKey
+    );
+
     const spreadOpts = useMemo(
         () => ({ showCover: true, totalPages }),
         [totalPages]
@@ -29,34 +50,93 @@ export default function AlbumHybrid3DPreview({
     const openingRef = useRef(false);
     const closingRef = useRef(false);
     const [phase, setPhase] = useState(() => (onCover ? 'cover' : 'book'));
+    const [coverAtSpread, setCoverAtSpread] = useState(false);
+    const [coverHandoff, setCoverHandoff] = useState(false);
+    const [coverShiftPx, setCoverShiftPx] = useState(null);
 
     useEffect(() => {
         if (openingRef.current || closingRef.current) return;
         setPhase(onCover ? 'cover' : 'book');
     }, [onCover]);
 
+    useEffect(
+        () => () => {
+            if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+        },
+        []
+    );
+
+    const measureCoverShift = useCallback(() => {
+        const coverStage = coverLayerRef.current?.querySelector('.ab-book-cover-3d-stage');
+        const bookWrap = bookLayerRef.current?.querySelector('.ab-flipbook-wrap');
+        if (coverStage && bookWrap) {
+            const coverRect = coverStage.getBoundingClientRect();
+            const bookRect = bookWrap.getBoundingClientRect();
+            const targetCenterX = bookRect.left + bookRect.width * 0.75;
+            const coverCenterX = coverRect.left + coverRect.width / 2;
+            const measured = targetCenterX - coverCenterX;
+            if (Math.abs(measured) > 0.5) return measured;
+        }
+        if (pageDims?.width) return pageDims.width / 2;
+        return 0;
+    }, [pageDims?.width]);
+
+    const resetCoverMotion = useCallback(() => {
+        setCoverAtSpread(false);
+        setCoverHandoff(false);
+        setCoverShiftPx(null);
+    }, []);
+
     const openBook = useCallback(() => {
         if (openingRef.current || closingRef.current || phase !== 'cover') return;
         openingRef.current = true;
-        setPhase('aligning');
-    }, [phase]);
+        resetCoverMotion();
+        setPhase('opening');
+    }, [phase, resetCoverMotion]);
 
     const handleCoverHideTo3DStart = useCallback(() => {
         closingRef.current = true;
+        setCoverHandoff(false);
+        setCoverShiftPx(measureCoverShift());
+        setCoverAtSpread(true);
         setPhase('closing');
-    }, []);
+    }, [measureCoverShift]);
 
     const returnToCover = useCallback(() => {
         openingRef.current = false;
-        closingRef.current = false;
-        onPageChange?.(0);
-        setPhase('unaligning');
-    }, [onPageChange]);
+        setCoverHandoff(false);
+        setCoverAtSpread(false);
+        if (closingTimerRef.current) clearTimeout(closingTimerRef.current);
+        closingTimerRef.current = window.setTimeout(() => {
+            closingRef.current = false;
+            onPageChange?.(0);
+            setPhase('cover');
+            resetCoverMotion();
+            closingTimerRef.current = null;
+        }, COVER_MOVE_MS);
+    }, [onPageChange, resetCoverMotion]);
 
     const handleCoverRevealFrom3DComplete = useCallback(() => {
         openingRef.current = false;
         setPhase('book');
-    }, []);
+        resetCoverMotion();
+    }, [resetCoverMotion]);
+
+    useLayoutEffect(() => {
+        if (phase !== 'opening') return;
+        setCoverShiftPx(measureCoverShift());
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                setCoverAtSpread(true);
+            });
+        });
+    }, [measureCoverShift, phase]);
+
+    useEffect(() => {
+        if (phase !== 'opening') return undefined;
+        const handoffTimer = window.setTimeout(() => setCoverHandoff(true), COVER_MOVE_MS);
+        return () => window.clearTimeout(handoffTimer);
+    }, [phase]);
 
     useEffect(() => {
         if (phase !== 'cover') return undefined;
@@ -71,58 +151,59 @@ export default function AlbumHybrid3DPreview({
     }, [openBook, phase]);
 
     useEffect(() => {
-        if (phase !== 'aligning') return undefined;
-        const timer = window.setTimeout(() => setPhase('opening'), COVER_ALIGN_MS);
-        return () => window.clearTimeout(timer);
-    }, [phase]);
-
-    useEffect(() => {
-        if (phase !== 'unaligning') return undefined;
-        const timer = window.setTimeout(() => setPhase('cover'), COVER_ALIGN_MS);
-        return () => window.clearTimeout(timer);
-    }, [phase]);
-
-    useEffect(() => {
         if (phase !== 'opening' && phase !== 'closing') return undefined;
         const timer = window.setTimeout(() => {
             if (phase === 'opening' && openingRef.current) {
                 openingRef.current = false;
                 setPhase('book');
+                resetCoverMotion();
             }
             if (phase === 'closing' && closingRef.current) {
                 closingRef.current = false;
                 onPageChange?.(0);
-                setPhase('unaligning');
+                setPhase('cover');
+                resetCoverMotion();
             }
-        }, FLIP_TIME_MS + 400);
+        }, FLIP_TIME_MS + COVER_MOVE_MS + 400);
         return () => window.clearTimeout(timer);
-    }, [onPageChange, phase]);
+    }, [onPageChange, phase, resetCoverMotion]);
 
-    const coverShifted =
-        phase === 'aligning' || phase === 'opening' || phase === 'closing';
-    const coverFading = phase === 'opening';
-    const coverVisible =
-        phase === 'cover' ||
-        phase === 'aligning' ||
-        phase === 'opening' ||
-        phase === 'closing' ||
-        phase === 'unaligning';
-    const bookVisible = phase !== 'cover' && phase !== 'unaligning';
-    const bookAligned = phase === 'aligning' || phase === 'closing';
+    const coverFullyHidden = phase === 'book';
+    const bookVisible = phase !== 'cover';
+
+    const coverLayerClassName = [
+        'ab-hybrid-3d-cover-layer',
+        coverAtSpread ? 'ab-hybrid-3d-cover-layer--at-spread' : '',
+        coverHandoff ? 'ab-hybrid-3d-cover-layer--handoff' : '',
+        coverFullyHidden ? 'ab-hybrid-3d-cover-layer--hidden' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
+
+    const coverLayerStyle =
+        coverShiftPx != null
+            ? { '--ab-cover-shift-x': `${coverShiftPx}px` }
+            : undefined;
 
     return (
         <div
-            className={`ab-hybrid-3d-preview ab-hybrid-3d-preview--stacked${
-                coverShifted ? ' ab-hybrid-3d-preview--aligned' : ''
-            }`}
+            className="ab-hybrid-3d-preview ab-hybrid-3d-preview--stacked"
+            ref={previewRef}
         >
             <div
-                className={`ab-hybrid-3d-cover-layer${
-                    coverVisible ? '' : ' ab-hybrid-3d-cover-layer--hidden'
-                }${coverShifted ? ' ab-hybrid-3d-cover-layer--shifted' : ''}${
-                    coverFading ? ' ab-hybrid-3d-cover-layer--fading' : ''
-                }`}
-                aria-hidden={!coverVisible}
+                className="ab-hybrid-3d-measure ab-root ab-root--preview"
+                aria-hidden="true"
+            >
+                <div className="ab-book-stage">
+                    <div className="ab-book-stage-inner" ref={measureStageRef} />
+                </div>
+            </div>
+
+            <div
+                ref={coverLayerRef}
+                className={coverLayerClassName}
+                style={coverLayerStyle}
+                aria-hidden={coverFullyHidden}
             >
                 <BookCover3DView
                     key={`${album?.id ?? 'album'}-cover-3d-r${photoRevision}`}
@@ -134,24 +215,25 @@ export default function AlbumHybrid3DPreview({
             </div>
 
             <div
+                ref={bookLayerRef}
                 className={`ab-hybrid-3d-book-layer${
                     bookVisible ? '' : ' ab-hybrid-3d-book-layer--hidden'
-                }${bookAligned ? ' ab-hybrid-3d-book-layer--aligned' : ''}`}
+                }`}
                 aria-hidden={!bookVisible}
             >
                 <AlbumBook
                     key={`${album?.id ?? 'album'}-hybrid-book-r${photoRevision}`}
+                    {...albumBookProps}
                     album={album}
                     totalPages={totalPages}
                     initialPage={bookPage}
                     onPageChange={onPageChange}
                     external3DCover
-                    coverAlignFrom3D={bookAligned}
                     coverRevealFrom3D={phase === 'opening'}
+                    coverRevealDelayMs={COVER_MOVE_MS}
                     onCoverRevealFrom3DComplete={handleCoverRevealFrom3DComplete}
                     onCoverHideTo3DStart={handleCoverHideTo3DStart}
                     onExternalCoverRequest={returnToCover}
-                    {...albumBookProps}
                 />
             </div>
         </div>

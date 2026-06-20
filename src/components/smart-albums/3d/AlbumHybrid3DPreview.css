@@ -12,14 +12,42 @@
   overflow: hidden;
 }
 
+.ab-hybrid-3d-measure {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ab-hybrid-3d-measure .ab-book-stage {
+  height: 100%;
+}
+
 .ab-hybrid-3d-cover-layer {
+  --ab-cover-shift-x: 0px;
+  --ab-cover-move-time: 480ms;
+  --ab-cover-move-ease: cubic-bezier(0.4, 0, 0.2, 1);
   position: absolute;
   inset: 0;
   z-index: 2;
   display: flex;
   flex-direction: column;
   background: #efefef;
-  transition: opacity 420ms ease;
+  transform: translateX(0);
+  transition:
+    transform var(--ab-cover-move-time) var(--ab-cover-move-ease),
+    opacity 220ms ease;
+  will-change: transform, opacity;
+}
+
+.ab-hybrid-3d-cover-layer--at-spread {
+  transform: translateX(var(--ab-cover-shift-x));
+}
+
+.ab-hybrid-3d-cover-layer--handoff {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .ab-hybrid-3d-cover-layer--hidden {
@@ -27,20 +55,6 @@
   visibility: hidden;
   pointer-events: none;
   z-index: 0;
-}
-
-.ab-hybrid-3d-cover-layer .ab-book-cover-3d-stage {
-  transition: transform 650ms cubic-bezier(0.33, 1, 0.68, 1);
-  will-change: transform;
-}
-
-.ab-hybrid-3d-cover-layer--shifted .ab-book-cover-3d-stage {
-  transform: translateX(25%);
-}
-
-.ab-hybrid-3d-cover-layer--fading {
-  opacity: 0;
-  pointer-events: none;
 }
 
 .ab-hybrid-3d-book-layer {
@@ -52,8 +66,6 @@
   min-height: 0;
   display: flex;
   flex-direction: column;
-  opacity: 1;
-  transition: opacity 320ms ease;
 }
 
 .ab-hybrid-3d-book-layer--hidden {
@@ -61,43 +73,8 @@
   pointer-events: none;
 }
 
-/* Aligned state: show ghost left page and widen clip to match shifted 3D cover */
-.ab-hybrid-3d-preview--aligned .ab-hybrid-3d-book-layer .ab-flipbook-wrap--front-cover-only:not(
-    .ab-flipbook-wrap--flipping
-  ) {
-  clip-path: inset(0 0 0 25%);
-  transition: clip-path 650ms cubic-bezier(0.33, 1, 0.68, 1);
-}
-
-.ab-hybrid-3d-preview--aligned .ab-hybrid-3d-book-layer
-  .ab-flipbook-wrap--front-cover-only
-  .ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank),
-.ab-hybrid-3d-preview--aligned .ab-hybrid-3d-book-layer
-  .ab-flipbook-wrap--front-cover-only
-  .ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank)
-  .ab-page-empty {
-  visibility: visible;
-  opacity: 0.22;
-  filter: saturate(0.35);
-  transition:
-    opacity 650ms cubic-bezier(0.33, 1, 0.68, 1),
-    filter 650ms cubic-bezier(0.33, 1, 0.68, 1);
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .ab-hybrid-3d-cover-layer .ab-book-cover-3d-stage,
-  .ab-hybrid-3d-cover-layer,
-  .ab-hybrid-3d-book-layer,
-  .ab-hybrid-3d-preview--aligned .ab-hybrid-3d-book-layer .ab-flipbook-wrap--front-cover-only:not(
-      .ab-flipbook-wrap--flipping
-    ),
-  .ab-hybrid-3d-preview--aligned .ab-hybrid-3d-book-layer
-    .ab-flipbook-wrap--front-cover-only
-    .ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank),
-  .ab-hybrid-3d-preview--aligned .ab-hybrid-3d-book-layer
-    .ab-flipbook-wrap--front-cover-only
-    .ab-flip-page--half-blank:not(.ab-flip-page--inside-cover-blank)
-    .ab-page-empty {
+  .ab-hybrid-3d-cover-layer {
     transition-duration: 0.01ms;
   }
 }
