@@ -1,7 +1,7 @@
 import { getCollectionItem, getCollectionItemDisplayUrl } from './albumCollection';
 import {
     getGridSlotPhoto,
-    getSlotPlacementCollectionItemId,
+    resolveSlotCollectionItemId,
 } from './albumPagePhotos';
 import { getRemotePreviewData, patchRemotePreviewImageReplacements } from './albumPreviewData';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
@@ -9,6 +9,8 @@ import { getSpreadContext, pageToSpreadIndex } from './albumSpreadUtils';
 import { getSlotLabel, makeSlotKey } from './albumSwapMarks';
 
 const STORAGE_KEY = 'pixnxt_album_image_replacements';
+const REVIEW_SNAPSHOT_MAX_WIDTH = 960;
+const REVIEW_SNAPSHOT_JPEG_QUALITY = 0.82;
 
 export const IMAGE_REPLACEMENTS_CHANGED_EVENT = 'pixnxt-album-image-replacements-changed';
 
@@ -45,13 +47,82 @@ function resolveItemUrl(albumId, itemId) {
     return getCollectionItemDisplayUrl(item);
 }
 
+function pickStoredPreviousUrl(priorUrl, recordUrl) {
+    if (priorUrl?.startsWith('data:')) return priorUrl;
+    if (recordUrl?.startsWith('data:')) return recordUrl;
+    return priorUrl ?? recordUrl ?? null;
+}
+
+function rasterizeImageToDataUrl(src) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            try {
+                const scale = Math.min(
+                    1,
+                    REVIEW_SNAPSHOT_MAX_WIDTH / Math.max(img.naturalWidth, 1)
+                );
+                const width = Math.max(1, Math.round(img.naturalWidth * scale));
+                const height = Math.max(1, Math.round(img.naturalHeight * scale));
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    reject(new Error('Canvas unavailable'));
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+                resolve(canvas.toDataURL('image/jpeg', REVIEW_SNAPSHOT_JPEG_QUALITY));
+            } catch (err) {
+                reject(err);
+            }
+        };
+        img.onerror = () => reject(new Error('Image load failed'));
+        img.src = src;
+    });
+}
+
+/** Persist a durable preview URL before the source file is replaced or deleted. */
+export async function snapshotImageUrlForReview(url) {
+    if (!url || typeof url !== 'string') return null;
+    if (url.startsWith('data:')) return url;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return url;
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        try {
+            const dataUrl = await rasterizeImageToDataUrl(objectUrl);
+            return dataUrl || url;
+        } finally {
+            URL.revokeObjectURL(objectUrl);
+        }
+    } catch {
+        try {
+            return await rasterizeImageToDataUrl(url);
+        } catch {
+            return url;
+        }
+    }
+}
+
+export function resolveReplacementPreviewUrl(albumId, url, itemId = null) {
+    if (url?.startsWith('data:')) return url;
+    if (url) return url;
+    return resolveItemUrl(albumId, itemId);
+}
+
 function getSlotImageUrl(albumId, slot, album, totalPages, itemId = null) {
-    const resolvedItemId = itemId ?? getSlotPlacementCollectionItemId(albumId, slot);
+    const spreadOpts = getSpreadContext(album, totalPages);
+    const resolvedItemId =
+        itemId ??
+        resolveSlotCollectionItemId(albumId, slot, { totalPages, spreadOpts, album });
     const fromItem = resolveItemUrl(albumId, resolvedItemId);
     if (fromItem) return fromItem;
 
     if (!slot) return null;
-    const spreadOpts = getSpreadContext(album, totalPages);
     const spreadLeft =
         slot.spreadLeft ??
         getSpreadLeftPageIndex(slot.pageNum, { ...spreadOpts, totalPages });
@@ -71,14 +142,16 @@ function getSlotImageUrl(albumId, slot, album, totalPages, itemId = null) {
 }
 
 function buildReplacementRecord(albumId, slot, newItemId, { album, totalPages, previousItemId, previousUrl }) {
-    const prevId = previousItemId ?? getSlotPlacementCollectionItemId(albumId, slot);
+    const spreadOpts = getSpreadContext(album, totalPages);
+    const prevId =
+        previousItemId ??
+        resolveSlotCollectionItemId(albumId, slot, { totalPages, spreadOpts, album });
     const prevUrl = previousUrl ?? getSlotImageUrl(albumId, slot, album, totalPages, prevId);
     const newUrl = resolveItemUrl(albumId, newItemId);
 
     if (!prevUrl || !newUrl) return null;
     if (prevUrl === newUrl) return null;
 
-    const spreadOpts = getSpreadContext(album, totalPages);
     const spreadLeft =
         slot.spreadLeft ??
         getSpreadLeftPageIndex(slot.pageNum, { ...spreadOpts, totalPages });
@@ -108,10 +181,26 @@ function buildReplacementRecord(albumId, slot, newItemId, { album, totalPages, p
 /** Snapshot slot image before a placement overwrites it (for review-summary tracking). */
 export function captureSlotImageBeforeReplace(albumId, slot, album, totalPages) {
     if (!albumId || !slot) return null;
-    const previousItemId = getSlotPlacementCollectionItemId(albumId, slot);
+    const spreadOpts = getSpreadContext(album, totalPages);
+    const previousItemId = resolveSlotCollectionItemId(albumId, slot, {
+        totalPages,
+        spreadOpts,
+        album,
+    });
     const previousUrl = getSlotImageUrl(albumId, slot, album, totalPages, previousItemId);
     if (!previousItemId && !previousUrl) return null;
     return { previousItemId: previousItemId || null, previousUrl: previousUrl || null };
+}
+
+/** Async snapshot — stores a data URL so review summary keeps the before photo after R2 replace. */
+export async function captureSlotImageBeforeReplaceAsync(albumId, slot, album, totalPages) {
+    const captured = captureSlotImageBeforeReplace(albumId, slot, album, totalPages);
+    if (!captured?.previousUrl) return captured;
+    const snapshotUrl = await snapshotImageUrlForReview(captured.previousUrl);
+    return {
+        ...captured,
+        previousUrl: snapshotUrl || captured.previousUrl,
+    };
 }
 
 export function getImageReplacements(albumId) {
@@ -141,12 +230,25 @@ export function addImageReplacement(albumId, record) {
             row.newUrl === record.newUrl
     );
     if (duplicate) return duplicate;
-    bucket.push(record);
+
+    const sameSlotIdx = bucket.findIndex((row) => row.slotKey === record.slotKey);
+    if (sameSlotIdx >= 0) {
+        const prior = bucket[sameSlotIdx];
+        bucket[sameSlotIdx] = {
+            ...record,
+            id: prior.id,
+            previousItemId: prior.previousItemId ?? record.previousItemId,
+            previousUrl: pickStoredPreviousUrl(prior.previousUrl, record.previousUrl),
+        };
+    } else {
+        bucket.push(record);
+    }
+
     all[albumId] = bucket;
     writeAll(all);
     patchRemotePreviewImageReplacements(albumId, bucket);
     notify(albumId);
-    return record;
+    return sameSlotIdx >= 0 ? bucket[sameSlotIdx] : record;
 }
 
 /** Record a spread photo replacement when a slot already had an image. */
@@ -157,7 +259,10 @@ export function trackSpreadImageReplacement(
     { album = null, totalPages = 0, previousItemId = null, previousUrl = null } = {}
 ) {
     if (!albumId || !slot || !newItemId) return null;
-    const prevId = previousItemId ?? getSlotPlacementCollectionItemId(albumId, slot);
+    const spreadOpts = getSpreadContext(album, totalPages);
+    const prevId =
+        previousItemId ??
+        resolveSlotCollectionItemId(albumId, slot, { totalPages, spreadOpts, album });
     const prevUrl = previousUrl ?? getSlotImageUrl(albumId, slot, album, totalPages, prevId);
     if (!prevId && !prevUrl) return null;
 

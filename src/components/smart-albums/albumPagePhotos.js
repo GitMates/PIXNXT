@@ -416,6 +416,52 @@ export function getSlotPlacementCollectionItemId(albumId, slot) {
     return getSpreadPlacementCollectionItemId(albumId, left);
 }
 
+export function pageHasPlacedPhoto(albumId, pageNum) {
+    if (!albumId || pageNum == null) return false;
+    return Boolean(
+        getPagePlacementCollectionItemId(albumId, pageNum) || getPagePhotoOverride(albumId, pageNum)
+    );
+}
+
+/** Find the collection item on a spread, including half-page and inside-cover layouts. */
+export function resolveSlotCollectionItemId(
+    albumId,
+    slot,
+    { totalPages = 0, spreadOpts = {}, album = null } = {}
+) {
+    if (!albumId || !slot) return null;
+
+    const direct = getSlotPlacementCollectionItemId(albumId, slot);
+    if (direct) return direct;
+
+    const left = slot.spreadLeft ?? slot.pageNum;
+    if (left == null) return null;
+
+    const fromSpread = getSpreadPlacementCollectionItemId(albumId, left);
+    if (fromSpread) return fromSpread;
+
+    const maxPage = Math.max(0, totalPages - 1);
+    const right = Math.min(left + 1, maxPage);
+    const pageCandidates = new Set([slot.pageNum, left, right]);
+
+    if (spreadOpts.hasCovers && albumHasBlankCovers(album) && isInsideCoverSpreadLeft(left, totalPages, spreadOpts)) {
+        pageCandidates.add(3);
+    }
+    if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
+        pageCandidates.add(getEndSpreadPageIndices(totalPages).left);
+    }
+    if (isPreBackHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
+        pageCandidates.add(left);
+    }
+
+    for (const pageNum of pageCandidates) {
+        if (pageNum == null || pageNum < 0 || pageNum > maxPage) continue;
+        const id = getPagePlacementCollectionItemId(albumId, pageNum);
+        if (id) return id;
+    }
+    return null;
+}
+
 /** Tag the collection item on spread:0 so it is excluded from inner-page auto-place. */
 export function syncCoverWrapRoleFromSpread(albumId) {
     if (!albumId) return false;

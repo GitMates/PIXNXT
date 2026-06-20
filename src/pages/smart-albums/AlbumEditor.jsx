@@ -41,6 +41,8 @@ import {
     getSlotPlacementCollectionItemId,
     getAlbumPhotoRevision,
     getSpreadPhotoOverride,
+    pageHasPlacedPhoto,
+    resolveSlotCollectionItemId,
     migrateEndHalfSpreadToLeftPage,
     migrateBackCoverUsesBookWrap,
     migrateFrontCoverToFullSpread,
@@ -100,6 +102,7 @@ import {
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import {
     captureSlotImageBeforeReplace,
+    captureSlotImageBeforeReplaceAsync,
     trackSpreadImageReplacement,
 } from '../../components/smart-albums/albumImageReplacements';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
@@ -160,7 +163,8 @@ function slotFromCurrentSpread(
     bookPage,
     totalPages,
     spreadOpts,
-    album
+    album,
+    albumId
 ) {
     if (!gridSelection) return null;
 
@@ -176,11 +180,46 @@ function slotFromCurrentSpread(
     const left =
         gridSelection.leftPage ??
         getSpreadLeftForBookPage(bookPage, totalPages, spreadOpts);
+    const rightPage = Math.min(left + 1, Math.max(0, totalPages - 1));
+
+    if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
+        const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+        return {
+            pageNum: endLeft,
+            cellId: 1,
+            spreadLeft: endLeft,
+            whole: false,
+            label: 'End cover',
+        };
+    }
+
+    if (albumHasBlankCovers(album)) {
+        if (isInsideCoverSpreadLeft(left, totalPages, spreadOpts)) {
+            return {
+                pageNum: 3,
+                cellId: 2,
+                spreadLeft: left,
+                whole: false,
+                label: 'Inside cover',
+            };
+        }
+        if (isPreBackHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
+            return {
+                pageNum: left,
+                cellId: 1,
+                spreadLeft: left,
+                whole: false,
+                label: 'Pre-back spread',
+            };
+        }
+    }
+
+    const manualWhole = isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
     const wantsWholeSpread =
-        gridEditSet === 'whole' ||
-        gridSelection.mode === 'spread' ||
-        isWholeSpreadLayout(album?.grid_layout) ||
-        isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
+        manualWhole &&
+        (gridEditSet === 'whole' ||
+            gridSelection.mode === 'spread' ||
+            isWholeSpreadLayout(album?.grid_layout));
 
     if (wantsWholeSpread) {
         return {
@@ -192,8 +231,29 @@ function slotFromCurrentSpread(
         };
     }
 
+    if (albumId) {
+        if (spreadHasWholeSpreadPhoto(albumId, left) && manualWhole) {
+            return {
+                pageNum: left,
+                cellId: 1,
+                spreadLeft: left,
+                whole: true,
+                label: 'Whole spread',
+            };
+        }
+        const rightHasPhoto = pageHasPlacedPhoto(albumId, rightPage);
+        const leftHasPhoto = pageHasPlacedPhoto(albumId, left);
+        if (rightHasPhoto && !leftHasPhoto) {
+            return {
+                pageNum: rightPage,
+                cellId: 2,
+                spreadLeft: left,
+                whole: false,
+            };
+        }
+    }
+
     const cellId = gridSelection.cellId || 1;
-    const rightPage = Math.min(left + 1, Math.max(0, totalPages - 1));
     return {
         pageNum: cellId === 2 ? rightPage : left,
         cellId,
@@ -937,7 +997,7 @@ export default function AlbumEditor({
             }
             const left = slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
             const useWholeSpread =
-                slot.whole ||
+                Boolean(slot.whole) &&
                 isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
             if (useWholeSpread) {
                 const right = getSpreadRightPageIndex(left, totalPages);
@@ -1034,7 +1094,11 @@ export default function AlbumEditor({
     const resolveSpreadReplacementItem = useCallback(
         async (files, slot, { coverWrap = false } = {}) => {
             const photographerId = user?.id ?? album?.photographer_id;
-            const previousItemId = getSlotPlacementCollectionItemId(albumId, slot);
+            const previousItemId = resolveSlotCollectionItemId(albumId, slot, {
+                totalPages,
+                spreadOpts,
+                album,
+            });
             const file = files[0];
 
             if (previousItemId && file && isImageFile(file) && !isPdfFile(file)) {
@@ -1056,7 +1120,7 @@ export default function AlbumEditor({
             }
             return replacementItem;
         },
-        [album?.photographer_id, albumId, user?.id]
+        [album, album?.photographer_id, albumId, spreadOpts, totalPages, user?.id]
     );
 
     const handleReplaceFiles = useCallback(
@@ -1076,7 +1140,7 @@ export default function AlbumEditor({
                         slot.label === 'Cover' ||
                         slot.label === 'Back cover' ||
                         slot.label === 'End cover');
-                const before = captureSlotImageBeforeReplace(
+                const before = await captureSlotImageBeforeReplaceAsync(
                     albumId,
                     slot,
                     album,
@@ -1234,7 +1298,8 @@ export default function AlbumEditor({
                 bookPage,
                 totalPages,
                 spreadOpts,
-                album
+                album,
+                albumId
             );
             const before = slot
                 ? captureSlotImageBeforeReplace(albumId, slot, album, totalPages)
@@ -1387,7 +1452,8 @@ export default function AlbumEditor({
                 bookPage,
                 totalPages,
                 spreadOpts,
-                album
+                album,
+                albumId
             );
             if (!slot) {
                 showToast('Flip to a spread first, then upload a photo.', {
@@ -1408,7 +1474,7 @@ export default function AlbumEditor({
             try {
                 const isCoverSlot =
                     albumHasCoverSpreads(album) && gridSelection?.mode === 'cover';
-                const before = captureSlotImageBeforeReplace(
+                const before = await captureSlotImageBeforeReplaceAsync(
                     albumId,
                     slot,
                     album,

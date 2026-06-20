@@ -36,6 +36,7 @@ import {
     getImageReplacements,
     IMAGE_REPLACEMENTS_CHANGED_EVENT,
     removeImageReplacement,
+    resolveReplacementPreviewUrl,
 } from '../../components/smart-albums/albumImageReplacements';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import './AlbumViewer.css';
@@ -68,6 +69,60 @@ const PREVIEW_NAV = [
     { id: 'swap', label: 'Swap', icon: IconSwap },
     { id: 'review-summary', label: 'Review Summary', icon: IconCollection },
 ];
+
+function ReplacementPreviewImage({ albumId, url, itemId, alt, variant, tagLabel }) {
+    const [failed, setFailed] = useState(false);
+    const resolvedUrl = resolveReplacementPreviewUrl(albumId, url, itemId);
+
+    useEffect(() => {
+        setFailed(false);
+    }, [resolvedUrl]);
+
+    const shotClassName = `av-preview-sidebar-replacement-shot${
+        variant ? ` av-preview-sidebar-replacement-shot--${variant}` : ''
+    }`;
+
+    if (!resolvedUrl || failed) {
+        return (
+            <div className={`${shotClassName} av-preview-sidebar-replacement-shot--missing`}>
+                <span className="av-preview-sidebar-replacement-shot-placeholder">
+                    Original photo unavailable
+                </span>
+                {tagLabel ? (
+                    <span
+                        className={`av-preview-sidebar-replacement-shot-tag${
+                            variant === 'now'
+                                ? ' av-preview-sidebar-replacement-shot-tag--new'
+                                : ''
+                        }`}
+                    >
+                        {tagLabel}
+                    </span>
+                ) : null}
+            </div>
+        );
+    }
+
+    return (
+        <div className={shotClassName}>
+            <img
+                src={resolvedUrl}
+                alt={alt}
+                draggable={false}
+                onError={() => setFailed(true)}
+            />
+            {tagLabel ? (
+                <span
+                    className={`av-preview-sidebar-replacement-shot-tag${
+                        variant === 'now' ? ' av-preview-sidebar-replacement-shot-tag--new' : ''
+                    }`}
+                >
+                    {tagLabel}
+                </span>
+            ) : null}
+        </div>
+    );
+}
 
 /**
  * Client-facing album preview (gallery-style layout + proofing footer).
@@ -670,7 +725,7 @@ export default function AlbumPreview({
                                         </div>
                                     </>
                                 ) : (
-                                    <>
+                                    <div className="av-preview-sidebar-scroll av-preview-sidebar-scroll--summary">
                                         <h3 className="ae-panel-title">Review Summary</h3>
                                         <p className="av-preview-summary-meta">
                                             <span>{visibleCommentCount} comment{visibleCommentCount === 1 ? '' : 's'}</span>
@@ -679,126 +734,120 @@ export default function AlbumPreview({
                                             <span className="av-preview-summary-meta-dot" aria-hidden>·</span>
                                             <span>{imageReplacementCount} photo change{imageReplacementCount === 1 ? '' : 's'}</span>
                                         </p>
-                                        <div className="av-preview-sidebar-comments av-preview-sidebar-replacements">
-                                            {imageReplacementCount === 0 ? (
-                                                <p className="av-preview-sidebar-empty">
-                                                    No photo changes yet. When your photographer
-                                                    updates a spread image, the before and after
-                                                    photos appear here.
-                                                </p>
-                                            ) : (
-                                                imageReplacements.map((replacement) => {
-                                                    const createdAtLabel = replacement.createdAt
-                                                        ? new Date(
-                                                              replacement.createdAt
-                                                          ).toLocaleString()
-                                                        : null;
-                                                    return (
-                                                        <article
-                                                            key={replacement.id}
-                                                            className="av-preview-sidebar-replacement"
+                                        {imageReplacementCount === 0 ? (
+                                            <p className="av-preview-sidebar-empty">
+                                                No photo changes yet. When your photographer
+                                                updates a spread image, the before and after
+                                                photos appear here.
+                                            </p>
+                                        ) : (
+                                            imageReplacements.map((replacement) => {
+                                                const createdAtLabel = replacement.createdAt
+                                                    ? new Date(
+                                                          replacement.createdAt
+                                                      ).toLocaleString()
+                                                    : null;
+                                                return (
+                                                    <article
+                                                        key={replacement.id}
+                                                        className="av-preview-sidebar-replacement"
+                                                    >
+                                                        <button
+                                                            type="button"
+                                                            className="av-preview-sidebar-replacement-head"
+                                                            onClick={() =>
+                                                                jumpToSpread(
+                                                                    replacement.spreadIndex
+                                                                )
+                                                            }
                                                         >
+                                                            <span className="av-preview-sidebar-replacement-label">
+                                                                {replacement.slotLabel}
+                                                            </span>
+                                                            <span className="av-preview-sidebar-replacement-go">
+                                                                View spread
+                                                                <svg
+                                                                    width="14"
+                                                                    height="14"
+                                                                    viewBox="0 0 24 24"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="2"
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                    aria-hidden
+                                                                >
+                                                                    <polyline points="9 18 15 12 9 6" />
+                                                                </svg>
+                                                            </span>
+                                                        </button>
+                                                        <div className="av-preview-sidebar-replacement-pair">
+                                                            <ReplacementPreviewImage
+                                                                albumId={albumId}
+                                                                url={replacement.previousUrl}
+                                                                itemId={replacement.previousItemId}
+                                                                alt="Before photo change"
+                                                                variant="before"
+                                                                tagLabel="Before"
+                                                            />
+                                                            <div
+                                                                className="av-preview-sidebar-replacement-arrow"
+                                                                aria-hidden
+                                                            >
+                                                                <svg
+                                                                    width="16"
+                                                                    height="16"
+                                                                    viewBox="0 0 24 24"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="2"
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                >
+                                                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                                                    <polyline points="12 5 19 12 12 19" />
+                                                                </svg>
+                                                            </div>
+                                                            <ReplacementPreviewImage
+                                                                albumId={albumId}
+                                                                url={replacement.newUrl}
+                                                                itemId={replacement.newItemId}
+                                                                alt="Updated photo"
+                                                                variant="now"
+                                                                tagLabel="Now"
+                                                            />
+                                                        </div>
+                                                        <div className="av-preview-sidebar-replacement-footer">
+                                                            {createdAtLabel ? (
+                                                                <time
+                                                                    className="av-preview-sidebar-replacement-time"
+                                                                    dateTime={replacement.createdAt}
+                                                                >
+                                                                    {createdAtLabel}
+                                                                </time>
+                                                            ) : (
+                                                                <span
+                                                                    className="av-preview-sidebar-replacement-time"
+                                                                    aria-hidden
+                                                                />
+                                                            )}
                                                             <button
                                                                 type="button"
-                                                                className="av-preview-sidebar-replacement-head"
+                                                                className="av-preview-sidebar-replacement-remove"
                                                                 onClick={() =>
-                                                                    jumpToSpread(
-                                                                        replacement.spreadIndex
+                                                                    handleRemoveImageReplacement(
+                                                                        replacement.id
                                                                     )
                                                                 }
                                                             >
-                                                                <span className="av-preview-sidebar-replacement-label">
-                                                                    {replacement.slotLabel}
-                                                                </span>
-                                                                <span className="av-preview-sidebar-replacement-go">
-                                                                    View spread
-                                                                    <svg
-                                                                        width="14"
-                                                                        height="14"
-                                                                        viewBox="0 0 24 24"
-                                                                        fill="none"
-                                                                        stroke="currentColor"
-                                                                        strokeWidth="2"
-                                                                        strokeLinecap="round"
-                                                                        strokeLinejoin="round"
-                                                                        aria-hidden
-                                                                    >
-                                                                        <polyline points="9 18 15 12 9 6" />
-                                                                    </svg>
-                                                                </span>
+                                                                Remove
                                                             </button>
-                                                            <div className="av-preview-sidebar-replacement-pair">
-                                                                <div className="av-preview-sidebar-replacement-shot av-preview-sidebar-replacement-shot--before">
-                                                                    <img
-                                                                        src={replacement.previousUrl}
-                                                                        alt="Before photo change"
-                                                                        draggable={false}
-                                                                    />
-                                                                    <span className="av-preview-sidebar-replacement-shot-tag">
-                                                                        Before
-                                                                    </span>
-                                                                </div>
-                                                                <div
-                                                                    className="av-preview-sidebar-replacement-arrow"
-                                                                    aria-hidden
-                                                                >
-                                                                    <svg
-                                                                        width="16"
-                                                                        height="16"
-                                                                        viewBox="0 0 24 24"
-                                                                        fill="none"
-                                                                        stroke="currentColor"
-                                                                        strokeWidth="2"
-                                                                        strokeLinecap="round"
-                                                                        strokeLinejoin="round"
-                                                                    >
-                                                                        <line x1="5" y1="12" x2="19" y2="12" />
-                                                                        <polyline points="12 5 19 12 12 19" />
-                                                                    </svg>
-                                                                </div>
-                                                                <div className="av-preview-sidebar-replacement-shot av-preview-sidebar-replacement-shot--now">
-                                                                    <img
-                                                                        src={replacement.newUrl}
-                                                                        alt="Updated photo"
-                                                                        draggable={false}
-                                                                    />
-                                                                    <span className="av-preview-sidebar-replacement-shot-tag av-preview-sidebar-replacement-shot-tag--new">
-                                                                        Now
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="av-preview-sidebar-replacement-footer">
-                                                                {createdAtLabel ? (
-                                                                    <time
-                                                                        className="av-preview-sidebar-replacement-time"
-                                                                        dateTime={replacement.createdAt}
-                                                                    >
-                                                                        {createdAtLabel}
-                                                                    </time>
-                                                                ) : (
-                                                                    <span
-                                                                        className="av-preview-sidebar-replacement-time"
-                                                                        aria-hidden
-                                                                    />
-                                                                )}
-                                                                <button
-                                                                    type="button"
-                                                                    className="av-preview-sidebar-replacement-remove"
-                                                                    onClick={() =>
-                                                                        handleRemoveImageReplacement(
-                                                                            replacement.id
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    Remove
-                                                                </button>
-                                                            </div>
-                                                        </article>
-                                                    );
-                                                })
-                                            )}
-                                        </div>
-                                    </>
+                                                        </div>
+                                                    </article>
+                                                );
+                                            })
+                                        )}
+                                    </div>
                                 )}
                         </div>
                     </aside>
