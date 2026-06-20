@@ -1,6 +1,7 @@
 import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
 import { storageService } from '../../services/storage.service';
-import { isWholeSpreadLayout } from './albumSpreadUtils';
+import { albumHasBlankCovers, isWholeSpreadLayout } from './albumSpreadUtils';
+import { BOOK_PAGE_HEIGHT_MAX } from './albumBookDimensions';
 
 export const GRID_SIZE_PRESETS = {
     square: { label: 'Square pages (1:1)', aspect: 1 },

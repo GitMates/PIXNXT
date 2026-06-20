@@ -106,7 +106,6 @@ import {
     trackSpreadImageReplacement,
 } from '../../components/smart-albums/albumImageReplacements';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
-import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
 import {
     getSwapMarks,
     isWholeGridSwapSlot,
@@ -808,14 +807,6 @@ export default function AlbumEditor({
         [onPageChange, syncSelectionToPage]
     );
 
-    const handleNavigateToCommentSpread = useCallback(
-        (spreadIndex) => {
-            const page = spreadIndexToPage(spreadIndex, spreadCtx);
-            const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
-            handleBookPageChange(clamped);
-        },
-        [handleBookPageChange, totalPages]
-    );
     const handleNavigateToPin = useCallback(
         (pin) => {
             if (!pin) return;
@@ -836,11 +827,6 @@ export default function AlbumEditor({
             handleBookPageChange(clamped);
         },
         [handleBookPageChange, totalPages]
-    );
-
-    const activeCommentSpreadIndex = useMemo(
-        () => pageToSpreadIndex(bookPage, spreadCtx),
-        [bookPage, totalPages]
     );
 
     const handleGridEditSetChange = useCallback(
@@ -1956,15 +1942,6 @@ export default function AlbumEditor({
                                 album={album}
                                 photographerId={user.id}
                                 onUpdated={onAlbumUpdate}
-                            />
-                        ) : null
-                    }
-                    commentsFeed={
-                        albumId ? (
-                            <AlbumCommentsFeed
-                                albumId={albumId}
-                                onNavigateToSpread={handleNavigateToCommentSpread}
-                                activeSpreadIndex={activeCommentSpreadIndex}
                             />
                         ) : null
                     }

@@ -892,10 +892,6 @@ const CreateAlbum = () => {
                     <div className="sa-create-intro">
                         <span className="sa-create-kicker">Smart Album Setup</span>
                         <h2>Design the album before you start editing.</h2>
-                        <p>
-                            Upload an optional cover image and inner-page photos. Layout is set once
-                            at creation — photos are placed automatically after the album is created.
-                        </p>
                     </div>
 
                     {error && (
@@ -1006,9 +1002,6 @@ const CreateAlbum = () => {
                             </div>
 
                             <div className="cc-form-group">
-                                <label className="cc-label" htmlFor="album-cover-image">
-                                    Cover image
-                                </label>
                                 <input
                                     id="album-cover-image"
                                     type="file"

@@ -136,7 +136,6 @@ export default function AlbumEditorSidebar({
     onAddPages,
     onRemovePages,
     commentSettings = null,
-    commentsFeed = null,
     swapMarks = [],
     photoPins = [],
     spreadCommentsBySpread = null,
@@ -298,9 +297,6 @@ export default function AlbumEditorSidebar({
                             onNavigateToPin={onNavigateToPin}
                             seenTick={proofSeenTick}
                         />
-                        {commentsFeed ? (
-                            <div className="ae-panel-comments-feed">{commentsFeed}</div>
-                        ) : null}
                     </>
                 )}
 
