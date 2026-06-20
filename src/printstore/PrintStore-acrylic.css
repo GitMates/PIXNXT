@@ -1,17 +1,38 @@
 .acrylic-print-pdp-overlay {
   border-radius: 1px;
-  box-shadow: 0 35px 60px -15px rgba(0, 0, 0, 0.4), 0 20px 30px -10px rgba(0, 0, 0, 0.2);
-  background-image: 
-    /* Right thick glassy edge */
-    linear-gradient(to left, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.9) 0.5%, rgba(245,245,245,0.55) 0.5%, rgba(245,245,245,0.55) 3.5%, rgba(0,0,0,0.4) 3.5%, rgba(0,0,0,0.4) 3.8%, transparent 3.8%),
-    /* Bottom thick glassy edge */
-    linear-gradient(to top, rgba(255,255,255,0.9) 0%, rgba(255,255,255,0.9) 0.5%, rgba(245,245,245,0.55) 0.5%, rgba(245,245,245,0.55) 3.5%, rgba(0,0,0,0.4) 3.5%, rgba(0,0,0,0.4) 3.8%, transparent 3.8%),
-    /* Top subtle bevel */
-    linear-gradient(to bottom, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.3) 0.5%, transparent 1%),
-    /* Left subtle bevel */
-    linear-gradient(to right, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.3) 0.5%, transparent 1%),
-    /* Diagonal surface glare */
-    linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 100%);
-  border: 1px solid rgba(255,255,255,0.1);
+  box-sizing: border-box !important;
+  
+  /* Thick polished mitered borders representing clear water-transparent glass */
+  border-width: 14px;
+  border-style: solid;
+  /* Top and Left are very subtle white highlights */
+  border-top-color: rgba(255, 255, 255, 0.22);
+  border-left-color: rgba(255, 255, 255, 0.16);
+  /* Right and Bottom are very subtle dark refractions */
+  border-right-color: rgba(0, 0, 0, 0.05);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+  
+  /* Layered box shadows to simulate the 3D block thickness, refraction, and inner bevels */
+  box-shadow:
+    /* Thin crisp highlight on the outermost edge of the glass sheet */
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    /* Crisp dark inner line exactly at the boundary where the glass bevel meets the print */
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    /* Soft white highlights on the inner top/left bevel edges */
+    inset 1px 1px 0px rgba(255, 255, 255, 0.25),
+    /* Soft dark shadow on the inner bottom/right bevel edges */
+    inset -1px -1px 0px rgba(0, 0, 0, 0.22),
+    /* Subtle inner vignette shadow fading into the print content for depth */
+    inset 0 0 8px rgba(0, 0, 0, 0.10);
+
+  /* Glass surface diagonal glare reflection */
+  background-image: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.18) 0%, 
+    rgba(255, 255, 255, 0.04) 30%, 
+    rgba(255, 255, 255, 0) 50%, 
+    rgba(255, 255, 255, 0) 100%
+  );
+  
   pointer-events: none;
+  z-index: 10;
 }

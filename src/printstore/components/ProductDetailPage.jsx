@@ -2026,6 +2026,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                               transition: 'aspect-ratio 0.3s ease-in-out',
                               ...(product.id === 'gallery_board' && { backgroundColor: '#ffffff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }),
                               ...(product.id === 'canvas' && { borderRadius: '0.13px' }),
+                              ...(product.id === 'acrylic_prints' && { boxShadow: '0 15px 35px rgba(0,0,0,0.22)' }),
                               ...((product.id === 'deckled_prints') && { transform: 'rotate(-7deg)', transformOrigin: 'center center' })
                             }}>
                               <div className="composition-preview__printable-area" style={{ 
@@ -2336,7 +2337,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                               ) : product.id === 'canvas' ? (
                                 <div className="canvas-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, scale: isRoomPreview ? '0.654443' : '1', borderRadius: '0.13px', boxShadow: 'rgba(0, 0, 0, 0.1) 0px 15px 16px 3px, rgba(0, 0, 0, 0.06) 0px 0px 7px 3px, rgba(0, 0, 0, 0.25) -1px -1px 3px 0px inset, rgba(0, 0, 0, 0.1) 1px 1px 1px 0px inset, rgba(255, 255, 255, 0.25) 3.5px 3.5px 1px 0px inset', overflow: 'hidden' }}></div>
                               ) : product.id === 'acrylic_prints' ? (
-                                <div className="acrylic-print-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1, border: '1.5cqi solid rgba(255, 255, 255, 0.2)', boxSizing: 'border-box', boxShadow: 'inset 0 0 4px rgba(255,255,255,0.3), 0 4px 12px rgba(0,0,0,0.15)' }}></div>
+                                <div className="acrylic-print-pdp-overlay composition-preview__overlay" style={{ width: '100%', height: '100%', position: 'absolute', top: 0, left: 0, zIndex: 1 }}></div>
                               ) : product.id === 'prints' ? (
                                 <div className="print-pdp-overlay composition-preview__overlay" style={{ 
                                   position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1, pointerEvents: 'none',

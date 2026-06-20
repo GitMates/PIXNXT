@@ -574,8 +574,12 @@ export default function ProductCustomizer({
       <div 
         className="customizer-frame-shadow-wrapper"
         style={{ 
-          border: (['frames', 'matted_frame', 'float_frames', 'circular_frames'].includes(product.id) && item.frame?.id !== 'none') ? `18px solid ${item.frame?.color || '#333'}` : '1px solid #ddd',
-          boxShadow: '0 12px 36px rgba(0,0,0,0.15)',
+          border: (['frames', 'matted_frame', 'float_frames', 'circular_frames'].includes(product.id) && item.frame?.id !== 'none') 
+            ? `18px solid ${item.frame?.color || '#333'}` 
+            : product.id === 'acrylic_prints' 
+            ? 'none' 
+            : '1px solid #ddd',
+          boxShadow: product.id === 'acrylic_prints' ? '0 15px 35px rgba(0,0,0,0.22)' : '0 12px 36px rgba(0,0,0,0.15)',
           width: '257.27px',
           height: '307.25px',
           display: 'flex',
@@ -583,7 +587,7 @@ export default function ProductCustomizer({
           justifyContent: 'center',
           boxSizing: 'border-box',
           backgroundColor: '#fff',
-          overflow: 'hidden',
+          overflow: product.id === 'acrylic_prints' ? 'visible' : 'hidden',
           '--aspect-ratio': 257.27 / 307.25
         }}
       >
@@ -611,6 +615,20 @@ export default function ProductCustomizer({
                 transform: `rotate(${item.rotation}deg)` 
               }} 
             />
+            {product.id === 'acrylic_prints' && (
+              <div 
+                className="acrylic-print-pdp-overlay" 
+                style={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  width: '100%', 
+                  height: '100%', 
+                  zIndex: 2, 
+                  pointerEvents: 'none' 
+                }}
+              />
+            )}
           </div>
         ) : (
           <div className="single-empty-placeholder" style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => handleOpenSidebarForSlot(index)}>

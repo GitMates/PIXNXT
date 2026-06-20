@@ -2866,15 +2866,16 @@ div.customizer-grid-item[class*="product-card-"] {
   background: #f8f8f8 !important;
 }
 .product-card-acrylic_prints .product-image-box {
-  padding: 1.5rem !important; /* Reduced padding to make mockup larger */
+  padding: 24px !important; /* Consistent padding for alignment */
   background: #f8f8f8 !important;
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .product-card-acrylic_prints .product-image {
-  /* Lighter, bleeds to edge (similar to canvas) but horizontal layout with glossy glare */
-  width: 92% !important;
-  height: auto !important;
-  aspect-ratio: 4 / 3 !important; /* Horizontal layout! */
+  width: 100% !important;
+  height: 100% !important;
   object-fit: cover;
   border: 1px solid rgba(255, 255, 255, 0.45) !important;
   border-bottom: 4px solid rgba(0, 0, 0, 0.25) !important; /* 3D bottom glass thickness edge */
@@ -2882,14 +2883,14 @@ div.customizer-grid-item[class*="product-card-"] {
     inset 0 -4px 0px rgba(255, 255, 255, 0.3) !important; /* Outer shadow removed, glossy edge thickness reflection kept */
   filter: contrast(1.04) brightness(1.01);
 }
-/* Glossy glare reflection effect overlay */
+/* Glossy glare reflection effect overlay aligned perfectly with the image */
 .product-card-acrylic_prints .product-image-box::after {
   content: '';
   position: absolute;
-  top: 15%;
-  left: 6%;
-  width: 88%;
-  height: 70%;
+  top: 24px;
+  left: 24px;
+  width: calc(100% - 48px);
+  height: calc(100% - 48px);
   background: linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.02) 40%, rgba(0,0,0,0) 40.1%, rgba(0,0,0,0.06) 100%);
   pointer-events: none;
   z-index: 2;
@@ -6246,45 +6247,42 @@ div.cart-item-image-wrapper.has-frame-size .cart-item-product-image-box {
 }
 /* Acrylic Print PDP Overlay */
 .acrylic-print-pdp-overlay {
-  container-type: inline-size;
   border-radius: 1px;
-  box-shadow: 0 25px 45px -10px rgba(0, 0, 0, 0.4), 0 10px 20px -5px rgba(0, 0, 0, 0.2);
-  /* Overall surface glare */
-  background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 100%);
+  box-sizing: border-box !important;
+  
+  /* Thick polished mitered borders representing clear water-transparent glass */
+  border-width: 14px;
+  border-style: solid;
+  /* Top and Left are very subtle white highlights */
+  border-top-color: rgba(255, 255, 255, 0.22);
+  border-left-color: rgba(255, 255, 255, 0.16);
+  /* Right and Bottom are very subtle dark refractions */
+  border-right-color: rgba(0, 0, 0, 0.05);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+  
+  /* Layered box shadows to simulate the 3D block thickness, refraction, and inner bevels */
+  box-shadow:
+    /* Thin crisp highlight on the outermost edge of the glass sheet */
+    0 0 0 1px rgba(255, 255, 255, 0.4),
+    /* Crisp dark inner line exactly at the boundary where the glass bevel meets the print */
+    inset 0 0 0 1px rgba(0, 0, 0, 0.18),
+    /* Soft white highlights on the inner top/left bevel edges */
+    inset 1px 1px 0px rgba(255, 255, 255, 0.25),
+    /* Soft dark shadow on the inner bottom/right bevel edges */
+    inset -1px -1px 0px rgba(0, 0, 0, 0.22),
+    /* Subtle inner vignette shadow fading into the print content for depth */
+    inset 0 0 8px rgba(0, 0, 0, 0.10);
+
+  /* Glass surface diagonal glare reflection */
+  background-image: linear-gradient(135deg, 
+    rgba(255, 255, 255, 0.18) 0%, 
+    rgba(255, 255, 255, 0.04) 30%, 
+    rgba(255, 255, 255, 0) 50%, 
+    rgba(255, 255, 255, 0) 100%
+  );
+  
   pointer-events: none;
-}
-
-/* Outer Glass Bevel (Thick, perfectly mitered corners) */
-.acrylic-print-pdp-overlay::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  border-style: solid;
-  border-width: 2.8cqi;
-  /* Top and Left catch the light */
-  border-top-color: rgba(255, 255, 255, 0.25);
-  border-left-color: rgba(255, 255, 255, 0.15);
-  /* Bottom and Right show shadowed glass thickness */
-  border-right-color: rgba(0, 0, 0, 0.15);
-  border-bottom-color: rgba(0, 0, 0, 0.25);
-  box-sizing: border-box;
-  z-index: 2;
-  mix-blend-mode: hard-light;
-}
-
-/* Inner Glass Refraction Line (Thin sharp bevel) */
-.acrylic-print-pdp-overlay::after {
-  content: '';
-  position: absolute;
-  top: 2.8cqi; left: 2.8cqi; right: 2.8cqi; bottom: 2.8cqi;
-  border-style: solid;
-  border-width: 0.8cqi;
-  border-top-color: rgba(255, 255, 255, 0.4);
-  border-left-color: rgba(255, 255, 255, 0.3);
-  border-right-color: rgba(0, 0, 0, 0.15);
-  border-bottom-color: rgba(0, 0, 0, 0.25);
-  box-sizing: border-box;
-  z-index: 3;
+  z-index: 10;
 }
 
 /* ── Overrides for Circular Frames inside PDP Wall Preview ── */
