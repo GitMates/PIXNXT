@@ -1,4 +1,5 @@
 import { isIosSafari } from './mobileGalleryInstall';
+import { APPLE_TOUCH_ICON_SIZES, getAppleTouchIconUrl } from './mobileGalleryIcon';
 
 export function getManifestUrl(slug) {
   if (!slug) return '';
@@ -11,7 +12,6 @@ export function getPwaPath(slug) {
 }
 
 export function buildWebManifest({ app, photographerName }) {
-  const iconUrl = app?.icon_url || app?.cover_image_url || null;
   const slug = app?.slug;
   const description = photographerName
     ? `${app?.name || 'Gallery'} mobile gallery by ${photographerName}`
@@ -26,10 +26,10 @@ export function buildWebManifest({ app, photographerName }) {
     display: 'standalone',
     background_color: '#ffffff',
     theme_color: '#20a398',
-    icons: iconUrl
+    icons: slug
       ? [
           {
-            src: iconUrl,
+            src: './apple-touch-icon.png',
             sizes: '192x192 512x512',
             type: 'image/png',
             purpose: 'any maskable',
@@ -79,6 +79,39 @@ export function registerMobileGalleryServiceWorker(slug) {
   return undefined;
 }
 
+export function applyAppleTouchIcons(slug) {
+  if (!slug || typeof document === 'undefined') return { created: [], appTitle: null };
+
+  const href = getAppleTouchIconUrl(slug);
+  const created = [];
+
+  document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach((node) => {
+    node.remove();
+  });
+
+  APPLE_TOUCH_ICON_SIZES.forEach((size) => {
+    const touchIcon = document.createElement('link');
+    touchIcon.rel = 'apple-touch-icon';
+    touchIcon.sizes = size;
+    touchIcon.href = href;
+    document.head.appendChild(touchIcon);
+    created.push(touchIcon);
+  });
+
+  const defaultTouch = document.createElement('link');
+  defaultTouch.rel = 'apple-touch-icon';
+  defaultTouch.href = href;
+  document.head.appendChild(defaultTouch);
+  created.push(defaultTouch);
+
+  const appTitle = document.createElement('meta');
+  appTitle.name = 'apple-mobile-web-app-title';
+  document.head.appendChild(appTitle);
+  created.push(appTitle);
+
+  return { created, appTitle };
+}
+
 export function applyMobileGalleryPwaHead({ app, slug, photographerName, logoUrl }) {
   if (!app || !slug || typeof document === 'undefined') return () => {};
 
@@ -86,6 +119,10 @@ export function applyMobileGalleryPwaHead({ app, slug, photographerName, logoUrl
   const created = [];
 
   document.title = app.name || 'Gallery';
+
+  const { created: touchIcons, appTitle } = applyAppleTouchIcons(slug);
+  created.push(...touchIcons);
+  if (appTitle) appTitle.content = app.name || 'Gallery';
 
   const manifestLink = document.createElement('link');
   manifestLink.rel = 'manifest';
@@ -123,14 +160,6 @@ export function applyMobileGalleryPwaHead({ app, slug, photographerName, logoUrl
   mobileCapable.content = 'yes';
   document.head.appendChild(mobileCapable);
   created.push(mobileCapable);
-
-  if (iconUrl) {
-    const touchIcon = document.createElement('link');
-    touchIcon.rel = 'apple-touch-icon';
-    touchIcon.href = iconUrl;
-    document.head.appendChild(touchIcon);
-    created.push(touchIcon);
-  }
 
   const description = buildWebManifest({ app, photographerName }).description;
   let ogDescription = document.querySelector('meta[property="og:description"]');

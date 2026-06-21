@@ -1,7 +1,6 @@
 /**
  * Runs before React on /m/:slug install & pwa routes.
- * iOS reads document.title + apple-touch-icon at "Add to Home Screen" time —
- * must be set before the SPA boots (Pixieset serves these from the server).
+ * iOS reads apple-touch-icon from same-origin URL at Add to Home Screen time.
  */
 (function () {
   var path = location.pathname;
@@ -12,12 +11,47 @@
   var isPwaRoute = match[2] === 'pwa';
   var encodedSlug = encodeURIComponent(slug);
   var manifestHref = '/m/' + encodedSlug + '/manifest.json';
+  var iconHref = '/m/' + encodedSlug + '/apple-touch-icon.png';
+  var iconSizes = [
+    '57x57',
+    '60x60',
+    '72x72',
+    '76x76',
+    '114x114',
+    '120x120',
+    '144x144',
+    '152x152',
+    '167x167',
+    '180x180',
+    '192x192',
+    '256x256',
+    '512x512',
+  ];
 
   document.documentElement.classList.add('mg-public-route');
 
   document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(function (node) {
     node.parentNode.removeChild(node);
   });
+
+  iconSizes.forEach(function (size) {
+    var sized = document.createElement('link');
+    sized.rel = 'apple-touch-icon';
+    sized.sizes = size;
+    sized.href = iconHref;
+    document.head.appendChild(sized);
+  });
+
+  var defaultIcon = document.createElement('link');
+  defaultIcon.rel = 'apple-touch-icon';
+  defaultIcon.href = iconHref;
+  document.head.appendChild(defaultIcon);
+
+  var preload = document.createElement('link');
+  preload.rel = 'preload';
+  preload.as = 'image';
+  preload.href = iconHref;
+  document.head.appendChild(preload);
 
   if (!document.querySelector('link[rel="manifest"]')) {
     var manifest = document.createElement('link');
@@ -64,17 +98,16 @@
 
   function applyManifest(data) {
     if (!data) return;
+    var appName = data.short_name || data.name;
     if (data.name) document.title = data.name;
-    var icons = data.icons || [];
-    for (var i = 0; i < icons.length; i++) {
-      var src = icons[i] && icons[i].src;
-      if (!src) continue;
-      if (src.indexOf('//') === 0) src = 'https:' + src;
-      var touch = document.createElement('link');
-      touch.rel = 'apple-touch-icon';
-      touch.href = src;
-      document.head.appendChild(touch);
-      break;
+    if (appName) {
+      var appTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if (!appTitle) {
+        appTitle = document.createElement('meta');
+        appTitle.name = 'apple-mobile-web-app-title';
+        document.head.appendChild(appTitle);
+      }
+      appTitle.content = appName;
     }
   }
 

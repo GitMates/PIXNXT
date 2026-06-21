@@ -6,6 +6,7 @@
   "trailingSlash": false,
   "rewrites": [
     { "source": "/m/:slug/manifest.json", "destination": "/api/m/:slug/manifest" },
+    { "source": "/m/:slug/apple-touch-icon.png", "destination": "/api/m/:slug/icon" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
