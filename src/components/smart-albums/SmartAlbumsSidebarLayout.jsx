@@ -204,7 +204,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                                     </div>
                                 </div>
                                 <div
-                                    className="flex items-center gap-4 px-6 py-3.5 cursor-pointer bg-[#f3f4f6]"
+                                    className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         navigate('/smart-albums');
@@ -215,6 +215,22 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                                     <div className="flex flex-col gap-0.5 min-w-0">
                                         <span className="text-[17px] font-semibold text-[#111]">Smart Albums</span>
                                         <span className="text-xs text-[#888] leading-[1.4]">Design and deliver beautiful photo albums</span>
+                                    </div>
+                                </div>
+                                <div
+                                    className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        navigate('/mobile-gallery');
+                                        setShowAppDropdown(false);
+                                    }}
+                                >
+                                    <div className="w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #f1c40f, #f39c12)' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5 min-w-0">
+                                        <span className="text-[17px] font-semibold text-[#111]">Mobile Gallery App</span>
+                                        <span className="text-xs text-[#888] leading-[1.4]">Simple, personalized mobile photo albums</span>
                                     </div>
                                 </div>
                                 <div className="h-px bg-[#f0f0f0] my-2" />

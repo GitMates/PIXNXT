@@ -1,0 +1,338 @@
+.mg-install-page {
+  min-height: 100dvh;
+  background: #f7f7f7;
+  color: #111;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.mg-client-page {
+  min-height: 100dvh;
+  background: #fff;
+  color: #111;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.mg-install-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 16px 24px;
+  box-sizing: border-box;
+}
+
+.mg-install-header {
+  padding-top: 24px;
+  text-align: center;
+}
+
+.mg-install-hero {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.mg-install-desktop {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding-bottom: 32px;
+}
+
+.mg-install-callout {
+  margin: 0 16px 16px;
+  padding: 20px 18px;
+  background: #fff;
+  border-radius: 4px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  color: #3a3a3a;
+  font-size: 15px;
+  line-height: 1.7;
+  text-align: left;
+}
+
+.mg-install-callout-label {
+  margin: 0 0 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #aaa;
+}
+
+.mg-install-callout-text {
+  margin: 0;
+}
+
+.mg-install-callout-text strong {
+  color: #111;
+}
+
+.mg-install-share-icon {
+  display: inline-block;
+  font-size: 18px;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+.mg-install-copy-btn {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px 20px;
+  border: none;
+  background: #3d3d3d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.mg-install-copy-btn--copied {
+  background: #20a398;
+}
+
+.mg-install-copy-btn--hidden {
+  display: none;
+}
+
+.mg-install-help {
+  margin: 20px 0 0;
+  padding-top: 16px;
+  font-size: 13px;
+  color: #5f5f5f;
+  text-align: center;
+  cursor: pointer;
+}
+
+.mg-install-brand-logo {
+  max-width: 64px;
+  max-height: 64px;
+  object-fit: contain;
+}
+
+.mg-install-center {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px 32px;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+.mg-install-brand-mark {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #f5c542 0%, #e8a317 100%);
+  clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+}
+
+.mg-install-loading {
+  padding: 48px 24px;
+  text-align: center;
+  color: #888;
+}
+
+.mg-install-app-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 18px;
+  object-fit: cover;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  margin-bottom: 12px;
+}
+
+.mg-install-app-icon--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f0f0f0;
+  font-size: 42px;
+  font-weight: 600;
+  color: #bbb;
+}
+
+.mg-install-app-name {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.mg-install-desktop-message {
+  max-width: 420px;
+  margin: 0 0 40px;
+  font-size: 15px;
+  line-height: 1.65;
+  color: #666;
+}
+
+.mg-install-desktop-url {
+  margin-top: 24px;
+  font-size: 13px;
+  color: #aaa;
+  word-break: break-all;
+}
+
+.mg-install-tip-card {
+  width: min(100%, 360px);
+  margin: 0 auto;
+  padding: 20px 22px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  font-size: 15px;
+  line-height: 1.55;
+  color: #444;
+  text-align: left;
+}
+
+.mg-install-tip-card strong {
+  color: #111;
+}
+
+.mg-install-tip-footnote {
+  margin: 16px 0 0;
+  font-size: 13px;
+  color: #999;
+}
+
+.mg-install-menu-dots {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  vertical-align: middle;
+  margin: 0 4px;
+}
+
+.mg-install-menu-dots span {
+  display: block;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #333;
+}
+
+.mg-install-inline-icon {
+  display: inline-block;
+  font-size: 18px;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+.mg-install-open-gallery {
+  margin-top: 28px;
+  font-size: 14px;
+  color: #888;
+}
+
+.mg-install-open-gallery a {
+  color: #20a398;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.mg-install-phone-illustration {
+  margin-top: 8px;
+}
+
+.mg-install-phone-frame {
+  width: 200px;
+  height: 360px;
+  border: 3px solid #ddd;
+  border-radius: 28px;
+  padding: 24px 16px;
+  background: #fafafa;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.08);
+}
+
+.mg-install-phone-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.mg-install-phone-tile {
+  aspect-ratio: 1;
+  border-radius: 12px;
+  background: #e8e8e8;
+}
+
+.mg-install-phone-tile--active {
+  background: linear-gradient(135deg, #b8e6de, #20a398);
+}
+
+.mg-client-page {
+  background: #fafafa;
+}
+
+.mg-client-page--dark {
+  background: #111;
+}
+
+.mg-client-shell {
+  max-width: 430px;
+  min-height: 100dvh;
+  margin: 0 auto;
+  background: #fff;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.mg-client-page--dark .mg-client-shell {
+  background: #111;
+}
+
+.mg-client-home-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 72px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mg-client-home-scroll--dark {
+  background: #111;
+}
+
+.mg-client-cover.mg-design-cover-preview--full {
+  min-height: 100svh;
+  height: auto;
+}
+
+.mg-client-cover {
+  flex: none;
+  width: 100%;
+}
+
+.mg-client-grid {
+  flex: none;
+  width: 100%;
+}
+
+.mg-client-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100%, 430px);
+  z-index: 10;
+}
+
+@media (min-width: 768px) {
+  .mg-client-shell {
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
+  }
+}
