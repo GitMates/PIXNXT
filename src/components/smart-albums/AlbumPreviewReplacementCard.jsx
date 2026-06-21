@@ -59,7 +59,6 @@ function ReplacementPreviewImage({ albumId, url, itemId, alt, variant, tagLabel 
 export default function AlbumPreviewReplacementCard({
     albumId,
     replacement,
-    onJumpToSpread,
     onRemove,
 }) {
     const createdAtLabel = replacement.createdAt
@@ -68,31 +67,6 @@ export default function AlbumPreviewReplacementCard({
 
     return (
         <article className="av-preview-sidebar-replacement">
-            <button
-                type="button"
-                className="av-preview-sidebar-replacement-head"
-                onClick={() => onJumpToSpread?.(replacement.spreadIndex)}
-            >
-                <span className="av-preview-sidebar-replacement-label">
-                    {replacement.slotLabel}
-                </span>
-                <span className="av-preview-sidebar-replacement-go">
-                    View spread
-                    <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        aria-hidden
-                    >
-                        <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                </span>
-            </button>
             <div className="av-preview-sidebar-replacement-pair">
                 <ReplacementPreviewImage
                     albumId={albumId}

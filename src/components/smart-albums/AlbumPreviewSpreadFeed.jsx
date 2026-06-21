@@ -74,9 +74,7 @@ export default function AlbumPreviewSpreadFeed({
                         >
                             {editingPinId === pin.id ? (
                                 <div className="av-preview-sidebar-comment-edit">
-                                    <p className="av-preview-sidebar-comment-author">
-                                        Photo comment · {pin.spreadLabel}
-                                    </p>
+                                    <p className="av-preview-sidebar-comment-author">Photo comment</p>
                                     <textarea
                                         className="av-preview-sidebar-comment-input"
                                         value={editingPinMessage}
@@ -112,7 +110,7 @@ export default function AlbumPreviewSpreadFeed({
                                         onClick={() => onJumpToSpread?.(pin.spreadIndex)}
                                     >
                                         <p className="av-preview-sidebar-comment-author">
-                                            Photo comment · {pin.spreadLabel}
+                                            Photo comment
                                         </p>
                                     </button>
                                     <div
@@ -163,7 +161,6 @@ export default function AlbumPreviewSpreadFeed({
                             key={item.id}
                             albumId={albumId}
                             replacement={item.replacement}
-                            onJumpToSpread={onJumpToSpread}
                             onRemove={onRemoveReplacement}
                         />
                     );
