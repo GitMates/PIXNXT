@@ -189,7 +189,7 @@ const AppShare = () => {
     if (!directLink || !isValidInstallLink(directLink)) {
       return (
         getShareUrlWarning(directLink) ||
-        'Set VITE_PUBLIC_SITE_URL to your live domain (e.g. https://pixnxt.com) so install links work in emails.'
+        'Set VITE_PUBLIC_SITE_URL to your live domain (e.g. https://www.pixnxt.in) so install links work in emails.'
       );
     }
     if (isLocalOrigin(getPublicSiteOrigin())) {

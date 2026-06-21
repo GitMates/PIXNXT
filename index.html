@@ -102,6 +102,15 @@
     content="Beautiful client galleries, smart albums, proofing and print sales for photographers." />
   <meta name="twitter:image" content="https://www.pixnxt.com/logo.png" />
 
+  <!-- Mobile gallery /m/* only — does not run on dashboard, client gallery, etc. -->
+  <script>
+    if (/^\/m\/[^/]+/.test(location.pathname)) {
+      var mgInstallHead = document.createElement('script');
+      mgInstallHead.src = '/m/install-head.js';
+      document.head.appendChild(mgInstallHead);
+    }
+  </script>
+
 </head>
 
 <body>
