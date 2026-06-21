@@ -5,9 +5,9 @@ import { galleryService } from '../../services/gallery.service';
 import { mobileGalleryService } from '../../services/mobileGallery.service';
 import { mobileGalleryEmailTemplatesService } from '../../services/mobileGalleryEmailTemplates.service';
 import { getPreviewWebsiteLink } from '../../lib/mobileGalleryPreviewFormat';
-import { getPublicSiteOrigin, getShareUrlWarning } from '../../lib/publicSiteUrl';
+import { getShareUrlWarning } from '../../lib/publicSiteUrl';
 import { mobileGalleryShareService } from '../../services/mobileGalleryShare.service';
-import { isLocalOrigin, isValidInstallLink } from '../../lib/mobileGalleryInstall';
+import { isLocalOrigin, isValidInstallLink, resolveInstallOrigin } from '../../lib/mobileGalleryInstall';
 import {
   getAppDirectLink,
   getDefaultInviteMessage,
@@ -181,19 +181,23 @@ const AppShare = () => {
   }, [user, authLoading, appId]);
 
   const directLink = useMemo(
-    () => (app?.slug ? getAppDirectLink(app.slug, getPublicSiteOrigin()) : ''),
+    () => (app?.slug ? getAppDirectLink(app.slug) : ''),
     [app?.slug]
   );
   const installLinkWarning = useMemo(() => {
     if (!app?.slug) return 'Publish this app to generate an install link.';
+    const installOrigin = resolveInstallOrigin('');
     if (!directLink || !isValidInstallLink(directLink)) {
       return (
         getShareUrlWarning(directLink) ||
-        'Set VITE_PUBLIC_SITE_URL to your live domain (e.g. https://www.pixnxt.in) so install links work in emails.'
+        'Set VITE_PUBLIC_SITE_URL to https://www.pixnxt.in in Vercel, redeploy, then share again.'
       );
     }
-    if (isLocalOrigin(getPublicSiteOrigin())) {
+    if (isLocalOrigin(installOrigin)) {
       return 'This install link uses localhost and will not work for clients.';
+    }
+    if (/vercel\.app/i.test(installOrigin)) {
+      return 'Install links must use www.pixnxt.in — open this page on pixnxt.in (not a Vercel preview URL) or set VITE_PUBLIC_SITE_URL and redeploy.';
     }
     return null;
   }, [app?.slug, directLink]);

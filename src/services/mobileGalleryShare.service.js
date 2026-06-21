@@ -37,15 +37,15 @@ export const mobileGalleryShareService = {
       throw new Error('You must be signed in to send invites. Please sign in and try again.');
     }
 
-    const siteOrigin = resolveInstallOrigin(getPublicSiteOrigin());
+    const siteOrigin = resolveInstallOrigin('');
     if (!siteOrigin || isLocalOrigin(siteOrigin)) {
       throw new Error(
-        'Install links must use your public domain. Set VITE_PUBLIC_SITE_URL (e.g. https://www.pixnxt.in) and redeploy, or set PUBLIC_SITE_URL in Supabase secrets.'
+        'Install links must use your public domain. Open this page on https://www.pixnxt.in or set VITE_PUBLIC_SITE_URL and redeploy.'
       );
     }
     if (/vercel\.app/i.test(siteOrigin) && import.meta.env.PROD) {
       throw new Error(
-        'Install links cannot use a Vercel preview URL. Set VITE_PUBLIC_SITE_URL to https://www.pixnxt.in in Vercel, redeploy, then send the invite again.'
+        'Install links cannot use a Vercel preview URL. Open Mobile Gallery Share on https://www.pixnxt.in, or set VITE_PUBLIC_SITE_URL to https://www.pixnxt.in in Vercel and redeploy.'
       );
     }
 

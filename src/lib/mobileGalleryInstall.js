@@ -1,5 +1,3 @@
-import { getPublicSiteOrigin } from './publicSiteUrl';
-
 const INSTALL_PATH = '/m';
 
 export function isLocalOrigin(origin) {
@@ -13,11 +11,21 @@ export function isLocalOrigin(origin) {
 }
 
 export function resolveInstallOrigin(siteOrigin) {
-  const fromEnv = getPublicSiteOrigin();
+  const fromEnv = String(import.meta.env.VITE_PUBLIC_SITE_URL || '').replace(/\/$/, '');
   const browserOrigin =
-    typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
-  const candidate = (fromEnv || siteOrigin || browserOrigin || '').replace(/\/$/, '');
-  return candidate;
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin.replace(/\/$/, '')
+      : '';
+  const passed = String(siteOrigin || '').replace(/\/$/, '');
+
+  // Prefer the live custom domain (e.g. pixnxt.in) over a stale vercel.app value baked at build time.
+  const candidates = [browserOrigin, fromEnv, passed].filter(Boolean);
+  const productionOrigin = candidates.find(
+    (origin) => !isLocalOrigin(origin) && !/vercel\.app/i.test(origin)
+  );
+  if (productionOrigin) return productionOrigin;
+
+  return candidates[0] || '';
 }
 
 export function getAppInstallLink(slug, siteOrigin) {
