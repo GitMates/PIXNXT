@@ -260,7 +260,7 @@ const AppShare = () => {
     setSendError(null);
 
     try {
-      await mobileGalleryShareService.sendInvite({
+      const data = await mobileGalleryShareService.sendInvite({
         appId,
         recipientEmail,
         subject,

@@ -90,6 +90,8 @@ function assertInstallLink(url: string): string {
   }
   return url;
 }
+
+function textToHtmlParagraphs(text: string): string {
   return escapeHtml(text)
     .split('\n')
     .map((line) =>
