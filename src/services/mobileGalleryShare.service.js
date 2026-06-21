@@ -40,7 +40,12 @@ export const mobileGalleryShareService = {
     const siteOrigin = resolveInstallOrigin(getPublicSiteOrigin());
     if (!siteOrigin || isLocalOrigin(siteOrigin)) {
       throw new Error(
-        'Install links must use your public domain. Set VITE_PUBLIC_SITE_URL (e.g. https://pixnxt.com) and redeploy, or set PUBLIC_SITE_URL in Supabase secrets.'
+        'Install links must use your public domain. Set VITE_PUBLIC_SITE_URL (e.g. https://www.pixnxt.in) and redeploy, or set PUBLIC_SITE_URL in Supabase secrets.'
+      );
+    }
+    if (/vercel\.app/i.test(siteOrigin) && import.meta.env.PROD) {
+      throw new Error(
+        'Install links cannot use a Vercel preview URL. Set VITE_PUBLIC_SITE_URL to https://www.pixnxt.in in Vercel, redeploy, then send the invite again.'
       );
     }
 
