@@ -13,6 +13,8 @@ import {
   getPreviewWebsiteLink,
 } from '../../lib/mobileGalleryPreviewFormat';
 import { getAppCtaLink } from '../../lib/mobileGalleryAppSettings';
+import { getAppDesignSettings } from '../../lib/mobileGalleryDesign';
+import MobileGalleryPhotoGrid, { useMobileGalleryGridPhotos } from '../../components/mobile-gallery/MobileGalleryPhotoGrid';
 import './MobileGallery.css';
 
 const IconHome = () => (
@@ -100,6 +102,8 @@ function PreviewHomeFeed({ app, coverUrl, photos, ctaLink, photosRef, scrollRef,
   const eventLabel = formatPreviewEventDate(app.event_date);
   const title = String(app.name || '').toUpperCase();
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const gridStyle = getAppDesignSettings(app).grid_style;
+  const { sortedPhotos } = useMobileGalleryGridPhotos(photos, gridStyle);
 
   return (
     <div className="mg-preview-home-scroll" ref={scrollRef}>
@@ -124,18 +128,12 @@ function PreviewHomeFeed({ app, coverUrl, photos, ctaLink, photosRef, scrollRef,
             <span>Add photos in the editor to preview your gallery.</span>
           </div>
         ) : (
-          <div className="mg-preview-home-photo-grid">
-            {photos.map((photo, idx) => (
-              <button
-                key={photo.id}
-                type="button"
-                className="mg-preview-home-photo-cell"
-                onClick={() => setLightboxIndex(idx)}
-              >
-                <img src={photo.thumbnail_url || photo.full_url} alt="" />
-              </button>
-            ))}
-          </div>
+          <MobileGalleryPhotoGrid
+            photos={photos}
+            gridStyle={gridStyle}
+            variant="interactive"
+            onPhotoClick={(index) => setLightboxIndex(index)}
+          />
         )}
 
         {ctaLink && (
@@ -150,14 +148,14 @@ function PreviewHomeFeed({ app, coverUrl, photos, ctaLink, photosRef, scrollRef,
         )}
       </div>
 
-      {lightboxIndex !== null && photos[lightboxIndex] && (
+      {lightboxIndex !== null && sortedPhotos[lightboxIndex] && (
         <div
           className="mg-preview-lightbox"
           onClick={() => setLightboxIndex(null)}
           role="presentation"
         >
           <img
-            src={photos[lightboxIndex].full_url || photos[lightboxIndex].thumbnail_url}
+            src={sortedPhotos[lightboxIndex].full_url || sortedPhotos[lightboxIndex].thumbnail_url}
             alt=""
           />
         </div>

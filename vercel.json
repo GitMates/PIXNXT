@@ -5,6 +5,7 @@
   "cleanUrls": false,
   "trailingSlash": false,
   "rewrites": [
+    { "source": "/m/:slug/manifest.json", "destination": "/api/m/:slug/manifest" },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }

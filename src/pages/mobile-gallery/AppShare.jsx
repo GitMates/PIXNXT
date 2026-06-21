@@ -5,8 +5,9 @@ import { galleryService } from '../../services/gallery.service';
 import { mobileGalleryService } from '../../services/mobileGallery.service';
 import { mobileGalleryEmailTemplatesService } from '../../services/mobileGalleryEmailTemplates.service';
 import { getPreviewWebsiteLink } from '../../lib/mobileGalleryPreviewFormat';
-import { getPublicSiteOrigin } from '../../lib/publicSiteUrl';
+import { getPublicSiteOrigin, getShareUrlWarning } from '../../lib/publicSiteUrl';
 import { mobileGalleryShareService } from '../../services/mobileGalleryShare.service';
+import { isLocalOrigin, isValidInstallLink } from '../../lib/mobileGalleryInstall';
 import {
   getAppDirectLink,
   getDefaultInviteMessage,
@@ -183,6 +184,19 @@ const AppShare = () => {
     () => (app?.slug ? getAppDirectLink(app.slug, getPublicSiteOrigin()) : ''),
     [app?.slug]
   );
+  const installLinkWarning = useMemo(() => {
+    if (!app?.slug) return 'Publish this app to generate an install link.';
+    if (!directLink || !isValidInstallLink(directLink)) {
+      return (
+        getShareUrlWarning(directLink) ||
+        'Set VITE_PUBLIC_SITE_URL to your live domain (e.g. https://pixnxt.com) so install links work in emails.'
+      );
+    }
+    if (isLocalOrigin(getPublicSiteOrigin())) {
+      return 'This install link uses localhost and will not work for clients.';
+    }
+    return null;
+  }, [app?.slug, directLink]);
   const websiteLink = useMemo(
     () => (profile ? getPreviewWebsiteLink(profile, user) : null),
     [profile, user]
@@ -255,7 +269,11 @@ const AppShare = () => {
         websiteLink,
       });
       setShowSendConfirm(false);
-      setSendSuccess(`Invite sent to ${recipientEmail.trim()}`);
+      setSendSuccess(
+        data?.directLink
+          ? `Invite sent to ${recipientEmail.trim()}. Install link: ${data.directLink}`
+          : `Invite sent to ${recipientEmail.trim()}`
+      );
       setRecipientEmail('');
     } catch (err) {
       console.error(err);
@@ -331,6 +349,12 @@ const AppShare = () => {
       {app.status !== 'published' && (
         <p className="mg-share-status mg-share-status--error" role="alert">
           Publish this app before sharing — clients can only install published galleries.
+        </p>
+      )}
+
+      {installLinkWarning && app.status === 'published' && (
+        <p className="mg-share-status mg-share-status--error" role="alert">
+          {installLinkWarning}
         </p>
       )}
 

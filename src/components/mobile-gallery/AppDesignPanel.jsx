@@ -20,6 +20,7 @@ import { sortMobileGalleryPhotos } from '../../lib/mobileGalleryPhotoSort';
 
 import FocalPointModal from './FocalPointModal';
 import ThemeCoverContent, { ThemeThumbContent } from './ThemeCoverContent';
+import MobileGalleryPhotoGrid from './MobileGalleryPhotoGrid';
 
 import '../../pages/mobile-gallery/MobileGallery.css';
 
@@ -77,7 +78,7 @@ function CoverLayoutIcon({ type }) {
 
       <svg width="40" height="64" viewBox="0 0 40 64" aria-hidden>
 
-        <rect x="4" y="4" width="32" height="56" rx="2" fill="#e8eaed" stroke="#ccc" />
+        <rect x="4" y="4" width="32" height="56" rx="2" fill="#fff" stroke="#ccc" />
 
         <rect x="8" y="8" width="24" height="48" fill="#20a398" opacity="0.35" />
 
@@ -93,9 +94,19 @@ function CoverLayoutIcon({ type }) {
 
       <svg width="40" height="64" viewBox="0 0 40 64" aria-hidden>
 
-        <rect x="4" y="4" width="32" height="56" rx="2" fill="#e8eaed" stroke="#ccc" />
+        <rect x="4" y="4" width="32" height="56" rx="2" fill="#fff" stroke="#ccc" />
 
-        <rect x="8" y="8" width="24" height="18" fill="#20a398" opacity="0.35" />
+        <rect x="8" y="8" width="24" height="14" fill="#20a398" opacity="0.35" />
+
+        <rect x="11" y="28" width="10" height="1.5" rx="0.75" fill="#bbb" />
+
+        <rect x="11" y="32" width="18" height="2" rx="1" fill="#999" />
+
+        <rect x="8" y="42" width="7" height="5" fill="#ddd" />
+
+        <rect x="16.5" y="42" width="7" height="5" fill="#ddd" />
+
+        <rect x="25" y="42" width="7" height="5" fill="#ddd" />
 
       </svg>
 
@@ -107,7 +118,23 @@ function CoverLayoutIcon({ type }) {
 
     <svg width="40" height="64" viewBox="0 0 40 64" aria-hidden>
 
-      <rect x="4" y="4" width="32" height="56" rx="2" fill="#e8eaed" stroke="#ccc" />
+      <rect x="4" y="4" width="32" height="56" rx="2" fill="#fff" stroke="#ccc" />
+
+      <rect x="11" y="12" width="10" height="1.5" rx="0.75" fill="#bbb" />
+
+      <rect x="11" y="16" width="18" height="2" rx="1" fill="#999" />
+
+      <rect x="8" y="26" width="7" height="5" fill="#ddd" />
+
+      <rect x="16.5" y="26" width="7" height="5" fill="#ddd" />
+
+      <rect x="25" y="26" width="7" height="5" fill="#ddd" />
+
+      <rect x="8" y="33" width="7" height="5" fill="#ddd" />
+
+      <rect x="16.5" y="33" width="7" height="5" fill="#ddd" />
+
+      <rect x="25" y="33" width="7" height="5" fill="#ddd" />
 
     </svg>
 
@@ -150,10 +177,36 @@ function DesignPhonePreview({
   previewBgUrl,
   iconUrl,
 }) {
+  const scrollRef = useRef(null);
+  const gridRef = useRef(null);
   const theme = getThemeById(design.theme);
   const isDark = design.color_theme === 'dark';
   const focalX = design.cover_focal_x ?? 50;
   const focalY = design.cover_focal_y ?? 50;
+
+  useEffect(() => {
+    if (previewMode !== 'layout') return;
+
+    const scrollEl = scrollRef.current;
+    const gridEl = gridRef.current;
+    if (!scrollEl || !gridEl) return;
+
+    const scrollToGrid = () => {
+      scrollEl.scrollTo({
+        top: gridEl.offsetTop,
+        behavior: 'smooth',
+      });
+    };
+
+    requestAnimationFrame(() => {
+      requestAnimationFrame(scrollToGrid);
+    });
+  }, [previewMode, design.grid_style, design.color_theme]);
+
+  useEffect(() => {
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [design.cover_style]);
 
   const coverStyle = {
     backgroundImage: previewBgUrl && design.cover_style !== 'none' ? `url(${previewBgUrl})` : undefined,
@@ -207,7 +260,11 @@ function DesignPhonePreview({
 
       <div className="mg-design-phone mg-design-phone--homescreen">
 
-        <div className="mg-design-homescreen-bg" style={coverStyle}>
+        <div className="mg-design-homescreen-bg">
+
+          <div className="mg-design-homescreen-status" aria-hidden>
+            <span className="mg-design-homescreen-time">9:00 AM</span>
+          </div>
 
           <div className="mg-design-homescreen-grid">{gridItems}</div>
 
@@ -231,44 +288,6 @@ function DesignPhonePreview({
 
 
 
-  if (previewMode === 'layout') {
-
-    return (
-
-      <div className={`mg-design-phone mg-design-phone--grid${isDark ? ' mg-design-phone--dark' : ''}`}>
-
-        <div className={`mg-design-grid-preview mg-design-grid-preview--${design.grid_style}`}>
-
-          {(photos.length ? photos.slice(0, 9) : Array.from({ length: 6 })).map((photo, idx) => (
-
-            <div key={photo?.id || idx} className="mg-design-grid-cell">
-
-              {photo?.thumbnail_url || photo?.full_url ? (
-
-                <img src={photo.thumbnail_url || photo.full_url} alt="" />
-
-              ) : (
-
-                <div className="mg-design-grid-placeholder" />
-
-              )}
-
-            </div>
-
-          ))}
-
-        </div>
-
-        <DesignBottomNav isDark={isDark} />
-
-      </div>
-
-    );
-
-  }
-
-
-
   const showCoverImage = previewBgUrl && design.cover_style !== 'none';
   const coverImageStyle = showCoverImage
     ? {
@@ -280,25 +299,41 @@ function DesignPhonePreview({
 
   return (
     <div
-      className={`mg-design-phone${isDark ? ' mg-design-phone--dark' : ''}`}
+      className={`mg-design-phone mg-design-phone--scrollable${isDark ? ' mg-design-phone--dark' : ''}`}
       key={`phone-${design.theme}-${previewBgUrl}-${design.color_theme}`}
     >
-      <div
-        key={previewBgUrl}
-        className={`mg-design-cover-preview mg-design-cover-preview--${design.cover_style} mg-design-cover-preview--theme-${theme.id}${isDark ? ' mg-design-cover-preview--dark' : ''}`}
-        style={design.cover_style === 'full' ? coverStyle : undefined}
-      >
-        {design.cover_style === 'third' && showCoverImage && (
-          <div className="mg-design-cover-third-img" style={coverImageStyle} />
-        )}
-        <div className="mg-design-cover-overlay" />
-        <ThemeCoverContent
-          key={design.theme}
-          themeId={design.theme}
-          appName={app?.name}
-          eventDate={app?.event_date}
-          variant="preview"
-        />
+      <div className="mg-design-phone-scroll" ref={scrollRef}>
+        <div
+          key={previewBgUrl}
+          className={`mg-design-cover-preview mg-design-cover-preview--${design.cover_style} mg-design-cover-preview--theme-${theme.id}${isDark ? ' mg-design-cover-preview--dark' : ''}`}
+          style={design.cover_style === 'full' ? coverStyle : undefined}
+        >
+          {design.cover_style === 'third' && (
+            <div
+              className={`mg-design-cover-third-img${showCoverImage ? '' : ' mg-design-cover-third-img--empty'}`}
+              style={coverImageStyle}
+            />
+          )}
+          {design.cover_style === 'full' && <div className="mg-design-cover-overlay" />}
+          <div className={`mg-design-cover-body mg-design-cover-body--${design.cover_style}`}>
+            <ThemeCoverContent
+              key={design.theme}
+              themeId={design.theme}
+              appName={app?.name}
+              eventDate={app?.event_date}
+              coverStyle={design.cover_style}
+              variant="preview"
+            />
+          </div>
+        </div>
+        <div className="mg-design-grid-preview" ref={gridRef}>
+          <MobileGalleryPhotoGrid
+            photos={photos}
+            gridStyle={design.grid_style}
+            variant="design"
+            maxPhotos={24}
+          />
+        </div>
       </div>
       <DesignBottomNav isDark={isDark} />
     </div>

@@ -1,6 +1,7 @@
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase/client';
 import { getPublicSiteOrigin } from '../lib/publicSiteUrl';
+import { isLocalOrigin, resolveInstallOrigin } from '../lib/mobileGalleryInstall';
 
 async function readFunctionErrorMessage(error) {
   let message = error?.message || 'Could not send invite email';
@@ -36,6 +37,13 @@ export const mobileGalleryShareService = {
       throw new Error('You must be signed in to send invites. Please sign in and try again.');
     }
 
+    const siteOrigin = resolveInstallOrigin(getPublicSiteOrigin());
+    if (!siteOrigin || isLocalOrigin(siteOrigin)) {
+      throw new Error(
+        'Install links must use your public domain. Set VITE_PUBLIC_SITE_URL (e.g. https://pixnxt.com) and redeploy, or set PUBLIC_SITE_URL in Supabase secrets.'
+      );
+    }
+
     const { data, error } = await supabase.functions.invoke('send-mobile-gallery-invite', {
       headers: {
         Authorization: `Bearer ${session.access_token}`,
@@ -46,7 +54,7 @@ export const mobileGalleryShareService = {
         subject: subject.trim(),
         message: message.trim(),
         sendCopy,
-        siteOrigin: getPublicSiteOrigin(),
+        siteOrigin,
         websiteHref: websiteLink?.href || null,
         websiteLabel: websiteLink?.label || null,
       },

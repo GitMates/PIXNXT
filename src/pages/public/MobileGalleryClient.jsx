@@ -3,7 +3,10 @@ import { useParams } from 'react-router-dom';
 import { mobileGalleryPublicService } from '../../services/mobileGalleryPublic.service';
 import { getAppInstallLink } from '../../lib/mobileGalleryInstall';
 import { getAppCtaLink } from '../../lib/mobileGalleryAppSettings';
-import { formatPreviewEventDate, getPreviewCoverUrl } from '../../lib/mobileGalleryPreviewFormat';
+import { applyMobileGalleryPwaHead } from '../../lib/mobileGalleryPwa';
+import MobileGalleryClientHome from '../../components/mobile-gallery/MobileGalleryClientHome';
+import { useMobileGalleryGridPhotos } from '../../components/mobile-gallery/MobileGalleryPhotoGrid';
+import { getAppDesignSettings } from '../../lib/mobileGalleryDesign';
 import '../mobile-gallery/MobileGallery.css';
 import './MobileGalleryPublic.css';
 
@@ -33,7 +36,7 @@ const IconProfile = () => (
   </svg>
 );
 
-function ClientBottomNav({ activeTab, onTabChange }) {
+function ClientBottomNav({ activeTab, onTabChange, isDark }) {
   const tabs = [
     { id: 'home', label: 'Home', Icon: IconHome },
     { id: 'favorites', label: 'Favorites', Icon: IconHeart },
@@ -42,7 +45,10 @@ function ClientBottomNav({ activeTab, onTabChange }) {
   ];
 
   return (
-    <nav className="mg-preview-bottom-nav mg-client-bottom-nav" aria-label="App navigation">
+    <nav
+      className={`mg-design-bottom-nav mg-client-bottom-nav${isDark ? ' mg-design-bottom-nav--dark' : ''}`}
+      aria-label="App navigation"
+    >
       {tabs.map(({ id, label, Icon }) => (
         <button
           key={id}
@@ -96,7 +102,6 @@ const MobileGalleryClient = () => {
           setPhotos(photoData);
           setSettings(settingsData);
           setPhotographer(photographerData);
-          document.title = appData.name;
         }
       } catch (err) {
         console.error(err);
@@ -111,7 +116,11 @@ const MobileGalleryClient = () => {
     };
   }, [slug]);
 
-  const coverUrl = useMemo(() => getPreviewCoverUrl(app, photos), [app, photos]);
+  const design = useMemo(() => (app ? getAppDesignSettings(app) : null), [app]);
+  const isDark = design?.color_theme === 'dark';
+  const gridStyle = design?.grid_style || 'vertical';
+  const { sortedPhotos } = useMobileGalleryGridPhotos(photos, gridStyle);
+
   const shareUrl = useMemo(
     () => (app?.slug ? getAppInstallLink(app.slug) : ''),
     [app?.slug]
@@ -119,12 +128,14 @@ const MobileGalleryClient = () => {
   const ctaLink = useMemo(() => getAppCtaLink(app, null), [app]);
   const showBranding = settings?.show_pixnxt_branding !== false;
   const profileIconUrl = settings?.logo_url || photographer?.profile_icon_url || null;
-  const eventLabel = formatPreviewEventDate(app?.event_date);
   const title = String(app?.name || '').toUpperCase();
+  const photographerName =
+    photographer?.business_name?.trim() || photographer?.display_name?.trim() || null;
 
-  const handleViewPhotos = () => {
-    photosRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
+  useEffect(() => {
+    if (!app?.slug) return undefined;
+    return applyMobileGalleryPwaHead({ app, slug: app.slug, photographerName, logoUrl: profileIconUrl });
+  }, [app, photographerName, profileIconUrl]);
 
   if (loading) {
     return <div className="mg-client-page"><p className="mg-install-loading">Loading…</p></div>;
@@ -139,56 +150,17 @@ const MobileGalleryClient = () => {
   }
 
   return (
-    <div className="mg-client-page">
+    <div className={`mg-client-page${isDark ? ' mg-client-page--dark' : ''}`}>
       <div className="mg-client-shell">
         {activeTab === 'home' && (
-          <div className="mg-preview-home-scroll mg-client-scroll" ref={scrollRef}>
-            <div
-              className="mg-preview-home"
-              style={coverUrl ? { backgroundImage: `url(${coverUrl})` } : undefined}
-            >
-              <div className="mg-preview-home-overlay" />
-              <div className="mg-preview-home-content">
-                {eventLabel && <p className="mg-preview-home-date">{eventLabel}</p>}
-                <h1 className="mg-preview-home-title">{title}</h1>
-                <button type="button" className="mg-preview-home-cta" onClick={handleViewPhotos}>
-                  View Photos
-                </button>
-              </div>
-            </div>
-
-            <div className="mg-preview-home-body" ref={photosRef}>
-              {photos.length === 0 ? (
-                <div className="mg-preview-home-empty-photos">
-                  <p>No photos yet</p>
-                </div>
-              ) : (
-                <div className="mg-preview-home-photo-grid">
-                  {photos.map((photo, idx) => (
-                    <button
-                      key={photo.id}
-                      type="button"
-                      className="mg-preview-home-photo-cell"
-                      onClick={() => setLightboxIndex(idx)}
-                    >
-                      <img src={photo.thumbnail_url || photo.full_url} alt="" />
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {ctaLink && (
-                <a
-                  href={ctaLink.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mg-preview-visit-website"
-                >
-                  {ctaLink.label}
-                </a>
-              )}
-            </div>
-          </div>
+          <MobileGalleryClientHome
+            app={app}
+            photos={photos}
+            scrollRef={scrollRef}
+            photosRef={photosRef}
+            ctaLink={ctaLink}
+            onPhotoClick={(index) => setLightboxIndex(index)}
+          />
         )}
 
         {activeTab === 'favorites' && (
@@ -235,17 +207,17 @@ const MobileGalleryClient = () => {
           </div>
         )}
 
-        <ClientBottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <ClientBottomNav activeTab={activeTab} onTabChange={setActiveTab} isDark={isDark} />
       </div>
 
-      {lightboxIndex !== null && photos[lightboxIndex] && (
+      {lightboxIndex !== null && sortedPhotos[lightboxIndex] && (
         <div
           className="mg-preview-lightbox"
           onClick={() => setLightboxIndex(null)}
           role="presentation"
         >
           <img
-            src={photos[lightboxIndex].full_url || photos[lightboxIndex].thumbnail_url}
+            src={sortedPhotos[lightboxIndex].full_url || sortedPhotos[lightboxIndex].thumbnail_url}
             alt=""
           />
         </div>

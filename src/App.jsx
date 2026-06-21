@@ -29,10 +29,24 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 
+function MobileGalleryViewRedirect() {
+  const { slug } = useParams();
+  return <Navigate to={`/m/${slug}/pwa`} replace />;
+}
+
+function MobileGalleryPublicRoutes() {
+  return (
+    <Routes>
+      <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
+      <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
+      <Route path="/m/:slug" element={<MobileGalleryInstall />} />
+    </Routes>
+  );
+}
+
 function App() {
   const host = window.location.hostname;
-  
-  // Generic subdomain resolver:
+  const location = useLocation();
   // 1. For local development (e.g., poojz.localhost)
   const devSubdomain = host.endsWith('.localhost') && host !== 'localhost' ? host.split('.')[0] : null;
   
@@ -49,7 +63,6 @@ function App() {
 
   const activeSlug = prodSubdomain || devSubdomain;
 
-  const location = useLocation();
   const navigate = useNavigate();
   const [themeTick, setThemeTick] = useState(0);
 
@@ -99,6 +112,17 @@ function App() {
     location.pathname.startsWith('/album-preview/') ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
+  if (location.pathname.startsWith('/m/')) {
+    return (
+      <UploadQueueProvider>
+        <UploadQueueRouteSync />
+        <div className="app">
+          <MobileGalleryPublicRoutes />
+        </div>
+      </UploadQueueProvider>
+    );
+  }
+
   if (activeSlug) {
     return (
       <UploadQueueProvider>
@@ -108,7 +132,8 @@ function App() {
             <Route path="/" element={<CollectionList slug={activeSlug} />} />
             <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
             <Route path="/gallery/:slug" element={<GalleryView />} />
-            <Route path="/m/:slug/view" element={<MobileGalleryClient />} />
+            <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
+            <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
             <Route path="/m/:slug" element={<MobileGalleryInstall />} />
             {/* Fallback to main app redirect if they try to access dashboard on subdomain */}
             <Route path="*" element={<Navigate to={`http${host.includes('localhost') ? '' : 's'}://${host.replace(activeSlug + '.', '')}/dashboard`} replace />} />
@@ -157,7 +182,8 @@ function App() {
           <Route path="/collections" element={<CollectionList />} />
           <Route path="/gallery/:slug/f" element={<GalleryFavoritesHub />} />
           <Route path="/gallery/:slug" element={<GalleryView />} />
-          <Route path="/m/:slug/view" element={<MobileGalleryClient />} />
+          <Route path="/m/:slug/pwa" element={<MobileGalleryClient />} />
+          <Route path="/m/:slug/view" element={<MobileGalleryViewRedirect />} />
           <Route path="/m/:slug" element={<MobileGalleryInstall />} />
           <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
           <Route path="/ref/:code" element={<ReferralRedirect />} />

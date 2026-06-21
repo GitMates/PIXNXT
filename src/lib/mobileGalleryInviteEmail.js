@@ -64,7 +64,7 @@ export function buildInviteEmailHtml({
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 32px;">
                 <tr>
                   <td align="center" style="background-color:#3a3a3a;">
-                    <a href="${escapeHtml(directLink)}" style="display:block;padding:14px 24px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;">Install App</a>
+                    <a href="${directLink}" style="display:block;padding:14px 24px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;">Install App</a>
                   </td>
                 </tr>
               </table>

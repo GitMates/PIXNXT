@@ -58,7 +58,38 @@ function buildEmailHeaders(options: {
   return headers;
 }
 
-function textToHtmlParagraphs(text: string): string {
+function isLocalOrigin(origin: string): boolean {
+  if (!origin) return true;
+  try {
+    const host = new URL(origin).hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
+  } catch {
+    return true;
+  }
+}
+
+function resolveInviteOrigin(siteOrigin: string | null | undefined): string {
+  const fromSecret = (Deno.env.get('PUBLIC_SITE_URL') || Deno.env.get('VITE_PUBLIC_SITE_URL') || '').replace(
+    /\/$/,
+    ''
+  );
+  const fromClient = String(siteOrigin || '').replace(/\/$/, '');
+
+  if (fromSecret) return fromSecret;
+  if (fromClient && !isLocalOrigin(fromClient)) return fromClient;
+  return '';
+}
+
+function buildInstallLink(origin: string, slug: string): string {
+  return `${origin}/m/${encodeURIComponent(slug)}/`;
+}
+
+function assertInstallLink(url: string): string {
+  if (!/^https?:\/\/[^/\s?#]+\/m\/[^/\s?#]+\/?$/i.test(url)) {
+    throw new Error(`Invalid install link generated: ${url}`);
+  }
+  return url;
+}
   return escapeHtml(text)
     .split('\n')
     .map((line) =>
@@ -111,7 +142,7 @@ function buildInviteEmailHtml(options: {
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 32px;">
                 <tr>
                   <td align="center" style="background-color:#3a3a3a;">
-                    <a href="${escapeHtml(directLink)}" style="display:block;padding:14px 24px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;">Install App</a>
+                    <a href="${directLink}" style="display:block;padding:14px 24px;color:#ffffff;font-family:Arial,Helvetica,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;text-decoration:none;">Install App</a>
                   </td>
                 </tr>
               </table>
@@ -241,8 +272,18 @@ serve(async (req) => {
       photographer?.display_name?.trim() ||
       'Your photographer';
 
-    const origin = (siteOrigin || Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
-    const directLink = `${origin}/m/${encodeURIComponent(app.slug)}`;
+    const origin = resolveInviteOrigin(siteOrigin);
+    if (!origin) {
+      return new Response(
+        JSON.stringify({
+          error:
+            'Public site URL is not configured. Set PUBLIC_SITE_URL in Supabase Edge Function secrets (e.g. https://pixnxt.com), then redeploy.',
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const directLink = assertInstallLink(buildInstallLink(origin, app.slug));
     const iconUrl = app.icon_url || app.cover_image_url || null;
     const appName = app.name || 'Gallery';
 
@@ -319,7 +360,7 @@ serve(async (req) => {
       console.warn('send-mobile-gallery-invite: could not log invite', logError.message);
     }
 
-    return new Response(JSON.stringify({ ok: true, to }), {
+    return new Response(JSON.stringify({ ok: true, to, directLink }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {

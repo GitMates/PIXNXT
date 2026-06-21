@@ -2,16 +2,40 @@ import { getPublicSiteOrigin } from './publicSiteUrl';
 
 const INSTALL_PATH = '/m';
 
+export function isLocalOrigin(origin) {
+  if (!origin) return true;
+  try {
+    const host = new URL(origin).hostname.toLowerCase();
+    return host === 'localhost' || host === '127.0.0.1' || host.endsWith('.local');
+  } catch {
+    return true;
+  }
+}
+
+export function resolveInstallOrigin(siteOrigin) {
+  const fromEnv = getPublicSiteOrigin();
+  const browserOrigin =
+    typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
+  const candidate = (fromEnv || siteOrigin || browserOrigin || '').replace(/\/$/, '');
+  return candidate;
+}
+
 export function getAppInstallLink(slug, siteOrigin) {
   if (!slug) return '';
-  const origin = siteOrigin || getPublicSiteOrigin() || (typeof window !== 'undefined' ? window.location.origin : '');
-  return `${String(origin).replace(/\/$/, '')}${INSTALL_PATH}/${encodeURIComponent(slug)}`;
+  const origin = resolveInstallOrigin(siteOrigin);
+  if (!origin) return '';
+  return `${origin}${INSTALL_PATH}/${encodeURIComponent(slug)}/`;
 }
 
 export function getAppClientLink(slug, siteOrigin) {
   if (!slug) return '';
-  const origin = siteOrigin || getPublicSiteOrigin() || (typeof window !== 'undefined' ? window.location.origin : '');
-  return `${String(origin).replace(/\/$/, '')}${INSTALL_PATH}/${encodeURIComponent(slug)}/view`;
+  const origin = resolveInstallOrigin(siteOrigin);
+  if (!origin) return '';
+  return `${origin}${INSTALL_PATH}/${encodeURIComponent(slug)}/pwa`;
+}
+
+export function isValidInstallLink(url) {
+  return /^https?:\/\/[^/\s?#]+\/m\/[^/\s?#]+\/?$/i.test(String(url || '').trim());
 }
 
 export function isMobileDevice() {
