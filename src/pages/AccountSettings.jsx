@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { storageService } from '../services/storage.service';
 import { supabase } from '../lib/supabase/client';
+import AccountTopbarIcons from '../components/account/AccountTopbarIcons';
 
 const getDynamicHomepageUrl = (slug) => {
     if (!slug) return '';
@@ -116,6 +117,24 @@ export default function AccountSettings() {
                                         <span className="text-[14px] text-[#888] leading-[1.4]">Design and deliver beautiful photo albums</span>
                                     </div>
                                 </div>
+                                <div
+                                    className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]"
+                                    onClick={() => {
+                                        navigate('/mobile-gallery');
+                                        setShowDropdown(false);
+                                    }}
+                                >
+                                    <div className="w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #f1c40f, #f39c12)' }}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                                            <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                                        </svg>
+                                    </div>
+                                    <div className="flex flex-col gap-0.5">
+                                        <span className="text-[17px] font-semibold text-[#111]">Mobile Gallery App</span>
+                                        <span className="text-[14px] text-[#888] leading-[1.4]">Simple, personalized mobile photo albums</span>
+                                    </div>
+                                </div>
                                 <div className="h-px bg-[#f0f0f0] my-2" />
                                 <div
                                     className="flex items-center gap-[14px] px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]"
@@ -137,24 +156,7 @@ export default function AccountSettings() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-6 text-[#666]">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="cursor-pointer hover:text-[#111] transition-colors">
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-                        <path d="M12 17h.01"></path>
-                    </svg>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="cursor-pointer hover:text-[#111] transition-colors">
-                        <path d="M12 1.5v2"></path>
-                        <path d="M18 9A6 6 0 0 0 6 9c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                        <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                    </svg>
-                    <div 
-                        className="rounded-full bg-[#e8f7f2] text-[#1a9b84] flex items-center justify-center text-[16px] font-medium cursor-pointer"
-                        style={{ width: '32px', height: '32px', minWidth: '32px', minHeight: '32px', flexShrink: 0 }}
-                    >
-                        {userInitial}
-                    </div>
-                </div>
+                <AccountTopbarIcons userInitial={userInitial} />
             </div>
 
             {/* Sub Navigation */}
