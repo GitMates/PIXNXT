@@ -29,8 +29,9 @@ import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumC
 import {
     COVER_COLOR_CHANGED_EVENT,
     getAlbumCoverColor,
-    getCoverLeatherCssVars,
 } from './albumCoverColor';
+import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
+import { parseGridSizeAspect } from './albumGridSize';
 import {
     getAlbumSpreadOptions,
     getEndSpreadPageRole,
@@ -360,9 +361,13 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             : '';
     const showLeatherCover =
         album?.blank_covers === true && !src && isFrontCoverRightPage;
-    const leatherVars =
+    const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
+    const leatherStyle =
         showLeatherCover && albumId
-            ? getCoverLeatherCssVars(getAlbumCoverColor(albumId))
+            ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
+                  aspect: pageAspect,
+                  title: coverText,
+              })
             : null;
     const coverPlacementMode = placementMode;
     const showStar = pageNum === 1 && album?.is_starred;
@@ -1156,7 +1161,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             <PageWrapTag
                 type={canSelectCover ? 'button' : undefined}
                 className={`ab-page-photo-wrap${
-                    showLeatherCover ? ' ab-front-cover-photo--leather ab-cover-leather' : ''
+                    showLeatherCover ? ' ab-cover-leather ab-cover-leather--flat' : ''
                 }${
                     canSelectCover ? ' ab-page-photo-wrap--interactive' : ''
                 }${liveProofToolsHover && coverProofTools && !livePinModeActive ? ' ab-page-photo-wrap--swap' : ''}${
@@ -1170,7 +1175,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 }`}
                 onClick={canSelectCover ? () => liveOnSelectCover?.() : undefined}
                 aria-label={canSelectCover ? 'Choose cover photo' : undefined}
-                style={showLeatherCover ? leatherVars : undefined}
+                style={showLeatherCover ? leatherStyle : undefined}
+                aria-label={showLeatherCover && coverText ? coverText : undefined}
             >
                 <AlbumPhotoPinLayer
                     hasPhoto={Boolean(src)}
@@ -1275,16 +1281,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 photoRevision={livePhotoRevision}
                             />
                         )
-                    ) : isFrontCoverRightPage && coverText ? (
+                    ) : isFrontCoverRightPage && coverText && !showLeatherCover ? (
                         <div
-                            className={`ab-cover-text-message ab-cover-text-message--on-blank${
-                                showLeatherCover ? ' ab-cover-text-message--leather' : ''
-                            }`}
+                            className="ab-cover-text-message ab-cover-text-message--on-blank"
                             aria-hidden
                         >
                             {coverText}
                         </div>
-                    ) : (
+                    ) : showLeatherCover ? null : (
                         <div className="ab-page-empty" aria-hidden />
                     )}
                     {coverText && src ? (

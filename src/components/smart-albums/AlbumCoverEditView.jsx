@@ -12,14 +12,14 @@ import {
     setAlbumSpineBoundsOverride,
     SPINE_BOUNDS_CHANGED_EVENT,
 } from './albumSpineSettings';
-import { formatSpineWidthUnits } from './albumGridSize';
+import { formatSpineWidthUnits, parseGridSizeAspect } from './albumGridSize';
 import BookWrapSpineImage from './BookWrapSpineImage';
 import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
 import {
     COVER_COLOR_CHANGED_EVENT,
     getAlbumCoverColor,
-    getCoverLeatherCssVars,
 } from './albumCoverColor';
+import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 import './AlbumCoverEditView.css';
 
 const PAGE_HEIGHT_MIN = 300;
@@ -158,13 +158,30 @@ export default function AlbumCoverEditView({
         void coverColorTick;
         return getAlbumCoverColor(albumId);
     }, [albumId, coverColorTick]);
-    const leatherVars = useMemo(
-        () => getCoverLeatherCssVars(coverColorId),
-        [coverColorId]
+    const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
+    const leatherBackStyle = useMemo(
+        () =>
+            showLeatherCover
+                ? getCoverLeatherSurfaceStyle(coverColorId, { aspect: pageAspect })
+                : null,
+        [showLeatherCover, coverColorId, pageAspect]
     );
-    const leatherSpineVars = useMemo(
-        () => getCoverLeatherCssVars(coverColorId, { spine: true }),
-        [coverColorId]
+    const leatherSpineStyle = useMemo(
+        () =>
+            showLeatherCover
+                ? getCoverLeatherSurfaceStyle(coverColorId, { spine: true, aspect: 0.12 })
+                : null,
+        [showLeatherCover, coverColorId]
+    );
+    const leatherFrontStyle = useMemo(
+        () =>
+            showLeatherCover
+                ? getCoverLeatherSurfaceStyle(coverColorId, {
+                      aspect: pageAspect,
+                      title: coverText,
+                  })
+                : null,
+        [showLeatherCover, coverColorId, pageAspect, coverText]
     );
     const spineVisible = spineLayout.hasSpine && showSpine;
 
@@ -351,7 +368,7 @@ export default function AlbumCoverEditView({
                         className={`ab-cover-edit-view__photo-wrap${
                             showLeatherCover ? ' ab-cover-leather' : ''
                         }`}
-                        style={showLeatherCover ? leatherVars : undefined}
+                        style={showLeatherCover ? leatherBackStyle : undefined}
                     >
                         {src ? (
                             <BookWrapSpineImage
@@ -377,7 +394,7 @@ export default function AlbumCoverEditView({
                             className={`ab-cover-edit-view__photo-wrap${
                                 showLeatherCover ? ' ab-cover-leather ab-cover-leather--spine' : ''
                             }`}
-                            style={showLeatherCover ? leatherSpineVars : undefined}
+                            style={showLeatherCover ? leatherSpineStyle : undefined}
                         >
                             {src ? (
                                 <BookWrapSpineImage
@@ -445,7 +462,8 @@ export default function AlbumCoverEditView({
                         className={`ab-cover-edit-view__photo-wrap${
                             showLeatherCover ? ' ab-cover-leather' : ''
                         }`}
-                        style={showLeatherCover ? leatherVars : undefined}
+                        style={showLeatherCover ? leatherFrontStyle : undefined}
+                        aria-label={showLeatherCover && coverText ? coverText : undefined}
                     >
                         {src ? (
                             <BookWrapSpineImage
@@ -454,18 +472,16 @@ export default function AlbumCoverEditView({
                                 layout={spineLayout}
                                 transform={transform}
                             />
-                        ) : coverText ? (
+                        ) : showLeatherCover ? null : coverText ? (
                             <div
-                                className={`ab-cover-text-message ab-cover-text-message--on-blank${
-                                    showLeatherCover ? ' ab-cover-text-message--leather' : ''
-                                }`}
+                                className="ab-cover-text-message ab-cover-text-message--on-blank"
                                 aria-hidden
                             >
                                 {coverText}
                             </div>
-                        ) : !showLeatherCover ? (
+                        ) : (
                             <div className="ab-cover-edit-view__empty" aria-hidden />
-                        ) : null}
+                        )}
                         {coverText && src ? (
                             <div className="ab-cover-text-message" aria-hidden>
                                 {coverText}

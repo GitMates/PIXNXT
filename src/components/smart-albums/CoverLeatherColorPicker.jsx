@@ -3,9 +3,9 @@ import {
     COVER_COLOR_CHANGED_EVENT,
     COVER_LEATHER_PRESETS,
     getAlbumCoverColor,
-    getCoverLeatherCssVars,
     setAlbumCoverColor,
 } from './albumCoverColor';
+import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 import './CoverLeatherColorPicker.css';
 
 export default function CoverLeatherColorPicker({ albumId }) {
@@ -59,7 +59,7 @@ export default function CoverLeatherColorPicker({ albumId }) {
                             className={`ae-cover-color-swatch ab-cover-leather${
                                 isSelected ? ' ae-cover-color-swatch--selected' : ''
                             }`}
-                            style={getCoverLeatherCssVars(preset.id)}
+                            style={getCoverLeatherSurfaceStyle(preset.id, { aspect: 1 })}
                             onClick={() => handleSelect(preset.id)}
                         />
                     );

@@ -6,8 +6,8 @@ import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumC
 import {
     COVER_COLOR_CHANGED_EVENT,
     getAlbumCoverColor,
-    getCoverLeatherCssVars,
 } from './albumCoverColor';
+import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 import { parseGridSizeAspect } from './albumGridSize';
 import {
     CSS_FLIP_SHEETS,
@@ -22,24 +22,17 @@ export function isCoverSpread(spreadIndex) {
     return spreadIndex <= 0;
 }
 
-function PageFace({ face, spineLayout, coverText, showCoverText, leatherVars }) {
+function PageFace({ face, spineLayout, coverText, showCoverText, leatherStyle }) {
     if (!face?.src) {
         if (face?.kind === 'cover-front' && showCoverText && coverText) {
             return (
                 <div
                     className={`css-flip-book-cover css-flip-book-cover--blank${
-                        leatherVars ? ' ab-cover-leather' : ''
+                        leatherStyle ? ' ab-cover-leather ab-cover-leather--flat' : ''
                     }`}
-                    style={leatherVars || undefined}
-                >
-                    <div
-                        className={`ab-cover-text-message ab-cover-text-message--on-blank${
-                            leatherVars ? ' ab-cover-text-message--leather' : ''
-                        }`}
-                    >
-                        {coverText}
-                    </div>
-                </div>
+                    style={leatherStyle || undefined}
+                    aria-label={coverText}
+                />
             );
         }
         return <div className="css-flip-book-page-empty" aria-hidden />;
@@ -150,9 +143,13 @@ export default function CssFlipBook({
     void coverTextTick;
     void coverColorTick;
     const coverText = resolveFrontCoverDisplayText(album, albumId);
-    const leatherVars =
+    const pageAspect = parseGridSizeAspect(album?.grid_size);
+    const leatherStyle =
         album?.blank_covers === true && albumId
-            ? getCoverLeatherCssVars(getAlbumCoverColor(albumId))
+            ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
+                  aspect: pageAspect,
+                  title: coverText,
+              })
             : null;
     const flippedIds = cssFlipCountToCheckboxIds(flipCount);
 
@@ -269,11 +266,11 @@ export default function CssFlipBook({
                                     spineLayout={spineLayout}
                                     coverText={coverText}
                                     showCoverText={frontPage === 1}
-                                    leatherVars={
+                                    leatherStyle={
                                         frontPage === 1 &&
                                         album?.blank_covers === true &&
                                         !pageFaces[`${pageId}-front`]?.src
-                                            ? leatherVars
+                                            ? leatherStyle
                                             : null
                                     }
                                 />

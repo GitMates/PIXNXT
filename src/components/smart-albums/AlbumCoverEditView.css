@@ -46,7 +46,9 @@
   flex: 0 0 auto;
   flex-shrink: 0;
   position: relative;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.14),
+    0 4px 12px rgba(0, 0, 0, 0.08);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -149,19 +151,6 @@
   inset: 0;
   overflow: hidden;
   background: #fff;
-}
-
-.ab-cover-edit-view__photo-wrap.ab-cover-leather {
-  background-color: var(--ab-leather-base, #f0ebe0);
-  background-image:
-    url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.22'/%3E%3C/svg%3E"),
-    linear-gradient(
-      148deg,
-      var(--ab-leather-highlight, #faf8f3) 0%,
-      var(--ab-leather-base, #f0ebe0) 44%,
-      var(--ab-leather-shadow, #d4ccc0) 100%
-    );
-  background-blend-mode: soft-light, normal;
 }
 
 .ab-cover-edit-page .ab-cover-text-message--on-blank {

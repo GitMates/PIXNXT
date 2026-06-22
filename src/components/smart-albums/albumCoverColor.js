@@ -1,3 +1,5 @@
+import { clearCoverLeatherSurfaceCache } from './coverLeatherSurface';
+
 const STORAGE_KEY = 'pixnxt_album_cover_color';
 
 export const COVER_COLOR_CHANGED_EVENT = 'pixnxt-album-cover-color-changed';
@@ -15,11 +17,11 @@ export const COVER_LEATHER_PRESETS = [
     {
         id: 'sky',
         label: 'Sky blue',
-        base: '#5eb8d4',
-        highlight: '#92d4ea',
-        shadow: '#3a96b0',
-        spine: '#4aa8c4',
-        text: '#2a7088',
+        base: '#56c8e8',
+        highlight: '#92ddf5',
+        shadow: '#38a8c8',
+        spine: '#48b8d8',
+        text: '#2a7a94',
     },
     {
         id: 'cream',
@@ -101,6 +103,7 @@ export function setAlbumCoverColor(albumId, presetId) {
     if (all[albumId]?.presetId === presetId) return;
     all[albumId] = { presetId, updatedAt: Date.now() };
     writeAll(all);
+    clearCoverLeatherSurfaceCache();
     notifyCoverColorChanged(albumId);
 }
 

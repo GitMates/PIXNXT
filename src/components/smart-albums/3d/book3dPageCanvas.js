@@ -3,6 +3,10 @@ import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getProxiedMediaFetchUrl } from '../../../lib/r2MediaProxy';
 import { resolveCoverLeatherPreset } from '../albumCoverColor';
+import {
+    drawDebossedCoverTitle,
+    drawLeatherPanel,
+} from '../coverLeatherSurface';
 import { normalizePhotoTransform } from '../albumPageTransforms';
 
 const imageCache = new Map();
@@ -255,87 +259,12 @@ function blankTex() {
 
 const BLANK_COVER_TEXT = '#374151';
 
-function leatherPresetColors(preset, { spine = false } = {}) {
-    const resolved = preset?.base ? preset : resolveCoverLeatherPreset('cream');
-    return {
-        base: spine ? resolved.spine : resolved.base,
-        highlight: resolved.highlight,
-        shadow: resolved.shadow,
-        text: resolved.text,
-    };
-}
-
-function leatherGrainSeed(presetId, spine) {
-    let hash = spine ? 17 : 0;
-    const id = String(presetId || 'cream');
-    for (let i = 0; i < id.length; i += 1) {
-        hash = (hash * 31 + id.charCodeAt(i)) % 2147483647;
-    }
-    return hash || 1;
-}
-
-function leatherNoise(seed, x, y) {
-    const n = Math.sin(seed * 12.9898 + x * 78.233 + y * 37.719) * 43758.5453;
-    return n - Math.floor(n);
-}
-
-/** Procedural leather grain + gradient — matches 2D cover leather swatches. */
-export function drawLeatherPanel(ctx, texW, texH, preset, { spine = false, presetId = 'cream' } = {}) {
-    const colors = leatherPresetColors(preset, { spine });
-    const grad = ctx.createLinearGradient(0, 0, texW * 0.34, texH);
-    grad.addColorStop(0, colors.highlight);
-    grad.addColorStop(0.44, colors.base);
-    grad.addColorStop(1, colors.shadow);
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, texW, texH);
-
-    const seed = leatherGrainSeed(presetId, spine);
-    const imgData = ctx.getImageData(0, 0, texW, texH);
-    const data = imgData.data;
-    const step = 2;
-    for (let y = 0; y < texH; y += step) {
-        for (let x = 0; x < texW; x += step) {
-            const grain = (leatherNoise(seed, x, y) - 0.5) * 28;
-            for (let dy = 0; dy < step && y + dy < texH; dy += 1) {
-                for (let dx = 0; dx < step && x + dx < texW; dx += 1) {
-                    const i = ((y + dy) * texW + (x + dx)) * 4;
-                    data[i] = Math.max(0, Math.min(255, data[i] + grain));
-                    data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + grain));
-                    data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + grain));
-                }
-            }
-        }
-    }
-    ctx.putImageData(imgData, 0, 0);
-}
-
-function drawDebossedTitle(ctx, text, texW, texH, textColor) {
-    const upper = text.toUpperCase();
-    const maxWidth = texW * 0.82;
-    let fontSize = Math.min(texW * 0.14, texH * 0.12, 72);
-    while (fontSize > 14) {
-        ctx.font = `600 ${fontSize}px Georgia, "Times New Roman", serif`;
-        if (ctx.measureText(upper).width <= maxWidth) break;
-        fontSize -= 2;
-    }
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const cx = texW / 2;
-    const cy = texH / 2;
-    ctx.fillStyle = 'rgba(255,255,255,0.34)';
-    ctx.fillText(upper, cx + 1, cy + 1);
-    ctx.fillStyle = 'rgba(0,0,0,0.14)';
-    ctx.fillText(upper, cx - 1, cy - 1);
-    ctx.fillStyle = textColor || BLANK_COVER_TEXT;
-    ctx.fillText(upper, cx, cy);
-}
-
 function blankCoverTitleCacheKey(title, panelAspect, coverColorId) {
-    return `blank-title:${coverColorId}:${title}:${panelAspect}`;
+    return `blank-title:v2:${coverColorId}:${title}:${panelAspect}`;
 }
 
 function blankLeatherPanelCacheKey(panelAspect, coverColorId, spine) {
-    return `blank-leather:${coverColorId}:${spine ? 'spine' : 'panel'}:${panelAspect}`;
+    return `blank-leather:v2:${coverColorId}:${spine ? 'spine' : 'panel'}:${panelAspect}`;
 }
 
 function drawBlankCoverTitle(ctx, text, texW, texH, coverColorId) {
@@ -343,7 +272,7 @@ function drawBlankCoverTitle(ctx, text, texW, texH, coverColorId) {
     drawLeatherPanel(ctx, texW, texH, preset, { presetId: coverColorId });
     const trimmed = String(text || '').trim();
     if (trimmed) {
-        drawDebossedTitle(ctx, trimmed, texW, texH, preset.text);
+        drawDebossedCoverTitle(ctx, trimmed, texW, texH, preset);
     }
 }
 
