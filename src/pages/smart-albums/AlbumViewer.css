@@ -21,6 +21,23 @@
   z-index: 10;
 }
 
+/* Let page curls paint in the gray margin during preview flips */
+.av-page--preview:has(.ab-root--flipping),
+.av-preview-shell:has(.ab-root--flipping),
+.av-preview-main:has(.ab-root--flipping),
+.av-preview-book-section:has(.ab-root--flipping),
+.av-viewer-body--preview-book:has(.ab-root--flipping) {
+  overflow: visible;
+}
+
+.av-page--preview.av-page--with-comments:has(.ab-root--flipping) .ab-root--preview {
+  overflow: visible;
+}
+
+.av-page--with-comments:has(.ab-root--flipping) {
+  overflow: visible;
+}
+
 .av-topbar {
   display: flex;
   align-items: center;
@@ -1292,6 +1309,10 @@
   max-height: 100% !important;
   height: 100%;
   --ab-flip-pad-y: 40px;
+}
+
+.av-page--preview.av-page--with-comments .ab-book-stage.ab-book-stage--flipping {
+  --ab-flip-pad-y: calc(56px + 160px);
 }
 
 .av-page--preview.av-page--with-comments .ab-root--preview {

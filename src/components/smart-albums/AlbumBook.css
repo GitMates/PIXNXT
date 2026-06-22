@@ -139,6 +139,11 @@
   flex: 0 0 auto;
 }
 
+/* Page turn: curl/shadows paint outside the spread frame */
+.ab-flip-escape--flipping .ab-spread-magnify-viewport {
+  overflow: visible;
+}
+
 .ab-spread-magnify-viewport--active {
   cursor: grab;
   touch-action: none;
