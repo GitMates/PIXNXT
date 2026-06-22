@@ -650,11 +650,6 @@ export default function AlbumEditorSidebar({
                                 </span>
                             </button>
                         </div>
-                        <p className="ae-panel-text ae-panel-text--muted">
-                            {albumHasBlankCovers(album)
-                                ? 'If the image is wider than inner spreads, drag the red spine lines to adjust width.'
-                                : 'Upload replaces the book wrap photo. Drag the red spine lines on each side of the spine to adjust its width.'}
-                        </p>
                     </>
                 )}
 

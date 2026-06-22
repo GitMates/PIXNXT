@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import { formatAlbumGridSizeDisplay } from './albumGridSize';
+import { formatAlbumSpreadSizeDisplay } from './albumGridSize';
 import './AlbumSpreadComments.css';
 
 function SettingsSwitch({ id, checked, disabled, busy, onChange, label }) {
@@ -89,15 +89,9 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
     return (
         <div className="asc-settings asc-settings--panel">
             <div className="asc-settings-layout">
-                <div className="asc-settings-row asc-settings-row--info asc-settings-row--grid-size">
-                    <div className="asc-settings-row-main">
-                        <span className="asc-settings-row-label">Grid size</span>
-                        <span className="asc-settings-row-desc">
-                            Detected from all uploaded images and PDF pages when the album was
-                            created
-                        </span>
-                    </div>
-                    <span className="asc-settings-value">{formatAlbumGridSizeDisplay(album)}</span>
+                <div className="asc-settings-row asc-settings-row--info">
+                    <span className="asc-settings-row-label">Spread size</span>
+                    <span className="asc-settings-value">{formatAlbumSpreadSizeDisplay(album)}</span>
                 </div>
             </div>
 

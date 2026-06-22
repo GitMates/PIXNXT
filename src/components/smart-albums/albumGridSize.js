@@ -447,6 +447,19 @@ export function formatAlbumGridSizeDisplay(album) {
     return formatGridSizeLabelForLayout(album.grid_size, album.grid_layout, { spreadGridSize });
 }
 
+/** Spread ratio only for album settings. */
+export function formatAlbumSpreadSizeDisplay(album) {
+    if (!album?.grid_size) return shortGridSizeLabel('square');
+    const spreadGridSize =
+        album.spread_grid_size ?? spreadGridSizeFromPageGrid(album.grid_size, album.grid_layout);
+    if (spreadGridSize) return shortGridSizeLabel(spreadGridSize);
+    if (!isWholeSpreadLayout(album.grid_layout)) {
+        const pageAspect = parseGridSizeAspect(album.grid_size);
+        return shortGridSizeLabel(gridSizeFromAspect(pageAspect * 2));
+    }
+    return 'Fits upload width';
+}
+
 export function formatGridLayoutLabel(gridLayout) {
     if (!gridLayout) return GRID_LAYOUT_LABELS['two-page'];
     if (GRID_LAYOUT_LABELS[gridLayout]) return GRID_LAYOUT_LABELS[gridLayout];

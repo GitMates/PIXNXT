@@ -1839,7 +1839,7 @@ export default function AlbumEditor({
                         </button>
                         <button
                             type="button"
-                            className={`ae-publish-toggle-option ae-publish-toggle-option--published${
+                            className={`ae-publish-toggle-option${
                                 published ? ' ae-publish-toggle-option--active' : ''
                             }`}
                             onClick={() => {
@@ -1847,7 +1847,7 @@ export default function AlbumEditor({
                             }}
                             disabled={!user?.id || publishBusy}
                         >
-                            {publishBusy ? '…' : 'Published'}
+                            Published
                         </button>
                     </div>
                 </div>
