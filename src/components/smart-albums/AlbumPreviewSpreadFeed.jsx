@@ -1,5 +1,9 @@
 import React from 'react';
-import { formatCommentDateTime, isGuestCommentUnseen } from '../../services/smartAlbumComments.service';
+import {
+    formatCommentTime,
+    formatFeedDateLabel,
+    isGuestCommentUnseen,
+} from '../../services/smartAlbumComments.service';
 import {
     isPhotoPinUnseen,
     markPhotoPinsSeen,
@@ -16,6 +20,13 @@ import ProofDoneButton from './ProofDoneButton';
 function shortenSpreadLabel(label) {
     const match = String(label || '').match(/Spread\s+\d+/i);
     return match ? match[0] : String(label || '').trim();
+}
+
+function calendarDateKey(isoOrMs) {
+    if (isoOrMs == null || isoOrMs === '') return '';
+    const d = new Date(isoOrMs);
+    if (Number.isNaN(d.getTime())) return '';
+    return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
 function BubbleInlineActions({ children }) {
@@ -101,22 +112,39 @@ export default function AlbumPreviewSpreadFeed({
 
     return (
         <div className="av-preview-sidebar-feed av-chat-feed">
-            {feed.map((item) => {
+            {feed.map((item, index) => {
+                const sortTs = item.sortAt;
+                const dateKey = calendarDateKey(sortTs);
+                const prevDateKey =
+                    index > 0 ? calendarDateKey(feed[index - 1].sortAt) : '';
+                const dateDivider =
+                    dateKey && dateKey !== prevDateKey ? (
+                        <div
+                            key={`feed-date-${dateKey}-${index}`}
+                            className="av-chat-feed-date"
+                            role="separator"
+                            aria-label={formatFeedDateLabel(sortTs)}
+                        >
+                            <span>{formatFeedDateLabel(sortTs)}</span>
+                        </div>
+                    ) : null;
+
                 if (item.kind === 'photographer-message') {
                     const comment = item.comment;
-                    const createdAtLabel = formatCommentDateTime(
+                    const createdAtLabel = formatCommentTime(
                         comment.updated_at || comment.created_at
                     );
                     const unseen = isGuestCommentUnseen(albumId, comment);
                     const outgoing = proofMode;
 
                     return (
-                        <ChatRow
-                            key={item.id}
-                            outgoing={outgoing}
-                            unseen={unseen && !proofMode}
-                            actions={null}
-                        >
+                        <React.Fragment key={item.id}>
+                            {dateDivider}
+                            <ChatRow
+                                outgoing={outgoing}
+                                unseen={unseen && !proofMode}
+                                actions={null}
+                            >
                             {!outgoing ? (
                                 <p className="av-chat-bubble-sender">
                                     {businessName || comment.author_name}
@@ -136,6 +164,7 @@ export default function AlbumPreviewSpreadFeed({
                                 ) : null}
                             </footer>
                         </ChatRow>
+                        </React.Fragment>
                     );
                 }
 
@@ -150,7 +179,9 @@ export default function AlbumPreviewSpreadFeed({
 
                     if (editingPinId === pin.id && !proofMode) {
                         return (
-                            <div key={item.id} className="av-chat-row av-chat-row--out">
+                            <React.Fragment key={item.id}>
+                                {dateDivider}
+                                <div className="av-chat-row av-chat-row--out">
                                 <article className="av-chat-bubble av-chat-bubble--out av-chat-bubble--edit">
                                     <textarea
                                         className="av-chat-compose-input av-chat-compose-input--inline"
@@ -180,16 +211,18 @@ export default function AlbumPreviewSpreadFeed({
                                     </div>
                                 </article>
                             </div>
+                            </React.Fragment>
                         );
                     }
 
                     return (
-                        <ChatRow
-                            key={item.id}
-                            outgoing={outgoing}
-                            unseen={unseen}
-                            actions={null}
-                        >
+                        <React.Fragment key={item.id}>
+                            {dateDivider}
+                            <ChatRow
+                                outgoing={outgoing}
+                                unseen={unseen}
+                                actions={null}
+                            >
                             {proofMode ? (
                                 <ProofBubbleHeader
                                     title="Photo comment"
@@ -259,38 +292,45 @@ export default function AlbumPreviewSpreadFeed({
                                 ) : null}
                                 {pin.createdAt ? (
                                     <time dateTime={pin.createdAt}>
-                                        {formatCommentDateTime(pin.createdAt)}
+                                        {formatCommentTime(pin.createdAt)}
                                     </time>
                                 ) : null}
                             </footer>
                         </ChatRow>
+                        </React.Fragment>
                     );
                 }
 
                 if (item.kind === 'image-replacement-stack') {
                     return (
-                        <div key={item.id} className="av-chat-row av-chat-row--system">
+                        <React.Fragment key={item.id}>
+                            {dateDivider}
+                            <div className="av-chat-row av-chat-row--system">
                             <AlbumPreviewReplacementCard
                                 albumId={albumId}
                                 replacements={item.replacements}
                             />
                         </div>
+                        </React.Fragment>
                     );
                 }
 
                 if (item.kind === 'image-replacement') {
                     return (
-                        <div key={item.id} className="av-chat-row av-chat-row--system">
+                        <React.Fragment key={item.id}>
+                            {dateDivider}
+                            <div className="av-chat-row av-chat-row--system">
                             <AlbumPreviewReplacementCard
                                 albumId={albumId}
                                 replacement={item.replacement}
                             />
                         </div>
+                        </React.Fragment>
                     );
                 }
 
                 const swapItem = item.mark;
-                const createdAtLabel = formatCommentDateTime(swapItem.createdAt);
+                const createdAtLabel = formatCommentTime(swapItem.createdAt);
                 const swapUnseen = proofMode && isSwapMarkUnseen(albumId, swapItem);
                 const swapOutgoing = !proofMode;
                 const navigateSwapA = () => {
@@ -303,12 +343,13 @@ export default function AlbumPreviewSpreadFeed({
                 };
 
                 return (
-                    <ChatRow
-                        key={item.id}
-                        outgoing={swapOutgoing}
-                        unseen={swapUnseen}
-                        actions={null}
-                    >
+                    <React.Fragment key={item.id}>
+                        {dateDivider}
+                        <ChatRow
+                            outgoing={swapOutgoing}
+                            unseen={swapUnseen}
+                            actions={null}
+                        >
                         <ProofBubbleHeader
                             title="Swap request"
                             titleClassName="av-chat-bubble-sender--swap"
@@ -370,6 +411,7 @@ export default function AlbumPreviewSpreadFeed({
                             ) : null}
                         </footer>
                     </ChatRow>
+                    </React.Fragment>
                 );
             })}
         </div>

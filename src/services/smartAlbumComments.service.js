@@ -174,6 +174,29 @@ export function formatCommentDateTime(iso) {
     });
 }
 
+/** Time only for chat-style bubbles (e.g. 5:48 PM). */
+export function formatCommentTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
+
+/** Centered feed date pill (e.g. 6/22/2026). Accepts ISO string or epoch ms. */
+export function formatFeedDateLabel(isoOrMs) {
+    if (isoOrMs == null || isoOrMs === '') return '';
+    const d = new Date(isoOrMs);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString([], {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
+
 function readLocal() {
     try {
         const raw = localStorage.getItem(LOCAL_KEY);

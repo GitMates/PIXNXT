@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { formatCommentDateTime } from '../../services/smartAlbumComments.service';
+import { formatCommentTime } from '../../services/smartAlbumComments.service';
 import {
     getReplacementCurrentVersion,
     getReplacementVersion,
@@ -147,7 +147,7 @@ export default function AlbumPreviewReplacementCard({ albumId, replacements, rep
 
     const latest = rows[rows.length - 1];
     const currentVersion = getReplacementCurrentVersion(latest);
-    const currentAtLabel = latest.createdAt ? formatCommentDateTime(latest.createdAt) : null;
+    const currentAtLabel = latest.createdAt ? formatCommentTime(latest.createdAt) : null;
     const openRow = rows.find((row) => getReplacementVersion(row) === openPreviewVersion);
 
     return (
@@ -159,7 +159,7 @@ export default function AlbumPreviewReplacementCard({ albumId, replacements, rep
                         ? rows.find((entry) => getReplacementVersion(entry) === version - 1)
                         : null;
                 const atLabel = becameCurrentRow?.createdAt
-                    ? formatCommentDateTime(becameCurrentRow.createdAt)
+                    ? formatCommentTime(becameCurrentRow.createdAt)
                     : null;
                 return (
                     <article key={row.id} className="av-preview-sidebar-replacement">
@@ -184,17 +184,15 @@ export default function AlbumPreviewReplacementCard({ albumId, replacements, rep
                                     Preview
                                 </button>
                             </div>
-                        </div>
-                        {atLabel ? (
-                            <div className="av-preview-sidebar-replacement-footer av-preview-sidebar-replacement-footer--solo">
+                            {atLabel ? (
                                 <time
                                     className="av-preview-sidebar-replacement-time"
                                     dateTime={becameCurrentRow.createdAt}
                                 >
                                     {atLabel}
                                 </time>
-                            </div>
-                        ) : null}
+                            ) : null}
+                        </div>
                     </article>
                 );
             })}
@@ -208,17 +206,15 @@ export default function AlbumPreviewReplacementCard({ albumId, replacements, rep
                             Current
                         </span>
                     </div>
-                </div>
-                {currentAtLabel ? (
-                    <div className="av-preview-sidebar-replacement-footer av-preview-sidebar-replacement-footer--solo">
+                    {currentAtLabel ? (
                         <time
                             className="av-preview-sidebar-replacement-time"
                             dateTime={latest.createdAt}
                         >
                             {currentAtLabel}
                         </time>
-                    </div>
-                ) : null}
+                    ) : null}
+                </div>
             </article>
             {openPreviewVersion != null && openRow ? (
                 <ReplacementImagePreviewPopup

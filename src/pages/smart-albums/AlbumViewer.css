@@ -667,6 +667,24 @@
   gap: 6px;
 }
 
+.av-chat-feed-date {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 6px 0 2px;
+}
+
+.av-chat-feed-date span {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.25;
+  color: #667781;
+  background: rgba(17, 27, 33, 0.08);
+}
+
 .av-chat-row {
   display: flex;
   flex-direction: column;
@@ -1518,8 +1536,8 @@
 .av-preview-sidebar-replacement-pair {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px 10px;
+  gap: 6px;
+  padding: 12px 14px;
   background: #fff;
   max-width: 100%;
   min-width: 0;
@@ -1764,7 +1782,6 @@
   justify-content: space-between;
   gap: 10px;
   padding: 10px 14px 12px;
-  border-top: 1px solid #f1f3f6;
   background: #fff;
 }
 
