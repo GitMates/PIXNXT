@@ -34,6 +34,7 @@ import AlbumFocusView from './AlbumFocusView';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
 import AlbumPinComposer from './AlbumPinComposer';
 import { closeAlbumPinPopovers } from './albumPinPopoverEvents';
+import useSpreadMagnify from './useSpreadMagnify';
 import {
     addSwapMark,
     getSwapMarksForSlot,
@@ -482,9 +483,16 @@ const AlbumBook = ({
 
     const bookDims = stableDims ?? dims;
 
+    const spreadMagnify = useSpreadMagnify({
+        spreadKey: spreadIndex,
+        viewportWidth: bookDims ? bookDims.width * 2 : 0,
+        viewportHeight: bookDims?.height ?? 0,
+    });
+
     const goToPage = useCallback(
         (pageNum) => {
             closeAlbumPinPopovers();
+            if (previewMode) spreadMagnify.reset();
             const clamped = normalizeStoragePageIndex(pageNum, totalPages, spreadOpts);
             syncingPageRef.current = true;
             const api = bookRef.current?.pageFlip?.();
@@ -499,7 +507,7 @@ const AlbumBook = ({
                 });
             });
         },
-        [totalPages, spreadOpts, onPageChange]
+        [totalPages, spreadOpts, onPageChange, previewMode, spreadMagnify.reset]
     );
 
     const canDragOverviewSpreads = Boolean(editable && onReorderOverviewSpread && !pageCountBusy);
@@ -817,6 +825,7 @@ const AlbumBook = ({
 
     const flipPrev = useCallback(() => {
         closeAlbumPinPopovers();
+        if (previewMode) spreadMagnify.reset();
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
 
@@ -876,10 +885,11 @@ const AlbumBook = ({
 
         if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
         else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-    }, [album?.has_covers, beginCoverHideTo3DFlip, beginEndRevealFlip, endCoverOnly, external3DCover, onExternalCoverRequest, onPageChange, spreadIndex, spreadOpts, totalPages]);
+    }, [album?.has_covers, beginCoverHideTo3DFlip, beginEndRevealFlip, endCoverOnly, external3DCover, onExternalCoverRequest, onPageChange, previewMode, spreadIndex, spreadMagnify.reset, spreadOpts, totalPages]);
 
     const flipNext = useCallback(() => {
         closeAlbumPinPopovers();
+        if (previewMode) spreadMagnify.reset();
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
 
@@ -919,7 +929,7 @@ const AlbumBook = ({
 
         if (typeof api.flipNext === 'function') api.flipNext(FLIP_CORNER);
         else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
-    }, [album?.has_covers, beginCoverRevealFlip, external3DCover, onPageChange, spreadIndex, spreadOpts, totalPages, totalSpreads]);
+    }, [album?.has_covers, beginCoverRevealFlip, external3DCover, onPageChange, previewMode, spreadIndex, spreadMagnify.reset, spreadOpts, totalPages, totalSpreads]);
 
     useEffect(() => {
         if (!initialized || bookFlipping || coverClipTransition) return;
@@ -1379,6 +1389,7 @@ const AlbumBook = ({
             spotCanComment,
             spotCanSwap,
             activeBookPage: pageIndex,
+            spreadMagnifyActive: previewMode && spreadMagnify.active,
         }),
         [
             gridSelection?.leftPage,
@@ -1411,6 +1422,8 @@ const AlbumBook = ({
             spotCanComment,
             spotCanSwap,
             pageIndex,
+            previewMode,
+            spreadMagnify.active,
         ]
     );
 
@@ -1486,8 +1499,10 @@ const AlbumBook = ({
     return (
         <div
             className={`ab-root${previewMode ? ' ab-root--preview' : ''}${
-                isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''
-            }${previewMode && swapMarkMode ? ' ab-root--swap-mode' : ''}`}
+                previewMode && spreadMagnify.active ? ' ab-root--spread-magnify' : ''
+            }${isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''}${
+                previewMode && swapMarkMode ? ' ab-root--swap-mode' : ''
+            }`}
             ref={rootRef}
         >
             {bookPlacementHint && placementHintPos &&
@@ -1545,6 +1560,26 @@ const AlbumBook = ({
                             ? {
                                   width: bookDims.width * 2,
                               }
+                            : undefined
+                    }
+                >
+                <div
+                    className={spreadMagnify.viewportClassName}
+                    style={
+                        bookDims
+                            ? {
+                                  width: bookDims.width * 2,
+                                  height: bookDims.height,
+                              }
+                            : undefined
+                    }
+                >
+                <div
+                    className={spreadMagnify.contentClassName}
+                    style={spreadMagnify.contentStyle}
+                    onPointerDown={
+                        previewMode && spreadMagnify.active
+                            ? spreadMagnify.handlePointerDown
                             : undefined
                     }
                 >
@@ -1611,6 +1646,8 @@ const AlbumBook = ({
                     ) : null}
                 </div>
                 </div>
+                </div>
+                </div>
                 <div className="ab-spread-controls">
                     <button
                         type="button"
@@ -1640,6 +1677,58 @@ const AlbumBook = ({
                             })}
                         </svg>
                     </button>
+                    {previewMode ? (
+                        <>
+                            <button
+                                type="button"
+                                className={`ab-control-icon ab-control-icon--button${
+                                    spreadMagnify.active ? ' ab-control-icon--active' : ''
+                                }`}
+                                aria-label={
+                                    spreadMagnify.active
+                                        ? 'Exit magnify mode'
+                                        : 'Magnify spread'
+                                }
+                                aria-pressed={spreadMagnify.active}
+                                onClick={spreadMagnify.toggleActive}
+                            >
+                                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                    <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M17 17l6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                            {spreadMagnify.active ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        className="ab-control-icon ab-control-icon--button"
+                                        aria-label="Zoom out"
+                                        disabled={!spreadMagnify.canZoomOut}
+                                        onClick={spreadMagnify.zoomOut}
+                                    >
+                                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                            <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                            <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                        </svg>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="ab-control-icon ab-control-icon--button"
+                                        aria-label="Zoom in"
+                                        disabled={!spreadMagnify.canZoomIn}
+                                        onClick={spreadMagnify.zoomIn}
+                                    >
+                                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                            <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                            <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                        </svg>
+                                    </button>
+                                </>
+                            ) : null}
+                        </>
+                    ) : null}
                     <span className="ab-page-counter" title={`Pages ${pageRangeLabel}`}>
                         {counterLabel}
                     </span>
@@ -1753,7 +1842,6 @@ const AlbumBook = ({
                             const isEndHalf = isEndSpread;
                             const showSpreadFull = Boolean(spreadSrc);
                             const isCurrent = overviewSpreadIndex === spreadIndex;
-                            const spreadComments = spreadCommentsBySpread?.[overviewSpreadIndex] ?? null;
                             const spreadDraggable =
                                 canDragOverviewSpreads &&
                                 isDraggableOverviewSpread(
@@ -1772,8 +1860,7 @@ const AlbumBook = ({
                                     }${isEndSpread ? ' ab-overview-item--back' : ''}${
                                         isCurrent ? ' ab-overview-item--active' : ''
                                     }${
-                                        spreadComments?.length ? ' ab-overview-item--has-comments' : ''
-                                    }${spreadDraggable ? ' ab-overview-item--draggable' : ''}${
+                                        spreadDraggable ? ' ab-overview-item--draggable' : ''}${
                                         spreadDragOver ? ' ab-overview-item--drag-over' : ''
                                     }`}
                                     draggable={spreadDraggable}
@@ -1866,12 +1953,6 @@ const AlbumBook = ({
                                             </>
                                         )}
                                     </span>
-                                    {spreadComments?.length > 0 && (
-                                        <SpreadGridComments
-                                            comments={spreadComments}
-                                            variant="overview"
-                                        />
-                                    )}
                                     <span className="ab-overview-label">
                                         {isCover
                                             ? 'Cover'

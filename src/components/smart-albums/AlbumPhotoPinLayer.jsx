@@ -424,6 +424,7 @@ export default function AlbumPhotoPinLayer({
     const spotActionPicker = spotActionPickerProp || Boolean(ctx.spotActionPicker);
     const spotCanComment = spotCanCommentProp || Boolean(ctx.spotCanComment);
     const spotCanSwap = spotCanSwapProp || Boolean(ctx.spotCanSwap);
+    const spreadMagnifyActive = Boolean(ctx.spreadMagnifyActive);
     const layerId = useId();
     const [openPinId, setOpenPinId] = useState(null);
     const [spotPicker, setSpotPicker] = useState(null);
@@ -444,6 +445,7 @@ export default function AlbumPhotoPinLayer({
             : swapPinModeActive && hasPhoto;
 
     const showTools =
+        !spreadMagnifyActive &&
         proofToolsHover &&
         proofToolsEnabled &&
         hasPhoto &&
@@ -453,6 +455,7 @@ export default function AlbumPhotoPinLayer({
         (canSwap || onActivatePinMode || onActivateSwapPinMode);
 
     const spotPickerActive =
+        !spreadMagnifyActive &&
         spotActionPicker &&
         hasPhoto &&
         !pinModeActive &&
@@ -675,28 +678,36 @@ export default function AlbumPhotoPinLayer({
                 spotCommentComposer ? ' ab-photo-pin-layer--composer-open' : ''
             }${openPinId ? ' ab-photo-pin-layer--pin-open' : ''}${
                 showTools ? ' ab-photo-pin-layer--tools' : ''
-            }${className ? ` ${className}` : ''}`}
+            }${spreadMagnifyActive ? ' ab-photo-pin-layer--magnify' : ''}${
+                className ? ` ${className}` : ''
+            }`}
             onClick={
-                spotPickerActive ||
-                (pinModeActive && hasPhoto) ||
-                (swapPinModeActive && canPlaceSwapPin)
-                    ? handlePlaceClick
-                    : undefined
+                spreadMagnifyActive
+                    ? undefined
+                    : spotPickerActive ||
+                      (pinModeActive && hasPhoto) ||
+                      (swapPinModeActive && canPlaceSwapPin)
+                      ? handlePlaceClick
+                      : undefined
             }
             onKeyDown={undefined}
             role={
-                spotPickerActive ||
-                (pinModeActive && hasPhoto) ||
-                (swapPinModeActive && canPlaceSwapPin)
-                    ? 'button'
-                    : undefined
+                spreadMagnifyActive
+                    ? undefined
+                    : spotPickerActive ||
+                      (pinModeActive && hasPhoto) ||
+                      (swapPinModeActive && canPlaceSwapPin)
+                      ? 'button'
+                      : undefined
             }
             tabIndex={
-                spotPickerActive ||
-                (pinModeActive && hasPhoto) ||
-                (swapPinModeActive && canPlaceSwapPin)
-                    ? 0
-                    : undefined
+                spreadMagnifyActive
+                    ? undefined
+                    : spotPickerActive ||
+                      (pinModeActive && hasPhoto) ||
+                      (swapPinModeActive && canPlaceSwapPin)
+                      ? 0
+                      : undefined
             }
             aria-label={
                 spotPickerActive

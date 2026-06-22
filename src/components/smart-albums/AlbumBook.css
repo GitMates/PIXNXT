@@ -133,6 +133,40 @@
   flex: 0 0 auto;
 }
 
+.ab-spread-magnify-viewport {
+  position: relative;
+  overflow: hidden;
+  flex: 0 0 auto;
+}
+
+.ab-spread-magnify-viewport--active {
+  cursor: grab;
+  touch-action: none;
+}
+
+.ab-spread-magnify-viewport--dragging {
+  cursor: grabbing;
+}
+
+.ab-spread-magnify-content {
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.ab-root--spread-magnify .ab-photo-pin-layer,
+.ab-photo-pin-layer--magnify {
+  pointer-events: none;
+}
+
+.ab-control-icon--active {
+  color: #5b6b7a;
+}
+
+.ab-control-icon--button:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
 .ab-spread-display > .ab-spread-controls {
   position: static;
   align-self: flex-end;
@@ -1275,6 +1309,11 @@
 
 .ab-root--preview .ab-control-icon--button:hover {
   color: #777;
+}
+
+.ab-root--preview .ab-control-icon--active,
+.ab-root--preview .ab-control-icon--active:hover {
+  color: #4a5568;
 }
 
 .ab-overview {
