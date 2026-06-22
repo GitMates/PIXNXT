@@ -468,7 +468,8 @@ export function innerSpreadGridSizeFromAlbum(album) {
 /** Spread ratio only for album settings. */
 export function formatAlbumSpreadSizeDisplay(album) {
     if (!album?.grid_size) return shortGridSizeLabel('square');
-    return shortGridSizeLabel(innerSpreadGridSizeFromAlbum(album));
+    const label = shortGridSizeLabel(innerSpreadGridSizeFromAlbum(album));
+    return label.replace(/^Custom /, '');
 }
 
 export function formatGridLayoutLabel(gridLayout) {
