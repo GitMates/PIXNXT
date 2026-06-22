@@ -24,6 +24,16 @@ function formatChatTime(iso) {
     return d.toLocaleString([], { hour: 'numeric', minute: '2-digit' });
 }
 
+function shortenSpreadLabel(label) {
+    const match = String(label || '').match(/Spread\s+\d+/i);
+    return match ? match[0] : String(label || '').trim();
+}
+
+function BubbleInlineActions({ children }) {
+    if (!children) return null;
+    return <div className="av-chat-bubble-inline-actions">{children}</div>;
+}
+
 function ChatRow({
     outgoing,
     children,
@@ -123,7 +133,6 @@ export default function AlbumPreviewSpreadFeed({
                     const pin = item.pin;
                     const unseen = proofMode && isPhotoPinUnseen(albumId, pin);
                     const outgoing = !proofMode;
-                    const createdAtLabel = formatChatTime(pin.createdAt);
                     const navigatePin = () => {
                         if (proofMode && onNavigateToPin) onNavigateToPin(pin);
                         else onJumpToSpread?.(pin.spreadIndex);
@@ -170,32 +179,7 @@ export default function AlbumPreviewSpreadFeed({
                             outgoing={outgoing}
                             unseen={unseen}
                             bubbleClassName={proofMode ? 'av-chat-bubble--with-done' : ''}
-                            actions={
-                                proofMode ? null : (
-                                    <>
-                                        <button
-                                            type="button"
-                                            className="av-chat-action"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onEditPinStart?.(pin);
-                                            }}
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className="av-chat-action av-chat-action--danger"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                removePhotoPin(albumId, pin.id);
-                                            }}
-                                        >
-                                            Delete
-                                        </button>
-                                    </>
-                                )
-                            }
+                            actions={null}
                         >
                             {proofMode ? (
                                 <ProofDoneButton
@@ -229,12 +213,38 @@ export default function AlbumPreviewSpreadFeed({
                             >
                                 {pin.message}
                             </div>
-                            <footer className="av-chat-bubble-foot">
+                            <footer className="av-chat-bubble-foot av-chat-bubble-foot--actions">
+                                {!proofMode ? (
+                                    <BubbleInlineActions>
+                                        <button
+                                            type="button"
+                                            className="av-chat-action"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onEditPinStart?.(pin);
+                                            }}
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="av-chat-action av-chat-action--danger"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                removePhotoPin(albumId, pin.id);
+                                            }}
+                                        >
+                                            Delete
+                                        </button>
+                                    </BubbleInlineActions>
+                                ) : null}
                                 {unseen ? (
                                     <span className="av-chat-bubble-new">New</span>
                                 ) : null}
-                                {createdAtLabel ? (
-                                    <time dateTime={pin.createdAt}>{createdAtLabel}</time>
+                                {pin.createdAt ? (
+                                    <time dateTime={pin.createdAt}>
+                                        {formatCommentDateTime(pin.createdAt)}
+                                    </time>
                                 ) : null}
                             </footer>
                         </ChatRow>
@@ -256,6 +266,7 @@ export default function AlbumPreviewSpreadFeed({
                 const swapItem = item.mark;
                 const createdAtLabel = formatCommentDateTime(swapItem.createdAt);
                 const swapUnseen = proofMode && isSwapMarkUnseen(albumId, swapItem);
+                const swapOutgoing = !proofMode;
                 const navigateSwapA = () => {
                     if (proofMode && onNavigateToSlotKey) onNavigateToSlotKey(swapItem.a);
                     else onJumpToSpread?.(swapItem.spreadA);
@@ -266,73 +277,76 @@ export default function AlbumPreviewSpreadFeed({
                 };
 
                 return (
-                    <div
+                    <ChatRow
                         key={item.id}
-                        className={`av-chat-row av-chat-row--system${
-                            swapUnseen ? ' av-chat-row--unseen' : ''
-                        }`}
+                        outgoing={swapOutgoing}
+                        unseen={swapUnseen}
+                        bubbleClassName={proofMode ? 'av-chat-bubble--with-done' : ''}
+                        actions={null}
                     >
-                        <article className="av-chat-system-card">
-                            {proofMode && (
-                                <div className="av-chat-system-card-tools">
-                                    <ProofDoneButton
-                                        completed={!swapUnseen}
+                        {proofMode ? (
+                            <ProofDoneButton
+                                completed={!swapUnseen}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    markSwapMarksSeen(albumId, [swapItem]);
+                                }}
+                                ariaLabel={
+                                    swapUnseen
+                                        ? 'Mark swap request complete'
+                                        : 'Swap request already complete'
+                                }
+                                className="av-chat-bubble-done"
+                            />
+                        ) : null}
+                        <p className="av-chat-bubble-sender av-chat-bubble-sender--swap">
+                            Swap request
+                            {swapUnseen && !proofMode ? (
+                                <span className="av-chat-bubble-new">New</span>
+                            ) : null}
+                        </p>
+                        <div className="av-chat-swap-route">
+                            <button
+                                type="button"
+                                className="av-chat-swap-chip"
+                                onClick={navigateSwapA}
+                            >
+                                {shortenSpreadLabel(swapItem.labelA)}
+                            </button>
+                            <span className="av-chat-swap-arrow" aria-hidden>
+                                ↔
+                            </span>
+                            <button
+                                type="button"
+                                className="av-chat-swap-chip"
+                                onClick={navigateSwapB}
+                            >
+                                {shortenSpreadLabel(swapItem.labelB)}
+                            </button>
+                        </div>
+                        <footer className="av-chat-bubble-foot av-chat-bubble-foot--actions">
+                            {!proofMode ? (
+                                <BubbleInlineActions>
+                                    <button
+                                        type="button"
+                                        className="av-chat-action av-chat-action--danger"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            markSwapMarksSeen(albumId, [swapItem]);
+                                            onRemoveSwap?.(swapItem.id);
                                         }}
-                                        ariaLabel={
-                                            swapUnseen
-                                                ? 'Mark swap request complete'
-                                                : 'Swap request already complete'
-                                        }
-                                        className="av-chat-proof-done"
-                                    />
-                                </div>
-                            )}
-                            <p className="av-chat-system-card-title">
-                                Swap request
-                                {swapUnseen ? (
-                                    <span className="av-chat-bubble-new">New</span>
-                                ) : null}
-                            </p>
-                            <div className="av-preview-sidebar-swap-route">
-                                <button
-                                    type="button"
-                                    className="av-preview-sidebar-swap-chip"
-                                    onClick={navigateSwapA}
-                                >
-                                    {swapItem.labelA}
-                                </button>
-                                <span className="av-preview-sidebar-swap-arrow" aria-hidden>
-                                    ↔
-                                </span>
-                                <button
-                                    type="button"
-                                    className="av-preview-sidebar-swap-chip"
-                                    onClick={navigateSwapB}
-                                >
-                                    {swapItem.labelB}
-                                </button>
-                            </div>
-                            <div className="av-preview-sidebar-swap-footer">
-                                {createdAtLabel ? (
-                                    <span className="av-preview-sidebar-swap-time">
-                                        {createdAtLabel}
-                                    </span>
-                                ) : (
-                                    <span className="av-preview-sidebar-swap-time" aria-hidden />
-                                )}
-                                <button
-                                    type="button"
-                                    className="av-preview-sidebar-swap-remove"
-                                    onClick={() => onRemoveSwap?.(swapItem.id)}
-                                >
-                                    Remove
-                                </button>
-                            </div>
-                        </article>
-                    </div>
+                                    >
+                                        Delete
+                                    </button>
+                                </BubbleInlineActions>
+                            ) : null}
+                            {swapUnseen && proofMode ? (
+                                <span className="av-chat-bubble-new">New</span>
+                            ) : null}
+                            {createdAtLabel ? (
+                                <time dateTime={swapItem.createdAt}>{createdAtLabel}</time>
+                            ) : null}
+                        </footer>
+                    </ChatRow>
                 );
             })}
         </div>

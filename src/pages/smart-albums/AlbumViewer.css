@@ -732,6 +732,64 @@
   white-space: nowrap;
 }
 
+.av-chat-bubble-foot--actions {
+  justify-content: space-between;
+  align-items: flex-end;
+  width: 100%;
+  gap: 8px;
+}
+
+.av-chat-bubble-inline-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-right: auto;
+}
+
+.av-chat-bubble--out .av-chat-bubble-sender--swap {
+  color: #128c7e;
+}
+
+.av-chat-swap-route {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.av-chat-swap-chip {
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(11, 20, 26, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  color: #111b21;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.av-chat-swap-chip:hover {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(11, 20, 26, 0.2);
+}
+
+.av-chat-swap-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid rgba(11, 20, 26, 0.1);
+  font-size: 14px;
+  color: #667781;
+  flex-shrink: 0;
+}
+
 .av-chat-bubble-spread {
   margin-right: auto;
   font-size: 10px;
