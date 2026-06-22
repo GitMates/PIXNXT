@@ -8,6 +8,7 @@ import {
     drawLeatherPanel,
 } from '../coverLeatherSurface';
 import { normalizePhotoTransform } from '../albumPageTransforms';
+import { drawWrapSegment } from '../bookWrapSegment';
 
 const imageCache = new Map();
 const textureCache = new Map();
@@ -131,62 +132,6 @@ function drawSpreadSlot(ctx, img, texW, texH, transform) {
 
 function cacheKey(kind, src, panoramic, aspect, mirror = false, extra = '') {
     return `${kind}|${src}|${panoramic || ''}|${aspect || ''}|${mirror ? 'm' : ''}|${extra}`;
-}
-
-/** Matches BookWrapSpineImage + object-fit: cover for back | spine | front panels. */
-export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
-    const emptyColor = side === 'spine' ? '#e4e7ec' : '#ffffff';
-    ctx.fillStyle = emptyColor;
-    ctx.fillRect(0, 0, texW, texH);
-    if (!img || !layout || !side) return;
-
-    const start = layout.spineStartFraction;
-    const end = layout.spineEndFraction;
-    let imgFracStart = 0;
-    let imgFracEnd = 1;
-    if (side === 'back') {
-        imgFracStart = 0;
-        imgFracEnd = start;
-    } else if (side === 'spine') {
-        imgFracStart = start;
-        imgFracEnd = end;
-    } else if (side === 'front') {
-        imgFracStart = end;
-        imgFracEnd = 1;
-    }
-
-    const segW = imgFracEnd - imgFracStart;
-    if (segW <= 0) return;
-
-    const sx = imgFracStart * img.width;
-    const sw = segW * img.width;
-    const sh = img.height;
-    const panelAspect = texW / texH;
-    const segAspect = sw / sh;
-    const t = normalizePhotoTransform(transform);
-
-    ctx.save();
-    ctx.translate(texW / 2 + (t.x / 100) * texW, texH / 2 + (t.y / 100) * texH);
-    ctx.scale(t.scaleX, t.scaleY);
-    ctx.translate(-texW / 2, -texH / 2);
-
-    let dw;
-    let dh;
-    let dx;
-    let dy;
-    if (segAspect > panelAspect) {
-        dh = texH;
-        dw = dh * segAspect;
-        dx = (texW - dw) / 2;
-        dy = 0;
-    } else {
-        dw = texW;
-        dh = dw / segAspect;
-        dx = 0;
-        dy = (texH - dh) / 2;
-    }
-    ctx.drawImage(img, sx, 0, sw, sh, dx, dy, dw, dh);
-    ctx.restore();
 }
 
 function wrapCacheExtra(layout, side, transform, panelAspect) {

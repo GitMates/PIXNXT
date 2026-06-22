@@ -2,16 +2,16 @@ import {
     blankCoverWrapAspect,
     computeSpineWidthUnits,
     coverSpreadWidthHeightFromAlbum,
-    innerSpreadAspectFromAlbum,
     innerSpreadWidthHeightFromAlbum,
     parseGridSizeAspect,
+    spreadAspectFromPageGrid,
     spreadGridSizeFromPageGrid,
 } from './albumGridSize';
 import { getAlbumSpineBoundsOverride } from './albumSpineSettings';
 import { photoTransformStyle } from './albumPageTransforms';
 
 function resolveWrapAspect(album) {
-    const innerSpreadAspect = innerSpreadAspectFromAlbum(album);
+    const innerSpreadAspect = bookWrapInnerSpreadAspect(album);
 
     // Live cover image aspect always wins for book-wrap spine (y).
     if (album?.__wrap_aspect > 0 && album?.blank_covers !== true) {
@@ -38,11 +38,37 @@ function resolveWrapAspect(album) {
 const MIN_SPINE_FRACTION = 0.004;
 const MIN_COVER_FRACTION = 0.12;
 
+/** Inner spread width ÷ height for book-wrap spine math (back + front, no spine strip). */
+export function bookWrapInnerSpreadAspect(album) {
+    const pageGridSize = album?.grid_size || 'square';
+    if (album?.blank_covers === true) {
+        const pageAspect = parseGridSizeAspect(pageGridSize);
+        return pageAspect > 0 ? pageAspect * 2 : 2;
+    }
+    if (album?.has_covers === true) {
+        return spreadAspectFromPageGrid(pageGridSize);
+    }
+    const spreadKey =
+        album?.spread_grid_size ??
+        spreadGridSizeFromPageGrid(pageGridSize, album?.grid_layout);
+    if (spreadKey) return parseGridSizeAspect(spreadKey);
+    return spreadAspectFromPageGrid(pageGridSize);
+}
+
 /**
  * Spine from cover wrap (y) minus inner spread (x), centered:
  * spineFraction = (wrapAspect − innerSpreadAspect) / wrapAspect
  */
 function computeAutoSpineBounds(wrapAspect, innerSpreadAspect) {
+    if (!(wrapAspect > 0 && innerSpreadAspect > 0)) {
+        return {
+            spineStartFraction: 0.5,
+            spineEndFraction: 0.5,
+            spineFraction: 0,
+            spineFromCoverCalc: false,
+        };
+    }
+
     if (wrapAspect > innerSpreadAspect * 1.001) {
         const spineFraction = (wrapAspect - innerSpreadAspect) / wrapAspect;
         const spineStartFraction = (1 - spineFraction) / 2;
@@ -55,13 +81,11 @@ function computeAutoSpineBounds(wrapAspect, innerSpreadAspect) {
         };
     }
 
-    const spineStartFraction = Math.max(0, (1 - innerSpreadAspect / wrapAspect) / 2);
-    const spineEndFraction = 1 - spineStartFraction;
-    const spineFraction = Math.max(0, spineEndFraction - spineStartFraction);
+    // Wrap is not wider than two covers — no spine strip from aspect math.
     return {
-        spineStartFraction,
-        spineEndFraction,
-        spineFraction,
+        spineStartFraction: 0.5,
+        spineEndFraction: 0.5,
+        spineFraction: 0,
         spineFromCoverCalc: false,
     };
 }
@@ -72,7 +96,7 @@ function computeAutoSpineBounds(wrapAspect, innerSpreadAspect) {
  */
 export function getBookWrapSpineLayout(album) {
     const pageAspect = parseGridSizeAspect(album?.grid_size);
-    const innerSpreadAspect = innerSpreadAspectFromAlbum(album);
+    const innerSpreadAspect = bookWrapInnerSpreadAspect(album);
     const wrapAspect = resolveWrapAspect(album);
 
     const autoBounds = computeAutoSpineBounds(wrapAspect, innerSpreadAspect);
@@ -80,9 +104,12 @@ export function getBookWrapSpineLayout(album) {
 
     const override = getAlbumSpineBoundsOverride(album?.id);
     if (override && !spineFromCoverCalc) {
-        spineStartFraction = override.spineStartFraction;
-        spineEndFraction = override.spineEndFraction;
-        spineFraction = Math.max(0, spineEndFraction - spineStartFraction);
+        const span = override.spineEndFraction - override.spineStartFraction;
+        if (span > MIN_SPINE_FRACTION && span < 0.5) {
+            spineStartFraction = override.spineStartFraction;
+            spineEndFraction = override.spineEndFraction;
+            spineFraction = span;
+        }
     }
 
     const innerSize = innerSpreadWidthHeightFromAlbum(album);

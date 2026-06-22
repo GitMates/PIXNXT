@@ -547,17 +547,23 @@ export function innerSpreadWidthHeightFromAlbum(album) {
 
 /** Cover wrap width/height — prefers live cover image aspect when provided. */
 export function coverSpreadWidthHeightFromAlbum(album, wrapAspect = null) {
-    if (wrapAspect > 0) {
+    const resolvedAspect =
+        wrapAspect > 0
+            ? wrapAspect
+            : album?.__wrap_aspect > 0
+              ? album.__wrap_aspect
+              : null;
+    if (resolvedAspect > 0) {
         const coverFromGrid = album?.spread_grid_size
             ? parseGridSizeWidthHeight(album.spread_grid_size)
             : null;
         if (coverFromGrid?.height > 0) {
             return {
-                width: wrapAspect * coverFromGrid.height,
+                width: resolvedAspect * coverFromGrid.height,
                 height: coverFromGrid.height,
             };
         }
-        return { width: wrapAspect, height: 1 };
+        return { width: resolvedAspect, height: 1 };
     }
     if (album?.spread_grid_size) {
         return parseGridSizeWidthHeight(album.spread_grid_size);

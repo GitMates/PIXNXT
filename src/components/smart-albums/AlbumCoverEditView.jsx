@@ -108,7 +108,15 @@ export default function AlbumCoverEditView({
             return;
         }
         const override = getAlbumSpineBoundsOverride(albumId);
-        setSpineBounds(override || autoBounds);
+        if (override) {
+            const span = override.spineEndFraction - override.spineStartFraction;
+            if (span > 0.004 && span < 0.5) {
+                setSpineBounds(override);
+                return;
+            }
+            if (albumId) clearAlbumSpineBoundsOverride(albumId);
+        }
+        setSpineBounds(autoBounds);
     }, [
         albumId,
         baseLayout.spineStartFraction,
