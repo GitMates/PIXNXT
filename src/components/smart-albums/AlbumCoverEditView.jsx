@@ -12,7 +12,7 @@ import {
     setAlbumSpineBoundsOverride,
     SPINE_BOUNDS_CHANGED_EVENT,
 } from './albumSpineSettings';
-import { formatSpineWidthUnits, parseGridSizeAspect } from './albumGridSize';
+import { parseGridSizeAspect } from './albumGridSize';
 import BookWrapSpineImage from './BookWrapSpineImage';
 import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
 import {
@@ -184,8 +184,6 @@ export default function AlbumCoverEditView({
         [showLeatherCover, coverColorId, pageAspect, coverText]
     );
     const spineVisible = spineLayout.hasSpine && showSpine;
-
-    const spineWidthLabel = formatSpineWidthUnits(spineLayout.spineWidthUnits);
 
     const panelWidths = useMemo(() => {
         if (!dims) return null;
@@ -411,7 +409,7 @@ export default function AlbumCoverEditView({
                             ) : null}
                         </div>
                         <span className="ab-cover-edit-hint ab-cover-edit-hint--spine">
-                            {spineWidthLabel ? `Spine · ${spineWidthLabel}` : 'Spine'}
+                            Spine
                         </span>
                     </div>
                 )}
