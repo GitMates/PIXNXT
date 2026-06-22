@@ -29,8 +29,6 @@ function getNotificationLocationLabel(item, album, totalPages) {
 export default function AlbumEditorNotifications({
     album,
     totalPages = 0,
-    spreadUnresolved = 0,
-    spreadTotal = 0,
     onSelectNotification,
 }) {
     const [open, setOpen] = useState(false);
@@ -134,8 +132,8 @@ export default function AlbumEditorNotifications({
                     <div className="ae-notifications-header">All page notifications</div>
                     <div className="ae-notifications-stats">
                         <ProofPanelStats
-                            unresolved={spreadUnresolved}
-                            total={spreadTotal}
+                            unresolved={unreadCount}
+                            total={items.length}
                             totalLabel="Total comment"
                             compact
                         />

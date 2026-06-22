@@ -178,7 +178,11 @@ export default function AlbumPreviewSpreadFeed({
                                     className="av-chat-bubble-done"
                                 />
                             ) : null}
-                            {!outgoing && proofMode ? (
+                            {outgoing ? (
+                                <p className="av-chat-bubble-sender av-chat-bubble-sender--photo">
+                                    Photo comment
+                                </p>
+                            ) : !outgoing && proofMode ? (
                                 <p className="av-chat-bubble-sender">Photo comment</p>
                             ) : null}
                             <div

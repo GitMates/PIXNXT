@@ -1,17 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { filesFromInput } from '../../lib/uploadFileOrder';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
-import { countUnseenPhotoPins } from './albumPhotoPins';
 import {
-    countUnseenSwapMarks,
     getSlotLabel,
     parseSlotKey,
     removeSwapMark,
 } from './albumSwapMarks';
-import {
-    countSpreadComments,
-    countUnseenSpreadComments,
-} from '../../services/smartAlbumComments.service';
 import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
@@ -109,22 +103,12 @@ export default function AlbumEditorSidebar({
     onNavigateToSwapSlotKey = null,
     onReorderCollectionItem = null,
     proofSeenTick = 0,
-    onSpreadStatsChange = null,
 }) {
     const fileRef = useRef(null);
     const collectionDragFromRef = useRef(null);
     const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
     const [imageReplacements, setImageReplacements] = useState([]);
     void proofSeenTick;
-    const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
-    const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
-    const unseenSpreadCommentCount = countUnseenSpreadComments(
-        albumId,
-        spreadCommentsBySpread
-    );
-    const totalSpreadCommentCount = countSpreadComments(spreadCommentsBySpread);
-    const totalCommentCount = photoPins.length + totalSpreadCommentCount + swapMarks.length;
-    const unresolvedCommentCount = unseenPinCount + unseenSpreadCommentCount + unseenSwapCount;
     const swapsEnabled = album?.messages_enabled !== false;
 
     const spreadOpts = useMemo(
@@ -253,16 +237,6 @@ export default function AlbumEditorSidebar({
     );
 
     const spreadPanelCount = visibleSpreadFeed.length;
-    const spreadPanelUnresolved =
-        countUnseenPhotoPins(albumId, visiblePhotoPins) +
-        (swapsEnabled ? countUnseenSwapMarks(albumId, visibleSwapMarks) : 0);
-
-    useEffect(() => {
-        onSpreadStatsChange?.({
-            unresolved: spreadPanelUnresolved,
-            total: spreadPanelCount,
-        });
-    }, [spreadPanelUnresolved, spreadPanelCount, onSpreadStatsChange]);
 
     const navItems = NAV_BASE.filter(
         (item) => !item.requiresCovers || album?.has_covers === true
@@ -376,19 +350,6 @@ export default function AlbumEditorSidebar({
                         <span className="ae-nav-rail-icon">
                             <Icon />
                         </span>
-                        {id === 'pin' && totalCommentCount > 0 && (
-                            <span
-                                className={`ae-nav-rail-badge ae-nav-rail-badge--pin${unresolvedCommentCount > 0
-                                    ? ' ae-nav-rail-badge--unseen'
-                                    : ''
-                                    }`}
-                                aria-hidden
-                            >
-                                {unresolvedCommentCount > 0
-                                    ? unresolvedCommentCount
-                                    : totalCommentCount}
-                            </span>
-                        )}
                     </button>
                 ))}
             </nav>

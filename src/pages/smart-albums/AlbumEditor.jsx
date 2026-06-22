@@ -315,10 +315,6 @@ export default function AlbumEditor({
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
     const [publishBusy, setPublishBusy] = useState(false);
-    const [spreadCommentStats, setSpreadCommentStats] = useState({
-        unresolved: 0,
-        total: 0,
-    });
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const [proofSeenTick, setProofSeenTick] = useState(0);
@@ -1855,8 +1851,6 @@ export default function AlbumEditor({
                     <AlbumEditorNotifications
                         album={album}
                         totalPages={totalPages}
-                        spreadUnresolved={spreadCommentStats.unresolved}
-                        spreadTotal={spreadCommentStats.total}
                         onSelectNotification={handleNotificationSelect}
                     />
                     <button
@@ -2026,7 +2020,6 @@ export default function AlbumEditor({
                     onNavigateToSwapSlotKey={handleNavigateToSwapSlotKey}
                     onReorderCollectionItem={handleReorderCollectionItem}
                     proofSeenTick={proofSeenTick}
-                    onSpreadStatsChange={setSpreadCommentStats}
                 />
             </div>
 

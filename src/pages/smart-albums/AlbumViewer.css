@@ -759,7 +759,8 @@
   margin-right: auto;
 }
 
-.av-chat-bubble--out .av-chat-bubble-sender--swap {
+.av-chat-bubble--out .av-chat-bubble-sender--swap,
+.av-chat-bubble--out .av-chat-bubble-sender--photo {
   color: #6b9b8a;
 }
 

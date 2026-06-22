@@ -33,6 +33,7 @@ import {
 import AlbumFocusView from './AlbumFocusView';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
 import AlbumPinComposer from './AlbumPinComposer';
+import { closeAlbumPinPopovers } from './albumPinPopoverEvents';
 import {
     addSwapMark,
     getSwapMarksForSlot,
@@ -343,6 +344,7 @@ const AlbumBook = ({
     useEffect(() => {
         userNavigatedRef.current = false;
         syncingPageRef.current = true;
+        closeAlbumPinPopovers();
     }, [initialPage, album?.id]);
 
     const syncFlipbookToUrlPage = useCallback(() => {
@@ -482,6 +484,7 @@ const AlbumBook = ({
 
     const goToPage = useCallback(
         (pageNum) => {
+            closeAlbumPinPopovers();
             const clamped = normalizeStoragePageIndex(pageNum, totalPages, spreadOpts);
             syncingPageRef.current = true;
             const api = bookRef.current?.pageFlip?.();
@@ -734,6 +737,7 @@ const AlbumBook = ({
         (e) => {
             // Ignore programmatic sync flips, but accept user-driven page turns.
             if (syncingPageRef.current && !isFlippingRef.current) return;
+            closeAlbumPinPopovers();
             const storageIdx = flipbookIndexToStoragePage(e.data, totalPages, spreadOpts);
             syncingPageRef.current = false;
             userNavigatedRef.current = true;
@@ -767,6 +771,7 @@ const AlbumBook = ({
                         totalPages,
                         spreadOpts
                     );
+                    closeAlbumPinPopovers();
                     setPageIndex(storageIdx);
                     onPageChange?.(storageIdx);
                     if (
@@ -811,6 +816,7 @@ const AlbumBook = ({
     }, [bookFlipping, setFlippingUi]);
 
     const flipPrev = useCallback(() => {
+        closeAlbumPinPopovers();
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
 
@@ -873,6 +879,7 @@ const AlbumBook = ({
     }, [album?.has_covers, beginCoverHideTo3DFlip, beginEndRevealFlip, endCoverOnly, external3DCover, onExternalCoverRequest, onPageChange, spreadIndex, spreadOpts, totalPages]);
 
     const flipNext = useCallback(() => {
+        closeAlbumPinPopovers();
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
 
@@ -1320,6 +1327,7 @@ const AlbumBook = ({
     }, [goToPage]);
 
     const openFocusView = useCallback(() => {
+        closeAlbumPinPopovers();
         setOverviewOpen(false);
         focusPageRef.current = pageIndex;
         setFocusStartPage(pageIndex);
@@ -1370,6 +1378,7 @@ const AlbumBook = ({
             spotActionPicker: proofSpotPicker,
             spotCanComment,
             spotCanSwap,
+            activeBookPage: pageIndex,
         }),
         [
             gridSelection?.leftPage,
@@ -1401,6 +1410,7 @@ const AlbumBook = ({
             proofSpotPicker,
             spotCanComment,
             spotCanSwap,
+            pageIndex,
         ]
     );
 
@@ -1617,7 +1627,10 @@ const AlbumBook = ({
                         type="button"
                         className="ab-control-icon ab-control-icon--button"
                         aria-label="Show page overview"
-                        onClick={() => setOverviewOpen(true)}
+                        onClick={() => {
+                            closeAlbumPinPopovers();
+                            setOverviewOpen(true);
+                        }}
                     >
                         <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
                             {Array.from({ length: 9 }, (_, i) => {

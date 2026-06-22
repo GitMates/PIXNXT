@@ -161,7 +161,6 @@ export default function AlbumPageGrid({
         !frontCoverSpread;
     const wholeSpread = wholePlacement;
     const useSelectCells = editable && !spreadEdit;
-    const CellTag = useSelectCells ? 'button' : 'div';
 
     const buildSwapSlot = (photoIndex, cellId) => {
         const spreadNum = spreadNumberFromLeftPage(spreadLeft, spreadCtx);
@@ -328,9 +327,8 @@ export default function AlbumPageGrid({
                 }
 
                 return (
-                    <CellTag
+                    <div
                         key={cell.id}
-                        type={useSelectCells ? 'button' : undefined}
                         className={`ab-grid-cell${cell.framed ? ' ab-grid-cell--framed' : ''}${
                             isSelected ? ' ab-grid-cell--selected' : ''
                         }${useSelectCells ? ' ab-grid-cell--interactive' : ''}${
@@ -344,6 +342,8 @@ export default function AlbumPageGrid({
                             width: cell.width,
                             height: cell.height,
                         }}
+                        role={useSelectCells ? 'button' : undefined}
+                        tabIndex={useSelectCells ? 0 : undefined}
                         aria-label={
                             useSelectCells
                                 ? wholePlacement
@@ -355,6 +355,36 @@ export default function AlbumPageGrid({
                         onClick={
                             useSelectCells
                                 ? (e) => {
+                                      e.stopPropagation();
+                                      const slot = buildSwapSlot(photoIndex, cell.id);
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      if (onSlotActivate) {
+                                          onSlotActivate(
+                                              {
+                                                  pageNum: slot.pageNum,
+                                                  cellId: slot.cellId,
+                                                  spreadLeft: slot.spreadLeft,
+                                                  whole: Boolean(slot.whole),
+                                                  hasPhoto,
+                                                  label: slot.label,
+                                              },
+                                              rect
+                                          );
+                                          return;
+                                      }
+                                      if (wholePlacement) {
+                                          onSelectSpread?.(spreadLeft);
+                                      } else {
+                                          onSelectCell?.(spreadLeft, cell.id);
+                                      }
+                                  }
+                                : undefined
+                        }
+                        onKeyDown={
+                            useSelectCells
+                                ? (e) => {
+                                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                                      e.preventDefault();
                                       e.stopPropagation();
                                       const slot = buildSwapSlot(photoIndex, cell.id);
                                       const rect = e.currentTarget.getBoundingClientRect();
@@ -487,7 +517,7 @@ export default function AlbumPageGrid({
                         {previewMode && !hasPhoto && (
                             <span className="ab-grid-cell-empty" aria-hidden />
                         )}
-                    </CellTag>
+                    </div>
                 );
             })}
         </div>

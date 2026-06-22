@@ -12,6 +12,7 @@ import {
     storagePageToFlipbookIndex,
 } from './albumSpreadUtils';
 import { installSafePageFlip } from './pageFlipSafe';
+import { closeAlbumPinPopovers } from './albumPinPopoverEvents';
 import { getFullscreenElement, onFullscreenChange } from '../../lib/fullscreenUtils';
 import './AlbumBook.css';
 import { parseGridSizeAspect } from './albumGridSize';
@@ -146,11 +147,13 @@ export default function AlbumFocusView({
 
     const flipPrev = useCallback(() => {
         if (atStart || isFlippingRef.current) return;
+        closeAlbumPinPopovers();
         bookRef.current?.pageFlip?.()?.flipPrev('bottom');
     }, [atStart]);
 
     const flipNext = useCallback(() => {
         if (atEnd || isFlippingRef.current) return;
+        closeAlbumPinPopovers();
         bookRef.current?.pageFlip?.()?.flipNext('bottom');
     }, [atEnd]);
 
