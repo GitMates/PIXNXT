@@ -597,6 +597,16 @@
   padding-top: 14px;
 }
 
+.av-preview-sidebar--comments-only .ae-panel-title {
+  margin-bottom: 0;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #ececec;
+}
+
+.av-preview-sidebar--comments-only .av-preview-sidebar-comments {
+  margin-top: 8px;
+}
+
 .av-preview-sidebar-panel .ae-panel-text {
   flex-shrink: 0;
 }

@@ -673,12 +673,18 @@
 }
 
 .ae-panel-pin-body .ae-panel-title {
-  margin-bottom: 6px;
+  margin-bottom: 0;
+  padding-bottom: 8px;
   font-size: 13px;
+  border-bottom: 1px solid #ececec;
+}
+
+.ae-panel-pin-body > .av-preview-sidebar-text {
+  margin-top: 8px;
 }
 
 .ae-panel-proof-feed {
-  margin-top: 10px;
+  margin-top: 8px;
 }
 
 .ae-panel-proof-feed.av-preview-sidebar-comments {

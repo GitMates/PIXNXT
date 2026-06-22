@@ -136,7 +136,7 @@ export default function AlbumEditorNotifications({
                         <ProofPanelStats
                             unresolved={spreadUnresolved}
                             total={spreadTotal}
-                            totalLabel="On this spread"
+                            totalLabel="Total comment"
                             compact
                         />
                     </div>
