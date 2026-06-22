@@ -392,6 +392,83 @@ export function markAllNotificationsRead(items) {
     items.filter((item) => item.isUnread).forEach((item) => markNotificationItemSeen(item));
 }
 
+async function collectAllNotificationIdsForAlbum(album) {
+    if (!album?.id) return [];
+    const albumId = album.id;
+    const ids = [];
+
+    getPhotoPins(albumId).forEach((pin) => ids.push(`pin-${pin.id}`));
+    getSwapMarks(albumId).forEach((mark) => ids.push(`swap-${mark.id}`));
+
+    if (getCommentsSubmittedAt(albumId)) ids.push(`submit-${albumId}`);
+    if (album.client_approved_at) ids.push(`proof-approved-${albumId}`);
+    if (album.client_changes_submitted_at) ids.push(`proof-changes-${albumId}`);
+
+    try {
+        const comments = await smartAlbumCommentsService.listAlbumComments(albumId);
+        comments
+            .filter((comment) => comment.author_type === 'client')
+            .forEach((comment) => ids.push(`comment-${comment.id}`));
+    } catch {
+        /* ignore */
+    }
+
+    return ids;
+}
+
+/** Mark every client proof item seen for one album (pins, swaps, comments, proof events). */
+export async function markAllAlbumProofItemsSeen(album) {
+    if (!album?.id) return;
+    const albumId = album.id;
+
+    const pins = getPhotoPins(albumId);
+    if (pins.length) markPhotoPinsSeen(albumId, pins);
+
+    const marks = getSwapMarks(albumId);
+    if (marks.length) markSwapMarksSeen(albumId, marks);
+
+    if (getCommentsSubmittedAt(albumId)) markSubmitNotificationSeen(albumId);
+    if (album.client_approved_at) markProofApprovedSeen(albumId, album.client_approved_at);
+    if (album.client_changes_submitted_at) {
+        markProofChangesSeen(albumId, album.client_changes_submitted_at);
+    }
+
+    try {
+        const comments = await smartAlbumCommentsService.listAlbumComments(albumId);
+        const clientComments = comments.filter((comment) => comment.author_type === 'client');
+        if (clientComments.length) markCommentsSeen(albumId, clientComments);
+    } catch {
+        /* ignore */
+    }
+}
+
+/** Mark all proof notifications read across every album (albums list bell). */
+export async function markAllPhotographerNotificationsRead(albums) {
+    if (!albums?.length) return;
+    await Promise.all(albums.map((album) => markAllAlbumProofItemsSeen(album)));
+    notifyNotificationsChanged();
+}
+
+/** Dismiss and resolve every proof notification across every album. */
+export async function clearAllPhotographerNotifications(albums) {
+    if (!albums?.length) return;
+    const dismissed = readDismissed();
+
+    await Promise.all(
+        albums.map(async (album) => {
+            if (!album?.id) return;
+            await markAllAlbumProofItemsSeen(album);
+            const ids = await collectAllNotificationIdsForAlbum(album);
+            ids.forEach((id) => {
+                dismissed[id] = true;
+            });
+        })
+    );
+
+    writeDismissed(dismissed);
+    notifyNotificationsChanged();
+}
+
 export function dismissAllNotifications(items) {
     if (!items?.length) return;
     const all = readDismissed();

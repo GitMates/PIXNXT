@@ -92,13 +92,19 @@ export default function AlbumEditorNotifications({
             if (e.detail?.albumId && e.detail.albumId !== album?.id) return;
             refresh();
         };
+        const onVisibility = () => {
+            if (document.visibilityState === 'visible') refresh();
+        };
+
         NOTIFICATION_REFRESH_EVENTS.forEach((eventName) => {
             window.addEventListener(eventName, onRefresh);
         });
+        document.addEventListener('visibilitychange', onVisibility);
         return () => {
             NOTIFICATION_REFRESH_EVENTS.forEach((eventName) => {
                 window.removeEventListener(eventName, onRefresh);
             });
+            document.removeEventListener('visibilitychange', onVisibility);
         };
     }, [album?.id, refresh]);
 

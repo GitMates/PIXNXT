@@ -5,12 +5,11 @@ import notificationPng from '../../assets/icons/notification.png';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
     buildNotificationUrl,
-    dismissAllNotifications,
+    clearAllPhotographerNotifications,
     dismissNotificationItem,
     getNotificationTypeLabel,
     listPhotographerNotifications,
-    markAllNotificationsRead,
-    markNotificationItemSeen,
+    markAllPhotographerNotificationsRead,
     NOTIFICATION_REFRESH_EVENTS,
 } from '../../services/albumNotifications';
 import { formatCommentDateTime } from '../../services/smartAlbumComments.service';
@@ -168,15 +167,15 @@ export default function SmartAlbumNotifications({ userId }) {
         setItems((prev) => prev.filter((row) => row.id !== item.id));
     };
 
-    const handleMarkAllRead = (e) => {
+    const handleMarkAllRead = async (e) => {
         e.stopPropagation();
-        markAllNotificationsRead(items);
+        await markAllPhotographerNotificationsRead(albums);
         setItems((prev) => prev.map((row) => ({ ...row, isUnread: false })));
     };
 
-    const handleClearAll = (e) => {
+    const handleClearAll = async (e) => {
         e.stopPropagation();
-        dismissAllNotifications(items);
+        await clearAllPhotographerNotifications(albums);
         setItems([]);
         setOpen(false);
     };
