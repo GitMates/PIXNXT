@@ -10,7 +10,8 @@ import {
 import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
 import EditorSpreadFeedbackFeed from './EditorSpreadFeedbackFeed';
 import ProofPanelStats from './ProofPanelStats';
-import { getCollectionItemDisplayUrl } from './albumCollection';
+import CollectionSpreadThumb from './CollectionSpreadThumb';
+import { resolveCollectionThumbLayout } from './collectionThumbLayout';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
 import { getSlotLabel } from './albumSwapMarks';
 import {
@@ -158,6 +159,14 @@ export default function AlbumEditorSidebar({
     const spreadOpts = useMemo(
         () => ({ hasCovers: album?.has_covers === true, showCover: true }),
         [album?.has_covers]
+    );
+
+    const collectionThumbLayouts = useMemo(
+        () =>
+            collectionItems.map((_, index) =>
+                resolveCollectionThumbLayout(index, collectionItems, album, totalPages)
+            ),
+        [collectionItems, album, totalPages]
     );
 
     const currentSpreadIndex = useMemo(() => {
@@ -465,14 +474,9 @@ export default function AlbumEditorSidebar({
                                                 <span className="ae-collection-order" aria-hidden>
                                                     {index + 1}
                                                 </span>
-                                                <img
-                                                    src={
-                                                        getCollectionItemDisplayUrl(item) ||
-                                                        undefined
-                                                    }
+                                                <CollectionSpreadThumb
+                                                    layout={collectionThumbLayouts[index]}
                                                     alt=""
-                                                    loading="lazy"
-                                                    draggable={false}
                                                 />
                                             </button>
                                             <button
