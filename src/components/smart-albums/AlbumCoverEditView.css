@@ -153,6 +153,10 @@
   background: #fff;
 }
 
+.ab-cover-edit-view__photo-wrap.ab-cover-leather-canvas {
+  background-color: transparent;
+}
+
 .ab-cover-edit-page .ab-cover-text-message--on-blank {
   position: relative;
   inset: auto;

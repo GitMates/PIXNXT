@@ -1161,7 +1161,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             <PageWrapTag
                 type={canSelectCover ? 'button' : undefined}
                 className={`ab-page-photo-wrap${
-                    showLeatherCover ? ' ab-cover-leather ab-cover-leather--flat' : ''
+                    showLeatherCover ? ' ab-cover-leather-canvas ab-cover-leather--flat' : ''
                 }${
                     canSelectCover ? ' ab-page-photo-wrap--interactive' : ''
                 }${liveProofToolsHover && coverProofTools && !livePinModeActive ? ' ab-page-photo-wrap--swap' : ''}${

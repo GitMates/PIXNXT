@@ -1,20 +1,20 @@
 import { resolveCoverLeatherPreset } from './albumCoverColor';
 
-const SURFACE_VERSION = 2;
+const SURFACE_VERSION = 4;
 const dataUrlCache = new Map();
 
-function leatherPresetColors(preset, { spine = false } = {}) {
+function leatherPresetColors(preset) {
     const resolved = preset?.base ? preset : resolveCoverLeatherPreset('cream');
     return {
-        base: spine ? resolved.spine : resolved.base,
+        base: resolved.base,
         highlight: resolved.highlight,
         shadow: resolved.shadow,
         text: resolved.text,
     };
 }
 
-function leatherGrainSeed(presetId, spine) {
-    let hash = spine ? 17 : 0;
+function leatherGrainSeed(presetId) {
+    let hash = 0;
     const id = String(presetId || 'cream');
     for (let i = 0; i < id.length; i += 1) {
         hash = (hash * 31 + id.charCodeAt(i)) % 2147483647;
@@ -52,8 +52,8 @@ function rgbToCss({ r, g, b }, alpha = 1) {
 }
 
 /** Procedural pebbled leather — top-left light, fine + coarse grain. */
-export function drawLeatherPanel(ctx, texW, texH, preset, { spine = false, presetId = 'cream' } = {}) {
-    const colors = leatherPresetColors(preset, { spine });
+export function drawLeatherPanel(ctx, texW, texH, preset, { presetId = 'cream' } = {}) {
+    const colors = leatherPresetColors(preset);
     const baseRgb = parseHexColor(colors.base);
 
     const grad = ctx.createLinearGradient(0, 0, texW, texH);
@@ -63,7 +63,7 @@ export function drawLeatherPanel(ctx, texW, texH, preset, { spine = false, prese
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, texW, texH);
 
-    const seed = leatherGrainSeed(presetId, spine);
+    const seed = leatherGrainSeed(presetId);
     const imgData = ctx.getImageData(0, 0, texW, texH);
     const data = imgData.data;
 
@@ -165,7 +165,7 @@ export function getLeatherPanelDataUrl(
     canvas.height = texH;
     const ctx = canvas.getContext('2d');
     const preset = resolveCoverLeatherPreset(coverColorId);
-    drawLeatherPanel(ctx, width, texH, preset, { spine, presetId: coverColorId });
+    drawLeatherPanel(ctx, width, texH, preset, { presetId: coverColorId });
     const trimmed = String(title || '').trim();
     if (trimmed) {
         drawDebossedCoverTitle(ctx, trimmed, width, texH, preset);
@@ -184,7 +184,7 @@ export function getCoverLeatherSurfaceStyle(
     const preset = resolveCoverLeatherPreset(coverColorId);
     const url = getLeatherPanelDataUrl(coverColorId, { spine, title, aspect });
     return {
-        backgroundColor: spine ? preset.spine : preset.base,
+        backgroundColor: preset.base,
         backgroundImage: `url(${url})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',

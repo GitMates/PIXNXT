@@ -169,9 +169,9 @@ export default function AlbumCoverEditView({
     const leatherSpineStyle = useMemo(
         () =>
             showLeatherCover
-                ? getCoverLeatherSurfaceStyle(coverColorId, { spine: true, aspect: 0.12 })
+                ? getCoverLeatherSurfaceStyle(coverColorId, { aspect: pageAspect })
                 : null,
-        [showLeatherCover, coverColorId]
+        [showLeatherCover, coverColorId, pageAspect]
     );
     const leatherFrontStyle = useMemo(
         () =>
@@ -366,7 +366,7 @@ export default function AlbumCoverEditView({
                 >
                     <div
                         className={`ab-cover-edit-view__photo-wrap${
-                            showLeatherCover ? ' ab-cover-leather' : ''
+                            showLeatherCover ? ' ab-cover-leather-canvas' : ''
                         }`}
                         style={showLeatherCover ? leatherBackStyle : undefined}
                     >
@@ -392,7 +392,7 @@ export default function AlbumCoverEditView({
                     >
                         <div
                             className={`ab-cover-edit-view__photo-wrap${
-                                showLeatherCover ? ' ab-cover-leather ab-cover-leather--spine' : ''
+                                showLeatherCover ? ' ab-cover-leather-canvas' : ''
                             }`}
                             style={showLeatherCover ? leatherSpineStyle : undefined}
                         >
@@ -460,7 +460,7 @@ export default function AlbumCoverEditView({
                 >
                     <div
                         className={`ab-cover-edit-view__photo-wrap${
-                            showLeatherCover ? ' ab-cover-leather' : ''
+                            showLeatherCover ? ' ab-cover-leather-canvas' : ''
                         }`}
                         style={showLeatherCover ? leatherFrontStyle : undefined}
                         aria-label={showLeatherCover && coverText ? coverText : undefined}

@@ -631,7 +631,7 @@
   text-transform: uppercase;
 }
 
-/* Leather-finish blank covers */
+/* Leather-finish blank covers — legacy CSS gradient (color swatches only) */
 .ab-cover-leather {
   background-color: var(--ab-leather-base, #f0ebe0);
   background-image:
@@ -645,20 +645,21 @@
   background-blend-mode: soft-light, normal;
 }
 
-.ab-cover-leather--spine {
-  filter: brightness(0.94);
+/* Canvas-generated leather — inline backgroundImage from getCoverLeatherSurfaceStyle */
+.ab-cover-leather-canvas {
+  background-blend-mode: normal;
 }
 
-/* Flat 2D cover surfaces — same leather grain as 3D, soft drop shadow like product shot */
-.ab-cover-leather--flat {
+.ab-cover-leather-canvas.ab-cover-leather--flat {
   box-shadow:
     0 12px 28px rgba(0, 0, 0, 0.12),
     0 3px 8px rgba(0, 0, 0, 0.06);
   transform: none;
 }
 
-.ab-cover-leather--flat.ab-page-photo-wrap {
-  background: transparent;
+.ab-cover-leather-canvas.ab-cover-leather--flat.ab-page-photo-wrap,
+.ab-cover-leather-canvas.ab-cover-edit-view__photo-wrap {
+  background-color: transparent;
 }
 
 .ab-flipbook-wrap--front-cover-only .ab-cover-leather--flat {

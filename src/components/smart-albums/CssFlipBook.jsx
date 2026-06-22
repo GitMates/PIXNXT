@@ -28,7 +28,7 @@ function PageFace({ face, spineLayout, coverText, showCoverText, leatherStyle })
             return (
                 <div
                     className={`css-flip-book-cover css-flip-book-cover--blank${
-                        leatherStyle ? ' ab-cover-leather ab-cover-leather--flat' : ''
+                        leatherStyle ? ' ab-cover-leather-canvas ab-cover-leather--flat' : ''
                     }`}
                     style={leatherStyle || undefined}
                     aria-label={coverText}

@@ -56,7 +56,7 @@ export default function CoverLeatherColorPicker({ albumId }) {
                             aria-selected={isSelected}
                             aria-label={preset.label}
                             title={preset.label}
-                            className={`ae-cover-color-swatch ab-cover-leather${
+                            className={`ae-cover-color-swatch ab-cover-leather-canvas${
                                 isSelected ? ' ae-cover-color-swatch--selected' : ''
                             }`}
                             style={getCoverLeatherSurfaceStyle(preset.id, { aspect: 1 })}

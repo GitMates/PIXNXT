@@ -107,11 +107,10 @@ export function setAlbumCoverColor(albumId, presetId) {
     notifyCoverColorChanged(albumId);
 }
 
-export function getCoverLeatherCssVars(presetId, { spine = false } = {}) {
+export function getCoverLeatherCssVars(presetId) {
     const preset = resolveCoverLeatherPreset(presetId);
-    const base = spine ? preset.spine : preset.base;
     return {
-        '--ab-leather-base': base,
+        '--ab-leather-base': preset.base,
         '--ab-leather-highlight': preset.highlight,
         '--ab-leather-shadow': preset.shadow,
         '--ab-leather-text': preset.text,
