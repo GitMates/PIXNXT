@@ -285,6 +285,7 @@
 
 .ae-panel {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px 18px 24px;
 }
@@ -1256,8 +1257,6 @@
   grid-template-columns: minmax(0, 1fr);
   gap: 12px;
   margin-top: 12px;
-  max-height: min(70vh, 720px);
-  overflow-y: auto;
   align-items: start;
 }
 

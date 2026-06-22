@@ -326,11 +326,10 @@ export default function AlbumEditorSidebar({
                         </span>
                         {id === 'pin' && totalCommentCount > 0 && (
                             <span
-                                className={`ae-nav-rail-badge ae-nav-rail-badge--pin${
-                                    unresolvedCommentCount > 0
-                                        ? ' ae-nav-rail-badge--unseen'
-                                        : ''
-                                }`}
+                                className={`ae-nav-rail-badge ae-nav-rail-badge--pin${unresolvedCommentCount > 0
+                                    ? ' ae-nav-rail-badge--unseen'
+                                    : ''
+                                    }`}
                                 aria-hidden
                             >
                                 {unresolvedCommentCount > 0
@@ -402,10 +401,6 @@ export default function AlbumEditorSidebar({
                 {activePanel === 'collections' && (
                     <>
                         <h3 className="ae-panel-title">Collections</h3>
-                        <p className="ae-panel-text">
-                            Pick from the collection below to place photos on the spread you are
-                            viewing.
-                        </p>
                         {canSelectGrid && (
                             <p className="ae-selection-badge" role="status">
                                 {placementHint(
@@ -424,15 +419,13 @@ export default function AlbumEditorSidebar({
                         <div className="ae-panel-status-row">
                             <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
                             <span
-                                className={`ae-panel-status-count${
-                                    collectionItems.length === 0 ? ' ae-panel-status-count--muted' : ''
-                                }`}
+                                className={`ae-panel-status-count${collectionItems.length === 0 ? ' ae-panel-status-count--muted' : ''
+                                    }`}
                             >
                                 {collectionItems.length === 0
                                     ? 'No photos yet'
-                                    : `${collectionItems.length} photo${
-                                          collectionItems.length === 1 ? '' : 's'
-                                      } ready`}
+                                    : `${collectionItems.length} photo${collectionItems.length === 1 ? '' : 's'
+                                    } ready`}
                             </span>
                         </div>
                         {collectionItems.length > 0 && (
@@ -441,11 +434,10 @@ export default function AlbumEditorSidebar({
                                     {collectionItems.map((item, index) => (
                                         <div
                                             key={item.id}
-                                            className={`ae-collection-thumb-wrap${
-                                                collectionDragOverIndex === index
-                                                    ? ' ae-collection-thumb-wrap--drag-over'
-                                                    : ''
-                                            }`}
+                                            className={`ae-collection-thumb-wrap${collectionDragOverIndex === index
+                                                ? ' ae-collection-thumb-wrap--drag-over'
+                                                : ''
+                                                }`}
                                             role="listitem"
                                         >
                                             <button
@@ -506,14 +498,6 @@ export default function AlbumEditorSidebar({
                                         </div>
                                     ))}
                                 </div>
-                                <p className="ae-collection-order-note">
-                                    {albumUsesBookWrap(album)
-                                        ? 'Order 1 → book wrap (front right + back left). Photos 2+ fill inner pages in order.'
-                                        : albumHasBlankCovers(album)
-                                          ? 'Blank front & back covers. All photos fill inner pages in upload order.'
-                                          : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
-                                    Drag thumbnails to reorder; spreads update automatically.
-                                </p>
                             </>
                         )}
                     </>
@@ -543,12 +527,11 @@ export default function AlbumEditorSidebar({
                                     <button
                                         key={id}
                                         type="button"
-                                        className={`ae-slot-btn${
-                                            gridSelection?.mode === 'cell' &&
+                                        className={`ae-slot-btn${gridSelection?.mode === 'cell' &&
                                             gridSelection?.cellId === id
-                                                ? ' ae-slot-btn--active'
-                                                : ''
-                                        }`}
+                                            ? ' ae-slot-btn--active'
+                                            : ''
+                                            }`}
                                         onClick={() => onSelectCell?.(id)}
                                     >
                                         {PROOF_CELL_LABELS[id]?.split(' ')[0] || id}
