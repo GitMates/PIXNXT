@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { getProxiedMediaFetchUrl } from '../../../lib/r2MediaProxy';
+import { resolveCoverLeatherPreset } from '../albumCoverColor';
 import { normalizePhotoTransform } from '../albumPageTransforms';
 
 const imageCache = new Map();
@@ -252,14 +253,63 @@ function blankTex() {
     return sharedBlank;
 }
 
-const BLANK_COVER_BG = '#ffffff';
 const BLANK_COVER_TEXT = '#374151';
 
-function blankCoverTitleCacheKey(title, panelAspect) {
-    return `blank-title:${title}:${panelAspect}`;
+function leatherPresetColors(preset, { spine = false } = {}) {
+    const resolved = preset?.base ? preset : resolveCoverLeatherPreset('cream');
+    return {
+        base: spine ? resolved.spine : resolved.base,
+        highlight: resolved.highlight,
+        shadow: resolved.shadow,
+        text: resolved.text,
+    };
 }
 
-function drawBlankCoverTitle(ctx, text, texW, texH) {
+function leatherGrainSeed(presetId, spine) {
+    let hash = spine ? 17 : 0;
+    const id = String(presetId || 'cream');
+    for (let i = 0; i < id.length; i += 1) {
+        hash = (hash * 31 + id.charCodeAt(i)) % 2147483647;
+    }
+    return hash || 1;
+}
+
+function leatherNoise(seed, x, y) {
+    const n = Math.sin(seed * 12.9898 + x * 78.233 + y * 37.719) * 43758.5453;
+    return n - Math.floor(n);
+}
+
+/** Procedural leather grain + gradient — matches 2D cover leather swatches. */
+export function drawLeatherPanel(ctx, texW, texH, preset, { spine = false, presetId = 'cream' } = {}) {
+    const colors = leatherPresetColors(preset, { spine });
+    const grad = ctx.createLinearGradient(0, 0, texW * 0.34, texH);
+    grad.addColorStop(0, colors.highlight);
+    grad.addColorStop(0.44, colors.base);
+    grad.addColorStop(1, colors.shadow);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, texW, texH);
+
+    const seed = leatherGrainSeed(presetId, spine);
+    const imgData = ctx.getImageData(0, 0, texW, texH);
+    const data = imgData.data;
+    const step = 2;
+    for (let y = 0; y < texH; y += step) {
+        for (let x = 0; x < texW; x += step) {
+            const grain = (leatherNoise(seed, x, y) - 0.5) * 28;
+            for (let dy = 0; dy < step && y + dy < texH; dy += 1) {
+                for (let dx = 0; dx < step && x + dx < texW; dx += 1) {
+                    const i = ((y + dy) * texW + (x + dx)) * 4;
+                    data[i] = Math.max(0, Math.min(255, data[i] + grain));
+                    data[i + 1] = Math.max(0, Math.min(255, data[i + 1] + grain));
+                    data[i + 2] = Math.max(0, Math.min(255, data[i + 2] + grain));
+                }
+            }
+        }
+    }
+    ctx.putImageData(imgData, 0, 0);
+}
+
+function drawDebossedTitle(ctx, text, texW, texH, textColor) {
     const upper = text.toUpperCase();
     const maxWidth = texW * 0.82;
     let fontSize = Math.min(texW * 0.14, texH * 0.12, 72);
@@ -268,19 +318,40 @@ function drawBlankCoverTitle(ctx, text, texW, texH) {
         if (ctx.measureText(upper).width <= maxWidth) break;
         fontSize -= 2;
     }
-    ctx.fillStyle = BLANK_COVER_TEXT;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(upper, texW / 2, texH / 2);
+    const cx = texW / 2;
+    const cy = texH / 2;
+    ctx.fillStyle = 'rgba(255,255,255,0.34)';
+    ctx.fillText(upper, cx + 1, cy + 1);
+    ctx.fillStyle = 'rgba(0,0,0,0.14)';
+    ctx.fillText(upper, cx - 1, cy - 1);
+    ctx.fillStyle = textColor || BLANK_COVER_TEXT;
+    ctx.fillText(upper, cx, cy);
 }
 
-/** White front panel + centered album title — matches 2D blank cover edit view. */
-export function createBlankCoverTitleTexture(title, panelAspect = 1) {
-    const trimmed = String(title || '').trim();
-    if (!trimmed) return null;
+function blankCoverTitleCacheKey(title, panelAspect, coverColorId) {
+    return `blank-title:${coverColorId}:${title}:${panelAspect}`;
+}
 
+function blankLeatherPanelCacheKey(panelAspect, coverColorId, spine) {
+    return `blank-leather:${coverColorId}:${spine ? 'spine' : 'panel'}:${panelAspect}`;
+}
+
+function drawBlankCoverTitle(ctx, text, texW, texH, coverColorId) {
+    const preset = resolveCoverLeatherPreset(coverColorId);
+    drawLeatherPanel(ctx, texW, texH, preset, { presetId: coverColorId });
+    const trimmed = String(text || '').trim();
+    if (trimmed) {
+        drawDebossedTitle(ctx, trimmed, texW, texH, preset.text);
+    }
+}
+
+/** Leather front panel + optional centered album title — matches 2D blank cover edit view. */
+export function createBlankCoverTitleTexture(title, panelAspect = 1, coverColorId = 'cream') {
+    const trimmed = String(title || '').trim();
     const aspect = panelAspect > 0 ? panelAspect : 1;
-    const key = blankCoverTitleCacheKey(trimmed, aspect);
+    const key = blankCoverTitleCacheKey(trimmed || '__plain__', aspect, coverColorId);
     const cached = textureCache.get(key);
     if (cached) return cached;
 
@@ -290,9 +361,7 @@ export function createBlankCoverTitleTexture(title, panelAspect = 1) {
     canvas.width = texW;
     canvas.height = texH;
     const ctx = canvas.getContext('2d');
-    ctx.fillStyle = BLANK_COVER_BG;
-    ctx.fillRect(0, 0, texW, texH);
-    drawBlankCoverTitle(ctx, trimmed, texW, texH);
+    drawBlankCoverTitle(ctx, trimmed, texW, texH, coverColorId);
 
     const tex = makeCanvasTexture(canvas);
     tex.__pixnxtLoaded = true;
@@ -300,21 +369,62 @@ export function createBlankCoverTitleTexture(title, panelAspect = 1) {
     return tex;
 }
 
-export function useBlankCoverTitleTexture(title, panelAspect) {
+export function createBlankLeatherPanelTexture(panelAspect = 1, coverColorId = 'cream', { spine = false } = {}) {
+    const aspect = panelAspect > 0 ? panelAspect : 1;
+    const key = blankLeatherPanelCacheKey(aspect, coverColorId, spine);
+    const cached = textureCache.get(key);
+    if (cached) return cached;
+
+    const texW = TEX_W;
+    const texH = Math.round(texW / aspect) || TEX_W;
+    const canvas = document.createElement('canvas');
+    canvas.width = texW;
+    canvas.height = texH;
+    const ctx = canvas.getContext('2d');
+    const preset = resolveCoverLeatherPreset(coverColorId);
+    drawLeatherPanel(ctx, texW, texH, preset, { spine, presetId: coverColorId });
+
+    const tex = makeCanvasTexture(canvas);
+    tex.__pixnxtLoaded = true;
+    textureCache.set(key, tex);
+    return tex;
+}
+
+/** @deprecated legacy cache entries without color id */
+export function useBlankCoverTitleTexture(title, panelAspect, coverColorId = 'cream') {
     const invalidate = useThree((state) => state.invalidate);
     const [texture, setTexture] = useState(() => blankTex());
 
     useEffect(() => {
-        const trimmed = String(title || '').trim();
-        if (!trimmed || !(panelAspect > 0)) {
+        if (!(panelAspect > 0)) {
             setTexture(blankTex());
             return undefined;
         }
-        const tex = createBlankCoverTitleTexture(trimmed, panelAspect) || blankTex();
+        const tex =
+            createBlankCoverTitleTexture(title, panelAspect, coverColorId) || blankTex();
         setTexture(tex);
         invalidate();
         return undefined;
-    }, [title, panelAspect, invalidate]);
+    }, [title, panelAspect, coverColorId, invalidate]);
+
+    return texture;
+}
+
+export function useBlankLeatherPanelTexture(panelAspect, coverColorId = 'cream', { spine = false } = {}) {
+    const invalidate = useThree((state) => state.invalidate);
+    const [texture, setTexture] = useState(() => blankTex());
+
+    useEffect(() => {
+        if (!(panelAspect > 0)) {
+            setTexture(blankTex());
+            return undefined;
+        }
+        const tex =
+            createBlankLeatherPanelTexture(panelAspect, coverColorId, { spine }) || blankTex();
+        setTexture(tex);
+        invalidate();
+        return undefined;
+    }, [panelAspect, coverColorId, spine, invalidate]);
 
     return texture;
 }

@@ -11,8 +11,9 @@ import {
     detectGridSizesFromFiles,
     formatGridSizeLabelForLayout,
     getAlbumUploadPixelTarget,
-    gridSizeFromDimensions,
     loadImageDimensionsFromFile,
+    spreadAspectFromPageGrid,
+    spreadGridSizeFromPageGrid,
 } from '../../components/smart-albums/albumGridSize';
 import {
     computePageCountFromPhotoCount,
@@ -24,6 +25,7 @@ import {
     createPdfPagePreviewThumbUrl,
     getPdfPageCount,
 } from './createAlbumPreviewThumbs';
+import { resolveCreateUploadPreviewLayout } from './createAlbumPreviewLayout';
 import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
 import {
     filesFromDataTransfer,
@@ -58,36 +60,22 @@ function formatSuggestionDate(eventDate) {
 }
 
 async function detectCreateAlbumGridSizes(coverFile, photoFiles, gridLayout) {
+    const innerGrid = photoFiles.length
+        ? await detectGridSizesFromFiles(photoFiles, {
+            gridLayout,
+            hasCovers: true,
+            blankCovers: true,
+        }).catch(() => ({ pageGridSize: 'square', spreadGridSize: null }))
+        : { pageGridSize: 'square', spreadGridSize: null };
+
     if (coverFile) {
-        let spreadGridSize = null;
-        if (isImageFile(coverFile)) {
-            try {
-                const dims = await loadImageDimensionsFromFile(coverFile);
-                spreadGridSize = gridSizeFromDimensions(dims.width, dims.height, {
-                    wholeSpread: false,
-                });
-            } catch {
-                spreadGridSize = null;
-            }
-        } else if (isPdfFile(coverFile)) {
-            const coverGrid = await detectGridSizesFromFiles([coverFile], { gridLayout }).catch(
-                () => ({ pageGridSize: 'square', spreadGridSize: null })
-            );
-            spreadGridSize = coverGrid.pageGridSize;
-        }
-
-        const innerGrid = photoFiles.length
-            ? await detectGridSizesFromFiles(photoFiles, {
-                gridLayout,
-                hasCovers: true,
-                blankCovers: true,
-            }).catch(() => ({ pageGridSize: 'square', spreadGridSize: null }))
-            : { pageGridSize: 'square', spreadGridSize: null };
-
+        // spread_grid_size = inner spread from photos; cover wrap aspect comes from the cover image at runtime.
         return {
             pageGridSize: innerGrid.pageGridSize,
             spreadGridSize:
-                spreadGridSize ?? blankCoverSpreadGridSize(innerGrid.pageGridSize),
+                innerGrid.spreadGridSize ??
+                spreadGridSizeFromPageGrid(innerGrid.pageGridSize, gridLayout) ??
+                blankCoverSpreadGridSize(innerGrid.pageGridSize),
         };
     }
 
@@ -105,6 +93,17 @@ function formatFileSize(bytes) {
     return `${(kb / 1024).toFixed(1)} MB`;
 }
 
+async function loadImageDimensionsFromUrl(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            resolve({ width: img.naturalWidth, height: img.naturalHeight });
+        };
+        img.onerror = () => reject(new Error('Could not read image'));
+        img.src = url;
+    });
+}
+
 const UploadPreviewCard = memo(function UploadPreviewCard({
     preview,
     index,
@@ -116,6 +115,8 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
     onDragEnd,
     isDragOver,
     roleLabel = null,
+    spreadLayout = null,
+    spreadAspect = 2,
 }) {
     const imgRef = useRef(null);
     const [imageLoaded, setImageLoaded] = useState(false);
@@ -133,6 +134,44 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
     }, []);
 
     const showSkeleton = preview.url && !imageLoaded;
+    const spreadMode = spreadLayout?.mode;
+    const isSpreadPreview = spreadMode === 'spread-whole' || spreadMode === 'spread-half';
+    const spreadSide = spreadLayout?.side;
+
+    const previewImage = preview.url ? (
+        <img
+            ref={imgRef}
+            className={`sa-preview-img${imageLoaded ? ' sa-preview-img--loaded' : ''}${
+                isSpreadPreview ? ' sa-preview-img--spread' : ''
+            }`}
+            src={preview.url}
+            alt={preview.name}
+            decoding="async"
+            loading="lazy"
+            draggable={false}
+            onLoad={handleImageLoad}
+        />
+    ) : null;
+
+    const spreadMedia =
+        isSpreadPreview && previewImage ? (
+            spreadMode === 'spread-whole' ? (
+                <div className="sa-preview-spread sa-preview-spread--whole">
+                    <div className="sa-preview-spread-page sa-preview-spread-page--full">
+                        {previewImage}
+                    </div>
+                </div>
+            ) : (
+                <div className="sa-preview-spread">
+                    <div className="sa-preview-spread-page">
+                        {spreadSide === 'left' ? previewImage : null}
+                    </div>
+                    <div className="sa-preview-spread-page">
+                        {spreadSide === 'right' ? previewImage : null}
+                    </div>
+                </div>
+            )
+        ) : null;
 
     return (
         <figure
@@ -172,20 +211,18 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
             >
                 x
             </button>
-            <div className="sa-preview-media">
+            <div
+                className={`sa-preview-media${isSpreadPreview ? ' sa-preview-media--spread' : ''}`}
+                style={
+                    isSpreadPreview
+                        ? { '--sa-preview-spread-aspect': spreadAspect }
+                        : undefined
+                }
+            >
                 {preview.url ? (
                     <>
                         {showSkeleton && <div className="sa-preview-skeleton" aria-hidden />}
-                        <img
-                            ref={imgRef}
-                            className={`sa-preview-img${imageLoaded ? ' sa-preview-img--loaded' : ''}`}
-                            src={preview.url}
-                            alt={preview.name}
-                            decoding="async"
-                            loading="lazy"
-                            draggable={false}
-                            onLoad={handleImageLoad}
-                        />
+                        {spreadMedia ?? previewImage}
                     </>
                 ) : !preview.thumbReady ? (
                     <div
@@ -379,6 +416,30 @@ const CreateAlbum = () => {
         });
     }, [displayPhotoCount, blankCovers, includeCoverSpreads, resolvedGridLayout]);
 
+    const previewSpreadAspect = useMemo(
+        () => spreadAspectFromPageGrid(detectedGridSize),
+        [detectedGridSize]
+    );
+
+    const previewSpreadLayouts = useMemo(
+        () =>
+            previewSlots.map((_, slotIndex) =>
+                resolveCreateUploadPreviewLayout(slotIndex, previewSlots, {
+                    pageGridSize: detectedGridSize,
+                    gridLayout: resolvedGridLayout,
+                    blankCovers,
+                    includeCovers: includeCoverSpreads,
+                })
+            ),
+        [
+            previewSlots,
+            detectedGridSize,
+            resolvedGridLayout,
+            blankCovers,
+            includeCoverSpreads,
+        ]
+    );
+
     const setProgress = (next) => {
         setCreateProgress(next);
     };
@@ -465,6 +526,16 @@ const CreateAlbum = () => {
                 if (isImageFile(file)) {
                     const url = URL.createObjectURL(file);
                     blobUrls.push(url);
+                    let width = null;
+                    let height = null;
+                    try {
+                        const dims = await loadImageDimensionsFromFile(file);
+                        width = dims.width;
+                        height = dims.height;
+                    } catch {
+                        width = null;
+                        height = null;
+                    }
                     slots.push({
                         id: `${fileKey}-img`,
                         fileIndex,
@@ -472,6 +543,8 @@ const CreateAlbum = () => {
                         name: file.name,
                         size: file.size,
                         url,
+                        width,
+                        height,
                         thumbReady: true,
                         isPdfPage: false,
                     });
@@ -507,8 +580,15 @@ const CreateAlbum = () => {
                 if (slot.pageIndex == null) continue;
                 const file = photoFiles[slot.fileIndex];
                 let url = null;
+                let width = null;
+                let height = null;
                 try {
                     url = await createPdfPagePreviewThumbUrl(file, slot.pageIndex + 1);
+                    if (url) {
+                        const dims = await loadImageDimensionsFromUrl(url);
+                        width = dims.width;
+                        height = dims.height;
+                    }
                 } catch {
                     url = null;
                 }
@@ -516,7 +596,13 @@ const CreateAlbum = () => {
                 setPreviewSlots((prev) =>
                     prev.map((item) =>
                         item.id === slot.id
-                            ? { ...item, url: url || null, thumbReady: true }
+                            ? {
+                                  ...item,
+                                  url: url || null,
+                                  width,
+                                  height,
+                                  thumbReady: true,
+                              }
                             : item
                     )
                 );
@@ -1177,6 +1263,8 @@ const CreateAlbum = () => {
                                                 key={preview.id}
                                                 preview={{ ...preview, index }}
                                                 index={index}
+                                                spreadLayout={previewSpreadLayouts[index]}
+                                                spreadAspect={previewSpreadAspect}
                                                 onRemove={handleRemovePreview}
                                                 animateIn={animatePreviewCards}
                                                 onDragStart={handlePreviewDragStart}

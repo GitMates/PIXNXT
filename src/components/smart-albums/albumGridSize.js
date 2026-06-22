@@ -451,18 +451,40 @@ export function formatAlbumGridSizeDisplay(album) {
 export function innerSpreadGridSizeFromAlbum(album) {
     const pageGridSize = album?.grid_size || 'square';
     const gridLayout = album?.grid_layout || 'two-page';
+    const pageDerived =
+        spreadGridSizeFromPageGrid(pageGridSize, gridLayout) ??
+        gridSizeFromAspect(parseGridSizeAspect(pageGridSize) * 2);
 
-    if (isWholeSpreadLayout(gridLayout)) {
-        if (albumHasBlankCovers(album) && album?.spread_grid_size) {
-            return album.spread_grid_size;
-        }
-        return (
-            spreadGridSizeFromPageGrid(pageGridSize, gridLayout) ??
-            gridSizeFromAspect(parseGridSizeAspect(pageGridSize) * 2)
-        );
+    if (!isWholeSpreadLayout(gridLayout)) {
+        return gridSizeFromAspect(parseGridSizeAspect(pageGridSize) * 2);
     }
 
-    return gridSizeFromAspect(parseGridSizeAspect(pageGridSize) * 2);
+    if (!album?.spread_grid_size) {
+        return pageDerived;
+    }
+
+    // Non-blank book wrap: spread_grid_size is the cover wrap image, not inner spread.
+    if (!albumHasBlankCovers(album) && album?.has_covers === true) {
+        return pageDerived;
+    }
+
+    // Blank covers: spread_grid_size should be inner spread from photo detection.
+    // Legacy albums may have stored the wider cover wrap here — detect and fall back.
+    const spreadAspect = parseGridSizeAspect(album.spread_grid_size);
+    const pageDerivedAspect = parseGridSizeAspect(pageDerived);
+    if (album?.__wrap_aspect > 0 && spreadAspect >= album.__wrap_aspect * 0.98) {
+        return pageDerived;
+    }
+    if (spreadAspect > pageDerivedAspect * 1.05) {
+        return pageDerived;
+    }
+
+    return album.spread_grid_size;
+}
+
+/** Inner two-page spread aspect (width ÷ height), not cover wrap. */
+export function innerSpreadAspectFromAlbum(album) {
+    return parseGridSizeAspect(innerSpreadGridSizeFromAlbum(album));
 }
 
 /** Spread ratio only for album settings. */
@@ -496,6 +518,67 @@ export function parseCustomAspectRatioInput(value) {
 /** Stored value for a custom ratio, e.g. custom-3-2 */
 export function customGridSizeKey({ w, h }) {
     return `custom-${w}-${h}`;
+}
+
+/** Width and height from a grid size key (custom uses stored numbers; presets use aspect × 1). */
+export function parseGridSizeWidthHeight(gridSize) {
+    const stored = String(gridSize || '').match(/^custom-(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+    if (stored) {
+        const width = Number(stored[1]);
+        const height = Number(stored[2]);
+        if (width > 0 && height > 0) {
+            return { width, height };
+        }
+    }
+    const aspect = parseGridSizeAspect(gridSize);
+    return { width: aspect, height: 1 };
+}
+
+/** Inner spread width/height from album page grid (two-page = double page width). */
+export function innerSpreadWidthHeightFromAlbum(album) {
+    const pageGridSize = album?.grid_size || 'square';
+    const gridLayout = album?.grid_layout || 'two-page';
+    if (isWholeSpreadLayout(gridLayout)) {
+        return parseGridSizeWidthHeight(innerSpreadGridSizeFromAlbum(album));
+    }
+    const page = parseGridSizeWidthHeight(pageGridSize);
+    return { width: page.width * 2, height: page.height };
+}
+
+/** Cover wrap width/height — prefers live cover image aspect when provided. */
+export function coverSpreadWidthHeightFromAlbum(album, wrapAspect = null) {
+    if (wrapAspect > 0) {
+        const coverFromGrid = album?.spread_grid_size
+            ? parseGridSizeWidthHeight(album.spread_grid_size)
+            : null;
+        if (coverFromGrid?.height > 0) {
+            return {
+                width: wrapAspect * coverFromGrid.height,
+                height: coverFromGrid.height,
+            };
+        }
+        return { width: wrapAspect, height: 1 };
+    }
+    if (album?.spread_grid_size) {
+        return parseGridSizeWidthHeight(album.spread_grid_size);
+    }
+    return null;
+}
+
+/** Spine strip width in the same units as cover/inner sizes (cover width − inner spread width). */
+export function computeSpineWidthUnits(innerSize, coverSize) {
+    if (!innerSize?.width || !coverSize?.width || !innerSize?.height || !coverSize?.height) {
+        return null;
+    }
+    const innerWidthAtCoverHeight = innerSize.width * (coverSize.height / innerSize.height);
+    const spine = coverSize.width - innerWidthAtCoverHeight;
+    return spine > 0.001 ? spine : 0;
+}
+
+export function formatSpineWidthUnits(value) {
+    if (value == null || !(value > 0)) return null;
+    if (Number.isInteger(value)) return String(value);
+    return String(Math.round(value * 10) / 10);
 }
 
 export function parseGridSizeAspect(gridSize) {

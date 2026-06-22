@@ -1,6 +1,11 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from '../albumCoverText';
+import {
+    COVER_COLOR_CHANGED_EVENT,
+    getAlbumCoverColor,
+    resolveCoverLeatherPreset,
+} from '../albumCoverColor';
 import { resolveBookWrapSpreadSrc } from '../albumPagePhotos';
 import { getSpreadPhotoTransform } from '../albumPageTransforms';
 import { getSpreadContext, getTotalSpreads } from '../albumSpreadUtils';
@@ -14,7 +19,7 @@ import {
     SPINE_DARK,
     PAGE_WHITE,
 } from './book3dTextures';
-import { useBlankCoverTitleTexture, useCanvasWrapTexture } from './book3dPageCanvas';
+import { useBlankCoverTitleTexture, useBlankLeatherPanelTexture, useCanvasWrapTexture } from './book3dPageCanvas';
 
 const COVER_THICK = 0.045;
 const SPINE_EMPTY = '#e4e7ec';
@@ -42,6 +47,7 @@ function ClosedBook({
     spineTexture,
     blankCover,
     blankNoPhoto,
+    leatherPreset,
     hasFrontPhoto,
     hasBackPhoto,
     hasSpinePhoto,
@@ -53,9 +59,20 @@ function ClosedBook({
     const coverH = height + boardPad;
     const halfCoverW = coverW / 2;
     const outerZ = pageDepth / 2 + COVER_THICK;
-    const boardColor = blankNoPhoto ? '#ffffff' : blankCover ? HARDCOVER_GREEN : SPINE_DARK;
-    const backFallbackColor = blankNoPhoto ? '#eceef1' : boardColor;
-    const spineFallback = showSpinePanel ? SPINE_EMPTY : SPINE_DARK;
+    const hasLeather = Boolean(leatherPreset);
+    const boardColor = hasLeather
+        ? leatherPreset.base
+        : blankNoPhoto
+          ? '#ffffff'
+          : blankCover
+            ? HARDCOVER_GREEN
+            : SPINE_DARK;
+    const backFallbackColor = hasLeather ? leatherPreset.base : blankNoPhoto ? '#eceef1' : boardColor;
+    const spineFallback = hasLeather
+        ? leatherPreset.spine
+        : showSpinePanel
+          ? SPINE_EMPTY
+          : SPINE_DARK;
 
     return (
         <group>
@@ -81,6 +98,8 @@ function ClosedBook({
             >
                 <planeGeometry args={[totalDepth, coverH]} />
                 {hasSpinePhoto ? (
+                    <CoverPhotoMaterial map={spineTexture} side={THREE.DoubleSide} />
+                ) : showSpinePanel && hasLeather ? (
                     <CoverPhotoMaterial map={spineTexture} side={THREE.DoubleSide} />
                 ) : showSpinePanel ? (
                     <meshBasicMaterial color={spineFallback} toneMapped={false} side={THREE.DoubleSide} />
@@ -110,6 +129,8 @@ function ClosedBook({
                 <planeGeometry args={[coverW, coverH]} />
                 {hasBackPhoto ? (
                     <CoverPhotoMaterial map={backTexture} />
+                ) : hasLeather ? (
+                    <CoverPhotoMaterial map={backTexture} />
                 ) : (
                     <MatteMaterial color={backFallbackColor} />
                 )}
@@ -130,6 +151,7 @@ export default function BookCoverModel({
     const spreadOpts = useMemo(() => getSpreadContext(album, totalPages), [album, totalPages]);
     const [spineBoundsTick, setSpineBoundsTick] = useState(0);
     const [coverTextTick, setCoverTextTick] = useState(0);
+    const [coverColorTick, setCoverColorTick] = useState(0);
 
     const { width, height, aspect: pageAspect } = useMemo(() => {
         if (pageWorldDims?.width > 0 && pageWorldDims?.height > 0) {
@@ -160,6 +182,15 @@ export default function BookCoverModel({
         return () => window.removeEventListener(COVER_TEXT_CHANGED_EVENT, onCoverTextChanged);
     }, [album?.id]);
 
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onCoverColorChanged = (e) => {
+            if (e.detail?.albumId === album.id) setCoverColorTick((t) => t + 1);
+        };
+        window.addEventListener(COVER_COLOR_CHANGED_EVENT, onCoverColorChanged);
+        return () => window.removeEventListener(COVER_COLOR_CHANGED_EVENT, onCoverColorChanged);
+    }, [album?.id]);
+
     const wrapLayout = useMemo(() => {
         if (!album) return null;
         return getBookWrapSpineLayout(album);
@@ -175,20 +206,30 @@ export default function BookCoverModel({
     );
     const blankCover = isBlankCoverAlbum(album);
     const blankNoPhoto = blankCover && !coverSrc;
+    const coverColorId = useMemo(() => {
+        void coverColorTick;
+        return album?.id ? getAlbumCoverColor(album.id) : 'cream';
+    }, [album?.id, coverColorTick]);
+    const leatherPreset = blankNoPhoto ? resolveCoverLeatherPreset(coverColorId) : null;
     const useWrapCrop = shouldUseWrapCrop(album, coverSrc, wrapLayout);
-    const showSpinePanel = Boolean(useWrapCrop && wrapLayout?.hasSpine);
+    const showSpinePanel = Boolean(blankNoPhoto || (useWrapCrop && wrapLayout?.hasSpine));
 
     const coverTitle = useMemo(
         () => (blankNoPhoto ? resolveFrontCoverDisplayText(album, album?.id) : ''),
         [album, blankNoPhoto, coverTextTick]
     );
-    const blankTitleFrontTex = useBlankCoverTitleTexture(coverTitle, pageAspect);
-    const hasBlankTitleFront = Boolean(blankNoPhoto && coverTitle);
 
     const spineBindingAspect = useMemo(() => {
         const totalDepth = pageDepth + COVER_THICK * 2;
         return totalDepth / coverH;
     }, [pageDepth, coverH]);
+
+    const blankTitleFrontTex = useBlankCoverTitleTexture(coverTitle, pageAspect, coverColorId);
+    const blankLeatherBackTex = useBlankLeatherPanelTexture(pageAspect, coverColorId, { spine: false });
+    const blankLeatherSpineTex = useBlankLeatherPanelTexture(spineBindingAspect, coverColorId, {
+        spine: true,
+    });
+    const hasBlankLeatherFront = Boolean(blankNoPhoto);
 
     const closedFrontTex = useCanvasWrapTexture(
         useWrapCrop ? coverSrc : null,
@@ -238,13 +279,17 @@ export default function BookCoverModel({
                 height={height}
                 pageDepth={pageDepth}
                 frontTexture={coverSrc ? closedFrontTex : blankTitleFrontTex}
-                backTexture={closedBackTex}
-                spineTexture={closedSpineTex}
+                backTexture={blankNoPhoto ? blankLeatherBackTex : closedBackTex}
+                spineTexture={blankNoPhoto ? blankLeatherSpineTex : closedSpineTex}
                 blankCover={blankCover}
                 blankNoPhoto={blankNoPhoto}
-                hasFrontPhoto={Boolean(coverSrc || hasBlankTitleFront)}
-                hasBackPhoto={Boolean(coverSrc && useWrapCrop)}
-                hasSpinePhoto={Boolean(coverSrc && useWrapCrop && wrapLayout?.hasSpine)}
+                leatherPreset={leatherPreset}
+                hasFrontPhoto={Boolean(coverSrc || hasBlankLeatherFront)}
+                hasBackPhoto={Boolean(coverSrc && useWrapCrop) || blankNoPhoto}
+                hasSpinePhoto={
+                    Boolean(coverSrc && useWrapCrop && wrapLayout?.hasSpine) ||
+                    (blankNoPhoto && showSpinePanel)
+                }
                 showSpinePanel={showSpinePanel}
             />
         </group>

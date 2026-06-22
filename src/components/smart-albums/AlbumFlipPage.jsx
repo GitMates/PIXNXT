@@ -27,6 +27,11 @@ import {
 import { getAlbumLayoutPhotoCount } from './albumCollection';
 import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
 import {
+    COVER_COLOR_CHANGED_EVENT,
+    getAlbumCoverColor,
+    getCoverLeatherCssVars,
+} from './albumCoverColor';
+import {
     getAlbumSpreadOptions,
     getEndSpreadPageRole,
     getLastSpreadInfo,
@@ -200,6 +205,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const liveShowGridComments = ctx.showGridComments ?? showGridComments;
     const [spineBoundsTick, setSpineBoundsTick] = useState(0);
     const [coverTextTick, setCoverTextTick] = useState(0);
+    const [coverColorTick, setCoverColorTick] = useState(0);
     useEffect(() => {
         if (!album?.id) return undefined;
         const onChanged = (e) => {
@@ -215,6 +221,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         };
         window.addEventListener(COVER_TEXT_CHANGED_EVENT, onTextChanged);
         return () => window.removeEventListener(COVER_TEXT_CHANGED_EVENT, onTextChanged);
+    }, [album?.id]);
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onColorChanged = (e) => {
+            if (e.detail?.albumId === album.id) setCoverColorTick((t) => t + 1);
+        };
+        window.addEventListener(COVER_COLOR_CHANGED_EVENT, onColorChanged);
+        return () => window.removeEventListener(COVER_COLOR_CHANGED_EVENT, onColorChanged);
     }, [album?.id]);
     const bookWrapSpineLayout = useMemo(
         () => {
@@ -339,10 +353,17 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
 
     const isFrontCoverRightPage = coverLayoutOpts.hasCovers && pageNum === 1;
     void coverTextTick;
+    void coverColorTick;
     const coverText =
         isFrontCoverRightPage
             ? resolveFrontCoverDisplayText(album, albumId)
             : '';
+    const showLeatherCover =
+        album?.blank_covers === true && !src && isFrontCoverRightPage;
+    const leatherVars =
+        showLeatherCover && albumId
+            ? getCoverLeatherCssVars(getAlbumCoverColor(albumId))
+            : null;
     const coverPlacementMode = placementMode;
     const showStar = pageNum === 1 && album?.is_starred;
     const canSelectCover = isFrontCoverRightPage && editable && !spreadEdit;
@@ -1135,6 +1156,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             <PageWrapTag
                 type={canSelectCover ? 'button' : undefined}
                 className={`ab-page-photo-wrap${
+                    showLeatherCover ? ' ab-front-cover-photo--leather ab-cover-leather' : ''
+                }${
                     canSelectCover ? ' ab-page-photo-wrap--interactive' : ''
                 }${liveProofToolsHover && coverProofTools && !livePinModeActive ? ' ab-page-photo-wrap--swap' : ''}${
                     coverSwapMarkInfo
@@ -1147,6 +1170,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 }`}
                 onClick={canSelectCover ? () => liveOnSelectCover?.() : undefined}
                 aria-label={canSelectCover ? 'Choose cover photo' : undefined}
+                style={showLeatherCover ? leatherVars : undefined}
             >
                 <AlbumPhotoPinLayer
                     hasPhoto={Boolean(src)}
@@ -1253,7 +1277,9 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         )
                     ) : isFrontCoverRightPage && coverText ? (
                         <div
-                            className="ab-cover-text-message ab-cover-text-message--on-blank"
+                            className={`ab-cover-text-message ab-cover-text-message--on-blank${
+                                showLeatherCover ? ' ab-cover-text-message--leather' : ''
+                            }`}
                             aria-hidden
                         >
                             {coverText}

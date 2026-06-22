@@ -371,11 +371,6 @@ export default function AlbumEditor({
             setWrapAspect(null);
             return undefined;
         }
-        const blankCovers = albumHasBlankCovers(album);
-        if (!blankCovers && album?.spread_grid_size) {
-            setWrapAspect(null);
-            return undefined;
-        }
         const src = resolveBookWrapSpreadSrc({ ...album, id: albumId }, { showSamples: false });
         if (!src) {
             setWrapAspect(null);
@@ -393,7 +388,6 @@ export default function AlbumEditor({
         albumId,
         album?.has_covers,
         album?.blank_covers,
-        album?.spread_grid_size,
         photoRevision,
         photoLayoutRev,
         transformRevision,

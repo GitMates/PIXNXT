@@ -3,6 +3,11 @@ import { photoTransformStyle } from './albumPageTransforms';
 import { getBookWrapSpineLayout } from './bookWrapSpine';
 import BookWrapSpineImage from './BookWrapSpineImage';
 import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
+import {
+    COVER_COLOR_CHANGED_EVENT,
+    getAlbumCoverColor,
+    getCoverLeatherCssVars,
+} from './albumCoverColor';
 import { parseGridSizeAspect } from './albumGridSize';
 import {
     CSS_FLIP_SHEETS,
@@ -17,12 +22,21 @@ export function isCoverSpread(spreadIndex) {
     return spreadIndex <= 0;
 }
 
-function PageFace({ face, spineLayout, coverText, showCoverText }) {
+function PageFace({ face, spineLayout, coverText, showCoverText, leatherVars }) {
     if (!face?.src) {
         if (face?.kind === 'cover-front' && showCoverText && coverText) {
             return (
-                <div className="css-flip-book-cover css-flip-book-cover--blank">
-                    <div className="ab-cover-text-message ab-cover-text-message--on-blank">
+                <div
+                    className={`css-flip-book-cover css-flip-book-cover--blank${
+                        leatherVars ? ' ab-cover-leather' : ''
+                    }`}
+                    style={leatherVars || undefined}
+                >
+                    <div
+                        className={`ab-cover-text-message ab-cover-text-message--on-blank${
+                            leatherVars ? ' ab-cover-text-message--leather' : ''
+                        }`}
+                    >
                         {coverText}
                     </div>
                 </div>
@@ -105,6 +119,7 @@ export default function CssFlipBook({
     const shellRef = useRef(null);
     const bookRef = useRef(null);
     const [coverTextTick, setCoverTextTick] = useState(0);
+    const [coverColorTick, setCoverColorTick] = useState(0);
     const [measuredSize, setMeasuredSize] = useState(null);
     const isControlled = typeof onFlipRequest === 'function';
 
@@ -133,7 +148,12 @@ export default function CssFlipBook({
     }, [album, totalPages, showSamples]);
 
     void coverTextTick;
+    void coverColorTick;
     const coverText = resolveFrontCoverDisplayText(album, albumId);
+    const leatherVars =
+        album?.blank_covers === true && albumId
+            ? getCoverLeatherCssVars(getAlbumCoverColor(albumId))
+            : null;
     const flippedIds = cssFlipCountToCheckboxIds(flipCount);
 
     useEffect(() => {
@@ -163,6 +183,15 @@ export default function CssFlipBook({
         };
         window.addEventListener(COVER_TEXT_CHANGED_EVENT, onChange);
         return () => window.removeEventListener(COVER_TEXT_CHANGED_EVENT, onChange);
+    }, [albumId]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const onChange = (e) => {
+            if (e.detail?.albumId === albumId) setCoverColorTick((t) => t + 1);
+        };
+        window.addEventListener(COVER_COLOR_CHANGED_EVENT, onChange);
+        return () => window.removeEventListener(COVER_COLOR_CHANGED_EVENT, onChange);
     }, [albumId]);
 
     useEffect(() => {
@@ -240,6 +269,13 @@ export default function CssFlipBook({
                                     spineLayout={spineLayout}
                                     coverText={coverText}
                                     showCoverText={frontPage === 1}
+                                    leatherVars={
+                                        frontPage === 1 &&
+                                        album?.blank_covers === true &&
+                                        !pageFaces[`${pageId}-front`]?.src
+                                            ? leatherVars
+                                            : null
+                                    }
                                 />
                             </div>
                             <div className="back">

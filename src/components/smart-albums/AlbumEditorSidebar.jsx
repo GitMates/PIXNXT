@@ -10,6 +10,7 @@ import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
 import CollectionSpreadThumb from './CollectionSpreadThumb';
+import CoverLeatherColorPicker from './CoverLeatherColorPicker';
 import { resolveCollectionThumbLayout } from './collectionThumbLayout';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
 import {
@@ -576,6 +577,9 @@ export default function AlbumEditorSidebar({
                                     Replaces the photo on the cover you are viewing
                                 </span>
                             </button>
+                            {albumHasBlankCovers(album) ? (
+                                <CoverLeatherColorPicker albumId={albumId} />
+                            ) : null}
                         </div>
                     </>
                 )}
