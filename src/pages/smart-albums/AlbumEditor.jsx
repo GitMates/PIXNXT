@@ -4,6 +4,7 @@ import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumCoverEditView from '../../components/smart-albums/AlbumCoverEditView';
 import AlbumCoverTextModal from '../../components/smart-albums/AlbumCoverTextModal';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
+import AlbumEditorNotifications from '../../components/smart-albums/AlbumEditorNotifications';
 import {
     COVER_TEXT_CHANGED_EVENT,
     getAlbumCoverText,
@@ -314,6 +315,10 @@ export default function AlbumEditor({
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
     const [publishBusy, setPublishBusy] = useState(false);
+    const [spreadCommentStats, setSpreadCommentStats] = useState({
+        unresolved: 0,
+        total: 0,
+    });
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const [proofSeenTick, setProofSeenTick] = useState(0);
@@ -1701,6 +1706,16 @@ export default function AlbumEditor({
         }
     }, [user?.id, albumId, published, publishBusy, onAlbumUpdate, showToast]);
 
+    const handleNotificationSelect = useCallback(
+        ({ page, panel }) => {
+            const editorPanel = panel === 'comments' ? 'pin' : panel || 'pin';
+            setActivePanel(editorPanel);
+            handleBookPageChange(page);
+            syncSelectionToPage(page);
+        },
+        [handleBookPageChange, syncSelectionToPage]
+    );
+
     const spreadEdit = activePanel === 'edit';
     const coverEditMode = activePanel === 'cover' && albumHasCoverSpreads(album);
 
@@ -1804,22 +1819,46 @@ export default function AlbumEditor({
                         <span className="ae-topbar-eyebrow">Smart album · Edit</span>
                         <h1 className="ae-topbar-title">{album.name}</h1>
                     </div>
-                    <button
-                        type="button"
-                        className={`ae-status-badge${published ? ' ae-status-badge--published' : ''}`}
-                        onClick={handlePublishToggle}
-                        disabled={!user?.id || publishBusy}
+                    <div
+                        className="ae-publish-toggle"
+                        role="group"
+                        aria-label="Album visibility"
                         aria-busy={publishBusy}
-                        title={
-                            published
-                                ? 'Click to move album to draft'
-                                : 'Click to publish album for clients'
-                        }
                     >
-                        {publishBusy ? '…' : published ? 'Published' : 'Draft'}
-                    </button>
+                        <button
+                            type="button"
+                            className={`ae-publish-toggle-option${
+                                !published ? ' ae-publish-toggle-option--active' : ''
+                            }`}
+                            onClick={() => {
+                                if (published) handlePublishToggle();
+                            }}
+                            disabled={!user?.id || publishBusy}
+                        >
+                            Draft
+                        </button>
+                        <button
+                            type="button"
+                            className={`ae-publish-toggle-option ae-publish-toggle-option--published${
+                                published ? ' ae-publish-toggle-option--active' : ''
+                            }`}
+                            onClick={() => {
+                                if (!published) handlePublishToggle();
+                            }}
+                            disabled={!user?.id || publishBusy}
+                        >
+                            {publishBusy ? '…' : 'Published'}
+                        </button>
+                    </div>
                 </div>
                 <div className="ae-topbar-right">
+                    <AlbumEditorNotifications
+                        album={album}
+                        totalPages={totalPages}
+                        spreadUnresolved={spreadCommentStats.unresolved}
+                        spreadTotal={spreadCommentStats.total}
+                        onSelectNotification={handleNotificationSelect}
+                    />
                     <button
                         type="button"
                         className="ae-btn-secondary"
@@ -1987,6 +2026,7 @@ export default function AlbumEditor({
                     onNavigateToSwapSlotKey={handleNavigateToSwapSlotKey}
                     onReorderCollectionItem={handleReorderCollectionItem}
                     proofSeenTick={proofSeenTick}
+                    onSpreadStatsChange={setSpreadCommentStats}
                 />
             </div>
 

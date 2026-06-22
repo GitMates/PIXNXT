@@ -1,9 +1,5 @@
 import React from 'react';
-import {
-    formatCommentDateTime,
-    isGuestCommentUnseen,
-} from '../../services/smartAlbumComments.service';
-import { formatSpreadDisplayLabel } from './albumSpreadUtils';
+import { formatCommentDateTime, isGuestCommentUnseen } from '../../services/smartAlbumComments.service';
 import {
     isPhotoPinUnseen,
     markPhotoPinsSeen,
@@ -16,13 +12,6 @@ import {
 } from './albumSwapMarks';
 import AlbumPreviewReplacementCard from './AlbumPreviewReplacementCard';
 import ProofDoneButton from './ProofDoneButton';
-
-function formatChatTime(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return '';
-    return d.toLocaleString([], { hour: 'numeric', minute: '2-digit' });
-}
 
 function shortenSpreadLabel(label) {
     const match = String(label || '').match(/Spread\s+\d+/i);
@@ -87,12 +76,8 @@ export default function AlbumPreviewSpreadFeed({
             {feed.map((item) => {
                 if (item.kind === 'photographer-message') {
                     const comment = item.comment;
-                    const createdAtLabel = formatChatTime(
+                    const createdAtLabel = formatCommentDateTime(
                         comment.updated_at || comment.created_at
-                    );
-                    const messageSpreadLabel = formatSpreadDisplayLabel(
-                        comment.spread_index,
-                        spreadOpts
                     );
                     const unseen = isGuestCommentUnseen(albumId, comment);
                     const outgoing = proofMode;
@@ -111,9 +96,6 @@ export default function AlbumPreviewSpreadFeed({
                             ) : null}
                             <div className="av-chat-bubble-text">{comment.body}</div>
                             <footer className="av-chat-bubble-foot">
-                                {messageSpreadLabel ? (
-                                    <span className="av-chat-bubble-spread">{messageSpreadLabel}</span>
-                                ) : null}
                                 {createdAtLabel ? (
                                     <time
                                         dateTime={comment.updated_at || comment.created_at}

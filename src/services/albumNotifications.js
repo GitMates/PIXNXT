@@ -321,6 +321,21 @@ export async function listPhotographerNotifications(albums) {
     );
 }
 
+export async function listAlbumNotificationsForAlbum(album) {
+    if (!album?.id) return [];
+    const dismissed = readDismissed();
+    const syncItems = collectSyncNotificationsForAlbum(album, dismissed);
+    const commentItems = await collectCommentNotificationsForAlbum(album, dismissed);
+    return [...syncItems, ...commentItems].sort(
+        (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+}
+
+export async function countUnreadAlbumNotifications(album) {
+    const items = await listAlbumNotificationsForAlbum(album);
+    return items.filter((item) => item.isUnread).length;
+}
+
 export async function countUnreadPhotographerNotifications(albums) {
     const items = await listPhotographerNotifications(albums);
     return items.filter((item) => item.isUnread).length;

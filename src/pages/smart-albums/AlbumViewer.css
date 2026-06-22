@@ -675,11 +675,13 @@
 
 .av-chat-bubble--in {
   background: #fff;
+  border: 1px solid rgba(11, 20, 26, 0.1);
   border-top-left-radius: 0;
 }
 
 .av-chat-bubble--out {
-  background: #d9fdd3;
+  background: #f0fdf4;
+  border: 1px solid rgba(11, 20, 26, 0.06);
   border-top-right-radius: 0;
 }
 
@@ -748,7 +750,27 @@
 }
 
 .av-chat-bubble--out .av-chat-bubble-sender--swap {
-  color: #128c7e;
+  color: #6b9b8a;
+}
+
+.av-chat-bubble--out .av-chat-bubble-foot time {
+  color: #8fa89a;
+}
+
+.av-chat-bubble--out .av-chat-action {
+  color: #7eb0c9;
+}
+
+.av-chat-bubble--out .av-chat-action:hover {
+  color: #6a9db8;
+}
+
+.av-chat-bubble--out .av-chat-action--danger {
+  color: #d4a0a0;
+}
+
+.av-chat-bubble--out .av-chat-action--danger:hover {
+  color: #c48f8f;
 }
 
 .av-chat-swap-route {

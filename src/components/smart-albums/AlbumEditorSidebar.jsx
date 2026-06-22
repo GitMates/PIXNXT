@@ -15,7 +15,6 @@ import {
 import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
-import ProofPanelStats from './ProofPanelStats';
 import CollectionSpreadThumb from './CollectionSpreadThumb';
 import { resolveCollectionThumbLayout } from './collectionThumbLayout';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
@@ -110,6 +109,7 @@ export default function AlbumEditorSidebar({
     onNavigateToSwapSlotKey = null,
     onReorderCollectionItem = null,
     proofSeenTick = 0,
+    onSpreadStatsChange = null,
 }) {
     const fileRef = useRef(null);
     const collectionDragFromRef = useRef(null);
@@ -256,6 +256,14 @@ export default function AlbumEditorSidebar({
     const spreadPanelUnresolved =
         countUnseenPhotoPins(albumId, visiblePhotoPins) +
         (swapsEnabled ? countUnseenSwapMarks(albumId, visibleSwapMarks) : 0);
+
+    useEffect(() => {
+        onSpreadStatsChange?.({
+            unresolved: spreadPanelUnresolved,
+            total: spreadPanelCount,
+        });
+    }, [spreadPanelUnresolved, spreadPanelCount, onSpreadStatsChange]);
+
     const navItems = NAV_BASE.filter(
         (item) => !item.requiresCovers || album?.has_covers === true
     );
@@ -401,12 +409,6 @@ export default function AlbumEditorSidebar({
                     <div className="ae-panel-pin-layout">
                         <div className="ae-panel-pin-body">
                             <h3 className="ae-panel-title">Comment</h3>
-                            <ProofPanelStats
-                                unresolved={spreadPanelUnresolved}
-                                total={spreadPanelCount}
-                                totalLabel="On this spread"
-                                compact
-                            />
                             {spreadPanelCount === 0 ? (
                                 <p className="av-preview-sidebar-text ae-swap-marks-empty">
                                     No comments, swap requests, or photo changes on this spread
