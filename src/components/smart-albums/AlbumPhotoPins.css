@@ -209,6 +209,10 @@
   background: rgba(32, 32, 32, 0.9);
 }
 
+.ab-spot-action-btn--swap .ab-spot-action-btn-icon {
+  transform: rotate(90deg);
+}
+
 .ab-spot-inline-composer {
   position: absolute;
   z-index: 8;
@@ -568,6 +572,7 @@
 
 .ab-photo-pin-swap-icon {
   display: block;
+  transform: rotate(90deg);
 }
 
 .ab-photo-pin-marker-icon {

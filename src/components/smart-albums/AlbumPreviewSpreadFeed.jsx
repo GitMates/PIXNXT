@@ -15,6 +15,7 @@ import {
     markSwapMarksSeen,
 } from './albumSwapMarks';
 import AlbumPreviewReplacementCard from './AlbumPreviewReplacementCard';
+import SwapIcon from './SwapIcon';
 import ProofDoneButton from './ProofDoneButton';
 
 function shortenSpreadLabel(label) {
@@ -381,7 +382,7 @@ export default function AlbumPreviewSpreadFeed({
                                 {shortenSpreadLabel(swapItem.labelA)}
                             </button>
                             <span className="av-chat-swap-arrow" aria-hidden>
-                                ↔
+                                <SwapIcon className="av-chat-swap-arrow-icon" size={12} />
                             </span>
                             <button
                                 type="button"

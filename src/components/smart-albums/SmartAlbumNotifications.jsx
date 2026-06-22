@@ -267,14 +267,21 @@ export default function SmartAlbumNotifications({ userId }) {
                                             role="menuitem"
                                             onClick={() => handleSelect(item)}
                                         >
-                                            <span className="sa-notifications-item-type">
-                                                {item.isUnread && (
-                                                    <span
-                                                        className="sa-notifications-unread-dot"
-                                                        aria-hidden
-                                                    />
-                                                )}
-                                                {getNotificationTypeLabel(item.type)}
+                                            <span className="sa-notifications-item-top">
+                                                <span className="sa-notifications-item-type">
+                                                    {item.isUnread && (
+                                                        <span
+                                                            className="sa-notifications-unread-dot"
+                                                            aria-hidden
+                                                        />
+                                                    )}
+                                                    {getNotificationTypeLabel(item.type)}
+                                                </span>
+                                                {!item.isUnread ? (
+                                                    <span className="sa-notifications-item-status">
+                                                        Resolved
+                                                    </span>
+                                                ) : null}
                                             </span>
                                             <span className="sa-notifications-item-album">
                                                 {item.albumName}

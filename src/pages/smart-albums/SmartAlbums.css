@@ -532,6 +532,16 @@
   color: #9b59b6;
 }
 
+.sa-notifications-item-status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ca3af;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
 .sa-notifications-unread-dot {
   width: 7px;
   height: 7px;

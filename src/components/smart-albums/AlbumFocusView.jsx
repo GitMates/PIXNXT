@@ -13,7 +13,12 @@ import {
 } from './albumSpreadUtils';
 import { installSafePageFlip } from './pageFlipSafe';
 import { closeAlbumPinPopovers } from './albumPinPopoverEvents';
-import { getFullscreenElement, onFullscreenChange } from '../../lib/fullscreenUtils';
+import {
+    exitDocumentFullscreen,
+    getFullscreenElement,
+    onFullscreenChange,
+    requestElementFullscreen,
+} from '../../lib/fullscreenUtils';
 import './AlbumBook.css';
 import { parseGridSizeAspect } from './albumGridSize';
 
@@ -23,11 +28,20 @@ function getFocusBookDimensions(gridSize = 'square') {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const aspect = parseGridSizeAspect(gridSize);
-    const padX = 72;
-    const padY = 56;
-    const spreadWidth = Math.max(320, w - padX * 2);
-    const maxPageWidth = spreadWidth / 2;
-    const pageHeight = Math.floor(Math.min(h - padY * 2, maxPageWidth / aspect));
+    const navInset = 56;
+    const verticalInset = 20;
+    const availW = Math.max(320, w - navInset * 2);
+    const availH = Math.max(240, h - verticalInset * 2);
+    const spreadAspect = aspect * 2;
+
+    let spreadH = availH;
+    let spreadW = spreadH * spreadAspect;
+    if (spreadW > availW) {
+        spreadW = availW;
+        spreadH = spreadW / spreadAspect;
+    }
+
+    const pageHeight = Math.floor(spreadH);
     const pageWidth = Math.floor(pageHeight * aspect);
     return {
         width: Math.max(160, pageWidth),
@@ -88,8 +102,15 @@ export default function AlbumFocusView({
     }, []);
 
     const handleClose = useCallback(() => {
+        void exitDocumentFullscreen();
         onClose?.();
     }, [onClose]);
+
+    useEffect(() => {
+        const root = rootRef.current;
+        if (!root) return;
+        void requestElementFullscreen(root);
+    }, []);
 
     useEffect(() => {
         const removeListener = onFullscreenChange(() => {

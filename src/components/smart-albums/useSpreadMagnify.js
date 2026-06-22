@@ -59,6 +59,7 @@ export default function useSpreadMagnify({ spreadKey, viewportWidth = 0, viewpor
         setScale((prev) => {
             const next = Math.max(MAGNIFY_MIN, Number((prev - MAGNIFY_STEP).toFixed(2)));
             if (next <= MAGNIFY_MIN) {
+                setActive(false);
                 setPan({ x: 0, y: 0 });
             }
             return next;

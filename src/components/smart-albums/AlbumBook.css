@@ -1826,9 +1826,15 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  background: #ececec;
+  background: #2f2f2f;
   overflow: hidden;
   cursor: zoom-out;
+}
+
+.ab-focus-view:fullscreen,
+.ab-focus-view:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
 }
 
 .ab-focus-close {
@@ -1895,11 +1901,11 @@
 }
 
 .ab-focus-nav.ab-nav--prev {
-  left: 8px;
+  left: 16px;
 }
 
 .ab-focus-nav.ab-nav--next {
-  right: 8px;
+  right: 16px;
 }
 
 .ab-focus-counter {

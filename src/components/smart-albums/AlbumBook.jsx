@@ -1682,52 +1682,30 @@ const AlbumBook = ({
                         <>
                             <button
                                 type="button"
-                                className={`ab-control-icon ab-control-icon--button${
-                                    spreadMagnify.active ? ' ab-control-icon--active' : ''
-                                }`}
-                                aria-label={
-                                    spreadMagnify.active
-                                        ? 'Exit magnify mode'
-                                        : 'Magnify spread'
-                                }
-                                aria-pressed={spreadMagnify.active}
-                                onClick={spreadMagnify.toggleActive}
+                                className="ab-control-icon ab-control-icon--button"
+                                aria-label="Zoom out"
+                                disabled={!spreadMagnify.canZoomOut}
+                                onClick={spreadMagnify.zoomOut}
                             >
                                 <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-                                    <circle cx="12" cy="12" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                                    <path d="M17 17l6 6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
                                 </svg>
                             </button>
-                            {spreadMagnify.active ? (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="ab-control-icon ab-control-icon--button"
-                                        aria-label="Zoom out"
-                                        disabled={!spreadMagnify.canZoomOut}
-                                        onClick={spreadMagnify.zoomOut}
-                                    >
-                                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-                                            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                                            <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                            <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                        </svg>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="ab-control-icon ab-control-icon--button"
-                                        aria-label="Zoom in"
-                                        disabled={!spreadMagnify.canZoomIn}
-                                        onClick={spreadMagnify.zoomIn}
-                                    >
-                                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-                                            <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                                            <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                            <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                        </svg>
-                                    </button>
-                                </>
-                            ) : null}
+                            <button
+                                type="button"
+                                className="ab-control-icon ab-control-icon--button"
+                                aria-label="Zoom in"
+                                disabled={!spreadMagnify.canZoomIn}
+                                onClick={spreadMagnify.zoomIn}
+                            >
+                                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                            </button>
                         </>
                     ) : null}
                     <span className="ab-page-counter" title={`Pages ${pageRangeLabel}`}>
