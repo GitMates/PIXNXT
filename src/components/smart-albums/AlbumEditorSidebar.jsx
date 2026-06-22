@@ -28,8 +28,6 @@ import {
     albumHasBlankCovers,
     albumUsesBookWrap,
     getAlbumSpreadOptions,
-    isEndHalfSpreadLeftPage,
-    isInsideCoverSpreadLeft,
     isWholeSpreadLayout,
     pageToSpreadIndex,
 } from './albumSpreadUtils';
@@ -75,47 +73,6 @@ const GRID_LAYOUT_LABELS = {
     'two-page': 'Two-page grid (left + right)',
     'whole-spread': 'Whole-spread photo',
 };
-
-function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, spreadOpts, album) {
-    const hasCovers = spreadOpts?.hasCovers === true;
-    if (!canSelectGrid) {
-        return hasCovers
-            ? 'Flip to an inner spread (not the cover) to place photos.'
-            : 'Select a spread to place photos.';
-    }
-    if (hasCovers && gridSelection?.mode === 'cover') {
-        return spreadOpts?.blankCovers
-            ? 'Cover · back · spine · front'
-            : 'Book wrap (front + back)';
-    }
-    if (
-        gridSelection?.leftPage != null &&
-        isInsideCoverSpreadLeft(gridSelection.leftPage, totalPages, spreadOpts) &&
-        gridSelection.cellId === 2
-    ) {
-        return getSlotLabel(
-            gridSelection.leftPage + 1,
-            2,
-            false,
-            totalPages,
-            album
-        );
-    }
-    if (
-        gridSelection?.leftPage != null &&
-        isEndHalfSpreadLeftPage(gridSelection.leftPage, totalPages, spreadOpts)
-    ) {
-        return getSlotLabel(gridSelection.leftPage, 1, false, totalPages, album);
-    }
-    if (gridEditSet === 'whole' || gridSelection?.mode === 'spread') {
-        return 'Whole grid · one photo across both pages';
-    }
-    if (gridSelection?.mode === 'cell' && gridSelection.cellId) {
-        const label = PROOF_CELL_LABELS[gridSelection.cellId] || '';
-        return `Slot ${gridSelection.cellId}${label ? ` · ${label}` : ''}`;
-    }
-    return 'Select a slot on the spread';
-}
 
 export default function AlbumEditorSidebar({
     activePanel,
@@ -491,21 +448,6 @@ export default function AlbumEditorSidebar({
                 {activePanel === 'collections' && (
                     <>
                         <h3 className="ae-panel-title">Collections</h3>
-                        {canSelectGrid && (
-                            <p className="ae-selection-badge" role="status">
-                                {placementHint(
-                                    gridEditSet,
-                                    gridSelection,
-                                    canSelectGrid,
-                                    totalPages,
-                                    {
-                                        hasCovers: album?.has_covers === true,
-                                        blankCovers: albumHasBlankCovers(album),
-                                    },
-                                    album
-                                )}
-                            </p>
-                        )}
                         <div className="ae-panel-status-row">
                             <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
                             <span
@@ -653,9 +595,6 @@ export default function AlbumEditorSidebar({
                                     Covers start blank. Choose a wide photo for back, spine, and
                                     front — or leave empty for a plain cover spread.
                                 </p>
-                                <p className="ae-selection-badge" role="status">
-                                    Cover · back · spine · front
-                                </p>
                             </>
                         ) : (
                             <>
@@ -663,9 +602,6 @@ export default function AlbumEditorSidebar({
                                     Book wrap (photo 1) is wider than inner spreads. The center strip
                                     is the spine; outer portions are back and front covers (not
                                     shown on spine in the flipbook).
-                                </p>
-                                <p className="ae-selection-badge" role="status">
-                                    Book wrap · back · spine · front
                                 </p>
                             </>
                         )}

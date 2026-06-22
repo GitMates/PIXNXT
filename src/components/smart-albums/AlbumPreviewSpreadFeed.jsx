@@ -17,6 +17,39 @@ import {
 import AlbumPreviewReplacementCard from './AlbumPreviewReplacementCard';
 import ProofDoneButton from './ProofDoneButton';
 
+function formatChatTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function ChatRow({
+    outgoing,
+    children,
+    actions,
+    className = '',
+    unseen = false,
+    bubbleClassName = '',
+}) {
+    return (
+        <div
+            className={`av-chat-row${outgoing ? ' av-chat-row--out' : ' av-chat-row--in'}${
+                className ? ` ${className}` : ''
+            }`}
+        >
+            <article
+                className={`av-chat-bubble${outgoing ? ' av-chat-bubble--out' : ' av-chat-bubble--in'}${
+                    unseen ? ' av-chat-bubble--unseen' : ''
+                }${bubbleClassName ? ` ${bubbleClassName}` : ''}`}
+            >
+                {children}
+            </article>
+            {actions ? <div className="av-chat-row-actions">{actions}</div> : null}
+        </div>
+    );
+}
+
 export default function AlbumPreviewSpreadFeed({
     feed = [],
     albumId,
@@ -40,95 +73,82 @@ export default function AlbumPreviewSpreadFeed({
     if (!feed.length) return null;
 
     return (
-        <>
+        <div className="av-preview-sidebar-feed av-chat-feed">
             {feed.map((item) => {
                 if (item.kind === 'photographer-message') {
                     const comment = item.comment;
-                    const createdAtLabel = comment.created_at
-                        ? formatCommentDateTime(comment.updated_at || comment.created_at)
-                        : null;
+                    const createdAtLabel = formatChatTime(
+                        comment.updated_at || comment.created_at
+                    );
                     const messageSpreadLabel = formatSpreadDisplayLabel(
                         comment.spread_index,
                         spreadOpts
                     );
                     const unseen = isGuestCommentUnseen(albumId, comment);
+                    const outgoing = proofMode;
+
                     return (
-                        <article
+                        <ChatRow
                             key={item.id}
-                            className={`av-preview-sidebar-comment av-preview-sidebar-comment--photographer${
-                                unseen ? ' av-preview-sidebar-comment--unseen' : ''
-                            }`}
+                            outgoing={outgoing}
+                            unseen={unseen && !proofMode}
+                            actions={null}
                         >
-                            <p className="av-preview-sidebar-comment-author">
-                                {businessName || comment.author_name}
-                                {' · '}
-                                {messageSpreadLabel}
-                                {unseen ? (
-                                    <span className="av-preview-sidebar-comment-new">New</span>
-                                ) : null}
-                            </p>
-                            <div className="av-preview-sidebar-comment-body">{comment.body}</div>
-                            {createdAtLabel ? (
-                                <time
-                                    className="av-preview-sidebar-comment-time"
-                                    dateTime={comment.updated_at || comment.created_at}
-                                >
-                                    {createdAtLabel}
-                                </time>
+                            {!outgoing ? (
+                                <p className="av-chat-bubble-sender">
+                                    {businessName || comment.author_name}
+                                </p>
                             ) : null}
-                        </article>
+                            <div className="av-chat-bubble-text">{comment.body}</div>
+                            <footer className="av-chat-bubble-foot">
+                                {messageSpreadLabel ? (
+                                    <span className="av-chat-bubble-spread">{messageSpreadLabel}</span>
+                                ) : null}
+                                {createdAtLabel ? (
+                                    <time
+                                        dateTime={comment.updated_at || comment.created_at}
+                                    >
+                                        {createdAtLabel}
+                                    </time>
+                                ) : null}
+                                {unseen && !proofMode ? (
+                                    <span className="av-chat-bubble-new">New</span>
+                                ) : null}
+                            </footer>
+                        </ChatRow>
                     );
                 }
 
                 if (item.kind === 'photo-pin') {
                     const pin = item.pin;
                     const unseen = proofMode && isPhotoPinUnseen(albumId, pin);
+                    const outgoing = !proofMode;
+                    const createdAtLabel = formatChatTime(pin.createdAt);
                     const navigatePin = () => {
                         if (proofMode && onNavigateToPin) onNavigateToPin(pin);
                         else onJumpToSpread?.(pin.spreadIndex);
                     };
-                    return (
-                        <article
-                            key={item.id}
-                            className={`av-preview-sidebar-comment av-preview-sidebar-comment--pin${
-                                unseen ? ' av-preview-sidebar-comment--unseen' : ''
-                            }`}
-                        >
-                            {proofMode && (
-                                <div className="ae-proof-item-top-right">
-                                    <ProofDoneButton
-                                        completed={!unseen}
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            markPhotoPinsSeen(albumId, [pin]);
-                                        }}
-                                        ariaLabel={
-                                            unseen
-                                                ? 'Mark photo comment complete'
-                                                : 'Photo comment already complete'
-                                        }
-                                    />
-                                </div>
-                            )}
-                            {editingPinId === pin.id && !proofMode ? (
-                                <div className="av-preview-sidebar-comment-edit">
-                                    <p className="av-preview-sidebar-comment-author">Photo comment</p>
+
+                    if (editingPinId === pin.id && !proofMode) {
+                        return (
+                            <div key={item.id} className="av-chat-row av-chat-row--out">
+                                <article className="av-chat-bubble av-chat-bubble--out av-chat-bubble--edit">
                                     <textarea
-                                        className="av-preview-sidebar-comment-input"
+                                        className="av-chat-compose-input av-chat-compose-input--inline"
                                         value={editingPinMessage}
                                         onChange={(e) => onEditPinMessageChange?.(e.target.value)}
                                     />
-                                    <div className="av-preview-sidebar-comment-actions">
+                                    <div className="av-chat-row-actions av-chat-row-actions--inline">
                                         <button
                                             type="button"
-                                            className="av-preview-sidebar-comment-action"
+                                            className="av-chat-action"
                                             onClick={onEditPinCancel}
                                         >
                                             Cancel
                                         </button>
                                         <button
                                             type="button"
-                                            className="av-preview-sidebar-comment-action av-preview-sidebar-comment-action--primary"
+                                            className="av-chat-action av-chat-action--primary"
                                             onClick={() => {
                                                 const updated = updatePhotoPin(albumId, pin.id, {
                                                     message: editingPinMessage,
@@ -139,82 +159,102 @@ export default function AlbumPreviewSpreadFeed({
                                             Save
                                         </button>
                                     </div>
-                                </div>
-                            ) : (
-                                <>
-                                    <button
-                                        type="button"
-                                        className="av-preview-sidebar-comment-link"
-                                        onClick={navigatePin}
-                                    >
-                                        <p className="av-preview-sidebar-comment-author">
-                                            Photo comment
-                                            {unseen ? (
-                                                <span className="av-preview-sidebar-comment-new">
-                                                    New
-                                                </span>
-                                            ) : null}
-                                        </p>
-                                    </button>
-                                    <div
-                                        className="av-preview-sidebar-comment-body"
-                                        role="button"
-                                        tabIndex={0}
-                                        onClick={navigatePin}
-                                        onKeyDown={(e) => {
-                                            if (e.key === 'Enter' || e.key === ' ') {
-                                                e.preventDefault();
-                                                navigatePin();
-                                            }
-                                        }}
-                                    >
-                                        {pin.message}
-                                    </div>
-                                    <div className="av-preview-sidebar-comment-actions">
-                                        {!proofMode ? (
-                                            <button
-                                                type="button"
-                                                className="av-preview-sidebar-comment-action"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onEditPinStart?.(pin);
-                                                }}
-                                            >
-                                                Edit
-                                            </button>
-                                        ) : null}
+                                </article>
+                            </div>
+                        );
+                    }
+
+                    return (
+                        <ChatRow
+                            key={item.id}
+                            outgoing={outgoing}
+                            unseen={unseen}
+                            bubbleClassName={proofMode ? 'av-chat-bubble--with-done' : ''}
+                            actions={
+                                proofMode ? null : (
+                                    <>
                                         <button
                                             type="button"
-                                            className="av-preview-sidebar-comment-delete"
+                                            className="av-chat-action"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onEditPinStart?.(pin);
+                                            }}
+                                        >
+                                            Edit
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="av-chat-action av-chat-action--danger"
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 removePhotoPin(albumId, pin.id);
                                             }}
                                         >
-                                            {proofMode ? 'Remove' : 'Delete'}
+                                            Delete
                                         </button>
-                                    </div>
-                                </>
-                            )}
-                        </article>
+                                    </>
+                                )
+                            }
+                        >
+                            {proofMode ? (
+                                <ProofDoneButton
+                                    completed={!unseen}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        markPhotoPinsSeen(albumId, [pin]);
+                                    }}
+                                    ariaLabel={
+                                        unseen
+                                            ? 'Mark photo comment complete'
+                                            : 'Photo comment already complete'
+                                    }
+                                    className="av-chat-bubble-done"
+                                />
+                            ) : null}
+                            {!outgoing && proofMode ? (
+                                <p className="av-chat-bubble-sender">Photo comment</p>
+                            ) : null}
+                            <div
+                                className="av-chat-bubble-text av-chat-bubble-text--clickable"
+                                role="button"
+                                tabIndex={0}
+                                onClick={navigatePin}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        navigatePin();
+                                    }
+                                }}
+                            >
+                                {pin.message}
+                            </div>
+                            <footer className="av-chat-bubble-foot">
+                                {unseen ? (
+                                    <span className="av-chat-bubble-new">New</span>
+                                ) : null}
+                                {createdAtLabel ? (
+                                    <time dateTime={pin.createdAt}>{createdAtLabel}</time>
+                                ) : null}
+                            </footer>
+                        </ChatRow>
                     );
                 }
 
                 if (item.kind === 'image-replacement') {
                     return (
-                        <AlbumPreviewReplacementCard
-                            key={item.id}
-                            albumId={albumId}
-                            replacement={item.replacement}
-                            onRemove={onRemoveReplacement}
-                        />
+                        <div key={item.id} className="av-chat-row av-chat-row--system">
+                            <AlbumPreviewReplacementCard
+                                albumId={albumId}
+                                replacement={item.replacement}
+                                onRemove={onRemoveReplacement}
+                            />
+                        </div>
                     );
                 }
 
                 const swapItem = item.mark;
-                const createdAtLabel = swapItem.createdAt
-                    ? formatCommentDateTime(swapItem.createdAt)
-                    : null;
+                const createdAtLabel = formatCommentDateTime(swapItem.createdAt);
                 const swapUnseen = proofMode && isSwapMarkUnseen(albumId, swapItem);
                 const navigateSwapA = () => {
                     if (proofMode && onNavigateToSlotKey) onNavigateToSlotKey(swapItem.a);
@@ -224,71 +264,77 @@ export default function AlbumPreviewSpreadFeed({
                     if (proofMode && onNavigateToSlotKey) onNavigateToSlotKey(swapItem.b);
                     else onJumpToSpread?.(swapItem.spreadB);
                 };
+
                 return (
-                    <article
+                    <div
                         key={item.id}
-                        className={`av-preview-sidebar-comment av-preview-sidebar-comment--swap${
-                            swapUnseen ? ' av-preview-sidebar-comment--unseen' : ''
+                        className={`av-chat-row av-chat-row--system${
+                            swapUnseen ? ' av-chat-row--unseen' : ''
                         }`}
                     >
-                        {proofMode && (
-                            <div className="ae-proof-item-top-right">
-                                <ProofDoneButton
-                                    completed={!swapUnseen}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        markSwapMarksSeen(albumId, [swapItem]);
-                                    }}
-                                    ariaLabel={
-                                        swapUnseen
-                                            ? 'Mark swap request complete'
-                                            : 'Swap request already complete'
-                                    }
-                                />
-                            </div>
-                        )}
-                        <p className="av-preview-sidebar-comment-author">
-                            Swap request
-                            {swapUnseen ? (
-                                <span className="av-preview-sidebar-comment-new">New</span>
-                            ) : null}
-                        </p>
-                        <div className="av-preview-sidebar-swap-route">
-                            <button
-                                type="button"
-                                className="av-preview-sidebar-swap-chip"
-                                onClick={navigateSwapA}
-                            >
-                                {swapItem.labelA}
-                            </button>
-                            <span className="av-preview-sidebar-swap-arrow" aria-hidden>
-                                ↔
-                            </span>
-                            <button
-                                type="button"
-                                className="av-preview-sidebar-swap-chip"
-                                onClick={navigateSwapB}
-                            >
-                                {swapItem.labelB}
-                            </button>
-                        </div>
-                        <div className="av-preview-sidebar-swap-footer">
-                            {createdAtLabel ? (
-                                <span className="av-preview-sidebar-swap-time">{createdAtLabel}</span>
-                            ) : (
-                                <span className="av-preview-sidebar-swap-time" aria-hidden />
+                        <article className="av-chat-system-card">
+                            {proofMode && (
+                                <div className="av-chat-system-card-tools">
+                                    <ProofDoneButton
+                                        completed={!swapUnseen}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            markSwapMarksSeen(albumId, [swapItem]);
+                                        }}
+                                        ariaLabel={
+                                            swapUnseen
+                                                ? 'Mark swap request complete'
+                                                : 'Swap request already complete'
+                                        }
+                                        className="av-chat-proof-done"
+                                    />
+                                </div>
                             )}
-                            <button
-                                type="button"
-                                className="av-preview-sidebar-swap-remove"
-                                onClick={() => onRemoveSwap?.(swapItem.id)}
-                            >
-                                Remove
-                            </button>
-                        </div>
-                    </article>
+                            <p className="av-chat-system-card-title">
+                                Swap request
+                                {swapUnseen ? (
+                                    <span className="av-chat-bubble-new">New</span>
+                                ) : null}
+                            </p>
+                            <div className="av-preview-sidebar-swap-route">
+                                <button
+                                    type="button"
+                                    className="av-preview-sidebar-swap-chip"
+                                    onClick={navigateSwapA}
+                                >
+                                    {swapItem.labelA}
+                                </button>
+                                <span className="av-preview-sidebar-swap-arrow" aria-hidden>
+                                    ↔
+                                </span>
+                                <button
+                                    type="button"
+                                    className="av-preview-sidebar-swap-chip"
+                                    onClick={navigateSwapB}
+                                >
+                                    {swapItem.labelB}
+                                </button>
+                            </div>
+                            <div className="av-preview-sidebar-swap-footer">
+                                {createdAtLabel ? (
+                                    <span className="av-preview-sidebar-swap-time">
+                                        {createdAtLabel}
+                                    </span>
+                                ) : (
+                                    <span className="av-preview-sidebar-swap-time" aria-hidden />
+                                )}
+                                <button
+                                    type="button"
+                                    className="av-preview-sidebar-swap-remove"
+                                    onClick={() => onRemoveSwap?.(swapItem.id)}
+                                >
+                                    Remove
+                                </button>
+                            </div>
+                        </article>
+                    </div>
                 );
             })}
-        </>
+        </div>
     );
 }
