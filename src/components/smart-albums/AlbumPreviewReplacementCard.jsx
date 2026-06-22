@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { formatCommentDateTime } from '../../services/smartAlbumComments.service';
-import { resolveReplacementPreviewUrl } from './albumImageReplacements';
+import {
+    getReplacementCurrentVersion,
+    getReplacementVersion,
+    resolveReplacementPreviewUrl,
+    sortSpreadReplacements,
+} from './albumImageReplacements';
 
 function ReplacementImagePreviewPopup({ anchorRef, albumId, url, storagePath, onClose }) {
     const popupRef = useRef(null);
@@ -131,48 +136,101 @@ function ReplacementImagePreviewPopup({ anchorRef, albumId, url, storagePath, on
     );
 }
 
-export default function AlbumPreviewReplacementCard({ albumId, replacement }) {
-    const previewBtnRef = useRef(null);
-    const [previewOpen, setPreviewOpen] = useState(false);
-    const createdAtLabel = replacement.createdAt
-        ? formatCommentDateTime(replacement.createdAt)
-        : null;
+export default function AlbumPreviewReplacementCard({ albumId, replacements, replacement }) {
+    const rows = sortSpreadReplacements(
+        replacements?.length ? replacements : replacement ? [replacement] : []
+    );
+    const previewBtnRefs = useRef({});
+    const [openPreviewVersion, setOpenPreviewVersion] = useState(null);
+
+    if (!rows.length) return null;
+
+    const latest = rows[rows.length - 1];
+    const currentVersion = getReplacementCurrentVersion(latest);
+    const currentAtLabel = latest.createdAt ? formatCommentDateTime(latest.createdAt) : null;
+    const openRow = rows.find((row) => getReplacementVersion(row) === openPreviewVersion);
 
     return (
         <>
+            {rows.map((row) => {
+                const version = getReplacementVersion(row);
+                const becameCurrentRow =
+                    version > 1
+                        ? rows.find((entry) => getReplacementVersion(entry) === version - 1)
+                        : null;
+                const atLabel = becameCurrentRow?.createdAt
+                    ? formatCommentDateTime(becameCurrentRow.createdAt)
+                    : null;
+                return (
+                    <article key={row.id} className="av-preview-sidebar-replacement">
+                        <div className="av-preview-sidebar-replacement-pair">
+                            <div className="av-preview-sidebar-replacement-update">
+                                <p className="av-preview-sidebar-replacement-update-label">
+                                    Version {version}
+                                </p>
+                                <button
+                                    ref={(node) => {
+                                        previewBtnRefs.current[version] = node;
+                                    }}
+                                    type="button"
+                                    className="av-preview-sidebar-replacement-preview-btn"
+                                    onClick={() =>
+                                        setOpenPreviewVersion((active) =>
+                                            active === version ? null : version
+                                        )
+                                    }
+                                    aria-expanded={openPreviewVersion === version}
+                                >
+                                    Preview
+                                </button>
+                            </div>
+                        </div>
+                        {atLabel ? (
+                            <div className="av-preview-sidebar-replacement-footer av-preview-sidebar-replacement-footer--solo">
+                                <time
+                                    className="av-preview-sidebar-replacement-time"
+                                    dateTime={becameCurrentRow.createdAt}
+                                >
+                                    {atLabel}
+                                </time>
+                            </div>
+                        ) : null}
+                    </article>
+                );
+            })}
             <article className="av-preview-sidebar-replacement">
                 <div className="av-preview-sidebar-replacement-pair">
-                    <div className="av-preview-sidebar-replacement-update">
-                        <p className="av-preview-sidebar-replacement-update-label">Image updated</p>
-                        <button
-                            ref={previewBtnRef}
-                            type="button"
-                            className="av-preview-sidebar-replacement-preview-btn"
-                            onClick={() => setPreviewOpen((open) => !open)}
-                            aria-expanded={previewOpen}
-                        >
-                            Preview
-                        </button>
+                    <div className="av-preview-sidebar-replacement-current">
+                        <p className="av-preview-sidebar-replacement-update-label">
+                            Version {currentVersion}
+                        </p>
+                        <span className="av-preview-sidebar-replacement-current-badge">
+                            Current
+                        </span>
                     </div>
                 </div>
-                {createdAtLabel ? (
+                {currentAtLabel ? (
                     <div className="av-preview-sidebar-replacement-footer av-preview-sidebar-replacement-footer--solo">
                         <time
                             className="av-preview-sidebar-replacement-time"
-                            dateTime={replacement.createdAt}
+                            dateTime={latest.createdAt}
                         >
-                            {createdAtLabel}
+                            {currentAtLabel}
                         </time>
                     </div>
                 ) : null}
             </article>
-            {previewOpen ? (
+            {openPreviewVersion != null && openRow ? (
                 <ReplacementImagePreviewPopup
-                    anchorRef={previewBtnRef}
+                    anchorRef={{
+                        get current() {
+                            return previewBtnRefs.current[openPreviewVersion];
+                        },
+                    }}
                     albumId={albumId}
-                    url={replacement.previousUrl}
-                    storagePath={replacement.previousStoragePath}
-                    onClose={() => setPreviewOpen(false)}
+                    url={openRow.previousUrl}
+                    storagePath={openRow.previousStoragePath}
+                    onClose={() => setOpenPreviewVersion(null)}
                 />
             ) : null}
         </>

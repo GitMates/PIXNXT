@@ -237,6 +237,17 @@ export default function AlbumPreviewSpreadFeed({
                     );
                 }
 
+                if (item.kind === 'image-replacement-stack') {
+                    return (
+                        <div key={item.id} className="av-chat-row av-chat-row--system">
+                            <AlbumPreviewReplacementCard
+                                albumId={albumId}
+                                replacements={item.replacements}
+                            />
+                        </div>
+                    );
+                }
+
                 if (item.kind === 'image-replacement') {
                     return (
                         <div key={item.id} className="av-chat-row av-chat-row--system">

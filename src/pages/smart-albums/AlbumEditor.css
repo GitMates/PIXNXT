@@ -137,6 +137,24 @@
   z-index: 500;
 }
 
+.ae-notifications-panel--fixed {
+  position: fixed;
+  top: auto;
+  right: auto;
+  bottom: auto;
+  max-height: none;
+  z-index: 9999;
+  box-sizing: border-box;
+}
+
+.ae-notifications-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 .ae-notifications-header {
   padding: 12px 14px 10px;
   border-bottom: 1px solid #eee;
@@ -171,7 +189,6 @@
   margin: 0;
   padding: 6px 0;
   list-style: none;
-  overflow-y: auto;
 }
 
 .ae-notifications-item {
@@ -220,6 +237,22 @@
   font-size: 11px;
   font-weight: 600;
   color: #9b59b6;
+  white-space: nowrap;
+}
+
+.ae-notifications-item-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ae-notifications-item-status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #9ca3af;
   white-space: nowrap;
 }
 

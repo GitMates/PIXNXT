@@ -138,6 +138,60 @@ function getSlotImageUrl(albumId, slot, album, totalPages, itemId = null) {
     return photo?.src ?? null;
 }
 
+function nextReplacementVersion(bucket, spreadIndex) {
+    if (spreadIndex == null) return 1;
+    let maxVersion = 0;
+    for (const row of bucket) {
+        if (row.spreadIndex !== spreadIndex) continue;
+        const version = Number(row.version);
+        if (Number.isFinite(version) && version > maxVersion) {
+            maxVersion = version;
+        }
+    }
+    return maxVersion + 1;
+}
+
+export function getReplacementVersion(replacement) {
+    const version = Number(replacement?.version);
+    return Number.isFinite(version) && version > 0 ? version : 1;
+}
+
+export function getReplacementCurrentVersion(replacement) {
+    return getReplacementVersion(replacement) + 1;
+}
+
+export function formatImageReplacementLabel(replacement) {
+    return `Version ${getReplacementVersion(replacement)}`;
+}
+
+/** Replacements on one spread, oldest upload first. */
+export function sortSpreadReplacements(replacements) {
+    if (!replacements?.length) return [];
+    return [...replacements].sort((a, b) => {
+        const versionDelta = getReplacementVersion(a) - getReplacementVersion(b);
+        if (versionDelta !== 0) return versionDelta;
+        return new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime();
+    });
+}
+
+export function pickLatestSpreadReplacements(replacements, spreadIndex) {
+    if (spreadIndex == null || !replacements?.length) return [];
+    const onSpread = replacements.filter((row) => row.spreadIndex === spreadIndex);
+    if (!onSpread.length) return [];
+    const latest = onSpread.reduce((best, row) => {
+        if (!best) return row;
+        const rowVersion = getReplacementVersion(row);
+        const bestVersion = getReplacementVersion(best);
+        if (rowVersion !== bestVersion) {
+            return rowVersion > bestVersion ? row : best;
+        }
+        return new Date(row.createdAt || 0).getTime() >= new Date(best.createdAt || 0).getTime()
+            ? row
+            : best;
+    }, null);
+    return latest ? [latest] : [];
+}
+
 function buildReplacementRecord(
     albumId,
     slot,
@@ -219,17 +273,39 @@ export async function captureSlotImageBeforeReplaceAsync(albumId, slot, album, t
     };
 }
 
+function backfillReplacementVersions(rows) {
+    if (!rows?.length) return [];
+    const bySpread = new Map();
+    const chronological = [...rows].sort(
+        (a, b) => new Date(a.createdAt || 0).getTime() - new Date(b.createdAt || 0).getTime()
+    );
+    const versionById = new Map();
+    for (const row of chronological) {
+        const spread = row.spreadIndex ?? 0;
+        let version = Number(row.version);
+        if (!Number.isFinite(version) || version <= 0) {
+            version = (bySpread.get(spread) || 0) + 1;
+        }
+        bySpread.set(spread, Math.max(bySpread.get(spread) || 0, version));
+        versionById.set(row.id, version);
+    }
+    return rows.map((row) => ({
+        ...row,
+        version: versionById.get(row.id) ?? row.version ?? 1,
+    }));
+}
+
 export function getImageReplacements(albumId) {
     if (!albumId) return [];
     const local = readAll()[albumId];
     if (Array.isArray(local)) {
-        return [...local].sort(
+        return backfillReplacementVersions(local).sort(
             (a, b) =>
                 new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
         );
     }
     const remote = getRemotePreviewData(albumId)?.image_replacements;
-    return [...(remote || [])].sort(
+    return backfillReplacementVersions(remote || []).sort(
         (a, b) =>
             new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
     );
@@ -247,12 +323,16 @@ export function addImageReplacement(albumId, record) {
     );
     if (duplicate) return duplicate;
 
-    bucket.push(record);
+    const entry = {
+        ...record,
+        version: nextReplacementVersion(bucket, record.spreadIndex),
+    };
+    bucket.push(entry);
     all[albumId] = bucket;
     writeAll(all);
     patchRemotePreviewImageReplacements(albumId, bucket);
     notify(albumId);
-    return record;
+    return entry;
 }
 
 /** Record a spread photo replacement when a slot already had an image. */
@@ -326,6 +406,7 @@ export function serializeImageReplacementsForSnapshot(albumId) {
         previousUrl: row.previousUrl,
         newItemId: row.newItemId,
         newUrl: row.newUrl,
+        version: row.version ?? null,
         createdAt: row.createdAt,
     }));
 }

@@ -1,6 +1,32 @@
+import { sortSpreadReplacements } from './albumImageReplacements';
+
 export function feedItemSortTime(iso) {
     const t = new Date(iso || 0).getTime();
     return Number.isFinite(t) ? t : 0;
+}
+
+function groupImageReplacementsForFeed(imageReplacements = []) {
+    const bySpread = new Map();
+    for (const replacement of imageReplacements) {
+        const spreadIndex = replacement.spreadIndex ?? 0;
+        if (!bySpread.has(spreadIndex)) bySpread.set(spreadIndex, []);
+        bySpread.get(spreadIndex).push(replacement);
+    }
+
+    const items = [];
+    for (const [spreadIndex, rows] of bySpread) {
+        if (!rows.length) continue;
+        const sorted = sortSpreadReplacements(rows);
+        const latest = sorted[sorted.length - 1];
+        items.push({
+            kind: 'image-replacement-stack',
+            id: `repl-stack-${spreadIndex}-${latest.id}`,
+            sortAt: feedItemSortTime(latest.createdAt),
+            spreadIndex,
+            replacements: sorted,
+        });
+    }
+    return items;
 }
 
 /** Merge spread feedback items; oldest first, newest at bottom. */
@@ -42,14 +68,7 @@ export function buildSpreadFeedbackFeed({
         });
     }
 
-    imageReplacements.forEach((replacement) => {
-        items.push({
-            kind: 'image-replacement',
-            id: `repl-${replacement.id}`,
-            sortAt: feedItemSortTime(replacement.createdAt),
-            replacement,
-        });
-    });
+    items.push(...groupImageReplacementsForFeed(imageReplacements));
 
     return items.sort((a, b) => a.sortAt - b.sortAt);
 }

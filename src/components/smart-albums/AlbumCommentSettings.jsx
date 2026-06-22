@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import { formatAlbumSpreadSizeDisplay } from './albumGridSize';
 import './AlbumSpreadComments.css';
 
 function SettingsSwitch({ id, checked, disabled, busy, onChange, label }) {
@@ -88,13 +87,6 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
 
     return (
         <div className="asc-settings asc-settings--panel">
-            <div className="asc-settings-layout">
-                <div className="asc-settings-row asc-settings-row--info">
-                    <span className="asc-settings-row-label">Spread size</span>
-                    <span className="asc-settings-value">{formatAlbumSpreadSizeDisplay(album)}</span>
-                </div>
-            </div>
-
             <div className="asc-settings-row">
                 <div className="asc-settings-row-main">
                     <span className="asc-settings-row-label">Allow comments</span>

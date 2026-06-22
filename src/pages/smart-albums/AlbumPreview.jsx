@@ -410,14 +410,14 @@ export default function AlbumPreview({
 
                     <aside className="ae-sidebar av-preview-sidebar av-preview-sidebar--comments-only" aria-label="Preview comments">
                         <div className="ae-panel av-preview-sidebar-panel">
-                            <h3 className="ae-panel-title">Comment</h3>
+                                    <h3 className="ae-panel-title">Comment</h3>
                             <div className="av-preview-sidebar-comments">
                                 {spreadFeedbackCount === 0 ? (
                                     <p className="av-preview-sidebar-text">
                                         No comments, swap requests, or photo changes on this
                                         spread yet.
-                                    </p>
-                                ) : (
+                                                </p>
+                                            ) : (
                                     <AlbumPreviewSpreadFeed
                                         feed={visibleSpreadFeed}
                                         albumId={albumId}
@@ -430,13 +430,13 @@ export default function AlbumPreview({
                                             setEditingPinMessage(pin.message);
                                         }}
                                         onEditPinCancel={() => {
-                                            setEditingPinId(null);
-                                            setEditingPinMessage('');
-                                        }}
+                                                                                setEditingPinId(null);
+                                                                                setEditingPinMessage('');
+                                                                            }}
                                         onEditPinMessageChange={setEditingPinMessage}
                                         onEditPinSave={() => {
-                                            setEditingPinId(null);
-                                            setEditingPinMessage('');
+                                                                                    setEditingPinId(null);
+                                                                                    setEditingPinMessage('');
                                         }}
                                         onJumpToSpread={jumpToSpread}
                                         onRemoveSwap={(id) => removeSwapMark(albumId, id)}
