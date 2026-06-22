@@ -1,26 +1,39 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { filesFromInput } from '../../lib/uploadFileOrder';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import { countUnseenPhotoPins } from './albumPhotoPins';
-import { countUnseenSwapMarks, parseSlotKey } from './albumSwapMarks';
+import {
+    countUnseenSwapMarks,
+    getSlotLabel,
+    parseSlotKey,
+    removeSwapMark,
+} from './albumSwapMarks';
 import {
     countSpreadComments,
     countUnseenSpreadComments,
 } from '../../services/smartAlbumComments.service';
 import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
-import EditorSpreadFeedbackFeed from './EditorSpreadFeedbackFeed';
+import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
+import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
 import ProofPanelStats from './ProofPanelStats';
 import CollectionSpreadThumb from './CollectionSpreadThumb';
 import { resolveCollectionThumbLayout } from './collectionThumbLayout';
 import { formatAlbumGridSizeDisplay } from './albumGridSize';
-import { getSlotLabel } from './albumSwapMarks';
+import {
+    getImageReplacements,
+    IMAGE_REPLACEMENTS_CHANGED_EVENT,
+    removeImageReplacement,
+} from './albumImageReplacements';
 import {
     albumHasBlankCovers,
     albumUsesBookWrap,
+    getAlbumSpreadOptions,
     isEndHalfSpreadLeftPage,
     isInsideCoverSpreadLeft,
+    isWholeSpreadLayout,
     pageToSpreadIndex,
 } from './albumSpreadUtils';
+import '../../pages/smart-albums/AlbumViewer.css';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -144,6 +157,7 @@ export default function AlbumEditorSidebar({
     const fileRef = useRef(null);
     const collectionDragFromRef = useRef(null);
     const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
+    const [imageReplacements, setImageReplacements] = useState([]);
     void proofSeenTick;
     const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
     const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
@@ -157,9 +171,25 @@ export default function AlbumEditorSidebar({
     const swapsEnabled = album?.messages_enabled !== false;
 
     const spreadOpts = useMemo(
-        () => ({ hasCovers: album?.has_covers === true, showCover: true }),
-        [album?.has_covers]
+        () => ({ ...getAlbumSpreadOptions(album), totalPages }),
+        [album, totalPages]
     );
+
+    useEffect(() => {
+        if (!albumId) {
+            setImageReplacements([]);
+            return undefined;
+        }
+        const loadReplacements = () => setImageReplacements(getImageReplacements(albumId));
+        loadReplacements();
+        const onReplacementsChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            loadReplacements();
+        };
+        window.addEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
+        return () =>
+            window.removeEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
+    }, [albumId]);
 
     const collectionThumbLayouts = useMemo(
         () =>
@@ -178,24 +208,66 @@ export default function AlbumEditorSidebar({
 
     const visiblePhotoPins = useMemo(
         () =>
-            photoPins.filter(
-                (pin) =>
-                    pageToSpreadIndex(pin.pageNum, { ...spreadOpts, totalPages }) ===
-                    currentSpreadIndex
-            ),
-        [photoPins, currentSpreadIndex, spreadOpts, totalPages]
+            photoPins
+                .filter(
+                    (pin) =>
+                        pageToSpreadIndex(pin.pageNum, spreadOpts) === currentSpreadIndex
+                )
+                .map((pin) => ({
+                    ...pin,
+                    spreadIndex: pageToSpreadIndex(pin.pageNum, spreadOpts),
+                })),
+        [photoPins, currentSpreadIndex, spreadOpts]
     );
 
     const visibleSwapMarks = useMemo(
         () =>
-            swapMarks.filter((mark) => {
-                const a = parseSlotKey(mark.a);
-                const b = parseSlotKey(mark.b);
-                const idxA = pageToSpreadIndex(a.pageNum, { ...spreadOpts, totalPages });
-                const idxB = pageToSpreadIndex(b.pageNum, { ...spreadOpts, totalPages });
-                return idxA === currentSpreadIndex || idxB === currentSpreadIndex;
-            }),
-        [swapMarks, currentSpreadIndex, spreadOpts, totalPages]
+            swapMarks
+                .filter((mark) => {
+                    const a = parseSlotKey(mark.a);
+                    const b = parseSlotKey(mark.b);
+                    const idxA = pageToSpreadIndex(a.pageNum, spreadOpts);
+                    const idxB = pageToSpreadIndex(b.pageNum, spreadOpts);
+                    return idxA === currentSpreadIndex || idxB === currentSpreadIndex;
+                })
+                .map((mark) => {
+                    const slotA = parseSlotKey(mark.a);
+                    const slotB = parseSlotKey(mark.b);
+                    const wholeA =
+                        (isWholeSpreadLayout(album?.grid_layout) && slotA.pageNum > 0) ||
+                        /\b(Whole|Both)\b/i.test(mark.labelA || '');
+                    const wholeB =
+                        (isWholeSpreadLayout(album?.grid_layout) && slotB.pageNum > 0) ||
+                        /\b(Whole|Both)\b/i.test(mark.labelB || '');
+                    return {
+                        ...mark,
+                        spreadA: pageToSpreadIndex(slotA.pageNum, spreadOpts),
+                        spreadB: pageToSpreadIndex(slotB.pageNum, spreadOpts),
+                        labelA: getSlotLabel(
+                            slotA.pageNum,
+                            slotA.cellId,
+                            wholeA,
+                            totalPages,
+                            album
+                        ),
+                        labelB: getSlotLabel(
+                            slotB.pageNum,
+                            slotB.cellId,
+                            wholeB,
+                            totalPages,
+                            album
+                        ),
+                    };
+                }),
+        [swapMarks, currentSpreadIndex, spreadOpts, album, totalPages]
+    );
+
+    const visibleImageReplacements = useMemo(
+        () =>
+            imageReplacements.filter(
+                (replacement) => replacement.spreadIndex === currentSpreadIndex
+            ),
+        [imageReplacements, currentSpreadIndex]
     );
 
     const visibleSentMessages = useMemo(() => {
@@ -205,10 +277,25 @@ export default function AlbumEditorSidebar({
         );
     }, [spreadCommentsBySpread, currentSpreadIndex]);
 
-    const spreadPanelCount =
-        visiblePhotoPins.length +
-        visibleSentMessages.length +
-        (swapsEnabled ? visibleSwapMarks.length : 0);
+    const visibleSpreadFeed = useMemo(
+        () =>
+            buildSpreadFeedbackFeed({
+                photographerMessages: visibleSentMessages,
+                photoPins: visiblePhotoPins,
+                swapMarks: visibleSwapMarks,
+                imageReplacements: visibleImageReplacements,
+                includeSwaps: swapsEnabled,
+            }),
+        [
+            visibleSentMessages,
+            visiblePhotoPins,
+            visibleSwapMarks,
+            visibleImageReplacements,
+            swapsEnabled,
+        ]
+    );
+
+    const spreadPanelCount = visibleSpreadFeed.length;
     const spreadPanelUnresolved =
         countUnseenPhotoPins(albumId, visiblePhotoPins) +
         (swapsEnabled ? countUnseenSwapMarks(albumId, visibleSwapMarks) : 0);
@@ -364,25 +451,28 @@ export default function AlbumEditorSidebar({
                                 compact
                             />
                             {spreadPanelCount === 0 ? (
-                                <p className="ae-panel-text ae-panel-text--muted ae-swap-marks-empty">
-                                    No comments or swap requests on this spread yet.
+                                <p className="av-preview-sidebar-text ae-swap-marks-empty">
+                                    No comments, swap requests, or photo changes on this spread
+                                    yet.
                                 </p>
-                            ) : null}
-                            <EditorSpreadFeedbackFeed
-                                albumId={albumId}
-                                album={album}
-                                totalPages={totalPages}
-                                gridLayout={album?.grid_layout || 'two-page'}
-                                photographerMessages={visibleSentMessages}
-                                photoPins={visiblePhotoPins}
-                                swapMarks={visibleSwapMarks}
-                                swapsEnabled={swapsEnabled}
-                                photographerName={photographerName}
-                                hasCovers={album?.has_covers === true}
-                                onNavigateToPin={onNavigateToPin}
-                                onNavigateToSlotKey={onNavigateToSwapSlotKey}
-                                seenTick={proofSeenTick}
-                            />
+                            ) : (
+                                <div className="av-preview-sidebar-comments ae-panel-proof-feed">
+                                    <AlbumPreviewSpreadFeed
+                                        feed={visibleSpreadFeed}
+                                        albumId={albumId}
+                                        businessName={photographerName}
+                                        spreadOpts={spreadOpts}
+                                        proofMode
+                                        seenTick={proofSeenTick}
+                                        onNavigateToPin={onNavigateToPin}
+                                        onNavigateToSlotKey={onNavigateToSwapSlotKey}
+                                        onRemoveSwap={(id) => removeSwapMark(albumId, id)}
+                                        onRemoveReplacement={(id) =>
+                                            removeImageReplacement(albumId, id)
+                                        }
+                                    />
+                                </div>
+                            )}
                         </div>
                         {gridSelection?.mode !== 'cover' ? (
                             <div className="ae-panel-pin-footer">

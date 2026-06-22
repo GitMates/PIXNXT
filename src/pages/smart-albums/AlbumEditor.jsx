@@ -1754,7 +1754,7 @@ export default function AlbumEditor({
             scheduleWorkspaceRefresh,
         ]
     );
-    const showGridComments = activePanel === 'comments';
+    const showGridComments = false;
     const loadProofSpreadComments =
         activePanel === 'pin' || activePanel === 'comments';
     const loadSpreadComments = useCallback(async () => {

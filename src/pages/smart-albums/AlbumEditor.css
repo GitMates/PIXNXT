@@ -524,6 +524,27 @@
   font-size: 13px;
 }
 
+.ae-panel-proof-feed {
+  margin-top: 10px;
+}
+
+.ae-panel-proof-feed.av-preview-sidebar-comments {
+  flex: none;
+  min-height: 0;
+  overflow: visible;
+}
+
+.ae-panel-proof-feed .av-preview-sidebar-comment {
+  position: relative;
+}
+
+.ae-panel-proof-feed .ae-proof-item-top-right {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+}
+
 .ae-panel-comments-feed {
   margin-top: 16px;
   padding-top: 16px;

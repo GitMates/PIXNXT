@@ -4,8 +4,18 @@ import {
     isGuestCommentUnseen,
 } from '../../services/smartAlbumComments.service';
 import { formatSpreadDisplayLabel } from './albumSpreadUtils';
-import { removePhotoPin, updatePhotoPin } from './albumPhotoPins';
+import {
+    isPhotoPinUnseen,
+    markPhotoPinsSeen,
+    removePhotoPin,
+    updatePhotoPin,
+} from './albumPhotoPins';
+import {
+    isSwapMarkUnseen,
+    markSwapMarksSeen,
+} from './albumSwapMarks';
 import AlbumPreviewReplacementCard from './AlbumPreviewReplacementCard';
+import ProofDoneButton from './ProofDoneButton';
 
 export default function AlbumPreviewSpreadFeed({
     feed = [],
@@ -19,9 +29,14 @@ export default function AlbumPreviewSpreadFeed({
     onEditPinMessageChange,
     onEditPinSave,
     onJumpToSpread,
+    onNavigateToPin,
+    onNavigateToSlotKey,
     onRemoveSwap,
     onRemoveReplacement,
+    proofMode = false,
+    seenTick = 0,
 }) {
+    void seenTick;
     if (!feed.length) return null;
 
     return (
@@ -67,12 +82,35 @@ export default function AlbumPreviewSpreadFeed({
 
                 if (item.kind === 'photo-pin') {
                     const pin = item.pin;
+                    const unseen = proofMode && isPhotoPinUnseen(albumId, pin);
+                    const navigatePin = () => {
+                        if (proofMode && onNavigateToPin) onNavigateToPin(pin);
+                        else onJumpToSpread?.(pin.spreadIndex);
+                    };
                     return (
                         <article
                             key={item.id}
-                            className="av-preview-sidebar-comment av-preview-sidebar-comment--pin"
+                            className={`av-preview-sidebar-comment av-preview-sidebar-comment--pin${
+                                unseen ? ' av-preview-sidebar-comment--unseen' : ''
+                            }`}
                         >
-                            {editingPinId === pin.id ? (
+                            {proofMode && (
+                                <div className="ae-proof-item-top-right">
+                                    <ProofDoneButton
+                                        completed={!unseen}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            markPhotoPinsSeen(albumId, [pin]);
+                                        }}
+                                        ariaLabel={
+                                            unseen
+                                                ? 'Mark photo comment complete'
+                                                : 'Photo comment already complete'
+                                        }
+                                    />
+                                </div>
+                            )}
+                            {editingPinId === pin.id && !proofMode ? (
                                 <div className="av-preview-sidebar-comment-edit">
                                     <p className="av-preview-sidebar-comment-author">Photo comment</p>
                                     <textarea
@@ -107,37 +145,44 @@ export default function AlbumPreviewSpreadFeed({
                                     <button
                                         type="button"
                                         className="av-preview-sidebar-comment-link"
-                                        onClick={() => onJumpToSpread?.(pin.spreadIndex)}
+                                        onClick={navigatePin}
                                     >
                                         <p className="av-preview-sidebar-comment-author">
                                             Photo comment
+                                            {unseen ? (
+                                                <span className="av-preview-sidebar-comment-new">
+                                                    New
+                                                </span>
+                                            ) : null}
                                         </p>
                                     </button>
                                     <div
                                         className="av-preview-sidebar-comment-body"
                                         role="button"
                                         tabIndex={0}
-                                        onClick={() => onJumpToSpread?.(pin.spreadIndex)}
+                                        onClick={navigatePin}
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' || e.key === ' ') {
                                                 e.preventDefault();
-                                                onJumpToSpread?.(pin.spreadIndex);
+                                                navigatePin();
                                             }
                                         }}
                                     >
                                         {pin.message}
                                     </div>
                                     <div className="av-preview-sidebar-comment-actions">
-                                        <button
-                                            type="button"
-                                            className="av-preview-sidebar-comment-action"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onEditPinStart?.(pin);
-                                            }}
-                                        >
-                                            Edit
-                                        </button>
+                                        {!proofMode ? (
+                                            <button
+                                                type="button"
+                                                className="av-preview-sidebar-comment-action"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onEditPinStart?.(pin);
+                                                }}
+                                            >
+                                                Edit
+                                            </button>
+                                        ) : null}
                                         <button
                                             type="button"
                                             className="av-preview-sidebar-comment-delete"
@@ -146,7 +191,7 @@ export default function AlbumPreviewSpreadFeed({
                                                 removePhotoPin(albumId, pin.id);
                                             }}
                                         >
-                                            Delete
+                                            {proofMode ? 'Remove' : 'Delete'}
                                         </button>
                                     </div>
                                 </>
@@ -170,17 +215,49 @@ export default function AlbumPreviewSpreadFeed({
                 const createdAtLabel = swapItem.createdAt
                     ? formatCommentDateTime(swapItem.createdAt)
                     : null;
+                const swapUnseen = proofMode && isSwapMarkUnseen(albumId, swapItem);
+                const navigateSwapA = () => {
+                    if (proofMode && onNavigateToSlotKey) onNavigateToSlotKey(swapItem.a);
+                    else onJumpToSpread?.(swapItem.spreadA);
+                };
+                const navigateSwapB = () => {
+                    if (proofMode && onNavigateToSlotKey) onNavigateToSlotKey(swapItem.b);
+                    else onJumpToSpread?.(swapItem.spreadB);
+                };
                 return (
                     <article
                         key={item.id}
-                        className="av-preview-sidebar-comment av-preview-sidebar-comment--swap"
+                        className={`av-preview-sidebar-comment av-preview-sidebar-comment--swap${
+                            swapUnseen ? ' av-preview-sidebar-comment--unseen' : ''
+                        }`}
                     >
-                        <p className="av-preview-sidebar-comment-author">Swap request</p>
+                        {proofMode && (
+                            <div className="ae-proof-item-top-right">
+                                <ProofDoneButton
+                                    completed={!swapUnseen}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        markSwapMarksSeen(albumId, [swapItem]);
+                                    }}
+                                    ariaLabel={
+                                        swapUnseen
+                                            ? 'Mark swap request complete'
+                                            : 'Swap request already complete'
+                                    }
+                                />
+                            </div>
+                        )}
+                        <p className="av-preview-sidebar-comment-author">
+                            Swap request
+                            {swapUnseen ? (
+                                <span className="av-preview-sidebar-comment-new">New</span>
+                            ) : null}
+                        </p>
                         <div className="av-preview-sidebar-swap-route">
                             <button
                                 type="button"
                                 className="av-preview-sidebar-swap-chip"
-                                onClick={() => onJumpToSpread?.(swapItem.spreadA)}
+                                onClick={navigateSwapA}
                             >
                                 {swapItem.labelA}
                             </button>
@@ -190,7 +267,7 @@ export default function AlbumPreviewSpreadFeed({
                             <button
                                 type="button"
                                 className="av-preview-sidebar-swap-chip"
-                                onClick={() => onJumpToSpread?.(swapItem.spreadB)}
+                                onClick={navigateSwapB}
                             >
                                 {swapItem.labelB}
                             </button>
