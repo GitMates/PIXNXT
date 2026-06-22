@@ -167,7 +167,7 @@ export function enumerateAlbumPhotoSlots(
                 cellId: 1,
                 spreadLeft: left,
                 whole: true,
-                label: `Spread ${spreadNum} · Whole`,
+                label: `Spread ${spreadNum}`,
             });
             continue;
         }
@@ -334,7 +334,7 @@ export function buildSwapSlotForScope(
             cellId: 1,
             spreadLeft,
             whole: true,
-            label: `Spread ${spreadNum} · Whole`,
+            label: `Spread ${spreadNum}`,
         };
     }
     if (scope === 'right') {
@@ -385,7 +385,7 @@ export function getSlotLabel(pageNum, cellId = 0, whole = false, totalPages = 99
 
     const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);
     const spreadNum = spreadNumberFromLeftPage(spreadLeft, spreadCtx);
-    if (whole) return `Spread ${spreadNum} · Whole`;
+    if (whole) return `Spread ${spreadNum}`;
     if (cid === 1 || pageNum === spreadLeft) return `Spread ${spreadNum} · Left`;
     return `Spread ${spreadNum} · Right`;
 }
@@ -695,7 +695,7 @@ export function normalizeWholeGridSwapSlot(slot, totalPages, album = null) {
         cellId: 1,
         spreadLeft,
         whole: true,
-        label: slot.label?.includes('Whole') ? slot.label : `Spread ${spreadNum} · Whole`,
+        label: slot.label?.includes('Whole') ? slot.label.replace(/\s*·\s*Whole\b/gi, '').trim() : `Spread ${spreadNum}`,
     };
 }
 
@@ -735,7 +735,7 @@ export function enumerateSwapExecuteCandidates(
                 cellId: 1,
                 spreadLeft: left,
                 whole: true,
-                label: `Spread ${spreadNum} · Whole`,
+                label: `Spread ${spreadNum}`,
             });
         }
         return targets;

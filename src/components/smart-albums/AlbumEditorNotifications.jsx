@@ -29,6 +29,8 @@ function getNotificationLocationLabel(item, album, totalPages) {
 export default function AlbumEditorNotifications({
     album,
     totalPages = 0,
+    bookPage = 0,
+    activePanel = null,
     onSelectNotification,
 }) {
     const [open, setOpen] = useState(false);
@@ -74,14 +76,35 @@ export default function AlbumEditorNotifications({
     }, [album?.id, refresh]);
 
     useEffect(() => {
-        const onDocClick = (e) => {
-            if (rootRef.current && !rootRef.current.contains(e.target)) {
-                setOpen(false);
-            }
+        if (!open) return undefined;
+
+        const closeIfOutside = (event) => {
+            if (rootRef.current?.contains(event.target)) return;
+            setOpen(false);
         };
-        document.addEventListener('mousedown', onDocClick);
-        return () => document.removeEventListener('mousedown', onDocClick);
-    }, []);
+
+        const closeOnKey = () => {
+            setOpen(false);
+        };
+
+        const closeOnScroll = () => {
+            setOpen(false);
+        };
+
+        document.addEventListener('pointerdown', closeIfOutside, true);
+        document.addEventListener('keydown', closeOnKey, true);
+        window.addEventListener('scroll', closeOnScroll, true);
+
+        return () => {
+            document.removeEventListener('pointerdown', closeIfOutside, true);
+            document.removeEventListener('keydown', closeOnKey, true);
+            window.removeEventListener('scroll', closeOnScroll, true);
+        };
+    }, [open]);
+
+    useEffect(() => {
+        setOpen(false);
+    }, [bookPage, activePanel]);
 
     const badgeLabel = unreadCount > 99 ? '99+' : String(unreadCount);
 

@@ -1851,6 +1851,8 @@ export default function AlbumEditor({
                     <AlbumEditorNotifications
                         album={album}
                         totalPages={totalPages}
+                        bookPage={bookPage}
+                        activePanel={activePanel}
                         onSelectNotification={handleNotificationSelect}
                     />
                     <button
