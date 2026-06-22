@@ -156,12 +156,8 @@ export default function SmartAlbumNotifications({ userId }) {
 
     const handleSelect = (item) => {
         const album = albums.find((a) => a.id === item.albumId);
-        if (item.isUnread) {
-            markNotificationItemSeen(item);
-            setItems((prev) =>
-                prev.map((row) => (row.id === item.id ? { ...row, isUnread: false } : row))
-            );
-        }
+        // Do not auto-mark as read when opening from the bell.
+        // Users can explicitly mark notifications read or clear them instead.
         setOpen(false);
         navigate(buildNotificationUrl(item, album));
     };

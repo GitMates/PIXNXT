@@ -413,15 +413,6 @@ export default function AlbumEditorSidebar({
                         <h3 className="ae-panel-title">Collections</h3>
                         <div className="ae-panel-status-row">
                             <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
-                            <span
-                                className={`ae-panel-status-count${collectionItems.length === 0 ? ' ae-panel-status-count--muted' : ''
-                                    }`}
-                            >
-                                {collectionItems.length === 0
-                                    ? 'No photos yet'
-                                    : `${collectionItems.length} photo${collectionItems.length === 1 ? '' : 's'
-                                    } ready`}
-                            </span>
                         </div>
                         {collectionItems.length > 0 && (
                             <>
