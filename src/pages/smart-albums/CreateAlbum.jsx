@@ -78,10 +78,10 @@ async function detectCreateAlbumGridSizes(coverFile, photoFiles, gridLayout) {
 
         const innerGrid = photoFiles.length
             ? await detectGridSizesFromFiles(photoFiles, {
-                  gridLayout,
-                  hasCovers: true,
-                  blankCovers: true,
-              }).catch(() => ({ pageGridSize: 'square', spreadGridSize: null }))
+                gridLayout,
+                hasCovers: true,
+                blankCovers: true,
+            }).catch(() => ({ pageGridSize: 'square', spreadGridSize: null }))
             : { pageGridSize: 'square', spreadGridSize: null };
 
         return {
@@ -136,9 +136,8 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
 
     return (
         <figure
-            className={`sa-preview-card${showSkeleton ? '' : ' sa-preview-card--ready'}${
-                animateIn ? ' sa-preview-card--animate-in' : ''
-            }${isDragOver ? ' sa-preview-card--drag-over' : ''}`}
+            className={`sa-preview-card${showSkeleton ? '' : ' sa-preview-card--ready'}${animateIn ? ' sa-preview-card--animate-in' : ''
+                }${isDragOver ? ' sa-preview-card--drag-over' : ''}`}
             style={animateIn ? { animationDelay: `${Math.min(index, 8) * 35}ms` } : undefined}
             draggable
             onDragStart={(e) => {
@@ -190,15 +189,13 @@ const UploadPreviewCard = memo(function UploadPreviewCard({
                     </>
                 ) : !preview.thumbReady ? (
                     <div
-                        className={`sa-preview-loading${
-                            preview.isPdfPage ? ' sa-preview-loading--pdf' : ''
-                        }`}
+                        className={`sa-preview-loading${preview.isPdfPage ? ' sa-preview-loading--pdf' : ''
+                            }`}
                         aria-busy="true"
                     >
                         <div
-                            className={`sa-preview-skeleton${
-                                preview.isPdfPage ? '' : ' sa-preview-skeleton--fill'
-                            }`}
+                            className={`sa-preview-skeleton${preview.isPdfPage ? '' : ' sa-preview-skeleton--fill'
+                                }`}
                             aria-hidden
                         />
                         <span className="sa-preview-loading-spinner" aria-hidden />
@@ -937,9 +934,8 @@ const CreateAlbum = () => {
                                     Album Name
                                 </label>
                                 <div
-                                    className={`sa-name-autocomplete${
-                                        showNameSuggestions ? ' sa-name-autocomplete--open' : ''
-                                    }`}
+                                    className={`sa-name-autocomplete${showNameSuggestions ? ' sa-name-autocomplete--open' : ''
+                                        }`}
                                     ref={nameAutocompleteRef}
                                 >
                                     <input
@@ -970,11 +966,10 @@ const CreateAlbum = () => {
                                                     <button
                                                         key={collection.id}
                                                         type="button"
-                                                        className={`sa-name-suggest-option${
-                                                            isActive
+                                                        className={`sa-name-suggest-option${isActive
                                                                 ? ' sa-name-suggest-option--active'
                                                                 : ''
-                                                        }`}
+                                                            }`}
                                                         role="option"
                                                         aria-selected={isActive}
                                                         onMouseDown={(e) => e.preventDefault()}
@@ -998,10 +993,6 @@ const CreateAlbum = () => {
                                         </div>
                                     ) : null}
                                 </div>
-                                <p className="sa-field-note">
-                                    Start typing to match a client gallery collection name or photo
-                                    filename — selecting one fills the event date too.
-                                </p>
                             </div>
 
                             <div className="cc-form-group">
@@ -1026,9 +1017,8 @@ const CreateAlbum = () => {
                                 {!coverPreview ? (
                                     <>
                                         <label
-                                            className={`sa-upload-card sa-upload-card--cover${
-                                                coverDropActive ? ' sa-upload-card--drop-active' : ''
-                                            }`}
+                                            className={`sa-upload-card sa-upload-card--cover${coverDropActive ? ' sa-upload-card--drop-active' : ''
+                                                }`}
                                             htmlFor="album-cover-image"
                                             onDragOver={(e) => {
                                                 e.preventDefault();
@@ -1090,9 +1080,8 @@ const CreateAlbum = () => {
                                 onChange={handlePhotoChange}
                             />
                             <label
-                                className={`sa-upload-card${
-                                    uploadDropActive ? ' sa-upload-card--drop-active' : ''
-                                }`}
+                                className={`sa-upload-card${uploadDropActive ? ' sa-upload-card--drop-active' : ''
+                                    }`}
                                 htmlFor="album-photos"
                                 onDragOver={(e) => {
                                     e.preventDefault();
@@ -1116,14 +1105,12 @@ const CreateAlbum = () => {
 
                             {previewSlots.length > 0 ? (
                                 <div
-                                    className={`sa-upload-preview${
-                                        analyzingUploads ? ' sa-upload-preview--analyzing' : ''
-                                    }`}
+                                    className={`sa-upload-preview${analyzingUploads ? ' sa-upload-preview--analyzing' : ''
+                                        }`}
                                 >
                                     <div
-                                        className={`sa-upload-summary${
-                                            analyzingUploads ? ' sa-upload-summary--busy' : ''
-                                        }`}
+                                        className={`sa-upload-summary${analyzingUploads ? ' sa-upload-summary--busy' : ''
+                                            }`}
                                     >
                                         <div className="sa-upload-summary-copy">
                                             {analyzingUploads ? (
@@ -1237,7 +1224,7 @@ const CreateAlbum = () => {
                                                         Math.round(
                                                             (createProgress.current /
                                                                 createProgress.total) *
-                                                                100
+                                                            100
                                                         )
                                                     )}%`,
                                                 }}

@@ -524,73 +524,36 @@
 }
 
 .ab-photo-pin--swap .ab-photo-pin-marker-body {
-  border-color: #fff;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: rgba(32, 32, 32, 0.92);
   color: #fff;
-  background: #2563eb;
+  box-shadow:
+    0 4px 14px rgba(0, 0, 0, 0.32),
+    0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
 .ab-photo-pin--swap .ab-photo-pin-marker-tail {
-  border-top-color: #2563eb;
+  margin-top: -2px;
+  border-left-width: 6px;
+  border-right-width: 6px;
+  border-top-width: 7px;
+  border-top-color: rgba(32, 32, 32, 0.92);
+  filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.28));
 }
 
-.ab-photo-pin--swap-group-0 .ab-photo-pin-marker-body {
-  border-color: #fff;
-  color: #fff;
-  background: #2563eb;
+.ab-photo-pin--swap .ab-photo-pin-marker:hover .ab-photo-pin-marker-tail,
+.ab-photo-pin--swap.ab-photo-pin--open .ab-photo-pin-marker-tail {
+  border-top-color: rgba(18, 18, 18, 0.96);
 }
 
-.ab-photo-pin--swap-group-0 .ab-photo-pin-marker-tail {
-  border-top-color: #2563eb;
-}
-
-.ab-photo-pin--swap-group-1 .ab-photo-pin-marker-body {
-  border-color: #fff;
-  color: #fff;
-  background: #7c3aed;
-}
-
-.ab-photo-pin--swap-group-1 .ab-photo-pin-marker-tail {
-  border-top-color: #7c3aed;
-}
-
-.ab-photo-pin--swap-group-2 .ab-photo-pin-marker-body {
-  border-color: #fff;
-  color: #fff;
-  background: #16a34a;
-}
-
-.ab-photo-pin--swap-group-2 .ab-photo-pin-marker-tail {
-  border-top-color: #16a34a;
-}
-
-.ab-photo-pin--swap-group-3 .ab-photo-pin-marker-body {
-  border-color: #fff;
-  color: #fff;
-  background: #ea580c;
-}
-
-.ab-photo-pin--swap-group-3 .ab-photo-pin-marker-tail {
-  border-top-color: #ea580c;
-}
-
-.ab-photo-pin--swap-group-4 .ab-photo-pin-marker-body {
-  border-color: #fff;
-  color: #fff;
-  background: #db2777;
-}
-
-.ab-photo-pin--swap-group-4 .ab-photo-pin-marker-tail {
-  border-top-color: #db2777;
-}
-
-.ab-photo-pin--swap-group-5 .ab-photo-pin-marker-body {
-  border-color: #fff;
-  color: #fff;
-  background: #0f766e;
-}
-
-.ab-photo-pin--swap-group-5 .ab-photo-pin-marker-tail {
-  border-top-color: #0f766e;
+.ab-photo-pin--swap .ab-photo-pin-marker:hover .ab-photo-pin-marker-body,
+.ab-photo-pin--swap.ab-photo-pin--open .ab-photo-pin-marker-body {
+  background: rgba(18, 18, 18, 0.96);
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.38),
+    0 2px 6px rgba(0, 0, 0, 0.24);
 }
 
 .ab-photo-pin-swap-label {

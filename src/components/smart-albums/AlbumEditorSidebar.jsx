@@ -75,7 +75,6 @@ export default function AlbumEditorSidebar({
     collectionItems = [],
     onUploadForCurrentSpread,
     onPlaceCollectionItem,
-    onDeleteCollectionItem,
     onOpenPicker,
     onClearAllPhotos,
     uploading = false,
@@ -456,30 +455,6 @@ export default function AlbumEditorSidebar({
                                                     layout={collectionThumbLayouts[index]}
                                                     alt=""
                                                 />
-                                            </button>
-                                            <button
-                                                type="button"
-                                                className="ae-collection-thumb-delete"
-                                                aria-label={`Delete ${item.name || 'photo'}`}
-                                                title="Delete photo"
-                                                disabled={uploading}
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    onDeleteCollectionItem?.(item.id);
-                                                }}
-                                            >
-                                                <svg
-                                                    width="12"
-                                                    height="12"
-                                                    viewBox="0 0 24 24"
-                                                    fill="none"
-                                                    stroke="currentColor"
-                                                    strokeWidth="2"
-                                                    strokeLinecap="round"
-                                                    aria-hidden
-                                                >
-                                                    <path d="M18 6 6 18M6 6l12 12" />
-                                                </svg>
                                             </button>
                                         </div>
                                     ))}

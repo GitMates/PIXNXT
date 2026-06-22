@@ -166,13 +166,9 @@ function PinMarker({ layerRef, pin, open, onToggle, onRemove, allowRemove }) {
     const markerRef = useRef(null);
     const isSwap = pin?.type === 'swap';
     const isComment = !isSwap;
-    const swapGroup = isSwap ? String(pin?.swapGroup || '') : '';
-    const swapToneIndex = isSwap && swapGroup
-        ? Array.from(swapGroup).reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 6
-        : null;
     return (
         <div
-            className={`ab-photo-pin${open ? ' ab-photo-pin--open' : ''}${isComment ? ' ab-photo-pin--comment' : ''}${isSwap ? ' ab-photo-pin--swap' : ''}${isSwap && swapToneIndex != null ? ` ab-photo-pin--swap-group-${swapToneIndex}` : ''}`}
+            className={`ab-photo-pin${open ? ' ab-photo-pin--open' : ''}${isComment ? ' ab-photo-pin--comment' : ''}${isSwap ? ' ab-photo-pin--swap' : ''}`}
             style={{ left: `${pin.xPct}%`, top: `${pin.yPct}%` }}
         >
             <button

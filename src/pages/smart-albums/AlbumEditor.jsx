@@ -1552,52 +1552,6 @@ export default function AlbumEditor({
         [placeItemOnSpread, scheduleWorkspaceRefresh, showToast, gridSelection?.mode]
     );
 
-    const handleDeleteCollectionItem = useCallback(
-        async (itemId) => {
-            const item = getCollectionItem(albumId, itemId);
-            if (!item) return;
-            const label = item.name || 'this photo';
-            if (
-                !window.confirm(
-                    `Delete "${label}" from the collection and remove it from cloud storage?`
-                )
-            ) {
-                return;
-            }
-
-            setUploading(true);
-            try {
-                clearCollectionItemPlacements(albumId, itemId);
-                const removed = await deleteCollectionItemAsset(albumId, itemId);
-                if (!removed) {
-                    showToast('Could not delete photo.', {
-                        variant: 'error',
-                        duration: 4000,
-                    });
-                    return;
-                }
-                scheduleWorkspaceRefresh();
-                if (user?.id) {
-                    try {
-                        await smartAlbumsService.syncAlbumPreviewData(user.id, albumId);
-                    } catch (err) {
-                        console.warn('Could not sync album preview after delete:', err);
-                    }
-                }
-                showToast('Photo deleted.', { variant: 'success', duration: 3500 });
-            } catch (err) {
-                console.error(err);
-                showToast('Could not delete photo from cloud storage.', {
-                    variant: 'error',
-                    duration: 4500,
-                });
-            } finally {
-                setUploading(false);
-            }
-        },
-        [albumId, scheduleWorkspaceRefresh, showToast, user?.id]
-    );
-
     const handleReorderCollectionItem = useCallback(
         (fromIndex, toIndex) => {
             if (!reorderCollectionItems(albumId, fromIndex, toIndex)) return;
@@ -1990,7 +1944,6 @@ export default function AlbumEditor({
                     collectionItems={collectionItems}
                     onUploadForCurrentSpread={handleUploadForCurrentSpread}
                     onPlaceCollectionItem={handlePlaceCollectionItem}
-                    onDeleteCollectionItem={handleDeleteCollectionItem}
                     onOpenPicker={openPicker}
                     onClearAllPhotos={handleClearAllPhotos}
                     uploading={uploading}

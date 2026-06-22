@@ -1466,40 +1466,6 @@
   box-shadow: 0 0 0 2px rgba(142, 68, 173, 0.25);
 }
 
-.ae-collection-thumb-delete {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  border-radius: 999px;
-  background: rgba(22, 16, 29, 0.78);
-  color: #fff;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease;
-}
-
-.ae-collection-thumb-wrap:hover .ae-collection-thumb-delete,
-.ae-collection-thumb-wrap:focus-within .ae-collection-thumb-delete {
-  opacity: 1;
-}
-
-.ae-collection-thumb-delete:hover:not(:disabled) {
-  background: #b42318;
-}
-
-.ae-collection-thumb-delete:disabled {
-  opacity: 0.4;
-  cursor: wait;
-}
-
 .ae-collection-thumb {
   position: relative;
   display: block;

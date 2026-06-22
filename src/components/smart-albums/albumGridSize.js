@@ -447,17 +447,28 @@ export function formatAlbumGridSizeDisplay(album) {
     return formatGridSizeLabelForLayout(album.grid_size, album.grid_layout, { spreadGridSize });
 }
 
+/** Inner spread grid size (two-page spread), not book-wrap cover width. */
+export function innerSpreadGridSizeFromAlbum(album) {
+    const pageGridSize = album?.grid_size || 'square';
+    const gridLayout = album?.grid_layout || 'two-page';
+
+    if (isWholeSpreadLayout(gridLayout)) {
+        if (albumHasBlankCovers(album) && album?.spread_grid_size) {
+            return album.spread_grid_size;
+        }
+        return (
+            spreadGridSizeFromPageGrid(pageGridSize, gridLayout) ??
+            gridSizeFromAspect(parseGridSizeAspect(pageGridSize) * 2)
+        );
+    }
+
+    return gridSizeFromAspect(parseGridSizeAspect(pageGridSize) * 2);
+}
+
 /** Spread ratio only for album settings. */
 export function formatAlbumSpreadSizeDisplay(album) {
     if (!album?.grid_size) return shortGridSizeLabel('square');
-    const spreadGridSize =
-        album.spread_grid_size ?? spreadGridSizeFromPageGrid(album.grid_size, album.grid_layout);
-    if (spreadGridSize) return shortGridSizeLabel(spreadGridSize);
-    if (!isWholeSpreadLayout(album.grid_layout)) {
-        const pageAspect = parseGridSizeAspect(album.grid_size);
-        return shortGridSizeLabel(gridSizeFromAspect(pageAspect * 2));
-    }
-    return 'Fits upload width';
+    return shortGridSizeLabel(innerSpreadGridSizeFromAlbum(album));
 }
 
 export function formatGridLayoutLabel(gridLayout) {
