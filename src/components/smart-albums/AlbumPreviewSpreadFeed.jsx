@@ -23,6 +23,34 @@ function BubbleInlineActions({ children }) {
     return <div className="av-chat-bubble-inline-actions">{children}</div>;
 }
 
+function ProofBubbleTopActions({ unseen, children }) {
+    if (!children && !unseen) return null;
+    return (
+        <div className="av-chat-bubble-top-actions">
+            {unseen ? <span className="av-chat-bubble-new">New</span> : null}
+            {children}
+        </div>
+    );
+}
+
+function ProofBubbleHeader({ title, titleClassName = '', unseen, doneButton }) {
+    if (!title && !doneButton && !unseen) return null;
+    return (
+        <div className="av-chat-bubble-header">
+            {title ? (
+                <p className={`av-chat-bubble-sender${titleClassName ? ` ${titleClassName}` : ''}`}>
+                    {title}
+                </p>
+            ) : (
+                <span className="av-chat-bubble-header-spacer" aria-hidden />
+            )}
+            {doneButton || unseen ? (
+                <ProofBubbleTopActions unseen={unseen}>{doneButton}</ProofBubbleTopActions>
+            ) : null}
+        </div>
+    );
+}
+
 function ChatRow({
     outgoing,
     children,
@@ -160,30 +188,35 @@ export default function AlbumPreviewSpreadFeed({
                             key={item.id}
                             outgoing={outgoing}
                             unseen={unseen}
-                            bubbleClassName={proofMode ? 'av-chat-bubble--with-done' : ''}
                             actions={null}
                         >
                             {proofMode ? (
-                                <ProofDoneButton
-                                    completed={!unseen}
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        markPhotoPinsSeen(albumId, [pin]);
-                                    }}
-                                    ariaLabel={
-                                        unseen
-                                            ? 'Mark photo comment complete'
-                                            : 'Photo comment already complete'
+                                <ProofBubbleHeader
+                                    title="Photo comment"
+                                    titleClassName={
+                                        outgoing ? 'av-chat-bubble-sender--photo' : ''
                                     }
-                                    className="av-chat-bubble-done"
+                                    unseen={unseen}
+                                    doneButton={
+                                        <ProofDoneButton
+                                            completed={!unseen}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                markPhotoPinsSeen(albumId, [pin]);
+                                            }}
+                                            ariaLabel={
+                                                unseen
+                                                    ? 'Mark photo comment complete'
+                                                    : 'Photo comment already complete'
+                                            }
+                                            className="av-chat-bubble-done"
+                                        />
+                                    }
                                 />
-                            ) : null}
-                            {outgoing ? (
+                            ) : outgoing ? (
                                 <p className="av-chat-bubble-sender av-chat-bubble-sender--photo">
                                     Photo comment
                                 </p>
-                            ) : !outgoing && proofMode ? (
-                                <p className="av-chat-bubble-sender">Photo comment</p>
                             ) : null}
                             <div
                                 className="av-chat-bubble-text av-chat-bubble-text--clickable"
@@ -223,9 +256,6 @@ export default function AlbumPreviewSpreadFeed({
                                             Delete
                                         </button>
                                     </BubbleInlineActions>
-                                ) : null}
-                                {unseen ? (
-                                    <span className="av-chat-bubble-new">New</span>
                                 ) : null}
                                 {pin.createdAt ? (
                                     <time dateTime={pin.createdAt}>
@@ -277,30 +307,30 @@ export default function AlbumPreviewSpreadFeed({
                         key={item.id}
                         outgoing={swapOutgoing}
                         unseen={swapUnseen}
-                        bubbleClassName={proofMode ? 'av-chat-bubble--with-done' : ''}
                         actions={null}
                     >
-                        {proofMode ? (
-                            <ProofDoneButton
-                                completed={!swapUnseen}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    markSwapMarksSeen(albumId, [swapItem]);
-                                }}
-                                ariaLabel={
-                                    swapUnseen
-                                        ? 'Mark swap request complete'
-                                        : 'Swap request already complete'
-                                }
-                                className="av-chat-bubble-done"
-                            />
-                        ) : null}
-                        <p className="av-chat-bubble-sender av-chat-bubble-sender--swap">
-                            Swap request
-                            {swapUnseen && !proofMode ? (
-                                <span className="av-chat-bubble-new">New</span>
-                            ) : null}
-                        </p>
+                        <ProofBubbleHeader
+                            title="Swap request"
+                            titleClassName="av-chat-bubble-sender--swap"
+                            unseen={proofMode ? swapUnseen : false}
+                            doneButton={
+                                proofMode ? (
+                                    <ProofDoneButton
+                                        completed={!swapUnseen}
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            markSwapMarksSeen(albumId, [swapItem]);
+                                        }}
+                                        ariaLabel={
+                                            swapUnseen
+                                                ? 'Mark swap request complete'
+                                                : 'Swap request already complete'
+                                        }
+                                        className="av-chat-bubble-done"
+                                    />
+                                ) : null
+                            }
+                        />
                         <div className="av-chat-swap-route">
                             <button
                                 type="button"
@@ -334,9 +364,6 @@ export default function AlbumPreviewSpreadFeed({
                                         Delete
                                     </button>
                                 </BubbleInlineActions>
-                            ) : null}
-                            {swapUnseen && proofMode ? (
-                                <span className="av-chat-bubble-new">New</span>
                             ) : null}
                             {createdAtLabel ? (
                                 <time dateTime={swapItem.createdAt}>{createdAtLabel}</time>

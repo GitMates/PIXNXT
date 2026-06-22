@@ -1,4 +1,4 @@
-import { photoFillsWholeFromItem } from './albumGridSize';
+import { photoFillsWholeSpread } from './albumGridSize';
 import { getCollectionItemDisplayUrl } from './albumCollection';
 import {
     enumerateCollectionPlacementPages,
@@ -9,6 +9,14 @@ import {
 
 function pageToSpreadSide(pageNum) {
     return pageNum % 2 === 0 ? 'left' : 'right';
+}
+
+/** Thumbnail preview only — require known dimensions before treating as whole-spread. */
+function itemFillsWholeSpreadForThumb(item, pageGridSize) {
+    if (item?.width > 0 && item?.height > 0) {
+        return photoFillsWholeSpread(item.width, item.height, pageGridSize);
+    }
+    return false;
 }
 
 /**
@@ -32,7 +40,7 @@ export function resolveCollectionThumbLayout(index, collectionItems, album, tota
 
     if (isWholeSpreadLayout(gridLayout) && spreadOpts.hasCovers && spreadOpts.blankCovers) {
         const photoFillsWhole = collectionItems.map((row) =>
-            photoFillsWholeFromItem(row, pageGridSize)
+            itemFillsWholeSpreadForThumb(row, pageGridSize)
         );
         const slots = enumerateWholeSpreadBlankCoverPlacements(
             collectionItems.length,
@@ -47,7 +55,7 @@ export function resolveCollectionThumbLayout(index, collectionItems, album, tota
     }
 
     if (isWholeSpreadLayout(gridLayout)) {
-        if (photoFillsWholeFromItem(item, pageGridSize)) {
+        if (itemFillsWholeSpreadForThumb(item, pageGridSize)) {
             return { mode: 'spread-whole', src };
         }
     }
@@ -59,7 +67,7 @@ export function resolveCollectionThumbLayout(index, collectionItems, album, tota
     );
     const pageNum = pages[index];
     if (pageNum != null) {
-        if (isWholeSpreadLayout(gridLayout) && photoFillsWholeFromItem(item, pageGridSize)) {
+        if (isWholeSpreadLayout(gridLayout) && itemFillsWholeSpreadForThumb(item, pageGridSize)) {
             return { mode: 'spread-whole', src };
         }
         return { mode: 'spread-half', src, side: pageToSpreadSide(pageNum) };

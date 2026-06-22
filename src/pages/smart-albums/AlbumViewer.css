@@ -901,8 +901,40 @@
 
 .av-chat-bubble--with-done {
   position: relative;
-  padding-top: 8px;
-  padding-right: 34px;
+}
+
+.av-chat-bubble-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 4px;
+  min-height: 24px;
+}
+
+.av-chat-bubble-header .av-chat-bubble-sender {
+  margin: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.av-chat-bubble-header-spacer {
+  flex: 1;
+  min-width: 0;
+}
+
+.av-chat-bubble-top-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.av-chat-bubble-top-actions .av-chat-bubble-done {
+  position: static;
+  top: auto;
+  right: auto;
 }
 
 .av-chat-bubble-done {
@@ -1488,7 +1520,7 @@
   flex-direction: column;
   gap: 10px;
   padding: 12px 14px 10px;
-  background: #f8f9fb;
+  background: #fff;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;

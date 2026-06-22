@@ -24,9 +24,15 @@ export default function CollectionSpreadThumb({ layout, alt = '' }) {
 
     if (mode === 'spread-whole') {
         return (
-            <span className="ae-collection-thumb-spread">
+            <span className="ae-collection-thumb-spread ae-collection-thumb-spread--whole">
                 <span className="ae-collection-thumb-page ae-collection-thumb-page--full">
-                    <img src={src} alt={alt} loading="lazy" draggable={false} />
+                    <img
+                        className="ae-collection-thumb-photo--whole"
+                        src={src}
+                        alt={alt}
+                        loading="lazy"
+                        draggable={false}
+                    />
                 </span>
             </span>
         );

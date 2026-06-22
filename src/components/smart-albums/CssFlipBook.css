@@ -148,7 +148,15 @@
   pointer-events: none;
 }
 
-.css-flip-book-page-img,
+.css-flip-book-page-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: contain;
+  object-position: center;
+}
+
 .css-flip-book-cover .ab-book-wrap-cover-img,
 .css-flip-book-cover .ab-book-wrap-spine-img {
   display: block;
