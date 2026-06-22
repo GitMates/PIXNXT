@@ -29,8 +29,10 @@ import {
 } from './albumGridSize';
 import {
     getAlbumCollection,
+    getAlbumCollectionRevision,
     getAlbumLayoutPhotoCount,
     getCollectionItem,
+    getCollectionItemDisplayUrl,
     isCoverWrapCollectionItem,
     markCollectionItemAsCoverWrap,
 } from './albumCollection';
@@ -74,10 +76,8 @@ function resolveCollectionItemUrl(albumId, collectionItemId) {
         getCollectionItem(albumId, collectionItemId) ??
         getRemoteCollectionItem(albumId, collectionItemId);
     if (!item) return null;
-    if (item.storagePath) {
-        return storageService.getPublicUrl(item.storagePath);
-    }
-    return item.dataUrl ?? null;
+    const cacheBust = getAlbumCollectionRevision(albumId);
+    return getCollectionItemDisplayUrl(item, { cacheBust });
 }
 
 function resolveStoredPhoto(albumId, stored) {

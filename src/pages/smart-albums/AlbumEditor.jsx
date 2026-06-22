@@ -233,7 +233,7 @@ function slotFromCurrentSpread(
     }
 
     if (albumId) {
-        if (spreadHasWholeSpreadPhoto(albumId, left) && manualWhole) {
+        if (spreadHasWholeSpreadPhoto(albumId, left)) {
             return {
                 pageNum: left,
                 cellId: 1,
@@ -957,6 +957,7 @@ export default function AlbumEditor({
                         totalPages,
                         previousItemId: before.previousItemId,
                         previousUrl: before.previousUrl,
+                        previousStoragePath: before.previousStoragePath,
                     });
                 }
                 return placed;
@@ -989,7 +990,8 @@ export default function AlbumEditor({
             const left = slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
             const useWholeSpread =
                 Boolean(slot.whole) &&
-                isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
+                (isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts) ||
+                    spreadHasWholeSpreadPhoto(albumId, left));
             if (useWholeSpread) {
                 const right = getSpreadRightPageIndex(left, totalPages);
                 return trackReplacement(
@@ -1097,6 +1099,7 @@ export default function AlbumEditor({
                 const replaced = await replaceCollectionItemFile(albumId, previousItemId, file, {
                     photographerId,
                     compressionTarget,
+                    retainPreviousStorage: true,
                 });
                 if (replaced) return replaced;
             }
@@ -1111,7 +1114,7 @@ export default function AlbumEditor({
             const replacementItem = added[0] || added.duplicateItems?.[0];
             if (previousItemId && replacementItem?.id && previousItemId !== replacementItem.id) {
                 clearCollectionItemPlacements(albumId, previousItemId);
-                await deleteCollectionItemAsset(albumId, previousItemId);
+                await deleteCollectionItemAsset(albumId, previousItemId, { retainStorage: true });
             }
             return replacementItem;
         },
@@ -1306,6 +1309,7 @@ export default function AlbumEditor({
                         totalPages,
                         previousItemId: before.previousItemId,
                         previousUrl: before.previousUrl,
+                        previousStoragePath: before.previousStoragePath,
                     });
                 }
                 return placed;
@@ -1345,7 +1349,8 @@ export default function AlbumEditor({
             const wantsWholeSpread =
                 gridEditSet === 'whole' ||
                 gridSelection.mode === 'spread' ||
-                isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
+                isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts) ||
+                spreadHasWholeSpreadPhoto(albumId, left);
 
             if (wantsWholeSpread) {
                 const isWholeAlbum = isWholeSpreadLayout(album?.grid_layout);

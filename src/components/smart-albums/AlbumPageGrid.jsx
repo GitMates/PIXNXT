@@ -31,6 +31,7 @@ function GridPhoto({
     spreadLeft,
     showSamples = true,
     transformRevision = 0,
+    photoRevision = 0,
     panoramic = null,
 }) {
     const transform =
@@ -40,6 +41,7 @@ function GridPhoto({
               ? getPagePhotoTransform(albumId, pageNum)
               : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
     void transformRevision;
+    void photoRevision;
     const [useSampleFallback, setUseSampleFallback] = useState(false);
     const sampleSrc = showSamples ? getSampleImageForPage(pageNum) : null;
     const displaySrc = useSampleFallback ? sampleSrc : src;
@@ -50,6 +52,7 @@ function GridPhoto({
 
     const img = (
         <img
+            key={`${displaySrc || 'empty'}-r${photoRevision}`}
             src={displaySrc}
             alt=""
             className="ab-grid-cell-photo"
@@ -134,7 +137,6 @@ export default function AlbumPageGrid({
     const liveSpotCanSwap = spotCanSwap || Boolean(ctx.spotCanSwap);
     const liveOnPinSave = ctx.onPinSave;
     const albumId = albumIdProp ?? album?.id;
-    void photoRevision;
     void transformRevision;
     const collectionCount = albumId ? getAlbumLayoutPhotoCount(albumId, album) : 0;
     const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
@@ -494,6 +496,7 @@ export default function AlbumPageGrid({
                                         getPagePhotoOverride(albumId, photoIndex)
                                     }
                                     transformRevision={transformRevision}
+                                    photoRevision={photoRevision}
                                     onTransformChange={onTransformChange}
                                 />
                             ) : (
@@ -504,6 +507,7 @@ export default function AlbumPageGrid({
                                     spreadLeft={spreadLeft}
                                     showSamples={showSamples}
                                     transformRevision={transformRevision}
+                                    photoRevision={photoRevision}
                                     panoramic={panoramic}
                                 />
                             )}

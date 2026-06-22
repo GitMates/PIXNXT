@@ -1473,7 +1473,7 @@ const AlbumBook = ({
         () =>
             getFlipbookStoragePages(totalPages, spreadOpts).map((pageNum) => (
                 <AlbumFlipPage
-                    key={`page-${pageNum}`}
+                    key={`page-${pageNum}-r${photoRevision}`}
                     album={album}
                     pageNum={pageNum}
                     totalPages={totalPages}
@@ -1493,6 +1493,7 @@ const AlbumBook = ({
             placementMode,
             showSamples,
             previewMode,
+            photoRevision,
         ]
     );
 

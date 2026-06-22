@@ -24,6 +24,7 @@ export default function EditableGridPhoto({
     panoramic = null,
     src,
     transformRevision = 0,
+    photoRevision = 0,
     onTransformChange,
 }) {
     const wrapRef = useRef(null);
@@ -138,6 +139,7 @@ export default function EditableGridPhoto({
 
     const img = (
         <img
+            key={`${src}-r${photoRevision}`}
             src={src}
             alt=""
             className="ab-grid-cell-photo ab-grid-cell-photo--editable"

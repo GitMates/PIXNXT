@@ -755,12 +755,17 @@ export function getCollectionItem(albumId, itemId) {
 }
 
 /** Best URL for thumbnails and placement previews (prefers R2 public URL over stale dataUrl). */
-export function getCollectionItemDisplayUrl(item) {
+export function getCollectionItemDisplayUrl(item, { cacheBust = null } = {}) {
     if (!item) return null;
+    let url = null;
     if (item.storagePath) {
-        return storageService.getPublicUrl(item.storagePath);
+        url = storageService.getPublicUrl(item.storagePath);
+    } else {
+        url = item.dataUrl ?? null;
     }
-    return item.dataUrl ?? null;
+    if (!url || cacheBust == null) return url;
+    const token = encodeURIComponent(String(cacheBust));
+    return url.includes('?') ? `${url}&v=${token}` : `${url}?v=${token}`;
 }
 
 export function removeCollectionItem(albumId, itemId) {
@@ -778,7 +783,7 @@ export async function replaceCollectionItemFile(
     albumId,
     itemId,
     file,
-    { photographerId, compressionTarget = null } = {}
+    { photographerId, compressionTarget = null, retainPreviousStorage = false } = {}
 ) {
     if (!albumId || !itemId || !file || !isImageFile(file)) return null;
     const item = getCollectionItem(albumId, itemId);
@@ -829,7 +834,7 @@ export async function replaceCollectionItemFile(
     });
     persistCollectionBucket(all, albumId, bucket);
 
-    if (oldPath && oldPath !== uploaded.path) {
+    if (oldPath && oldPath !== uploaded.path && !retainPreviousStorage) {
         try {
             await storageService.delete(oldPath);
         } catch (err) {
@@ -841,11 +846,11 @@ export async function replaceCollectionItemFile(
 }
 
 /** Remove one collection item and delete its R2 object when present. */
-export async function deleteCollectionItemAsset(albumId, itemId) {
+export async function deleteCollectionItemAsset(albumId, itemId, { retainStorage = false } = {}) {
     const item = getCollectionItem(albumId, itemId);
     if (!item) return false;
 
-    if (item.storagePath) {
+    if (item.storagePath && !retainStorage) {
         await storageService.delete(item.storagePath);
     }
 

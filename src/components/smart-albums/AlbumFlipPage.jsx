@@ -100,10 +100,11 @@ function pageHasVisiblePhoto(
     return Boolean(showSamples && getSampleImageForPage(pageNum));
 }
 
-function PagePhoto({ src, pageNum, showSamples, className = '' }) {
+function PagePhoto({ src, pageNum, showSamples, className = '', photoRevision = 0 }) {
     const [useSampleFallback, setUseSampleFallback] = useState(false);
     const sampleSrc = showSamples ? getSampleImageForPage(pageNum) : null;
     const displaySrc = useSampleFallback ? sampleSrc : src;
+    void photoRevision;
 
     if (!displaySrc) {
         return <div className="ab-page-empty" aria-hidden />;
@@ -111,7 +112,7 @@ function PagePhoto({ src, pageNum, showSamples, className = '' }) {
 
     return (
         <img
-            key={displaySrc}
+            key={`${displaySrc}-r${photoRevision}`}
             src={displaySrc}
             alt=""
             className={`ab-page-photo${className ? ` ${className}` : ''}`}
@@ -244,7 +245,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     const albumId = albumIdProp ?? album?.id;
-    void livePhotoRevision;
     void liveTransformRevision;
     const collectionCount = albumId ? getAlbumLayoutPhotoCount(albumId, album) : 0;
     const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
@@ -570,6 +570,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     >
                         {insideCoverPhotoSrc ? (
                             <img
+                                key={`${insideCoverPhotoSrc}-r${livePhotoRevision}`}
                                 src={insideCoverPhotoSrc}
                                 alt=""
                                 className="ab-page-photo ab-page-photo--full"
@@ -721,6 +722,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     >
                         {preBackPhotoSrc ? (
                             <img
+                                key={`${preBackPhotoSrc}-r${livePhotoRevision}`}
                                 src={preBackPhotoSrc}
                                 alt=""
                                 className="ab-page-photo ab-page-photo--full"
@@ -971,6 +973,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                     src={src}
                                     pageNum={pageNum}
                                     showSamples={showSamples}
+                                    photoRevision={livePhotoRevision}
                                     className="ab-page-photo ab-page-photo--full"
                                 />
                             )
@@ -1114,6 +1117,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 src={src}
                                 pageNum={pageNum}
                                 showSamples={showSamples}
+                                photoRevision={livePhotoRevision}
                                 className="ab-page-photo ab-page-photo--full"
                             />
                         ) : (
@@ -1244,6 +1248,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 src={src}
                                 pageNum={pageNum}
                                 showSamples={showSamples}
+                                photoRevision={livePhotoRevision}
                             />
                         )
                     ) : isFrontCoverRightPage && coverText ? (

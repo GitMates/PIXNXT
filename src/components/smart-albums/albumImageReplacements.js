@@ -1,4 +1,5 @@
 import { getCollectionItem, getCollectionItemDisplayUrl } from './albumCollection';
+import { storageService } from '../../services/storage.service';
 import {
     getGridSlotPhoto,
     resolveSlotCollectionItemId,
@@ -45,12 +46,6 @@ function resolveItemUrl(albumId, itemId) {
     if (!itemId) return null;
     const item = getCollectionItem(albumId, itemId);
     return getCollectionItemDisplayUrl(item);
-}
-
-function pickStoredPreviousUrl(priorUrl, recordUrl) {
-    if (priorUrl?.startsWith('data:')) return priorUrl;
-    if (recordUrl?.startsWith('data:')) return recordUrl;
-    return priorUrl ?? recordUrl ?? null;
 }
 
 function rasterizeImageToDataUrl(src) {
@@ -108,10 +103,12 @@ export async function snapshotImageUrlForReview(url) {
     }
 }
 
-export function resolveReplacementPreviewUrl(albumId, url, itemId = null) {
+export function resolveReplacementPreviewUrl(albumId, url, storagePath = null) {
+    void albumId;
     if (url?.startsWith('data:')) return url;
+    if (storagePath) return storageService.getPublicUrl(storagePath);
     if (url) return url;
-    return resolveItemUrl(albumId, itemId);
+    return null;
 }
 
 function getSlotImageUrl(albumId, slot, album, totalPages, itemId = null) {
@@ -141,12 +138,22 @@ function getSlotImageUrl(albumId, slot, album, totalPages, itemId = null) {
     return photo?.src ?? null;
 }
 
-function buildReplacementRecord(albumId, slot, newItemId, { album, totalPages, previousItemId, previousUrl }) {
+function buildReplacementRecord(
+    albumId,
+    slot,
+    newItemId,
+    { album, totalPages, previousItemId, previousUrl, previousStoragePath = null }
+) {
     const spreadOpts = getSpreadContext(album, totalPages);
     const prevId =
         previousItemId ??
         resolveSlotCollectionItemId(albumId, slot, { totalPages, spreadOpts, album });
-    const prevUrl = previousUrl ?? getSlotImageUrl(albumId, slot, album, totalPages, prevId);
+    const prevItem = prevId ? getCollectionItem(albumId, prevId) : null;
+    const prevStoragePath = previousStoragePath ?? prevItem?.storagePath ?? null;
+    const prevUrl =
+        previousUrl ??
+        (prevItem ? getCollectionItemDisplayUrl(prevItem) : null) ??
+        getSlotImageUrl(albumId, slot, album, totalPages, prevId);
     const newUrl = resolveItemUrl(albumId, newItemId);
 
     if (!prevUrl || !newUrl) return null;
@@ -171,6 +178,7 @@ function buildReplacementRecord(albumId, slot, newItemId, { album, totalPages, p
         cellId: slot.cellId ?? 0,
         whole,
         previousItemId: prevId || null,
+        previousStoragePath: prevStoragePath || null,
         previousUrl: prevUrl,
         newItemId,
         newUrl,
@@ -187,9 +195,17 @@ export function captureSlotImageBeforeReplace(albumId, slot, album, totalPages) 
         spreadOpts,
         album,
     });
-    const previousUrl = getSlotImageUrl(albumId, slot, album, totalPages, previousItemId);
+    const previousItem = previousItemId ? getCollectionItem(albumId, previousItemId) : null;
+    const previousStoragePath = previousItem?.storagePath ?? null;
+    const previousUrl =
+        getCollectionItemDisplayUrl(previousItem) ??
+        getSlotImageUrl(albumId, slot, album, totalPages, previousItemId);
     if (!previousItemId && !previousUrl) return null;
-    return { previousItemId: previousItemId || null, previousUrl: previousUrl || null };
+    return {
+        previousItemId: previousItemId || null,
+        previousStoragePath,
+        previousUrl: previousUrl || null,
+    };
 }
 
 /** Async snapshot — stores a data URL so review summary keeps the before photo after R2 replace. */
@@ -231,24 +247,12 @@ export function addImageReplacement(albumId, record) {
     );
     if (duplicate) return duplicate;
 
-    const sameSlotIdx = bucket.findIndex((row) => row.slotKey === record.slotKey);
-    if (sameSlotIdx >= 0) {
-        const prior = bucket[sameSlotIdx];
-        bucket[sameSlotIdx] = {
-            ...record,
-            id: prior.id,
-            previousItemId: prior.previousItemId ?? record.previousItemId,
-            previousUrl: pickStoredPreviousUrl(prior.previousUrl, record.previousUrl),
-        };
-    } else {
-        bucket.push(record);
-    }
-
+    bucket.push(record);
     all[albumId] = bucket;
     writeAll(all);
     patchRemotePreviewImageReplacements(albumId, bucket);
     notify(albumId);
-    return sameSlotIdx >= 0 ? bucket[sameSlotIdx] : record;
+    return record;
 }
 
 /** Record a spread photo replacement when a slot already had an image. */
@@ -256,14 +260,25 @@ export function trackSpreadImageReplacement(
     albumId,
     slot,
     newItemId,
-    { album = null, totalPages = 0, previousItemId = null, previousUrl = null } = {}
+    {
+        album = null,
+        totalPages = 0,
+        previousItemId = null,
+        previousUrl = null,
+        previousStoragePath = null,
+    } = {}
 ) {
     if (!albumId || !slot || !newItemId) return null;
     const spreadOpts = getSpreadContext(album, totalPages);
     const prevId =
         previousItemId ??
         resolveSlotCollectionItemId(albumId, slot, { totalPages, spreadOpts, album });
-    const prevUrl = previousUrl ?? getSlotImageUrl(albumId, slot, album, totalPages, prevId);
+    const prevItem = prevId ? getCollectionItem(albumId, prevId) : null;
+    const prevUrl =
+        previousUrl ??
+        (prevItem ? getCollectionItemDisplayUrl(prevItem) : null) ??
+        getSlotImageUrl(albumId, slot, album, totalPages, prevId);
+    const prevStoragePath = previousStoragePath ?? prevItem?.storagePath ?? null;
     if (!prevId && !prevUrl) return null;
 
     const record = buildReplacementRecord(albumId, slot, newItemId, {
@@ -271,6 +286,7 @@ export function trackSpreadImageReplacement(
         totalPages,
         previousItemId: prevId,
         previousUrl: prevUrl,
+        previousStoragePath: prevStoragePath,
     });
     if (!record) return null;
     return addImageReplacement(albumId, record);
@@ -306,6 +322,7 @@ export function serializeImageReplacementsForSnapshot(albumId) {
         cellId: row.cellId,
         whole: Boolean(row.whole),
         previousItemId: row.previousItemId ?? null,
+        previousStoragePath: row.previousStoragePath ?? null,
         previousUrl: row.previousUrl,
         newItemId: row.newItemId,
         newUrl: row.newUrl,

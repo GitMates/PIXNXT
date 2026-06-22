@@ -243,7 +243,6 @@ export default function AlbumPreviewSpreadFeed({
                             <AlbumPreviewReplacementCard
                                 albumId={albumId}
                                 replacement={item.replacement}
-                                onRemove={onRemoveReplacement}
                             />
                         </div>
                     );
