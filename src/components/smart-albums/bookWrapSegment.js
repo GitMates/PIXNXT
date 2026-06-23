@@ -1,6 +1,6 @@
 import { getProxiedMediaFetchUrl } from '../../lib/r2MediaProxy';
 import { normalizePhotoTransform } from './albumPageTransforms';
-import { resolveWrapSegmentBounds } from './bookWrapSpine';
+import { isSpineStretchWrapSide, resolveWrapSegmentBounds } from './bookWrapSpine';
 
 const imageCache = new Map();
 const pending = new Map();
@@ -42,7 +42,7 @@ function segmentCacheKey(src, layout, side, transform, width, height) {
 
 /** Horizontal slice + object-fit cover — same logic as 3D cover preview. */
 export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
-    const emptyColor = side === 'spine' ? '#e4e7ec' : '#ffffff';
+    const emptyColor = isSpineStretchWrapSide(side) ? '#e4e7ec' : '#ffffff';
     ctx.fillStyle = emptyColor;
     ctx.fillRect(0, 0, texW, texH);
     if (!img || !layout || !side) return;
@@ -63,6 +63,12 @@ export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
     ctx.translate(texW / 2 + (t.x / 100) * texW, texH / 2 + (t.y / 100) * texH);
     ctx.scale(t.scaleX, t.scaleY);
     ctx.translate(-texW / 2, -texH / 2);
+
+    if (isSpineStretchWrapSide(side)) {
+        ctx.drawImage(img, sx, 0, sw, sh, 0, 0, texW, texH);
+        ctx.restore();
+        return;
+    }
 
     let dw;
     let dh;

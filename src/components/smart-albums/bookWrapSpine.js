@@ -1,3 +1,4 @@
+import { getProxiedMediaFetchUrl } from '../../lib/r2MediaProxy';
 import {
     blankCoverWrapAspect,
     computeSpineWidthUnits,
@@ -145,6 +146,10 @@ export function getBookWrapSpineLayout(album) {
         spineFraction,
         coverSpineStartFraction,
         coverSpineEndFraction,
+        spineDisplayStartFraction: spineStartFraction,
+        spineDisplayEndFraction: spineEndFraction,
+        spineZoneStartFraction: autoBounds.spineStartFraction,
+        spineZoneEndFraction: autoBounds.spineEndFraction,
         defaultSpineStartFraction: autoBounds.spineStartFraction,
         defaultSpineEndFraction: autoBounds.spineEndFraction,
         defaultSpineFraction: autoBounds.spineFraction,
@@ -177,12 +182,64 @@ export function resolveWrapSegmentBounds(layout, side) {
         return { start: coverEnd < 1 ? coverEnd : 0.5, end: 1 };
     }
     if (side === 'spine') {
-        return {
-            start: layout.spineStartFraction,
-            end: layout.spineEndFraction,
-        };
+        const zoneStart =
+            layout.spineZoneStartFraction ??
+            layout.defaultSpineStartFraction ??
+            coverStart;
+        const zoneEnd =
+            layout.spineZoneEndFraction ??
+            layout.defaultSpineEndFraction ??
+            coverEnd;
+        let start =
+            layout.spineDisplayStartFraction ??
+            layout.spineStartFraction;
+        let end =
+            layout.spineDisplayEndFraction ??
+            layout.spineEndFraction;
+        start = Math.max(zoneStart, Math.min(start, end - MIN_SPINE_FRACTION));
+        end = Math.min(zoneEnd, Math.max(end, start + MIN_SPINE_FRACTION));
+        return { start, end, zoneStart, zoneEnd };
+    }
+    if (side === 'spine-gap-before') {
+        const zoneStart =
+            layout.spineZoneStartFraction ??
+            layout.defaultSpineStartFraction ??
+            coverStart;
+        const displayStart =
+            layout.spineDisplayStartFraction ?? layout.spineStartFraction;
+        return { start: zoneStart, end: Math.max(zoneStart, displayStart) };
+    }
+    if (side === 'spine-gap-after') {
+        const zoneEnd =
+            layout.spineZoneEndFraction ??
+            layout.defaultSpineEndFraction ??
+            coverEnd;
+        const displayEnd = layout.spineDisplayEndFraction ?? layout.spineEndFraction;
+        return { start: Math.min(zoneEnd, displayEnd), end: zoneEnd };
     }
     return { start: 0, end: 1 };
+}
+
+export function isSpineStretchWrapSide(side) {
+    return side === 'spine' || side === 'spine-gap-before' || side === 'spine-gap-after';
+}
+
+/** CSS background for spine panel — selected slice of the wrap, always visible while dragging. */
+export function bookWrapSpinePanelStyle(src, layout, transform) {
+    if (!src || !layout?.hasSpine) return null;
+    const { start, end } = resolveWrapSegmentBounds(layout, 'spine');
+    const segW = end - start;
+    if (!(segW > 0)) return null;
+
+    const url = getProxiedMediaFetchUrl(src);
+    const base = photoTransformStyle(transform);
+    return {
+        ...base,
+        backgroundImage: `url(${url})`,
+        backgroundSize: `${100 / segW}% 100%`,
+        backgroundPosition: `${(-start / segW) * 100}% center`,
+        backgroundRepeat: 'no-repeat',
+    };
 }
 
 export function isInwardSpineOverride(override, layout) {
@@ -324,9 +381,6 @@ export function bookWrapCoverImageStyle(layout, side, transform, { panoramic = n
         return base;
     }
 
-    const start = layout.spineStartFraction;
-    const end = layout.spineEndFraction;
-    const spine = layout.spineFraction;
     const { start: cropStart, end: cropEnd } = resolveWrapSegmentBounds(layout, side);
 
     if (side === 'back' && cropStart > 0) {
@@ -347,14 +401,17 @@ export function bookWrapCoverImageStyle(layout, side, transform, { panoramic = n
             objectPosition: 'right center',
         };
     }
-    if (side === 'spine' && spine > 0) {
-        return {
-            ...base,
-            width: `${100 / spine}%`,
-            maxWidth: 'none',
-            marginLeft: `${(-100 * start) / spine}%`,
-            objectPosition: 'center center',
-        };
+    if (isSpineStretchWrapSide(side)) {
+        const segW = cropEnd - cropStart;
+        if (segW > 0) {
+            return {
+                ...base,
+                width: `${100 / segW}%`,
+                maxWidth: 'none',
+                marginLeft: `${(-100 * cropStart) / segW}%`,
+                objectPosition: 'center center',
+            };
+        }
     }
     return base;
 }

@@ -89,10 +89,33 @@
   outline-offset: -2px;
 }
 
+.ab-cover-edit-spine-gap {
+  flex: 0 0 auto;
+  align-self: stretch;
+  position: relative;
+  overflow: hidden;
+  background: #eef1f5;
+  pointer-events: none;
+}
+
+.ab-cover-edit-spine-gap .ab-book-wrap-spine-img,
+.ab-cover-edit-spine-gap .ab-book-wrap-segment-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .ab-cover-edit-spine-panel {
   flex-shrink: 0;
   position: relative;
   z-index: 1;
+  min-width: 6px;
+}
+
+.ab-cover-edit-view__photo-wrap .ab-book-wrap-spine-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .ab-cover-edit-spine-handle {

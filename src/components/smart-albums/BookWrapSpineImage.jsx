@@ -1,10 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { bookWrapCoverImageStyle } from './bookWrapSpine';
+import { bookWrapCoverImageStyle, isSpineStretchWrapSide } from './bookWrapSpine';
 import { renderWrapSegmentDataUrl } from './bookWrapSegment';
 
 /**
  * One segment of a book-wrap image: back cover, spine, or front cover.
- * Uses canvas slice rendering when layout has spine bounds; falls back to CSS crop.
  */
 export default function BookWrapSpineImage({
     src,
@@ -20,11 +19,18 @@ export default function BookWrapSpineImage({
 
     useEffect(() => {
         if (!useCanvasSlice) {
-            setSegmentUrl(null);
             return undefined;
         }
 
-        const host = hostRef.current?.parentElement || hostRef.current;
+        if (isSpineStretchWrapSide(side)) {
+            setSegmentUrl(null);
+        }
+
+        const host =
+            hostRef.current?.closest('.ab-cover-edit-spine-panel') ||
+            hostRef.current?.closest('.ab-cover-edit-spine-gap') ||
+            hostRef.current?.parentElement ||
+            hostRef.current;
         if (!host) return undefined;
 
         let cancelled = false;
@@ -33,8 +39,10 @@ export default function BookWrapSpineImage({
         const paint = () => {
             const width = host.clientWidth;
             const height = host.clientHeight;
-            if (width < 2 || height < 2) return;
-            renderWrapSegmentDataUrl(src, layout, side, transform, width, height).then((url) => {
+            if (width < 1 || height < 1) return;
+            const renderW = Math.max(4, Math.round(width));
+            const renderH = Math.max(4, Math.round(height));
+            renderWrapSegmentDataUrl(src, layout, side, transform, renderW, renderH).then((url) => {
                 if (!cancelled && url) setSegmentUrl(url);
             });
         };
@@ -62,6 +70,12 @@ export default function BookWrapSpineImage({
         transform,
         layout?.spineStartFraction,
         layout?.spineEndFraction,
+        layout?.spineDisplayStartFraction,
+        layout?.spineDisplayEndFraction,
+        layout?.coverSpineStartFraction,
+        layout?.coverSpineEndFraction,
+        layout?.defaultSpineStartFraction,
+        layout?.defaultSpineEndFraction,
         layout?.wrapAspect,
         layout?.hasSpine,
     ]);
@@ -69,10 +83,31 @@ export default function BookWrapSpineImage({
     if (!src) return null;
 
     if (useCanvasSlice) {
-        const sideClass =
-            side === 'spine'
-                ? 'ab-book-wrap-spine-img'
-                : `ab-book-wrap-cover-img ab-book-wrap-cover-img--${side}`;
+        const isStretchSide = isSpineStretchWrapSide(side);
+        const sideClass = isStretchSide
+            ? `ab-book-wrap-spine-img${
+                  side === 'spine-gap-before' || side === 'spine-gap-after'
+                      ? ' ab-book-wrap-spine-gap-img'
+                      : ''
+              }`
+            : `ab-book-wrap-cover-img ab-book-wrap-cover-img--${side}`;
+
+        if (isStretchSide && !segmentUrl) {
+            const style = bookWrapCoverImageStyle(layout, side, transform, { panoramic });
+            return (
+                <img
+                    ref={hostRef}
+                    src={src}
+                    alt=""
+                    className={`${sideClass} ab-book-wrap-segment-img${
+                        className ? ` ${className}` : ''
+                    }`}
+                    draggable={false}
+                    style={style}
+                />
+            );
+        }
+
         return (
             <img
                 ref={hostRef}
