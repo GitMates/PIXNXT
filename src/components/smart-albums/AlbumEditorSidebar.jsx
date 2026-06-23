@@ -12,6 +12,7 @@ import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
 import CollectionSpreadThumb from './CollectionSpreadThumb';
 import CoverLeatherColorPicker from './CoverLeatherColorPicker';
 import { resolveCollectionThumbLayout } from './collectionThumbLayout';
+import { getLockedCollectionIndices } from './albumCollection';
 import { formatAlbumGridSizeDisplay, parseGridSizeAspect } from './albumGridSize';
 import {
     getImageReplacements,
@@ -75,7 +76,6 @@ export default function AlbumEditorSidebar({
     totalPages,
     collectionItems = [],
     onUploadForCurrentSpread,
-    onPlaceCollectionItem,
     onOpenPicker,
     onClearAllPhotos,
     uploading = false,
@@ -143,6 +143,10 @@ export default function AlbumEditorSidebar({
         const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
         return 2 * pageAspect;
     }, [album?.grid_size]);
+    const lockedCollectionIndices = useMemo(
+        () => getLockedCollectionIndices(collectionItems, album),
+        [collectionItems, album]
+    );
 
     const currentSpreadIndex = useMemo(() => {
         const left =
@@ -312,13 +316,21 @@ export default function AlbumEditorSidebar({
         );
     };
 
-    const handleCollectionDragStart = useCallback((index) => {
-        collectionDragFromRef.current = index;
-    }, []);
+    const handleCollectionDragStart = useCallback(
+        (index) => {
+            if (lockedCollectionIndices.has(index)) return;
+            collectionDragFromRef.current = index;
+        },
+        [lockedCollectionIndices]
+    );
 
-    const handleCollectionDragOver = useCallback((index) => {
-        setCollectionDragOverIndex(index);
-    }, []);
+    const handleCollectionDragOver = useCallback(
+        (index) => {
+            if (lockedCollectionIndices.has(index)) return;
+            setCollectionDragOverIndex(index);
+        },
+        [lockedCollectionIndices]
+    );
 
     const handleCollectionDrop = useCallback(
         (toIndex) => {
@@ -326,9 +338,12 @@ export default function AlbumEditorSidebar({
             collectionDragFromRef.current = null;
             setCollectionDragOverIndex(null);
             if (fromIndex == null || fromIndex === toIndex) return;
+            if (lockedCollectionIndices.has(fromIndex) || lockedCollectionIndices.has(toIndex)) {
+                return;
+            }
             onReorderCollectionItem?.(fromIndex, toIndex);
         },
-        [onReorderCollectionItem]
+        [onReorderCollectionItem, lockedCollectionIndices]
     );
 
     const handleCollectionDragEnd = useCallback(() => {
@@ -421,7 +436,9 @@ export default function AlbumEditorSidebar({
                         {collectionItems.length > 0 && (
                             <>
                                 <div className="ae-collection-grid" role="list">
-                                    {collectionItems.map((item, index) => (
+                                    {collectionItems.map((item, index) => {
+                                        const isLocked = lockedCollectionIndices.has(index);
+                                        return (
                                         <div
                                             key={item.id}
                                             className={`ae-collection-thumb-wrap${collectionDragOverIndex === index
@@ -430,29 +447,33 @@ export default function AlbumEditorSidebar({
                                                 }`}
                                             role="listitem"
                                         >
-                                            <button
-                                                type="button"
-                                                className="ae-collection-thumb"
+                                            <div
+                                                className={`ae-collection-thumb${isLocked ? ' ae-collection-thumb--locked' : ''}`}
                                                 style={{ aspectRatio: collectionThumbAspect }}
-                                                draggable
-                                                onClick={() => onPlaceCollectionItem?.(item.id)}
+                                                draggable={!isLocked}
                                                 onDragStart={(e) => {
+                                                    if (isLocked) {
+                                                        e.preventDefault();
+                                                        return;
+                                                    }
                                                     e.stopPropagation();
                                                     e.dataTransfer.effectAllowed = 'move';
                                                     handleCollectionDragStart(index);
                                                 }}
                                                 onDragOver={(e) => {
+                                                    if (isLocked) return;
                                                     e.preventDefault();
                                                     e.stopPropagation();
                                                     handleCollectionDragOver(index);
                                                 }}
                                                 onDrop={(e) => {
+                                                    if (isLocked) return;
                                                     e.preventDefault();
                                                     e.stopPropagation();
                                                     handleCollectionDrop(index);
                                                 }}
                                                 onDragEnd={handleCollectionDragEnd}
-                                                title={`${index + 1}. ${item.name || 'Photo'} — click to place`}
+                                                title={`${index + 1}. ${item.name || 'Photo'}${isLocked ? ' — fixed position' : ''}`}
                                             >
                                                 <span className="ae-collection-order" aria-hidden>
                                                     {index + 1}
@@ -461,9 +482,10 @@ export default function AlbumEditorSidebar({
                                                     layout={collectionThumbLayouts[index]}
                                                     alt=""
                                                 />
-                                            </button>
+                                            </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </>
                         )}

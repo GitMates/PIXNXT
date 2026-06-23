@@ -1527,12 +1527,12 @@ export default function AlbumEditor({
 
     const handleReorderCollectionItem = useCallback(
         (fromIndex, toIndex) => {
-            if (!reorderCollectionItems(albumId, fromIndex, toIndex)) return;
+            if (!reorderCollectionItems(albumId, fromIndex, toIndex, { album })) return;
             void syncCollectionOrderToSpreads().then((placed) => {
                 if (placed > 0) scheduleWorkspaceRefresh();
             });
         },
-        [albumId, syncCollectionOrderToSpreads, scheduleWorkspaceRefresh]
+        [albumId, album, syncCollectionOrderToSpreads, scheduleWorkspaceRefresh]
     );
 
     const handleReorderOverviewSpread = useCallback(
@@ -1916,7 +1916,6 @@ export default function AlbumEditor({
                     totalPages={totalPages}
                     collectionItems={collectionItems}
                     onUploadForCurrentSpread={handleUploadForCurrentSpread}
-                    onPlaceCollectionItem={handlePlaceCollectionItem}
                     onOpenPicker={openPicker}
                     onClearAllPhotos={handleClearAllPhotos}
                     uploading={uploading}

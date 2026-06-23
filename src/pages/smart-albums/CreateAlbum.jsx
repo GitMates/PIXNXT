@@ -1137,7 +1137,6 @@ const CreateAlbum = () => {
                                             index={0}
                                             onRemove={() => handleRemoveCover()}
                                             animateIn={false}
-                                            roleLabel="Book wrap"
                                         />
                                         <button
                                             type="button"

@@ -729,15 +729,86 @@ export async function addFilesToAlbumCollection(
     return added;
 }
 
+function placementCollectionItems(collectionItems, blankCovers) {
+    return blankCovers
+        ? collectionItems.filter((item) => !isCoverWrapCollectionItem(item))
+        : collectionItems;
+}
+
+function placementItemCollectionIndex(placementItem, collectionItems) {
+    return collectionItems.findIndex((item) => item.id === placementItem.id);
+}
+
+/**
+ * Collection indices that must stay fixed (front cover, 2nd spread, pre-end, end cover).
+ * Middle inner spreads can be drag-reordered among themselves.
+ */
+export function getLockedCollectionIndices(collectionItems, album = null) {
+    const locked = new Set();
+    if (!collectionItems?.length || album?.has_covers !== true) return locked;
+
+    const blankCovers = album?.blank_covers === true;
+    if (blankCovers) {
+        collectionItems.forEach((item, index) => {
+            if (isCoverWrapCollectionItem(item)) locked.add(index);
+        });
+    }
+
+    const placementItems = placementCollectionItems(collectionItems, blankCovers);
+    if (!placementItems.length) return locked;
+
+    const toCollectionIndex = (placementIndex) =>
+        placementItemCollectionIndex(placementItems[placementIndex], collectionItems);
+
+    locked.add(toCollectionIndex(0));
+
+    if (!blankCovers && placementItems.length > 1) {
+        locked.add(toCollectionIndex(1));
+    }
+
+    if (placementItems.length > 1) {
+        locked.add(toCollectionIndex(placementItems.length - 1));
+    }
+
+    return locked;
+}
+
+export function getDraggableCollectionIndices(collectionItems, album = null) {
+    const locked = getLockedCollectionIndices(collectionItems, album);
+    return collectionItems.map((_, index) => index).filter((index) => !locked.has(index));
+}
+
+export function isDraggableCollectionIndex(index, collectionItems, album = null) {
+    return !getLockedCollectionIndices(collectionItems, album).has(index);
+}
+
+function reorderDraggableCollectionItems(sorted, fromIndex, toIndex, album) {
+    const draggable = getDraggableCollectionIndices(sorted, album);
+    const fromPos = draggable.indexOf(fromIndex);
+    const toPos = draggable.indexOf(toIndex);
+    if (fromPos < 0 || toPos < 0 || fromPos === toPos) return sorted;
+
+    const draggableItems = draggable.map((index) => sorted[index]);
+    const moved = moveFileInOrder(draggableItems, fromPos, toPos);
+    const reordered = sorted.slice();
+    draggable.forEach((collectionIndex, i) => {
+        reordered[collectionIndex] = moved[i];
+    });
+    return reordered;
+}
+
 /** Reorder collection thumbnails (updates sortOrder for grid + auto-place). */
-export function reorderCollectionItems(albumId, fromIndex, toIndex) {
+export function reorderCollectionItems(albumId, fromIndex, toIndex, { album = null } = {}) {
     if (!albumId) return false;
     const all = readAll();
     const bucket = all[albumId];
     if (!bucket?.items?.length) return false;
 
     const sorted = sortCollectionItems(bucket.items);
-    const reordered = moveFileInOrder(sorted, fromIndex, toIndex);
+    const reordered =
+        album?.has_covers === true
+            ? reorderDraggableCollectionItems(sorted, fromIndex, toIndex, album)
+            : moveFileInOrder(sorted, fromIndex, toIndex);
     if (reordered === sorted) return false;
 
     persistCollectionBucket(all, albumId, {

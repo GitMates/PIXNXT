@@ -1509,7 +1509,7 @@
   border: 1px solid rgba(0, 0, 0, 0.14);
   border-radius: 8px;
   overflow: hidden;
-  cursor: pointer;
+  cursor: grab;
   background: #fff;
   line-height: 0;
   font: 0/0 a;
@@ -1517,8 +1517,8 @@
 }
 
 .ae-collection-thumb:hover {
-  border-color: #2563eb;
-  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+  border-color: rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .ae-collection-thumb--drag-over {
@@ -1527,6 +1527,15 @@
 }
 
 /* legacy — drag-over now on wrap */
+
+.ae-collection-thumb--locked {
+  cursor: default;
+}
+
+.ae-collection-thumb--locked:hover {
+  border-color: rgba(0, 0, 0, 0.14);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
 
 .ae-collection-thumb[draggable='true'] {
   cursor: grab;
