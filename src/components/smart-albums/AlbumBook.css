@@ -654,8 +654,7 @@
 .ab-cover-leather-canvas.ab-cover-leather--flat {
   box-shadow:
     0 14px 32px rgba(0, 0, 0, 0.14),
-    0 4px 10px rgba(0, 0, 0, 0.07),
-    inset 0 0 20px rgba(0, 0, 0, 0.06);
+    0 4px 10px rgba(0, 0, 0, 0.07);
   transform: none;
 }
 

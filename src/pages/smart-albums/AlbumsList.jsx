@@ -248,11 +248,6 @@ const AlbumsList = ({ starredOnly = false }) => {
         }
     };
 
-    const handleMoveTo = () => {
-        closeContextMenu();
-        alert('Move to folders for Smart Albums is coming soon.');
-    };
-
     const handleShareByEmail = useCallback(
         (album) => {
             if (!album) return;
@@ -324,7 +319,6 @@ const AlbumsList = ({ starredOnly = false }) => {
                     openSmartAlbumPreview(album.id);
                 }}
                 onQuickEdit={() => handleQuickEdit(album)}
-                onMoveTo={handleMoveTo}
                 onDuplicate={() => handleDuplicateAlbum(album)}
                 onDelete={() => handleDeleteAlbum(album)}
                 onShareByEmail={() => handleShareByEmail(album)}

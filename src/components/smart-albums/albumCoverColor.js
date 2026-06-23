@@ -25,12 +25,12 @@ export const COVER_LEATHER_PRESETS = [
     },
     {
         id: 'cream',
-        label: 'Cream',
-        base: '#ebe4d6',
-        highlight: '#f8f5ee',
-        shadow: '#cfc4b4',
-        spine: '#ddd4c6',
-        text: '#8a7d6c',
+        label: 'White',
+        base: '#f8f8f8',
+        highlight: '#ffffff',
+        shadow: '#d6d6d6',
+        spine: '#ececec',
+        text: '#6e6e6e',
     },
     {
         id: 'charcoal',

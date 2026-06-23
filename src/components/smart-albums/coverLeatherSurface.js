@@ -1,6 +1,6 @@
 import { resolveCoverLeatherPreset } from './albumCoverColor';
 
-const SURFACE_VERSION = 9;
+const SURFACE_VERSION = 11;
 const dataUrlCache = new Map();
 
 function leatherPresetColors(preset) {
@@ -51,53 +51,14 @@ function rgbToCss({ r, g, b }, alpha = 1) {
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-function drawPanelEdgeBevel(ctx, texW, texH, shadowRgb) {
-    const edge = Math.max(2, Math.round(Math.min(texW, texH) * 0.007));
-    const edgeColor = rgbToCss(mixRgb(shadowRgb, { r: 0, g: 0, b: 0 }, 0.45), 0.14);
-    const highlightColor = 'rgba(255,255,255,0.1)';
-
-    const left = ctx.createLinearGradient(0, 0, edge * 5, 0);
-    left.addColorStop(0, edgeColor);
-    left.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = left;
-    ctx.fillRect(0, 0, texW, texH);
-
-    const top = ctx.createLinearGradient(0, 0, 0, edge * 5);
-    top.addColorStop(0, edgeColor);
-    top.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = top;
-    ctx.fillRect(0, 0, texW, texH);
-
-    const right = ctx.createLinearGradient(texW, 0, texW - edge * 5, 0);
-    right.addColorStop(0, edgeColor);
-    right.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = right;
-    ctx.fillRect(0, 0, texW, texH);
-
-    const bottom = ctx.createLinearGradient(0, texH, 0, texH - edge * 5);
-    bottom.addColorStop(0, edgeColor);
-    bottom.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = bottom;
-    ctx.fillRect(0, 0, texW, texH);
-
-    const innerHighlight = ctx.createLinearGradient(0, edge, 0, edge * 6);
-    innerHighlight.addColorStop(0, highlightColor);
-    innerHighlight.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = innerHighlight;
-    ctx.fillRect(edge, edge, texW - edge * 2, edge * 5);
-}
-
 /** Realistic pebbled leather — studio light, weave, pores, satin sheen. */
 export function drawLeatherPanel(ctx, texW, texH, preset, { presetId = 'cream', spine = false } = {}) {
     const colors = leatherPresetColors(preset);
-    const baseRgb = parseHexColor(colors.base);
-    const shadowRgb = parseHexColor(colors.shadow);
 
     const bg = ctx.createLinearGradient(texW * 0.12, 0, texW * 0.88, texH);
     bg.addColorStop(0, colors.highlight);
-    bg.addColorStop(0.32, colors.base);
-    bg.addColorStop(0.68, colors.base);
-    bg.addColorStop(1, colors.shadow);
+    bg.addColorStop(0.35, colors.base);
+    bg.addColorStop(1, colors.base);
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, texW, texH);
 
@@ -138,7 +99,7 @@ export function drawLeatherPanel(ctx, texW, texH, preset, { presetId = 'cream', 
                 ? (leatherNoise(seed + 200, x * 0.07, y * 2.6) - 0.5) * 12
                 : 0;
 
-            const grain = weave + micro + pebble + pebble2 + pore + spineGrain + lighting * 13 - 6.5;
+            const grain = weave + micro + pebble + pebble2 + pore + spineGrain + lighting * 5 - 2.5;
 
             const i = (y * texW + x) * 4;
             let r = data[i];
@@ -174,22 +135,6 @@ export function drawLeatherPanel(ctx, texW, texH, preset, { presetId = 'cream', 
     ctx.fillStyle = sheen;
     ctx.fillRect(0, 0, texW, texH);
     ctx.restore();
-
-    const vignette = ctx.createRadialGradient(
-        texW * 0.48,
-        texH * 0.44,
-        texW * 0.06,
-        texW * 0.5,
-        texH * 0.5,
-        Math.max(texW, texH) * 0.84
-    );
-    vignette.addColorStop(0, 'rgba(255,255,255,0.05)');
-    vignette.addColorStop(0.5, 'rgba(255,255,255,0)');
-    vignette.addColorStop(1, rgbToCss(mixRgb(baseRgb, shadowRgb, 0.38), 0.32));
-    ctx.fillStyle = vignette;
-    ctx.fillRect(0, 0, texW, texH);
-
-    drawPanelEdgeBevel(ctx, texW, texH, shadowRgb);
 }
 
 /** Pressed-in serif title — debossed stamp with inner shadow and highlight. */
