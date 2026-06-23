@@ -394,9 +394,6 @@ export default function AlbumPreview({
                     <AlbumPreviewProofActions
                         albumId={albumId}
                         albumName={album?.name}
-                        photoCommentItems={photoCommentItems}
-                        swapItems={swapItems}
-                        spreadCommentsBySpread={spreadCommentsBySpread}
                         onToast={(message, variant = 'info') =>
                             showToast(message, { variant, duration: 4500 })
                         }
