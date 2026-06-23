@@ -127,6 +127,11 @@
     color: #111 !important;
   }
 
+  .lab-content-container h1,
+  .lab-content-container h1 * {
+    color: #005c5a !important;
+  }
+
   h2, h3, h4, h5, h6 {
     text-transform: uppercase !important;
     letter-spacing: 0.12em !important;

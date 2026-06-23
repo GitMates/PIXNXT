@@ -26,6 +26,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import PrintStoreApp from './printstore/PrintStoreApp';
+import LabApp from './printstore/lab/LabApp';
 
 
 function App() {
@@ -94,6 +95,7 @@ function App() {
     location.pathname === '/collections' ||
     location.pathname.startsWith('/gallery/') ||
     location.pathname.startsWith('/album-preview/') ||
+    location.pathname.startsWith('/lab') ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
   if (activeSlug) {
@@ -154,6 +156,7 @@ function App() {
           <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
           <Route path="/ref/:code" element={<ReferralRedirect />} />
           <Route path="/printstore" element={<PrintStoreApp />} />
+          <Route path="/lab/*" element={<LabApp />} />
         </Routes>
 
         {!hideLayout && <Footer />}

@@ -5,16 +5,24 @@ import CartItemPreview from './CartItemPreview';
 
 const STATUS_TO_STEP = {
   pending: 0,
+  sent_to_lab: 1,
   processing: 2,
+  packed: 3,
+  dispatching: 4,
   shipped: 5,
+  arrived: 6,
   completed: 7,
   cancelled: 0,
 };
 
 const STATUS_LABELS = {
   pending: 'Order Placed',
-  processing: 'Processing',
-  shipped: 'Shipped',
+  sent_to_lab: 'Sent to Lab',
+  processing: 'Product Made',
+  packed: 'Packed',
+  dispatching: 'Dispatching',
+  shipped: 'Dispatched',
+  arrived: 'Arrived',
   completed: 'Delivered',
   cancelled: 'Cancelled',
 };
@@ -24,6 +32,7 @@ const TABS = ['Live orders', 'Cancelled', 'Completed'];
 export default function TrackOrderPage({ sessionId, photographer }) {
   const [orders, setOrders] = useState([]);
   const [allOrderItems, setAllOrderItems] = useState([]);
+  const [trackingLogs, setTrackingLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeTabIdx, setActiveTabIdx] = useState(0);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -175,6 +184,17 @@ export default function TrackOrderPage({ sessionId, photographer }) {
         }
         setAllOrderItems(items || []);
 
+        const { data: trackingData, error: trackingError } = await supabase
+          .from('printstore_order_tracking')
+          .select('*')
+          .in('order_id', orderIds)
+          .order('created_at', { ascending: true });
+
+        if (trackingError) {
+          console.error('Error fetching order tracking logs:', trackingError);
+        }
+        setTrackingLogs(trackingData || []);
+
         // Fetch cancellation reasons
         const cancelledOrderIds = ordersData.filter(o => o.status === 'cancelled').map(o => o.id);
         let cancellationReasons = {};
@@ -315,15 +335,31 @@ export default function TrackOrderPage({ sessionId, photographer }) {
                 hour: '2-digit', minute: '2-digit', hour12: true
               });
 
+              const currentTrackingLogs = trackingLogs.filter(log => log.order_id === order.id);
+              const getStepDate = (statusKey, fallbackDateString) => {
+                const match = currentTrackingLogs.find(log => log.status === statusKey);
+                if (match) {
+                  const d = new Date(match.created_at);
+                  const formattedD = d.toLocaleDateString('en-IN', {
+                    day: 'numeric', month: 'short'
+                  });
+                  const formattedT = d.toLocaleTimeString('en-IN', {
+                    hour: '2-digit', minute: '2-digit', hour12: true
+                  });
+                  return formattedD + ', ' + formattedT;
+                }
+                return fallbackDateString || 'Pending';
+              };
+
               const steps = [
-                { label: 'Order placed', date: formattedDate + ', ' + formattedTime },
-                { label: 'Sent to making lab', date: currentStepIndex >= 1 ? '' : 'Pending' },
-                { label: 'Product made', date: currentStepIndex >= 2 ? '' : 'Pending' },
-                { label: 'Packed', date: currentStepIndex >= 3 ? '' : 'Pending' },
-                { label: 'Dispatching', date: currentStepIndex >= 4 ? '' : 'Pending' },
-                { label: 'Dispatched', date: currentStepIndex >= 5 ? '' : 'Pending' },
-                { label: 'Arrived', date: currentStepIndex >= 6 ? '' : 'Pending' },
-                { label: 'Delivered', date: currentStepIndex >= 7 ? 'Delivered' : 'Pending' },
+                { label: 'Order placed', date: getStepDate('pending', formattedDate + ', ' + formattedTime) },
+                { label: 'Sent to making lab', date: getStepDate('sent_to_lab') },
+                { label: 'Product made', date: getStepDate('processing') },
+                { label: 'Packed', date: getStepDate('packed') },
+                { label: 'Dispatching', date: getStepDate('dispatching') },
+                { label: 'Dispatched', date: getStepDate('shipped') },
+                { label: 'Arrived', date: getStepDate('arrived') },
+                { label: 'Delivered', date: getStepDate('completed', order.status === 'completed' ? 'Delivered' : 'Pending') },
               ];
 
               return (
