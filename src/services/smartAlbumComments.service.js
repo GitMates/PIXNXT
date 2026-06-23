@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { getClientTimezone } from './albumProof.service';
 import { smartAlbumsService } from './smartAlbums.service';
 
 const LOCAL_KEY = 'pixnxt_smart_album_comments_local';
@@ -834,6 +835,7 @@ export const smartAlbumCommentsService = {
             guestEmail: guestEmail?.trim() || null,
             siteOrigin:
                 siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+            clientTimezone: getClientTimezone(),
             comments: (comments || [])
                 .filter((c) => !c.parent_id && hasCommentBody(c))
                 .map((c) => ({

@@ -47,17 +47,22 @@ function spreadLabel(spreadIndex: number): string {
   return spreadIndex <= 0 ? 'Cover' : `Spread ${spreadIndex}`;
 }
 
-function formatWhen(iso?: string): string {
+function formatWhen(iso?: string, timeZone?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString([], {
+  const opts: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  });
+  };
+  const tz = timeZone?.trim();
+  if (tz) {
+    return d.toLocaleString('en-US', { ...opts, timeZone: tz });
+  }
+  return d.toLocaleString('en-US', opts);
 }
 
 function buildApproveEmailHtml(options: {
@@ -123,6 +128,7 @@ function buildChangesEmailHtml(options: {
   swapRequests: SwapRequestRow[];
   spreadComments: SpreadCommentRow[];
   editorUrl: string;
+  timeZone?: string;
 }): string {
   const {
     photographerName,
@@ -133,6 +139,7 @@ function buildChangesEmailHtml(options: {
     swapRequests,
     spreadComments,
     editorUrl,
+    timeZone,
   } = options;
 
   const guestLine = guestEmail
@@ -172,7 +179,7 @@ function buildChangesEmailHtml(options: {
         .map(
           (item) => `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;color:#333;">
             <strong style="color:#111;">${escapeHtml(item.author_name || guestName)}</strong>
-            <span style="color:#999;"> · ${escapeHtml(formatWhen(item.updated_at || item.created_at))}</span><br/>
+            <span style="color:#999;"> · ${escapeHtml(formatWhen(item.updated_at || item.created_at, timeZone))}</span><br/>
             ${escapeHtml(String(item.body || '').trim())}
           </p>`
         )
@@ -310,6 +317,7 @@ serve(async (req) => {
       photoComments = [],
       swapRequests = [],
       spreadComments = [],
+      clientTimezone,
     } = body;
 
     if (!albumId) {
@@ -420,8 +428,10 @@ serve(async (req) => {
     const origin = (siteOrigin || Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
     const editorUrl = `${origin}/smart-albums/album/${albumId}`;
     const clientName = String(guestName || spreadRows[0]?.author_name || 'A client').trim();
-    const approvedAt = formatWhen(new Date().toISOString());
-    const startedAt = formatWhen(new Date().toISOString());
+    const timeZone =
+      typeof clientTimezone === 'string' && clientTimezone.trim() ? clientTimezone.trim() : undefined;
+    const approvedAt = formatWhen(new Date().toISOString(), timeZone);
+    const startedAt = formatWhen(new Date().toISOString(), timeZone);
 
     let subject = '';
     let plainBody = '';
@@ -501,6 +511,7 @@ serve(async (req) => {
         swapRequests: swapRows,
         spreadComments: spreadRows,
         editorUrl,
+        timeZone,
       });
     }
 

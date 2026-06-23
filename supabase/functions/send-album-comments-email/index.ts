@@ -37,17 +37,22 @@ function spreadLabel(spreadIndex: number): string {
   return spreadIndex <= 0 ? 'Cover' : `Spread ${spreadIndex}`;
 }
 
-function formatWhen(iso?: string): string {
+function formatWhen(iso?: string, timeZone?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString([], {
+  const opts: Intl.DateTimeFormatOptions = {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-  });
+  };
+  const tz = timeZone?.trim();
+  if (tz) {
+    return d.toLocaleString('en-US', { ...opts, timeZone: tz });
+  }
+  return d.toLocaleString('en-US', opts);
 }
 
 function buildCommentsEmailHtml(options: {
@@ -58,9 +63,18 @@ function buildCommentsEmailHtml(options: {
   commentCount: number;
   groupedComments: { label: string; items: CommentRow[] }[];
   editorUrl: string;
+  timeZone?: string;
 }): string {
-  const { photographerName, albumName, guestName, guestEmail, commentCount, groupedComments, editorUrl } =
-    options;
+  const {
+    photographerName,
+    albumName,
+    guestName,
+    guestEmail,
+    commentCount,
+    groupedComments,
+    editorUrl,
+    timeZone,
+  } = options;
 
   const commentBlocks = groupedComments
     .map(({ label, items }) => {
@@ -68,7 +82,7 @@ function buildCommentsEmailHtml(options: {
         .map(
           (item) => `<p style="margin:0 0 10px;font-size:14px;line-height:1.6;color:#333;">
             <strong style="color:#111;">${escapeHtml(item.author_name || 'Guest')}</strong>
-            <span style="color:#999;"> · ${escapeHtml(formatWhen(item.updated_at || item.created_at))}</span><br/>
+            <span style="color:#999;"> · ${escapeHtml(formatWhen(item.updated_at || item.created_at, timeZone))}</span><br/>
             ${escapeHtml(String(item.body || '').trim())}
           </p>`
         )
@@ -137,7 +151,7 @@ serve(async (req) => {
   }
 
   try {
-    const { albumId, guestName, guestEmail, siteOrigin, comments } = await req.json();
+    const { albumId, guestName, guestEmail, siteOrigin, comments, clientTimezone } = await req.json();
 
     if (!albumId) {
       return new Response(JSON.stringify({ error: 'albumId is required' }), {
@@ -236,6 +250,9 @@ serve(async (req) => {
     const clientName = String(guestName || rows[0]?.author_name || 'A client').trim();
     const subject = `${clientName} confirmed album comments — ${album.name || 'Album'}`;
 
+    const timeZone =
+      typeof clientTimezone === 'string' && clientTimezone.trim() ? clientTimezone.trim() : undefined;
+
     const plainBody = [
       `Hi ${photographer.display_name || 'Photographer'},`,
       '',
@@ -261,6 +278,7 @@ serve(async (req) => {
       commentCount: rows.length,
       groupedComments,
       editorUrl,
+      timeZone,
     });
 
     const smtpConfig = {

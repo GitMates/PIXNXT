@@ -74,9 +74,21 @@ async function readFunctionErrorMessage(error) {
     return message;
 }
 
+export function getClientTimezone() {
+    if (typeof window === 'undefined') return null;
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch {
+        return null;
+    }
+}
+
 async function invokeProofEmail(payload) {
     const { data, error } = await supabase.functions.invoke('send-album-proof-email', {
-        body: payload,
+        body: {
+            ...payload,
+            clientTimezone: payload.clientTimezone ?? getClientTimezone(),
+        },
     });
 
     if (error) {
