@@ -240,6 +240,60 @@ function buildChangesEmailHtml(options: {
 </html>`;
 }
 
+function buildClientStartedEmailHtml(options: {
+  photographerName: string;
+  albumName: string;
+  guestName: string;
+  guestEmail: string | null;
+  startedAt: string;
+  editorUrl: string;
+}): string {
+  const { photographerName, albumName, guestName, guestEmail, startedAt, editorUrl } = options;
+  const guestLine = guestEmail
+    ? `${escapeHtml(guestName)} (${escapeHtml(guestEmail)})`
+    : escapeHtml(guestName);
+
+  return `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f0f0f0;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f0f0;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:36px 40px 32px;text-align:left;">
+              <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999;">${escapeHtml(photographerName)}</p>
+              <h1 style="margin:0 0 20px;font-size:20px;font-weight:700;letter-spacing:0.5px;color:#111;line-height:1.3;">Client started commenting</h1>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;background:#fafafa;border:1px solid #eee;border-radius:10px;">
+                <tr>
+                  <td style="padding:18px 20px;">
+                    <p style="margin:0 0 10px;font-size:13px;line-height:1.5;color:#666;">A client opened your shared album preview and left their first comment or swap request:</p>
+                    <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#111;">${escapeHtml(albumName)}</p>
+                    <p style="margin:0 0 4px;font-size:14px;line-height:1.5;color:#444;">${guestLine}</p>
+                    <p style="margin:8px 0 0;font-size:12px;color:#666;">${escapeHtml(startedAt)}</p>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#555;">You will receive this alert only once per album. Open the editor to review new feedback as it comes in.</p>
+              <table role="presentation" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="border-radius:6px;background:#111;">
+                    <a href="${escapeHtml(editorUrl)}" style="display:inline-block;padding:14px 28px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#ffffff;text-decoration:none;">Open album in editor</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0;font-size:11px;color:#aaa;text-align:center;">Sent by PIXNXT</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -265,7 +319,7 @@ serve(async (req) => {
       });
     }
 
-    if (action !== 'approve' && action !== 'submit_changes') {
+    if (action !== 'approve' && action !== 'submit_changes' && action !== 'client_started_commenting') {
       return new Response(JSON.stringify({ error: 'Invalid action' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -279,7 +333,9 @@ serve(async (req) => {
 
     const { data: album, error: albumError } = await supabaseAdmin
       .from('smart_albums')
-      .select('id, name, status, photographer_id')
+      .select(
+        'id, name, status, photographer_id, client_commenting_started_at, client_commenting_started_by'
+      )
       .eq('id', albumId)
       .maybeSingle();
 
@@ -289,6 +345,18 @@ serve(async (req) => {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    if (action === 'client_started_commenting' && album.client_commenting_started_at) {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          skipped: true,
+          alreadyNotified: true,
+          notifiedAt: album.client_commenting_started_at,
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const photoRows: PhotoCommentRow[] = (Array.isArray(photoComments) ? photoComments : []).filter(
@@ -353,12 +421,33 @@ serve(async (req) => {
     const editorUrl = `${origin}/smart-albums/album/${albumId}`;
     const clientName = String(guestName || spreadRows[0]?.author_name || 'A client').trim();
     const approvedAt = formatWhen(new Date().toISOString());
+    const startedAt = formatWhen(new Date().toISOString());
 
     let subject = '';
     let plainBody = '';
     let html = '';
 
-    if (action === 'approve') {
+    if (action === 'client_started_commenting') {
+      subject = `Client started commenting — ${album.name || 'Album'}`;
+      plainBody = [
+        `Hi ${photographer.display_name || 'Photographer'},`,
+        '',
+        `${clientName} started leaving feedback on "${album.name}" via your shared preview link.`,
+        '',
+        'This is a one-time alert for the first comment or swap request on this album.',
+        '',
+        `Started on: ${startedAt}`,
+        `Open album: ${editorUrl}`,
+      ].join('\n');
+      html = buildClientStartedEmailHtml({
+        photographerName: photographer.display_name || 'Photographer',
+        albumName: album.name || 'Album',
+        guestName: clientName,
+        guestEmail: guestEmail?.trim() || null,
+        startedAt,
+        editorUrl,
+      });
+    } else if (action === 'approve') {
       subject = `Album approved for binding — ${album.name || 'Album'}`;
       plainBody = [
         `Hi ${photographer.display_name || 'Photographer'},`,
@@ -449,10 +538,15 @@ serve(async (req) => {
             client_approved_at: new Date().toISOString(),
             client_approved_by: clientName,
           }
-        : {
-            client_changes_submitted_at: new Date().toISOString(),
-            client_changes_submitted_by: clientName,
-          };
+        : action === 'client_started_commenting'
+          ? {
+              client_commenting_started_at: new Date().toISOString(),
+              client_commenting_started_by: clientName,
+            }
+          : {
+              client_changes_submitted_at: new Date().toISOString(),
+              client_changes_submitted_by: clientName,
+            };
 
     const { error: proofUpdateError } = await supabaseAdmin
       .from('smart_albums')

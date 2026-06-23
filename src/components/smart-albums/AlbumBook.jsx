@@ -51,6 +51,10 @@ import {
     PHOTO_PINS_CHANGED_EVENT,
     removePhotoPin,
 } from './albumPhotoPins';
+import {
+    albumHadClientFeedbackBefore,
+    notifyAfterClientFeedbackAdded,
+} from './albumClientFeedbackNotify';
 import './AlbumBook.css';
 import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
@@ -1192,7 +1196,11 @@ const AlbumBook = ({
                 pageNum: secondSlot.pageNum,
                 cellId: secondSlot.cellId ?? 0,
             };
+            const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addSwapMark(album.id, originSlot, secondSlot, { pointA, pointB });
+            if (previewMode) {
+                notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+            }
             setSwapPickerOrigin(null);
             setSwapPinFlow(null);
             if (secondSlot.spreadIndex != null) {
@@ -1247,6 +1255,7 @@ const AlbumBook = ({
                     );
                     return;
                 }
+                const hadFeedback = albumHadClientFeedbackBefore(album.id);
                 const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: {
                         xPct: 50,
@@ -1256,24 +1265,43 @@ const AlbumBook = ({
                     },
                     pointB: placementPoint,
                 });
-                if (mark) setSwapPinFlow(null);
+                if (mark) {
+                    if (previewMode) {
+                        notifyAfterClientFeedbackAdded(album.id, {
+                            hadFeedbackBefore: hadFeedback,
+                        });
+                    }
+                    setSwapPinFlow(null);
+                }
                 return;
             }
 
             if (slotsMatch(originSlot, placement)) {
+                const hadFeedback = albumHadClientFeedbackBefore(album.id);
                 const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: swapPinFlow.originPoint,
                     pointB: placementPoint,
                 });
-                if (mark) setSwapPinFlow(null);
+                if (mark) {
+                    if (previewMode) {
+                        notifyAfterClientFeedbackAdded(album.id, {
+                            hadFeedbackBefore: hadFeedback,
+                        });
+                    }
+                    setSwapPinFlow(null);
+                }
                 return;
             }
 
+            const hadFeedback = albumHadClientFeedbackBefore(album.id);
             const mark = addSwapMark(album.id, originSlot, placement, {
                 pointA: swapPinFlow.originPoint,
                 pointB: placementPoint,
             });
             if (mark) {
+                if (previewMode) {
+                    notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+                }
                 setSwapPinFlow(null);
             }
         },
@@ -1320,18 +1348,26 @@ const AlbumBook = ({
     const handlePinSave = useCallback(
         (message) => {
             if (!album?.id || !pinComposer) return;
+            const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addPhotoPin(album.id, { ...pinComposer, message });
+            if (previewMode) {
+                notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+            }
             setPinComposer(null);
         },
-        [album?.id, pinComposer]
+        [album?.id, pinComposer, previewMode]
     );
 
     const handlePinSaveDirect = useCallback(
         (placement) => {
             if (!album?.id || !placement?.message?.trim()) return;
+            const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addPhotoPin(album.id, placement);
+            if (previewMode) {
+                notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+            }
         },
-        [album?.id]
+        [album?.id, previewMode]
     );
 
     const handlePinRemove = useCallback(

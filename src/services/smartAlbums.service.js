@@ -268,6 +268,8 @@ const ALBUM_LIST_FIELDS = [
   'client_approved_by',
   'client_changes_submitted_at',
   'client_changes_submitted_by',
+  'client_commenting_started_at',
+  'client_commenting_started_by',
   'storage_bytes',
 ].join(', ');
 

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase/client';
 
 const APPROVED_KEY = 'pixnxt_album_proof_approved';
 const SUBMITTED_KEY = 'pixnxt_album_proof_submitted';
+const COMMENTING_STARTED_KEY = 'pixnxt_album_client_commenting_started';
 
 function readMap(key) {
     try {
@@ -43,6 +44,18 @@ export function markAlbumChangesSubmitted(albumId) {
     const all = readMap(SUBMITTED_KEY);
     all[albumId] = new Date().toISOString();
     writeMap(SUBMITTED_KEY, all);
+}
+
+export function albumHasClientCommentingStartedNotified(albumId) {
+    if (!albumId) return false;
+    return Boolean(readMap(COMMENTING_STARTED_KEY)[albumId]);
+}
+
+export function markClientCommentingStartedNotified(albumId) {
+    if (!albumId) return;
+    const all = readMap(COMMENTING_STARTED_KEY);
+    all[albumId] = new Date().toISOString();
+    writeMap(COMMENTING_STARTED_KEY, all);
 }
 
 async function readFunctionErrorMessage(error) {
@@ -109,6 +122,21 @@ export const albumProofService = {
             photoComments,
             swapRequests,
             spreadComments,
+        });
+    },
+
+    async notifyPhotographerClientStartedCommenting({
+        albumId,
+        guestName,
+        guestEmail,
+        siteOrigin,
+    }) {
+        return invokeProofEmail({
+            albumId,
+            action: 'client_started_commenting',
+            guestName: guestName?.trim() || null,
+            guestEmail: guestEmail?.trim() || null,
+            siteOrigin: siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
         });
     },
 };

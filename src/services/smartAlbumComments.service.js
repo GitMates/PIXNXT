@@ -230,6 +230,14 @@ export function hasCommentBody(comment) {
     return Boolean((comment?.body || '').trim());
 }
 
+/** Client root spread comments stored locally (preview / offline). */
+export function countClientRootComments(albumId) {
+    if (!albumId) return 0;
+    return listLocalAlbumComments(albumId).filter(
+        (c) => !c.parent_id && c.author_type === 'client' && hasCommentBody(c)
+    ).length;
+}
+
 export function normalizeCommentAuthorName(name) {
     return (name || 'Guest').trim().toLowerCase();
 }
