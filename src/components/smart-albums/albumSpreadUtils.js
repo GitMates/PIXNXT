@@ -235,6 +235,11 @@ export function getPreBackHalfSpreadInfo(totalPages, opts = {}) {
     return { spreadIndex: preBackIdx, left, right };
 }
 
+export function isPreBackHalfSpreadIndex(spreadIndex, totalPages, opts = {}) {
+    const info = getPreBackHalfSpreadInfo(totalPages, opts);
+    return info != null && spreadIndex === info.spreadIndex;
+}
+
 export function isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts = {}) {
     const info = getPreBackHalfSpreadInfo(totalPages, opts);
     return info != null && leftPage === info.left;
@@ -770,11 +775,13 @@ export function enumerateCoverCollectionPlacements(
     return enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayout, blankCovers });
 }
 
-/** Inner spreads in page overview can be drag-reordered (not cover or back). */
+/** Inner spreads in page overview can be drag-reordered (not cover, 2nd spread, pre-back, or back). */
 export function isDraggableOverviewSpread(spreadIndex, totalPages, opts = {}) {
     const spreadOpts = normalizeSpreadOpts(opts);
     if (totalPages <= 0) return false;
     if (spreadOpts.hasCovers && spreadOpts.showCover && spreadIndex <= 0) return false;
+    if (spreadOpts.hasCovers && spreadIndex === 1) return false;
+    if (isPreBackHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) return false;
     if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) return false;
     return spreadIndex >= 0 && spreadIndex < getTotalSpreads(totalPages, spreadOpts);
 }

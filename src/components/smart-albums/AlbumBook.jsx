@@ -1826,7 +1826,7 @@ const AlbumBook = ({
                     <div className="ab-overview-body" onClick={(e) => e.stopPropagation()}>
                     {canDragOverviewSpreads ? (
                         <p className="ab-overview-drag-hint">
-                            Drag inner spreads to reorder photos (cover and back stay fixed).
+                            Drag middle spreads to reorder photos. Cover, first inner spread, spread before back, and back stay fixed.
                         </p>
                     ) : null}
                     <div
