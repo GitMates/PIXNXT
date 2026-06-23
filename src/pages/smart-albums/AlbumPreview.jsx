@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumHybrid3DPreview from '../../components/smart-albums/3d/AlbumHybrid3DPreview';
+import { useAlbumWrapAspect, withAlbumWrapAspect } from '../../components/smart-albums/useAlbumWrapAspect';
 import {
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -73,9 +74,11 @@ export default function AlbumPreview({
         };
     }, []);
 
+    const wrapAspect = useAlbumWrapAspect(album, albumId, photoRevision);
+
     const albumForBook = useMemo(
-        () => (album ? { ...album, id: albumId } : null),
-        [album, albumId]
+        () => withAlbumWrapAspect(album, albumId, wrapAspect),
+        [album, albumId, wrapAspect]
     );
 
     const isPhotographer = Boolean(

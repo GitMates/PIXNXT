@@ -259,8 +259,8 @@ export function useBookTexture(
 
 export function shouldUseWrapCrop(album, coverSrc, layout) {
     if (!coverSrc || !album?.has_covers) return false;
-    if (!albumHasBlankCovers(album)) return true;
-    return Boolean(layout?.hasSpine);
+    void layout;
+    return true;
 }
 
 export function isBlankCoverAlbum(album) {

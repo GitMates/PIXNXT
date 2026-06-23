@@ -194,7 +194,7 @@ export default function BookCoverModel({
     const wrapLayout = useMemo(() => {
         if (!album) return null;
         return getBookWrapSpineLayout(album);
-    }, [album, spineBoundsTick]);
+    }, [album, album?.__wrap_aspect, spineBoundsTick]);
 
     const coverSrc = useMemo(
         () => (album ? resolveBookWrapSpreadSrc(album, { showSamples }) : null),
@@ -212,7 +212,11 @@ export default function BookCoverModel({
     }, [album?.id, coverColorTick]);
     const leatherPreset = blankNoPhoto ? resolveCoverLeatherPreset(coverColorId) : null;
     const useWrapCrop = shouldUseWrapCrop(album, coverSrc, wrapLayout);
-    const showSpinePanel = Boolean(blankNoPhoto || (useWrapCrop && wrapLayout?.hasSpine));
+    const hasWrapSpineSlice = Boolean(
+        wrapLayout?.hasSpine &&
+        wrapLayout.spineEndFraction - wrapLayout.spineStartFraction > 0.004
+    );
+    const showSpinePanel = Boolean(blankNoPhoto || (coverSrc && hasWrapSpineSlice));
 
     const coverTitle = useMemo(
         () => (blankNoPhoto ? resolveFrontCoverDisplayText(album, album?.id) : ''),
@@ -287,7 +291,7 @@ export default function BookCoverModel({
                 hasFrontPhoto={Boolean(coverSrc || hasBlankLeatherFront)}
                 hasBackPhoto={Boolean(coverSrc && useWrapCrop) || blankNoPhoto}
                 hasSpinePhoto={
-                    Boolean(coverSrc && useWrapCrop && wrapLayout?.hasSpine) ||
+                    Boolean(coverSrc && useWrapCrop && hasWrapSpineSlice) ||
                     (blankNoPhoto && showSpinePanel)
                 }
                 showSpinePanel={showSpinePanel}

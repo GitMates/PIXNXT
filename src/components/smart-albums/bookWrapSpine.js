@@ -162,7 +162,16 @@ export function getBookWrapSpineLayout(album) {
 
 /** Image slice fractions for back | spine | front (covers stay fixed when spine panel narrows). */
 export function resolveWrapSegmentBounds(layout, side) {
-    if (!layout?.hasSpine || !side) {
+    if (!side) {
+        return { start: 0, end: 1 };
+    }
+
+    if (!layout?.hasSpine) {
+        if (side === 'back') return { start: 0, end: 0.5 };
+        if (side === 'front') return { start: 0.5, end: 1 };
+        if (side === 'spine' || side === 'spine-gap-before' || side === 'spine-gap-after') {
+            return { start: 0.5, end: 0.5 };
+        }
         return { start: 0, end: 1 };
     }
 

@@ -62,7 +62,8 @@ import {
     resolveBookWrapSpreadSrc,
     syncCoverWrapRoleFromSpread,
 } from '../../components/smart-albums/albumPagePhotos';
-import { getSlotUploadPixelTarget, loadImageAspectFromUrl } from '../../components/smart-albums/albumGridSize';
+import { getSlotUploadPixelTarget } from '../../components/smart-albums/albumGridSize';
+import { useAlbumWrapAspect, withAlbumWrapAspect } from '../../components/smart-albums/useAlbumWrapAspect';
 import {
     clearSpreadPhotos,
     swapPhotoSlots,
@@ -364,41 +365,14 @@ export default function AlbumEditor({
               : buildCellSelection(0, 1);
     });
 
-    const [wrapAspect, setWrapAspect] = useState(null);
-
-    useEffect(() => {
-        if (!album?.has_covers || !albumId) {
-            setWrapAspect(null);
-            return undefined;
-        }
-        const src = resolveBookWrapSpreadSrc({ ...album, id: albumId }, { showSamples: false });
-        if (!src) {
-            setWrapAspect(null);
-            return undefined;
-        }
-        let cancelled = false;
-        loadImageAspectFromUrl(src).then((aspect) => {
-            if (!cancelled && aspect > 0) setWrapAspect(aspect);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [
+    const wrapAspect = useAlbumWrapAspect(
         album,
         albumId,
-        album?.has_covers,
-        album?.blank_covers,
-        photoRevision,
-        photoLayoutRev,
-        transformRevision,
-    ]);
+        photoRevision || photoLayoutRev || transformRevision
+    );
 
     const albumForBook = useMemo(
-        () => ({
-            ...album,
-            id: albumId,
-            ...(wrapAspect > 0 ? { __wrap_aspect: wrapAspect } : {}),
-        }),
+        () => withAlbumWrapAspect(album, albumId, wrapAspect),
         [album, albumId, wrapAspect]
     );
 

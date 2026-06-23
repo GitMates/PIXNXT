@@ -1,4 +1,5 @@
 import { clearWrapSegmentCache } from './bookWrapSegment';
+import { clearBook3dTextureCache } from './3d/book3dPageCanvas';
 
 const STORAGE_KEY = 'pixnxt_album_spine_bounds';
 
@@ -58,6 +59,7 @@ export function setAlbumSpineBoundsOverride(albumId, spineStartFraction, spineEn
     };
     writeAll(all);
     clearWrapSegmentCache();
+    clearBook3dTextureCache();
     notifySpineBoundsChanged(albumId);
 }
 
@@ -68,5 +70,6 @@ export function clearAlbumSpineBoundsOverride(albumId) {
     delete all[albumId];
     writeAll(all);
     clearWrapSegmentCache();
+    clearBook3dTextureCache();
     notifySpineBoundsChanged(albumId);
 }

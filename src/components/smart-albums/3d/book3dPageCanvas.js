@@ -138,7 +138,7 @@ function cacheKey(kind, src, panoramic, aspect, mirror = false, extra = '') {
 function wrapCacheExtra(layout, side, transform, panelAspect) {
     const bounds = layout && side ? resolveWrapSegmentBounds(layout, side) : { start: 0, end: 1 };
     const layoutKey = layout
-        ? `${bounds.start}:${bounds.end}:${layout.spineStartFraction}:${layout.spineEndFraction}`
+        ? `${bounds.start}:${bounds.end}:${layout.spineStartFraction}:${layout.spineEndFraction}:${layout.spineDisplayStartFraction}:${layout.spineDisplayEndFraction}`
         : '';
     const spineFlip = side === 'spine' ? 'inv' : '';
     return `${side || ''}|${layoutKey}|${transformKey(transform)}|${panelAspect || ''}|${spineFlip}`;
@@ -487,4 +487,9 @@ export function useCanvasSpreadTexture(src, pageAspect, transform) {
     }, [src, pageAspect, transformSig, invalidate]);
 
     return texture;
+}
+
+export function clearBook3dTextureCache() {
+    textureCache.clear();
+    pending.clear();
 }
