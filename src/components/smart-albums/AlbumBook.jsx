@@ -252,6 +252,15 @@ const AlbumBook = ({
         void transformRevision;
         return getSpreadPhotoTransform(album.id, 0);
     }, [album?.id, album?.has_covers, transformRevision]);
+    const overviewThumbStyle = useMemo(() => {
+        const thumbW = 268;
+        const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
+        const spreadAspect = 2 * pageAspect;
+        const thumbH = Math.round(thumbW / spreadAspect);
+        return {
+            '--ab-overview-thumb-h': `${Math.max(96, Math.min(200, thumbH))}px`,
+        };
+    }, [album?.grid_size]);
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -1750,6 +1759,7 @@ const AlbumBook = ({
                     className={`ab-overview${
                         previewMode ? ' ab-overview--gallery-proof' : ''
                     }${pageCountBusy ? ' ab-overview--page-busy' : ''}`}
+                    style={overviewThumbStyle}
                     role="dialog"
                     aria-modal="true"
                     aria-label="Page overview"

@@ -11,10 +11,13 @@ export default function OverviewLeatherCover({ album, showTitle = false }) {
     const coverColorId = albumId ? getAlbumCoverColor(albumId) : 'cream';
     const coverText =
         showTitle && albumId ? resolveFrontCoverDisplayText(album, albumId) : '';
-    const style = getCoverLeatherSurfaceStyle(coverColorId, {
-        aspect: pageAspect,
-        ...(showTitle && coverText ? { title: coverText } : {}),
-    });
+    const style = {
+        ...getCoverLeatherSurfaceStyle(coverColorId, {
+            aspect: pageAspect,
+            ...(showTitle && coverText ? { title: coverText } : {}),
+        }),
+        backgroundSize: '100% 100%',
+    };
 
     return (
         <span
