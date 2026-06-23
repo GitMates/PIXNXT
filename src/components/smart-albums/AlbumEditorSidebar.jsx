@@ -12,7 +12,7 @@ import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
 import CollectionSpreadThumb from './CollectionSpreadThumb';
 import CoverLeatherColorPicker from './CoverLeatherColorPicker';
 import { resolveCollectionThumbLayout } from './collectionThumbLayout';
-import { formatAlbumGridSizeDisplay } from './albumGridSize';
+import { formatAlbumGridSizeDisplay, parseGridSizeAspect } from './albumGridSize';
 import {
     getImageReplacements,
     IMAGE_REPLACEMENTS_CHANGED_EVENT,
@@ -139,6 +139,10 @@ export default function AlbumEditorSidebar({
             ),
         [collectionItems, album, totalPages]
     );
+    const collectionThumbAspect = useMemo(() => {
+        const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
+        return 2 * pageAspect;
+    }, [album?.grid_size]);
 
     const currentSpreadIndex = useMemo(() => {
         const left =
@@ -429,6 +433,7 @@ export default function AlbumEditorSidebar({
                                             <button
                                                 type="button"
                                                 className="ae-collection-thumb"
+                                                style={{ aspectRatio: collectionThumbAspect }}
                                                 draggable
                                                 onClick={() => onPlaceCollectionItem?.(item.id)}
                                                 onDragStart={(e) => {
