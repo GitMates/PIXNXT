@@ -207,11 +207,11 @@ function blankTex() {
 const BLANK_COVER_TEXT = '#374151';
 
 function blankCoverTitleCacheKey(title, panelAspect, coverColorId) {
-    return `blank-title:v2:${coverColorId}:${title}:${panelAspect}`;
+    return `blank-title:v7:${coverColorId}:${title}:${panelAspect}`;
 }
 
 function blankLeatherPanelCacheKey(panelAspect, coverColorId, spine) {
-    return `blank-leather:v2:${coverColorId}:${spine ? 'spine' : 'panel'}:${panelAspect}`;
+    return `blank-leather:v3:${coverColorId}:${spine ? 'spine' : 'panel'}:${panelAspect}`;
 }
 
 function drawBlankCoverTitle(ctx, text, texW, texH, coverColorId) {

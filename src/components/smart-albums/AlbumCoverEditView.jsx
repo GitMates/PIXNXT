@@ -197,7 +197,7 @@ export default function AlbumCoverEditView({
     const leatherSpineStyle = useMemo(
         () =>
             showLeatherCover
-                ? getCoverLeatherSurfaceStyle(coverColorId, { aspect: pageAspect })
+                ? getCoverLeatherSurfaceStyle(coverColorId, { aspect: pageAspect, spine: true })
                 : null,
         [showLeatherCover, coverColorId, pageAspect]
     );
