@@ -144,7 +144,7 @@
 /* Gallery-style proofing header */
 .av-preview-header {
   display: grid;
-  grid-template-columns: minmax(0, 160px) minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   flex-shrink: 0;
@@ -156,18 +156,29 @@
 }
 
 .av-preview-header-brand {
-  min-width: 0;
-  max-width: 160px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
   padding: 0 4px;
   font-size: 17px;
   font-weight: 500;
   color: #555;
   text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   line-height: 1.3;
   font-family: 'Roboto', system-ui, sans-serif;
+}
+
+.av-preview-header-brand-icon {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.av-preview-header-brand-name {
+  white-space: nowrap;
 }
 
 .av-preview-header-btn {

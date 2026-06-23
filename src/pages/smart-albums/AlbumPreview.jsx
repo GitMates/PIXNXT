@@ -98,13 +98,16 @@ export default function AlbumPreview({
     const [businessName, setBusinessName] = useState(
         () => album?.preview_data?.business_name?.trim() || ''
     );
+    const [profileIconUrl, setProfileIconUrl] = useState(
+        () => album?.preview_data?.profile_icon_url?.trim() || ''
+    );
 
     useEffect(() => {
-        const fromSnapshot = album?.preview_data?.business_name?.trim();
-        if (fromSnapshot) {
-            setBusinessName(fromSnapshot);
-            return undefined;
-        }
+        const fromSnapshotName = album?.preview_data?.business_name?.trim();
+        const fromSnapshotIcon = album?.preview_data?.profile_icon_url?.trim();
+        if (fromSnapshotName) setBusinessName(fromSnapshotName);
+        if (fromSnapshotIcon) setProfileIconUrl(fromSnapshotIcon);
+        if (fromSnapshotName && fromSnapshotIcon) return undefined;
 
         const photographerId = album?.photographer_id;
         if (!photographerId) return undefined;
@@ -114,18 +117,27 @@ export default function AlbumPreview({
             .getPhotographerProfile(photographerId)
             .then((profile) => {
                 if (cancelled || !profile) return;
-                const name =
-                    profile.business_name?.trim() ||
-                    profile.display_name?.trim() ||
-                    [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
-                if (name) setBusinessName(name);
+                if (!fromSnapshotName) {
+                    const name =
+                        profile.business_name?.trim() ||
+                        profile.display_name?.trim() ||
+                        [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim();
+                    if (name) setBusinessName(name);
+                }
+                if (!fromSnapshotIcon && profile.profile_icon_url?.trim()) {
+                    setProfileIconUrl(profile.profile_icon_url.trim());
+                }
             })
             .catch(() => {});
 
         return () => {
             cancelled = true;
         };
-    }, [album?.photographer_id, album?.preview_data?.business_name]);
+    }, [
+        album?.photographer_id,
+        album?.preview_data?.business_name,
+        album?.preview_data?.profile_icon_url,
+    ]);
 
     const loadSpreadComments = useCallback(async () => {
         if (!albumId || !commentsEnabled) return;
@@ -361,7 +373,16 @@ export default function AlbumPreview({
         <div className="av-page av-page--preview av-page--gallery-proof av-page--with-comments">
             <header className="av-preview-header">
                 <span className="av-preview-header-brand" title={businessName || undefined}>
-                    {businessName}
+                    {profileIconUrl ? (
+                        <img
+                            src={profileIconUrl}
+                            alt=""
+                            className="av-preview-header-brand-icon"
+                        />
+                    ) : null}
+                    {businessName ? (
+                        <span className="av-preview-header-brand-name">{businessName}</span>
+                    ) : null}
                 </span>
                 <div className="av-preview-header-title-wrap">
                     <h1 className="av-preview-header-title">{album?.name || 'Album'}</h1>
