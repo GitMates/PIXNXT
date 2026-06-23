@@ -94,7 +94,7 @@
   align-self: stretch;
   position: relative;
   overflow: hidden;
-  background: #eef1f5;
+  background: transparent;
   pointer-events: none;
 }
 
@@ -110,6 +110,7 @@
   position: relative;
   z-index: 1;
   min-width: 6px;
+  background: transparent;
 }
 
 .ab-cover-edit-view__photo-wrap .ab-book-wrap-spine-fill {
@@ -145,7 +146,6 @@
   width: 1px;
   margin-left: -0.5px;
   background: #e53935;
-  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.9);
   pointer-events: none;
 }
 
@@ -182,6 +182,10 @@
   inset: 0;
   overflow: hidden;
   background: #fff;
+}
+
+.ab-cover-edit-spine-panel .ab-cover-edit-view__photo-wrap {
+  background: transparent;
 }
 
 .ab-cover-edit-view__photo-wrap.ab-cover-leather-canvas {
@@ -247,18 +251,6 @@
 
 .ab-cover-edit-view__empty--spine {
   background: #e4e7ec;
-}
-
-.ab-cover-edit-spread--has-spine .ab-cover-edit-page--back {
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.ab-cover-edit-spread--has-spine .ab-cover-edit-page--front {
-  border-left: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.ab-cover-edit-spread--has-spine .ab-cover-edit-spine-panel {
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .ab-cover-edit-page .ab-cover-text-message {

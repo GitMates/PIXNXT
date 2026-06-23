@@ -236,7 +236,15 @@ export default function AlbumCoverEditView({
             const gapAfterSpine = Math.round(
                 total * Math.max(0, coverEnd - spineLayout.spineEndFraction)
             );
-            return { back, spine, front, gapBeforeSpine, gapAfterSpine };
+            const used = back + front + spine + gapBeforeSpine + gapAfterSpine;
+            const remainder = total - used;
+            return {
+                back,
+                spine,
+                front: front + remainder,
+                gapBeforeSpine,
+                gapAfterSpine,
+            };
         }
 
         const back = Math.round(total * spineLayout.spineStartFraction);
