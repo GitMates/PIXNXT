@@ -967,6 +967,7 @@ const AlbumBook = ({
     }, [bookFlipping, spreadIndex, preBackSpreadIndex, endClipTransition]);
 
     useEffect(() => {
+        if (focusOpen) return undefined;
         const onKey = (e) => {
             if (e.key === 'ArrowLeft') {
                 e.preventDefault();
@@ -978,7 +979,7 @@ const AlbumBook = ({
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [flipPrev, flipNext]);
+    }, [flipPrev, flipNext, focusOpen]);
 
     useEffect(() => {
         if (!overviewOpen) return undefined;
