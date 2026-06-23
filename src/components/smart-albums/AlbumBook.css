@@ -1879,6 +1879,7 @@
 }
 
 .ab-focus-view {
+  --ab-focus-bg: #2f2f2f;
   position: fixed;
   inset: 0;
   z-index: 3200;
@@ -1951,6 +1952,13 @@
 .ab-html-flipbook--focus .ab-flip-page--grid-left:has(.ab-pano-bleed) .ab-grid-cell:has(.ab-pano-bleed),
 .ab-html-flipbook--focus .ab-flip-page--grid-right:has(.ab-pano-bleed) .ab-grid-cell:has(.ab-pano-bleed) {
   overflow: hidden;
+}
+
+/* Front cover blank left page (page 0) — match fullscreen backdrop, editor unchanged */
+.ab-html-flipbook--focus .stf__item:has(.ab-flip-page--front-cover-left),
+.ab-html-flipbook--focus .ab-flip-page--front-cover-left,
+.ab-html-flipbook--focus .ab-flip-page--front-cover-left .ab-page-empty {
+  background: var(--ab-focus-bg) !important;
 }
 
 .ab-focus-nav {

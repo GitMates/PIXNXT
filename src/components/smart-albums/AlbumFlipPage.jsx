@@ -332,7 +332,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
 
     if (isCoverInsidePage(pageNum, totalPages, coverLayoutOpts)) {
         return (
-            <div className="ab-flip-page ab-flip-page--half-blank" ref={ref} data-density="hard">
+            <div
+                className="ab-flip-page ab-flip-page--half-blank ab-flip-page--front-cover-left"
+                ref={ref}
+                data-density="hard"
+            >
                 <div className="ab-page-empty" aria-hidden />
             </div>
         );
