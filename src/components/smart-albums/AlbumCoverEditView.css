@@ -106,6 +106,14 @@
   cursor: ew-resize;
 }
 
+.ab-cover-edit-spine-handle--inward.ab-cover-edit-spine-handle--left {
+  cursor: e-resize;
+}
+
+.ab-cover-edit-spine-handle--inward.ab-cover-edit-spine-handle--right {
+  cursor: w-resize;
+}
+
 .ab-cover-edit-spine-handle__line {
   position: absolute;
   top: 0;

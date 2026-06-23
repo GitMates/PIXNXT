@@ -1,5 +1,6 @@
 import { getProxiedMediaFetchUrl } from '../../lib/r2MediaProxy';
 import { normalizePhotoTransform } from './albumPageTransforms';
+import { resolveWrapSegmentBounds } from './bookWrapSpine';
 
 const imageCache = new Map();
 const pending = new Map();
@@ -31,8 +32,9 @@ function loadImage(src) {
 }
 
 function segmentCacheKey(src, layout, side, transform, width, height) {
+    const bounds = layout ? resolveWrapSegmentBounds(layout, side) : { start: 0, end: 1 };
     const layoutKey = layout
-        ? `${layout.wrapAspect}:${layout.spineStartFraction}:${layout.spineEndFraction}`
+        ? `${layout.wrapAspect}:${bounds.start}:${bounds.end}:${layout.spineStartFraction}:${layout.spineEndFraction}`
         : '';
     const t = normalizePhotoTransform(transform);
     return `${src}|${side}|${layoutKey}|${t.x},${t.y},${t.scaleX},${t.scaleY}|${width}x${height}`;
@@ -45,20 +47,7 @@ export function drawWrapSegment(ctx, img, texW, texH, layout, side, transform) {
     ctx.fillRect(0, 0, texW, texH);
     if (!img || !layout || !side) return;
 
-    const start = layout.spineStartFraction;
-    const end = layout.spineEndFraction;
-    let imgFracStart = 0;
-    let imgFracEnd = 1;
-    if (side === 'back') {
-        imgFracStart = 0;
-        imgFracEnd = start;
-    } else if (side === 'spine') {
-        imgFracStart = start;
-        imgFracEnd = end;
-    } else if (side === 'front') {
-        imgFracStart = end;
-        imgFracEnd = 1;
-    }
+    const { start: imgFracStart, end: imgFracEnd } = resolveWrapSegmentBounds(layout, side);
 
     const segW = imgFracEnd - imgFracStart;
     if (segW <= 0) return;

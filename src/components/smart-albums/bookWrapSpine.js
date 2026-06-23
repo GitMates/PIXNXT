@@ -102,13 +102,24 @@ export function getBookWrapSpineLayout(album) {
     const autoBounds = computeAutoSpineBounds(wrapAspect, innerSpreadAspect);
     let { spineStartFraction, spineEndFraction, spineFraction, spineFromCoverCalc } = autoBounds;
 
+    const layoutDefaults = {
+        defaultSpineStartFraction: autoBounds.spineStartFraction,
+        defaultSpineEndFraction: autoBounds.spineEndFraction,
+    };
+
     const override = getAlbumSpineBoundsOverride(album?.id);
-    if (override && !spineFromCoverCalc) {
-        const span = override.spineEndFraction - override.spineStartFraction;
-        if (span > MIN_SPINE_FRACTION && span < 0.5) {
+    if (override) {
+        if (spineFromCoverCalc && isInwardSpineOverride(override, layoutDefaults)) {
             spineStartFraction = override.spineStartFraction;
             spineEndFraction = override.spineEndFraction;
-            spineFraction = span;
+            spineFraction = Math.max(0, spineEndFraction - spineStartFraction);
+        } else if (!spineFromCoverCalc) {
+            const span = override.spineEndFraction - override.spineStartFraction;
+            if (span > MIN_SPINE_FRACTION && span < 0.5) {
+                spineStartFraction = override.spineStartFraction;
+                spineEndFraction = override.spineEndFraction;
+                spineFraction = span;
+            }
         }
     }
 
@@ -118,6 +129,13 @@ export function getBookWrapSpineLayout(album) {
 
     const coverFraction = spineStartFraction;
 
+    const coverSpineStartFraction = spineFromCoverCalc
+        ? autoBounds.spineStartFraction
+        : spineStartFraction;
+    const coverSpineEndFraction = spineFromCoverCalc
+        ? autoBounds.spineEndFraction
+        : spineEndFraction;
+
     return {
         pageAspect,
         wrapAspect,
@@ -125,6 +143,8 @@ export function getBookWrapSpineLayout(album) {
         spineStartFraction,
         spineEndFraction,
         spineFraction,
+        coverSpineStartFraction,
+        coverSpineEndFraction,
         defaultSpineStartFraction: autoBounds.spineStartFraction,
         defaultSpineEndFraction: autoBounds.spineEndFraction,
         defaultSpineFraction: autoBounds.spineFraction,
@@ -135,16 +155,86 @@ export function getBookWrapSpineLayout(album) {
     };
 }
 
+/** Image slice fractions for back | spine | front (covers stay fixed when spine panel narrows). */
+export function resolveWrapSegmentBounds(layout, side) {
+    if (!layout?.hasSpine || !side) {
+        return { start: 0, end: 1 };
+    }
+
+    const coverStart =
+        layout.coverSpineStartFraction ??
+        layout.defaultSpineStartFraction ??
+        layout.spineStartFraction;
+    const coverEnd =
+        layout.coverSpineEndFraction ??
+        layout.defaultSpineEndFraction ??
+        layout.spineEndFraction;
+
+    if (side === 'back') {
+        return { start: 0, end: coverStart > 0 ? coverStart : 0.5 };
+    }
+    if (side === 'front') {
+        return { start: coverEnd < 1 ? coverEnd : 0.5, end: 1 };
+    }
+    if (side === 'spine') {
+        return {
+            start: layout.spineStartFraction,
+            end: layout.spineEndFraction,
+        };
+    }
+    return { start: 0, end: 1 };
+}
+
+export function isInwardSpineOverride(override, layout) {
+    if (!override || !layout) return false;
+    const ds = layout.defaultSpineStartFraction;
+    const de = layout.defaultSpineEndFraction;
+    if (!(ds >= 0 && de > ds)) return false;
+    const start = override.spineStartFraction;
+    const end = override.spineEndFraction;
+    const span = end - start;
+    return (
+        span >= MIN_SPINE_FRACTION &&
+        start >= ds - 0.0001 &&
+        end <= de + 0.0001
+    );
+}
+
 export function clampSpineBounds(
     spineStartFraction,
     spineEndFraction,
     layout,
-    { fixedEdge = null } = {}
+    { fixedEdge = null, inwardOnly = false } = {}
 ) {
+    const defaultStart = layout?.defaultSpineStartFraction ?? layout?.spineStartFraction ?? 0;
+    const defaultEnd = layout?.defaultSpineEndFraction ?? layout?.spineEndFraction ?? 1;
+
+    if (inwardOnly && layout?.spineFromCoverCalc) {
+        let start = spineStartFraction;
+        let end = spineEndFraction;
+
+        if (fixedEdge === 'end') {
+            start = Math.max(defaultStart, Math.min(start, end - MIN_SPINE_FRACTION));
+        } else if (fixedEdge === 'start') {
+            end = Math.min(defaultEnd, Math.max(end, start + MIN_SPINE_FRACTION));
+        } else {
+            start = Math.max(defaultStart, Math.min(start, defaultEnd - MIN_SPINE_FRACTION));
+            end = Math.min(defaultEnd, Math.max(end, start + MIN_SPINE_FRACTION));
+        }
+
+        if (end - start < MIN_SPINE_FRACTION) {
+            const mid = (defaultStart + defaultEnd) / 2;
+            start = Math.max(defaultStart, mid - MIN_SPINE_FRACTION / 2);
+            end = Math.min(defaultEnd, start + MIN_SPINE_FRACTION);
+        }
+
+        return { spineStartFraction: start, spineEndFraction: end };
+    }
+
     if (layout?.spineFromCoverCalc) {
         return {
-            spineStartFraction: layout.defaultSpineStartFraction,
-            spineEndFraction: layout.defaultSpineEndFraction,
+            spineStartFraction: defaultStart,
+            spineEndFraction: defaultEnd,
         };
     }
 
@@ -237,22 +327,23 @@ export function bookWrapCoverImageStyle(layout, side, transform, { panoramic = n
     const start = layout.spineStartFraction;
     const end = layout.spineEndFraction;
     const spine = layout.spineFraction;
+    const { start: cropStart, end: cropEnd } = resolveWrapSegmentBounds(layout, side);
 
-    if (side === 'back' && start > 0) {
+    if (side === 'back' && cropStart > 0) {
         return {
             ...base,
-            width: `${100 / start}%`,
+            width: `${100 / cropStart}%`,
             maxWidth: 'none',
             objectPosition: 'left center',
         };
     }
-    if (side === 'front' && end < 1) {
-        const frontFrac = 1 - end;
+    if (side === 'front' && cropEnd < 1) {
+        const frontFrac = 1 - cropEnd;
         return {
             ...base,
             width: `${100 / frontFrac}%`,
             maxWidth: 'none',
-            marginLeft: `${(-100 * end) / frontFrac}%`,
+            marginLeft: `${(-100 * cropEnd) / frontFrac}%`,
             objectPosition: 'right center',
         };
     }

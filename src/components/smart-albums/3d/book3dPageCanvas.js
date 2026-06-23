@@ -9,6 +9,7 @@ import {
 } from '../coverLeatherSurface';
 import { normalizePhotoTransform } from '../albumPageTransforms';
 import { drawWrapSegment } from '../bookWrapSegment';
+import { resolveWrapSegmentBounds } from '../bookWrapSpine';
 
 const imageCache = new Map();
 const textureCache = new Map();
@@ -135,8 +136,9 @@ function cacheKey(kind, src, panoramic, aspect, mirror = false, extra = '') {
 }
 
 function wrapCacheExtra(layout, side, transform, panelAspect) {
+    const bounds = layout && side ? resolveWrapSegmentBounds(layout, side) : { start: 0, end: 1 };
     const layoutKey = layout
-        ? `${layout.spineStartFraction}:${layout.spineEndFraction}:${layout.spineFraction}`
+        ? `${bounds.start}:${bounds.end}:${layout.spineStartFraction}:${layout.spineEndFraction}`
         : '';
     const spineFlip = side === 'spine' ? 'inv' : '';
     return `${side || ''}|${layoutKey}|${transformKey(transform)}|${panelAspect || ''}|${spineFlip}`;

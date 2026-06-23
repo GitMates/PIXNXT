@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useThree } from '@react-three/fiber';
 import { getProxiedMediaFetchUrl } from '../../../lib/r2MediaProxy';
 import { parseGridSizeAspect } from '../albumGridSize';
-import { getBookWrapSpineLayout } from '../bookWrapSpine';
+import { getBookWrapSpineLayout, resolveWrapSegmentBounds } from '../bookWrapSpine';
 import { albumHasBlankCovers, albumUsesBookWrap } from '../albumSpreadUtils';
 
 export const HARDCOVER_GREEN = '#2d4a3e';
@@ -76,23 +76,17 @@ function applyWrapLayout(tex, layout, side) {
     if (!layout || !side) return;
     tex.wrapS = THREE.ClampToEdgeWrapping;
     tex.wrapT = THREE.ClampToEdgeWrapping;
-    const start = layout.spineStartFraction;
-    const end = layout.spineEndFraction;
-    const spine = layout.spineFraction;
+    const { start, end } = resolveWrapSegmentBounds(layout, side);
+    const span = end - start;
 
-    if (side === 'back') {
-        if (start > 0) {
-            tex.repeat.set(start, 1);
-            tex.offset.set(0, 0);
-        } else {
-            applyPanoramic(tex, 'left');
-        }
-    } else if (side === 'front' && end < 1) {
-        const frontFrac = 1 - end;
-        tex.repeat.set(frontFrac, 1);
-        tex.offset.set(end, 0);
-    } else if (side === 'spine' && spine > 0) {
-        tex.repeat.set(spine, 1);
+    if (side === 'back' && end > 0) {
+        tex.repeat.set(end, 1);
+        tex.offset.set(0, 0);
+    } else if (side === 'front' && start < 1) {
+        tex.repeat.set(1 - start, 1);
+        tex.offset.set(start, 0);
+    } else if (side === 'spine' && span > 0) {
+        tex.repeat.set(span, 1);
         tex.offset.set(start, 0);
     }
 }
@@ -105,8 +99,9 @@ function panoramicForBackFace(panoramic) {
 }
 
 function textureCacheKey(src, { panoramic, layout, side, mirrorX, pageAspect, backFace }) {
+    const bounds = layout && side ? resolveWrapSegmentBounds(layout, side) : { start: 0, end: 1 };
     const layoutKey = layout
-        ? `${layout.spineStartFraction}:${layout.spineEndFraction}:${layout.spineFraction}`
+        ? `${bounds.start}:${bounds.end}:${layout.spineStartFraction}:${layout.spineEndFraction}`
         : '';
     return [
         src,

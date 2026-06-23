@@ -5,6 +5,7 @@ import {
     clampSpineBounds,
     getBookWrapSpineCssVars,
     getBookWrapSpineLayout,
+    isInwardSpineOverride,
 } from './bookWrapSpine';
 import {
     clearAlbumSpineBoundsOverride,
@@ -75,7 +76,8 @@ export default function AlbumCoverEditView({
         const clamped = clampSpineBounds(
             spineBounds.spineStartFraction,
             spineBounds.spineEndFraction,
-            baseLayout
+            baseLayout,
+            { inwardOnly: baseLayout.spineFromCoverCalc }
         );
         const spineFraction = clamped.spineEndFraction - clamped.spineStartFraction;
         return {
@@ -83,6 +85,8 @@ export default function AlbumCoverEditView({
             ...clamped,
             spineFraction,
             coverFraction: clamped.spineStartFraction,
+            coverSpineStartFraction: baseLayout.coverSpineStartFraction,
+            coverSpineEndFraction: baseLayout.coverSpineEndFraction,
             hasSpine: spineFraction > 0.004,
         };
     }, [baseLayout, spineBounds]);
@@ -103,7 +107,19 @@ export default function AlbumCoverEditView({
             spineEndFraction: baseLayout.spineEndFraction,
         };
         if (baseLayout.spineFromCoverCalc) {
-            if (albumId) clearAlbumSpineBoundsOverride(albumId);
+            const autoBounds = {
+                spineStartFraction: baseLayout.defaultSpineStartFraction,
+                spineEndFraction: baseLayout.defaultSpineEndFraction,
+            };
+            const override = getAlbumSpineBoundsOverride(albumId);
+            if (override && isInwardSpineOverride(override, baseLayout)) {
+                setSpineBounds({
+                    spineStartFraction: override.spineStartFraction,
+                    spineEndFraction: override.spineEndFraction,
+                });
+                return;
+            }
+            if (albumId && override) clearAlbumSpineBoundsOverride(albumId);
             setSpineBounds(autoBounds);
             return;
         }
@@ -226,7 +242,10 @@ export default function AlbumCoverEditView({
 
     const persistSpineBounds = useCallback(
         (start, end, { fixedEdge = null } = {}) => {
-            const clamped = clampSpineBounds(start, end, baseLayout, { fixedEdge });
+            const clamped = clampSpineBounds(start, end, baseLayout, {
+                fixedEdge,
+                inwardOnly: baseLayout.spineFromCoverCalc,
+            });
             setSpineBounds(clamped);
             if (albumId) {
                 setAlbumSpineBoundsOverride(
@@ -309,6 +328,7 @@ export default function AlbumCoverEditView({
         [editable, onSlotActivate, isBlankCoverAlbum, src]
     );
 
+    const spineInwardOnly = baseLayout.spineFromCoverCalc;
     const panelHeight = dims?.height;
     const backStyle =
         panelWidths && panelHeight
@@ -422,25 +442,37 @@ export default function AlbumCoverEditView({
                     </div>
                 )}
 
-                {spineVisible && panelWidths && !spineLayout.spineFromCoverCalc && (
+                {spineVisible && panelWidths && (
                     <>
                         <div
-                            className="ab-cover-edit-spine-handle ab-cover-edit-spine-handle--left"
+                            className={`ab-cover-edit-spine-handle ab-cover-edit-spine-handle--left${
+                                spineInwardOnly ? ' ab-cover-edit-spine-handle--inward' : ''
+                            }`}
                             style={{ left: panelWidths.back }}
                             role="separator"
                             aria-orientation="vertical"
-                            aria-label="Drag to resize spine (left edge)"
+                            aria-label={
+                                spineInwardOnly
+                                    ? 'Drag inward to narrow spine (left edge)'
+                                    : 'Drag to resize spine (left edge)'
+                            }
                             onPointerDown={(e) => startSpineDrag('left', e)}
                         >
                             <span className="ab-cover-edit-spine-handle__line" aria-hidden />
                             <span className="ab-cover-edit-spine-handle__grip" aria-hidden />
                         </div>
                         <div
-                            className="ab-cover-edit-spine-handle ab-cover-edit-spine-handle--right"
+                            className={`ab-cover-edit-spine-handle ab-cover-edit-spine-handle--right${
+                                spineInwardOnly ? ' ab-cover-edit-spine-handle--inward' : ''
+                            }`}
                             style={{ left: panelWidths.back + panelWidths.spine }}
                             role="separator"
                             aria-orientation="vertical"
-                            aria-label="Drag to resize spine (right edge)"
+                            aria-label={
+                                spineInwardOnly
+                                    ? 'Drag inward to narrow spine (right edge)'
+                                    : 'Drag to resize spine (right edge)'
+                            }
                             onPointerDown={(e) => startSpineDrag('right', e)}
                         >
                             <span className="ab-cover-edit-spine-handle__line" aria-hidden />
