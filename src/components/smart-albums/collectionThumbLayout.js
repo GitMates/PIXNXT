@@ -1,7 +1,8 @@
 import { photoFillsWholeSpread } from './albumGridSize';
-import { getCollectionItemDisplayUrl } from './albumCollection';
+import { getCollectionItemDisplayUrl, isCoverWrapCollectionItem } from './albumCollection';
 import {
     enumerateCollectionPlacementPages,
+    enumerateCoverCollectionPlacements,
     enumerateWholeSpreadBlankCoverPlacements,
     getAlbumSpreadOptions,
     isWholeSpreadLayout,
@@ -17,6 +18,57 @@ function itemFillsWholeSpreadForThumb(item, pageGridSize) {
         return photoFillsWholeSpread(item.width, item.height, pageGridSize);
     }
     return false;
+}
+
+function layoutFromPlacementSlot(slot, src) {
+    if (!slot) return null;
+    if (slot.type === 'book-wrap' || slot.type === 'spread') {
+        return { mode: 'spread-whole', src };
+    }
+    if (slot.type === 'page') {
+        return { mode: 'spread-half', src, side: pageToSpreadSide(slot.pageNum) };
+    }
+    return null;
+}
+
+/** Placement slots for inner photos — mirrors autoPlaceCollectionItems (excludes cover-wrap). */
+function getCollectionPlacementSlots(collectionItems, album, totalPages) {
+    const gridLayout = album?.grid_layout || 'two-page';
+    const pageGridSize = album?.grid_size || 'square';
+    const spreadOpts = getAlbumSpreadOptions(album);
+    const placementItems = spreadOpts.blankCovers
+        ? collectionItems.filter((row) => !isCoverWrapCollectionItem(row))
+        : collectionItems;
+
+    if (!placementItems.length) {
+        return { placementItems, slots: [] };
+    }
+
+    const photoFillsWhole = placementItems.map((row) =>
+        itemFillsWholeSpreadForThumb(row, pageGridSize)
+    );
+
+    if (isWholeSpreadLayout(gridLayout) && spreadOpts.hasCovers && spreadOpts.blankCovers) {
+        return {
+            placementItems,
+            slots: enumerateWholeSpreadBlankCoverPlacements(placementItems.length, totalPages, {
+                pageGridSize,
+                photoFillsWhole,
+            }),
+        };
+    }
+
+    if (spreadOpts.hasCovers) {
+        return {
+            placementItems,
+            slots: enumerateCoverCollectionPlacements(placementItems.length, totalPages, {
+                gridLayout,
+                blankCovers: spreadOpts.blankCovers,
+            }),
+        };
+    }
+
+    return { placementItems, slots: [] };
 }
 
 /**
@@ -38,20 +90,19 @@ export function resolveCollectionThumbLayout(index, collectionItems, album, tota
         gridLayout,
     };
 
-    if (isWholeSpreadLayout(gridLayout) && spreadOpts.hasCovers && spreadOpts.blankCovers) {
-        const photoFillsWhole = collectionItems.map((row) =>
-            itemFillsWholeSpreadForThumb(row, pageGridSize)
-        );
-        const slots = enumerateWholeSpreadBlankCoverPlacements(
-            collectionItems.length,
-            totalPages,
-            { pageGridSize, photoFillsWhole }
-        );
-        const slot = slots[index];
-        if (slot?.type === 'spread') return { mode: 'spread-whole', src };
-        if (slot?.type === 'page') {
-            return { mode: 'spread-half', src, side: pageToSpreadSide(slot.pageNum) };
-        }
+    if (spreadOpts.blankCovers && isCoverWrapCollectionItem(item)) {
+        return { mode: 'spread-whole', src };
+    }
+
+    const { placementItems, slots } = getCollectionPlacementSlots(
+        collectionItems,
+        album,
+        totalPages
+    );
+    const placementIndex = placementItems.findIndex((row) => row.id === item.id);
+    if (placementIndex >= 0) {
+        const slotLayout = layoutFromPlacementSlot(slots[placementIndex], src);
+        if (slotLayout) return slotLayout;
     }
 
     if (isWholeSpreadLayout(gridLayout)) {
@@ -61,11 +112,11 @@ export function resolveCollectionThumbLayout(index, collectionItems, album, tota
     }
 
     const pages = enumerateCollectionPlacementPages(
-        collectionItems.length,
+        placementItems.length,
         totalPages,
         placementOpts
     );
-    const pageNum = pages[index];
+    const pageNum = placementIndex >= 0 ? pages[placementIndex] : pages[index];
     if (pageNum != null) {
         if (isWholeSpreadLayout(gridLayout) && itemFillsWholeSpreadForThumb(item, pageGridSize)) {
             return { mode: 'spread-whole', src };
