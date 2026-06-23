@@ -61,6 +61,27 @@ export function deriveCoverUrlFromSnapshot(snapshot) {
     return null;
 }
 
+/** Book-wrap front cover from a cloud snapshot (spread:0 / page 1 / collection[0]). */
+export function deriveFrontCoverUrlFromSnapshot(snapshot, { blankCovers = false } = {}) {
+    if (!snapshot) return null;
+    if (snapshot.cover_url && !blankCovers) return snapshot.cover_url;
+
+    const collection = snapshot.collection || [];
+    const pages = snapshot.pages || {};
+
+    const onSpread = resolveStoredUrl(pages['spread:0'], collection);
+    if (onSpread) return onSpread;
+
+    if (blankCovers) return null;
+
+    const onPageOne = resolveStoredUrl(pages['1'], collection);
+    if (onPageOne) return onPageOne;
+
+    if (collection[0]?.dataUrl) return collection[0].dataUrl;
+
+    return null;
+}
+
 function listAlbumIdsWithLocalAssets() {
     const ids = new Set();
     try {

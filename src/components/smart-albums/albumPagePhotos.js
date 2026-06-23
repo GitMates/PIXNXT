@@ -39,6 +39,7 @@ import {
 import { getSampleImageForPage } from './sampleAlbumImages';
 import {
     deriveCoverUrlFromSnapshot,
+    deriveFrontCoverUrlFromSnapshot,
     getRemoteCollectionItem,
     getRemotePagePhoto,
     getRemotePreviewData,
@@ -507,20 +508,23 @@ export function resolveCoverImageSrc(album, { showSamples = false } = {}) {
     if (albumId) {
         const onSpread = getSpreadPhotoOverride(albumId, 0);
         if (onSpread) return onSpread;
+        if (blankCovers) {
+            return null;
+        }
         const onRight = getPagePhotoOverride(albumId, 1);
         if (onRight) return onRight;
         const legacyPage = getPagePhotoOverride(albumId, 0);
         if (legacyPage) return legacyPage;
     }
     if (blankCovers) {
-        return showSamples ? null : null;
+        return null;
     }
     if (album?.cover_image_url) return album.cover_image_url;
     if (albumId) {
         const first = getAlbumCollection(albumId)[0];
         const fromCollection = resolveCollectionItemUrl(albumId, first?.id);
         if (fromCollection) return fromCollection;
-        const fromCloud = deriveCoverUrlFromSnapshot(getRemotePreviewData(albumId));
+        const fromCloud = deriveFrontCoverUrlFromSnapshot(getRemotePreviewData(albumId));
         if (fromCloud) return fromCloud;
     }
     return showSamples ? getSampleImageForPage(0) : null;
