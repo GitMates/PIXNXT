@@ -1715,6 +1715,12 @@
   display: block;
 }
 
+.ab-overview-leather-cover {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .ab-overview-page--cover-right,
 .ab-overview-page--end-left {
   position: relative;

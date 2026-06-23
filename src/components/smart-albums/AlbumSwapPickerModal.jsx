@@ -11,6 +11,7 @@ import {
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
+    albumHasBlankCovers,
     isEndHalfSpreadIndex,
     isWholeSpreadLayout,
 } from './albumSpreadUtils';
@@ -21,6 +22,7 @@ import {
     slotsMatch,
 } from './albumSwapMarks';
 import { placementFromSwapThumbClick } from '../../lib/photoSpotPoint';
+import OverviewLeatherCover from './OverviewLeatherCover';
 import './AlbumSwapMarks.css';
 import './AlbumBook.css';
 
@@ -107,7 +109,9 @@ function SwapSpreadThumb({ album, spreadIndex, totalPages, spreadOpts, showSampl
                 </span>
             ) : isCover ? (
                 <span className="ab-overview-page ab-overview-page--cover-single">
-                    {rightSrc || leftSrc ? (
+                    {albumHasBlankCovers(album) ? (
+                        <OverviewLeatherCover album={album} showTitle />
+                    ) : rightSrc || leftSrc ? (
                         <img src={rightSrc || leftSrc} alt="" draggable={false} />
                     ) : (
                         <span className="ab-overview-placeholder" />
@@ -119,7 +123,9 @@ function SwapSpreadThumb({ album, spreadIndex, totalPages, spreadOpts, showSampl
                 </span>
             ) : isEndSpread ? (
                 <span className="ab-overview-page ab-overview-page--end-single">
-                    {leftSrc ? (
+                    {albumHasBlankCovers(album) ? (
+                        <OverviewLeatherCover album={album} />
+                    ) : leftSrc ? (
                         <img src={leftSrc} alt="" draggable={false} />
                     ) : (
                         <span className="ab-overview-placeholder" />

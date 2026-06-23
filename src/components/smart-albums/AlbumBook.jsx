@@ -62,6 +62,7 @@ import { getBookWrapSpineLayout } from './bookWrapSpine';
 import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
 import { getSpreadPhotoTransform } from './albumPageTransforms';
 import BookWrapSpineImage from './BookWrapSpineImage';
+import OverviewLeatherCover from './OverviewLeatherCover';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
@@ -1892,7 +1893,11 @@ const AlbumBook = ({
                                             </span>
                                         ) : isCover ? (
                                             <span className="ab-overview-page ab-overview-page--cover-single">
-                                                <OverviewCoverPhoto src={rightSrc || leftSrc} />
+                                                {albumHasBlankCovers(album) ? (
+                                                    <OverviewLeatherCover album={album} showTitle />
+                                                ) : (
+                                                    <OverviewCoverPhoto src={rightSrc || leftSrc} />
+                                                )}
                                             </span>
                                         ) : isEndHalf && bookWrapSrc ? (
                                             <span className="ab-overview-page ab-overview-page--end-single">
@@ -1905,7 +1910,11 @@ const AlbumBook = ({
                                             </span>
                                         ) : isEndHalf ? (
                                             <span className="ab-overview-page ab-overview-page--end-single">
-                                                <OverviewCoverPhoto src={leftSrc} />
+                                                {albumHasBlankCovers(album) ? (
+                                                    <OverviewLeatherCover album={album} />
+                                                ) : (
+                                                    <OverviewCoverPhoto src={leftSrc} />
+                                                )}
                                             </span>
                                         ) : (
                                             <>

@@ -22,7 +22,7 @@ export function isCoverSpread(spreadIndex) {
     return spreadIndex <= 0;
 }
 
-function PageFace({ face, spineLayout, coverText, showCoverText, leatherStyle }) {
+function PageFace({ face, spineLayout, coverText, showCoverText, leatherStyle, leatherBackStyle }) {
     if (!face?.src) {
         if (face?.kind === 'cover-front' && showCoverText && coverText) {
             return (
@@ -32,6 +32,15 @@ function PageFace({ face, spineLayout, coverText, showCoverText, leatherStyle })
                     }`}
                     style={leatherStyle || undefined}
                     aria-label={coverText}
+                />
+            );
+        }
+        if (face?.kind === 'cover-back' && leatherBackStyle) {
+            return (
+                <div
+                    className="css-flip-book-cover css-flip-book-cover--blank ab-cover-leather-canvas ab-cover-leather--flat"
+                    style={leatherBackStyle}
+                    aria-hidden
                 />
             );
         }
@@ -149,6 +158,12 @@ export default function CssFlipBook({
             ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
                   aspect: pageAspect,
                   title: coverText,
+              })
+            : null;
+    const leatherBackStyle =
+        album?.blank_covers === true && albumId
+            ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
+                  aspect: pageAspect,
               })
             : null;
     const flippedIds = cssFlipCountToCheckboxIds(flipCount);
@@ -281,6 +296,13 @@ export default function CssFlipBook({
                                     spineLayout={spineLayout}
                                     coverText={coverText}
                                     showCoverText={false}
+                                    leatherBackStyle={
+                                        pageFaces[`${pageId}-back`]?.kind === 'cover-back' &&
+                                        album?.blank_covers === true &&
+                                        !pageFaces[`${pageId}-back`]?.src
+                                            ? leatherBackStyle
+                                            : null
+                                    }
                                 />
                             </div>
                             <label

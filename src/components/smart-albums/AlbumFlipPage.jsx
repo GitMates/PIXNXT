@@ -391,6 +391,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             : [];
     const isBackCoverPage = endSpreadRole === 'half-left' && spreadOpts.hasCovers;
     const isEndCoverPage = isBackCoverPage && !editable && !spreadEdit;
+    const showLeatherBackCover =
+        album?.blank_covers === true && !src && isBackCoverPage;
+    const leatherBackStyle =
+        showLeatherBackCover && albumId
+            ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
+                  aspect: pageAspect,
+              })
+            : null;
     const endCoverSwapMarkInfo =
         isEndCoverPage ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage) : null;
     const endCoverSwapMarkInfos =
@@ -883,6 +891,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 {pageBadge}
                 <div
                     className={`ab-page-photo-wrap${
+                        showLeatherBackCover ? ' ab-cover-leather-canvas ab-cover-leather--flat' : ''
+                    }${
                         liveProofToolsHover && endCoverProofTools && !livePinModeActive
                             ? ' ab-page-photo-wrap--swap'
                             : ''
@@ -895,6 +905,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                               }`
                             : ''
                     }`}
+                    style={showLeatherBackCover ? leatherBackStyle : undefined}
                 >
                     <AlbumPhotoPinLayer
                         hasPhoto={Boolean(src)}
@@ -1007,7 +1018,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                     className="ab-page-photo ab-page-photo--full"
                                 />
                             )
-                        ) : (
+                        ) : showLeatherBackCover ? null : (
                             <div className="ab-page-empty" aria-hidden />
                         )}
                     </AlbumPhotoPinLayer>
