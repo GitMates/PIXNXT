@@ -180,6 +180,17 @@ const products = [
       { label: 'Create Album', path: '/smart-albums/create' },
     ],
   },
+  {
+    name: 'Mobile Gallery',
+    color: 'yellow',
+    icon: <SmartphoneIcon />,
+    route: '/mobile-gallery',
+    links: [
+      { label: 'Manage Apps', path: '/mobile-gallery' },
+      { label: 'Create App', path: '/mobile-gallery?create=1' },
+      { label: 'Settings', path: '/mobile-gallery/settings' },
+    ],
+  },
 ];
 
 /* ===== Dashboard Component ===== */

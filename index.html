@@ -102,6 +102,28 @@
     content="Beautiful client galleries, smart albums, proofing and print sales for photographers." />
   <meta name="twitter:image" content="https://www.pixnxt.com/logo.png" />
 
+  <!-- Mobile gallery /m/* only — same-origin touch icon before React boots -->
+  <script>
+    (function () {
+      var m = location.pathname.match(/^\/m\/([^/]+)/);
+      if (!m) return;
+      var slug = encodeURIComponent(decodeURIComponent(m[1]));
+      var icon = '/m/' + slug + '/apple-touch-icon.png';
+      document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(function (n) {
+        n.remove();
+      });
+      var touch = document.createElement('link');
+      touch.rel = 'apple-touch-icon';
+      touch.href = icon;
+      document.head.appendChild(touch);
+    })();
+    if (/^\/m\/[^/]+/.test(location.pathname)) {
+      var mgInstallHead = document.createElement('script');
+      mgInstallHead.src = '/m/install-head.js';
+      document.head.appendChild(mgInstallHead);
+    }
+  </script>
+
 </head>
 
 <body>
