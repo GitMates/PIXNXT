@@ -28,6 +28,7 @@ import {
     resolvePhotoFillsWholeFlags,
 } from './albumGridSize';
 import {
+    applyCollectionSortOrder,
     getAlbumCollection,
     getAlbumCollectionRevision,
     getAlbumLayoutPhotoCount,
@@ -403,6 +404,75 @@ export function getPagePlacementCollectionItemId(albumId, pageNum) {
         return stored.collectionItemId;
     }
     return null;
+}
+
+/** Where a collection item is placed in the album (for ordering thumbnails). */
+export function getCollectionItemPlacementInfo(albumId, itemId) {
+    if (!albumId || !itemId) return null;
+    const album = readAll()[albumId];
+    if (!album) return null;
+
+    let spreadLeft = null;
+    let pageNum = null;
+    for (const key of Object.keys(album)) {
+        if (key === '__revision') continue;
+        const stored = album[key];
+        if (!stored || typeof stored !== 'object' || stored.collectionItemId !== itemId) continue;
+        if (key.startsWith('spread:')) {
+            const left = parseInt(key.slice(7), 10);
+            if (!Number.isNaN(left)) {
+                spreadLeft = spreadLeft == null ? left : Math.min(spreadLeft, left);
+            }
+            continue;
+        }
+        if (/^\d+$/.test(key)) {
+            const page = parseInt(key, 10);
+            if (!Number.isNaN(page)) {
+                pageNum = pageNum == null ? page : Math.min(pageNum, page);
+            }
+        }
+    }
+
+    if (spreadLeft != null) {
+        return { sortKey: spreadLeft, mode: 'spread', spreadLeft, pageNum: spreadLeft };
+    }
+    if (pageNum != null) {
+        return { sortKey: pageNum, mode: 'page', pageNum };
+    }
+    return null;
+}
+
+function collectionItemSortRank(item, albumId) {
+    if (isCoverWrapCollectionItem(item)) return -1000;
+    const placement = getCollectionItemPlacementInfo(albumId, item.id);
+    if (placement) return placement.sortKey;
+    if (typeof item.sortOrder === 'number' && Number.isFinite(item.sortOrder)) {
+        return 1_000_000 + item.sortOrder;
+    }
+    if (typeof item.createdAt === 'number' && Number.isFinite(item.createdAt)) {
+        return 1_000_000 + item.createdAt;
+    }
+    return Number.MAX_SAFE_INTEGER;
+}
+
+/** Collection item ids sorted by spread/page position in the album. */
+export function buildCollectionOrderByPlacement(albumId) {
+    const items = getAlbumCollection(albumId);
+    if (!items.length) return [];
+    return [...items]
+        .sort((a, b) => {
+            const rankA = collectionItemSortRank(a, albumId);
+            const rankB = collectionItemSortRank(b, albumId);
+            if (rankA !== rankB) return rankA - rankB;
+            return String(a.id || '').localeCompare(String(b.id || ''));
+        })
+        .map((item) => item.id);
+}
+
+/** Reorder collection thumbnails to match album spread order. */
+export function syncCollectionOrderToPlacements(albumId) {
+    if (!albumId) return false;
+    return applyCollectionSortOrder(albumId, buildCollectionOrderByPlacement(albumId));
 }
 
 /** Collection item id currently placed on an editor slot (whole spread, page, or cell). */

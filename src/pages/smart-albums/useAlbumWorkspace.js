@@ -162,7 +162,7 @@ export function useAlbumWorkspace() {
     );
 
     const changePageCount = useCallback(
-        async (pageDelta) => {
+        async (pageDelta, { insertAt: customInsertAt, removeAt: customRemoveAt, navigateToPage } = {}) => {
             if (!user || !albumId || !album) return null;
             const current = album.page_count || 21;
             const albumSpreadOpts = getAlbumSpreadOptions(album);
@@ -178,13 +178,14 @@ export function useAlbumWorkspace() {
                 mergeRemotePreviewPagesIntoLocal(albumId);
 
                 if (countDelta > 0) {
-                    const insertAt = getPageInsertIndex(current, albumSpreadOpts);
+                    const insertAt = customInsertAt ?? getPageInsertIndex(current, albumSpreadOpts);
                     insertAlbumStoragePages(albumId, insertAt, countDelta);
                     shiftAlbumRemotePreviewPages(albumId, insertAt, countDelta);
                     shiftAlbumPhotoPins(albumId, insertAt, countDelta);
                 } else if (countDelta < 0) {
                     const removeCount = -countDelta;
-                    const removeAt = getPageRemoveIndex(current, removeCount, albumSpreadOpts);
+                    const removeAt =
+                        customRemoveAt ?? getPageRemoveIndex(current, removeCount, albumSpreadOpts);
                     removeAlbumStoragePages(albumId, removeAt, removeCount);
                     shiftAlbumRemotePreviewPages(albumId, removeAt, -removeCount);
                     shiftAlbumPhotoPins(albumId, removeAt, -removeCount);
@@ -200,10 +201,15 @@ export function useAlbumWorkspace() {
                 const urlPage = parseUrlPage(searchParams.get('page'), current, albumSpreadOpts);
                 let clamped = Math.min(urlPage, next - 1);
                 if (countDelta > 0) {
-                    const insertAt = getPageInsertIndex(current, albumSpreadOpts);
-                    clamped = parseUrlPage(insertAt, next, albumSpreadOpts);
+                    const insertAt = customInsertAt ?? getPageInsertIndex(current, albumSpreadOpts);
+                    if (navigateToPage != null) {
+                        clamped = parseUrlPage(navigateToPage, next, albumSpreadOpts);
+                    } else {
+                        clamped = parseUrlPage(insertAt, next, albumSpreadOpts);
+                    }
                 } else if (countDelta < 0) {
-                    const removeAt = getPageRemoveIndex(current, -countDelta, albumSpreadOpts);
+                    const removeAt =
+                        customRemoveAt ?? getPageRemoveIndex(current, -countDelta, albumSpreadOpts);
                     const removeEnd = removeAt - countDelta;
                     if (urlPage >= removeAt && urlPage < removeEnd) {
                         clamped = Math.max(0, removeAt - 1);

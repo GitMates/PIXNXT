@@ -1,5 +1,6 @@
 import { photoFillsWholeSpread } from './albumGridSize';
 import { getCollectionItemDisplayUrl, isCoverWrapCollectionItem } from './albumCollection';
+import { getCollectionItemPlacementInfo } from './albumPagePhotos';
 import {
     enumerateCollectionPlacementPages,
     enumerateCoverCollectionPlacements,
@@ -92,6 +93,14 @@ export function resolveCollectionThumbLayout(index, collectionItems, album, tota
 
     if (spreadOpts.blankCovers && isCoverWrapCollectionItem(item)) {
         return { mode: 'spread-whole', src };
+    }
+
+    const placement = getCollectionItemPlacementInfo(album?.id, item.id);
+    if (placement) {
+        if (placement.mode === 'spread') {
+            return { mode: 'spread-whole', src };
+        }
+        return { mode: 'spread-half', src, side: pageToSpreadSide(placement.pageNum) };
     }
 
     const { placementItems, slots } = getCollectionPlacementSlots(

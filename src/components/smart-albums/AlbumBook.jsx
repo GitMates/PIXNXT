@@ -20,6 +20,7 @@ import {
     isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
     isWholeSpreadLayout,
+    formatOverviewSpreadLabel,
     normalizeStoragePageIndex,
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -1989,13 +1990,11 @@ const AlbumBook = ({
                                         )}
                                     </span>
                                     <span className="ab-overview-label">
-                                        {isCover
-                                            ? 'Cover'
-                                            : isEndSpread
-                                              ? 'Back'
-                                              : spreadOpts.hasCovers
-                                                ? overviewSpreadIndex
-                                                : overviewSpreadIndex + 1}
+                                        {formatOverviewSpreadLabel(
+                                            overviewSpreadIndex,
+                                            totalPages,
+                                            spreadOpts
+                                        )}
                                     </span>
                                 </button>
                             );

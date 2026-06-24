@@ -821,6 +821,41 @@ export function reorderCollectionItems(albumId, fromIndex, toIndex, { album = nu
     return true;
 }
 
+/** Apply an explicit collection order (updates sortOrder). */
+export function applyCollectionSortOrder(albumId, orderedItemIds) {
+    if (!albumId || !orderedItemIds?.length) return false;
+    const all = readAll();
+    const bucket = all[albumId];
+    if (!bucket?.items?.length) return false;
+
+    const byId = new Map(bucket.items.map((item) => [item.id, item]));
+    const reordered = [];
+    for (const id of orderedItemIds) {
+        const item = byId.get(id);
+        if (item) reordered.push(item);
+    }
+    for (const item of sortCollectionItems(bucket.items)) {
+        if (!reordered.some((row) => row.id === item.id)) {
+            reordered.push(item);
+        }
+    }
+
+    const sorted = sortCollectionItems(bucket.items);
+    const unchanged =
+        reordered.length === sorted.length &&
+        reordered.every((item, index) => item.id === sorted[index]?.id);
+    if (unchanged) return false;
+
+    persistCollectionBucket(all, albumId, {
+        ...bucket,
+        items: reordered.map((item, index) => ({
+            ...item,
+            sortOrder: index,
+        })),
+    });
+    return true;
+}
+
 export function getCollectionItem(albumId, itemId) {
     return getAlbumCollection(albumId).find((i) => i.id === itemId) ?? null;
 }

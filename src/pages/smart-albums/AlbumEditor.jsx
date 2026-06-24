@@ -60,6 +60,7 @@ import {
     setSpreadPhoto,
     setSpreadPhotoFromCollectionItem,
     resolveBookWrapSpreadSrc,
+    syncCollectionOrderToPlacements,
     syncCoverWrapRoleFromSpread,
 } from '../../components/smart-albums/albumPagePhotos';
 import { getSlotUploadPixelTarget } from '../../components/smart-albums/albumGridSize';
@@ -90,6 +91,9 @@ import {
     getEndSpreadPageIndices,
     getInnerPageCount,
     canRemoveSpreadBeforeLastTwo,
+    canInsertSpreadAfterSpread,
+    canInsertSpreadBeforeSpread,
+    canRemoveSpreadAt,
     getPageInsertIndex,
     getPageRemoveIndex,
     isCoverInsidePage,
@@ -324,6 +328,8 @@ export default function AlbumEditor({
     const pendingReplaceSlotRef = useRef(null);
     const collectionSyncRef = useRef(false);
     const prevLayoutPhotoCountRef = useRef(null);
+    const albumRef = useRef(album);
+    albumRef.current = album;
     const [slotMenu, setSlotMenu] = useState(null);
     const [swapExecuteOrigin, setSwapExecuteOrigin] = useState(null);
     const [coverTextModalOpen, setCoverTextModalOpen] = useState(false);
@@ -397,6 +403,13 @@ export default function AlbumEditor({
     }, [albumId]);
 
     useEffect(() => {
+        if (!albumId) return;
+        if (syncCollectionOrderToPlacements(albumId)) {
+            setCollectionRevision(getAlbumCollectionRevision(albumId));
+        }
+    }, [albumId]);
+
+    useEffect(() => {
         if (!albumId) return undefined;
         const onCoverTextChanged = (e) => {
             if (e.detail?.albumId === albumId) setCoverTextRevision((t) => t + 1);
@@ -411,29 +424,32 @@ export default function AlbumEditor({
     }, [albumId]);
 
     const ensurePageCountForCollection = useCallback(async () => {
-        if (!albumId || !album || !user?.id) return album;
+        const albumNow = albumRef.current;
+        if (!albumId || !albumNow || !user?.id) return albumNow;
         syncCoverWrapRoleFromSpread(albumId);
-        const photoCount = getAlbumLayoutPhotoCount(albumId, album);
+        const photoCount = getAlbumLayoutPhotoCount(albumId, albumNow);
         const prevPhotoCount = prevLayoutPhotoCountRef.current;
         const collectionShrunk = prevPhotoCount != null && photoCount < prevPhotoCount;
+        const collectionGrew = prevPhotoCount != null && photoCount > prevPhotoCount;
         prevLayoutPhotoCountRef.current = photoCount;
-        if (!photoCount && !getSpreadPhotoOverride(albumId, 0)) return album;
+        if (!photoCount && !getSpreadPhotoOverride(albumId, 0)) return albumNow;
 
-        const blankCovers = albumHasBlankCovers(album);
+        const blankCovers = albumHasBlankCovers(albumNow);
         const requiredPages = computePageCountFromPhotoCount(photoCount, {
-            includeCovers: album?.has_covers === true,
+            includeCovers: albumNow?.has_covers === true,
             blankCovers,
-            gridLayout: album.grid_layout || 'two-page',
+            gridLayout: albumNow.grid_layout || 'two-page',
         });
         const targetPages = Math.min(requiredPages, maxPages);
-        const currentPages = album.page_count || 0;
-        if (targetPages === currentPages) return album;
+        const currentPages = albumNow.page_count || 0;
+        if (targetPages === currentPages) return albumNow;
 
-        const spreadOptsNow = getAlbumSpreadOptions(album, {
+        const spreadOptsNow = getAlbumSpreadOptions(albumNow, {
             collectionCount: photoCount,
         });
 
         if (targetPages > currentPages) {
+            if (!collectionGrew) return albumNow;
             const delta = targetPages - currentPages;
             const insertAt = getPageInsertIndex(currentPages, spreadOptsNow);
             insertAlbumStoragePages(albumId, insertAt, delta);
@@ -446,7 +462,7 @@ export default function AlbumEditor({
             shiftAlbumRemotePreviewPages(albumId, removeAt, -delta);
             shiftAlbumPhotoPins(albumId, removeAt, -delta);
         } else {
-            return album;
+            return albumNow;
         }
 
         const updated = await smartAlbumsService.updateAlbumPageCount(
@@ -460,7 +476,6 @@ export default function AlbumEditor({
         return updated;
     }, [
         albumId,
-        album?.page_count,
         album?.has_covers,
         album?.blank_covers,
         album?.grid_layout,
@@ -503,7 +518,7 @@ export default function AlbumEditor({
         });
 
         let albumForPlace = album;
-        if (requiredPages !== (album.page_count || 0)) {
+        if (requiredPages > (album.page_count || 0)) {
             albumForPlace = await smartAlbumsService.updateAlbumPageCount(
                 user.id,
                 albumId,
@@ -928,6 +943,9 @@ export default function AlbumEditor({
                         previousStoragePath: before.previousStoragePath,
                     });
                 }
+                if (placed) {
+                    syncCollectionOrderToPlacements(albumId);
+                }
                 return placed;
             };
 
@@ -1280,6 +1298,9 @@ export default function AlbumEditor({
                         previousStoragePath: before.previousStoragePath,
                     });
                 }
+                if (placed) {
+                    syncCollectionOrderToPlacements(albumId);
+                }
                 return placed;
             };
 
@@ -1546,6 +1567,7 @@ export default function AlbumEditor({
                 return;
             }
             setTransformRevision(getTransformRevision(albumId));
+            syncCollectionOrderToPlacements(albumId);
             scheduleWorkspaceRefresh();
             showToast('Spread order updated.', { variant: 'success', duration: 3000 });
         },
@@ -1567,6 +1589,24 @@ export default function AlbumEditor({
         return 'Any left or right photo';
     }, [slotMenu, albumId, album?.grid_layout, totalPages]);
 
+    const slotMenuCanAddSpreadBefore = useMemo(() => {
+        const spreadLeft = slotMenu?.slot?.spreadLeft;
+        if (spreadLeft == null || !canAddPages) return false;
+        return canInsertSpreadBeforeSpread(spreadLeft, totalPages, spreadOpts);
+    }, [slotMenu, canAddPages, totalPages, spreadOpts]);
+
+    const slotMenuCanAddSpreadAfter = useMemo(() => {
+        const spreadLeft = slotMenu?.slot?.spreadLeft;
+        if (spreadLeft == null || !canAddPages) return false;
+        return canInsertSpreadAfterSpread(spreadLeft, totalPages, spreadOpts);
+    }, [slotMenu, canAddPages, totalPages, spreadOpts]);
+
+    const slotMenuCanRemoveSpread = useMemo(() => {
+        const spreadLeft = slotMenu?.slot?.spreadLeft;
+        if (spreadLeft == null) return false;
+        return canRemoveSpreadAt(spreadLeft, totalPages, pagesPerSpread, spreadOpts);
+    }, [slotMenu, totalPages, pagesPerSpread, spreadOpts]);
+
     const handleAddPages = useCallback(
         async ({ silent = false } = {}) => {
             if (!canAddPages || !onChangePageCount) return null;
@@ -1585,6 +1625,74 @@ export default function AlbumEditor({
     const handleAddPagesFromOverview = useCallback(async () => {
         return handleAddPages({ silent: true });
     }, [handleAddPages]);
+
+    const handleAddSpreadBefore = useCallback(async () => {
+        const slot = slotMenu?.slot;
+        if (!slot || !canAddPages || !onChangePageCount) return;
+        const insertAt = slot.spreadLeft;
+        closeSlotMenu();
+        setPageCountBusy(true);
+        const result = await onChangePageCount(pagesPerSpread, { insertAt, navigateToPage: insertAt });
+        setPageCountBusy(false);
+        if (result) bumpWorkspace();
+        if (result) {
+            showToast(`Added ${pagesPerSpread} pages before this spread.`, { duration: 3500 });
+        }
+    }, [
+        slotMenu,
+        canAddPages,
+        onChangePageCount,
+        pagesPerSpread,
+        closeSlotMenu,
+        bumpWorkspace,
+        showToast,
+    ]);
+
+    const handleAddSpreadAfter = useCallback(async () => {
+        const slot = slotMenu?.slot;
+        if (!slot || !canAddPages || !onChangePageCount) return;
+        const insertAt = slot.spreadLeft + pagesPerSpread;
+        closeSlotMenu();
+        setPageCountBusy(true);
+        const result = await onChangePageCount(pagesPerSpread, { insertAt, navigateToPage: insertAt });
+        setPageCountBusy(false);
+        if (result) bumpWorkspace();
+        if (result) {
+            showToast(`Added ${pagesPerSpread} pages after this spread.`, { duration: 3500 });
+        }
+    }, [
+        slotMenu,
+        canAddPages,
+        onChangePageCount,
+        pagesPerSpread,
+        closeSlotMenu,
+        bumpWorkspace,
+        showToast,
+    ]);
+
+    const handleRemoveSpread = useCallback(async () => {
+        const slot = slotMenu?.slot;
+        if (!slot || !onChangePageCount) return;
+        const removeAt = slot.spreadLeft;
+        if (!canRemoveSpreadAt(removeAt, totalPages, pagesPerSpread, spreadOpts)) return;
+        closeSlotMenu();
+        setPageCountBusy(true);
+        const result = await onChangePageCount(-pagesPerSpread, { removeAt });
+        setPageCountBusy(false);
+        if (result) bumpWorkspace();
+        if (result) {
+            showToast('Spread removed.', { duration: 3500 });
+        }
+    }, [
+        slotMenu,
+        onChangePageCount,
+        totalPages,
+        pagesPerSpread,
+        spreadOpts,
+        closeSlotMenu,
+        bumpWorkspace,
+        showToast,
+    ]);
 
     const handleRemovePages = useCallback(async () => {
         if (!canRemovePages || !onChangePageCount) return;
@@ -1985,12 +2093,16 @@ export default function AlbumEditor({
                 hasPhoto={Boolean(slotMenu?.slot?.hasPhoto)}
                 canSwap={!isCoverEditorSlotMenu && Boolean(slotMenu?.slot?.hasPhoto)}
                 swapHint={slotMenuSwapHint}
-                canRemoveSpread={!isCoverEditorSlotMenu && Boolean(slotMenu?.slot?.hasPhoto)}
-                onReplace={handleReplaceFromMenu}
-                onChooseFromCollection={handleChooseFromCollectionMenu}
+                canRemoveSpread={slotMenuCanRemoveSpread}
+                canAddSpreadBefore={slotMenuCanAddSpreadBefore}
+                canAddSpreadAfter={slotMenuCanAddSpreadAfter}
+                pageCountBusy={pageCountBusy}
+                onAddSpreadBefore={handleAddSpreadBefore}
+                onAddSpreadAfter={handleAddSpreadAfter}
                 onCoverText={isCoverEditorSlotMenu ? handleCoverTextFromMenu : undefined}
                 hasCoverText={Boolean(coverTextMessage)}
                 onRemovePhotos={handleRemoveSpreadPhotos}
+                onRemoveSpread={handleRemoveSpread}
                 onSwap={handleOpenSwapModal}
                 onClose={closeSlotMenu}
             />

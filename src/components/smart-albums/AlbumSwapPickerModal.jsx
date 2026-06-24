@@ -12,6 +12,7 @@ import {
     getSpreadPages,
     getTotalSpreads,
     albumHasBlankCovers,
+    formatOverviewSpreadLabel,
     isEndHalfSpreadIndex,
     isWholeSpreadLayout,
 } from './albumSpreadUtils';
@@ -66,13 +67,6 @@ function pickSwapTargetSlot(availableSlots, originSlot) {
         return availableSlots.find((slot) => slot.cellId === 1) || availableSlots[0];
     }
     return availableSlots[0];
-}
-
-function spreadOverviewLabel(spreadIndex, totalPages, spreadOpts) {
-    if (spreadOpts.hasCovers && spreadIndex === 0) return 'Cover';
-    if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) return 'Back';
-    // Match flipbook counter (e.g. 3/6) — 1-based spread ordinal in the full album.
-    return String(spreadIndex + 1);
 }
 
 function isInnerSwapSpread(spreadIndex, totalPages, spreadOpts) {
@@ -222,7 +216,7 @@ export default function AlbumSwapPickerModal({
                 targetSlot,
                 isOrigin,
                 disabled,
-                label: spreadOverviewLabel(spreadIndex, totalPages, spreadOpts),
+                label: formatOverviewSpreadLabel(spreadIndex, totalPages, spreadOpts),
                 isCover,
                 isEnd,
                 showSpreadFull: Boolean(spreadSrc),

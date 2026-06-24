@@ -91,6 +91,16 @@ export function formatSpreadDisplayLabel(spreadIndex, opts = {}) {
     return `Spread ${idx + 1}`;
 }
 
+/** Label under a spread thumbnail in page overview (matches flipbook counter, e.g. 4/7 → "4"). */
+export function formatOverviewSpreadLabel(spreadIndex, totalPages, opts = {}) {
+    const idx = Number(spreadIndex);
+    if (!Number.isFinite(idx)) return '';
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (spreadOpts.hasCovers && idx <= 0) return 'Cover';
+    if (isEndHalfSpreadIndex(idx, totalPages, spreadOpts)) return 'Back';
+    return String(idx + 1);
+}
+
 export function normalizeSpreadOpts(opts = {}) {
     const blankCovers = opts.blankCovers === true;
     if (typeof opts.hasCovers === 'boolean') {
@@ -155,6 +165,70 @@ export function getPageInsertIndex(totalPages, opts = {}) {
     );
     if (!spreadOpts.hasCovers) return Math.max(0, insertAt);
     return Math.max(2, insertAt);
+}
+
+/** Minimum page index where a new spread may be inserted. */
+export function getMinSpreadInsertIndex(opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    return spreadOpts.hasCovers ? 2 : 0;
+}
+
+export function canInsertSpreadAt(insertAt, totalPages, opts = {}) {
+    const minAt = getMinSpreadInsertIndex(opts);
+    const maxAt = getPageInsertIndex(totalPages, opts);
+    return insertAt >= minAt && insertAt <= maxAt;
+}
+
+export function getSpreadInsertIndexBefore(spreadLeft) {
+    return spreadLeft;
+}
+
+export function getSpreadInsertIndexAfter(spreadLeft, pagesPerSpread = 2) {
+    return spreadLeft + pagesPerSpread;
+}
+
+function isReservedSpreadLeft(spreadLeft, totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (spreadOpts.hasCovers && isFrontCoverSpreadLeft(spreadLeft, spreadOpts)) return true;
+    if (isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts)) return true;
+    if (isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts)) return true;
+    return false;
+}
+
+export function canInsertSpreadBeforeSpread(spreadLeft, totalPages, opts = {}) {
+    if (spreadLeft == null || Number.isNaN(spreadLeft)) return false;
+    if (isReservedSpreadLeft(spreadLeft, totalPages, opts)) return false;
+    return canInsertSpreadAt(getSpreadInsertIndexBefore(spreadLeft), totalPages, opts);
+}
+
+export function canInsertSpreadAfterSpread(spreadLeft, totalPages, opts = {}) {
+    if (spreadLeft == null || Number.isNaN(spreadLeft)) return false;
+    if (isReservedSpreadLeft(spreadLeft, totalPages, opts)) return false;
+    return canInsertSpreadAt(getSpreadInsertIndexAfter(spreadLeft), totalPages, opts);
+}
+
+/** Whether the spread at spreadLeft can be removed (inner spreads only). */
+export function canRemoveSpreadAt(spreadLeft, totalPages, pagesPerSpread = 2, opts = {}) {
+    if (spreadLeft == null || Number.isNaN(spreadLeft)) return false;
+    if (isReservedSpreadLeft(spreadLeft, totalPages, opts)) return false;
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts)) return false;
+
+    const minAt = getMinSpreadInsertIndex(opts);
+    if (spreadLeft < minAt) return false;
+
+    const { left: lastTwoLeft } = getSpreadPages(
+        getLastTwoSpreadsStartIndex(totalPages, spreadOpts),
+        totalPages,
+        spreadOpts
+    );
+    if (spreadLeft >= lastTwoLeft) return false;
+
+    const minPages = spreadOpts.hasCovers ? 5 : 2;
+    if (totalPages - pagesPerSpread < minPages) return false;
+
+    const minSpreads = spreadOpts.hasCovers ? 4 : 3;
+    return getTotalSpreads(totalPages, spreadOpts) > minSpreads;
 }
 
 /**
