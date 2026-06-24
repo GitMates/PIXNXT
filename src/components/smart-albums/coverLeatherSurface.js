@@ -1,6 +1,6 @@
 import { resolveCoverLeatherPreset } from './albumCoverColor';
 
-const SURFACE_VERSION = 11;
+const SURFACE_VERSION = 12;
 const dataUrlCache = new Map();
 
 function leatherPresetColors(preset) {

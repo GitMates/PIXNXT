@@ -16,12 +16,12 @@ export const COVER_LEATHER_PRESETS = [
     },
     {
         id: 'sky',
-        label: 'Sky blue',
-        base: '#42b4d4',
-        highlight: '#7fd4ec',
-        shadow: '#2a8fad',
-        spine: '#38a4c4',
-        text: '#1d6a82',
+        label: 'Dark blue',
+        base: '#1a3d66',
+        highlight: '#2a5588',
+        shadow: '#0f2844',
+        spine: '#183558',
+        text: '#8eb8dc',
     },
     {
         id: 'cream',
