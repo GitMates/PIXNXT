@@ -1,6 +1,6 @@
 import React from 'react';
 import { parseGridSizeAspect } from './albumGridSize';
-import { getAlbumCoverColor } from './albumCoverColor';
+import { getAlbumCoverColor, DEFAULT_COVER_COLOR_PRESET_ID } from './albumCoverColor';
 import { resolveFrontCoverDisplayText } from './albumCoverText';
 import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 
@@ -8,7 +8,7 @@ import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 export default function OverviewLeatherCover({ album, showTitle = false }) {
     const albumId = album?.id;
     const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
-    const coverColorId = albumId ? getAlbumCoverColor(albumId) : 'cream';
+    const coverColorId = albumId ? getAlbumCoverColor(albumId) : DEFAULT_COVER_COLOR_PRESET_ID;
     const coverText =
         showTitle && albumId ? resolveFrontCoverDisplayText(album, albumId) : '';
     const style = {

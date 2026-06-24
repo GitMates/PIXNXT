@@ -4,7 +4,7 @@ const SURFACE_VERSION = 14;
 const dataUrlCache = new Map();
 
 function leatherPresetColors(preset) {
-    const resolved = preset?.base ? preset : resolveCoverLeatherPreset('cream');
+    const resolved = preset?.base ? preset : resolveCoverLeatherPreset('sky');
     return {
         base: resolved.base,
         highlight: resolved.highlight,
@@ -15,7 +15,7 @@ function leatherPresetColors(preset) {
 
 function leatherGrainSeed(presetId) {
     let hash = 0;
-    const id = String(presetId || 'cream');
+    const id = String(presetId || 'sky');
     for (let i = 0; i < id.length; i += 1) {
         hash = (hash * 31 + id.charCodeAt(i)) % 2147483647;
     }
@@ -52,7 +52,7 @@ function rgbToCss({ r, g, b }, alpha = 1) {
 }
 
 /** Realistic pebbled leather — studio light, weave, pores, satin sheen. */
-export function drawLeatherPanel(ctx, texW, texH, preset, { presetId = 'cream', spine = false } = {}) {
+export function drawLeatherPanel(ctx, texW, texH, preset, { presetId = 'sky', spine = false } = {}) {
     const colors = leatherPresetColors(preset);
 
     const bg = ctx.createLinearGradient(texW * 0.12, 0, texW * 0.88, texH);
@@ -194,7 +194,7 @@ function surfaceCacheKey(coverColorId, { spine = false, title = '', aspect = 1 }
 }
 
 export function getLeatherPanelDataUrl(
-    coverColorId = 'cream',
+    coverColorId = 'sky',
     { spine = false, title = '', aspect = 1, width = 1024, height = null } = {}
 ) {
     const texH = height || Math.max(320, Math.round(width / (aspect > 0 ? aspect : 1)));
@@ -220,7 +220,7 @@ export function getLeatherPanelDataUrl(
 
 /** Flat 2D leather background — same grain as the 3D cover preview. */
 export function getCoverLeatherSurfaceStyle(
-    coverColorId = 'cream',
+    coverColorId = 'sky',
     { spine = false, title = '', aspect = 1 } = {}
 ) {
     const preset = resolveCoverLeatherPreset(coverColorId);

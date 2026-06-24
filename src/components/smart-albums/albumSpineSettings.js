@@ -1,5 +1,6 @@
 import { clearWrapSegmentCache } from './bookWrapSegment';
 import { clearBook3dTextureCache } from './3d/book3dPageCanvas';
+import { getRemotePreviewData } from './albumPreviewData';
 
 const STORAGE_KEY = 'pixnxt_album_spine_bounds';
 
@@ -37,16 +38,27 @@ export function getAlbumSpineBoundsOverride(albumId) {
     if (!albumId) return null;
     const row = readAll()[albumId];
     if (
-        !row ||
-        !Number.isFinite(row.spineStartFraction) ||
-        !Number.isFinite(row.spineEndFraction)
+        row &&
+        Number.isFinite(row.spineStartFraction) &&
+        Number.isFinite(row.spineEndFraction)
     ) {
-        return null;
+        return {
+            spineStartFraction: row.spineStartFraction,
+            spineEndFraction: row.spineEndFraction,
+        };
     }
-    return {
-        spineStartFraction: row.spineStartFraction,
-        spineEndFraction: row.spineEndFraction,
-    };
+    const remote = getRemotePreviewData(albumId)?.spine_bounds;
+    if (
+        remote &&
+        Number.isFinite(remote.spineStartFraction) &&
+        Number.isFinite(remote.spineEndFraction)
+    ) {
+        return {
+            spineStartFraction: remote.spineStartFraction,
+            spineEndFraction: remote.spineEndFraction,
+        };
+    }
+    return null;
 }
 
 export function setAlbumSpineBoundsOverride(albumId, spineStartFraction, spineEndFraction) {

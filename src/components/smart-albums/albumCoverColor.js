@@ -1,4 +1,5 @@
 import { clearCoverLeatherSurfaceCache } from './coverLeatherSurface';
+import { getRemotePreviewData } from './albumPreviewData';
 
 const STORAGE_KEY = 'pixnxt_album_cover_color';
 
@@ -52,7 +53,9 @@ export const COVER_LEATHER_PRESETS = [
     },
 ];
 
-const DEFAULT_PRESET_ID = 'cream';
+export const DEFAULT_COVER_COLOR_PRESET_ID = 'sky';
+
+const DEFAULT_PRESET_ID = DEFAULT_COVER_COLOR_PRESET_ID;
 
 function notifyCoverColorChanged(albumId) {
     try {
@@ -92,6 +95,10 @@ export function getAlbumCoverColor(albumId) {
     const row = readAll()[albumId];
     const id = row?.presetId;
     if (id && COVER_LEATHER_PRESETS.some((p) => p.id === id)) return id;
+    const remotePreset = getRemotePreviewData(albumId)?.cover_color_preset;
+    if (remotePreset && COVER_LEATHER_PRESETS.some((p) => p.id === remotePreset)) {
+        return remotePreset;
+    }
     return DEFAULT_PRESET_ID;
 }
 

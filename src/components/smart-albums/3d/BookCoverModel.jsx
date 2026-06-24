@@ -4,6 +4,7 @@ import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from '../album
 import {
     COVER_COLOR_CHANGED_EVENT,
     getAlbumCoverColor,
+    DEFAULT_COVER_COLOR_PRESET_ID,
     resolveCoverLeatherPreset,
 } from '../albumCoverColor';
 import { resolveBookWrapSpreadSrc } from '../albumPagePhotos';
@@ -208,7 +209,7 @@ export default function BookCoverModel({
     const blankNoPhoto = blankCover && !coverSrc;
     const coverColorId = useMemo(() => {
         void coverColorTick;
-        return album?.id ? getAlbumCoverColor(album.id) : 'cream';
+        return album?.id ? getAlbumCoverColor(album.id) : DEFAULT_COVER_COLOR_PRESET_ID;
     }, [album?.id, coverColorTick]);
     const leatherPreset = blankNoPhoto ? resolveCoverLeatherPreset(coverColorId) : null;
     const useWrapCrop = shouldUseWrapCrop(album, coverSrc, wrapLayout);

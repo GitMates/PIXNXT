@@ -115,7 +115,14 @@ function resolvePageValue(albumId, stored) {
 }
 
 /** Build a portable snapshot for Supabase (URLs, not local blobs). */
-export function buildAlbumPreviewSnapshot(albumId) {
+export function buildAlbumPreviewSnapshot(
+    albumId,
+    {
+        album = null,
+        coverColorPreset = null,
+        spineBounds = null,
+    } = {}
+) {
     if (!albumId) return null;
 
     const collection = getAlbumCollection(albumId).map((item, index) => ({
@@ -146,8 +153,51 @@ export function buildAlbumPreviewSnapshot(albumId) {
         image_replacements: serializeImageReplacementsForSnapshot(albumId),
         storage_bytes: collection.reduce((sum, item) => sum + (Number(item.size_bytes) || 0), 0),
     };
+
+    if (album) {
+        snapshot.has_covers = album.has_covers !== false;
+        snapshot.blank_covers = album.blank_covers === true;
+        snapshot.spread_grid_size = album.spread_grid_size ?? null;
+    }
+
+    if (coverColorPreset) {
+        snapshot.cover_color_preset = coverColorPreset;
+    }
+
+    if (
+        spineBounds &&
+        Number.isFinite(spineBounds.spineStartFraction) &&
+        Number.isFinite(spineBounds.spineEndFraction)
+    ) {
+        snapshot.spine_bounds = {
+            spineStartFraction: spineBounds.spineStartFraction,
+            spineEndFraction: spineBounds.spineEndFraction,
+        };
+    }
+
     snapshot.cover_url = deriveCoverUrlFromSnapshot(snapshot);
     return snapshot;
+}
+
+function resolveHasCoversFromPreview(album, previewData) {
+    if (previewData?.has_covers === false) return false;
+    if (previewData?.has_covers === true) return true;
+    if (album?.has_covers === false) return false;
+    return true;
+}
+
+/** Merge cloud preview snapshot layout into album row for anonymous / client preview. */
+export function normalizeAlbumForClientPreview(album) {
+    if (!album) return album;
+    const previewData = album.preview_data || {};
+    return {
+        ...album,
+        has_covers: resolveHasCoversFromPreview(album, previewData),
+        blank_covers: previewData.blank_covers === true || album.blank_covers === true,
+        spread_grid_size: previewData.spread_grid_size ?? album.spread_grid_size ?? null,
+        grid_size: album.grid_size ?? 'square',
+        grid_layout: album.grid_layout ?? 'two-page',
+    };
 }
 
 export function hydrateAlbumPreviewData(albumId, previewData) {

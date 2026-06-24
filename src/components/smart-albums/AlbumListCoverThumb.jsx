@@ -6,7 +6,7 @@ import {
 } from './albumPreviewData';
 import { resolveCoverImageSrc, resolveBookWrapSpreadSrc, getAlbumListThumbnailUrl } from './albumPagePhotos';
 import { albumHasBlankCovers } from './albumSpreadUtils';
-import { getAlbumCoverColor } from './albumCoverColor';
+import { getAlbumCoverColor, DEFAULT_COVER_COLOR_PRESET_ID } from './albumCoverColor';
 import { resolveFrontCoverDisplayText } from './albumCoverText';
 import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 import { parseGridSizeAspect } from './albumGridSize';
@@ -82,7 +82,7 @@ export default function AlbumListCoverThumb({ album, alt = '' }) {
 
         if (albumHasBlankCovers(album)) {
             const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
-            const coverColorId = album?.id ? getAlbumCoverColor(album.id) : 'cream';
+            const coverColorId = album?.id ? getAlbumCoverColor(album.id) : DEFAULT_COVER_COLOR_PRESET_ID;
             const coverText = album?.id
                 ? resolveFrontCoverDisplayText(album, album.id)
                 : String(album?.name ?? '').trim();
