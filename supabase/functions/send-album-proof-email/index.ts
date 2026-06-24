@@ -513,18 +513,37 @@ function buildChangesEmailHtml(options: {
 </html>`;
 }
 
+function buildClientStartedNotificationText(options: {
+  photographerName: string;
+  albumName: string;
+  guestName: string;
+  startedAt: string;
+  editorUrl?: string;
+}): string {
+  const { photographerName, albumName, guestName, startedAt, editorUrl } = options;
+  const lines = [
+    photographerName || 'Photographer',
+    '',
+    'Client started commenting',
+    'A client opened your shared album preview and left their first comment or swap request:',
+    albumName,
+    guestName,
+    startedAt,
+  ];
+  if (editorUrl) {
+    lines.push('', `Open album: ${editorUrl}`);
+  }
+  return lines.join('\n');
+}
+
 function buildClientStartedEmailHtml(options: {
   photographerName: string;
   albumName: string;
   guestName: string;
-  guestEmail: string | null;
   startedAt: string;
   editorUrl: string;
 }): string {
-  const { photographerName, albumName, guestName, guestEmail, startedAt, editorUrl } = options;
-  const guestLine = guestEmail
-    ? `${escapeHtml(guestName)} (${escapeHtml(guestEmail)})`
-    : escapeHtml(guestName);
+  const { photographerName, albumName, guestName, startedAt, editorUrl } = options;
 
   return `<!DOCTYPE html>
 <html>
@@ -536,19 +555,18 @@ function buildClientStartedEmailHtml(options: {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
           <tr>
             <td style="padding:36px 40px 32px;text-align:left;">
-              <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999;">${escapeHtml(photographerName)}</p>
-              <h1 style="margin:0 0 20px;font-size:20px;font-weight:700;letter-spacing:0.5px;color:#111;line-height:1.3;">Client started commenting</h1>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;background:#fafafa;border:1px solid #eee;border-radius:10px;">
+              <p style="margin:0 0 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999;">${escapeHtml(photographerName)}</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;background:#f7fdf9;border:1px solid #d9f0e3;border-radius:10px;">
                 <tr>
-                  <td style="padding:18px 20px;">
-                    <p style="margin:0 0 10px;font-size:13px;line-height:1.5;color:#666;">A client opened your shared album preview and left their first comment or swap request:</p>
-                    <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#111;">${escapeHtml(albumName)}</p>
-                    <p style="margin:0 0 4px;font-size:14px;line-height:1.5;color:#444;">${guestLine}</p>
-                    <p style="margin:8px 0 0;font-size:12px;color:#666;">${escapeHtml(startedAt)}</p>
+                  <td style="padding:20px 22px;">
+                    <p style="margin:0 0 14px;font-size:18px;font-weight:700;color:#111;line-height:1.3;">Client started commenting</p>
+                    <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#444;">A client opened your shared album preview and left their first comment or swap request:</p>
+                    <p style="margin:0 0 8px;font-size:16px;font-weight:600;color:#111;line-height:1.4;">${escapeHtml(albumName)}</p>
+                    <p style="margin:0 0 8px;font-size:14px;line-height:1.5;color:#333;">${escapeHtml(guestName)}</p>
+                    <p style="margin:0;font-size:13px;line-height:1.5;color:#666;">${escapeHtml(startedAt)}</p>
                   </td>
                 </tr>
               </table>
-              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#555;">You will receive this alert only once per album. Open the editor to review new feedback as it comes in.</p>
               <table role="presentation" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="border-radius:6px;background:#111;">
@@ -708,21 +726,18 @@ serve(async (req) => {
 
     if (action === 'client_started_commenting') {
       subject = `Client started commenting — ${album.name || 'Album'}`;
-      plainBody = [
-        `Hi ${photographer.display_name || 'Photographer'},`,
-        '',
-        `${clientName} started leaving feedback on "${album.name}" via your shared preview link.`,
-        '',
-        'This is a one-time alert for the first comment or swap request on this album.',
-        '',
-        `Started on: ${startedAt}`,
-        `Open album: ${editorUrl}`,
-      ].join('\n');
+      const notificationText = buildClientStartedNotificationText({
+        photographerName: photographer.display_name || 'Photographer',
+        albumName: album.name || 'Album',
+        guestName: clientName,
+        startedAt,
+        editorUrl,
+      });
+      plainBody = notificationText;
       html = buildClientStartedEmailHtml({
         photographerName: photographer.display_name || 'Photographer',
         albumName: album.name || 'Album',
         guestName: clientName,
-        guestEmail: guestEmail?.trim() || null,
         startedAt,
         editorUrl,
       });
