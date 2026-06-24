@@ -93,7 +93,6 @@ import {
     canRemoveSpreadBeforeLastTwo,
     canInsertSpreadAfterSpread,
     canInsertSpreadBeforeSpread,
-    canRemoveSpreadAt,
     getPageInsertIndex,
     getPageRemoveIndex,
     isCoverInsidePage,
@@ -1601,12 +1600,6 @@ export default function AlbumEditor({
         return canInsertSpreadAfterSpread(spreadLeft, totalPages, spreadOpts);
     }, [slotMenu, canAddPages, totalPages, spreadOpts]);
 
-    const slotMenuCanRemoveSpread = useMemo(() => {
-        const spreadLeft = slotMenu?.slot?.spreadLeft;
-        if (spreadLeft == null) return false;
-        return canRemoveSpreadAt(spreadLeft, totalPages, pagesPerSpread, spreadOpts);
-    }, [slotMenu, totalPages, pagesPerSpread, spreadOpts]);
-
     const handleAddPages = useCallback(
         async ({ silent = false } = {}) => {
             if (!canAddPages || !onChangePageCount) return null;
@@ -1665,30 +1658,6 @@ export default function AlbumEditor({
         canAddPages,
         onChangePageCount,
         pagesPerSpread,
-        closeSlotMenu,
-        bumpWorkspace,
-        showToast,
-    ]);
-
-    const handleRemoveSpread = useCallback(async () => {
-        const slot = slotMenu?.slot;
-        if (!slot || !onChangePageCount) return;
-        const removeAt = slot.spreadLeft;
-        if (!canRemoveSpreadAt(removeAt, totalPages, pagesPerSpread, spreadOpts)) return;
-        closeSlotMenu();
-        setPageCountBusy(true);
-        const result = await onChangePageCount(-pagesPerSpread, { removeAt });
-        setPageCountBusy(false);
-        if (result) bumpWorkspace();
-        if (result) {
-            showToast('Spread removed.', { duration: 3500 });
-        }
-    }, [
-        slotMenu,
-        onChangePageCount,
-        totalPages,
-        pagesPerSpread,
-        spreadOpts,
         closeSlotMenu,
         bumpWorkspace,
         showToast,
@@ -2093,7 +2062,6 @@ export default function AlbumEditor({
                 hasPhoto={Boolean(slotMenu?.slot?.hasPhoto)}
                 canSwap={!isCoverEditorSlotMenu && Boolean(slotMenu?.slot?.hasPhoto)}
                 swapHint={slotMenuSwapHint}
-                canRemoveSpread={slotMenuCanRemoveSpread}
                 canAddSpreadBefore={slotMenuCanAddSpreadBefore}
                 canAddSpreadAfter={slotMenuCanAddSpreadAfter}
                 pageCountBusy={pageCountBusy}
@@ -2102,7 +2070,6 @@ export default function AlbumEditor({
                 onCoverText={isCoverEditorSlotMenu ? handleCoverTextFromMenu : undefined}
                 hasCoverText={Boolean(coverTextMessage)}
                 onRemovePhotos={handleRemoveSpreadPhotos}
-                onRemoveSpread={handleRemoveSpread}
                 onSwap={handleOpenSwapModal}
                 onClose={closeSlotMenu}
             />

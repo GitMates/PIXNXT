@@ -9,7 +9,6 @@ export default function AlbumSpreadSlotMenu({
     hasPhoto,
     canSwap = true,
     swapHint = 'Any left or right photo',
-    canRemoveSpread = false,
     canAddSpreadBefore = false,
     canAddSpreadAfter = false,
     pageCountBusy = false,
@@ -18,7 +17,6 @@ export default function AlbumSpreadSlotMenu({
     onCoverText,
     hasCoverText = false,
     onRemovePhotos,
-    onRemoveSpread,
     onSwap,
     onClose,
 }) {
@@ -163,27 +161,6 @@ export default function AlbumSpreadSlotMenu({
                             <span className="ab-slot-menu-text">
                                 <strong>Remove photos</strong>
                                 <small>Clear this spread&apos;s images</small>
-                            </span>
-                        </button>
-                    ) : null}
-
-                    {canRemoveSpread && onRemoveSpread ? (
-                        <button
-                            type="button"
-                            className="ab-slot-menu-item ab-slot-menu-item--danger"
-                            role="menuitem"
-                            disabled={pageCountBusy}
-                            onClick={onRemoveSpread}
-                        >
-                            <span className="ab-slot-menu-icon" aria-hidden>
-                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                                    <line x1="8" y1="12" x2="16" y2="12" />
-                                </svg>
-                            </span>
-                            <span className="ab-slot-menu-text">
-                                <strong>Remove spread</strong>
-                                <small>Delete this spread from the album</small>
                             </span>
                         </button>
                     ) : null}
