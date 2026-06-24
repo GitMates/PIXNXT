@@ -43,6 +43,272 @@ function escapeHtml(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
+const COUNTRY_DIAL_CODES: Record<string, string> = {
+  US: '1',
+  CA: '1',
+  UK: '44',
+  AU: '61',
+  IN: '91',
+};
+
+function inferCountryFromTimeZone(timeZone?: string | null): string | null {
+  const tz = (timeZone || '').toLowerCase();
+  if (!tz) return null;
+  if (tz.includes('kolkata') || tz.includes('india') || tz.includes('calcutta') || tz.includes('ist')) {
+    return 'IN';
+  }
+  if (tz.includes('pacific') || tz.includes('eastern') || tz.includes('america/')) {
+    return 'US';
+  }
+  if (tz.includes('london') || tz.includes('europe/london')) {
+    return 'UK';
+  }
+  if (tz.includes('australia') || tz.includes('sydney')) {
+    return 'AU';
+  }
+  return null;
+}
+
+function isIndianMobile(digits: string): boolean {
+  return /^[6-9]\d{9}$/.test(digits);
+}
+
+function normalizeWhatsAppPhone(
+  phone: string,
+  businessCountry?: string | null,
+  timeZone?: string | null
+): string | null {
+  let digits = phone.replace(/\D/g, '');
+  if (!digits) return null;
+
+  // Local trunk prefix, e.g. 08056361226 → 8056361226
+  if (digits.length === 11 && digits.startsWith('0')) {
+    digits = digits.slice(1);
+  }
+
+  if (digits.length >= 11) return digits;
+
+  const country =
+    (businessCountry || '').trim().toUpperCase() ||
+    inferCountryFromTimeZone(timeZone) ||
+    (isIndianMobile(digits) ? 'IN' : '');
+
+  const dialCode = COUNTRY_DIAL_CODES[country];
+  if (dialCode && digits.length === 10) {
+    return `${dialCode}${digits}`;
+  }
+
+  if (isIndianMobile(digits)) {
+    return `91${digits}`;
+  }
+
+  return digits.length >= 10 ? digits : null;
+}
+
+type WhatsAppSendResult = { ok: boolean; messageId?: string; error?: string; errorCode?: number };
+
+/** Meta sandbox templates ship with fixed body text — no parameters. */
+const ZERO_PARAM_TEMPLATES = new Set(['hello_world', 'jaspers_market_order_confirmation']);
+
+const WHATSAPP_TEMPLATE_FALLBACKS = ['hello_world', 'jaspers_market_order_confirmation'];
+const WHATSAPP_LANG_FALLBACKS = ['en_US', 'en'];
+
+function whatsAppTemplateParamCount(templateName: string, configuredCount: number | null): number {
+  if (configuredCount !== null) return configuredCount;
+  if (ZERO_PARAM_TEMPLATES.has(templateName)) return 0;
+  return 5;
+}
+
+async function listWhatsAppTemplateNames(accessToken: string, wabaId: string): Promise<string[]> {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v25.0/${wabaId}/message_templates?limit=50&fields=name,language,status`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('send-album-proof-email: could not list WhatsApp templates:', data);
+      return [];
+    }
+    return (data?.data || []).map(
+      (t: { name?: string; language?: string; status?: string }) =>
+        `${t.name || '?'} (${t.language || '?'}) [${t.status || '?'}]`
+    );
+  } catch (err) {
+    console.error('send-album-proof-email: list templates failed:', err);
+    return [];
+  }
+}
+
+async function verifyWhatsAppPhoneAccess(
+  accessToken: string,
+  phoneNumberId: string
+): Promise<{ ok: boolean; displayPhone?: string; error?: string }> {
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v25.0/${phoneNumberId}?fields=display_phone_number,verified_name`,
+      { headers: { Authorization: `Bearer ${accessToken}` } }
+    );
+    const data = await response.json();
+    if (!response.ok) {
+      const msg = data?.error?.message || 'Token cannot access this phone number ID';
+      return { ok: false, error: msg };
+    }
+    return {
+      ok: true,
+      displayPhone: data?.display_phone_number || data?.verified_name || phoneNumberId,
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'verify failed' };
+  }
+}
+
+async function sendWhatsAppTemplateMessage(
+  toPhone: string,
+  templateName: string,
+  languageCode: string,
+  bodyParameters: string[]
+): Promise<WhatsAppSendResult> {
+  const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN') || '';
+  const phoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '';
+
+  if (!accessToken || !phoneNumberId) {
+    return { ok: false, error: 'WhatsApp is not configured on the server' };
+  }
+
+  const template: Record<string, unknown> = {
+    name: templateName,
+    language: { code: languageCode },
+  };
+
+  const params = bodyParameters.map((text) => ({ type: 'text', text: text.slice(0, 1024) }));
+  if (params.length) {
+    template.components = [{ type: 'body', parameters: params }];
+  }
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v25.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: toPhone,
+          type: 'template',
+          template,
+        }),
+      }
+    );
+
+    const respData = await response.json();
+    if (!response.ok) {
+      const errCode = respData?.error?.code as number | undefined;
+      const errMsg =
+        typeof respData?.error?.message === 'string'
+          ? respData.error.message
+          : 'WhatsApp API request failed';
+      return { ok: false, error: errMsg, errorCode: errCode };
+    }
+
+    const messageId = respData?.messages?.[0]?.id as string | undefined;
+    return { ok: true, messageId };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'WhatsApp fetch failed';
+    return { ok: false, error: message };
+  }
+}
+
+async function sendWhatsAppTemplateWithFallback(
+  toPhone: string,
+  preferredTemplate: string,
+  preferredLang: string,
+  bodyParameters: string[]
+): Promise<WhatsAppSendResult & { template?: string; language?: string }> {
+  const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN') || '';
+  const phoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '';
+  const wabaId = Deno.env.get('WHATSAPP_BUSINESS_ACCOUNT_ID') || '1892297801470358';
+
+  const phoneCheck = await verifyWhatsAppPhoneAccess(accessToken, phoneNumberId);
+  if (!phoneCheck.ok) {
+    const msg = `WHATSAPP_ACCESS_TOKEN is invalid or does not match WHATSAPP_PHONE_NUMBER_ID — copy a fresh token from Meta API Setup: ${phoneCheck.error}`;
+    console.error('send-album-proof-email:', msg);
+    return { ok: false, error: msg };
+  }
+  console.log('send-album-proof-email: WhatsApp phone verified:', phoneCheck.displayPhone);
+
+  const templatesToTry = [
+    preferredTemplate,
+    ...WHATSAPP_TEMPLATE_FALLBACKS.filter((t) => t !== preferredTemplate),
+  ];
+
+  for (const templateName of templatesToTry) {
+    const paramCount = whatsAppTemplateParamCount(templateName, null);
+    const params = bodyParameters.slice(0, paramCount);
+    const langsToTry =
+      templateName === preferredTemplate
+        ? [preferredLang, ...WHATSAPP_LANG_FALLBACKS.filter((l) => l !== preferredLang)]
+        : WHATSAPP_LANG_FALLBACKS;
+
+    for (const tryLang of langsToTry) {
+      console.log('send-album-proof-email: WhatsApp request', {
+        phoneNumberId,
+        template: templateName,
+        language: tryLang,
+        paramCount: params.length,
+        to: toPhone,
+      });
+
+      const result = await sendWhatsAppTemplateMessage(toPhone, templateName, tryLang, params);
+      if (result.ok) {
+        console.log('send-album-proof-email: WhatsApp sent', {
+          messageId: result.messageId,
+          template: templateName,
+          language: tryLang,
+          to: toPhone,
+        });
+        return { ...result, template: templateName, language: tryLang };
+      }
+
+      if (result.errorCode !== 132001) {
+        console.error('send-album-proof-email WhatsApp error:', result.error);
+        return result;
+      }
+      console.warn(
+        `send-album-proof-email: template "${templateName}" (${tryLang}) not found, trying next...`
+      );
+    }
+  }
+
+  const available = await listWhatsAppTemplateNames(accessToken, wabaId);
+  const msg =
+    `(#132001) No WhatsApp template worked. Available on your account: [${available.join(', ') || 'none — token may be wrong'}]. ` +
+    'Copy WHATSAPP_ACCESS_TOKEN from Meta → API Setup (same page as Phone number ID 1152342977957303).';
+  console.error('send-album-proof-email:', msg);
+  return { ok: false, error: msg, errorCode: 132001 };
+}
+
+function buildClientStartedWhatsAppTemplateParams(options: {
+  photographerName: string;
+  clientName: string;
+  albumName: string;
+  startedAt: string;
+  editorUrl: string;
+}): string[] {
+  const { photographerName, clientName, albumName, startedAt, editorUrl } = options;
+  return [
+    photographerName || 'Photographer',
+    clientName,
+    albumName,
+    startedAt,
+    editorUrl,
+  ];
+}
+
 function spreadLabel(spreadIndex: number): string {
   return spreadIndex <= 0 ? 'Cover' : `Spread ${spreadIndex}`;
 }
@@ -400,7 +666,7 @@ serve(async (req) => {
 
     const { data: photographerRow } = await supabaseAdmin
       .from('photographers')
-      .select('email, display_name')
+      .select('email, display_name, phone, business_country, time_zone')
       .eq('id', album.photographer_id)
       .maybeSingle();
 
@@ -423,6 +689,9 @@ serve(async (req) => {
     const photographer = {
       email: photographerEmail,
       display_name: photographerRow?.display_name || null,
+      phone: photographerRow?.phone?.trim() || null,
+      business_country: photographerRow?.business_country?.trim() || null,
+      time_zone: photographerRow?.time_zone?.trim() || null,
     };
 
     const origin = (siteOrigin || Deno.env.get('PUBLIC_SITE_URL') || '').replace(/\/$/, '');
@@ -543,6 +812,78 @@ serve(async (req) => {
       await client.close();
     }
 
+    let whatsappResult:
+      | { sent: true; to: string; messageId?: string; template?: string }
+      | { sent: false; skipped?: string; error?: string; to?: string } = { sent: false };
+
+    if (action === 'client_started_commenting') {
+      const templateName =
+        Deno.env.get('WHATSAPP_CLIENT_STARTED_TEMPLATE') ||
+        (Deno.env.get('WHATSAPP_ACCESS_TOKEN') ? 'hello_world' : '');
+      const templateLang = Deno.env.get('WHATSAPP_CLIENT_STARTED_TEMPLATE_LANG') || 'en_US';
+      const normalizedPhone = photographer.phone
+        ? normalizeWhatsAppPhone(
+            photographer.phone,
+            photographer.business_country,
+            photographer.time_zone
+          )
+        : null;
+
+      if (!templateName) {
+        console.warn(
+          'send-album-proof-email: WhatsApp skipped — set WHATSAPP_CLIENT_STARTED_TEMPLATE in Edge Function secrets'
+        );
+        whatsappResult = { sent: false, skipped: 'no_template' };
+      } else if (!photographer.phone) {
+        console.warn('send-album-proof-email: WhatsApp skipped — photographer has no phone on profile');
+        whatsappResult = { sent: false, skipped: 'no_phone' };
+      } else if (!normalizedPhone) {
+        console.warn(
+          `send-album-proof-email: WhatsApp skipped — invalid phone "${photographer.phone}"`
+        );
+        whatsappResult = { sent: false, skipped: 'invalid_phone', to: photographer.phone };
+      } else {
+        const templateParams = buildClientStartedWhatsAppTemplateParams({
+          photographerName: photographer.display_name || 'Photographer',
+          clientName,
+          albumName: album.name || 'Album',
+          startedAt,
+          editorUrl,
+        });
+        const paramCountRaw = Deno.env.get('WHATSAPP_CLIENT_STARTED_TEMPLATE_PARAM_COUNT');
+        const configuredParamCount =
+          paramCountRaw === '' || paramCountRaw === undefined
+            ? null
+            : Math.max(0, parseInt(paramCountRaw, 10) || 0);
+        const paramCount = whatsAppTemplateParamCount(templateName, configuredParamCount);
+        const bodyParams = templateParams.slice(0, paramCount);
+        console.log(
+          `send-album-proof-email: sending WhatsApp to ${normalizedPhone} (raw: ${photographer.phone}), preferred template "${templateName}"`
+        );
+        const sendResult = await sendWhatsAppTemplateWithFallback(
+          normalizedPhone,
+          templateName,
+          templateLang,
+          bodyParams
+        );
+        if (sendResult.ok) {
+          whatsappResult = {
+            sent: true,
+            to: normalizedPhone,
+            messageId: sendResult.messageId,
+            template: sendResult.template || templateName,
+          };
+          console.log(
+            `WhatsApp template sent to ${normalizedPhone} for album ${albumId} (messageId: ${sendResult.messageId || 'n/a'}, template: ${sendResult.template})`
+          );
+        } else {
+          whatsappResult = { sent: false, error: sendResult.error, to: normalizedPhone };
+          console.error('send-album-proof-email: WhatsApp failed:', sendResult.error);
+        }
+      }
+      console.log('send-album-proof-email: whatsapp result:', whatsappResult);
+    }
+
     const proofPatch =
       action === 'approve'
         ? {
@@ -573,6 +914,7 @@ serve(async (req) => {
         ok: true,
         action,
         to: photographer.email,
+        whatsapp: whatsappResult,
         photoCount: photoRows.length,
         swapCount: swapRows.length,
         commentCount: spreadRows.length,

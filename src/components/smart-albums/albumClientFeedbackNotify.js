@@ -20,7 +20,7 @@ export function albumHadClientFeedbackBefore(albumId) {
 }
 
 /**
- * After a client adds their first comment or swap in preview, email the photographer once.
+ * After a client adds their first comment or swap in preview, email and WhatsApp the photographer once.
  * @param {boolean} hadFeedbackBefore — pass true when feedback existed before this action.
  */
 export function notifyAfterClientFeedbackAdded(albumId, { hadFeedbackBefore = false } = {}) {
@@ -37,8 +37,11 @@ export function notifyAfterClientFeedbackAdded(albumId, { hadFeedbackBefore = fa
         })
         .then((result) => {
             if (result?.ok) markClientCommentingStartedNotified(albumId);
+            if (result?.whatsapp && !result.whatsapp.sent) {
+                console.warn('WhatsApp notification skipped or failed:', result.whatsapp);
+            }
         })
         .catch((err) => {
-            console.warn('Client started commenting email:', err);
+            console.warn('Client started commenting notification:', err);
         });
 }
