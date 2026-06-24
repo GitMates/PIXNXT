@@ -7,12 +7,12 @@ export const COVER_COLOR_CHANGED_EVENT = 'pixnxt-album-cover-color-changed';
 export const COVER_LEATHER_PRESETS = [
     {
         id: 'tan',
-        label: 'Tan leather',
-        base: '#c49a6c',
-        highlight: '#ddb98e',
-        shadow: '#9a7048',
-        spine: '#b08858',
-        text: '#6b4a2c',
+        label: 'Orange',
+        base: '#e07b32',
+        highlight: '#f0a060',
+        shadow: '#b85c28',
+        spine: '#c86a30',
+        text: '#8a4018',
     },
     {
         id: 'sky',
