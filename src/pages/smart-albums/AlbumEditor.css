@@ -269,6 +269,9 @@
 .ae-notifications-item-time {
   font-size: 11px;
   color: #888;
+  align-self: flex-end;
+  width: 100%;
+  text-align: right;
 }
 
 .ae-topbar-right {
