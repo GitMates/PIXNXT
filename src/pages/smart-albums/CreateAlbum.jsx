@@ -9,7 +9,6 @@ import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
     blankCoverSpreadGridSize,
     detectGridSizesFromFiles,
-    formatGridSizeLabelForLayout,
     getAlbumUploadPixelTarget,
     loadImageDimensionsFromFile,
     spreadAspectFromPageGrid,
@@ -1217,17 +1216,6 @@ const CreateAlbum = () => {
                                                         Page count: {layoutPreview.pageCount} pages
                                                         · {layoutPreview.totalSpreads} spread
                                                         {layoutPreview.totalSpreads === 1 ? '' : 's'}
-                                                    </span>
-                                                    <span className="sa-upload-detected-size sa-upload-detected-size--revealed">
-                                                        Grid:{' '}
-                                                        {formatGridSizeLabelForLayout(
-                                                            detectedGridSize,
-                                                            gridLayoutForDetection,
-                                                            {
-                                                                spreadGridSize:
-                                                                    detectedSpreadGridSize,
-                                                            }
-                                                        )}
                                                     </span>
                                                 </>
                                             )}
