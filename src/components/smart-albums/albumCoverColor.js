@@ -43,12 +43,12 @@ export const COVER_LEATHER_PRESETS = [
     },
     {
         id: 'burgundy',
-        label: 'Burgundy',
-        base: '#6e2e3c',
-        highlight: '#8e4454',
-        shadow: '#4a1a24',
-        spine: '#5e2630',
-        text: '#3a1218',
+        label: 'Brown',
+        base: '#7a4f2a',
+        highlight: '#a87248',
+        shadow: '#523218',
+        spine: '#5c381e',
+        text: '#3d2410',
     },
 ];
 
