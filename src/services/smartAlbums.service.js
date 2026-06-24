@@ -4,6 +4,8 @@ import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
 import { buildAlbumPreviewSnapshot, getAlbumIdsWithLocalAssets, hydrateAlbumPreviewData } from '../components/smart-albums/albumPreviewData';
+import { getAlbumCoverColor } from '../components/smart-albums/albumCoverColor';
+import { getAlbumSpineBoundsOverride } from '../components/smart-albums/albumSpineSettings';
 import { duplicateAlbumAssets } from '../components/smart-albums/albumDuplicate';
 
 
@@ -634,7 +636,18 @@ async function syncLocalAlbumAssetsToSupabase(photographerId) {
   if (!albumIds.length) return;
 
   for (const albumId of albumIds) {
-    const previewData = buildAlbumPreviewSnapshot(albumId);
+    const gridOvr = readGridSettingsOverrides(photographerId)[albumId];
+    const previewData = buildAlbumPreviewSnapshot(albumId, {
+      album: gridOvr
+        ? {
+            has_covers: gridOvr.has_covers !== false,
+            blank_covers: gridOvr.blank_covers === true,
+            spread_grid_size: gridOvr.spread_grid_size ?? null,
+          }
+        : null,
+      coverColorPreset: getAlbumCoverColor(albumId),
+      spineBounds: getAlbumSpineBoundsOverride(albumId),
+    });
     if (!previewData) continue;
     const hasAssets =
       previewData.cover_url ||
@@ -1063,7 +1076,12 @@ export const smartAlbumsService = {
     }
 
     if (patch.status === 'published') {
-      const previewData = buildAlbumPreviewSnapshot(albumId);
+      const album = await this.getAlbum(photographerId, albumId);
+      const previewData = buildAlbumPreviewSnapshot(albumId, {
+        album,
+        coverColorPreset: getAlbumCoverColor(albumId),
+        spineBounds: getAlbumSpineBoundsOverride(albumId),
+      });
       if (previewData) {
         payload.preview_data = previewData;
         payload.cover_image_url = previewData.cover_url || null;
@@ -1112,7 +1130,12 @@ export const smartAlbumsService = {
   },
 
   async syncAlbumPreviewData(photographerId, albumId) {
-    const previewData = buildAlbumPreviewSnapshot(albumId);
+    const album = await this.getAlbum(photographerId, albumId);
+    const previewData = buildAlbumPreviewSnapshot(albumId, {
+      album,
+      coverColorPreset: getAlbumCoverColor(albumId),
+      spineBounds: getAlbumSpineBoundsOverride(albumId),
+    });
     if (!previewData) return null;
 
     const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {

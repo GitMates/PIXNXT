@@ -1,4 +1,5 @@
 import { clearCoverLeatherSurfaceCache } from './coverLeatherSurface';
+import { getRemotePreviewData } from './albumPreviewData';
 
 const STORAGE_KEY = 'pixnxt_album_cover_color';
 
@@ -94,6 +95,10 @@ export function getAlbumCoverColor(albumId) {
     const row = readAll()[albumId];
     const id = row?.presetId;
     if (id && COVER_LEATHER_PRESETS.some((p) => p.id === id)) return id;
+    const remotePreset = getRemotePreviewData(albumId)?.cover_color_preset;
+    if (remotePreset && COVER_LEATHER_PRESETS.some((p) => p.id === remotePreset)) {
+        return remotePreset;
+    }
     return DEFAULT_PRESET_ID;
 }
 

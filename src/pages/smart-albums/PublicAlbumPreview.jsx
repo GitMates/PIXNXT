@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
-import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache } from '../../components/smart-albums/albumPreviewData';
+import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache, normalizeAlbumForClientPreview } from '../../components/smart-albums/albumPreviewData';
 import { smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
@@ -85,7 +85,7 @@ export default function PublicAlbumPreview() {
 
     return (
         <AlbumPreview
-            album={album}
+            album={normalizeAlbumForClientPreview(album)}
             albumId={albumId}
             totalPages={totalPages}
             initialPage={initialPage}

@@ -6,7 +6,7 @@ import { smartAlbumsService } from '../../services/smartAlbums.service';
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { parseUrlPage } from './useAlbumWorkspace';
-import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache } from '../../components/smart-albums/albumPreviewData';
+import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache, normalizeAlbumForClientPreview } from '../../components/smart-albums/albumPreviewData';
 import './AlbumViewer.css';
 
 /**
@@ -86,7 +86,7 @@ export default function PhotographerAlbumPreview() {
 
     return (
         <AlbumPreview
-            album={album}
+            album={normalizeAlbumForClientPreview(album)}
             albumId={albumId}
             totalPages={totalPages}
             initialPage={initialPage}
