@@ -12,6 +12,7 @@ import {
     getDraggableOverviewSpreadIndices,
     getEndSpreadPageIndices,
     getLastSpreadInfo,
+    getPreBackHalfSpreadInfo,
     getSpreadPages,
     isCoverInsidePage,
     isEndHalfSpreadLeftPage,
@@ -176,6 +177,95 @@ export function restoreEndCoverPlacement(albumId, totalPages, captured) {
     }
 
     return true;
+}
+
+/** Snapshot pre-back spread placement before removing inner pages (left photo only). */
+export function capturePreBackPlacement(albumId, totalPages, opts = {}) {
+    if (!albumId || totalPages == null) return null;
+    const info = getPreBackHalfSpreadInfo(totalPages, opts);
+    if (!info) return null;
+    const { left, right } = info;
+    const pageLeft = getStoredPlacement(albumId, String(left));
+    const pageRight = getStoredPlacement(albumId, String(right));
+    const spread = getStoredPlacement(albumId, spreadStorageKey(left));
+    const photo = pageLeft ?? spread ?? null;
+    if (photo == null && pageRight == null) return null;
+    return { photo, pageLeft, pageRight, spread, oldLeft: left, oldRight: right };
+}
+
+/** Re-apply pre-back photo on the new pre-back spread after a page-count shrink. */
+export function restorePreBackPlacement(albumId, totalPages, captured, opts = {}) {
+    if (!albumId || !captured || totalPages == null) return false;
+    const info = getPreBackHalfSpreadInfo(totalPages, opts);
+    if (!info) return false;
+
+    const photo = captured.photo ?? captured.pageLeft ?? captured.spread ?? null;
+    const { left, right } = info;
+    const spreadKey = spreadStorageKey(left);
+
+    const all = readAll();
+    const album = { ...(all[albumId] || {}) };
+    if (photo != null) {
+        album[String(left)] = photo;
+    }
+    delete album[spreadKey];
+    delete album[String(right)];
+    album.__revision = (album.__revision || 0) + 1;
+    all[albumId] = album;
+    writeAll(all);
+
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.pages) {
+        const pages = { ...remote.pages };
+        if (photo != null) {
+            pages[String(left)] = photo;
+        }
+        delete pages[spreadKey];
+        delete pages[String(right)];
+        hydrateAlbumPreviewData(albumId, {
+            ...remote,
+            pages,
+            revision: (remote.revision || 0) + 1,
+        });
+    }
+
+    return true;
+}
+
+/** Move a mistaken whole-spread placement on the pre-back spread to the left page only. */
+export function migratePreBackHalfSpreadToLeftPage(albumId, totalPages, albumMeta = null) {
+    if (!albumId || totalPages == null) return false;
+    const collectionCount = getAlbumLayoutPhotoCount(albumId, albumMeta);
+    const spreadOpts = albumMeta
+        ? getAlbumSpreadOptions(albumMeta, { collectionCount })
+        : getAlbumSpreadOptions(
+              { has_covers: true, page_count: totalPages },
+              { collectionCount }
+          );
+    const info = getPreBackHalfSpreadInfo(totalPages, spreadOpts);
+    if (!info) return false;
+    const { left, right } = info;
+
+    const all = readAll();
+    const album = all[albumId];
+    if (!album) return false;
+
+    const spreadKey = spreadStorageKey(left);
+    const spreadStored = album[spreadKey];
+    const rightStored = right < totalPages ? album[String(right)] : null;
+
+    if (spreadStored == null && rightStored == null) return false;
+
+    const next = { ...album };
+    if (next[String(left)] == null) {
+        next[String(left)] = spreadStored ?? rightStored;
+    }
+    delete next[spreadKey];
+    if (right < totalPages) delete next[String(right)];
+
+    next.__revision = (next.__revision || 0) + 1;
+    all[albumId] = next;
+    return writeAll(all);
 }
 
 /** Move a mistaken whole-spread placement on the last spread to the left page only. */

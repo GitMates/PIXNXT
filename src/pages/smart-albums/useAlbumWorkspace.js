@@ -9,8 +9,13 @@ import {
 } from '../../components/smart-albums/albumPageStorage';
 import {
     mergeRemotePreviewPagesIntoLocal,
+    captureEndCoverPlacement,
+    capturePreBackPlacement,
+    restoreEndCoverPlacement,
+    restorePreBackPlacement,
     migrateInsideCoverSpreadToPageTwo,
     migrateEndHalfSpreadToLeftPage,
+    migratePreBackHalfSpreadToLeftPage,
     migrateBackCoverUsesBookWrap,
     migrateFrontCoverToFullSpread,
     migrateMiskeyedInnerSpreadPhotos,
@@ -186,9 +191,21 @@ export function useAlbumWorkspace() {
                     const removeCount = -countDelta;
                     const removeAt =
                         customRemoveAt ?? getPageRemoveIndex(current, removeCount, albumSpreadOpts);
+                    const capturedEndCover = albumSpreadOpts.hasCovers
+                        ? captureEndCoverPlacement(albumId, current)
+                        : null;
+                    const capturedPreBack = albumSpreadOpts.hasCovers
+                        ? capturePreBackPlacement(albumId, current, albumSpreadOpts)
+                        : null;
                     removeAlbumStoragePages(albumId, removeAt, removeCount);
                     shiftAlbumRemotePreviewPages(albumId, removeAt, -removeCount);
                     shiftAlbumPhotoPins(albumId, removeAt, -removeCount);
+                    if (albumSpreadOpts.hasCovers) {
+                        restorePreBackPlacement(albumId, next, capturedPreBack, albumSpreadOpts);
+                        restoreEndCoverPlacement(albumId, next, capturedEndCover);
+                        migratePreBackHalfSpreadToLeftPage(albumId, next, album);
+                        migrateEndHalfSpreadToLeftPage(albumId, next, album);
+                    }
                 }
 
                 const updated = await smartAlbumsService.updateAlbumPageCount(

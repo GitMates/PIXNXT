@@ -1,5 +1,5 @@
 import { getAlbumCollection, getAlbumLayoutPhotoCount } from './albumCollection';
-import { MIN_ALBUM_PAGES } from './albumPageStorage';
+import { MIN_ALBUM_PAGES, PAGES_PER_SPREAD } from './albumPageStorage';
 
 /** Pages reserved for the back cover spread (left = photo, right = blank). */
 export const RESERVED_END_PAGES = 2;
@@ -181,6 +181,19 @@ export function canInsertSpreadAfterSpread(spreadLeft, totalPages, opts = {}) {
     if (spreadLeft == null || Number.isNaN(spreadLeft)) return false;
     if (isReservedSpreadLeft(spreadLeft, totalPages, opts)) return false;
     return canInsertSpreadAt(getSpreadInsertIndexAfter(spreadLeft), totalPages, opts);
+}
+
+/** Whether the spread at spreadLeft may be deleted (not cover, pre-back, or back). */
+export function canDeleteSpreadAt(spreadLeft, totalPages, opts = {}) {
+    if (spreadLeft == null || Number.isNaN(spreadLeft)) return false;
+    if (isReservedSpreadLeft(spreadLeft, totalPages, opts)) return false;
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const preBack = getPreBackHalfSpreadInfo(totalPages, spreadOpts);
+    if (preBack && spreadLeft >= preBack.left) return false;
+    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+    if (spreadLeft >= endLeft) return false;
+    const minPages = spreadOpts.hasCovers ? MIN_ALBUM_PAGES : 2;
+    return totalPages - PAGES_PER_SPREAD >= minPages;
 }
 
 /**

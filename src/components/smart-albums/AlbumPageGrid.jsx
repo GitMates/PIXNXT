@@ -148,9 +148,7 @@ export default function AlbumPageGrid({
     const insideCoverSpread =
         isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts) &&
         (!isWholeSpreadAlbum || !spreadWholePhoto);
-    const preBackHalfSpread =
-        isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts) &&
-        (!isWholeSpreadAlbum || !spreadWholePhoto);
+    const preBackHalfSpread = isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
     const frontCoverSpread = isFrontCoverSpreadLeft(spreadLeft, spreadOpts);
     const inSelectedSpread =
         selectionLeftPage != null && selectionLeftPage === spreadLeft;

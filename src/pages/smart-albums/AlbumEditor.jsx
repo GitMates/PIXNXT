@@ -32,37 +32,42 @@ import {
     reorderCollectionItems,
 } from '../../components/smart-albums/albumCollection';
 import { insertAlbumStoragePages, removeAlbumStoragePages } from '../../components/smart-albums/albumPageStorage';
-import { shiftAlbumRemotePreviewPages } from '../../components/smart-albums/albumPreviewData';
-import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
-import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
-import { filesFromInput } from '../../lib/uploadFileOrder';
 import {
+    applyCollectionOrderToPages,
+    captureEndCoverPlacement,
+    capturePreBackPlacement,
     clearAllAlbumPagePhotos,
     clearCollectionItemPlacements,
-    getSlotPlacementCollectionItemId,
     getAlbumPhotoRevision,
+    getSlotPlacementCollectionItemId,
     getSpreadPhotoOverride,
-    pageHasPlacedPhoto,
-    resolveSlotCollectionItemId,
-    migrateEndHalfSpreadToLeftPage,
     migrateBackCoverUsesBookWrap,
+    migrateEndHalfSpreadToLeftPage,
     migrateFrontCoverToFullSpread,
     migrateInsideCoverSpreadToPageTwo,
-    applyCollectionOrderToPages,
     migrateMiskeyedInnerSpreadPhotos,
+    migratePreBackHalfSpreadToLeftPage,
     migrateWholeSpreadPagePhotosToSpreadKeys,
     migrateWholeSpreadPhotoOffRightPage,
-    reorderOverviewSpreads,
-    spreadHasWholeSpreadPhoto,
+    pageHasPlacedPhoto,
     placeCollectionItemOnPages,
+    reorderOverviewSpreads,
+    resolveBookWrapSpreadSrc,
+    resolveSlotCollectionItemId,
+    restoreEndCoverPlacement,
+    restorePreBackPlacement,
     setPagePhotoFromCollectionItem,
     setPagePhotoFromDataUrl,
     setSpreadPhoto,
     setSpreadPhotoFromCollectionItem,
-    resolveBookWrapSpreadSrc,
+    spreadHasWholeSpreadPhoto,
     syncCollectionOrderToPlacements,
     syncCoverWrapRoleFromSpread,
 } from '../../components/smart-albums/albumPagePhotos';
+import { shiftAlbumRemotePreviewPages } from '../../components/smart-albums/albumPreviewData';
+import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
+import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
+import { filesFromInput } from '../../lib/uploadFileOrder';
 import { getSlotUploadPixelTarget } from '../../components/smart-albums/albumGridSize';
 import { useAlbumWrapAspect, withAlbumWrapAspect } from '../../components/smart-albums/useAlbumWrapAspect';
 import {
@@ -91,6 +96,7 @@ import {
     getEndSpreadPageIndices,
     getInnerPageCount,
     canRemoveSpreadBeforeLastTwo,
+    canDeleteSpreadAt,
     canInsertSpreadAfterSpread,
     canInsertSpreadBeforeSpread,
     getPageInsertIndex,
@@ -457,9 +463,15 @@ export default function AlbumEditor({
         } else if (targetPages < currentPages && blankCovers && collectionShrunk) {
             const delta = currentPages - targetPages;
             const removeAt = getPageRemoveIndex(currentPages, delta, spreadOptsNow);
+            const capturedEndCover = captureEndCoverPlacement(albumId, currentPages);
+            const capturedPreBack = capturePreBackPlacement(albumId, currentPages, spreadOptsNow);
             removeAlbumStoragePages(albumId, removeAt, delta);
             shiftAlbumRemotePreviewPages(albumId, removeAt, -delta);
             shiftAlbumPhotoPins(albumId, removeAt, -delta);
+            restorePreBackPlacement(albumId, targetPages, capturedPreBack, spreadOptsNow);
+            restoreEndCoverPlacement(albumId, targetPages, capturedEndCover);
+            migratePreBackHalfSpreadToLeftPage(albumId, targetPages, albumNow);
+            migrateEndHalfSpreadToLeftPage(albumId, targetPages, albumNow);
         } else {
             return albumNow;
         }
@@ -1600,6 +1612,14 @@ export default function AlbumEditor({
         return canInsertSpreadAfterSpread(spreadLeft, totalPages, spreadOpts);
     }, [slotMenu, canAddPages, totalPages, spreadOpts]);
 
+    const slotMenuCanDeleteSpread = useMemo(() => {
+        const slot = slotMenu?.slot;
+        if (!slot) return false;
+        const spreadLeft =
+            slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
+        return canDeleteSpreadAt(spreadLeft, totalPages, spreadOpts);
+    }, [slotMenu, totalPages, spreadOpts]);
+
     const handleAddPages = useCallback(
         async ({ silent = false } = {}) => {
             if (!canAddPages || !onChangePageCount) return null;
@@ -1657,6 +1677,31 @@ export default function AlbumEditor({
         slotMenu,
         canAddPages,
         onChangePageCount,
+        pagesPerSpread,
+        closeSlotMenu,
+        bumpWorkspace,
+        showToast,
+    ]);
+
+    const handleDeleteSpread = useCallback(async () => {
+        const slot = slotMenu?.slot;
+        if (!slot || !onChangePageCount) return;
+        const spreadLeft =
+            slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
+        if (!canDeleteSpreadAt(spreadLeft, totalPages, spreadOpts)) return;
+        closeSlotMenu();
+        setPageCountBusy(true);
+        const result = await onChangePageCount(-pagesPerSpread, { removeAt: spreadLeft });
+        setPageCountBusy(false);
+        if (result) {
+            bumpWorkspace();
+            showToast('Spread deleted.', { duration: 3500 });
+        }
+    }, [
+        slotMenu,
+        onChangePageCount,
+        totalPages,
+        spreadOpts,
         pagesPerSpread,
         closeSlotMenu,
         bumpWorkspace,
@@ -2064,9 +2109,11 @@ export default function AlbumEditor({
                 swapHint={slotMenuSwapHint}
                 canAddSpreadBefore={slotMenuCanAddSpreadBefore}
                 canAddSpreadAfter={slotMenuCanAddSpreadAfter}
+                canDeleteSpread={slotMenuCanDeleteSpread}
                 pageCountBusy={pageCountBusy}
                 onAddSpreadBefore={handleAddSpreadBefore}
                 onAddSpreadAfter={handleAddSpreadAfter}
+                onDeleteSpread={handleDeleteSpread}
                 onCoverText={isCoverEditorSlotMenu ? handleCoverTextFromMenu : undefined}
                 hasCoverText={Boolean(coverTextMessage)}
                 onRemovePhotos={handleRemoveSpreadPhotos}
