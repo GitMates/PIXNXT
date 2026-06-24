@@ -5,6 +5,7 @@ import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache } from '../../compo
 import { smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
+import { isClientShareLinkLive } from '../../lib/shareSmartAlbum';
 import { parseUrlPage } from './useAlbumWorkspace';
 import './AlbumViewer.css';
 
@@ -72,10 +73,12 @@ export default function PublicAlbumPreview() {
         );
     }
 
-    if (!album || album.status !== 'published') {
+    if (!album || !isClientShareLinkLive(album)) {
         return (
             <div className="av-page av-page--preview">
-                <div className="av-loading">Album not found or not published yet.</div>
+                <div className="av-loading">
+                    Album not found, not published, or the client share link is disabled.
+                </div>
             </div>
         );
     }

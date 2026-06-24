@@ -1,0 +1,64 @@
+.ae-cover-color {
+  margin-top: 4px;
+}
+
+.ae-cover-color-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.ae-cover-color-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #6b7280;
+}
+
+.ae-cover-color-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #6b7280;
+}
+
+.ae-cover-color-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ae-cover-color-swatch {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid rgba(0, 0, 0, 0.04);
+  border-radius: 10px;
+  cursor: pointer;
+  box-shadow: none;
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.ae-cover-color-swatch:hover {
+  transform: translateY(-1px);
+  box-shadow: none;
+}
+
+.ae-cover-color-swatch--selected {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.25);
+}
+
+.ae-cover-color-swatch:focus-visible {
+  outline: 2px solid #7c3aed;
+  outline-offset: 2px;
+}
+
+.ae-cover-color-swatch.ab-cover-leather-canvas {
+  background-blend-mode: normal;
+}

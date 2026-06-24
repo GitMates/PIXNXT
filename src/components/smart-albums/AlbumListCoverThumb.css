@@ -5,8 +5,28 @@
   background: #fff;
 }
 
-.sa-album-list-thumb-crop--blank {
-  background: linear-gradient(90deg, #e8eaed 50%, #fff 50%);
+.sa-album-list-thumb-crop--front-cover {
+  background: #e8eaed;
+}
+
+.sa-album-list-thumb-crop--front-cover-blank,
+.sa-album-list-thumb-crop--front-cover-leather {
+  background: #fff;
+}
+
+.sa-album-list-thumb-front {
+  position: absolute;
+  inset: 0;
+}
+
+.sa-album-list-thumb-front--blank {
+  background: #fff;
+}
+
+.sa-album-list-thumb-front--leather {
+  background-color: var(--ab-leather-base, #f0ebe0);
+  background-size: cover;
+  background-position: center;
 }
 
 .sa-album-list-thumb-crop .sa-album-list-thumb-img,

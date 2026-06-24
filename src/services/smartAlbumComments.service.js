@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { getClientTimezone } from './albumProof.service';
 import { smartAlbumsService } from './smartAlbums.service';
 
 const LOCAL_KEY = 'pixnxt_smart_album_comments_local';
@@ -174,6 +175,29 @@ export function formatCommentDateTime(iso) {
     });
 }
 
+/** Time only for chat-style bubbles (e.g. 5:48 PM). */
+export function formatCommentTime(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+    });
+}
+
+/** Centered feed date pill (e.g. 6/22/2026). Accepts ISO string or epoch ms. */
+export function formatFeedDateLabel(isoOrMs) {
+    if (isoOrMs == null || isoOrMs === '') return '';
+    const d = new Date(isoOrMs);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleDateString([], {
+        month: 'numeric',
+        day: 'numeric',
+        year: 'numeric',
+    });
+}
+
 function readLocal() {
     try {
         const raw = localStorage.getItem(LOCAL_KEY);
@@ -207,6 +231,14 @@ export function hasCommentBody(comment) {
     return Boolean((comment?.body || '').trim());
 }
 
+/** Client root spread comments stored locally (preview / offline). */
+export function countClientRootComments(albumId) {
+    if (!albumId) return 0;
+    return listLocalAlbumComments(albumId).filter(
+        (c) => !c.parent_id && c.author_type === 'client' && hasCommentBody(c)
+    ).length;
+}
+
 export function normalizeCommentAuthorName(name) {
     return (name || 'Guest').trim().toLowerCase();
 }
@@ -233,6 +265,17 @@ export function findGuestSpreadRootComment(comments, authorName) {
 
 export function countMeaningfulComments(comments) {
     return (comments || []).filter(hasCommentBody).length;
+}
+
+/** Root spread comments grouped by spread index (see groupRootCommentsBySpread). */
+export function countSpreadComments(spreadCommentsBySpread) {
+    return countMeaningfulComments(Object.values(spreadCommentsBySpread || {}).flat());
+}
+
+export function countUnseenSpreadComments(albumId, spreadCommentsBySpread) {
+    return Object.values(spreadCommentsBySpread || {})
+        .flat()
+        .filter((comment) => isCommentUnseen(albumId, comment)).length;
 }
 
 function mapRow(row) {
@@ -792,6 +835,7 @@ export const smartAlbumCommentsService = {
             guestEmail: guestEmail?.trim() || null,
             siteOrigin:
                 siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+            clientTimezone: getClientTimezone(),
             comments: (comments || [])
                 .filter((c) => !c.parent_id && hasCommentBody(c))
                 .map((c) => ({
@@ -861,7 +905,7 @@ export function groupCommentsBySpread(comments) {
         .sort(([a], [b]) => a - b)
         .map(([spreadIndex, rows]) => ({
             spreadIndex,
-            spreadLabel: spreadIndex <= 0 ? 'Cover' : `Spread ${spreadIndex}`,
+            spreadLabel: spreadIndex <= 0 ? 'Cover' : `Spread ${Number(spreadIndex) + 1}`,
             threads: groupCommentsByThread(rows),
         }));
 }

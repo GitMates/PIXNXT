@@ -131,25 +131,28 @@ export const storageService = {
     }
 
     const normalized = String(prefix || '').replace(/^\/+/, '');
-    const keys = [];
+    const objects = [];
     let continuationToken;
 
     do {
       const command = new ListObjectsV2Command({
         Bucket: R2_BUCKET_NAME,
         Prefix: normalized,
-        MaxKeys: Math.min(maxKeys - keys.length, 1000),
+        MaxKeys: Math.min(maxKeys - objects.length, 1000),
         ContinuationToken: continuationToken,
       });
       const response = await r2Client.send(command);
       (response.Contents || []).forEach((entry) => {
         if (entry.Key && !entry.Key.endsWith('/')) {
-          keys.push(entry.Key);
+          objects.push({
+            key: entry.Key,
+            size: Number(entry.Size) || 0,
+          });
         }
       });
       continuationToken = response.IsTruncated ? response.NextContinuationToken : undefined;
-    } while (continuationToken && keys.length < maxKeys);
+    } while (continuationToken && objects.length < maxKeys);
 
-    return keys;
+    return objects;
   },
 };

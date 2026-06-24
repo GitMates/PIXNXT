@@ -17,6 +17,7 @@ import {
     getSpreadContext,
     getSpreadPages,
     getTotalSpreads,
+    isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
     isWholeSpreadLayout,
     normalizeStoragePageIndex,
@@ -32,6 +33,8 @@ import {
 import AlbumFocusView from './AlbumFocusView';
 import AlbumSwapPickerModal from './AlbumSwapPickerModal';
 import AlbumPinComposer from './AlbumPinComposer';
+import { closeAlbumPinPopovers } from './albumPinPopoverEvents';
+import useSpreadMagnify from './useSpreadMagnify';
 import {
     addSwapMark,
     getSwapMarksForSlot,
@@ -48,6 +51,10 @@ import {
     PHOTO_PINS_CHANGED_EVENT,
     removePhotoPin,
 } from './albumPhotoPins';
+import {
+    albumHadClientFeedbackBefore,
+    notifyAfterClientFeedbackAdded,
+} from './albumClientFeedbackNotify';
 import './AlbumBook.css';
 import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
@@ -59,6 +66,7 @@ import { getBookWrapSpineLayout } from './bookWrapSpine';
 import { SPINE_BOUNDS_CHANGED_EVENT } from './albumSpineSettings';
 import { getSpreadPhotoTransform } from './albumPageTransforms';
 import BookWrapSpineImage from './BookWrapSpineImage';
+import OverviewLeatherCover from './OverviewLeatherCover';
 
 export { getSpreadPages, getTotalSpreads, pageToSpreadIndex, spreadIndexToPage } from './albumSpreadUtils';
 
@@ -111,7 +119,7 @@ function OverviewCoverPhoto({ src, placeholderClass = '' }) {
             />
         );
     }
-    return <img src={src} alt="" loading="lazy" />;
+    return <img src={src} alt="" loading="lazy" draggable={false} />;
 }
 
 function OverviewBookWrapSegment({ src, side, layout, transform }) {
@@ -172,6 +180,7 @@ const AlbumBook = ({
     onAddPages,
     canRemovePages = false,
     onRemovePages,
+    onReorderOverviewSpread,
     pageCountBusy = false,
     showGridComments = false,
     spreadCommentsBySpread = null,
@@ -181,6 +190,13 @@ const AlbumBook = ({
     proofSpotPicker = false,
     spotCanComment = false,
     spotCanSwap = false,
+    external3DCover = false,
+    coverRevealFrom3D = false,
+    coverRevealDelayMs = 0,
+    coverHideTo3D = false,
+    onCoverRevealFrom3DComplete,
+    onCoverHideTo3DStart,
+    onExternalCoverRequest,
 }) => {
     const bookRef = useRef(null);
     const stageRef = useRef(null);
@@ -240,6 +256,15 @@ const AlbumBook = ({
         void transformRevision;
         return getSpreadPhotoTransform(album.id, 0);
     }, [album?.id, album?.has_covers, transformRevision]);
+    const overviewThumbStyle = useMemo(() => {
+        const thumbW = 268;
+        const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
+        const spreadAspect = 2 * pageAspect;
+        const thumbH = Math.round(thumbW / spreadAspect);
+        return {
+            '--ab-overview-thumb-h': `${Math.max(96, Math.min(200, thumbH))}px`,
+        };
+    }, [album?.grid_size]);
 
     const applyInitialPage = useCallback(() => {
         const api = bookRef.current?.pageFlip?.();
@@ -265,7 +290,11 @@ const AlbumBook = ({
         });
         return resolvedStorage === targetStorage;
     }, [initialPage, totalPages, spreadOpts]);
+
     const [overviewOpen, setOverviewOpen] = useState(false);
+    const overviewDragFromRef = useRef(null);
+    const overviewDidDragRef = useRef(false);
+    const [overviewDragOverIndex, setOverviewDragOverIndex] = useState(null);
     const [focusOpen, setFocusOpen] = useState(false);
     const [focusStartPage, setFocusStartPage] = useState(0);
     const focusPageRef = useRef(0);
@@ -330,6 +359,7 @@ const AlbumBook = ({
     useEffect(() => {
         userNavigatedRef.current = false;
         syncingPageRef.current = true;
+        closeAlbumPinPopovers();
     }, [initialPage, album?.id]);
 
     const syncFlipbookToUrlPage = useCallback(() => {
@@ -467,8 +497,16 @@ const AlbumBook = ({
 
     const bookDims = stableDims ?? dims;
 
+    const spreadMagnify = useSpreadMagnify({
+        spreadKey: spreadIndex,
+        viewportWidth: bookDims ? bookDims.width * 2 : 0,
+        viewportHeight: bookDims?.height ?? 0,
+    });
+
     const goToPage = useCallback(
         (pageNum) => {
+            closeAlbumPinPopovers();
+            if (previewMode) spreadMagnify.reset();
             const clamped = normalizeStoragePageIndex(pageNum, totalPages, spreadOpts);
             syncingPageRef.current = true;
             const api = bookRef.current?.pageFlip?.();
@@ -483,26 +521,75 @@ const AlbumBook = ({
                 });
             });
         },
-        [totalPages, spreadOpts, onPageChange]
+        [totalPages, spreadOpts, onPageChange, previewMode, spreadMagnify.reset]
     );
 
-    const atStart = spreadIndex <= 0;
+    const canDragOverviewSpreads = Boolean(editable && onReorderOverviewSpread && !pageCountBusy);
+
+    const handleOverviewSpreadDragStart = useCallback(
+        (spreadIndex) => {
+            if (!canDragOverviewSpreads) return;
+            if (!isDraggableOverviewSpread(spreadIndex, totalPages, spreadOpts)) return;
+            overviewDragFromRef.current = spreadIndex;
+            overviewDidDragRef.current = false;
+        },
+        [canDragOverviewSpreads, totalPages, spreadOpts]
+    );
+
+    const handleOverviewSpreadDragOver = useCallback(
+        (spreadIndex) => {
+            if (!canDragOverviewSpreads) return;
+            if (!isDraggableOverviewSpread(spreadIndex, totalPages, spreadOpts)) return;
+            setOverviewDragOverIndex(spreadIndex);
+        },
+        [canDragOverviewSpreads, totalPages, spreadOpts]
+    );
+
+    const handleOverviewSpreadDrop = useCallback(
+        (toSpreadIndex) => {
+            const fromSpreadIndex = overviewDragFromRef.current;
+            overviewDragFromRef.current = null;
+            setOverviewDragOverIndex(null);
+            if (!canDragOverviewSpreads || fromSpreadIndex == null) return;
+            if (fromSpreadIndex === toSpreadIndex) return;
+            overviewDidDragRef.current = true;
+            onReorderOverviewSpread?.(fromSpreadIndex, toSpreadIndex);
+        },
+        [canDragOverviewSpreads, onReorderOverviewSpread]
+    );
+
+    const handleOverviewSpreadDragEnd = useCallback(() => {
+        overviewDragFromRef.current = null;
+        setOverviewDragOverIndex(null);
+    }, []);
+
+    const atStart = external3DCover ? false : spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
-    const frontCoverOnly = album?.has_covers === true && spreadIndex === 0;
     const endCoverOnly =
         album?.has_covers === true &&
         isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts);
     const [coverClipTransition, setCoverClipTransition] = useState(null);
     const [coverRevealOpen, setCoverRevealOpen] = useState(false);
+    const [coverHideTo3DActive, setCoverHideTo3DActive] = useState(false);
     const [endClipTransition, setEndClipTransition] = useState(null);
     const [endRevealOpen, setEndRevealOpen] = useState(false);
     const [bookFlipping, setBookFlipping] = useState(false);
-    const prevNavDisabled = atStart || bookFlipping;
+    const externalCoverClipActive =
+        coverRevealFrom3D || coverHideTo3DActive || coverHideTo3D;
+    const frontCoverOnly =
+        album?.has_covers === true &&
+        spreadIndex === 0 &&
+        (!external3DCover || externalCoverClipActive);
+    const prevNavDisabled = bookFlipping || (!external3DCover && spreadIndex <= 0);
     const nextNavDisabled = atEnd || bookFlipping;
     const showCoverClip =
         album?.has_covers === true &&
+        (!external3DCover || externalCoverClipActive) &&
         (frontCoverOnly ||
             coverClipTransition != null ||
+            coverRevealFrom3D ||
+            coverHideTo3DActive ||
+            coverHideTo3D ||
             (bookFlipping && spreadIndex === 0));
     const lastSpreadIndex = Math.max(0, totalSpreads - 1);
     const preBackSpreadIndex = Math.max(0, totalSpreads - 2);
@@ -545,6 +632,10 @@ const AlbumBook = ({
         wrapRef.current?.classList.toggle('ab-flipbook-wrap--flipping', flipping);
     }, []);
 
+    const coverRevealFrom3DStartedRef = useRef(false);
+    const coverRevealFrom3DDoneRef = useRef(false);
+    const coverHideTo3DRef = useRef(false);
+
     /** Let clip-path transition paint its start frame before the page curl runs. */
     const beginCoverRevealFlip = useCallback((api) => {
         setCoverClipTransition('reveal');
@@ -561,6 +652,21 @@ const AlbumBook = ({
         });
     }, []);
 
+    const beginCoverHideTo3DFlip = useCallback(
+        (api) => {
+            onCoverHideTo3DStart?.();
+            coverHideTo3DRef.current = true;
+            setCoverHideTo3DActive(true);
+            setCoverClipTransition('hide');
+            setCoverRevealOpen(false);
+            requestAnimationFrame(() => {
+                if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
+                else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
+            });
+        },
+        [onCoverHideTo3DStart]
+    );
+
     const beginEndRevealFlip = useCallback((api) => {
         setEndClipTransition('reveal');
         setEndRevealOpen(false);
@@ -576,10 +682,84 @@ const AlbumBook = ({
         });
     }, []);
 
+    useEffect(() => {
+        coverRevealFrom3DStartedRef.current = false;
+        coverRevealFrom3DDoneRef.current = false;
+    }, [flipBookMountKey, coverRevealFrom3D]);
+
+    useEffect(() => {
+        if (!coverRevealFrom3D || !initialized || !stableDims || coverRevealFrom3DStartedRef.current) {
+            return undefined;
+        }
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return undefined;
+
+        const runReveal = () => {
+            if (coverRevealFrom3DStartedRef.current) return;
+            coverRevealFrom3DStartedRef.current = true;
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    if (wrapRef.current) void wrapRef.current.offsetWidth;
+
+                    const resetToCover = () => {
+                        syncingPageRef.current = true;
+                        api.turnToPage(storagePageToFlipbookIndex(0, totalPages, spreadOpts));
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                syncingPageRef.current = false;
+                                syncingPageRef.current = true;
+                                api.turnToPage(1);
+                                requestAnimationFrame(() => {
+                                    requestAnimationFrame(() => {
+                                        syncingPageRef.current = false;
+                                        beginCoverRevealFlip(api);
+                                    });
+                                });
+                            });
+                        });
+                    };
+
+                    const currentStorage = flipbookIndexToStoragePage(
+                        api.getCurrentPageIndex(),
+                        totalPages,
+                        spreadOpts
+                    );
+                    if (currentStorage !== 0) {
+                        resetToCover();
+                        return;
+                    }
+
+                    const current = api.getCurrentPageIndex();
+                    if (current < 1) {
+                        syncingPageRef.current = true;
+                        api.turnToPage(1);
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => {
+                                syncingPageRef.current = false;
+                                beginCoverRevealFlip(api);
+                            });
+                        });
+                        return;
+                    }
+                    beginCoverRevealFlip(api);
+                });
+            });
+        };
+
+        const delay = Math.max(0, coverRevealDelayMs);
+        if (delay === 0) {
+            runReveal();
+            return undefined;
+        }
+        const timer = window.setTimeout(runReveal, delay);
+        return () => window.clearTimeout(timer);
+    }, [beginCoverRevealFlip, coverRevealDelayMs, coverRevealFrom3D, initialized, stableDims, spreadOpts, totalPages]);
+
     const handleFlip = useCallback(
         (e) => {
             // Ignore programmatic sync flips, but accept user-driven page turns.
             if (syncingPageRef.current && !isFlippingRef.current) return;
+            closeAlbumPinPopovers();
             const storageIdx = flipbookIndexToStoragePage(e.data, totalPages, spreadOpts);
             syncingPageRef.current = false;
             userNavigatedRef.current = true;
@@ -613,8 +793,25 @@ const AlbumBook = ({
                         totalPages,
                         spreadOpts
                     );
+                    closeAlbumPinPopovers();
                     setPageIndex(storageIdx);
                     onPageChange?.(storageIdx);
+                    if (
+                        coverRevealFrom3D &&
+                        !coverRevealFrom3DDoneRef.current &&
+                        pageToSpreadIndex(storageIdx, spreadCtx) >= 1
+                    ) {
+                        coverRevealFrom3DDoneRef.current = true;
+                        onCoverRevealFrom3DComplete?.();
+                    }
+                    if (
+                        coverHideTo3DRef.current &&
+                        pageToSpreadIndex(storageIdx, spreadCtx) <= 0
+                    ) {
+                        coverHideTo3DRef.current = false;
+                        setCoverHideTo3DActive(false);
+                        onExternalCoverRequest?.();
+                    }
                 }
                 if (coverClipTransition || endClipTransition) {
                     requestAnimationFrame(() => {
@@ -626,7 +823,7 @@ const AlbumBook = ({
                 }
             }
         },
-        [coverClipTransition, endClipTransition, onPageChange, setFlippingUi, spreadOpts, totalPages]
+        [coverClipTransition, coverRevealFrom3D, endClipTransition, onCoverRevealFrom3DComplete, onExternalCoverRequest, onPageChange, setFlippingUi, spreadCtx, spreadOpts, totalPages]
     );
 
     useEffect(() => {
@@ -641,8 +838,28 @@ const AlbumBook = ({
     }, [bookFlipping, setFlippingUi]);
 
     const flipPrev = useCallback(() => {
+        closeAlbumPinPopovers();
+        if (previewMode) spreadMagnify.reset();
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
+
+        if (
+            external3DCover &&
+            album?.has_covers &&
+            spreadIndex === 1
+        ) {
+            const current = flipbookIndexToStoragePage(
+                api.getCurrentPageIndex(),
+                totalPages,
+                spreadOpts
+            );
+            if (current >= 2) {
+                beginCoverHideTo3DFlip(api);
+                return;
+            }
+            onExternalCoverRequest?.();
+            return;
+        }
 
         if (
             album?.has_covers &&
@@ -682,13 +899,15 @@ const AlbumBook = ({
 
         if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
         else if (typeof api.turnToPrevPage === 'function') api.turnToPrevPage();
-    }, [album?.has_covers, beginEndRevealFlip, endCoverOnly, spreadIndex, spreadOpts, totalPages]);
+    }, [album?.has_covers, beginCoverHideTo3DFlip, beginEndRevealFlip, endCoverOnly, external3DCover, onExternalCoverRequest, onPageChange, previewMode, spreadIndex, spreadMagnify.reset, spreadOpts, totalPages]);
 
     const flipNext = useCallback(() => {
+        closeAlbumPinPopovers();
+        if (previewMode) spreadMagnify.reset();
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
 
-        if (album?.has_covers && spreadIndex === 0) {
+        if (album?.has_covers && spreadIndex === 0 && !external3DCover) {
             const current = api.getCurrentPageIndex();
             if (current < 1) {
                 syncingPageRef.current = true;
@@ -724,11 +943,11 @@ const AlbumBook = ({
 
         if (typeof api.flipNext === 'function') api.flipNext(FLIP_CORNER);
         else if (typeof api.turnToNextPage === 'function') api.turnToNextPage();
-    }, [album?.has_covers, beginCoverRevealFlip, spreadIndex, spreadOpts, totalPages, totalSpreads]);
+    }, [album?.has_covers, beginCoverRevealFlip, external3DCover, onPageChange, previewMode, spreadIndex, spreadMagnify.reset, spreadOpts, totalPages, totalSpreads]);
 
     useEffect(() => {
         if (!initialized || bookFlipping || coverClipTransition) return;
-        if (!album?.has_covers || spreadIndex !== 0) return;
+        if (!album?.has_covers || spreadIndex !== 0 || external3DCover) return;
         if (userNavigatedRef.current || isFlippingRef.current) return;
         const api = bookRef.current?.pageFlip?.();
         if (!api?.getFlipController?.()) return;
@@ -748,6 +967,7 @@ const AlbumBook = ({
         album?.has_covers,
         bookFlipping,
         coverClipTransition,
+        external3DCover,
         initialized,
         onPageChange,
         spreadIndex,
@@ -761,6 +981,7 @@ const AlbumBook = ({
     }, [bookFlipping, spreadIndex, preBackSpreadIndex, endClipTransition]);
 
     useEffect(() => {
+        if (focusOpen) return undefined;
         const onKey = (e) => {
             if (e.key === 'ArrowLeft') {
                 e.preventDefault();
@@ -772,7 +993,7 @@ const AlbumBook = ({
         };
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
-    }, [flipPrev, flipNext]);
+    }, [flipPrev, flipNext, focusOpen]);
 
     useEffect(() => {
         if (!overviewOpen) return undefined;
@@ -934,17 +1155,70 @@ const AlbumBook = ({
                 originSlot: slot,
                 originPoint: null,
             });
+            if (previewMode) {
+                setSwapPickerOrigin(slot);
+            }
         },
-        [album?.id]
+        [album?.id, previewMode]
     );
 
     const handleSwapPick = useCallback(
         (secondSlot) => {
-            if (!album?.id || !swapPickerOrigin) return;
-            addSwapMark(album.id, swapPickerOrigin, secondSlot);
+            if (!album?.id || !secondSlot) return;
+            const originSlot = swapPickerOrigin || swapPinFlow?.originSlot;
+            if (!originSlot) return;
+
+            if (previewMode && swapPinFlow?.originPoint) {
+                setSwapPinFlow((prev) =>
+                    prev
+                        ? {
+                              ...prev,
+                              targetSlot: secondSlot,
+                          }
+                        : prev
+                );
+                setSwapPickerOrigin(null);
+                return;
+            }
+
+            const hasThumbPoint =
+                Number.isFinite(secondSlot.xPct) && Number.isFinite(secondSlot.yPct);
+
+            const pointA = swapPinFlow?.originPoint || {
+                xPct: 50,
+                yPct: 50,
+                pageNum: originSlot.pageNum,
+                cellId: originSlot.cellId ?? 0,
+            };
+            const pointB = {
+                xPct: hasThumbPoint ? secondSlot.xPct : 50,
+                yPct: hasThumbPoint ? secondSlot.yPct : 50,
+                pageNum: secondSlot.pageNum,
+                cellId: secondSlot.cellId ?? 0,
+            };
+            const hadFeedback = albumHadClientFeedbackBefore(album.id);
+            addSwapMark(album.id, originSlot, secondSlot, { pointA, pointB });
+            if (previewMode) {
+                notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+            }
             setSwapPickerOrigin(null);
+            setSwapPinFlow(null);
+            if (secondSlot.spreadIndex != null) {
+                goToPage(
+                    spreadIndexToPage(secondSlot.spreadIndex, { ...spreadOpts, totalPages })
+                );
+            } else if (hasThumbPoint) {
+                goToPage(secondSlot.pageNum ?? originSlot.pageNum);
+            }
         },
-        [album?.id, swapPickerOrigin]
+        [album?.id, swapPickerOrigin, swapPinFlow, previewMode, goToPage, spreadOpts, totalPages]
+    );
+
+    const handleSwapSpreadNavigate = useCallback(
+        (spreadIndex) => {
+            goToPage(spreadIndexToPage(spreadIndex, { ...spreadOpts, totalPages }));
+        },
+        [goToPage, spreadOpts, totalPages]
     );
 
     const handleSwapPinPlace = useCallback(
@@ -962,6 +1236,9 @@ const AlbumBook = ({
                     originSlot: placement,
                     originPoint: placementPoint,
                 });
+                if (previewMode) {
+                    setSwapPickerOrigin(placement);
+                }
                 return;
             }
             const originSlot = swapPinFlow.originSlot;
@@ -978,6 +1255,7 @@ const AlbumBook = ({
                     );
                     return;
                 }
+                const hadFeedback = albumHadClientFeedbackBefore(album.id);
                 const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: {
                         xPct: 50,
@@ -987,28 +1265,47 @@ const AlbumBook = ({
                     },
                     pointB: placementPoint,
                 });
-                if (mark) setSwapPinFlow(null);
+                if (mark) {
+                    if (previewMode) {
+                        notifyAfterClientFeedbackAdded(album.id, {
+                            hadFeedbackBefore: hadFeedback,
+                        });
+                    }
+                    setSwapPinFlow(null);
+                }
                 return;
             }
 
             if (slotsMatch(originSlot, placement)) {
+                const hadFeedback = albumHadClientFeedbackBefore(album.id);
                 const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: swapPinFlow.originPoint,
                     pointB: placementPoint,
                 });
-                if (mark) setSwapPinFlow(null);
+                if (mark) {
+                    if (previewMode) {
+                        notifyAfterClientFeedbackAdded(album.id, {
+                            hadFeedbackBefore: hadFeedback,
+                        });
+                    }
+                    setSwapPinFlow(null);
+                }
                 return;
             }
 
+            const hadFeedback = albumHadClientFeedbackBefore(album.id);
             const mark = addSwapMark(album.id, originSlot, placement, {
                 pointA: swapPinFlow.originPoint,
                 pointB: placementPoint,
             });
             if (mark) {
+                if (previewMode) {
+                    notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+                }
                 setSwapPinFlow(null);
             }
         },
-        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker]
+        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker, previewMode]
     );
 
     const getSwapMarkInfo = useCallback(
@@ -1017,8 +1314,10 @@ const AlbumBook = ({
                 placementMode,
                 spreadLeft,
                 gridLayout: album?.grid_layout || 'two-page',
+                album,
+                totalPages,
             }),
-        [swapMarks, placementMode, album?.grid_layout]
+        [swapMarks, placementMode, album, totalPages]
     );
 
     const getSwapMarkInfos = useCallback(
@@ -1027,8 +1326,10 @@ const AlbumBook = ({
                 placementMode,
                 spreadLeft,
                 gridLayout: album?.grid_layout || 'two-page',
+                album,
+                totalPages,
             }),
-        [swapMarks, placementMode, album?.grid_layout]
+        [swapMarks, placementMode, album, totalPages]
     );
 
     const getSlotPins = useCallback(
@@ -1047,18 +1348,26 @@ const AlbumBook = ({
     const handlePinSave = useCallback(
         (message) => {
             if (!album?.id || !pinComposer) return;
+            const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addPhotoPin(album.id, { ...pinComposer, message });
+            if (previewMode) {
+                notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+            }
             setPinComposer(null);
         },
-        [album?.id, pinComposer]
+        [album?.id, pinComposer, previewMode]
     );
 
     const handlePinSaveDirect = useCallback(
         (placement) => {
             if (!album?.id || !placement?.message?.trim()) return;
+            const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addPhotoPin(album.id, placement);
+            if (previewMode) {
+                notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+            }
         },
-        [album?.id]
+        [album?.id, previewMode]
     );
 
     const handlePinRemove = useCallback(
@@ -1075,6 +1384,7 @@ const AlbumBook = ({
     }, [goToPage]);
 
     const openFocusView = useCallback(() => {
+        closeAlbumPinPopovers();
         setOverviewOpen(false);
         focusPageRef.current = pageIndex;
         setFocusStartPage(pageIndex);
@@ -1125,6 +1435,8 @@ const AlbumBook = ({
             spotActionPicker: proofSpotPicker,
             spotCanComment,
             spotCanSwap,
+            activeBookPage: pageIndex,
+            spreadMagnifyActive: previewMode && spreadMagnify.active,
         }),
         [
             gridSelection?.leftPage,
@@ -1156,6 +1468,9 @@ const AlbumBook = ({
             proofSpotPicker,
             spotCanComment,
             spotCanSwap,
+            pageIndex,
+            previewMode,
+            spreadMagnify.active,
         ]
     );
 
@@ -1205,7 +1520,7 @@ const AlbumBook = ({
         () =>
             getFlipbookStoragePages(totalPages, spreadOpts).map((pageNum) => (
                 <AlbumFlipPage
-                    key={`page-${pageNum}`}
+                    key={`page-${pageNum}-r${photoRevision}`}
                     album={album}
                     pageNum={pageNum}
                     totalPages={totalPages}
@@ -1225,14 +1540,17 @@ const AlbumBook = ({
             placementMode,
             showSamples,
             previewMode,
+            photoRevision,
         ]
     );
 
     return (
         <div
             className={`ab-root${previewMode ? ' ab-root--preview' : ''}${
-                isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''
-            }${previewMode && swapMarkMode ? ' ab-root--swap-mode' : ''}`}
+                previewMode && spreadMagnify.active ? ' ab-root--spread-magnify' : ''
+            }${isPinModeOn && pinMarkMode ? ' ab-root--pin-mode' : ''}${
+                previewMode && swapMarkMode ? ' ab-root--swap-mode' : ''
+            }`}
             ref={rootRef}
         >
             {bookPlacementHint && placementHintPos &&
@@ -1290,6 +1608,26 @@ const AlbumBook = ({
                             ? {
                                   width: bookDims.width * 2,
                               }
+                            : undefined
+                    }
+                >
+                <div
+                    className={spreadMagnify.viewportClassName}
+                    style={
+                        bookDims
+                            ? {
+                                  width: bookDims.width * 2,
+                                  height: bookDims.height,
+                              }
+                            : undefined
+                    }
+                >
+                <div
+                    className={spreadMagnify.contentClassName}
+                    style={spreadMagnify.contentStyle}
+                    onPointerDown={
+                        previewMode && spreadMagnify.active
+                            ? spreadMagnify.handlePointerDown
                             : undefined
                     }
                 >
@@ -1356,6 +1694,8 @@ const AlbumBook = ({
                     ) : null}
                 </div>
                 </div>
+                </div>
+                </div>
                 <div className="ab-spread-controls">
                     <button
                         type="button"
@@ -1372,7 +1712,10 @@ const AlbumBook = ({
                         type="button"
                         className="ab-control-icon ab-control-icon--button"
                         aria-label="Show page overview"
-                        onClick={() => setOverviewOpen(true)}
+                        onClick={() => {
+                            closeAlbumPinPopovers();
+                            setOverviewOpen(true);
+                        }}
                     >
                         <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
                             {Array.from({ length: 9 }, (_, i) => {
@@ -1382,6 +1725,36 @@ const AlbumBook = ({
                             })}
                         </svg>
                     </button>
+                    {previewMode ? (
+                        <>
+                            <button
+                                type="button"
+                                className="ab-control-icon ab-control-icon--button"
+                                aria-label="Zoom out"
+                                disabled={!spreadMagnify.canZoomOut}
+                                onClick={spreadMagnify.zoomOut}
+                            >
+                                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                            <button
+                                type="button"
+                                className="ab-control-icon ab-control-icon--button"
+                                aria-label="Zoom in"
+                                disabled={!spreadMagnify.canZoomIn}
+                                onClick={spreadMagnify.zoomIn}
+                            >
+                                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                        </>
+                    ) : null}
                     <span className="ab-page-counter" title={`Pages ${pageRangeLabel}`}>
                         {counterLabel}
                     </span>
@@ -1422,6 +1795,7 @@ const AlbumBook = ({
                     className={`ab-overview${
                         previewMode ? ' ab-overview--gallery-proof' : ''
                     }${pageCountBusy ? ' ab-overview--page-busy' : ''}`}
+                    style={overviewThumbStyle}
                     role="dialog"
                     aria-modal="true"
                     aria-label="Page overview"
@@ -1450,6 +1824,11 @@ const AlbumBook = ({
                         </svg>
                     </button>
                     <div className="ab-overview-body" onClick={(e) => e.stopPropagation()}>
+                    {canDragOverviewSpreads ? (
+                        <p className="ab-overview-drag-hint">
+                            Drag middle spreads to reorder photos. Cover, first inner spread, spread before back, and back stay fixed.
+                        </p>
+                    ) : null}
                     <div
                         className={`ab-overview-grid${
                             pageCountBusy ? ' ab-overview-grid--transitioning' : ''
@@ -1490,7 +1869,15 @@ const AlbumBook = ({
                             const isEndHalf = isEndSpread;
                             const showSpreadFull = Boolean(spreadSrc);
                             const isCurrent = overviewSpreadIndex === spreadIndex;
-                            const spreadComments = spreadCommentsBySpread?.[overviewSpreadIndex] ?? null;
+                            const spreadDraggable =
+                                canDragOverviewSpreads &&
+                                isDraggableOverviewSpread(
+                                    overviewSpreadIndex,
+                                    totalPages,
+                                    spreadOpts
+                                );
+                            const spreadDragOver =
+                                spreadDraggable && overviewDragOverIndex === overviewSpreadIndex;
                             return (
                                 <button
                                     key={`spread-${overviewSpreadIndex}`}
@@ -1500,17 +1887,46 @@ const AlbumBook = ({
                                     }${isEndSpread ? ' ab-overview-item--back' : ''}${
                                         isCurrent ? ' ab-overview-item--active' : ''
                                     }${
-                                        spreadComments?.length ? ' ab-overview-item--has-comments' : ''
+                                        spreadDraggable ? ' ab-overview-item--draggable' : ''}${
+                                        spreadDragOver ? ' ab-overview-item--drag-over' : ''
                                     }`}
+                                    draggable={spreadDraggable}
                                     onClick={() => {
+                                        if (overviewDidDragRef.current) {
+                                            overviewDidDragRef.current = false;
+                                            return;
+                                        }
                                         goToPage(targetPage);
                                         setOverviewOpen(false);
                                     }}
+                                    onDragStart={(e) => {
+                                        if (!spreadDraggable) return;
+                                        e.stopPropagation();
+                                        e.dataTransfer.effectAllowed = 'move';
+                                        e.dataTransfer.setData(
+                                            'text/plain',
+                                            String(overviewSpreadIndex)
+                                        );
+                                        handleOverviewSpreadDragStart(overviewSpreadIndex);
+                                    }}
+                                    onDragOver={(e) => {
+                                        if (!spreadDraggable) return;
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleOverviewSpreadDragOver(overviewSpreadIndex);
+                                    }}
+                                    onDrop={(e) => {
+                                        if (!spreadDraggable) return;
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        handleOverviewSpreadDrop(overviewSpreadIndex);
+                                    }}
+                                    onDragEnd={handleOverviewSpreadDragEnd}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
                                         {showSpreadFull ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
-                                                <img src={spreadSrc} alt="" loading="lazy" />
+                                                <img src={spreadSrc} alt="" loading="lazy" draggable={false} />
                                             </span>
                                         ) : isCover && bookWrapSrc ? (
                                             <span className="ab-overview-page ab-overview-page--cover-single">
@@ -1523,7 +1939,11 @@ const AlbumBook = ({
                                             </span>
                                         ) : isCover ? (
                                             <span className="ab-overview-page ab-overview-page--cover-single">
-                                                <OverviewCoverPhoto src={rightSrc || leftSrc} />
+                                                {albumHasBlankCovers(album) ? (
+                                                    <OverviewLeatherCover album={album} showTitle />
+                                                ) : (
+                                                    <OverviewCoverPhoto src={rightSrc || leftSrc} />
+                                                )}
                                             </span>
                                         ) : isEndHalf && bookWrapSrc ? (
                                             <span className="ab-overview-page ab-overview-page--end-single">
@@ -1536,13 +1956,17 @@ const AlbumBook = ({
                                             </span>
                                         ) : isEndHalf ? (
                                             <span className="ab-overview-page ab-overview-page--end-single">
-                                                <OverviewCoverPhoto src={leftSrc} />
+                                                {albumHasBlankCovers(album) ? (
+                                                    <OverviewLeatherCover album={album} />
+                                                ) : (
+                                                    <OverviewCoverPhoto src={leftSrc} />
+                                                )}
                                             </span>
                                         ) : (
                                             <>
                                                 <span className="ab-overview-page">
                                                     {leftSrc ? (
-                                                        <img src={leftSrc} alt="" loading="lazy" />
+                                                        <img src={leftSrc} alt="" loading="lazy" draggable={false} />
                                                     ) : (
                                                         <span className="ab-overview-placeholder" />
                                                     )}
@@ -1554,6 +1978,7 @@ const AlbumBook = ({
                                                                 src={rightSrc}
                                                                 alt=""
                                                                 loading="lazy"
+                                                                draggable={false}
                                                             />
                                                         ) : (
                                                             <span className="ab-overview-placeholder" />
@@ -1563,12 +1988,6 @@ const AlbumBook = ({
                                             </>
                                         )}
                                     </span>
-                                    {spreadComments?.length > 0 && (
-                                        <SpreadGridComments
-                                            comments={spreadComments}
-                                            variant="overview"
-                                        />
-                                    )}
                                     <span className="ab-overview-label">
                                         {isCover
                                             ? 'Cover'
@@ -1651,8 +2070,15 @@ const AlbumBook = ({
                 originSlot={swapPickerOrigin}
                 swapMarks={swapMarks}
                 showSamples={showSamples}
+                bookAnchorRef={wrapRef}
+                currentSpreadIndex={spreadIndex}
+                navigateOnlyOnPick={Boolean(swapPinFlow?.originPoint)}
+                onNavigateToSpread={handleSwapSpreadNavigate}
                 onSelect={handleSwapPick}
-                onClose={() => setSwapPickerOrigin(null)}
+                onClose={() => {
+                    setSwapPickerOrigin(null);
+                    setSwapPinFlow(null);
+                }}
             />
 
             <AlbumPinComposer

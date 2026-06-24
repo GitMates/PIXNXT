@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import { formatAlbumGridSizeDisplay, formatGridLayoutLabel } from './albumGridSize';
 import './AlbumSpreadComments.css';
 
 function SettingsSwitch({ id, checked, disabled, busy, onChange, label }) {
@@ -24,9 +23,10 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
     const commentsOn = album?.comments_enabled !== false;
     const swapsOn = album?.messages_enabled !== false;
     const published = album?.status === 'published';
+    const shareLinkOn = album?.share_link_enabled !== false;
     const [commentsBusy, setCommentsBusy] = useState(false);
     const [swapsBusy, setSwapsBusy] = useState(false);
-    const [publishBusy, setPublishBusy] = useState(false);
+    const [shareLinkBusy, setShareLinkBusy] = useState(false);
 
     const handleCommentsToggle = async () => {
         if (!photographerId || !album?.id || commentsBusy) return;
@@ -44,26 +44,6 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
             alert('Could not update comment settings.');
         } finally {
             setCommentsBusy(false);
-        }
-    };
-
-    const handlePublishToggle = async () => {
-        if (!photographerId || !album?.id || publishBusy) return;
-        const next = !published;
-        const status = next ? 'published' : 'draft';
-        setPublishBusy(true);
-        try {
-            const updated = await smartAlbumsService.updateAlbumClientSettings(
-                photographerId,
-                album.id,
-                { status }
-            );
-            onUpdated?.(updated);
-        } catch (e) {
-            console.error(e);
-            alert('Could not update publish status. Run the latest database migration if needed.');
-        } finally {
-            setPublishBusy(false);
         }
     };
 
@@ -86,47 +66,27 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
         }
     };
 
+    const handleShareLinkToggle = async () => {
+        if (!photographerId || !album?.id || shareLinkBusy) return;
+        const next = !shareLinkOn;
+        setShareLinkBusy(true);
+        try {
+            const updated = await smartAlbumsService.updateAlbumClientSettings(
+                photographerId,
+                album.id,
+                { share_link_enabled: next }
+            );
+            onUpdated?.(updated);
+        } catch (e) {
+            console.error(e);
+            alert('Could not update share link settings. Run the latest database migration if needed.');
+        } finally {
+            setShareLinkBusy(false);
+        }
+    };
+
     return (
         <div className="asc-settings asc-settings--panel">
-            <div className="asc-settings-layout">
-                <div className="asc-settings-row asc-settings-row--info asc-settings-row--grid-size">
-                    <div className="asc-settings-row-main">
-                        <span className="asc-settings-row-label">Grid size</span>
-                        <span className="asc-settings-row-desc">
-                            Detected from all uploaded images and PDF pages when the album was
-                            created
-                        </span>
-                    </div>
-                    <span className="asc-settings-value">{formatAlbumGridSizeDisplay(album)}</span>
-                </div>
-                <div className="asc-settings-row asc-settings-row--info">
-                    <div className="asc-settings-row-main">
-                        <span className="asc-settings-row-label">Covers</span>
-                        <span className="asc-settings-row-desc">Set when the album was created</span>
-                    </div>
-                    <span className="asc-settings-value">
-                        {album?.has_covers === true
-                            ? album?.blank_covers
-                                ? 'Blank covers'
-                                : 'Front cover'
-                            : 'No covers'}
-                    </span>
-                </div>
-                <div className="asc-settings-row asc-settings-row--info">
-                    <div className="asc-settings-row-main">
-                        <span className="asc-settings-row-label">Grid layout</span>
-                        <span className="asc-settings-row-desc">Locked at creation</span>
-                    </div>
-                    <span className="asc-settings-value">
-                        {formatGridLayoutLabel(album?.grid_layout)}
-                    </span>
-                </div>
-            </div>
-
-            <p className="asc-settings-note asc-settings-note--lead">
-                Control client proofing on the shared preview link. Comments are saved per spread.
-            </p>
-
             <div className="asc-settings-row">
                 <div className="asc-settings-row-main">
                     <span className="asc-settings-row-label">Allow comments</span>
@@ -177,26 +137,26 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
 
             <div className="asc-settings-row">
                 <div className="asc-settings-row-main">
-                    <span className="asc-settings-row-label">Publish for clients</span>
+                    <span className="asc-settings-row-label">Client share link</span>
                     <span className="asc-settings-row-desc">
-                        {published
-                            ? 'Share link is live — clients can open the album preview'
-                            : 'Share link is off until you publish'}
+                        {shareLinkOn
+                            ? 'Clients can open the album with your share link'
+                            : 'Share link is disabled — clients cannot open the public preview'}
                     </span>
                 </div>
                 <div className="asc-settings-row-control">
                     <span
-                        className={`asc-settings-status${published ? ' asc-settings-status--on' : ''}`}
+                        className={`asc-settings-status${shareLinkOn ? ' asc-settings-status--on' : ''}`}
                     >
-                        {publishBusy ? '…' : published ? 'On' : 'Off'}
+                        {shareLinkBusy ? '…' : shareLinkOn ? 'On' : 'Off'}
                     </span>
                     <SettingsSwitch
-                        id="asc-publish-album"
-                        checked={published}
-                        busy={publishBusy}
+                        id="asc-share-link-enabled"
+                        checked={shareLinkOn}
+                        busy={shareLinkBusy}
                         disabled={!photographerId}
-                        onChange={handlePublishToggle}
-                        label="Publish album for clients"
+                        onChange={handleShareLinkToggle}
+                        label="Enable client share link"
                     />
                 </div>
             </div>
@@ -210,6 +170,12 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
             {published && !swapsOn && (
                 <p className="asc-settings-hint">
                     Swap requests are off. Clients can view spreads but cannot create swaps.
+                </p>
+            )}
+            {published && !shareLinkOn && (
+                <p className="asc-settings-hint">
+                    Album is published, but the client share link is off. Clients cannot open the
+                    public preview until you turn the link back on.
                 </p>
             )}
         </div>

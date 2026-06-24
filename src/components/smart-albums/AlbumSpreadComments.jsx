@@ -13,6 +13,10 @@ import {
     saveGuestProfile,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
+import {
+    albumHadClientFeedbackBefore,
+    notifyAfterClientFeedbackAdded,
+} from './albumClientFeedbackNotify';
 import './AlbumSpreadComments.css';
 
 function commentCountFromThreads(threads) {
@@ -225,6 +229,7 @@ export default function AlbumSpreadComments({
             if (!albumId || spreadIndex == null || !body.trim()) return;
             const authorName = name || 'Guest';
             const trimmed = body.trim();
+            const hadFeedback = showClientCompose ? albumHadClientFeedbackBefore(albumId) : true;
             setSaveState('saving');
             try {
                 const saved = await smartAlbumCommentsService.saveClientCommentAndConsolidate({
@@ -254,12 +259,15 @@ export default function AlbumSpreadComments({
                     console.warn('Comment saved; reload failed:', reloadErr);
                 }
                 setSyncedAt(new Date());
+                if (showClientCompose) {
+                    notifyAfterClientFeedbackAdded(albumId, { hadFeedbackBefore: hadFeedback });
+                }
             } catch (e) {
                 console.error(e);
                 setSaveState('error');
             }
         },
-        [albumId, spreadIndex, draftId, loadComments, persistGuestProfile, isFooter, refreshAlbumCommentCount]
+        [albumId, spreadIndex, draftId, loadComments, persistGuestProfile, isFooter, refreshAlbumCommentCount, showClientCompose]
     );
 
     const clearDraftComment = useCallback(async () => {

@@ -6,6 +6,7 @@ import { smartAlbumsService } from '../../services/smartAlbums.service';
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { parseUrlPage } from './useAlbumWorkspace';
+import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache } from '../../components/smart-albums/albumPreviewData';
 import './AlbumViewer.css';
 
 /**
@@ -42,8 +43,20 @@ export default function PhotographerAlbumPreview() {
     }, [user?.id, albumId]);
 
     useEffect(() => {
+        if (album?.preview_data) {
+            hydrateAlbumPreviewData(albumId, album.preview_data);
+        }
+    }, [albumId, album?.preview_data]);
+
+    useEffect(() => {
+        return () => {
+            clearAlbumPreviewDataCache(albumId);
+        };
+    }, [albumId]);
+
+    useEffect(() => {
         if (albumId) setPhotoRevision(getAlbumPhotoRevision(albumId) || 0);
-    }, [albumId, album?.id]);
+    }, [albumId, album?.id, album?.preview_data]);
 
     const totalPages = album?.page_count || 21;
     const spreadOpts = getAlbumSpreadOptions(album);

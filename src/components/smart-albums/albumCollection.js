@@ -1,6 +1,7 @@
 import { storageService } from '../../services/storage.service';
 import { expandUploadFilesToImages, isImageFile, isPdfFile } from '../../lib/pdfToImages';
 import { compressImageForUpload } from '../../lib/prepareUploadFile';
+import { getAlbumUploadPixelTarget } from './albumGridSize';
 import { moveFileInOrder } from '../../lib/uploadFileOrder';
 import { supabase } from '../../lib/supabase/client';
 import {
@@ -315,6 +316,23 @@ export function getAlbumCollection(albumId) {
     return sortCollectionItems(Array.isArray(remote?.collection) ? remote.collection : []);
 }
 
+export function sumCollectionStorageBytes(items) {
+    return (items || []).reduce((sum, item) => sum + (Number(item?.size_bytes) || 0), 0);
+}
+
+/** Bytes stored for one album — local collection, else preview snapshot. */
+export function getAlbumCollectionStorageBytes(albumId) {
+    if (!albumId) return 0;
+    const localItems = readAll()[albumId]?.items;
+    if (Array.isArray(localItems) && localItems.length > 0) {
+        return sumCollectionStorageBytes(localItems);
+    }
+    const remote = getRemotePreviewData(albumId);
+    const remoteTotal = Number(remote?.storage_bytes);
+    if (Number.isFinite(remoteTotal) && remoteTotal > 0) return remoteTotal;
+    return sumCollectionStorageBytes(remote?.collection);
+}
+
 export function getAlbumCollectionRevision(albumId) {
     if (!albumId) return 0;
     const localRev = readAll()[albumId]?.__revision;
@@ -333,7 +351,7 @@ function displayNameFromStoragePath(storagePath) {
     return base.replace(/^\d+-\d+-/, '').replace(/\.[^.]+$/, '') || 'Photo';
 }
 
-function collectionItemFromR2Key(key, index) {
+function collectionItemFromR2Key(key, index, sizeBytes = 0) {
     const sortKey = storagePathSortKey(key);
     const sortOrder = sortKey ? sortKey[0] * 100000 + sortKey[1] : index;
     return {
@@ -343,6 +361,7 @@ function collectionItemFromR2Key(key, index) {
         storagePath: key,
         sortOrder,
         createdAt: sortOrder,
+        ...(sizeBytes > 0 ? { size_bytes: sizeBytes } : {}),
     };
 }
 
@@ -387,20 +406,20 @@ async function listR2CollectionItems(albumId, photographerId) {
     ]);
     const prefix = ['users', photographerFolder, 'smart-album', albumFolder, ''].join('/');
     try {
-        const keys = await storageService.listByPrefix(prefix);
-        return keys
-            .filter((key) => /\.(jpe?g|png|webp|gif)$/i.test(key))
+        const objects = await storageService.listByPrefix(prefix);
+        return objects
+            .filter(({ key }) => /\.(jpe?g|png|webp|gif)$/i.test(key))
             .sort((a, b) => {
-                const ka = storagePathSortKey(a);
-                const kb = storagePathSortKey(b);
+                const ka = storagePathSortKey(a.key);
+                const kb = storagePathSortKey(b.key);
                 if (ka && kb) {
                     const byBatch = ka[0] - kb[0];
                     if (byBatch !== 0) return byBatch;
                     return ka[1] - kb[1];
                 }
-                return a.localeCompare(b);
+                return a.key.localeCompare(b.key);
             })
-            .map((key, index) => collectionItemFromR2Key(key, index));
+            .map(({ key, size }, index) => collectionItemFromR2Key(key, index, size));
     } catch (error) {
         console.warn('Could not list R2 album collection:', error?.message || error);
         return [];
@@ -488,7 +507,14 @@ export async function loadAlbumAssetsFromCloud(albumId, photographerId) {
 export async function addFilesToAlbumCollection(
     albumId,
     files,
-    { photographerId, onProgress, skipDuplicateCheck = false, coverWrap = false } = {}
+    {
+        photographerId,
+        onProgress,
+        skipDuplicateCheck = false,
+        coverWrap = false,
+        album = null,
+        compressionTarget = null,
+    } = {}
 ) {
     if (!albumId || !files?.length) return [];
 
@@ -537,6 +563,10 @@ export async function addFilesToAlbumCollection(
                   ])
           );
 
+    const pixelTarget =
+        compressionTarget ??
+        (album ? getAlbumUploadPixelTarget(album, { coverWrap }) : null);
+
     const optimizeTotal = workItems.length;
     const prepared = await runWithConcurrency(workItems, COMPRESS_CONCURRENCY, async (item, index) => {
         if (item.kind === 'file') {
@@ -546,7 +576,7 @@ export async function addFilesToAlbumCollection(
                 current: index,
                 total: optimizeTotal,
             });
-            const file = await compressImageForUpload(item.file);
+            const file = await compressImageForUpload(item.file, pixelTarget || undefined);
             const contentHash = skipDuplicateCheck ? null : await hashFile(file);
             return {
                 kind: 'file',
@@ -650,6 +680,10 @@ export async function addFilesToAlbumCollection(
                     nameKey: entry.nameKey,
                     sortOrder,
                     createdAt: batchUploadTs + entry.sortIndex,
+                    size_bytes:
+                        entry.kind === 'file'
+                            ? Number(entry.file?.size) || 0
+                            : 0,
                     ...(coverWrap ? { role: COVER_WRAP_ROLE } : {}),
                     ...(width > 0 && height > 0 ? { width, height } : {}),
                 };
@@ -695,15 +729,86 @@ export async function addFilesToAlbumCollection(
     return added;
 }
 
+function placementCollectionItems(collectionItems, blankCovers) {
+    return blankCovers
+        ? collectionItems.filter((item) => !isCoverWrapCollectionItem(item))
+        : collectionItems;
+}
+
+function placementItemCollectionIndex(placementItem, collectionItems) {
+    return collectionItems.findIndex((item) => item.id === placementItem.id);
+}
+
+/**
+ * Collection indices that must stay fixed (front cover, 2nd spread, pre-end, end cover).
+ * Middle inner spreads can be drag-reordered among themselves.
+ */
+export function getLockedCollectionIndices(collectionItems, album = null) {
+    const locked = new Set();
+    if (!collectionItems?.length || album?.has_covers !== true) return locked;
+
+    const blankCovers = album?.blank_covers === true;
+    if (blankCovers) {
+        collectionItems.forEach((item, index) => {
+            if (isCoverWrapCollectionItem(item)) locked.add(index);
+        });
+    }
+
+    const placementItems = placementCollectionItems(collectionItems, blankCovers);
+    if (!placementItems.length) return locked;
+
+    const toCollectionIndex = (placementIndex) =>
+        placementItemCollectionIndex(placementItems[placementIndex], collectionItems);
+
+    locked.add(toCollectionIndex(0));
+
+    if (!blankCovers && placementItems.length > 1) {
+        locked.add(toCollectionIndex(1));
+    }
+
+    if (placementItems.length > 1) {
+        locked.add(toCollectionIndex(placementItems.length - 1));
+    }
+
+    return locked;
+}
+
+export function getDraggableCollectionIndices(collectionItems, album = null) {
+    const locked = getLockedCollectionIndices(collectionItems, album);
+    return collectionItems.map((_, index) => index).filter((index) => !locked.has(index));
+}
+
+export function isDraggableCollectionIndex(index, collectionItems, album = null) {
+    return !getLockedCollectionIndices(collectionItems, album).has(index);
+}
+
+function reorderDraggableCollectionItems(sorted, fromIndex, toIndex, album) {
+    const draggable = getDraggableCollectionIndices(sorted, album);
+    const fromPos = draggable.indexOf(fromIndex);
+    const toPos = draggable.indexOf(toIndex);
+    if (fromPos < 0 || toPos < 0 || fromPos === toPos) return sorted;
+
+    const draggableItems = draggable.map((index) => sorted[index]);
+    const moved = moveFileInOrder(draggableItems, fromPos, toPos);
+    const reordered = sorted.slice();
+    draggable.forEach((collectionIndex, i) => {
+        reordered[collectionIndex] = moved[i];
+    });
+    return reordered;
+}
+
 /** Reorder collection thumbnails (updates sortOrder for grid + auto-place). */
-export function reorderCollectionItems(albumId, fromIndex, toIndex) {
+export function reorderCollectionItems(albumId, fromIndex, toIndex, { album = null } = {}) {
     if (!albumId) return false;
     const all = readAll();
     const bucket = all[albumId];
     if (!bucket?.items?.length) return false;
 
     const sorted = sortCollectionItems(bucket.items);
-    const reordered = moveFileInOrder(sorted, fromIndex, toIndex);
+    const reordered =
+        album?.has_covers === true
+            ? reorderDraggableCollectionItems(sorted, fromIndex, toIndex, album)
+            : moveFileInOrder(sorted, fromIndex, toIndex);
     if (reordered === sorted) return false;
 
     persistCollectionBucket(all, albumId, {
@@ -721,12 +826,17 @@ export function getCollectionItem(albumId, itemId) {
 }
 
 /** Best URL for thumbnails and placement previews (prefers R2 public URL over stale dataUrl). */
-export function getCollectionItemDisplayUrl(item) {
+export function getCollectionItemDisplayUrl(item, { cacheBust = null } = {}) {
     if (!item) return null;
+    let url = null;
     if (item.storagePath) {
-        return storageService.getPublicUrl(item.storagePath);
+        url = storageService.getPublicUrl(item.storagePath);
+    } else {
+        url = item.dataUrl ?? null;
     }
-    return item.dataUrl ?? null;
+    if (!url || cacheBust == null) return url;
+    const token = encodeURIComponent(String(cacheBust));
+    return url.includes('?') ? `${url}&v=${token}` : `${url}?v=${token}`;
 }
 
 export function removeCollectionItem(albumId, itemId) {
@@ -737,6 +847,85 @@ export function removeCollectionItem(albumId, itemId) {
     if (next.length === bucket.items.length) return false;
     persistCollectionBucket(all, albumId, { ...bucket, items: next });
     return true;
+}
+
+/** Replace a collection item's file in place (same id/sort order; does not grow the collection). */
+export async function replaceCollectionItemFile(
+    albumId,
+    itemId,
+    file,
+    { photographerId, compressionTarget = null, retainPreviousStorage = false } = {}
+) {
+    if (!albumId || !itemId || !file || !isImageFile(file)) return null;
+    const item = getCollectionItem(albumId, itemId);
+    if (!item) return null;
+
+    const pathContext = await Promise.all([
+        getPhotographerPathFolder(photographerId),
+        getAlbumPathFolder(albumId),
+    ]).then(([photographerFolder, albumFolder]) => ({ photographerFolder, albumFolder }));
+
+    const prepared = await compressImageForUpload(file, compressionTarget || undefined);
+    let width;
+    let height;
+    try {
+        const dims = await loadImageDimensionsFromFile(prepared);
+        width = dims?.width;
+        height = dims?.height;
+    } catch {
+        /* dimensions optional */
+    }
+
+    const sortIndex = readSortOrder(item, 0);
+    const uploaded = await uploadCollectionFile({
+        file: prepared,
+        sortIndex,
+        batchUploadTs: Date.now(),
+        pathContext,
+    });
+
+    const oldPath = item.storagePath;
+    const all = readAll();
+    const bucket = { ...(all[albumId] || {}) };
+    bucket.items = (bucket.items || []).map((entry) => {
+        if (entry.id !== itemId) return entry;
+        const next = {
+            ...entry,
+            name: file.name || entry.name || 'Photo',
+            dataUrl: uploaded.url,
+            storagePath: uploaded.path,
+            contentHash: undefined,
+            size_bytes: Number(prepared?.size) || 0,
+        };
+        if (width > 0 && height > 0) {
+            next.width = width;
+            next.height = height;
+        }
+        return next;
+    });
+    persistCollectionBucket(all, albumId, bucket);
+
+    if (oldPath && oldPath !== uploaded.path && !retainPreviousStorage) {
+        try {
+            await storageService.delete(oldPath);
+        } catch (err) {
+            console.warn('Could not delete replaced collection file from R2:', err);
+        }
+    }
+
+    return getCollectionItem(albumId, itemId);
+}
+
+/** Remove one collection item and delete its R2 object when present. */
+export async function deleteCollectionItemAsset(albumId, itemId, { retainStorage = false } = {}) {
+    const item = getCollectionItem(albumId, itemId);
+    if (!item) return false;
+
+    if (item.storagePath && !retainStorage) {
+        await storageService.delete(item.storagePath);
+    }
+
+    return removeCollectionItem(albumId, itemId);
 }
 
 /**
@@ -783,6 +972,7 @@ export async function duplicateAlbumCollection(sourceAlbumId, targetAlbumId, pho
                 });
                 copied.dataUrl = uploaded.url;
                 copied.storagePath = uploaded.path;
+                copied.size_bytes = Number(item.size_bytes) || 0;
             } catch (error) {
                 console.warn(
                     'Could not re-upload collection item for duplicate:',

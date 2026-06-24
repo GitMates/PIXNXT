@@ -1,6 +1,6 @@
 import { supabase } from '../lib/supabase/client';
 import { categoryTagsToDb } from '../lib/categoryTags';
-import { deleteAlbumCollectionAssets } from '../components/smart-albums/albumCollection';
+import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../components/smart-albums/albumCollection';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
 import { buildAlbumPreviewSnapshot, getAlbumIdsWithLocalAssets, hydrateAlbumPreviewData } from '../components/smart-albums/albumPreviewData';
@@ -189,9 +189,11 @@ function isMissingColumnError(error) {
     msg.includes('comments_enabled') ||
     msg.includes('replies_enabled') ||
     msg.includes('messages_enabled') ||
+    msg.includes('share_link_enabled') ||
     msg.includes('preview_data') ||
     msg.includes('grid_size') ||
     msg.includes('grid_layout') ||
+    msg.includes('storage_bytes') ||
 
     (msg.includes('column') && msg.includes('does not exist'))
 
@@ -235,11 +237,13 @@ const OPTIONAL_ALBUM_INSERT_COLUMNS = [
   'messages_enabled',
   'replies_enabled',
   'comments_enabled',
+  'share_link_enabled',
   'expiry_date',
   'category_tags',
   'is_starred',
   'grid_layout',
   'grid_size',
+  'storage_bytes',
 ];
 
 /** List view only — omit heavy preview_data JSON blobs. */
@@ -257,15 +261,16 @@ const ALBUM_LIST_FIELDS = [
   'comments_enabled',
   'replies_enabled',
   'messages_enabled',
-  'is_starred',
-  'category_tags',
-  'expiry_date',
+  'share_link_enabled',
   'created_at',
   'updated_at',
   'client_approved_at',
   'client_approved_by',
   'client_changes_submitted_at',
   'client_changes_submitted_by',
+  'client_commenting_started_at',
+  'client_commenting_started_by',
+  'storage_bytes',
 ].join(', ');
 
 function buildAlbumRowFromLocal(local, photographerId) {
@@ -301,6 +306,9 @@ function buildAlbumRowFromLocal(local, photographerId) {
   }
   if (settingsOvr.messages_enabled !== undefined) {
     row.messages_enabled = settingsOvr.messages_enabled;
+  }
+  if (settingsOvr.share_link_enabled !== undefined) {
+    row.share_link_enabled = settingsOvr.share_link_enabled;
   }
 
   return row;
@@ -417,6 +425,9 @@ function applySettingsOverrides(row, photographerId) {
   }
   if (ovr.messages_enabled !== undefined) {
     merged.messages_enabled = ovr.messages_enabled;
+  }
+  if (ovr.share_link_enabled !== undefined) {
+    merged.share_link_enabled = ovr.share_link_enabled;
   }
   if (ovr.status !== undefined) {
     merged.status = ovr.status;
@@ -537,6 +548,8 @@ function mapAlbumRow(row, photographerId) {
 
     messages_enabled: withSettings.messages_enabled !== false,
 
+    share_link_enabled: withSettings.share_link_enabled !== false,
+
     photo_count: withSettings.photo_count ?? 0,
 
     category_tags: withSettings.category_tags ?? [],
@@ -544,6 +557,8 @@ function mapAlbumRow(row, photographerId) {
     is_starred:
 
       starredFromOverride !== undefined ? starredFromOverride : (withSettings.is_starred ?? false),
+
+    storage_bytes: Number(withSettings.storage_bytes) || 0,
 
   };
 
@@ -630,6 +645,7 @@ async function syncLocalAlbumAssetsToSupabase(photographerId) {
     const { error } = await updateAlbumRowResilient(photographerId, albumId, {
       preview_data: previewData,
       cover_image_url: previewData.cover_url || null,
+      storage_bytes: getAlbumCollectionStorageBytes(albumId),
     });
 
     if (error) {
@@ -661,6 +677,12 @@ async function syncLocalAlbumSettingsToSupabase(photographerId, remoteRows) {
     }
     if (ovr.messages_enabled !== undefined && ovr.messages_enabled !== row.messages_enabled) {
       payload.messages_enabled = ovr.messages_enabled;
+    }
+    if (
+      ovr.share_link_enabled !== undefined &&
+      ovr.share_link_enabled !== row.share_link_enabled
+    ) {
+      payload.share_link_enabled = ovr.share_link_enabled;
     }
     if (Object.keys(payload).length <= 1) continue;
 
@@ -696,9 +718,19 @@ function findLocalAlbum(photographerId, albumId) {
 
 
 
+function enrichAlbumStorageBytes(album) {
+  if (!album?.id) return album;
+  const localBytes = getAlbumCollectionStorageBytes(album.id);
+  const remoteBytes = Number(album.storage_bytes) || 0;
+  return {
+    ...album,
+    storage_bytes: Math.max(localBytes, remoteBytes),
+  };
+}
+
 function mergeAlbumRows(remoteRows, photographerId) {
 
-  const remote = (remoteRows || []).map((r) => mapAlbumRow(r, photographerId));
+  const remote = (remoteRows || []).map((r) => enrichAlbumStorageBytes(mapAlbumRow(r, photographerId)));
 
   const remoteIds = new Set(remote.map((a) => a.id));
 
@@ -706,7 +738,7 @@ function mergeAlbumRows(remoteRows, photographerId) {
 
     .filter((a) => !remoteIds.has(a.id))
 
-    .map((r) => mapAlbumRow(r, photographerId));
+    .map((r) => enrichAlbumStorageBytes(mapAlbumRow(r, photographerId)));
 
   return [...localOnly, ...remote];
 
@@ -807,10 +839,10 @@ export const smartAlbumsService = {
 
   async getAlbum(photographerId, albumId) {
     const fieldSets = [
+      `${ALBUM_LIST_FIELDS},preview_data`,
+      ALBUM_LIST_FIELDS,
       ALBUM_DETAIL_GRID_FIELDS,
       ALBUM_DETAIL_FIELDS_MINIMAL,
-      ALBUM_LIST_FIELDS,
-      `${ALBUM_LIST_FIELDS},preview_data`,
     ];
 
     let data = null;
@@ -1019,6 +1051,9 @@ export const smartAlbumsService = {
     }
     if (patch.messages_enabled !== undefined) {
       settingsPatch.messages_enabled = patch.messages_enabled;
+    }
+    if (patch.share_link_enabled !== undefined) {
+      settingsPatch.share_link_enabled = patch.share_link_enabled;
     }
     if (patch.status !== undefined) {
       settingsPatch.status = patch.status;
@@ -1290,6 +1325,7 @@ export const smartAlbumsService = {
       comments_enabled: source.comments_enabled,
       replies_enabled: source.replies_enabled,
       messages_enabled: source.messages_enabled,
+      share_link_enabled: source.share_link_enabled,
       status: source.status === 'published' ? 'published' : 'draft',
     });
 

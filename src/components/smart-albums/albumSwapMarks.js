@@ -28,6 +28,24 @@ export function parseSlotKey(key) {
     return { pageNum, cellId: cellId ?? 0 };
 }
 
+/** Whole-spread marks are stored on the left slot key but render on both halves. */
+function swapSlotLookupKeys(
+    pageNum,
+    cellId = 0,
+    { gridLayout = 'two-page', spreadLeft = null, totalPages = 0, album = null } = {}
+) {
+    const keys = [makeSlotKey(pageNum, cellId)];
+    if (gridLayout === 'whole-spread' && pageNum > 0) {
+        const spreadCtx = getSpreadContext(album, totalPages);
+        const left =
+            spreadLeft ??
+            getSpreadLeftPageIndex(pageNum, { ...spreadCtx, totalPages });
+        const canonical = makeSlotKey(left, 1);
+        if (!keys.includes(canonical)) keys.push(canonical);
+    }
+    return keys;
+}
+
 function readAll() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
@@ -149,7 +167,7 @@ export function enumerateAlbumPhotoSlots(
                 cellId: 1,
                 spreadLeft: left,
                 whole: true,
-                label: `Spread ${spreadNum} · Whole`,
+                label: `Spread ${spreadNum}`,
             });
             continue;
         }
@@ -316,7 +334,7 @@ export function buildSwapSlotForScope(
             cellId: 1,
             spreadLeft,
             whole: true,
-            label: `Spread ${spreadNum} · Whole`,
+            label: `Spread ${spreadNum}`,
         };
     }
     if (scope === 'right') {
@@ -353,7 +371,11 @@ export function getSlotLabel(pageNum, cellId = 0, whole = false, totalPages = 99
         if (pageNum === endLeft && cid === 1) return 'Back cover';
         if (isInsideCoverLeftPage(pageNum, totalPages, spreadOpts)) return 'Inside cover';
         if (isInsideCoverRightPage(pageNum, totalPages, spreadOpts)) {
-            return cid === 2 ? 'Spread 1 · Right' : 'Inside cover';
+            const spreadNum = spreadNumberFromLeftPage(
+                getSpreadLeftPageIndex(pageNum, spreadCtx),
+                spreadOpts
+            );
+            return cid === 2 ? `Spread ${spreadNum} · Right` : 'Inside cover';
         }
         if (isPreBackHalfSpreadLeftPage(pageNum, totalPages, spreadOpts)) {
             const spreadNum = spreadNumberFromLeftPage(pageNum, spreadCtx);
@@ -363,7 +385,7 @@ export function getSlotLabel(pageNum, cellId = 0, whole = false, totalPages = 99
 
     const spreadLeft = getSpreadLeftPageIndex(pageNum, spreadCtx);
     const spreadNum = spreadNumberFromLeftPage(spreadLeft, spreadCtx);
-    if (whole) return `Spread ${spreadNum} · Whole`;
+    if (whole) return `Spread ${spreadNum}`;
     if (cid === 1 || pageNum === spreadLeft) return `Spread ${spreadNum} · Left`;
     return `Spread ${spreadNum} · Right`;
 }
@@ -374,25 +396,53 @@ export function resolveSlotLabel(key, gridLayout = 'two-page') {
     return getSlotLabel(pageNum, cellId, whole);
 }
 
+function slotLabelForMarkKey(key, storedLabel, gridLayout, { album, totalPages } = {}) {
+    if (album && totalPages > 0) {
+        const { pageNum, cellId } = parseSlotKey(key);
+        const whole =
+            (gridLayout === 'whole-spread' && pageNum > 0) ||
+            /\b(Whole|Both)\b/i.test(storedLabel || '');
+        return getSlotLabel(pageNum, cellId, whole, totalPages, album);
+    }
+    return storedLabel || resolveSlotLabel(key, gridLayout);
+}
+
 /** Swap mark details for a grid slot, including the paired slot label. */
 export function getSwapMarkForSlot(
     marks,
     pageNum,
     cellId = 0,
-    { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page' } = {}
+    { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page', album = null, totalPages = 0 } = {}
 ) {
     const key = makeSlotKey(pageNum, cellId);
+    const lookupKeys = swapSlotLookupKeys(pageNum, cellId, {
+        gridLayout,
+        spreadLeft,
+        totalPages,
+        album,
+    });
 
-    const mark = [...(marks || [])].reverse().find((m) => m.a === key || m.b === key);
+    const mark = [...(marks || [])]
+        .reverse()
+        .find((m) => lookupKeys.some((slotKey) => m.a === slotKey || m.b === slotKey));
     if (!mark) return null;
 
-    const isA = mark.a === key;
-    const slotLabel =
-        (isA ? mark.labelA : mark.labelB) ||
-        resolveSlotLabel(key, gridLayout);
-    const partnerLabel =
-        (isA ? mark.labelB : mark.labelA) ||
-        resolveSlotLabel(isA ? mark.b : mark.a, gridLayout);
+    const matchedKey = lookupKeys.find((slotKey) => mark.a === slotKey || mark.b === slotKey);
+    const isA = mark.a === matchedKey;
+    const labelOpts = { album, totalPages };
+    const slotLabel = slotLabelForMarkKey(
+        key,
+        isA ? mark.labelA : mark.labelB,
+        gridLayout,
+        labelOpts
+    );
+    const partnerKey = isA ? mark.b : mark.a;
+    const partnerLabel = slotLabelForMarkKey(
+        partnerKey,
+        isA ? mark.labelB : mark.labelA,
+        gridLayout,
+        labelOpts
+    );
     const point = isA ? mark.pointA : mark.pointB;
     const pinLabel = isA ? 'A' : 'B';
 
@@ -413,29 +463,37 @@ export function getSwapMarksForSlot(
     marks,
     pageNum,
     cellId = 0,
-    { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page' } = {}
+    { placementMode = 'single', spreadLeft = null, gridLayout = 'two-page', album = null, totalPages = 0 } = {}
 ) {
     const key = makeSlotKey(pageNum, cellId);
+    const lookupKeys = swapSlotLookupKeys(pageNum, cellId, {
+        gridLayout,
+        spreadLeft,
+        totalPages,
+        album,
+    });
+    const labelOpts = { album, totalPages };
 
     return (marks || []).flatMap((mark) => {
-        const isA = mark.a === key;
-        const isB = mark.b === key;
-        if (!isA && !isB) return [];
+        const matchedKey = lookupKeys.find((slotKey) => mark.a === slotKey || mark.b === slotKey);
+        if (!matchedKey) return [];
 
-        const marksForPair = (marks || []).filter(
-            (m) => m.a === key || m.b === key
+        const isA = mark.a === matchedKey;
+        const isB = mark.b === matchedKey;
+
+        const marksForPair = (marks || []).filter((m) =>
+            lookupKeys.some((slotKey) => m.a === slotKey || m.b === slotKey)
         );
         const markIndex = marksForPair.findIndex((m) => m.id === mark.id);
         const markNum = markIndex >= 0 ? markIndex + 1 : marksForPair.length;
 
         const mapEndpoint = (endpointLabel) => {
             const endpointIsA = endpointLabel === 'A';
-            const slotLabel =
-                (endpointIsA ? mark.labelA : mark.labelB) ||
-                resolveSlotLabel(key, gridLayout);
-            const partnerLabel =
-                (endpointIsA ? mark.labelB : mark.labelA) ||
-                resolveSlotLabel(endpointIsA ? mark.b : mark.a, gridLayout);
+            const slotStored = endpointIsA ? mark.labelA : mark.labelB;
+            const partnerStored = endpointIsA ? mark.labelB : mark.labelA;
+            const partnerKey = endpointIsA ? mark.b : mark.a;
+            const slotLabel = slotLabelForMarkKey(key, slotStored, gridLayout, labelOpts);
+            const partnerLabel = slotLabelForMarkKey(partnerKey, partnerStored, gridLayout, labelOpts);
             const point = endpointIsA ? mark.pointA : mark.pointB;
             const pinLabel =
                 marksForPair.length > 1 ? `${endpointLabel}${markNum}` : endpointLabel;
@@ -471,6 +529,23 @@ export function slotsMatch(a, b) {
     return a.pageNum === b.pageNum && (a.cellId ?? 0) === (b.cellId ?? 0);
 }
 
+/** Whether a click placement belongs to the swap target chosen in the swap book. */
+export function placementMatchesTargetSlot(placement, targetSlot, totalPages, album = null) {
+    if (!placement || !targetSlot) return false;
+    if (slotsMatch(placement, targetSlot)) return true;
+    const spreadCtx = getSpreadContext(album, totalPages);
+    const placementLeft =
+        placement.spreadLeft ??
+        getSpreadLeftPageIndex(placement.pageNum, { ...spreadCtx, totalPages });
+    const targetLeft =
+        targetSlot.spreadLeft ??
+        getSpreadLeftPageIndex(targetSlot.pageNum, { ...spreadCtx, totalPages });
+    if (targetSlot.whole || targetSlot.swapScope === 'both') {
+        return placementLeft === targetLeft;
+    }
+    return false;
+}
+
 /** Spread uses one full-bleed image (spread storage, not separate left/right pages). */
 export function spreadHasWholeGridPhoto(
     albumId,
@@ -492,6 +567,27 @@ export function inferSwapScopeFromSlot(slot) {
     if (slot.whole) return 'both';
     if (slot.cellId === 2) return 'right';
     return 'left';
+}
+
+/**
+ * Which side of the open book spread should show the swap picker.
+ * Click/hover on the left page → picker on the right; right page → picker on the left.
+ */
+export function getSwapPickerDockSide(originSlot) {
+    if (!originSlot) return null;
+
+    const label = String(originSlot.label || '');
+    if (/\bRight\b/i.test(label)) return 'left';
+    if (/\bLeft\b/i.test(label)) return 'right';
+
+    const originX = typeof originSlot.xPct === 'number' ? originSlot.xPct : null;
+    if (originX != null) {
+        return originX < 50 ? 'right' : 'left';
+    }
+
+    if (originSlot.cellId === 2) return 'left';
+    if (originSlot.cellId === 1) return 'right';
+    return 'right';
 }
 
 /** Which swap scopes to show in the execute modal (left / right / both, or both-only). */
@@ -599,7 +695,7 @@ export function normalizeWholeGridSwapSlot(slot, totalPages, album = null) {
         cellId: 1,
         spreadLeft,
         whole: true,
-        label: slot.label?.includes('Whole') ? slot.label : `Spread ${spreadNum} · Whole`,
+        label: slot.label?.includes('Whole') ? slot.label.replace(/\s*·\s*Whole\b/gi, '').trim() : `Spread ${spreadNum}`,
     };
 }
 
@@ -639,7 +735,7 @@ export function enumerateSwapExecuteCandidates(
                 cellId: 1,
                 spreadLeft: left,
                 whole: true,
-                label: `Spread ${spreadNum} · Whole`,
+                label: `Spread ${spreadNum}`,
             });
         }
         return targets;

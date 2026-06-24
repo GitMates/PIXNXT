@@ -12,18 +12,37 @@ import {
     storagePageToFlipbookIndex,
 } from './albumSpreadUtils';
 import { installSafePageFlip } from './pageFlipSafe';
+import { closeAlbumPinPopovers } from './albumPinPopoverEvents';
+import {
+    exitDocumentFullscreen,
+    getFullscreenElement,
+    onFullscreenChange,
+    requestElementFullscreen,
+} from '../../lib/fullscreenUtils';
 import './AlbumBook.css';
 import { parseGridSizeAspect } from './albumGridSize';
 
 const FLIP_TIME_MS = 900;
+const FLIP_CORNER = 'bottom';
 
 function getFocusBookDimensions(gridSize = 'square') {
     const w = window.innerWidth;
     const h = window.innerHeight;
     const aspect = parseGridSizeAspect(gridSize);
-    const spreadWidth = w;
-    const maxPageWidth = spreadWidth / 2;
-    const pageHeight = Math.floor(Math.min(h, maxPageWidth / aspect));
+    const navInset = 56;
+    const verticalInset = 20;
+    const availW = Math.max(320, w - navInset * 2);
+    const availH = Math.max(240, h - verticalInset * 2);
+    const spreadAspect = aspect * 2;
+
+    let spreadH = availH;
+    let spreadW = spreadH * spreadAspect;
+    if (spreadW > availW) {
+        spreadW = availW;
+        spreadH = spreadW / spreadAspect;
+    }
+
+    const pageHeight = Math.floor(spreadH);
     const pageWidth = Math.floor(pageHeight * aspect);
     return {
         width: Math.max(160, pageWidth),
@@ -43,10 +62,12 @@ export default function AlbumFocusView({
     onClose,
 }) {
     const bookRef = useRef(null);
+    const rootRef = useRef(null);
     const prevNavRef = useRef(null);
     const nextNavRef = useRef(null);
     const isFlippingRef = useRef(false);
     const [bookFlipping, setBookFlipping] = useState(false);
+    const [bookReady, setBookReady] = useState(false);
     const [dims, setDims] = useState(() => getFocusBookDimensions(album?.grid_size));
     const spreadOpts = getAlbumSpreadOptions(album);
     const normalizedStartPage = normalizeStoragePageIndex(startPage, totalPages, spreadOpts);
@@ -60,15 +81,24 @@ export default function AlbumFocusView({
     const spreadCtx = { ...spreadOpts, totalPages };
     const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
     const spreadIndex = pageToSpreadIndex(pageIndex, spreadCtx);
-    const atStart = spreadIndex <= 0;
+    const currentFlipIndex = storagePageToFlipbookIndex(pageIndex, totalPages, spreadOpts);
+    const atStart = currentFlipIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
 
-    useEffect(() => {
-        const update = () => setDims(getFocusBookDimensions(album?.grid_size));
-        update();
-        window.addEventListener('resize', update);
-        return () => window.removeEventListener('resize', update);
+    const refreshDims = useCallback(() => {
+        setDims(getFocusBookDimensions(album?.grid_size));
     }, [album?.grid_size]);
+
+    useEffect(() => {
+        refreshDims();
+        window.addEventListener('resize', refreshDims);
+        return () => window.removeEventListener('resize', refreshDims);
+    }, [refreshDims]);
+
+    useEffect(() => {
+        const api = bookRef.current?.pageFlip?.();
+        api?.update?.();
+    }, [dims]);
 
     useEffect(() => {
         const prevHtmlOverflow = document.documentElement.style.overflow;
@@ -81,15 +111,56 @@ export default function AlbumFocusView({
         };
     }, []);
 
+    const handleClose = useCallback(() => {
+        void exitDocumentFullscreen();
+        onClose?.();
+    }, [onClose]);
+
+    const focusRoot = useCallback(() => {
+        rootRef.current?.focus({ preventScroll: true });
+    }, []);
+
+    useEffect(() => {
+        const root = rootRef.current;
+        if (!root) return undefined;
+
+        const onFsChange = () => {
+            if (!getFullscreenElement()) {
+                onClose?.();
+                return;
+            }
+            refreshDims();
+            focusRoot();
+            requestAnimationFrame(() => {
+                bookRef.current?.pageFlip?.()?.update?.();
+            });
+        };
+
+        void requestElementFullscreen(root).then(() => {
+            refreshDims();
+            focusRoot();
+        });
+
+        const removeListener = onFullscreenChange(onFsChange);
+        return removeListener;
+    }, [focusRoot, onClose, refreshDims]);
+
+    const getPageFlipApi = useCallback(() => {
+        const api = bookRef.current?.pageFlip?.();
+        if (!api?.getFlipController?.()) return null;
+        return api;
+    }, []);
+
     const syncNavDisabled = useCallback(() => {
         const flipping = isFlippingRef.current;
-        if (prevNavRef.current) prevNavRef.current.disabled = atStart || flipping;
-        if (nextNavRef.current) nextNavRef.current.disabled = atEnd || flipping;
-    }, [atStart, atEnd]);
+        const blocked = flipping || !bookReady;
+        if (prevNavRef.current) prevNavRef.current.disabled = atStart || blocked;
+        if (nextNavRef.current) nextNavRef.current.disabled = atEnd || blocked;
+    }, [atStart, atEnd, bookReady]);
 
     useEffect(() => {
         syncNavDisabled();
-    }, [atStart, atEnd, syncNavDisabled]);
+    }, [atStart, atEnd, bookReady, syncNavDisabled]);
 
     const handleFlip = useCallback(
         (e) => {
@@ -107,37 +178,71 @@ export default function AlbumFocusView({
             const flipping = e.data === 'flipping';
             isFlippingRef.current = flipping;
             setBookFlipping(flipping);
+
+            if (!flipping) {
+                const api = getPageFlipApi();
+                if (api) {
+                    const storageIdx = flipbookIndexToStoragePage(
+                        api.getCurrentPageIndex(),
+                        totalPages,
+                        spreadOpts
+                    );
+                    setPageIndex(storageIdx);
+                    onPageChange?.(storageIdx);
+                }
+            }
+
             syncNavDisabled();
         },
-        [syncNavDisabled]
+        [getPageFlipApi, onPageChange, spreadOpts, syncNavDisabled, totalPages]
     );
 
-    const flipPrev = useCallback(() => {
-        if (atStart || isFlippingRef.current) return;
-        bookRef.current?.pageFlip?.()?.flipPrev('bottom');
-    }, [atStart]);
+    const navigateSpread = useCallback(
+        (direction) => {
+            if (isFlippingRef.current) return;
+            const api = getPageFlipApi();
+            if (!api) return;
 
-    const flipNext = useCallback(() => {
-        if (atEnd || isFlippingRef.current) return;
-        bookRef.current?.pageFlip?.()?.flipNext('bottom');
-    }, [atEnd]);
+            const liveFlipIndex = Math.max(0, Math.floor(Number(api.getCurrentPageIndex()) || 0));
+            const liveStorage = flipbookIndexToStoragePage(liveFlipIndex, totalPages, spreadOpts);
+            const liveSpread = pageToSpreadIndex(liveStorage, spreadCtx);
+            const lastSpread = Math.max(0, totalSpreads - 1);
+
+            closeAlbumPinPopovers();
+
+            if (direction === 'prev') {
+                if (liveFlipIndex <= 0) return;
+                if (typeof api.flipPrev === 'function') api.flipPrev(FLIP_CORNER);
+                else api.turnToPrevPage();
+                return;
+            }
+
+            if (liveSpread >= lastSpread) return;
+            if (typeof api.flipNext === 'function') api.flipNext(FLIP_CORNER);
+            else api.turnToNextPage();
+        },
+        [getPageFlipApi, spreadCtx, spreadOpts, totalPages, totalSpreads]
+    );
 
     useEffect(() => {
         const onKey = (e) => {
             if (e.key === 'Escape') {
                 e.preventDefault();
-                onClose?.();
+                e.stopPropagation();
+                handleClose();
             } else if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                flipPrev();
+                e.stopPropagation();
+                navigateSpread('prev');
             } else if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                flipNext();
+                e.stopPropagation();
+                navigateSpread('next');
             }
         };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [flipPrev, flipNext, onClose]);
+        document.addEventListener('keydown', onKey, true);
+        return () => document.removeEventListener('keydown', onKey, true);
+    }, [navigateSpread, handleClose]);
 
     const pages = useMemo(
         () =>
@@ -161,16 +266,18 @@ export default function AlbumFocusView({
 
     return createPortal(
         <div
+            ref={rootRef}
             className="ab-focus-view"
             role="dialog"
             aria-modal="true"
             aria-label="Full screen album view"
-            onClick={onClose}
+            tabIndex={-1}
+            onClick={handleClose}
         >
             <button
                 type="button"
                 className="ab-focus-close"
-                onClick={onClose}
+                onClick={handleClose}
                 aria-label="Close full screen view"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -184,8 +291,11 @@ export default function AlbumFocusView({
                     type="button"
                     ref={prevNavRef}
                     className="ab-nav ab-nav--prev ab-focus-nav"
-                    onClick={flipPrev}
-                    disabled={atStart}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigateSpread('prev');
+                    }}
+                    disabled={atStart || !bookReady}
                     aria-label="Previous spread"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -206,7 +316,7 @@ export default function AlbumFocusView({
                         style={{ width: dims.width * 2, height: dims.height }}
                     >
                         <HTMLFlipBook
-                            key={`focus-${album?.id}-${totalPages}-${flipStartPage}`}
+                            key={`focus-${album?.id}-${totalPages}-${flipStartPage}-${dims.width}x${dims.height}`}
                             ref={bookRef}
                             className="ab-html-flipbook ab-html-flipbook--focus"
                             style={{
@@ -235,10 +345,12 @@ export default function AlbumFocusView({
                             onFlip={handleFlip}
                             onChangeState={handleChangeState}
                             onInit={() => {
+                                setBookReady(false);
                                 const api = bookRef.current?.pageFlip?.();
                                 installSafePageFlip(api, { totalPages, spreadOpts });
                                 requestAnimationFrame(() => {
                                     api?.turnToPage(flipStartPage);
+                                    api?.update?.();
                                     const storageIdx = flipbookIndexToStoragePage(
                                         api?.getCurrentPageIndex() ?? flipStartPage,
                                         totalPages,
@@ -246,6 +358,8 @@ export default function AlbumFocusView({
                                     );
                                     setPageIndex(storageIdx);
                                     onPageChange?.(storageIdx);
+                                    setBookReady(true);
+                                    focusRoot();
                                 });
                             }}
                         >
@@ -258,8 +372,11 @@ export default function AlbumFocusView({
                     type="button"
                     ref={nextNavRef}
                     className="ab-nav ab-nav--next ab-focus-nav"
-                    onClick={flipNext}
-                    disabled={atEnd}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        navigateSpread('next');
+                    }}
+                    disabled={atEnd || !bookReady}
                     aria-label="Next spread"
                 >
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

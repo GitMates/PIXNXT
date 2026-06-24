@@ -1,19 +1,32 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { filesFromInput } from '../../lib/uploadFileOrder';
-import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT } from './albumSpreadGrid';
-import { countUnseenPhotoPins } from './albumPhotoPins';
-import { countUnseenSwapMarks } from './albumSwapMarks';
-import AlbumSwapMarksPanel from './AlbumSwapMarksPanel';
-import AlbumPhotoPinsPanel from './AlbumPhotoPinsPanel';
-import { getCollectionItemDisplayUrl } from './albumCollection';
-import { formatAlbumGridSizeDisplay } from './albumGridSize';
-import { getSlotLabel } from './albumSwapMarks';
+import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
+import {
+    getSlotLabel,
+    parseSlotKey,
+    removeSwapMark,
+} from './albumSwapMarks';
+import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
+import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
+import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
+import CollectionSpreadThumb from './CollectionSpreadThumb';
+import CoverLeatherColorPicker from './CoverLeatherColorPicker';
+import { resolveCollectionThumbLayout } from './collectionThumbLayout';
+import { getLockedCollectionIndices } from './albumCollection';
+import { formatAlbumGridSizeDisplay, parseGridSizeAspect } from './albumGridSize';
+import {
+    getImageReplacements,
+    IMAGE_REPLACEMENTS_CHANGED_EVENT,
+    removeImageReplacement,
+} from './albumImageReplacements';
 import {
     albumHasBlankCovers,
     albumUsesBookWrap,
-    isEndHalfSpreadLeftPage,
-    isInsideCoverSpreadLeft,
+    getAlbumSpreadOptions,
+    isWholeSpreadLayout,
+    pageToSpreadIndex,
 } from './albumSpreadUtils';
+import '../../pages/smart-albums/AlbumViewer.css';
 
 const IconCollection = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -27,13 +40,6 @@ const IconCollection = () => (
 const IconComments = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-);
-
-const IconSwap = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M7 16V4M7 4 3 8M7 4l4 4" />
-        <path d="M17 8v12M17 20l4-4M17 20l-4-4" />
     </svg>
 );
 
@@ -54,7 +60,6 @@ const IconEditCover = () => (
 const NAV_BASE = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
     { id: 'cover', label: 'Edit cover', icon: IconEditCover, requiresCovers: true },
-    { id: 'swap', label: 'Swap', icon: IconSwap },
     { id: 'pin', label: 'Comment', icon: IconComments },
     { id: 'comments', label: 'Setting', icon: IconSettings },
 ];
@@ -64,61 +69,20 @@ const GRID_LAYOUT_LABELS = {
     'whole-spread': 'Whole-spread photo',
 };
 
-function placementHint(gridEditSet, gridSelection, canSelectGrid, totalPages, spreadOpts, album) {
-    const hasCovers = spreadOpts?.hasCovers === true;
-    if (!canSelectGrid) {
-        return hasCovers
-            ? 'Flip to an inner spread (not the cover) to place photos.'
-            : 'Select a spread to place photos.';
-    }
-    if (hasCovers && gridSelection?.mode === 'cover') {
-        return spreadOpts?.blankCovers
-            ? 'Cover · back · spine · front'
-            : 'Book wrap (front + back)';
-    }
-    if (
-        gridSelection?.leftPage != null &&
-        isInsideCoverSpreadLeft(gridSelection.leftPage, totalPages, spreadOpts) &&
-        gridSelection.cellId === 2
-    ) {
-        return getSlotLabel(
-            gridSelection.leftPage + 1,
-            2,
-            false,
-            totalPages,
-            album
-        );
-    }
-    if (
-        gridSelection?.leftPage != null &&
-        isEndHalfSpreadLeftPage(gridSelection.leftPage, totalPages, spreadOpts)
-    ) {
-        return getSlotLabel(gridSelection.leftPage, 1, false, totalPages, album);
-    }
-    if (gridEditSet === 'whole' || gridSelection?.mode === 'spread') {
-        return 'Whole grid · one photo across both pages';
-    }
-    if (gridSelection?.mode === 'cell' && gridSelection.cellId) {
-        const label = PROOF_CELL_LABELS[gridSelection.cellId] || '';
-        return `Slot ${gridSelection.cellId}${label ? ` · ${label}` : ''}`;
-    }
-    return 'Select a slot on the spread';
-}
-
 export default function AlbumEditorSidebar({
     activePanel,
     onPanelChange,
     album,
     totalPages,
     collectionItems = [],
-    onUploadToCollection,
-    onPlaceCollectionItem,
+    onUploadForCurrentSpread,
     onOpenPicker,
     onClearAllPhotos,
     uploading = false,
     gridEditSet = 'single',
     onGridEditSetChange,
     gridSelection = null,
+    bookPage = 0,
     onSelectCell,
     canSelectGrid = false,
     spreadCount = 1,
@@ -130,39 +94,243 @@ export default function AlbumEditorSidebar({
     onAddPages,
     onRemovePages,
     commentSettings = null,
-    commentsFeed = null,
     swapMarks = [],
     photoPins = [],
+    spreadCommentsBySpread = null,
     albumId = null,
+    photographerName = 'Photographer',
     onNavigateToPin = null,
     onNavigateToSwapSlotKey = null,
     onReorderCollectionItem = null,
-    onApplyCollectionOrder = null,
     proofSeenTick = 0,
 }) {
     const fileRef = useRef(null);
     const collectionDragFromRef = useRef(null);
     const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
+    const [imageReplacements, setImageReplacements] = useState([]);
     void proofSeenTick;
-    const unseenPinCount = countUnseenPhotoPins(albumId, photoPins);
-    const unseenSwapCount = countUnseenSwapMarks(albumId, swapMarks);
+    const swapsEnabled = album?.messages_enabled !== false;
+
+    const spreadOpts = useMemo(
+        () => ({ ...getAlbumSpreadOptions(album), totalPages }),
+        [album, totalPages]
+    );
+
+    useEffect(() => {
+        if (!albumId) {
+            setImageReplacements([]);
+            return undefined;
+        }
+        const loadReplacements = () => setImageReplacements(getImageReplacements(albumId));
+        loadReplacements();
+        const onReplacementsChanged = (e) => {
+            if (e.detail?.albumId && e.detail.albumId !== albumId) return;
+            loadReplacements();
+        };
+        window.addEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
+        return () =>
+            window.removeEventListener(IMAGE_REPLACEMENTS_CHANGED_EVENT, onReplacementsChanged);
+    }, [albumId]);
+
+    const collectionThumbLayouts = useMemo(
+        () =>
+            collectionItems.map((_, index) =>
+                resolveCollectionThumbLayout(index, collectionItems, album, totalPages)
+            ),
+        [collectionItems, album, totalPages]
+    );
+    const collectionThumbAspect = useMemo(() => {
+        const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
+        return 2 * pageAspect;
+    }, [album?.grid_size]);
+    const lockedCollectionIndices = useMemo(
+        () => getLockedCollectionIndices(collectionItems, album),
+        [collectionItems, album]
+    );
+
+    const currentSpreadIndex = useMemo(() => {
+        const left =
+            gridSelection?.leftPage ??
+            getSpreadLeftPageIndex(bookPage, { ...spreadOpts, totalPages });
+        return pageToSpreadIndex(left, { ...spreadOpts, totalPages });
+    }, [gridSelection?.leftPage, bookPage, spreadOpts, totalPages]);
+
+    const visiblePhotoPins = useMemo(
+        () =>
+            photoPins
+                .filter(
+                    (pin) =>
+                        pageToSpreadIndex(pin.pageNum, spreadOpts) === currentSpreadIndex
+                )
+                .map((pin) => ({
+                    ...pin,
+                    spreadIndex: pageToSpreadIndex(pin.pageNum, spreadOpts),
+                })),
+        [photoPins, currentSpreadIndex, spreadOpts]
+    );
+
+    const visibleSwapMarks = useMemo(
+        () =>
+            swapMarks
+                .filter((mark) => {
+                    const a = parseSlotKey(mark.a);
+                    const b = parseSlotKey(mark.b);
+                    const idxA = pageToSpreadIndex(a.pageNum, spreadOpts);
+                    const idxB = pageToSpreadIndex(b.pageNum, spreadOpts);
+                    return idxA === currentSpreadIndex || idxB === currentSpreadIndex;
+                })
+                .map((mark) => {
+                    const slotA = parseSlotKey(mark.a);
+                    const slotB = parseSlotKey(mark.b);
+                    const wholeA =
+                        (isWholeSpreadLayout(album?.grid_layout) && slotA.pageNum > 0) ||
+                        /\b(Whole|Both)\b/i.test(mark.labelA || '');
+                    const wholeB =
+                        (isWholeSpreadLayout(album?.grid_layout) && slotB.pageNum > 0) ||
+                        /\b(Whole|Both)\b/i.test(mark.labelB || '');
+                    return {
+                        ...mark,
+                        spreadA: pageToSpreadIndex(slotA.pageNum, spreadOpts),
+                        spreadB: pageToSpreadIndex(slotB.pageNum, spreadOpts),
+                        labelA: getSlotLabel(
+                            slotA.pageNum,
+                            slotA.cellId,
+                            wholeA,
+                            totalPages,
+                            album
+                        ),
+                        labelB: getSlotLabel(
+                            slotB.pageNum,
+                            slotB.cellId,
+                            wholeB,
+                            totalPages,
+                            album
+                        ),
+                    };
+                }),
+        [swapMarks, currentSpreadIndex, spreadOpts, album, totalPages]
+    );
+
+    const visibleImageReplacements = useMemo(
+        () =>
+            imageReplacements.filter(
+                (replacement) => replacement.spreadIndex === currentSpreadIndex
+            ),
+        [imageReplacements, currentSpreadIndex]
+    );
+
+    const visibleSentMessages = useMemo(() => {
+        const rows = spreadCommentsBySpread?.[currentSpreadIndex] || [];
+        return rows.filter(
+            (c) => c.author_type === 'photographer' && String(c.body || '').trim()
+        );
+    }, [spreadCommentsBySpread, currentSpreadIndex]);
+
+    const visibleSpreadFeed = useMemo(
+        () =>
+            buildSpreadFeedbackFeed({
+                photographerMessages: visibleSentMessages,
+                photoPins: visiblePhotoPins,
+                swapMarks: visibleSwapMarks,
+                imageReplacements: visibleImageReplacements,
+                includeSwaps: swapsEnabled,
+            }),
+        [
+            visibleSentMessages,
+            visiblePhotoPins,
+            visibleSwapMarks,
+            visibleImageReplacements,
+            swapsEnabled,
+        ]
+    );
+
+    const spreadPanelCount = visibleSpreadFeed.length;
+
     const navItems = NAV_BASE.filter(
         (item) => !item.requiresCovers || album?.has_covers === true
     );
 
-    const handleFiles = (e) => {
+    const handleSpreadUpload = (e) => {
         const files = filesFromInput(e.target.files);
-        if (files.length) onUploadToCollection?.(files);
+        if (files.length) onUploadForCurrentSpread?.(files);
         e.target.value = '';
     };
 
-    const handleCollectionDragStart = useCallback((index) => {
-        collectionDragFromRef.current = index;
-    }, []);
+    const renderSpreadUploadActions = (showPicker = true) => {
+        if (gridSelection?.mode === 'cover') return null;
+        return (
+            <>
+                <div className="ae-spread-actions">
+                    <div className="ae-spread-actions-header">
+                        <span className="ae-spread-actions-title">Current spread actions</span>
+                    </div>
+                    <input
+                        ref={fileRef}
+                        type="file"
+                        accept="image/*,application/pdf,.pdf"
+                        className="ae-file-input"
+                        onChange={handleSpreadUpload}
+                    />
+                    <button
+                        type="button"
+                        className="ae-upload-zone ae-upload-zone--spread"
+                        disabled={uploading || !canSelectGrid}
+                        onClick={() => fileRef.current?.click()}
+                    >
+                        <svg
+                            className="ae-upload-zone-icon"
+                            width="22"
+                            height="22"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.75"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                        >
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                        </svg>
+                        <span>
+                            {uploading
+                                ? 'Uploading…'
+                                : 'Upload new photo for this spread'}
+                        </span>
+                        <span className="ae-upload-hint">
+                            Replaces the photo on the spread you are viewing
+                        </span>
+                    </button>
+                </div>
+                {showPicker && canSelectGrid ? (
+                    <button
+                        type="button"
+                        className="ae-btn-picker"
+                        onClick={() => onOpenPicker?.()}
+                    >
+                        Choose photo for current slot
+                    </button>
+                ) : null}
+            </>
+        );
+    };
 
-    const handleCollectionDragOver = useCallback((index) => {
-        setCollectionDragOverIndex(index);
-    }, []);
+    const handleCollectionDragStart = useCallback(
+        (index) => {
+            if (lockedCollectionIndices.has(index)) return;
+            collectionDragFromRef.current = index;
+        },
+        [lockedCollectionIndices]
+    );
+
+    const handleCollectionDragOver = useCallback(
+        (index) => {
+            if (lockedCollectionIndices.has(index)) return;
+            setCollectionDragOverIndex(index);
+        },
+        [lockedCollectionIndices]
+    );
 
     const handleCollectionDrop = useCallback(
         (toIndex) => {
@@ -170,9 +338,12 @@ export default function AlbumEditorSidebar({
             collectionDragFromRef.current = null;
             setCollectionDragOverIndex(null);
             if (fromIndex == null || fromIndex === toIndex) return;
+            if (lockedCollectionIndices.has(fromIndex) || lockedCollectionIndices.has(toIndex)) {
+                return;
+            }
             onReorderCollectionItem?.(fromIndex, toIndex);
         },
-        [onReorderCollectionItem]
+        [onReorderCollectionItem, lockedCollectionIndices]
     );
 
     const handleCollectionDragEnd = useCallback(() => {
@@ -198,31 +369,11 @@ export default function AlbumEditorSidebar({
                         <span className="ae-nav-rail-icon">
                             <Icon />
                         </span>
-                        {id === 'swap' && swapMarks.length > 0 && (
-                            <span
-                                className={`ae-nav-rail-badge${
-                                    unseenSwapCount > 0 ? ' ae-nav-rail-badge--unseen' : ''
-                                }`}
-                                aria-hidden
-                            >
-                                {unseenSwapCount > 0 ? unseenSwapCount : swapMarks.length}
-                            </span>
-                        )}
-                        {id === 'pin' && photoPins.length > 0 && (
-                            <span
-                                className={`ae-nav-rail-badge ae-nav-rail-badge--pin${
-                                    unseenPinCount > 0 ? ' ae-nav-rail-badge--unseen' : ''
-                                }`}
-                                aria-hidden
-                            >
-                                {unseenPinCount > 0 ? unseenPinCount : photoPins.length}
-                            </span>
-                        )}
                     </button>
                 ))}
             </nav>
 
-            <div className="ae-panel">
+            <div className={`ae-panel${activePanel === 'pin' ? ' ae-panel--pin' : ''}`}>
                 {activePanel === 'comments' && (
                     <>
                         <h3 className="ae-panel-title">Settings</h3>
@@ -234,165 +385,108 @@ export default function AlbumEditorSidebar({
                     </>
                 )}
 
-                {activePanel === 'swap' && (
-                    <>
-                        <h3 className="ae-panel-title">Swap</h3>
-                        <p className="ae-panel-text">
-                            Hover a photo on the spread and click Swap to mark two positions. Once
-                            marked, the pair is locked until you unlock it here.
-                        </p>
-                        <AlbumSwapMarksPanel
-                            albumId={albumId}
-                            marks={swapMarks}
-                            gridLayout={album?.grid_layout || 'two-page'}
-                            variant="panel"
-                            seenTick={proofSeenTick}
-                            onNavigateToSlotKey={onNavigateToSwapSlotKey}
-                        />
-                    </>
-                )}
-
                 {activePanel === 'pin' && (
-                    <>
-                        <h3 className="ae-panel-title">Comment</h3>
-                        <p className="ae-panel-text">
-                            Client photo comments appear here. To add comments, use the album preview
-                            — open the Comment tab, then click a photo.
-                        </p>
-                        <AlbumPhotoPinsPanel
-                            albumId={albumId}
-                            album={album}
-                            totalPages={totalPages}
-                            pins={photoPins}
-                            gridLayout={album?.grid_layout || 'two-page'}
-                            variant="panel"
-                            onNavigateToPin={onNavigateToPin}
-                            seenTick={proofSeenTick}
-                        />
-                    </>
+                    <div className="ae-panel-pin-layout">
+                        <div className="ae-panel-pin-body">
+                            <h3 className="ae-panel-title">Comment</h3>
+                            {spreadPanelCount === 0 ? (
+                                <p className="av-preview-sidebar-text ae-swap-marks-empty">
+                                    No comments, swap requests, or photo changes on this spread
+                                    yet.
+                                </p>
+                            ) : (
+                                <div className="av-preview-sidebar-comments ae-panel-proof-feed">
+                                    <AlbumPreviewSpreadFeed
+                                        feed={visibleSpreadFeed}
+                                        albumId={albumId}
+                                        businessName={photographerName}
+                                        spreadOpts={spreadOpts}
+                                        proofMode
+                                        seenTick={proofSeenTick}
+                                        onNavigateToPin={onNavigateToPin}
+                                        onNavigateToSlotKey={onNavigateToSwapSlotKey}
+                                        onRemoveSwap={(id) => removeSwapMark(albumId, id)}
+                                        onRemoveReplacement={(id) =>
+                                            removeImageReplacement(albumId, id)
+                                        }
+                                    />
+                                </div>
+                            )}
+                        </div>
+                        {gridSelection?.mode !== 'cover' ? (
+                            <div className="ae-panel-pin-footer">
+                                <EditorSpreadMessageCompose
+                                    albumId={albumId}
+                                    spreadIndex={currentSpreadIndex}
+                                    authorName={photographerName}
+                                    disabled={!albumId}
+                                />
+                                {renderSpreadUploadActions(false)}
+                            </div>
+                        ) : null}
+                    </div>
                 )}
 
                 {activePanel === 'collections' && (
                     <>
                         <h3 className="ae-panel-title">Collections</h3>
-                        <p className="ae-panel-text">
-                            Upload photos here, then click a slot on the spread to choose which image
-                            to place.
-                        </p>
-                        {canSelectGrid && (
-                            <p className="ae-selection-badge" role="status">
-                                {placementHint(
-                                    gridEditSet,
-                                    gridSelection,
-                                    canSelectGrid,
-                                    totalPages,
-                                    {
-                                        hasCovers: album?.has_covers === true,
-                                        blankCovers: albumHasBlankCovers(album),
-                                    },
-                                    album
-                                )}
-                            </p>
-                        )}
-                        <input
-                            ref={fileRef}
-                            type="file"
-                            accept="image/*,application/pdf,.pdf"
-                            multiple
-                            className="ae-file-input"
-                            onChange={handleFiles}
-                        />
-                        <button
-                            type="button"
-                            className="ae-upload-zone"
-                            disabled={uploading}
-                            onClick={() => fileRef.current?.click()}
-                        >
-                            <span>{uploading ? 'Uploading…' : 'Upload to collection'}</span>
-                            <span className="ae-upload-hint">JPG, PNG, PDF · each PDF page becomes a photo</span>
-                        </button>
-                        {canSelectGrid && (
-                            <button
-                                type="button"
-                                className="ae-btn-picker"
-                                onClick={() => onOpenPicker?.()}
-                            >
-                                Choose photo for current slot
-                            </button>
-                        )}
                         <div className="ae-panel-status-row">
                             <span className="ae-panel-status-meta">{albumSpreadMeta}</span>
-                            <span
-                                className={`ae-panel-status-count${
-                                    collectionItems.length === 0 ? ' ae-panel-status-count--muted' : ''
-                                }`}
-                            >
-                                {collectionItems.length === 0
-                                    ? 'No photos yet'
-                                    : `${collectionItems.length} photo${
-                                          collectionItems.length === 1 ? '' : 's'
-                                      } ready`}
-                            </span>
                         </div>
                         {collectionItems.length > 0 && (
                             <>
                                 <div className="ae-collection-grid" role="list">
-                                    {collectionItems.map((item, index) => (
-                                        <button
+                                    {collectionItems.map((item, index) => {
+                                        const isLocked = lockedCollectionIndices.has(index);
+                                        return (
+                                        <div
                                             key={item.id}
-                                            type="button"
-                                            className={`ae-collection-thumb${
-                                                collectionDragOverIndex === index
-                                                    ? ' ae-collection-thumb--drag-over'
-                                                    : ''
-                                            }`}
-                                            draggable
-                                            onClick={() => onPlaceCollectionItem?.(item.id)}
-                                            onDragStart={(e) => {
-                                                e.stopPropagation();
-                                                e.dataTransfer.effectAllowed = 'move';
-                                                handleCollectionDragStart(index);
-                                            }}
-                                            onDragOver={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleCollectionDragOver(index);
-                                            }}
-                                            onDrop={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
-                                                handleCollectionDrop(index);
-                                            }}
-                                            onDragEnd={handleCollectionDragEnd}
-                                            title={`${index + 1}. ${item.name || 'Photo'}`}
+                                            className={`ae-collection-thumb-wrap${collectionDragOverIndex === index
+                                                ? ' ae-collection-thumb-wrap--drag-over'
+                                                : ''
+                                                }`}
+                                            role="listitem"
                                         >
-                                            <span className="ae-collection-order" aria-hidden>
-                                                {index + 1}
-                                            </span>
-                                            <img
-                                                src={getCollectionItemDisplayUrl(item) || undefined}
-                                                alt=""
-                                                loading="lazy"
-                                                draggable={false}
-                                            />
-                                        </button>
-                                    ))}
+                                            <div
+                                                className={`ae-collection-thumb${isLocked ? ' ae-collection-thumb--locked' : ''}`}
+                                                style={{ aspectRatio: collectionThumbAspect }}
+                                                draggable={!isLocked}
+                                                onDragStart={(e) => {
+                                                    if (isLocked) {
+                                                        e.preventDefault();
+                                                        return;
+                                                    }
+                                                    e.stopPropagation();
+                                                    e.dataTransfer.effectAllowed = 'move';
+                                                    handleCollectionDragStart(index);
+                                                }}
+                                                onDragOver={(e) => {
+                                                    if (isLocked) return;
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleCollectionDragOver(index);
+                                                }}
+                                                onDrop={(e) => {
+                                                    if (isLocked) return;
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
+                                                    handleCollectionDrop(index);
+                                                }}
+                                                onDragEnd={handleCollectionDragEnd}
+                                                title={`${index + 1}. ${item.name || 'Photo'}${isLocked ? ' — fixed position' : ''}`}
+                                            >
+                                                <span className="ae-collection-order" aria-hidden>
+                                                    {index + 1}
+                                                </span>
+                                                <CollectionSpreadThumb
+                                                    layout={collectionThumbLayouts[index]}
+                                                    alt=""
+                                                />
+                                            </div>
+                                        </div>
+                                        );
+                                    })}
                                 </div>
-                                <p className="ae-collection-order-note">
-                                    {albumUsesBookWrap(album)
-                                        ? 'Order 1 → book wrap (front right + back left). Photos 2+ fill inner pages in order.'
-                                        : albumHasBlankCovers(album)
-                                          ? 'Blank front & back covers. All photos fill inner pages in upload order.'
-                                          : 'Order 1 → first page (left), 2 → second page (right), then on. No dedicated cover spreads.'}{' '}
-                                    Drag thumbnails to reorder; spreads update automatically.
-                                </p>
-                                <button
-                                    type="button"
-                                    className="ae-btn-apply-order"
-                                    onClick={() => onApplyCollectionOrder?.()}
-                                >
-                                    Apply collection order to spreads
-                                </button>
                             </>
                         )}
                     </>
@@ -422,12 +516,11 @@ export default function AlbumEditorSidebar({
                                     <button
                                         key={id}
                                         type="button"
-                                        className={`ae-slot-btn${
-                                            gridSelection?.mode === 'cell' &&
+                                        className={`ae-slot-btn${gridSelection?.mode === 'cell' &&
                                             gridSelection?.cellId === id
-                                                ? ' ae-slot-btn--active'
-                                                : ''
-                                        }`}
+                                            ? ' ae-slot-btn--active'
+                                            : ''
+                                            }`}
                                         onClick={() => onSelectCell?.(id)}
                                     >
                                         {PROOF_CELL_LABELS[id]?.split(' ')[0] || id}
@@ -459,21 +552,6 @@ export default function AlbumEditorSidebar({
                                     Covers start blank. Choose a wide photo for back, spine, and
                                     front — or leave empty for a plain cover spread.
                                 </p>
-                                <p className="ae-selection-badge" role="status">
-                                    Cover · back · spine · front
-                                </p>
-                                <button
-                                    type="button"
-                                    className="ae-btn-picker"
-                                    onClick={() => onOpenPicker?.()}
-                                >
-                                    Choose cover photo
-                                </button>
-                                <p className="ae-panel-text ae-panel-text--muted">
-                                    Upload in Collections first, then pick a photo here. If the
-                                    image is wider than inner spreads, drag the red spine lines to
-                                    adjust width.
-                                </p>
                             </>
                         ) : (
                             <>
@@ -482,22 +560,54 @@ export default function AlbumEditorSidebar({
                                     is the spine; outer portions are back and front covers (not
                                     shown on spine in the flipbook).
                                 </p>
-                                <p className="ae-selection-badge" role="status">
-                                    Book wrap · back · spine · front
-                                </p>
-                                <button
-                                    type="button"
-                                    className="ae-btn-picker"
-                                    onClick={() => onOpenPicker?.()}
-                                >
-                                    Choose book wrap photo
-                                </button>
-                                <p className="ae-panel-text ae-panel-text--muted">
-                                    Upload in Collections first — order 1 is used here. Drag the red
-                                    spine lines on each side of the spine to adjust its width.
-                                </p>
                             </>
                         )}
+                        <div className="ae-spread-actions">
+                            <div className="ae-spread-actions-header">
+                                <span className="ae-spread-actions-title">Current cover actions</span>
+                            </div>
+                            <input
+                                ref={fileRef}
+                                type="file"
+                                accept="image/*,application/pdf,.pdf"
+                                className="ae-file-input"
+                                onChange={handleSpreadUpload}
+                            />
+                            <button
+                                type="button"
+                                className="ae-upload-zone ae-upload-zone--spread"
+                                disabled={uploading || !canSelectGrid}
+                                onClick={() => fileRef.current?.click()}
+                            >
+                                <svg
+                                    className="ae-upload-zone-icon"
+                                    width="22"
+                                    height="22"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    strokeWidth="1.75"
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    aria-hidden
+                                >
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="17 8 12 3 7 8" />
+                                    <line x1="12" y1="3" x2="12" y2="15" />
+                                </svg>
+                                <span>
+                                    {uploading
+                                        ? 'Uploading…'
+                                        : 'Upload new photo for this cover'}
+                                </span>
+                                <span className="ae-upload-hint">
+                                    Replaces the photo on the cover you are viewing
+                                </span>
+                            </button>
+                            {albumHasBlankCovers(album) ? (
+                                <CoverLeatherColorPicker albumId={albumId} />
+                            ) : null}
+                        </div>
                     </>
                 )}
 

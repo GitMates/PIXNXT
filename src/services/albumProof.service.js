@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase/client';
 
 const APPROVED_KEY = 'pixnxt_album_proof_approved';
 const SUBMITTED_KEY = 'pixnxt_album_proof_submitted';
+const COMMENTING_STARTED_KEY = 'pixnxt_album_client_commenting_started';
 
 function readMap(key) {
     try {
@@ -45,6 +46,18 @@ export function markAlbumChangesSubmitted(albumId) {
     writeMap(SUBMITTED_KEY, all);
 }
 
+export function albumHasClientCommentingStartedNotified(albumId) {
+    if (!albumId) return false;
+    return Boolean(readMap(COMMENTING_STARTED_KEY)[albumId]);
+}
+
+export function markClientCommentingStartedNotified(albumId) {
+    if (!albumId) return;
+    const all = readMap(COMMENTING_STARTED_KEY);
+    all[albumId] = new Date().toISOString();
+    writeMap(COMMENTING_STARTED_KEY, all);
+}
+
 async function readFunctionErrorMessage(error) {
     let message = error?.message || 'Could not send notification email';
     if (error instanceof FunctionsHttpError) {
@@ -61,9 +74,21 @@ async function readFunctionErrorMessage(error) {
     return message;
 }
 
+export function getClientTimezone() {
+    if (typeof window === 'undefined') return null;
+    try {
+        return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    } catch {
+        return null;
+    }
+}
+
 async function invokeProofEmail(payload) {
     const { data, error } = await supabase.functions.invoke('send-album-proof-email', {
-        body: payload,
+        body: {
+            ...payload,
+            clientTimezone: payload.clientTimezone ?? getClientTimezone(),
+        },
     });
 
     if (error) {
@@ -109,6 +134,21 @@ export const albumProofService = {
             photoComments,
             swapRequests,
             spreadComments,
+        });
+    },
+
+    async notifyPhotographerClientStartedCommenting({
+        albumId,
+        guestName,
+        guestEmail,
+        siteOrigin,
+    }) {
+        return invokeProofEmail({
+            albumId,
+            action: 'client_started_commenting',
+            guestName: guestName?.trim() || null,
+            guestEmail: guestEmail?.trim() || null,
+            siteOrigin: siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
         });
     },
 };

@@ -5,12 +5,11 @@ import notificationPng from '../../assets/icons/notification.png';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
     buildNotificationUrl,
-    dismissAllNotifications,
+    clearAllPhotographerNotifications,
     dismissNotificationItem,
     getNotificationTypeLabel,
     listPhotographerNotifications,
-    markAllNotificationsRead,
-    markNotificationItemSeen,
+    markAllPhotographerNotificationsRead,
     NOTIFICATION_REFRESH_EVENTS,
 } from '../../services/albumNotifications';
 import { formatCommentDateTime } from '../../services/smartAlbumComments.service';
@@ -156,12 +155,8 @@ export default function SmartAlbumNotifications({ userId }) {
 
     const handleSelect = (item) => {
         const album = albums.find((a) => a.id === item.albumId);
-        if (item.isUnread) {
-            markNotificationItemSeen(item);
-            setItems((prev) =>
-                prev.map((row) => (row.id === item.id ? { ...row, isUnread: false } : row))
-            );
-        }
+        // Do not auto-mark as read when opening from the bell.
+        // Users can explicitly mark notifications read or clear them instead.
         setOpen(false);
         navigate(buildNotificationUrl(item, album));
     };
@@ -172,15 +167,15 @@ export default function SmartAlbumNotifications({ userId }) {
         setItems((prev) => prev.filter((row) => row.id !== item.id));
     };
 
-    const handleMarkAllRead = (e) => {
+    const handleMarkAllRead = async (e) => {
         e.stopPropagation();
-        markAllNotificationsRead(items);
+        await markAllPhotographerNotificationsRead(albums);
         setItems((prev) => prev.map((row) => ({ ...row, isUnread: false })));
     };
 
-    const handleClearAll = (e) => {
+    const handleClearAll = async (e) => {
         e.stopPropagation();
-        dismissAllNotifications(items);
+        await clearAllPhotographerNotifications(albums);
         setItems([]);
         setOpen(false);
     };
@@ -271,14 +266,21 @@ export default function SmartAlbumNotifications({ userId }) {
                                             role="menuitem"
                                             onClick={() => handleSelect(item)}
                                         >
-                                            <span className="sa-notifications-item-type">
-                                                {item.isUnread && (
-                                                    <span
-                                                        className="sa-notifications-unread-dot"
-                                                        aria-hidden
-                                                    />
-                                                )}
-                                                {getNotificationTypeLabel(item.type)}
+                                            <span className="sa-notifications-item-top">
+                                                <span className="sa-notifications-item-type">
+                                                    {item.isUnread && (
+                                                        <span
+                                                            className="sa-notifications-unread-dot"
+                                                            aria-hidden
+                                                        />
+                                                    )}
+                                                    {getNotificationTypeLabel(item.type)}
+                                                </span>
+                                                {!item.isUnread ? (
+                                                    <span className="sa-notifications-item-status">
+                                                        Resolved
+                                                    </span>
+                                                ) : null}
                                             </span>
                                             <span className="sa-notifications-item-album">
                                                 {item.albumName}

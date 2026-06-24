@@ -3,11 +3,9 @@ import { createPortal } from 'react-dom';
 import {
     albumProofService,
     getAlbumApprovedAt,
-    getAlbumChangesSubmittedAt,
     markAlbumApproved,
-    markAlbumChangesSubmitted,
 } from '../../services/albumProof.service';
-import { getGuestProfile, smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
+import { getGuestProfile } from '../../services/smartAlbumComments.service';
 
 function ProofConfirmModal({
     open,
@@ -64,23 +62,10 @@ function ProofConfirmModal({
     );
 }
 
-export default function AlbumPreviewProofActions({
-    albumId,
-    albumName,
-    photoCommentItems = [],
-    swapItems = [],
-    spreadCommentsBySpread = {},
-    onToast,
-}) {
+export default function AlbumPreviewProofActions({ albumId, albumName, onToast }) {
     const [approveOpen, setApproveOpen] = useState(false);
-    const [submitOpen, setSubmitOpen] = useState(false);
     const [busy, setBusy] = useState(false);
     const [approvedAt, setApprovedAt] = useState(() => getAlbumApprovedAt(albumId));
-    const [submittedAt, setSubmittedAt] = useState(() => getAlbumChangesSubmittedAt(albumId));
-
-    const spreadCommentCount = Object.values(spreadCommentsBySpread || {}).flat().length;
-    const feedbackCount =
-        photoCommentItems.length + swapItems.length + spreadCommentCount;
 
     const resolveGuest = useCallback(() => {
         const guest = getGuestProfile(albumId);
@@ -113,68 +98,9 @@ export default function AlbumPreviewProofActions({
         }
     };
 
-    const handleSubmitChanges = async () => {
-        if (!albumId || busy) return;
-        if (feedbackCount === 0) {
-            onToast?.('Add at least one comment or swap request before submitting.', 'info');
-            return;
-        }
-
-        setBusy(true);
-        try {
-            const guest = resolveGuest();
-            const spreadComments = await smartAlbumCommentsService.listAlbumComments(albumId);
-            const roots = spreadComments.filter((c) => !c.parent_id && String(c.body || '').trim());
-
-            await albumProofService.notifyPhotographerAlbumChanges({
-                albumId,
-                guestName: guest.name,
-                guestEmail: guest.email,
-                siteOrigin: window.location.origin,
-                photoComments: photoCommentItems.map((pin) => ({
-                    spread_label: `Photo comment · ${pin.spreadLabel}`,
-                    message: pin.message,
-                })),
-                swapRequests: swapItems.map((item) => ({
-                    from_label: item.labelA,
-                    to_label: item.labelB,
-                })),
-                spreadComments: roots.map((c) => ({
-                    spread_index: c.spread_index,
-                    author_name: c.author_name,
-                    body: c.body,
-                    created_at: c.created_at,
-                    updated_at: c.updated_at,
-                })),
-            });
-            markAlbumChangesSubmitted(albumId);
-            setSubmittedAt(new Date().toISOString());
-            setSubmitOpen(false);
-            onToast?.('Your changes were sent to your photographer.', 'success');
-        } catch (e) {
-            console.error(e);
-            onToast?.(e?.message || 'Could not submit changes. Please try again.', 'error');
-        } finally {
-            setBusy(false);
-        }
-    };
-
     return (
         <>
             <div className="av-preview-header-actions">
-                <button
-                    type="button"
-                    className="av-preview-header-action av-preview-header-action--secondary"
-                    onClick={() => setSubmitOpen(true)}
-                    disabled={Boolean(submittedAt)}
-                    title={
-                        submittedAt
-                            ? 'Changes already submitted'
-                            : 'Send comments and swap requests to your photographer'
-                    }
-                >
-                    {submittedAt ? 'Changes sent' : 'Submit change'}
-                </button>
                 <button
                     type="button"
                     className="av-preview-header-action av-preview-header-action--primary"
@@ -200,21 +126,6 @@ export default function AlbumPreviewProofActions({
                 variant="approve"
                 onCancel={() => !busy && setApproveOpen(false)}
                 onConfirm={handleApprove}
-            />
-
-            <ProofConfirmModal
-                open={submitOpen}
-                title="Submit your changes?"
-                lead="We'll email your photographer a summary of all photo comments, spread comments, and swap requests you've added to this album."
-                note={
-                    feedbackCount > 0
-                        ? `${feedbackCount} item${feedbackCount === 1 ? '' : 's'} will be included. Make sure your feedback is complete before sending.`
-                        : 'Add at least one comment or swap request before submitting.'
-                }
-                confirmLabel="Confirm & send"
-                busy={busy}
-                onCancel={() => !busy && setSubmitOpen(false)}
-                onConfirm={handleSubmitChanges}
             />
         </>
     );

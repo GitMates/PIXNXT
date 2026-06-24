@@ -1,9 +1,30 @@
 import React, { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import {
+    findPinLayerImage,
+    pinPointFromPointer,
+    pinPointToClient,
+} from '../../lib/photoSpotPoint';
 import { useAlbumBookPageContext } from './AlbumBookPageContext';
+import SwapIcon from './SwapIcon';
+import {
+    ALBUM_PIN_POPOVER_CLOSE_EVENT,
+} from './albumPinPopoverEvents';
 
 const SPOT_DRAFT_OPEN_EVENT = 'album-spot-draft-open';
 const SPOT_PIN_OPEN_EVENT = 'album-spot-pin-open';
+
+const NAV_DISMISS_KEYS = new Set([
+    'ArrowLeft',
+    'ArrowRight',
+    'ArrowUp',
+    'ArrowDown',
+    'PageUp',
+    'PageDown',
+    'Home',
+    'End',
+    'Escape',
+]);
 
 function broadcastSpotDraft(layerId) {
     window.dispatchEvent(new CustomEvent(SPOT_DRAFT_OPEN_EVENT, { detail: { layerId } }));
@@ -47,28 +68,7 @@ function SpeechIcon({ className }) {
     );
 }
 
-function SwapIcon({ className, size = 20 }) {
-    return (
-        <svg
-            className={className}
-            width={size}
-            height={size}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2.25"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden
-        >
-            <path d="M7 16V4M7 4 3 8M7 4l4 4" />
-            <path d="M17 8v12M17 20l4-4M17 20l-4-4" />
-        </svg>
-    );
-}
-
 function PinPopover({ markerRef, layerRef, pin, isSwap, allowRemove, onRemove }) {
-    const popoverRef = useRef(null);
     const [anchor, setAnchor] = useState(null);
     const [flipBelow, setFlipBelow] = useState(false);
 
@@ -86,15 +86,12 @@ function PinPopover({ markerRef, layerRef, pin, isSwap, allowRemove, onRemove })
             return;
         }
 
-        const layer = layerRef?.current;
-        if (!layer) return;
-        const rect = layer.getBoundingClientRect();
-        const left = rect.left + (rect.width * pin.xPct) / 100;
-        const top = rect.top + (rect.height * pin.yPct) / 100;
+        const point = pinPointToClient(layerRef?.current, pin.xPct, pin.yPct);
+        if (!point) return;
         const popoverHeight = popoverRef.current?.offsetHeight ?? 88;
         const pinOffset = 32;
-        setFlipBelow(top < popoverHeight + pinOffset + 20);
-        setAnchor({ left, top: top - pinOffset });
+        setFlipBelow(point.top < popoverHeight + pinOffset + 20);
+        setAnchor({ left: point.left, top: point.top - pinOffset });
     }, [markerRef, layerRef, pin.xPct, pin.yPct]);
 
     useLayoutEffect(() => {
@@ -149,13 +146,9 @@ function PinMarker({ layerRef, pin, open, onToggle, onRemove, allowRemove }) {
     const markerRef = useRef(null);
     const isSwap = pin?.type === 'swap';
     const isComment = !isSwap;
-    const swapGroup = isSwap ? String(pin?.swapGroup || '') : '';
-    const swapToneIndex = isSwap && swapGroup
-        ? Array.from(swapGroup).reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % 6
-        : null;
     return (
         <div
-            className={`ab-photo-pin${open ? ' ab-photo-pin--open' : ''}${isComment ? ' ab-photo-pin--comment' : ''}${isSwap ? ' ab-photo-pin--swap' : ''}${isSwap && swapToneIndex != null ? ` ab-photo-pin--swap-group-${swapToneIndex}` : ''}`}
+            className={`ab-photo-pin${open ? ' ab-photo-pin--open' : ''}${isComment ? ' ab-photo-pin--comment' : ''}${isSwap ? ' ab-photo-pin--swap' : ''}`}
             style={{ left: `${pin.xPct}%`, top: `${pin.yPct}%` }}
         >
             <button
@@ -207,15 +200,12 @@ function SpotInlineCommentComposer({ layerRef, xPct, yPct, onSave, onClose }) {
     }, []);
 
     const updateAnchor = useCallback(() => {
-        const layer = layerRef?.current;
-        if (!layer) return;
-        const rect = layer.getBoundingClientRect();
-        const left = rect.left + (rect.width * xPct) / 100;
-        const top = rect.top + (rect.height * yPct) / 100;
-        setAnchor({ left, top });
+        const point = pinPointToClient(layerRef?.current, xPct, yPct);
+        if (!point) return;
+        setAnchor(point);
 
         const composerHeight = composerRef.current?.offsetHeight ?? 120;
-        setFlipBelow(top < composerHeight + 28);
+        setFlipBelow(point.top < composerHeight + 28);
     }, [layerRef, xPct, yPct]);
 
     useLayoutEffect(() => {
@@ -306,13 +296,10 @@ function SpotActionPicker({ layerRef, xPct, yPct, canComment, canSwap, onComment
     const both = showComment && showSwap;
 
     const updateAnchor = useCallback(() => {
-        const layer = layerRef?.current;
-        if (!layer) return;
-        const rect = layer.getBoundingClientRect();
-        const left = rect.left + (rect.width * xPct) / 100;
-        const top = rect.top + (rect.height * yPct) / 100;
-        setAnchor({ left, top });
-        setFlipBelow(top < SPOT_PICKER_ABOVE_OFFSET + 8);
+        const point = pinPointToClient(layerRef?.current, xPct, yPct);
+        if (!point) return;
+        setAnchor(point);
+        setFlipBelow(point.top < SPOT_PICKER_ABOVE_OFFSET + 8);
     }, [layerRef, xPct, yPct]);
 
     useLayoutEffect(() => {
@@ -413,12 +400,20 @@ export default function AlbumPhotoPinLayer({
     const spotActionPicker = spotActionPickerProp || Boolean(ctx.spotActionPicker);
     const spotCanComment = spotCanCommentProp || Boolean(ctx.spotCanComment);
     const spotCanSwap = spotCanSwapProp || Boolean(ctx.spotCanSwap);
+    const spreadMagnifyActive = Boolean(ctx.spreadMagnifyActive);
     const layerId = useId();
     const [openPinId, setOpenPinId] = useState(null);
     const [spotPicker, setSpotPicker] = useState(null);
     const [spotCommentComposer, setSpotCommentComposer] = useState(null);
     const layerRef = React.useRef(null);
+    const prevBookPageRef = useRef(null);
     const [hintPosition, setHintPosition] = useState(null);
+
+    const dismissPopovers = useCallback(() => {
+        setOpenPinId(null);
+        setSpotPicker(null);
+        setSpotCommentComposer(null);
+    }, []);
 
     const canPlaceSwapPin =
         swapPinPlacementEnabled != null
@@ -426,6 +421,7 @@ export default function AlbumPhotoPinLayer({
             : swapPinModeActive && hasPhoto;
 
     const showTools =
+        !spreadMagnifyActive &&
         proofToolsHover &&
         proofToolsEnabled &&
         hasPhoto &&
@@ -435,6 +431,7 @@ export default function AlbumPhotoPinLayer({
         (canSwap || onActivatePinMode || onActivateSwapPinMode);
 
     const spotPickerActive =
+        !spreadMagnifyActive &&
         spotActionPicker &&
         hasPhoto &&
         !pinModeActive &&
@@ -451,10 +448,9 @@ export default function AlbumPhotoPinLayer({
         }
         e.stopPropagation();
         e.preventDefault();
-        const rect = layerRef.current.getBoundingClientRect();
-        if (!rect.width || !rect.height) return;
-        const xPct = ((e.clientX - rect.left) / rect.width) * 100;
-        const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+        const layer = layerRef.current;
+        const img = findPinLayerImage(layer);
+        const { xPct, yPct } = pinPointFromPointer(e.clientX, e.clientY, layer, img);
         if (spotPickerActive) {
             setSpotCommentComposer(null);
             setOpenPinId(null);
@@ -484,13 +480,26 @@ export default function AlbumPhotoPinLayer({
                 setSpotCommentComposer(null);
             }
         };
+        const onCloseAll = () => dismissPopovers();
         window.addEventListener(SPOT_DRAFT_OPEN_EVENT, onDraftOpen);
         window.addEventListener(SPOT_PIN_OPEN_EVENT, onPinOpen);
+        window.addEventListener(ALBUM_PIN_POPOVER_CLOSE_EVENT, onCloseAll);
         return () => {
             window.removeEventListener(SPOT_DRAFT_OPEN_EVENT, onDraftOpen);
             window.removeEventListener(SPOT_PIN_OPEN_EVENT, onPinOpen);
+            window.removeEventListener(ALBUM_PIN_POPOVER_CLOSE_EVENT, onCloseAll);
         };
-    }, [layerId]);
+    }, [layerId, dismissPopovers]);
+
+    useEffect(() => {
+        if (ctx.activeBookPage == null) return undefined;
+        const prev = prevBookPageRef.current;
+        prevBookPageRef.current = ctx.activeBookPage;
+        if (prev != null && prev !== ctx.activeBookPage) {
+            dismissPopovers();
+        }
+        return undefined;
+    }, [ctx.activeBookPage, dismissPopovers]);
 
     useEffect(() => {
         if (!openPinId) return undefined;
@@ -508,6 +517,46 @@ export default function AlbumPhotoPinLayer({
             document.removeEventListener('click', onDocClick);
         };
     }, [openPinId]);
+
+    useEffect(() => {
+        if (!openPinId) return;
+        const allPins = [...(pins || []), ...(swapPins || [])];
+        if (!allPins.some((p) => p?.id === openPinId)) {
+            setOpenPinId(null);
+        }
+    }, [openPinId, pins, swapPins]);
+
+    useEffect(() => {
+        if (!openPinId && !spotPicker && !spotCommentComposer) return undefined;
+        const onKey = (e) => {
+            if (!NAV_DISMISS_KEYS.has(e.key)) return;
+            dismissPopovers();
+        };
+        const onPointerDown = (e) => {
+            const target = e.target;
+            if (!(target instanceof Element)) return;
+            if (
+                target.closest(
+                    '.ab-photo-pin-marker, .ab-photo-pin-popover, .ab-spot-action-picker, .ab-spot-inline-composer'
+                )
+            ) {
+                return;
+            }
+            if (
+                target.closest(
+                    '.ab-nav, .ab-control-icon, .ab-overview-item, .ae-nav-rail-btn, .av-preview-sidebar-comment, .av-preview-sidebar-swap-chip, .av-preview-sidebar-replacement-head'
+                )
+            ) {
+                dismissPopovers();
+            }
+        };
+        window.addEventListener('keydown', onKey);
+        document.addEventListener('pointerdown', onPointerDown, true);
+        return () => {
+            window.removeEventListener('keydown', onKey);
+            document.removeEventListener('pointerdown', onPointerDown, true);
+        };
+    }, [openPinId, spotPicker, spotCommentComposer, dismissPopovers]);
 
     useEffect(() => {
         if (!spotPicker) return undefined;
@@ -605,28 +654,36 @@ export default function AlbumPhotoPinLayer({
                 spotCommentComposer ? ' ab-photo-pin-layer--composer-open' : ''
             }${openPinId ? ' ab-photo-pin-layer--pin-open' : ''}${
                 showTools ? ' ab-photo-pin-layer--tools' : ''
-            }${className ? ` ${className}` : ''}`}
+            }${spreadMagnifyActive ? ' ab-photo-pin-layer--magnify' : ''}${
+                className ? ` ${className}` : ''
+            }`}
             onClick={
-                spotPickerActive ||
-                (pinModeActive && hasPhoto) ||
-                (swapPinModeActive && canPlaceSwapPin)
-                    ? handlePlaceClick
-                    : undefined
+                spreadMagnifyActive
+                    ? undefined
+                    : spotPickerActive ||
+                      (pinModeActive && hasPhoto) ||
+                      (swapPinModeActive && canPlaceSwapPin)
+                      ? handlePlaceClick
+                      : undefined
             }
             onKeyDown={undefined}
             role={
-                spotPickerActive ||
-                (pinModeActive && hasPhoto) ||
-                (swapPinModeActive && canPlaceSwapPin)
-                    ? 'button'
-                    : undefined
+                spreadMagnifyActive
+                    ? undefined
+                    : spotPickerActive ||
+                      (pinModeActive && hasPhoto) ||
+                      (swapPinModeActive && canPlaceSwapPin)
+                      ? 'button'
+                      : undefined
             }
             tabIndex={
-                spotPickerActive ||
-                (pinModeActive && hasPhoto) ||
-                (swapPinModeActive && canPlaceSwapPin)
-                    ? 0
-                    : undefined
+                spreadMagnifyActive
+                    ? undefined
+                    : spotPickerActive ||
+                      (pinModeActive && hasPhoto) ||
+                      (swapPinModeActive && canPlaceSwapPin)
+                      ? 0
+                      : undefined
             }
             aria-label={
                 spotPickerActive
@@ -752,9 +809,13 @@ export default function AlbumPhotoPinLayer({
                     pin={{ ...pin, type: 'swap' }}
                     open={openPinId === pin.id}
                     allowRemove={false}
-                    onToggle={() =>
-                        setOpenPinId((id) => (id === pin.id ? null : pin.id))
-                    }
+                    onToggle={() => {
+                        setSpotPicker(null);
+                        setSpotCommentComposer(null);
+                        const opening = openPinId !== pin.id;
+                        setOpenPinId(opening ? pin.id : null);
+                        if (opening) broadcastPinOpen(layerId, pin.id);
+                    }}
                 />
             ))}
         </div>

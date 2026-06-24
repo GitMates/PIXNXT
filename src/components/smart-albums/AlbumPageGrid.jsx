@@ -16,9 +16,9 @@ import {
     isInsideCoverSpreadLeft,
     isPreBackHalfSpreadLeftPage,
     isWholeSpreadLayout,
+    spreadNumberFromLeftPage,
 } from './albumSpreadUtils';
 import EditableGridPhoto from './EditableGridPhoto';
-import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
 import { useAlbumBookPageContext } from './AlbumBookPageContext';
 import './AlbumPhotoPins.css';
@@ -31,6 +31,7 @@ function GridPhoto({
     spreadLeft,
     showSamples = true,
     transformRevision = 0,
+    photoRevision = 0,
     panoramic = null,
 }) {
     const transform =
@@ -40,6 +41,7 @@ function GridPhoto({
               ? getPagePhotoTransform(albumId, pageNum)
               : { x: 0, y: 0, scaleX: 1, scaleY: 1 };
     void transformRevision;
+    void photoRevision;
     const [useSampleFallback, setUseSampleFallback] = useState(false);
     const sampleSrc = showSamples ? getSampleImageForPage(pageNum) : null;
     const displaySrc = useSampleFallback ? sampleSrc : src;
@@ -50,6 +52,7 @@ function GridPhoto({
 
     const img = (
         <img
+            key={`${displaySrc || 'empty'}-r${photoRevision}`}
             src={displaySrc}
             alt=""
             className="ab-grid-cell-photo"
@@ -134,7 +137,6 @@ export default function AlbumPageGrid({
     const liveSpotCanSwap = spotCanSwap || Boolean(ctx.spotCanSwap);
     const liveOnPinSave = ctx.onPinSave;
     const albumId = albumIdProp ?? album?.id;
-    void photoRevision;
     void transformRevision;
     const collectionCount = albumId ? getAlbumLayoutPhotoCount(albumId, album) : 0;
     const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
@@ -161,10 +163,9 @@ export default function AlbumPageGrid({
         !frontCoverSpread;
     const wholeSpread = wholePlacement;
     const useSelectCells = editable && !spreadEdit;
-    const CellTag = useSelectCells ? 'button' : 'div';
 
     const buildSwapSlot = (photoIndex, cellId) => {
-        const spreadNum = Math.floor((spreadLeft - 1) / 2) + 1;
+        const spreadNum = spreadNumberFromLeftPage(spreadLeft, spreadCtx);
         if (wholePlacement) {
             const isRightHalf = pageNum > spreadLeft || cellId === 2;
             const halfPage = isRightHalf
@@ -328,9 +329,8 @@ export default function AlbumPageGrid({
                 }
 
                 return (
-                    <CellTag
+                    <div
                         key={cell.id}
-                        type={useSelectCells ? 'button' : undefined}
                         className={`ab-grid-cell${cell.framed ? ' ab-grid-cell--framed' : ''}${
                             isSelected ? ' ab-grid-cell--selected' : ''
                         }${useSelectCells ? ' ab-grid-cell--interactive' : ''}${
@@ -344,6 +344,8 @@ export default function AlbumPageGrid({
                             width: cell.width,
                             height: cell.height,
                         }}
+                        role={useSelectCells ? 'button' : undefined}
+                        tabIndex={useSelectCells ? 0 : undefined}
                         aria-label={
                             useSelectCells
                                 ? wholePlacement
@@ -355,6 +357,36 @@ export default function AlbumPageGrid({
                         onClick={
                             useSelectCells
                                 ? (e) => {
+                                      e.stopPropagation();
+                                      const slot = buildSwapSlot(photoIndex, cell.id);
+                                      const rect = e.currentTarget.getBoundingClientRect();
+                                      if (onSlotActivate) {
+                                          onSlotActivate(
+                                              {
+                                                  pageNum: slot.pageNum,
+                                                  cellId: slot.cellId,
+                                                  spreadLeft: slot.spreadLeft,
+                                                  whole: Boolean(slot.whole),
+                                                  hasPhoto,
+                                                  label: slot.label,
+                                              },
+                                              rect
+                                          );
+                                          return;
+                                      }
+                                      if (wholePlacement) {
+                                          onSelectSpread?.(spreadLeft);
+                                      } else {
+                                          onSelectCell?.(spreadLeft, cell.id);
+                                      }
+                                  }
+                                : undefined
+                        }
+                        onKeyDown={
+                            useSelectCells
+                                ? (e) => {
+                                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                                      e.preventDefault();
                                       e.stopPropagation();
                                       const slot = buildSwapSlot(photoIndex, cell.id);
                                       const rect = e.currentTarget.getBoundingClientRect();
@@ -464,6 +496,7 @@ export default function AlbumPageGrid({
                                         getPagePhotoOverride(albumId, photoIndex)
                                     }
                                     transformRevision={transformRevision}
+                                    photoRevision={photoRevision}
                                     onTransformChange={onTransformChange}
                                 />
                             ) : (
@@ -474,11 +507,11 @@ export default function AlbumPageGrid({
                                     spreadLeft={spreadLeft}
                                     showSamples={showSamples}
                                     transformRevision={transformRevision}
+                                    photoRevision={photoRevision}
                                     panoramic={panoramic}
                                 />
                             )}
                         </AlbumPhotoPinLayer>
-                        {!previewMode && <AlbumSwapMarkBadge markInfo={swapMarkInfo} />}
                         {useSelectCells && !hasPhoto && (
                             <span className="ab-grid-cell-add">
                                 <span className="ab-grid-cell-add-icon">+</span>
@@ -488,7 +521,7 @@ export default function AlbumPageGrid({
                         {previewMode && !hasPhoto && (
                             <span className="ab-grid-cell-empty" aria-hidden />
                         )}
-                    </CellTag>
+                    </div>
                 );
             })}
         </div>

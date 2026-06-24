@@ -1,3 +1,6 @@
+import { clearWrapSegmentCache } from './bookWrapSegment';
+import { clearBook3dTextureCache } from './3d/book3dPageCanvas';
+
 const STORAGE_KEY = 'pixnxt_album_spine_bounds';
 
 export const SPINE_BOUNDS_CHANGED_EVENT = 'pixnxt-album-spine-bounds-changed';
@@ -55,6 +58,8 @@ export function setAlbumSpineBoundsOverride(albumId, spineStartFraction, spineEn
         updatedAt: Date.now(),
     };
     writeAll(all);
+    clearWrapSegmentCache();
+    clearBook3dTextureCache();
     notifySpineBoundsChanged(albumId);
 }
 
@@ -64,5 +69,7 @@ export function clearAlbumSpineBoundsOverride(albumId) {
     if (!all[albumId]) return;
     delete all[albumId];
     writeAll(all);
+    clearWrapSegmentCache();
+    clearBook3dTextureCache();
     notifySpineBoundsChanged(albumId);
 }

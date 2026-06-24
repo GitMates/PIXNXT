@@ -1,6 +1,7 @@
 import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
 import { storageService } from '../../services/storage.service';
-import { isWholeSpreadLayout } from './albumSpreadUtils';
+import { albumHasBlankCovers, isWholeSpreadLayout } from './albumSpreadUtils';
+import { BOOK_PAGE_HEIGHT_MAX } from './albumBookDimensions';
 
 export const GRID_SIZE_PRESETS = {
     square: { label: 'Square pages (1:1)', aspect: 1 },
@@ -23,6 +24,61 @@ const PRESET_MATCH_TOLERANCE = 0.06;
 
 /** Photo must be at least this wide vs a 2-page spread to count as whole-spread. */
 export const WHOLE_SPREAD_FILL_RATIO = 0.92;
+
+/** 2× max on-screen page height — sharp on retina without storing excess pixels. */
+export const UPLOAD_PIXEL_SCALE = 2;
+
+/**
+ * Max pixel width/height for uploaded photos based on album grid and layout.
+ * Sized to match the largest slot the image can fill (page, spread, or cover wrap).
+ */
+export function getAlbumUploadPixelTarget(
+    album,
+    { coverWrap = false, wholeSpread = false, pageOnly = false } = {}
+) {
+    const pageGridSize = album?.grid_size || 'square';
+    const gridLayout = album?.grid_layout || 'two-page';
+    const spreadGridSize =
+        album?.spread_grid_size ?? spreadGridSizeFromPageGrid(pageGridSize, gridLayout);
+    const pageHeight = Math.round(BOOK_PAGE_HEIGHT_MAX * UPLOAD_PIXEL_SCALE);
+    const pageAspect = parseGridSizeAspect(pageGridSize);
+
+    if (coverWrap) {
+        const wrapAspect = albumHasBlankCovers(album)
+            ? blankCoverWrapAspect(pageGridSize)
+            : parseGridSizeAspect(spreadGridSize || pageGridSize);
+        return {
+            maxWidth: Math.round(pageHeight * wrapAspect),
+            maxHeight: pageHeight,
+        };
+    }
+
+    if (!pageOnly && (wholeSpread || isWholeSpreadLayout(gridLayout))) {
+        const spreadAspect = spreadGridSize
+            ? parseGridSizeAspect(spreadGridSize)
+            : spreadAspectFromPageGrid(pageGridSize);
+        return {
+            maxWidth: Math.round(pageHeight * spreadAspect),
+            maxHeight: pageHeight,
+        };
+    }
+
+    return {
+        maxWidth: Math.round(pageHeight * pageAspect),
+        maxHeight: pageHeight,
+    };
+}
+
+/** Pixel budget for a specific editor slot (page vs whole spread vs cover). */
+export function getSlotUploadPixelTarget(album, slot, { coverWrap = false } = {}) {
+    if (coverWrap || slot?.pageNum === 0) {
+        return getAlbumUploadPixelTarget(album, { coverWrap: true });
+    }
+    if (slot?.whole) {
+        return getAlbumUploadPixelTarget(album, { wholeSpread: true });
+    }
+    return getAlbumUploadPixelTarget(album, { pageOnly: true });
+}
 
 /** Full-upload aspect needed to span both pages (page grid × 2). */
 export function spreadAspectFromPageGrid(pageGridSize = 'square') {
@@ -391,6 +447,53 @@ export function formatAlbumGridSizeDisplay(album) {
     return formatGridSizeLabelForLayout(album.grid_size, album.grid_layout, { spreadGridSize });
 }
 
+/** Inner spread grid size (two-page spread), not book-wrap cover width. */
+export function innerSpreadGridSizeFromAlbum(album) {
+    const pageGridSize = album?.grid_size || 'square';
+    const gridLayout = album?.grid_layout || 'two-page';
+    const pageDerived =
+        spreadGridSizeFromPageGrid(pageGridSize, gridLayout) ??
+        gridSizeFromAspect(parseGridSizeAspect(pageGridSize) * 2);
+
+    if (!isWholeSpreadLayout(gridLayout)) {
+        return gridSizeFromAspect(parseGridSizeAspect(pageGridSize) * 2);
+    }
+
+    if (!album?.spread_grid_size) {
+        return pageDerived;
+    }
+
+    // Non-blank book wrap: spread_grid_size is the cover wrap image, not inner spread.
+    if (!albumHasBlankCovers(album) && album?.has_covers === true) {
+        return pageDerived;
+    }
+
+    // Blank covers: spread_grid_size should be inner spread from photo detection.
+    // Legacy albums may have stored the wider cover wrap here — detect and fall back.
+    const spreadAspect = parseGridSizeAspect(album.spread_grid_size);
+    const pageDerivedAspect = parseGridSizeAspect(pageDerived);
+    if (album?.__wrap_aspect > 0 && spreadAspect >= album.__wrap_aspect * 0.98) {
+        return pageDerived;
+    }
+    if (spreadAspect > pageDerivedAspect * 1.05) {
+        return pageDerived;
+    }
+
+    return album.spread_grid_size;
+}
+
+/** Inner two-page spread aspect (width ÷ height), not cover wrap. */
+export function innerSpreadAspectFromAlbum(album) {
+    return parseGridSizeAspect(innerSpreadGridSizeFromAlbum(album));
+}
+
+/** Spread ratio only for album settings. */
+export function formatAlbumSpreadSizeDisplay(album) {
+    if (!album?.grid_size) return shortGridSizeLabel('square');
+    const label = shortGridSizeLabel(innerSpreadGridSizeFromAlbum(album));
+    return label.replace(/^Custom /, '');
+}
+
 export function formatGridLayoutLabel(gridLayout) {
     if (!gridLayout) return GRID_LAYOUT_LABELS['two-page'];
     if (GRID_LAYOUT_LABELS[gridLayout]) return GRID_LAYOUT_LABELS[gridLayout];
@@ -415,6 +518,73 @@ export function parseCustomAspectRatioInput(value) {
 /** Stored value for a custom ratio, e.g. custom-3-2 */
 export function customGridSizeKey({ w, h }) {
     return `custom-${w}-${h}`;
+}
+
+/** Width and height from a grid size key (custom uses stored numbers; presets use aspect × 1). */
+export function parseGridSizeWidthHeight(gridSize) {
+    const stored = String(gridSize || '').match(/^custom-(\d+(?:\.\d+)?)-(\d+(?:\.\d+)?)$/);
+    if (stored) {
+        const width = Number(stored[1]);
+        const height = Number(stored[2]);
+        if (width > 0 && height > 0) {
+            return { width, height };
+        }
+    }
+    const aspect = parseGridSizeAspect(gridSize);
+    return { width: aspect, height: 1 };
+}
+
+/** Inner spread width/height from album page grid (two-page = double page width). */
+export function innerSpreadWidthHeightFromAlbum(album) {
+    const pageGridSize = album?.grid_size || 'square';
+    const gridLayout = album?.grid_layout || 'two-page';
+    if (isWholeSpreadLayout(gridLayout)) {
+        return parseGridSizeWidthHeight(innerSpreadGridSizeFromAlbum(album));
+    }
+    const page = parseGridSizeWidthHeight(pageGridSize);
+    return { width: page.width * 2, height: page.height };
+}
+
+/** Cover wrap width/height — prefers live cover image aspect when provided. */
+export function coverSpreadWidthHeightFromAlbum(album, wrapAspect = null) {
+    const resolvedAspect =
+        wrapAspect > 0
+            ? wrapAspect
+            : album?.__wrap_aspect > 0
+              ? album.__wrap_aspect
+              : null;
+    if (resolvedAspect > 0) {
+        const coverFromGrid = album?.spread_grid_size
+            ? parseGridSizeWidthHeight(album.spread_grid_size)
+            : null;
+        if (coverFromGrid?.height > 0) {
+            return {
+                width: resolvedAspect * coverFromGrid.height,
+                height: coverFromGrid.height,
+            };
+        }
+        return { width: resolvedAspect, height: 1 };
+    }
+    if (album?.spread_grid_size) {
+        return parseGridSizeWidthHeight(album.spread_grid_size);
+    }
+    return null;
+}
+
+/** Spine strip width in the same units as cover/inner sizes (cover width − inner spread width). */
+export function computeSpineWidthUnits(innerSize, coverSize) {
+    if (!innerSize?.width || !coverSize?.width || !innerSize?.height || !coverSize?.height) {
+        return null;
+    }
+    const innerWidthAtCoverHeight = innerSize.width * (coverSize.height / innerSize.height);
+    const spine = coverSize.width - innerWidthAtCoverHeight;
+    return spine > 0.001 ? spine : 0;
+}
+
+export function formatSpineWidthUnits(value) {
+    if (value == null || !(value > 0)) return null;
+    if (Number.isInteger(value)) return String(value);
+    return String(Math.round(value * 10) / 10);
 }
 
 export function parseGridSizeAspect(gridSize) {

@@ -76,10 +76,19 @@ export function getSpreadContext(album, totalPages, { collectionCount } = {}) {
 
 /** 1-based spread number for UI labels from a spread's left page index. */
 export function spreadNumberFromLeftPage(leftPage, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const totalPages = opts.totalPages ?? 0;
+    const spreadIndex = pageToSpreadIndex(leftPage, { ...spreadOpts, totalPages });
+    return spreadIndex + 1;
+}
+
+/** Human-readable spread label matching flipbook counter (e.g. "2/6" → "Spread 2"). */
+export function formatSpreadDisplayLabel(spreadIndex, opts = {}) {
+    const idx = Number(spreadIndex);
+    if (!Number.isFinite(idx)) return 'Spread';
     const { hasCovers } = normalizeSpreadOpts(opts);
-    if (leftPage <= 0 && !hasCovers) return 1;
-    if (!hasCovers) return Math.floor(leftPage / 2) + 1;
-    return Math.floor((leftPage - 1) / 2) + 1;
+    if (hasCovers && idx <= 0) return 'Cover';
+    return `Spread ${idx + 1}`;
 }
 
 export function normalizeSpreadOpts(opts = {}) {
@@ -224,6 +233,11 @@ export function getPreBackHalfSpreadInfo(totalPages, opts = {}) {
     if (preBackIdx <= 1) return null;
     const { left, right } = getSpreadPages(preBackIdx, totalPages, spreadOpts);
     return { spreadIndex: preBackIdx, left, right };
+}
+
+export function isPreBackHalfSpreadIndex(spreadIndex, totalPages, opts = {}) {
+    const info = getPreBackHalfSpreadInfo(totalPages, opts);
+    return info != null && spreadIndex === info.spreadIndex;
 }
 
 export function isPreBackHalfSpreadLeftPage(leftPage, totalPages, opts = {}) {
@@ -759,4 +773,26 @@ export function enumerateCoverCollectionPlacements(
     { gridLayout = 'two-page', blankCovers = false } = {}
 ) {
     return enumerateCoverAlbumPlacements(photoCount, totalPages, { gridLayout, blankCovers });
+}
+
+/** Inner spreads in page overview can be drag-reordered (not cover, 2nd spread, pre-back, or back). */
+export function isDraggableOverviewSpread(spreadIndex, totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (totalPages <= 0) return false;
+    if (spreadOpts.hasCovers && spreadOpts.showCover && spreadIndex <= 0) return false;
+    if (spreadOpts.hasCovers && spreadIndex === 1) return false;
+    if (isPreBackHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) return false;
+    if (isEndHalfSpreadIndex(spreadIndex, totalPages, spreadOpts)) return false;
+    return spreadIndex >= 0 && spreadIndex < getTotalSpreads(totalPages, spreadOpts);
+}
+
+export function getDraggableOverviewSpreadIndices(totalPages, opts = {}) {
+    const totalSpreads = getTotalSpreads(totalPages, normalizeSpreadOpts(opts));
+    const indices = [];
+    for (let i = 0; i < totalSpreads; i += 1) {
+        if (isDraggableOverviewSpread(i, totalPages, opts)) {
+            indices.push(i);
+        }
+    }
+    return indices;
 }

@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
     enumerateSwapExecuteCandidates,
+    getSwapPickerDockSide,
     getSwapTargetThumbnail,
     isWholeGridSwapSlot,
 } from './albumSwapMarks';
@@ -18,6 +19,9 @@ export default function AlbumSwapExecuteModal({
     onClose,
 }) {
     const gridLayout = album?.grid_layout || 'two-page';
+    const dockSide = getSwapPickerDockSide(originSlot);
+    const dockRight = dockSide === 'right';
+    const dockLeft = dockSide === 'left';
 
     const isWholeOrigin = useMemo(
         () =>
@@ -54,7 +58,13 @@ export default function AlbumSwapExecuteModal({
     );
 
     return createPortal(
-        <div className="ab-swap-modal-backdrop" onClick={onClose} role="presentation">
+        <div
+            className={`ab-swap-modal-backdrop${
+                dockRight ? ' ab-swap-modal-backdrop--dock-right' : dockLeft ? ' ab-swap-modal-backdrop--dock-left' : ''
+            }`}
+            onClick={onClose}
+            role="presentation"
+        >
             <div
                 className="ab-swap-modal ab-swap-modal--execute"
                 role="dialog"

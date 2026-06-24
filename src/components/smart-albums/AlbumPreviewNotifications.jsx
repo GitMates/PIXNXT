@@ -128,7 +128,9 @@ export default function AlbumPreviewNotifications({
                                         onClick={() => handleSelect(item)}
                                     >
                                         <span className="av-preview-notifications-item-label">
-                                            {item.spreadIndex <= 0 ? 'Cover' : `Spread ${item.spreadIndex}`}
+                                            {item.spreadIndex <= 0
+                                                ? 'Cover'
+                                                : `Spread ${Number(item.spreadIndex) + 1}`}
                                         </span>
                                         <span className="av-preview-notifications-item-preview">
                                             {item.preview}

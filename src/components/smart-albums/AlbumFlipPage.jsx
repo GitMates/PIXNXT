@@ -13,7 +13,6 @@ import {
 } from './albumPageTransforms';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import AlbumPageGrid from './AlbumPageGrid';
-import AlbumSwapMarkBadge from './AlbumSwapMarkBadge';
 import AlbumPhotoPinLayer from './AlbumPhotoPinLayer';
 import './AlbumPhotoPins.css';
 import { getSlotLabel } from './albumSwapMarks';
@@ -26,7 +25,13 @@ import {
     isProofRightGridPage,
 } from './albumSpreadGrid';
 import { getAlbumLayoutPhotoCount } from './albumCollection';
-import { COVER_TEXT_CHANGED_EVENT, getAlbumCoverText } from './albumCoverText';
+import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
+import {
+    COVER_COLOR_CHANGED_EVENT,
+    getAlbumCoverColor,
+} from './albumCoverColor';
+import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
+import { parseGridSizeAspect } from './albumGridSize';
 import {
     getAlbumSpreadOptions,
     getEndSpreadPageRole,
@@ -101,10 +106,11 @@ function pageHasVisiblePhoto(
     return Boolean(showSamples && getSampleImageForPage(pageNum));
 }
 
-function PagePhoto({ src, pageNum, showSamples, className = '' }) {
+function PagePhoto({ src, pageNum, showSamples, className = '', photoRevision = 0 }) {
     const [useSampleFallback, setUseSampleFallback] = useState(false);
     const sampleSrc = showSamples ? getSampleImageForPage(pageNum) : null;
     const displaySrc = useSampleFallback ? sampleSrc : src;
+    void photoRevision;
 
     if (!displaySrc) {
         return <div className="ab-page-empty" aria-hidden />;
@@ -112,7 +118,7 @@ function PagePhoto({ src, pageNum, showSamples, className = '' }) {
 
     return (
         <img
-            key={displaySrc}
+            key={`${displaySrc}-r${photoRevision}`}
             src={displaySrc}
             alt=""
             className={`ab-page-photo${className ? ` ${className}` : ''}`}
@@ -200,6 +206,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const liveShowGridComments = ctx.showGridComments ?? showGridComments;
     const [spineBoundsTick, setSpineBoundsTick] = useState(0);
     const [coverTextTick, setCoverTextTick] = useState(0);
+    const [coverColorTick, setCoverColorTick] = useState(0);
     useEffect(() => {
         if (!album?.id) return undefined;
         const onChanged = (e) => {
@@ -215,6 +222,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
         };
         window.addEventListener(COVER_TEXT_CHANGED_EVENT, onTextChanged);
         return () => window.removeEventListener(COVER_TEXT_CHANGED_EVENT, onTextChanged);
+    }, [album?.id]);
+    useEffect(() => {
+        if (!album?.id) return undefined;
+        const onColorChanged = (e) => {
+            if (e.detail?.albumId === album.id) setCoverColorTick((t) => t + 1);
+        };
+        window.addEventListener(COVER_COLOR_CHANGED_EVENT, onColorChanged);
+        return () => window.removeEventListener(COVER_COLOR_CHANGED_EVENT, onColorChanged);
     }, [album?.id]);
     const bookWrapSpineLayout = useMemo(
         () => {
@@ -245,7 +260,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     }
 
     const albumId = albumIdProp ?? album?.id;
-    void livePhotoRevision;
     void liveTransformRevision;
     const collectionCount = albumId ? getAlbumLayoutPhotoCount(albumId, album) : 0;
     const spreadOpts = getAlbumSpreadOptions(album, { collectionCount });
@@ -318,7 +332,11 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
 
     if (isCoverInsidePage(pageNum, totalPages, coverLayoutOpts)) {
         return (
-            <div className="ab-flip-page ab-flip-page--half-blank" ref={ref} data-density="hard">
+            <div
+                className="ab-flip-page ab-flip-page--half-blank ab-flip-page--front-cover-left"
+                ref={ref}
+                data-density="hard"
+            >
                 <div className="ab-page-empty" aria-hidden />
             </div>
         );
@@ -340,8 +358,21 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
 
     const isFrontCoverRightPage = coverLayoutOpts.hasCovers && pageNum === 1;
     void coverTextTick;
+    void coverColorTick;
     const coverText =
-        isFrontCoverRightPage && albumId ? getAlbumCoverText(albumId) : '';
+        isFrontCoverRightPage
+            ? resolveFrontCoverDisplayText(album, albumId)
+            : '';
+    const showLeatherCover =
+        album?.blank_covers === true && !src && isFrontCoverRightPage;
+    const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
+    const leatherStyle =
+        showLeatherCover && albumId
+            ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
+                  aspect: pageAspect,
+                  title: coverText,
+              })
+            : null;
     const coverPlacementMode = placementMode;
     const showStar = pageNum === 1 && album?.is_starred;
     const canSelectCover = isFrontCoverRightPage && editable && !spreadEdit;
@@ -360,6 +391,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             : [];
     const isBackCoverPage = endSpreadRole === 'half-left' && spreadOpts.hasCovers;
     const isEndCoverPage = isBackCoverPage && !editable && !spreadEdit;
+    const showLeatherBackCover =
+        album?.blank_covers === true && !src && isBackCoverPage;
+    const leatherBackStyle =
+        showLeatherBackCover && albumId
+            ? getCoverLeatherSurfaceStyle(getAlbumCoverColor(albumId), {
+                  aspect: pageAspect,
+              })
+            : null;
     const endCoverSwapMarkInfo =
         isEndCoverPage ? liveGetSwapMarkInfo?.(pageNum, 1, spreadLeftForPage) : null;
     const endCoverSwapMarkInfos =
@@ -569,6 +608,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     >
                         {insideCoverPhotoSrc ? (
                             <img
+                                key={`${insideCoverPhotoSrc}-r${livePhotoRevision}`}
                                 src={insideCoverPhotoSrc}
                                 alt=""
                                 className="ab-page-photo ab-page-photo--full"
@@ -579,7 +619,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                             <div className="ab-page-empty" aria-hidden />
                         )}
                     </AlbumPhotoPinLayer>
-                    {!previewMode && <AlbumSwapMarkBadge markInfo={insideCoverSwapMarkInfo} />}
                 </HalfSpreadWrapTag>
             </div>
         );
@@ -721,6 +760,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                     >
                         {preBackPhotoSrc ? (
                             <img
+                                key={`${preBackPhotoSrc}-r${livePhotoRevision}`}
                                 src={preBackPhotoSrc}
                                 alt=""
                                 className="ab-page-photo ab-page-photo--full"
@@ -731,7 +771,6 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                             <div className="ab-page-empty" aria-hidden />
                         )}
                     </AlbumPhotoPinLayer>
-                    {!previewMode && <AlbumSwapMarkBadge markInfo={preBackSwapMarkInfo} />}
                 </HalfSpreadWrapTag>
             </div>
         );
@@ -852,6 +891,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 {pageBadge}
                 <div
                     className={`ab-page-photo-wrap${
+                        showLeatherBackCover ? ' ab-cover-leather-canvas ab-cover-leather--flat' : ''
+                    }${
                         liveProofToolsHover && endCoverProofTools && !livePinModeActive
                             ? ' ab-page-photo-wrap--swap'
                             : ''
@@ -864,6 +905,7 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                               }`
                             : ''
                     }`}
+                    style={showLeatherBackCover ? leatherBackStyle : undefined}
                 >
                     <AlbumPhotoPinLayer
                         hasPhoto={Boolean(src)}
@@ -972,14 +1014,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                     src={src}
                                     pageNum={pageNum}
                                     showSamples={showSamples}
+                                    photoRevision={livePhotoRevision}
                                     className="ab-page-photo ab-page-photo--full"
                                 />
                             )
-                        ) : (
+                        ) : showLeatherBackCover ? null : (
                             <div className="ab-page-empty" aria-hidden />
                         )}
                     </AlbumPhotoPinLayer>
-                    {!previewMode && <AlbumSwapMarkBadge markInfo={endCoverSwapMarkInfo} />}
                 </div>
             </div>
         );
@@ -1116,13 +1158,13 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 src={src}
                                 pageNum={pageNum}
                                 showSamples={showSamples}
+                                photoRevision={livePhotoRevision}
                                 className="ab-page-photo ab-page-photo--full"
                             />
                         ) : (
                             <div className="ab-page-empty" aria-hidden />
                         )}
                     </AlbumPhotoPinLayer>
-                    {!previewMode && <AlbumSwapMarkBadge markInfo={coverSwapMarkInfo} />}
                 </PageWrapTag>
             </div>
         );
@@ -1134,6 +1176,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
             <PageWrapTag
                 type={canSelectCover ? 'button' : undefined}
                 className={`ab-page-photo-wrap${
+                    showLeatherCover ? ' ab-cover-leather-canvas ab-cover-leather--flat' : ''
+                }${
                     canSelectCover ? ' ab-page-photo-wrap--interactive' : ''
                 }${liveProofToolsHover && coverProofTools && !livePinModeActive ? ' ab-page-photo-wrap--swap' : ''}${
                     coverSwapMarkInfo
@@ -1146,6 +1190,8 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                 }`}
                 onClick={canSelectCover ? () => liveOnSelectCover?.() : undefined}
                 aria-label={canSelectCover ? 'Choose cover photo' : undefined}
+                style={showLeatherCover ? leatherStyle : undefined}
+                aria-label={showLeatherCover && coverText ? coverText : undefined}
             >
                 <AlbumPhotoPinLayer
                     hasPhoto={Boolean(src)}
@@ -1247,18 +1293,25 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                                 src={src}
                                 pageNum={pageNum}
                                 showSamples={showSamples}
+                                photoRevision={livePhotoRevision}
                             />
                         )
-                    ) : (
+                    ) : isFrontCoverRightPage && coverText && !showLeatherCover ? (
+                        <div
+                            className="ab-cover-text-message ab-cover-text-message--on-blank"
+                            aria-hidden
+                        >
+                            {coverText}
+                        </div>
+                    ) : showLeatherCover ? null : (
                         <div className="ab-page-empty" aria-hidden />
                     )}
-                    {coverText ? (
+                    {coverText && src ? (
                         <div className="ab-cover-text-message" aria-hidden>
                             {coverText}
                         </div>
                     ) : null}
                 </AlbumPhotoPinLayer>
-                {!previewMode && <AlbumSwapMarkBadge markInfo={coverSwapMarkInfo} />}
                 {showStar && (
                     <span className="ab-page-star" aria-label="Starred">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="#f5c518" stroke="#f5c518" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

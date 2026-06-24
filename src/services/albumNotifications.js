@@ -23,6 +23,7 @@ import {
 const SUBMIT_SEEN_KEY = 'pixnxt_album_comments_submit_seen';
 const PROOF_APPROVED_SEEN_KEY = 'pixnxt_album_proof_approved_seen';
 const PROOF_CHANGES_SEEN_KEY = 'pixnxt_album_proof_changes_seen';
+const PROOF_COMMENTING_STARTED_SEEN_KEY = 'pixnxt_album_client_commenting_started_seen';
 const DISMISSED_KEY = 'pixnxt_album_notifications_dismissed';
 
 export const NOTIFICATIONS_CHANGED_EVENT = 'pixnxt-album-notifications-changed';
@@ -35,6 +36,7 @@ export const NOTIFICATION_TYPES = {
     COMMENTS_SIGNED: 'comments_signed',
     ALBUM_APPROVED: 'album_approved',
     CHANGES_SUBMITTED: 'changes_submitted',
+    CLIENT_STARTED_COMMENTING: 'client_started_commenting',
 };
 
 const TYPE_LABELS = {
@@ -45,6 +47,7 @@ const TYPE_LABELS = {
     [NOTIFICATION_TYPES.COMMENTS_SIGNED]: 'Comments confirmed',
     [NOTIFICATION_TYPES.ALBUM_APPROVED]: 'Album approved',
     [NOTIFICATION_TYPES.CHANGES_SUBMITTED]: 'Changes submitted',
+    [NOTIFICATION_TYPES.CLIENT_STARTED_COMMENTING]: 'Client started commenting',
 };
 
 export function getNotificationTypeLabel(type) {
@@ -179,6 +182,38 @@ function markProofChangesSeen(albumId, submittedAt) {
     notifyNotificationsChanged();
 }
 
+function readProofCommentingStartedSeen() {
+    try {
+        const raw = localStorage.getItem(PROOF_COMMENTING_STARTED_SEEN_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+function writeProofCommentingStartedSeen(data) {
+    try {
+        localStorage.setItem(PROOF_COMMENTING_STARTED_SEEN_KEY, JSON.stringify(data));
+    } catch {
+        /* ignore */
+    }
+}
+
+function isProofCommentingStartedUnseen(albumId, startedAt) {
+    if (!albumId || !startedAt) return false;
+    const seenAt = readProofCommentingStartedSeen()[albumId];
+    if (!seenAt) return true;
+    return new Date(startedAt).getTime() > new Date(seenAt).getTime();
+}
+
+function markProofCommentingStartedSeen(albumId, startedAt) {
+    if (!albumId || !startedAt) return;
+    const all = readProofCommentingStartedSeen();
+    all[albumId] = startedAt;
+    writeProofCommentingStartedSeen(all);
+    notifyNotificationsChanged();
+}
+
 function collectSyncNotificationsForAlbum(album, dismissed) {
     if (!album?.id) return [];
     const albumId = album.id;
@@ -270,6 +305,27 @@ function collectSyncNotificationsForAlbum(album, dismissed) {
         }
     }
 
+    if (album.client_commenting_started_at) {
+        const id = `proof-commenting-started-${albumId}`;
+        if (!dismissed[id]) {
+            const by = album.client_commenting_started_by?.trim();
+            items.push({
+                id,
+                type: NOTIFICATION_TYPES.CLIENT_STARTED_COMMENTING,
+                albumId,
+                albumName,
+                preview: by
+                    ? `${by} started commenting on this album`
+                    : 'Client started commenting on this album',
+                createdAt: album.client_commenting_started_at,
+                isUnread: isProofCommentingStartedUnseen(
+                    albumId,
+                    album.client_commenting_started_at
+                ),
+            });
+        }
+    }
+
     return items;
 }
 
@@ -321,6 +377,21 @@ export async function listPhotographerNotifications(albums) {
     );
 }
 
+export async function listAlbumNotificationsForAlbum(album) {
+    if (!album?.id) return [];
+    const dismissed = readDismissed();
+    const syncItems = collectSyncNotificationsForAlbum(album, dismissed);
+    const commentItems = await collectCommentNotificationsForAlbum(album, dismissed);
+    return [...syncItems, ...commentItems].sort(
+        (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+}
+
+export async function countUnreadAlbumNotifications(album) {
+    const items = await listAlbumNotificationsForAlbum(album);
+    return items.filter((item) => item.isUnread).length;
+}
+
 export async function countUnreadPhotographerNotifications(albums) {
     const items = await listPhotographerNotifications(albums);
     return items.filter((item) => item.isUnread).length;
@@ -355,6 +426,9 @@ export function markNotificationItemSeen(item) {
         case NOTIFICATION_TYPES.CHANGES_SUBMITTED:
             markProofChangesSeen(albumId, item.createdAt);
             break;
+        case NOTIFICATION_TYPES.CLIENT_STARTED_COMMENTING:
+            markProofCommentingStartedSeen(albumId, item.createdAt);
+            break;
         default:
             break;
     }
@@ -377,6 +451,87 @@ export function markAllNotificationsRead(items) {
     items.filter((item) => item.isUnread).forEach((item) => markNotificationItemSeen(item));
 }
 
+async function collectAllNotificationIdsForAlbum(album) {
+    if (!album?.id) return [];
+    const albumId = album.id;
+    const ids = [];
+
+    getPhotoPins(albumId).forEach((pin) => ids.push(`pin-${pin.id}`));
+    getSwapMarks(albumId).forEach((mark) => ids.push(`swap-${mark.id}`));
+
+    if (getCommentsSubmittedAt(albumId)) ids.push(`submit-${albumId}`);
+    if (album.client_approved_at) ids.push(`proof-approved-${albumId}`);
+    if (album.client_changes_submitted_at) ids.push(`proof-changes-${albumId}`);
+    if (album.client_commenting_started_at) ids.push(`proof-commenting-started-${albumId}`);
+
+    try {
+        const comments = await smartAlbumCommentsService.listAlbumComments(albumId);
+        comments
+            .filter((comment) => comment.author_type === 'client')
+            .forEach((comment) => ids.push(`comment-${comment.id}`));
+    } catch {
+        /* ignore */
+    }
+
+    return ids;
+}
+
+/** Mark every client proof item seen for one album (pins, swaps, comments, proof events). */
+export async function markAllAlbumProofItemsSeen(album) {
+    if (!album?.id) return;
+    const albumId = album.id;
+
+    const pins = getPhotoPins(albumId);
+    if (pins.length) markPhotoPinsSeen(albumId, pins);
+
+    const marks = getSwapMarks(albumId);
+    if (marks.length) markSwapMarksSeen(albumId, marks);
+
+    if (getCommentsSubmittedAt(albumId)) markSubmitNotificationSeen(albumId);
+    if (album.client_approved_at) markProofApprovedSeen(albumId, album.client_approved_at);
+    if (album.client_changes_submitted_at) {
+        markProofChangesSeen(albumId, album.client_changes_submitted_at);
+    }
+    if (album.client_commenting_started_at) {
+        markProofCommentingStartedSeen(albumId, album.client_commenting_started_at);
+    }
+
+    try {
+        const comments = await smartAlbumCommentsService.listAlbumComments(albumId);
+        const clientComments = comments.filter((comment) => comment.author_type === 'client');
+        if (clientComments.length) markCommentsSeen(albumId, clientComments);
+    } catch {
+        /* ignore */
+    }
+}
+
+/** Mark all proof notifications read across every album (albums list bell). */
+export async function markAllPhotographerNotificationsRead(albums) {
+    if (!albums?.length) return;
+    await Promise.all(albums.map((album) => markAllAlbumProofItemsSeen(album)));
+    notifyNotificationsChanged();
+}
+
+/** Dismiss and resolve every proof notification across every album. */
+export async function clearAllPhotographerNotifications(albums) {
+    if (!albums?.length) return;
+    const dismissed = readDismissed();
+
+    await Promise.all(
+        albums.map(async (album) => {
+            if (!album?.id) return;
+            await markAllAlbumProofItemsSeen(album);
+            const ids = await collectAllNotificationIdsForAlbum(album);
+            ids.forEach((id) => {
+                dismissed[id] = true;
+            });
+        })
+    );
+
+    writeDismissed(dismissed);
+    notifyNotificationsChanged();
+}
+
 export function dismissAllNotifications(items) {
     if (!items?.length) return;
     const all = readDismissed();
@@ -393,7 +548,7 @@ export function getNotificationPanel(item) {
         case NOTIFICATION_TYPES.PHOTO_COMMENT:
             return 'pin';
         case NOTIFICATION_TYPES.SWAP:
-            return 'swap';
+            return 'pin';
         case NOTIFICATION_TYPES.SPREAD_COMMENT:
         case NOTIFICATION_TYPES.CLIENT_REPLY:
         case NOTIFICATION_TYPES.COMMENTS_SIGNED:

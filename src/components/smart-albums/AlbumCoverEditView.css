@@ -46,7 +46,9 @@
   flex: 0 0 auto;
   flex-shrink: 0;
   position: relative;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
+  box-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.14),
+    0 4px 12px rgba(0, 0, 0, 0.08);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -87,10 +89,34 @@
   outline-offset: -2px;
 }
 
+.ab-cover-edit-spine-gap {
+  flex: 0 0 auto;
+  align-self: stretch;
+  position: relative;
+  overflow: hidden;
+  background: transparent;
+  pointer-events: none;
+}
+
+.ab-cover-edit-spine-gap .ab-book-wrap-spine-img,
+.ab-cover-edit-spine-gap .ab-book-wrap-segment-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .ab-cover-edit-spine-panel {
   flex-shrink: 0;
   position: relative;
   z-index: 1;
+  min-width: 6px;
+  background: transparent;
+}
+
+.ab-cover-edit-view__photo-wrap .ab-book-wrap-spine-fill {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .ab-cover-edit-spine-handle {
@@ -104,6 +130,14 @@
   cursor: ew-resize;
 }
 
+.ab-cover-edit-spine-handle--inward.ab-cover-edit-spine-handle--left {
+  cursor: e-resize;
+}
+
+.ab-cover-edit-spine-handle--inward.ab-cover-edit-spine-handle--right {
+  cursor: w-resize;
+}
+
 .ab-cover-edit-spine-handle__line {
   position: absolute;
   top: 0;
@@ -112,7 +146,6 @@
   width: 1px;
   margin-left: -0.5px;
   background: #e53935;
-  box-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.9);
   pointer-events: none;
 }
 
@@ -151,6 +184,36 @@
   background: #fff;
 }
 
+.ab-cover-edit-spine-panel .ab-cover-edit-view__photo-wrap {
+  background: transparent;
+}
+
+.ab-cover-edit-view__photo-wrap.ab-cover-leather-canvas {
+  background-color: transparent;
+  box-shadow: none;
+}
+
+.ab-cover-edit-page .ab-cover-text-message--on-blank {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  color: #374151;
+  text-shadow: none;
+  font-size: clamp(7px, 1.3vw, 12px);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ab-cover-edit-page .ab-cover-text-message--leather {
+  color: var(--ab-leather-text, #8f8474);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.38),
+    0 -1px 1px rgba(0, 0, 0, 0.16),
+    1px 1px 2px rgba(0, 0, 0, 0.08);
+}
+
 .ab-book-wrap-cover-img,
 .ab-book-wrap-spine-img {
   display: block;
@@ -178,6 +241,7 @@
 .ab-cover-edit-hint--spine {
   font-size: 10px;
   letter-spacing: 0.08em;
+  white-space: nowrap;
 }
 
 .ab-cover-edit-view__empty {
@@ -188,18 +252,6 @@
 
 .ab-cover-edit-view__empty--spine {
   background: #e4e7ec;
-}
-
-.ab-cover-edit-spread--has-spine .ab-cover-edit-page--back {
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.ab-cover-edit-spread--has-spine .ab-cover-edit-page--front {
-  border-left: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.ab-cover-edit-spread--has-spine .ab-cover-edit-spine-panel {
-  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
 }
 
 .ab-cover-edit-page .ab-cover-text-message {

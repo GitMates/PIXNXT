@@ -1,5 +1,6 @@
 import { getAlbumCollection } from './albumCollection';
 import { spliceIndexedPhotoMap } from './albumPageStorage';
+import { serializeImageReplacementsForSnapshot } from './albumImageReplacements';
 
 const PHOTOS_KEY = 'pixnxt_album_page_photos';
 const REMOTE_CACHE = new Map();
@@ -60,6 +61,27 @@ export function deriveCoverUrlFromSnapshot(snapshot) {
     return null;
 }
 
+/** Book-wrap front cover from a cloud snapshot (spread:0 / page 1 / collection[0]). */
+export function deriveFrontCoverUrlFromSnapshot(snapshot, { blankCovers = false } = {}) {
+    if (!snapshot) return null;
+    if (snapshot.cover_url && !blankCovers) return snapshot.cover_url;
+
+    const collection = snapshot.collection || [];
+    const pages = snapshot.pages || {};
+
+    const onSpread = resolveStoredUrl(pages['spread:0'], collection);
+    if (onSpread) return onSpread;
+
+    if (blankCovers) return null;
+
+    const onPageOne = resolveStoredUrl(pages['1'], collection);
+    if (onPageOne) return onPageOne;
+
+    if (collection[0]?.dataUrl) return collection[0].dataUrl;
+
+    return null;
+}
+
 function listAlbumIdsWithLocalAssets() {
     const ids = new Set();
     try {
@@ -101,6 +123,7 @@ export function buildAlbumPreviewSnapshot(albumId) {
         name: item.name || 'Photo',
         dataUrl: item.dataUrl || null,
         storagePath: item.storagePath || null,
+        size_bytes: Number(item.size_bytes) || 0,
         sortOrder:
             typeof item.sortOrder === 'number' && Number.isFinite(item.sortOrder)
                 ? item.sortOrder
@@ -120,6 +143,8 @@ export function buildAlbumPreviewSnapshot(albumId) {
         collection,
         pages,
         revision: localPages.__revision ?? 0,
+        image_replacements: serializeImageReplacementsForSnapshot(albumId),
+        storage_bytes: collection.reduce((sum, item) => sum + (Number(item.size_bytes) || 0), 0),
     };
     snapshot.cover_url = deriveCoverUrlFromSnapshot(snapshot);
     return snapshot;
@@ -151,6 +176,17 @@ export function clearAlbumPreviewDataCache(albumId) {
 
 export function getRemotePreviewData(albumId) {
     return REMOTE_CACHE.get(albumId) || null;
+}
+
+/** Keep in-memory preview replacement list aligned with local edits (e.g. dismiss in Review Summary). */
+export function patchRemotePreviewImageReplacements(albumId, replacements) {
+    if (!albumId) return;
+    const remote = REMOTE_CACHE.get(albumId);
+    if (!remote) return;
+    REMOTE_CACHE.set(albumId, {
+        ...remote,
+        image_replacements: Array.isArray(replacements) ? replacements : [],
+    });
 }
 
 export function getRemoteCollectionItem(albumId, itemId) {

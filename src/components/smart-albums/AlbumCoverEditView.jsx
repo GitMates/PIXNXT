@@ -5,14 +5,22 @@ import {
     clampSpineBounds,
     getBookWrapSpineCssVars,
     getBookWrapSpineLayout,
+    isInwardSpineOverride,
 } from './bookWrapSpine';
 import {
+    clearAlbumSpineBoundsOverride,
     getAlbumSpineBoundsOverride,
     setAlbumSpineBoundsOverride,
     SPINE_BOUNDS_CHANGED_EVENT,
 } from './albumSpineSettings';
+import { parseGridSizeAspect } from './albumGridSize';
 import BookWrapSpineImage from './BookWrapSpineImage';
-import { COVER_TEXT_CHANGED_EVENT, getAlbumCoverText } from './albumCoverText';
+import { COVER_TEXT_CHANGED_EVENT, resolveFrontCoverDisplayText } from './albumCoverText';
+import {
+    COVER_COLOR_CHANGED_EVENT,
+    getAlbumCoverColor,
+} from './albumCoverColor';
+import { getCoverLeatherSurfaceStyle } from './coverLeatherSurface';
 import './AlbumCoverEditView.css';
 
 const PAGE_HEIGHT_MIN = 300;
@@ -59,6 +67,7 @@ export default function AlbumCoverEditView({
     const [spineBounds, setSpineBounds] = useState(null);
     const [spineDragging, setSpineDragging] = useState(false);
     const [coverTextTick, setCoverTextTick] = useState(0);
+    const [coverColorTick, setCoverColorTick] = useState(0);
     const dragRef = useRef(null);
 
     const baseLayout = useMemo(() => getBookWrapSpineLayout(album), [album, spineBoundsTick]);
@@ -67,7 +76,8 @@ export default function AlbumCoverEditView({
         const clamped = clampSpineBounds(
             spineBounds.spineStartFraction,
             spineBounds.spineEndFraction,
-            baseLayout
+            baseLayout,
+            { inwardOnly: baseLayout.spineFromCoverCalc }
         );
         const spineFraction = clamped.spineEndFraction - clamped.spineStartFraction;
         return {
@@ -75,6 +85,12 @@ export default function AlbumCoverEditView({
             ...clamped,
             spineFraction,
             coverFraction: clamped.spineStartFraction,
+            coverSpineStartFraction: baseLayout.coverSpineStartFraction,
+            coverSpineEndFraction: baseLayout.coverSpineEndFraction,
+            spineDisplayStartFraction: clamped.spineStartFraction,
+            spineDisplayEndFraction: clamped.spineEndFraction,
+            spineZoneStartFraction: baseLayout.spineZoneStartFraction,
+            spineZoneEndFraction: baseLayout.spineZoneEndFraction,
             hasSpine: spineFraction > 0.004,
         };
     }, [baseLayout, spineBounds]);
@@ -90,16 +106,45 @@ export default function AlbumCoverEditView({
     void transformRevision;
 
     useEffect(() => {
+        const autoBounds = {
+            spineStartFraction: baseLayout.spineStartFraction,
+            spineEndFraction: baseLayout.spineEndFraction,
+        };
+        if (baseLayout.spineFromCoverCalc) {
+            const autoBounds = {
+                spineStartFraction: baseLayout.defaultSpineStartFraction,
+                spineEndFraction: baseLayout.defaultSpineEndFraction,
+            };
+            const override = getAlbumSpineBoundsOverride(albumId);
+            if (override && isInwardSpineOverride(override, baseLayout)) {
+                setSpineBounds({
+                    spineStartFraction: override.spineStartFraction,
+                    spineEndFraction: override.spineEndFraction,
+                });
+                return;
+            }
+            if (albumId && override) clearAlbumSpineBoundsOverride(albumId);
+            setSpineBounds(autoBounds);
+            return;
+        }
         const override = getAlbumSpineBoundsOverride(albumId);
         if (override) {
-            setSpineBounds(override);
-        } else {
-            setSpineBounds({
-                spineStartFraction: baseLayout.spineStartFraction,
-                spineEndFraction: baseLayout.spineEndFraction,
-            });
+            const span = override.spineEndFraction - override.spineStartFraction;
+            if (span > 0.004 && span < 0.5) {
+                setSpineBounds(override);
+                return;
+            }
+            if (albumId) clearAlbumSpineBoundsOverride(albumId);
         }
-    }, [albumId, baseLayout.spineStartFraction, baseLayout.spineEndFraction]);
+        setSpineBounds(autoBounds);
+    }, [
+        albumId,
+        baseLayout.spineStartFraction,
+        baseLayout.spineEndFraction,
+        baseLayout.spineFromCoverCalc,
+        baseLayout.wrapAspect,
+        baseLayout.innerSpreadAspect,
+    ]);
 
     useEffect(() => {
         if (!albumId) return undefined;
@@ -121,12 +166,51 @@ export default function AlbumCoverEditView({
         return () => window.removeEventListener(COVER_TEXT_CHANGED_EVENT, onTextChanged);
     }, [albumId]);
 
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const onColorChanged = (e) => {
+            if (e.detail?.albumId === albumId) setCoverColorTick((t) => t + 1);
+        };
+        window.addEventListener(COVER_COLOR_CHANGED_EVENT, onColorChanged);
+        return () => window.removeEventListener(COVER_COLOR_CHANGED_EVENT, onColorChanged);
+    }, [albumId]);
+
     const coverText = useMemo(() => {
         void coverTextTick;
-        return albumId ? getAlbumCoverText(albumId) : '';
-    }, [albumId, coverTextTick]);
+        return resolveFrontCoverDisplayText(album, albumId);
+    }, [album, albumId, coverTextTick]);
 
     const isBlankCoverAlbum = album?.blank_covers === true;
+    const showLeatherCover = isBlankCoverAlbum && !src;
+    const coverColorId = useMemo(() => {
+        void coverColorTick;
+        return getAlbumCoverColor(albumId);
+    }, [albumId, coverColorTick]);
+    const pageAspect = parseGridSizeAspect(album?.grid_size || 'square');
+    const leatherBackStyle = useMemo(
+        () =>
+            showLeatherCover
+                ? getCoverLeatherSurfaceStyle(coverColorId, { aspect: pageAspect })
+                : null,
+        [showLeatherCover, coverColorId, pageAspect]
+    );
+    const leatherSpineStyle = useMemo(
+        () =>
+            showLeatherCover
+                ? getCoverLeatherSurfaceStyle(coverColorId, { aspect: pageAspect, spine: true })
+                : null,
+        [showLeatherCover, coverColorId, pageAspect]
+    );
+    const leatherFrontStyle = useMemo(
+        () =>
+            showLeatherCover
+                ? getCoverLeatherSurfaceStyle(coverColorId, {
+                      aspect: pageAspect,
+                      title: coverText,
+                  })
+                : null,
+        [showLeatherCover, coverColorId, pageAspect, coverText]
+    );
     const spineVisible = spineLayout.hasSpine && showSpine;
 
     const panelWidths = useMemo(() => {
@@ -134,12 +218,56 @@ export default function AlbumCoverEditView({
         const total = dims.width;
         if (!spineVisible) {
             const back = Math.floor(total / 2);
-            return { back, spine: 0, front: total - back };
+            return { back, spine: 0, front: total - back, gapBeforeSpine: 0, gapAfterSpine: 0 };
         }
+
+        if (spineLayout.spineFromCoverCalc) {
+            const coverStart =
+                spineLayout.coverSpineStartFraction ??
+                spineLayout.defaultSpineStartFraction;
+            const coverEnd =
+                spineLayout.coverSpineEndFraction ?? spineLayout.defaultSpineEndFraction;
+            const back = Math.round(total * coverStart);
+            const front = Math.round(total * (1 - coverEnd));
+            const spine = Math.round(total * spineLayout.spineFraction);
+            const gapBeforeSpine = Math.round(
+                total * Math.max(0, spineLayout.spineStartFraction - coverStart)
+            );
+            const gapAfterSpine = Math.round(
+                total * Math.max(0, coverEnd - spineLayout.spineEndFraction)
+            );
+            const used = back + front + spine + gapBeforeSpine + gapAfterSpine;
+            const remainder = total - used;
+            return {
+                back,
+                spine,
+                front: front + remainder,
+                gapBeforeSpine,
+                gapAfterSpine,
+            };
+        }
+
         const back = Math.round(total * spineLayout.spineStartFraction);
         const spine = Math.round(total * spineLayout.spineFraction);
-        return { back, spine, front: total - back - spine };
-    }, [dims, spineVisible, spineLayout.spineStartFraction, spineLayout.spineFraction]);
+        return {
+            back,
+            spine,
+            front: total - back - spine,
+            gapBeforeSpine: 0,
+            gapAfterSpine: 0,
+        };
+    }, [
+        dims,
+        spineVisible,
+        spineLayout.spineFromCoverCalc,
+        spineLayout.coverSpineStartFraction,
+        spineLayout.coverSpineEndFraction,
+        spineLayout.defaultSpineStartFraction,
+        spineLayout.defaultSpineEndFraction,
+        spineLayout.spineStartFraction,
+        spineLayout.spineEndFraction,
+        spineLayout.spineFraction,
+    ]);
 
     const measure = useCallback(() => {
         const el = stageRef.current;
@@ -162,7 +290,10 @@ export default function AlbumCoverEditView({
 
     const persistSpineBounds = useCallback(
         (start, end, { fixedEdge = null } = {}) => {
-            const clamped = clampSpineBounds(start, end, baseLayout, { fixedEdge });
+            const clamped = clampSpineBounds(start, end, baseLayout, {
+                fixedEdge,
+                inwardOnly: baseLayout.spineFromCoverCalc,
+            });
             setSpineBounds(clamped);
             if (albumId) {
                 setAlbumSpineBoundsOverride(
@@ -245,7 +376,20 @@ export default function AlbumCoverEditView({
         [editable, onSlotActivate, isBlankCoverAlbum, src]
     );
 
+    const spineInwardOnly = baseLayout.spineFromCoverCalc;
     const panelHeight = dims?.height;
+    const spinePanelLeft =
+        panelWidths && spineVisible
+            ? panelWidths.back + (panelWidths.gapBeforeSpine || 0)
+            : 0;
+    const gapBeforeStyle =
+        panelWidths && panelHeight && panelWidths.gapBeforeSpine > 0
+            ? { width: panelWidths.gapBeforeSpine, height: panelHeight }
+            : undefined;
+    const gapAfterStyle =
+        panelWidths && panelHeight && panelWidths.gapAfterSpine > 0
+            ? { width: panelWidths.gapAfterSpine, height: panelHeight }
+            : undefined;
     const backStyle =
         panelWidths && panelHeight
             ? { width: panelWidths.back, height: panelHeight }
@@ -306,7 +450,12 @@ export default function AlbumCoverEditView({
                             : undefined
                     }
                 >
-                    <div className="ab-cover-edit-view__photo-wrap">
+                    <div
+                        className={`ab-cover-edit-view__photo-wrap${
+                            showLeatherCover ? ' ab-cover-leather-canvas' : ''
+                        }`}
+                        style={showLeatherCover ? leatherBackStyle : undefined}
+                    >
                         {src ? (
                             <BookWrapSpineImage
                                 src={src}
@@ -314,12 +463,29 @@ export default function AlbumCoverEditView({
                                 layout={spineLayout}
                                 transform={transform}
                             />
-                        ) : (
+                        ) : !showLeatherCover ? (
                             <div className="ab-cover-edit-view__empty" aria-hidden />
-                        )}
+                        ) : null}
                     </div>
                     <span className="ab-cover-edit-hint ab-cover-edit-hint--back">Back</span>
                 </PanelTag>
+
+                {spineVisible && panelWidths?.gapBeforeSpine > 0 && (
+                    <div
+                        className="ab-cover-edit-spine-gap ab-cover-edit-spine-gap--before"
+                        style={gapBeforeStyle}
+                        aria-hidden
+                    >
+                        {src ? (
+                            <BookWrapSpineImage
+                                src={src}
+                                side="spine-gap-before"
+                                layout={spineLayout}
+                                transform={transform}
+                            />
+                        ) : null}
+                    </div>
+                )}
 
                 {spineVisible && (
                     <div
@@ -327,7 +493,12 @@ export default function AlbumCoverEditView({
                         style={spineStyle}
                         aria-label="Spine"
                     >
-                        <div className="ab-cover-edit-view__photo-wrap">
+                        <div
+                            className={`ab-cover-edit-view__photo-wrap${
+                                showLeatherCover ? ' ab-cover-leather-canvas' : ''
+                            }`}
+                            style={showLeatherCover ? leatherSpineStyle : undefined}
+                        >
                             {src ? (
                                 <BookWrapSpineImage
                                     src={src}
@@ -335,33 +506,67 @@ export default function AlbumCoverEditView({
                                     layout={spineLayout}
                                     transform={transform}
                                 />
-                            ) : (
-                                <div className="ab-cover-edit-view__empty ab-cover-edit-view__empty--spine" />
-                            )}
+                            ) : !showLeatherCover ? (
+                                <div
+                                    className="ab-cover-edit-view__empty ab-cover-edit-view__empty--spine"
+                                    aria-hidden
+                                />
+                            ) : null}
                         </div>
-                        <span className="ab-cover-edit-hint ab-cover-edit-hint--spine">Spine</span>
+                        <span className="ab-cover-edit-hint ab-cover-edit-hint--spine">
+                            Spine
+                        </span>
+                    </div>
+                )}
+
+                {spineVisible && panelWidths?.gapAfterSpine > 0 && (
+                    <div
+                        className="ab-cover-edit-spine-gap ab-cover-edit-spine-gap--after"
+                        style={gapAfterStyle}
+                        aria-hidden
+                    >
+                        {src ? (
+                            <BookWrapSpineImage
+                                src={src}
+                                side="spine-gap-after"
+                                layout={spineLayout}
+                                transform={transform}
+                            />
+                        ) : null}
                     </div>
                 )}
 
                 {spineVisible && panelWidths && (
                     <>
                         <div
-                            className="ab-cover-edit-spine-handle ab-cover-edit-spine-handle--left"
-                            style={{ left: panelWidths.back }}
+                            className={`ab-cover-edit-spine-handle ab-cover-edit-spine-handle--left${
+                                spineInwardOnly ? ' ab-cover-edit-spine-handle--inward' : ''
+                            }`}
+                            style={{ left: spinePanelLeft }}
                             role="separator"
                             aria-orientation="vertical"
-                            aria-label="Drag to resize spine (left edge)"
+                            aria-label={
+                                spineInwardOnly
+                                    ? 'Drag inward to narrow spine (left edge)'
+                                    : 'Drag to resize spine (left edge)'
+                            }
                             onPointerDown={(e) => startSpineDrag('left', e)}
                         >
                             <span className="ab-cover-edit-spine-handle__line" aria-hidden />
                             <span className="ab-cover-edit-spine-handle__grip" aria-hidden />
                         </div>
                         <div
-                            className="ab-cover-edit-spine-handle ab-cover-edit-spine-handle--right"
-                            style={{ left: panelWidths.back + panelWidths.spine }}
+                            className={`ab-cover-edit-spine-handle ab-cover-edit-spine-handle--right${
+                                spineInwardOnly ? ' ab-cover-edit-spine-handle--inward' : ''
+                            }`}
+                            style={{ left: spinePanelLeft + panelWidths.spine }}
                             role="separator"
                             aria-orientation="vertical"
-                            aria-label="Drag to resize spine (right edge)"
+                            aria-label={
+                                spineInwardOnly
+                                    ? 'Drag inward to narrow spine (right edge)'
+                                    : 'Drag to resize spine (right edge)'
+                            }
                             onPointerDown={(e) => startSpineDrag('right', e)}
                         >
                             <span className="ab-cover-edit-spine-handle__line" aria-hidden />
@@ -385,7 +590,13 @@ export default function AlbumCoverEditView({
                             : undefined
                     }
                 >
-                    <div className="ab-cover-edit-view__photo-wrap">
+                    <div
+                        className={`ab-cover-edit-view__photo-wrap${
+                            showLeatherCover ? ' ab-cover-leather-canvas' : ''
+                        }`}
+                        style={showLeatherCover ? leatherFrontStyle : undefined}
+                        aria-label={showLeatherCover && coverText ? coverText : undefined}
+                    >
                         {src ? (
                             <BookWrapSpineImage
                                 src={src}
@@ -393,10 +604,17 @@ export default function AlbumCoverEditView({
                                 layout={spineLayout}
                                 transform={transform}
                             />
+                        ) : showLeatherCover ? null : coverText ? (
+                            <div
+                                className="ab-cover-text-message ab-cover-text-message--on-blank"
+                                aria-hidden
+                            >
+                                {coverText}
+                            </div>
                         ) : (
                             <div className="ab-cover-edit-view__empty" aria-hidden />
                         )}
-                        {coverText ? (
+                        {coverText && src ? (
                             <div className="ab-cover-text-message" aria-hidden>
                                 {coverText}
                             </div>

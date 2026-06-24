@@ -4,6 +4,7 @@ import AlbumBook from '../../components/smart-albums/AlbumBook';
 import AlbumCoverEditView from '../../components/smart-albums/AlbumCoverEditView';
 import AlbumCoverTextModal from '../../components/smart-albums/AlbumCoverTextModal';
 import AlbumEditorSidebar from '../../components/smart-albums/AlbumEditorSidebar';
+import AlbumEditorNotifications from '../../components/smart-albums/AlbumEditorNotifications';
 import {
     COVER_TEXT_CHANGED_EVENT,
     getAlbumCoverText,
@@ -19,6 +20,8 @@ import {
 } from '../../lib/shareSmartAlbum';
 import {
     addFilesToAlbumCollection,
+    deleteCollectionItemAsset,
+    replaceCollectionItemFile,
     getAlbumCollection,
     getAlbumCollectionRevision,
     getAlbumLayoutPhotoCount,
@@ -31,13 +34,16 @@ import {
 import { insertAlbumStoragePages, removeAlbumStoragePages } from '../../components/smart-albums/albumPageStorage';
 import { shiftAlbumRemotePreviewPages } from '../../components/smart-albums/albumPreviewData';
 import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
-import { isPdfFile } from '../../lib/pdfToImages';
+import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
 import { filesFromInput } from '../../lib/uploadFileOrder';
 import {
     clearAllAlbumPagePhotos,
     clearCollectionItemPlacements,
+    getSlotPlacementCollectionItemId,
     getAlbumPhotoRevision,
     getSpreadPhotoOverride,
+    pageHasPlacedPhoto,
+    resolveSlotCollectionItemId,
     migrateEndHalfSpreadToLeftPage,
     migrateBackCoverUsesBookWrap,
     migrateFrontCoverToFullSpread,
@@ -46,6 +52,7 @@ import {
     migrateMiskeyedInnerSpreadPhotos,
     migrateWholeSpreadPagePhotosToSpreadKeys,
     migrateWholeSpreadPhotoOffRightPage,
+    reorderOverviewSpreads,
     spreadHasWholeSpreadPhoto,
     placeCollectionItemOnPages,
     setPagePhotoFromCollectionItem,
@@ -55,7 +62,8 @@ import {
     resolveBookWrapSpreadSrc,
     syncCoverWrapRoleFromSpread,
 } from '../../components/smart-albums/albumPagePhotos';
-import { loadImageAspectFromUrl } from '../../components/smart-albums/albumGridSize';
+import { getSlotUploadPixelTarget } from '../../components/smart-albums/albumGridSize';
+import { useAlbumWrapAspect, withAlbumWrapAspect } from '../../components/smart-albums/useAlbumWrapAspect';
 import {
     clearSpreadPhotos,
     swapPhotoSlots,
@@ -94,8 +102,12 @@ import {
     spreadIndexToPage,
 } from '../../components/smart-albums/albumSpreadUtils';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
+import {
+    captureSlotImageBeforeReplace,
+    captureSlotImageBeforeReplaceAsync,
+    trackSpreadImageReplacement,
+} from '../../components/smart-albums/albumImageReplacements';
 import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
-import AlbumCommentsFeed from '../../components/smart-albums/AlbumCommentsFeed';
 import {
     getSwapMarks,
     isWholeGridSwapSlot,
@@ -112,10 +124,12 @@ import {
 } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
+    COMMENTS_SEEN_CHANGED_EVENT,
     groupRootCommentsBySpread,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import { useAuth } from '../../hooks/useAuth';
+import { getUserDisplayLabel } from '../../lib/userInitials';
 import { computePageCountFromPhotoCount } from './createAlbumLayout';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import './AlbumEditor.css';
@@ -143,6 +157,111 @@ function buildCellSelection(leftPage, cellId) {
 
 function buildCoverSelection() {
     return { mode: 'cover', leftPage: 0, cellId: null };
+}
+
+function slotFromCurrentSpread(
+    gridSelection,
+    gridEditSet,
+    bookPage,
+    totalPages,
+    spreadOpts,
+    album,
+    albumId
+) {
+    if (!gridSelection) return null;
+
+    if (gridSelection.mode === 'cover') {
+        return {
+            pageNum: 0,
+            cellId: 0,
+            spreadLeft: 0,
+            label: albumHasBlankCovers(album) ? 'Cover' : 'Cover',
+        };
+    }
+
+    const left =
+        gridSelection.leftPage ??
+        getSpreadLeftForBookPage(bookPage, totalPages, spreadOpts);
+    const rightPage = Math.min(left + 1, Math.max(0, totalPages - 1));
+
+    if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
+        const { left: endLeft } = getEndSpreadPageIndices(totalPages);
+        return {
+            pageNum: endLeft,
+            cellId: 1,
+            spreadLeft: endLeft,
+            whole: false,
+            label: 'End cover',
+        };
+    }
+
+    if (albumHasBlankCovers(album)) {
+        if (isInsideCoverSpreadLeft(left, totalPages, spreadOpts)) {
+            return {
+                pageNum: 3,
+                cellId: 2,
+                spreadLeft: left,
+                whole: false,
+                label: 'Inside cover',
+            };
+        }
+        if (isPreBackHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
+            return {
+                pageNum: left,
+                cellId: 1,
+                spreadLeft: left,
+                whole: false,
+                label: 'Pre-back spread',
+            };
+        }
+    }
+
+    const manualWhole = isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
+    const wantsWholeSpread =
+        manualWhole &&
+        (gridEditSet === 'whole' ||
+            gridSelection.mode === 'spread' ||
+            isWholeSpreadLayout(album?.grid_layout));
+
+    if (wantsWholeSpread) {
+        return {
+            pageNum: left,
+            cellId: 1,
+            spreadLeft: left,
+            whole: true,
+            label: 'Whole spread',
+        };
+    }
+
+    if (albumId) {
+        if (spreadHasWholeSpreadPhoto(albumId, left)) {
+            return {
+                pageNum: left,
+                cellId: 1,
+                spreadLeft: left,
+                whole: true,
+                label: 'Whole spread',
+            };
+        }
+        const rightHasPhoto = pageHasPlacedPhoto(albumId, rightPage);
+        const leftHasPhoto = pageHasPlacedPhoto(albumId, left);
+        if (rightHasPhoto && !leftHasPhoto) {
+            return {
+                pageNum: rightPage,
+                cellId: 2,
+                spreadLeft: left,
+                whole: false,
+            };
+        }
+    }
+
+    const cellId = gridSelection.cellId || 1;
+    return {
+        pageNum: cellId === 2 ? rightPage : left,
+        cellId,
+        spreadLeft: left,
+        whole: false,
+    };
 }
 
 function layoutToPlacementMode(layout) {
@@ -180,6 +299,7 @@ export default function AlbumEditor({
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const { user } = useAuth();
+    const photographerDisplayName = getUserDisplayLabel(user);
     const [activePanel, setActivePanel] = useState('collections');
     const { toast, showToast, clearToast } = useAppToast(4000);
     const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
@@ -195,6 +315,7 @@ export default function AlbumEditor({
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
+    const [publishBusy, setPublishBusy] = useState(false);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const [proofSeenTick, setProofSeenTick] = useState(0);
@@ -244,47 +365,14 @@ export default function AlbumEditor({
               : buildCellSelection(0, 1);
     });
 
-    const [wrapAspect, setWrapAspect] = useState(null);
-
-    useEffect(() => {
-        if (!album?.has_covers || !albumId) {
-            setWrapAspect(null);
-            return undefined;
-        }
-        const blankCovers = albumHasBlankCovers(album);
-        if (!blankCovers && album?.spread_grid_size) {
-            setWrapAspect(null);
-            return undefined;
-        }
-        const src = resolveBookWrapSpreadSrc({ ...album, id: albumId }, { showSamples: false });
-        if (!src) {
-            setWrapAspect(null);
-            return undefined;
-        }
-        let cancelled = false;
-        loadImageAspectFromUrl(src).then((aspect) => {
-            if (!cancelled && aspect > 0) setWrapAspect(aspect);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [
+    const wrapAspect = useAlbumWrapAspect(
         album,
         albumId,
-        album?.has_covers,
-        album?.blank_covers,
-        album?.spread_grid_size,
-        photoRevision,
-        photoLayoutRev,
-        transformRevision,
-    ]);
+        photoRevision || photoLayoutRev || transformRevision
+    );
 
     const albumForBook = useMemo(
-        () => ({
-            ...album,
-            id: albumId,
-            ...(wrapAspect > 0 ? { __wrap_aspect: wrapAspect } : {}),
-        }),
+        () => withAlbumWrapAspect(album, albumId, wrapAspect),
         [album, albumId, wrapAspect]
     );
 
@@ -547,9 +635,11 @@ export default function AlbumEditor({
         };
         window.addEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, bumpSeen);
         window.addEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, bumpSeen);
+        window.addEventListener(COMMENTS_SEEN_CHANGED_EVENT, bumpSeen);
         return () => {
             window.removeEventListener(PHOTO_PINS_SEEN_CHANGED_EVENT, bumpSeen);
             window.removeEventListener(SWAP_MARKS_SEEN_CHANGED_EVENT, bumpSeen);
+            window.removeEventListener(COMMENTS_SEEN_CHANGED_EVENT, bumpSeen);
         };
     }, [albumId]);
 
@@ -638,8 +728,10 @@ export default function AlbumEditor({
 
     useEffect(() => {
         const panel = searchParams.get('panel');
-        const validPanels = ['collections', 'cover', 'swap', 'pin', 'comments', 'grid', 'edit', 'pages'];
-        if (panel && validPanels.includes(panel)) {
+        const validPanels = ['collections', 'cover', 'pin', 'comments', 'grid', 'edit', 'pages'];
+        if (panel === 'swap') {
+            setActivePanel('pin');
+        } else if (panel && validPanels.includes(panel)) {
             setActivePanel(panel);
         }
     }, [searchParams]);
@@ -688,14 +780,6 @@ export default function AlbumEditor({
         [onPageChange, syncSelectionToPage]
     );
 
-    const handleNavigateToCommentSpread = useCallback(
-        (spreadIndex) => {
-            const page = spreadIndexToPage(spreadIndex, spreadCtx);
-            const clamped = Math.max(0, Math.min(page, Math.max(0, totalPages - 1)));
-            handleBookPageChange(clamped);
-        },
-        [handleBookPageChange, totalPages]
-    );
     const handleNavigateToPin = useCallback(
         (pin) => {
             if (!pin) return;
@@ -716,11 +800,6 @@ export default function AlbumEditor({
             handleBookPageChange(clamped);
         },
         [handleBookPageChange, totalPages]
-    );
-
-    const activeCommentSpreadIndex = useMemo(
-        () => pageToSpreadIndex(bookPage, spreadCtx),
-        [bookPage, totalPages]
     );
 
     const handleGridEditSetChange = useCallback(
@@ -833,8 +912,25 @@ export default function AlbumEditor({
     );
 
     const placeCollectionItemOnSlot = useCallback(
-        (slot, itemId) => {
+        (slot, itemId, replacementBefore = null) => {
             if (!slot || !itemId) return false;
+            const before =
+                replacementBefore ??
+                captureSlotImageBeforeReplace(albumId, slot, album, totalPages);
+
+            const trackReplacement = (placed) => {
+                if (placed && before) {
+                    trackSpreadImageReplacement(albumId, slot, itemId, {
+                        album,
+                        totalPages,
+                        previousItemId: before.previousItemId,
+                        previousUrl: before.previousUrl,
+                        previousStoragePath: before.previousStoragePath,
+                    });
+                }
+                return placed;
+            };
+
             if (
                 albumHasCoverSpreads(album) &&
                 (slot.pageNum === 0 ||
@@ -854,26 +950,31 @@ export default function AlbumEditor({
                     }
                     markCollectionItemAsCoverWrap(albumId, itemId);
                 }
-                return placed;
+                return trackReplacement(placed);
             }
             if (slot.pageNum === 0) {
-                return setPagePhotoFromCollectionItem(albumId, 0, itemId);
+                return trackReplacement(setPagePhotoFromCollectionItem(albumId, 0, itemId));
             }
             const left = slot.spreadLeft ?? getSpreadLeftForBookPage(slot.pageNum, totalPages, spreadOpts);
             const useWholeSpread =
-                slot.whole ||
-                isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
+                Boolean(slot.whole) &&
+                (isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts) ||
+                    spreadHasWholeSpreadPhoto(albumId, left));
             if (useWholeSpread) {
                 const right = getSpreadRightPageIndex(left, totalPages);
-                return setSpreadPhotoFromCollectionItem(albumId, left, itemId, right, {
-                    totalPages,
-                    spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
-                });
+                return trackReplacement(
+                    setSpreadPhotoFromCollectionItem(albumId, left, itemId, right, {
+                        totalPages,
+                        spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
+                    })
+                );
             }
             if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
-                return setPagePhotoFromCollectionItem(albumId, left, itemId, {
-                    clearSpreadForLeft: left,
-                });
+                return trackReplacement(
+                    setPagePhotoFromCollectionItem(albumId, left, itemId, {
+                        clearSpreadForLeft: left,
+                    })
+                );
             }
             const photoIndex = getProofCellPhotoIndex(
                 slot.pageNum,
@@ -881,9 +982,11 @@ export default function AlbumEditor({
                 totalPages,
                 spreadCtx
             );
-            return setPagePhotoFromCollectionItem(albumId, photoIndex, itemId, {
-                clearSpreadForLeft: left,
-            });
+            return trackReplacement(
+                setPagePhotoFromCollectionItem(albumId, photoIndex, itemId, {
+                    clearSpreadForLeft: left,
+                })
+            );
         },
         [album, albumId, totalPages, spreadCtx, spreadOpts]
     );
@@ -949,6 +1052,43 @@ export default function AlbumEditor({
         [albumId, showToast]
     );
 
+    const resolveSpreadReplacementItem = useCallback(
+        async (files, slot, { coverWrap = false } = {}) => {
+            const photographerId = user?.id ?? album?.photographer_id;
+            const previousItemId = resolveSlotCollectionItemId(albumId, slot, {
+                totalPages,
+                spreadOpts,
+                album,
+            });
+            const file = files[0];
+            const compressionTarget = getSlotUploadPixelTarget(album, slot, { coverWrap });
+
+            if (previousItemId && file && isImageFile(file) && !isPdfFile(file)) {
+                const replaced = await replaceCollectionItemFile(albumId, previousItemId, file, {
+                    photographerId,
+                    compressionTarget,
+                    retainPreviousStorage: true,
+                });
+                if (replaced) return replaced;
+            }
+
+            const added = await addFilesToAlbumCollection(albumId, files.slice(0, 1), {
+                photographerId,
+                skipDuplicateCheck: true,
+                coverWrap,
+                album,
+                compressionTarget,
+            });
+            const replacementItem = added[0] || added.duplicateItems?.[0];
+            if (previousItemId && replacementItem?.id && previousItemId !== replacementItem.id) {
+                clearCollectionItemPlacements(albumId, previousItemId);
+                await deleteCollectionItemAsset(albumId, previousItemId, { retainStorage: true });
+            }
+            return replacementItem;
+        },
+        [album, album?.photographer_id, albumId, spreadOpts, totalPages, user?.id]
+    );
+
     const handleReplaceFiles = useCallback(
         async (e) => {
             const files = filesFromInput(e.target.files);
@@ -966,18 +1106,20 @@ export default function AlbumEditor({
                         slot.label === 'Cover' ||
                         slot.label === 'Back cover' ||
                         slot.label === 'End cover');
-                const added = await addFilesToAlbumCollection(albumId, files, {
-                    photographerId: user?.id,
-                    skipDuplicateCheck: true,
+                const before = await captureSlotImageBeforeReplaceAsync(
+                    albumId,
+                    slot,
+                    album,
+                    totalPages
+                );
+                const replacementItem = await resolveSpreadReplacementItem(files, slot, {
                     coverWrap: isCoverSlot,
                 });
-                const replacementItem = added[0] || added.duplicateItems?.[0];
                 if (!replacementItem?.id) {
                     showToast('No supported images in that file.', { variant: 'error', duration: 4000 });
                     return;
                 }
-                if (placeCollectionItemOnSlot(slot, replacementItem.id)) {
-                    await ensurePageCountForCollection();
+                if (placeCollectionItemOnSlot(slot, replacementItem.id, before)) {
                     scheduleWorkspaceRefresh();
                     showToast('Photo updated.', { variant: 'success', duration: 3500 });
                 } else {
@@ -995,7 +1137,7 @@ export default function AlbumEditor({
             albumId,
             user?.id,
             placeCollectionItemOnSlot,
-            ensurePageCountForCollection,
+            resolveSpreadReplacementItem,
             scheduleWorkspaceRefresh,
             showToast,
         ]
@@ -1116,6 +1258,31 @@ export default function AlbumEditor({
             const item = getCollectionItem(albumId, itemId);
             if (!item || (!item.dataUrl && !item.storagePath) || !gridSelection) return false;
 
+            const slot = slotFromCurrentSpread(
+                gridSelection,
+                gridEditSet,
+                bookPage,
+                totalPages,
+                spreadOpts,
+                album,
+                albumId
+            );
+            const before = slot
+                ? captureSlotImageBeforeReplace(albumId, slot, album, totalPages)
+                : null;
+            const finish = (placed) => {
+                if (placed && slot && before) {
+                    trackSpreadImageReplacement(albumId, slot, itemId, {
+                        album,
+                        totalPages,
+                        previousItemId: before.previousItemId,
+                        previousUrl: before.previousUrl,
+                        previousStoragePath: before.previousStoragePath,
+                    });
+                }
+                return placed;
+            };
+
             if (albumHasCoverSpreads(album) && gridSelection.mode === 'cover') {
                 const right = Math.min(1, totalPages - 1);
                 const placed = setSpreadPhotoFromCollectionItem(albumId, 0, itemId, right, {
@@ -1128,7 +1295,7 @@ export default function AlbumEditor({
                     }
                     markCollectionItemAsCoverWrap(albumId, itemId);
                 }
-                return placed;
+                return finish(placed);
             }
 
             const left = gridSelection.leftPage;
@@ -1140,56 +1307,73 @@ export default function AlbumEditor({
                 !isWholeSpreadLayout(album?.grid_layout)
             ) {
                 const { left: endLeft } = getEndSpreadPageIndices(totalPages);
-                return setPagePhotoFromCollectionItem(albumId, endLeft, item.id, {
-                    clearSpreadForLeft: endLeft,
-                });
+                return finish(
+                    setPagePhotoFromCollectionItem(albumId, endLeft, item.id, {
+                        clearSpreadForLeft: endLeft,
+                    })
+                );
             }
 
             const wantsWholeSpread =
                 gridEditSet === 'whole' ||
                 gridSelection.mode === 'spread' ||
-                isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts);
+                isManualWholeSpreadPlacement(left, totalPages, album, spreadOpts) ||
+                spreadHasWholeSpreadPhoto(albumId, left);
 
             if (wantsWholeSpread) {
                 const isWholeAlbum = isWholeSpreadLayout(album?.grid_layout);
                 if (!isWholeAlbum && endHalfLeft) {
-                    return setPagePhotoFromCollectionItem(albumId, left, item.id, {
-                        clearSpreadForLeft: left,
-                    });
+                    return finish(
+                        setPagePhotoFromCollectionItem(albumId, left, item.id, {
+                            clearSpreadForLeft: left,
+                        })
+                    );
                 }
                 if (!isWholeAlbum && isInsideCoverSpreadLeft(left, totalPages)) {
-                    return setPagePhotoFromCollectionItem(albumId, 2, item.id, {
-                        clearSpreadForLeft: left,
-                    });
+                    return finish(
+                        setPagePhotoFromCollectionItem(albumId, 2, item.id, {
+                            clearSpreadForLeft: left,
+                        })
+                    );
                 }
                 if (isWholeAlbum && albumHasBlankCovers(album)) {
                     if (isInsideCoverSpreadLeft(left, totalPages, spreadOpts)) {
-                        return setPagePhotoFromCollectionItem(albumId, 3, item.id, {
-                            clearSpreadForLeft: left,
-                        });
+                        return finish(
+                            setPagePhotoFromCollectionItem(albumId, 3, item.id, {
+                                clearSpreadForLeft: left,
+                            })
+                        );
                     }
                     if (isPreBackHalfSpreadLeftPage(left, totalPages, spreadOpts)) {
-                        return setPagePhotoFromCollectionItem(albumId, left, item.id, {
-                            clearSpreadForLeft: left,
-                        });
+                        return finish(
+                            setPagePhotoFromCollectionItem(albumId, left, item.id, {
+                                clearSpreadForLeft: left,
+                            })
+                        );
                     }
                 }
-                const right = getSpreadRightPageIndex(left, totalPages);
-                return setSpreadPhotoFromCollectionItem(albumId, left, item.id, right, {
-                    totalPages,
-                    spreadOpts: { ...spreadOpts, gridLayout: album?.grid_layout },
-                });
+                return placeCollectionItemOnSlot(slot, itemId);
             }
 
             const targets = placementTargets;
             if (!targets.length) return false;
-            return (
+            return finish(
                 placeCollectionItemOnPages(albumId, item.id, targets, {
                     spreadLeftPage: gridSelection.leftPage,
                 }) > 0
             );
         },
-        [albumId, album, gridSelection, gridEditSet, placementTargets, totalPages, spreadOpts]
+        [
+            albumId,
+            album,
+            bookPage,
+            gridSelection,
+            gridEditSet,
+            placementTargets,
+            placeCollectionItemOnSlot,
+            totalPages,
+            spreadOpts,
+        ]
     );
 
     const handleUploadToCollection = async (files) => {
@@ -1200,6 +1384,7 @@ export default function AlbumEditor({
         try {
             const added = await addFilesToAlbumCollection(albumId, files, {
                 photographerId: album?.photographer_id,
+                album,
             });
             const skippedDuplicates = added.skippedDuplicates || 0;
             if (added.length > 0) {
@@ -1228,6 +1413,97 @@ export default function AlbumEditor({
         }
     };
 
+    const handleUploadForCurrentSpread = useCallback(
+        async (files) => {
+            const slot = slotFromCurrentSpread(
+                gridSelection,
+                gridEditSet,
+                bookPage,
+                totalPages,
+                spreadOpts,
+                album,
+                albumId
+            );
+            if (!slot) {
+                showToast('Flip to a spread first, then upload a photo.', {
+                    variant: 'info',
+                    duration: 4500,
+                });
+                return;
+            }
+            if (!files?.length) return;
+
+            setUploading(true);
+            if (files.some((f) => isPdfFile(f))) {
+                showToast('Converting PDF pages to images…', { variant: 'info', duration: 0 });
+            } else {
+                showToast('Uploading photo…', { variant: 'info', duration: 0 });
+            }
+
+            try {
+                const isCoverSlot =
+                    albumHasCoverSpreads(album) && gridSelection?.mode === 'cover';
+                const before = await captureSlotImageBeforeReplaceAsync(
+                    albumId,
+                    slot,
+                    album,
+                    totalPages
+                );
+                const replacementItem = await resolveSpreadReplacementItem(files, slot, {
+                    coverWrap: isCoverSlot,
+                });
+                if (!replacementItem?.id) {
+                    showToast('No supported images in that file.', {
+                        variant: 'error',
+                        duration: 4000,
+                    });
+                    return;
+                }
+                if (placeCollectionItemOnSlot(slot, replacementItem.id, before)) {
+                    setCollectionRevision(getAlbumCollectionRevision(albumId));
+                    scheduleWorkspaceRefresh();
+                    showToast(
+                        isCoverSlot
+                            ? 'Photo updated on cover.'
+                            : 'Photo updated on current spread.',
+                        {
+                            variant: 'success',
+                            duration: 3500,
+                        }
+                    );
+                } else {
+                    showToast(
+                        isCoverSlot
+                            ? 'Could not place photo on this cover.'
+                            : 'Could not place photo on this spread.',
+                        {
+                            variant: 'error',
+                            duration: 4000,
+                        }
+                    );
+                }
+            } catch (err) {
+                console.error(err);
+                showToast('Upload failed. Try again.', { variant: 'error', duration: 4000 });
+            } finally {
+                setUploading(false);
+            }
+        },
+        [
+            album,
+            albumId,
+            bookPage,
+            gridEditSet,
+            gridSelection,
+            placeCollectionItemOnSlot,
+            resolveSpreadReplacementItem,
+            scheduleWorkspaceRefresh,
+            showToast,
+            spreadOpts,
+            totalPages,
+        ]
+    );
+
     const handlePlaceCollectionItem = useCallback(
         (itemId) => {
             if (placeItemOnSpread(itemId)) {
@@ -1251,27 +1527,30 @@ export default function AlbumEditor({
 
     const handleReorderCollectionItem = useCallback(
         (fromIndex, toIndex) => {
-            if (!reorderCollectionItems(albumId, fromIndex, toIndex)) return;
+            if (!reorderCollectionItems(albumId, fromIndex, toIndex, { album })) return;
             void syncCollectionOrderToSpreads().then((placed) => {
                 if (placed > 0) scheduleWorkspaceRefresh();
             });
         },
-        [albumId, syncCollectionOrderToSpreads, scheduleWorkspaceRefresh]
+        [albumId, album, syncCollectionOrderToSpreads, scheduleWorkspaceRefresh]
     );
 
-    const handleApplyCollectionOrder = useCallback(() => {
-        void syncCollectionOrderToSpreads().then((placed) => {
-            if (placed > 0) {
-                scheduleWorkspaceRefresh();
-                showToast(
-                    `Placed ${placed} photo${placed === 1 ? '' : 's'} on spreads in collection order (1, 2, 3…).`,
-                    { variant: 'success', duration: 4500 }
-                );
-            } else {
-                showToast('No photos in the collection to place.', { variant: 'info', duration: 3500 });
+    const handleReorderOverviewSpread = useCallback(
+        (fromSpreadIndex, toSpreadIndex) => {
+            if (
+                !reorderOverviewSpreads(albumId, fromSpreadIndex, toSpreadIndex, {
+                    totalPages,
+                    spreadOpts,
+                })
+            ) {
+                return;
             }
-        });
-    }, [syncCollectionOrderToSpreads, scheduleWorkspaceRefresh, showToast]);
+            setTransformRevision(getTransformRevision(albumId));
+            scheduleWorkspaceRefresh();
+            showToast('Spread order updated.', { variant: 'success', duration: 3000 });
+        },
+        [albumId, totalPages, spreadOpts, scheduleWorkspaceRefresh, showToast]
+    );
 
     const canAddPages = totalPages + pagesPerSpread <= maxPages;
     const canRemovePages =
@@ -1326,6 +1605,40 @@ export default function AlbumEditor({
         showToast('Removed all images from the album.', { duration: 3500 });
     }, [albumId, totalPages, bumpWorkspace, showToast]);
 
+    const published = album?.status === 'published';
+
+    const handlePublishToggle = useCallback(async () => {
+        if (!user?.id || !albumId || publishBusy) return;
+        const next = !published;
+        const status = next ? 'published' : 'draft';
+        setPublishBusy(true);
+        try {
+            const updated = await smartAlbumsService.updateAlbumClientSettings(user.id, albumId, {
+                status,
+            });
+            onAlbumUpdate?.(updated);
+            showToast(
+                next ? 'Album published for clients.' : 'Album moved to draft.',
+                { variant: 'success', duration: 3500 }
+            );
+        } catch (e) {
+            console.error(e);
+            showToast('Could not update publish status.', { variant: 'error', duration: 4000 });
+        } finally {
+            setPublishBusy(false);
+        }
+    }, [user?.id, albumId, published, publishBusy, onAlbumUpdate, showToast]);
+
+    const handleNotificationSelect = useCallback(
+        ({ page, panel }) => {
+            const editorPanel = panel === 'comments' ? 'pin' : panel || 'pin';
+            setActivePanel(editorPanel);
+            handleBookPageChange(page);
+            syncSelectionToPage(page);
+        },
+        [handleBookPageChange, syncSelectionToPage]
+    );
+
     const spreadEdit = activePanel === 'edit';
     const coverEditMode = activePanel === 'cover' && albumHasCoverSpreads(album);
 
@@ -1379,7 +1692,9 @@ export default function AlbumEditor({
             scheduleWorkspaceRefresh,
         ]
     );
-    const showGridComments = activePanel === 'comments';
+    const showGridComments = false;
+    const loadProofSpreadComments =
+        activePanel === 'pin' || activePanel === 'comments';
     const loadSpreadComments = useCallback(async () => {
         if (!albumId) return;
         try {
@@ -1391,18 +1706,18 @@ export default function AlbumEditor({
     }, [albumId]);
 
     useEffect(() => {
-        if (!showGridComments) return;
+        if (!loadProofSpreadComments || !albumId) return;
         loadSpreadComments();
-    }, [showGridComments, loadSpreadComments]);
+    }, [loadProofSpreadComments, albumId, loadSpreadComments]);
 
     useEffect(() => {
-        if (!showGridComments || !albumId) return undefined;
+        if (!loadProofSpreadComments || !albumId) return undefined;
         const onChanged = (e) => {
             if (e.detail?.albumId === albumId) loadSpreadComments();
         };
         window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
         return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-    }, [showGridComments, albumId, loadSpreadComments]);
+    }, [loadProofSpreadComments, albumId, loadSpreadComments]);
 
     const pickerSubtitle =
         collectionItems.length > 0
@@ -1427,8 +1742,46 @@ export default function AlbumEditor({
                         <span className="ae-topbar-eyebrow">Smart album · Edit</span>
                         <h1 className="ae-topbar-title">{album.name}</h1>
                     </div>
+                    <div
+                        className="ae-publish-toggle"
+                        role="group"
+                        aria-label="Album visibility"
+                        aria-busy={publishBusy}
+                    >
+                        <button
+                            type="button"
+                            className={`ae-publish-toggle-option${
+                                !published ? ' ae-publish-toggle-option--active' : ''
+                            }`}
+                            onClick={() => {
+                                if (published) handlePublishToggle();
+                            }}
+                            disabled={!user?.id || publishBusy}
+                        >
+                            Draft
+                        </button>
+                        <button
+                            type="button"
+                            className={`ae-publish-toggle-option${
+                                published ? ' ae-publish-toggle-option--active' : ''
+                            }`}
+                            onClick={() => {
+                                if (!published) handlePublishToggle();
+                            }}
+                            disabled={!user?.id || publishBusy}
+                        >
+                            Published
+                        </button>
+                    </div>
                 </div>
                 <div className="ae-topbar-right">
+                    <AlbumEditorNotifications
+                        album={album}
+                        totalPages={totalPages}
+                        bookPage={bookPage}
+                        activePanel={activePanel}
+                        onSelectNotification={handleNotificationSelect}
+                    />
                     <button
                         type="button"
                         className="ae-btn-secondary"
@@ -1494,20 +1847,6 @@ export default function AlbumEditor({
 
             <div className="ae-body">
                 <main className="ae-canvas">
-                    <div className="ae-canvas-chrome">
-                        <span className="ae-canvas-label">
-                            {coverEditMode ? 'Cover editor' : 'Spread editor'}
-                        </span>
-                        <span className="ae-canvas-hint">
-                            {coverEditMode
-                                ? albumHasBlankCovers(album)
-                                    ? 'Back · spine · front cover · click to choose an optional cover photo'
-                                    : 'Back · spine · front from book wrap · click a cover to change photo'
-                                : spreadEdit
-                                  ? 'Drag photo to move · drag each edge to zoom · hover a photo to mark a swap'
-                                  : 'Click a photo or slot for options · use Collections to upload'}
-                        </span>
-                    </div>
                     <div
                         className={`ae-canvas-stage${
                             spreadEdit ? ' ae-canvas-stage--edit' : ''
@@ -1543,6 +1882,7 @@ export default function AlbumEditor({
                                 onAddPages={handleAddPagesFromOverview}
                                 canRemovePages={canRemovePages}
                                 onRemovePages={handleRemovePagesFromOverview}
+                                onReorderOverviewSpread={handleReorderOverviewSpread}
                                 pageCountBusy={pageCountBusy}
                                 onTransformChange={() => {
                                     setTransformRevision(getTransformRevision(albumId));
@@ -1572,26 +1912,17 @@ export default function AlbumEditor({
                             />
                         ) : null
                     }
-                    commentsFeed={
-                        albumId ? (
-                            <AlbumCommentsFeed
-                                albumId={albumId}
-                                onNavigateToSpread={handleNavigateToCommentSpread}
-                                activeSpreadIndex={activeCommentSpreadIndex}
-                            />
-                        ) : null
-                    }
                     album={album}
                     totalPages={totalPages}
                     collectionItems={collectionItems}
-                    onUploadToCollection={handleUploadToCollection}
-                    onPlaceCollectionItem={handlePlaceCollectionItem}
+                    onUploadForCurrentSpread={handleUploadForCurrentSpread}
                     onOpenPicker={openPicker}
                     onClearAllPhotos={handleClearAllPhotos}
                     uploading={uploading}
                     gridEditSet={gridEditSet}
                     onGridEditSetChange={handleGridEditSetChange}
                     gridSelection={gridSelection}
+                    bookPage={bookPage}
                     onSelectCell={(cellId) => {
                         const left =
                             gridSelection?.leftPage ??
@@ -1609,11 +1940,12 @@ export default function AlbumEditor({
                     onRemovePages={handleRemovePages}
                     swapMarks={swapMarks}
                     photoPins={photoPins}
+                    spreadCommentsBySpread={spreadCommentsBySpread}
                     albumId={albumId}
+                    photographerName={photographerDisplayName}
                     onNavigateToPin={handleNavigateToPin}
                     onNavigateToSwapSlotKey={handleNavigateToSwapSlotKey}
                     onReorderCollectionItem={handleReorderCollectionItem}
-                    onApplyCollectionOrder={handleApplyCollectionOrder}
                     proofSeenTick={proofSeenTick}
                 />
             </div>

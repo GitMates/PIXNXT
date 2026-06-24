@@ -1,11 +1,11 @@
 import React from 'react';
 import {
-    countUnseenPhotoPins,
     isPhotoPinUnseen,
     markPhotoPinsSeen,
     removePhotoPin,
 } from './albumPhotoPins';
 import { getSlotLabel } from './albumSwapMarks';
+import ProofDoneButton from './ProofDoneButton';
 
 function pinSlotLabel(pin, gridLayout, totalPages, album) {
     const whole = gridLayout === 'whole-spread' && pin.pageNum > 0;
@@ -25,11 +25,12 @@ export default function AlbumPhotoPinsPanel({
     const isPanel = variant === 'panel';
     void seenTick;
 
-    const unseenCount = countUnseenPhotoPins(albumId, pins);
-
     const handleOpenPin = (pin) => {
-        markPhotoPinsSeen(albumId, [pin]);
         onNavigateToPin?.(pin);
+    };
+
+    const handleCompletePin = (pin) => {
+        markPhotoPinsSeen(albumId, [pin]);
     };
 
     const sortedPins = [...pins].sort(
@@ -39,30 +40,11 @@ export default function AlbumPhotoPinsPanel({
 
     if (!sortedPins.length) {
         if (!isPanel) return null;
-        return (
-            <p className="ae-panel-text ae-panel-text--muted ae-swap-marks-empty">
-                No comments yet. Use album preview — hover a photo and click Comment.
-            </p>
-        );
+        return null;
     }
 
     return (
         <div className={`ae-swap-marks ae-photo-pins-panel${isPanel ? ' ae-swap-marks--panel' : ''}`}>
-            {isPanel && (
-                <p
-                    className={`ae-swap-marks-count${
-                        unseenCount > 0 ? ' ae-swap-marks-count--unseen' : ''
-                    }`}
-                    role="status"
-                >
-                    {pins.length} comment{pins.length === 1 ? '' : 's'}
-                    {unseenCount > 0 && (
-                        <span className="ae-proof-new-pill">
-                            {unseenCount} new
-                        </span>
-                    )}
-                </p>
-            )}
             <ul className="ae-swap-marks-list">
                 {sortedPins.map((pin) => {
                     const slot = pinSlotLabel(pin, gridLayout, totalPages, album);
@@ -70,6 +52,9 @@ export default function AlbumPhotoPinsPanel({
                         ? new Date(pin.createdAt).toLocaleString()
                         : null;
                     const unseen = isPhotoPinUnseen(albumId, pin);
+                    const doneAria = unseen
+                        ? `Mark comment on ${slot} complete`
+                        : `Comment on ${slot} already complete`;
                     return (
                         <li
                             key={pin.id}
@@ -77,6 +62,16 @@ export default function AlbumPhotoPinsPanel({
                                 unseen ? ' ae-proof-item--unseen' : ''
                             }`}
                         >
+                            <div className="ae-proof-item-top-right">
+                                <ProofDoneButton
+                                    completed={!unseen}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleCompletePin(pin);
+                                    }}
+                                    ariaLabel={doneAria}
+                                />
+                            </div>
                             <button
                                 type="button"
                                 className="ae-photo-pins-link"
@@ -96,14 +91,16 @@ export default function AlbumPhotoPinsPanel({
                                 ) : (
                                     <span className="ae-photo-pins-time" aria-hidden />
                                 )}
-                                <button
-                                    type="button"
-                                    className="ae-photo-pins-remove"
-                                    onClick={() => removePhotoPin(albumId, pin.id)}
-                                    aria-label={`Remove comment on ${slot}`}
-                                >
-                                    Remove
-                                </button>
+                                <div className="ae-proof-item-actions">
+                                    <button
+                                        type="button"
+                                        className="ae-photo-pins-remove"
+                                        onClick={() => removePhotoPin(albumId, pin.id)}
+                                        aria-label={`Remove comment on ${slot}`}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
                             </div>
                         </li>
                     );

@@ -1,3 +1,5 @@
+import { resolveCoverImageSrc } from './albumPagePhotos';
+
 const STORAGE_KEY = 'pixnxt_album_cover_text';
 
 export const COVER_TEXT_CHANGED_EVENT = 'pixnxt-album-cover-text-changed';
@@ -55,4 +57,15 @@ export function setAlbumCoverText(albumId, message) {
 
 export function clearAlbumCoverText(albumId) {
     setAlbumCoverText(albumId, '');
+}
+
+/** Custom cover message, or album title when no cover photo has been uploaded. */
+export function resolveFrontCoverDisplayText(album, albumId) {
+    const custom = getAlbumCoverText(albumId);
+    if (custom) return custom;
+
+    const hasCoverPhoto = Boolean(resolveCoverImageSrc(album, { showSamples: false }));
+    if (hasCoverPhoto) return '';
+
+    return String(album?.name ?? '').trim();
 }

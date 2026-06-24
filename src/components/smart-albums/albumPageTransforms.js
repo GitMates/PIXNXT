@@ -194,3 +194,16 @@ export function clearAlbumTransforms(albumId) {
     delete all[albumId];
     writeAll(all);
 }
+
+export function readAlbumTransformBucket(albumId) {
+    if (!albumId) return {};
+    return { ...(readAll()[albumId] || {}) };
+}
+
+export function writeAlbumTransformBucket(albumId, bucket) {
+    if (!albumId) return false;
+    const all = readAll();
+    all[albumId] = bucket;
+    writeAll(all);
+    return true;
+}
