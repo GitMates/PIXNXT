@@ -525,6 +525,9 @@
 .av-preview-notifications-item-time {
   font-size: 11px;
   color: #999;
+  align-self: flex-end;
+  width: 100%;
+  text-align: right;
 }
 
 .av-page--with-comments {
@@ -795,6 +798,10 @@
   align-items: flex-end;
   width: 100%;
   gap: 8px;
+}
+
+.av-chat-bubble-foot--actions time {
+  margin-left: auto;
 }
 
 .av-chat-bubble-inline-actions {
@@ -1144,6 +1151,7 @@
   margin-top: 8px;
   font-size: 11px;
   color: #9ca3af;
+  text-align: right;
 }
 
 .av-preview-sidebar-comment--swap {

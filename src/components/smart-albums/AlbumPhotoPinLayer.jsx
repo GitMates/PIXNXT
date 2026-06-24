@@ -69,6 +69,7 @@ function SpeechIcon({ className }) {
 }
 
 function PinPopover({ markerRef, layerRef, pin, isSwap, allowRemove, onRemove }) {
+    const popoverRef = useRef(null);
     const [anchor, setAnchor] = useState(null);
     const [flipBelow, setFlipBelow] = useState(false);
 

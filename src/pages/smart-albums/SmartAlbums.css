@@ -590,4 +590,7 @@
   font-size: 11px;
   color: #999;
   margin-top: 2px;
+  align-self: flex-end;
+  width: 100%;
+  text-align: right;
 }
