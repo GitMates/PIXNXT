@@ -47,6 +47,8 @@ import {
     shiftAlbumRemotePreviewPages,
 } from '../../components/smart-albums/albumPreviewData';
 import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
+import { shiftAlbumSwapMarks } from '../../components/smart-albums/albumSwapMarks';
+import { purgeSpreadCommentsOnSpreadDelete } from '../../services/smartAlbumComments.service';
 
 export function parseUrlPage(raw, totalPages, spreadOpts = {}) {
     if (raw == null || raw === '') return 0;
@@ -268,10 +270,17 @@ export function useAlbumWorkspace() {
                             });
                         }
                         removeCollectionItemsOnDeletedSpread(albumId, removeAt, removeCount);
+                        if (Number.isFinite(Number(customSpreadIndex))) {
+                            await purgeSpreadCommentsOnSpreadDelete(
+                                albumId,
+                                Number(customSpreadIndex)
+                            );
+                        }
                     }
                     removeAlbumStoragePages(albumId, removeAt, removeCount);
                     shiftAlbumRemotePreviewPages(albumId, removeAt, -removeCount);
                     shiftAlbumPhotoPins(albumId, removeAt, -removeCount);
+                    shiftAlbumSwapMarks(albumId, removeAt, -removeCount);
                     if (spreadDelete) {
                         pruneAlbumStorageForPageCount(albumId, next);
                     }

@@ -1703,8 +1703,21 @@ export default function AlbumEditor({
     const slotMenuCanAddSpreadAfter = useMemo(() => {
         const spreadLeft = slotMenu?.slot?.spreadLeft;
         if (spreadLeft == null || !canAddPages) return false;
+        if (isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts)) return false;
         return canInsertSpreadAfterSpread(spreadLeft, totalPages, spreadOpts);
     }, [slotMenu, canAddPages, totalPages, spreadOpts]);
+
+    const slotMenuIsPreBackSpread = useMemo(() => {
+        const spreadLeft = slotMenu?.slot?.spreadLeft;
+        if (spreadLeft == null) return false;
+        return isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts);
+    }, [slotMenu, totalPages, spreadOpts]);
+
+    const slotMenuShowRemovePhotos = useMemo(() => {
+        if (!slotMenu?.slot) return false;
+        if (slotMenuIsPreBackSpread) return true;
+        return Boolean(slotMenu.slot.hasPhoto);
+    }, [slotMenu, slotMenuIsPreBackSpread]);
 
     const slotMenuCanDeleteSpread = useMemo(() => {
         const idx = slotMenu?.spreadIndex;
@@ -1865,6 +1878,16 @@ export default function AlbumEditor({
         const slot = slotMenu.slot;
         return slot.pageNum === 0 || slot.label === 'Cover' || slot.label === 'Book wrap';
     }, [coverEditMode, slotMenu]);
+
+    const slotMenuCanSwap = useMemo(() => {
+        if (isCoverEditorSlotMenu || !slotMenu?.slot?.hasPhoto) return false;
+        if (spreadOpts.hasCovers && slotMenu?.spreadIndex === 1) return false;
+        const spreadLeft = slotMenu?.slot?.spreadLeft;
+        if (spreadLeft != null && isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts)) {
+            return false;
+        }
+        return true;
+    }, [isCoverEditorSlotMenu, slotMenu, spreadOpts.hasCovers, totalPages, spreadOpts]);
 
     const coverTextMessage = useMemo(() => {
         void coverTextRevision;
@@ -2199,8 +2222,8 @@ export default function AlbumEditor({
                 open={Boolean(slotMenu)}
                 anchorRect={slotMenu?.anchorRect}
                 slotLabel={slotMenu?.label}
-                hasPhoto={Boolean(slotMenu?.slot?.hasPhoto)}
-                canSwap={!isCoverEditorSlotMenu && Boolean(slotMenu?.slot?.hasPhoto)}
+                hasPhoto={slotMenuShowRemovePhotos}
+                canSwap={slotMenuCanSwap}
                 swapHint={slotMenuSwapHint}
                 canAddSpreadBefore={slotMenuCanAddSpreadBefore}
                 canAddSpreadAfter={slotMenuCanAddSpreadAfter}

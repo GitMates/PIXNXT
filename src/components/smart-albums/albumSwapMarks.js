@@ -284,6 +284,77 @@ export function removeSwapMark(albumId, markId) {
     notify(albumId);
 }
 
+function shiftPageNumForStorage(page, insertAt, delta) {
+    if (!Number.isFinite(page)) return null;
+    if (delta > 0) {
+        return page >= insertAt ? page + delta : page;
+    }
+    const removeEnd = insertAt - delta;
+    if (page >= insertAt && page < removeEnd) return null;
+    if (page >= removeEnd) return page + delta;
+    return page;
+}
+
+function shiftSlotKeyForStorage(key, insertAt, delta) {
+    const { pageNum, cellId } = parseSlotKey(key);
+    const shifted = shiftPageNumForStorage(pageNum, insertAt, delta);
+    if (shifted == null) return null;
+    return makeSlotKey(shifted, cellId);
+}
+
+function shiftSwapPointForStorage(point, insertAt, delta) {
+    if (!point || !Number.isFinite(point.pageNum)) return point ?? null;
+    const shifted = shiftPageNumForStorage(point.pageNum, insertAt, delta);
+    if (shifted == null) return null;
+    return { ...point, pageNum: shifted };
+}
+
+/** Shift or drop swap marks when album pages are inserted/removed. */
+export function shiftAlbumSwapMarks(albumId, insertAt, delta) {
+    if (!albumId || !delta) return;
+    const all = readAll();
+    const list = all[albumId];
+    if (!list?.length) return;
+
+    const next = [];
+    for (const mark of list) {
+        const a = shiftSlotKeyForStorage(mark.a, insertAt, delta);
+        const b = shiftSlotKeyForStorage(mark.b, insertAt, delta);
+        if (!a || !b) continue;
+
+        const pointA = mark.pointA
+            ? shiftSwapPointForStorage(mark.pointA, insertAt, delta)
+            : null;
+        const pointB = mark.pointB
+            ? shiftSwapPointForStorage(mark.pointB, insertAt, delta)
+            : null;
+        if ((mark.pointA && !pointA) || (mark.pointB && !pointB)) continue;
+
+        next.push({
+            ...mark,
+            a,
+            b,
+            pointA: pointA ?? mark.pointA ?? null,
+            pointB: pointB ?? mark.pointB ?? null,
+        });
+    }
+
+    const changed =
+        next.length !== list.length ||
+        next.some(
+            (mark, index) =>
+                mark.a !== list[index].a ||
+                mark.b !== list[index].b ||
+                mark.pointA?.pageNum !== list[index].pointA?.pageNum ||
+                mark.pointB?.pageNum !== list[index].pointB?.pageNum
+        );
+    if (!changed) return;
+
+    all[albumId] = next;
+    writeAll(all);
+    notify(albumId);
+}
+
 /** Slot keys that belong to a locked swap mark. */
 export function getLockedSlotKeys(marks) {
     const keys = new Set();

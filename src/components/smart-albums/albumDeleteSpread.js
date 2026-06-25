@@ -11,6 +11,7 @@ import {
     getTotalSpreads,
     isEndHalfSpreadLeftPage,
     isFrontCoverSpreadLeft,
+    isInsideCoverSpreadLeft,
     isPreBackHalfSpreadLeftPage,
     normalizeSpreadOpts,
     pageToSpreadIndex,
@@ -128,6 +129,7 @@ export function canDeleteSpreadAtLeftPage(spreadLeft, totalPages, opts = {}) {
 
     const spreadOpts = normalizeSpreadOpts(opts);
     if (spreadOpts.hasCovers && isFrontCoverSpreadLeft(left, spreadOpts)) return false;
+    if (isInsideCoverSpreadLeft(left, totalPages, spreadOpts)) return false;
     if (isPreBackHalfSpreadLeftPage(left, totalPages, spreadOpts)) return false;
     if (isEndHalfSpreadLeftPage(left, totalPages, spreadOpts)) return false;
 

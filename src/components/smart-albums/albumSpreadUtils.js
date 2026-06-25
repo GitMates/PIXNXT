@@ -173,7 +173,12 @@ function isReservedSpreadLeft(spreadLeft, totalPages, opts = {}) {
 
 export function canInsertSpreadBeforeSpread(spreadLeft, totalPages, opts = {}) {
     if (spreadLeft == null || Number.isNaN(spreadLeft)) return false;
-    if (isReservedSpreadLeft(spreadLeft, totalPages, opts)) return false;
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (spreadOpts.hasCovers && isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts)) {
+        return false;
+    }
+    if (spreadOpts.hasCovers && isFrontCoverSpreadLeft(spreadLeft, spreadOpts)) return false;
+    if (isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts)) return false;
     return canInsertSpreadAt(getSpreadInsertIndexBefore(spreadLeft), totalPages, opts);
 }
 
