@@ -32,6 +32,20 @@ export function isImageFile(file) {
     return /\.(jpe?g|png|webp|gif|heic|heif|bmp|tiff?)$/i.test(file.name || '');
 }
 
+/** Decode-check for extensionless images (common on Windows). */
+export async function probeImageFile(file) {
+    if (!file || isPdfFile(file)) return false;
+    if (isImageFile(file)) return true;
+    if (typeof createImageBitmap !== 'function') return false;
+    try {
+        const bitmap = await createImageBitmap(file);
+        bitmap.close();
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 function readFileAsDataUrl(file) {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();

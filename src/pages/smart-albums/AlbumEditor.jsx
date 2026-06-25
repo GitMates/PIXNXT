@@ -65,8 +65,8 @@ import {
 } from '../../components/smart-albums/albumPagePhotos';
 import { shiftAlbumRemotePreviewPages } from '../../components/smart-albums/albumPreviewData';
 import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
-import { isImageFile, isPdfFile } from '../../lib/pdfToImages';
-import { filesFromInput } from '../../lib/uploadFileOrder';
+import { isImageFile, isPdfFile, probeImageFile } from '../../lib/pdfToImages';
+import { pickImageFiles } from '../../lib/pickImageFiles';
 import { getSlotUploadPixelTarget } from '../../components/smart-albums/albumGridSize';
 import { useAlbumWrapAspect, withAlbumWrapAspect } from '../../components/smart-albums/useAlbumWrapAspect';
 import {
@@ -332,8 +332,6 @@ export default function AlbumEditor({
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
     const [proofSeenTick, setProofSeenTick] = useState(0);
     const shareRef = useRef(null);
-    const replaceFileRef = useRef(null);
-    const pendingReplaceSlotRef = useRef(null);
     const collectionSyncRef = useRef(false);
     /** Skip post-delete photo migrations (React Strict Mode runs effects twice). */
     const skipPhotoMigrationsRef = useRef(0);
@@ -1084,12 +1082,6 @@ export default function AlbumEditor({
         setSlotMenu(null);
     }, []);
 
-    const handleReplaceFromMenu = useCallback(() => {
-        pendingReplaceSlotRef.current = slotMenu?.slot ?? null;
-        closeSlotMenu();
-        replaceFileRef.current?.click();
-    }, [slotMenu, closeSlotMenu]);
-
     const handleChooseFromCollectionMenu = useCallback(() => {
         closeSlotMenu();
         requestAnimationFrame(() => {
@@ -1126,7 +1118,7 @@ export default function AlbumEditor({
             const file = files[0];
             const compressionTarget = getSlotUploadPixelTarget(album, slot, { coverWrap });
 
-            if (previousItemId && file && isImageFile(file) && !isPdfFile(file)) {
+            if (previousItemId && file && !isPdfFile(file) && (isImageFile(file) || (await probeImageFile(file)))) {
                 const replaced = await replaceCollectionItemFile(albumId, previousItemId, file, {
                     photographerId,
                     compressionTarget,
@@ -1152,12 +1144,8 @@ export default function AlbumEditor({
         [album, album?.photographer_id, albumId, spreadOpts, totalPages, user?.id]
     );
 
-    const handleReplaceFiles = useCallback(
-        async (e) => {
-            const files = filesFromInput(e.target.files);
-            e.target.value = '';
-            const slot = pendingReplaceSlotRef.current;
-            pendingReplaceSlotRef.current = null;
+    const handleReplaceFilesForSlot = useCallback(
+        async (files, slot) => {
             if (!slot || files.length === 0) return;
             setUploading(true);
             showToast('Uploading photo…', { variant: 'info', duration: 0 });
@@ -1198,13 +1186,24 @@ export default function AlbumEditor({
         [
             album,
             albumId,
-            user?.id,
             placeCollectionItemOnSlot,
             resolveSpreadReplacementItem,
             scheduleWorkspaceRefresh,
             showToast,
+            totalPages,
         ]
     );
+
+    const handleReplaceFromMenu = useCallback(() => {
+        const slot = slotMenu?.slot ?? null;
+        closeSlotMenu();
+        if (!slot) return;
+        pickImageFiles({
+            onPick: (files) => {
+                if (files.length) void handleReplaceFilesForSlot(files, slot);
+            },
+        });
+    }, [slotMenu, closeSlotMenu, handleReplaceFilesForSlot]);
 
     const handleRemoveSpreadPhotos = useCallback(() => {
         const slot = slotMenu?.slot;
@@ -2206,16 +2205,6 @@ export default function AlbumEditor({
                 onClose={() => setPickerOpen(false)}
                 onSelectItem={handlePlaceCollectionItem}
                 onUploadFiles={handleUploadToCollection}
-            />
-
-            <input
-                ref={replaceFileRef}
-                type="file"
-                accept="image/*,application/pdf,.pdf"
-                className="ae-file-input"
-                aria-hidden
-                tabIndex={-1}
-                onChange={handleReplaceFiles}
             />
 
             <AlbumSpreadSlotMenu

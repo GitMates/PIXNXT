@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { filesFromInput } from '../../lib/uploadFileOrder';
+import { pickImageFiles } from '../../lib/pickImageFiles';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getSlotLabel,
@@ -107,7 +107,6 @@ export default function AlbumEditorSidebar({
     onReorderCollectionItem = null,
     proofSeenTick = 0,
 }) {
-    const fileRef = useRef(null);
     const collectionDragFromRef = useRef(null);
     const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
     const [imageReplacements, setImageReplacements] = useState([]);
@@ -260,11 +259,13 @@ export default function AlbumEditorSidebar({
         (item) => !item.requiresCovers || album?.has_covers === true
     );
 
-    const handleSpreadUpload = (e) => {
-        const files = filesFromInput(e.target.files);
-        if (files.length) onUploadForCurrentSpread?.(files);
-        e.target.value = '';
-    };
+    const openSpreadUploadPicker = useCallback(() => {
+        pickImageFiles({
+            onPick: (files) => {
+                if (files.length) onUploadForCurrentSpread?.(files);
+            },
+        });
+    }, [onUploadForCurrentSpread]);
 
     const renderSpreadUploadActions = (showPicker = true) => {
         if (gridSelection?.mode === 'cover') return null;
@@ -274,18 +275,11 @@ export default function AlbumEditorSidebar({
                     <div className="ae-spread-actions-header">
                         <span className="ae-spread-actions-title">Current spread actions</span>
                     </div>
-                    <input
-                        ref={fileRef}
-                        type="file"
-                        accept="image/*,application/pdf,.pdf"
-                        className="ae-file-input"
-                        onChange={handleSpreadUpload}
-                    />
                     <button
                         type="button"
                         className="ae-upload-zone ae-upload-zone--spread"
                         disabled={uploading || !canSelectGrid}
-                        onClick={() => fileRef.current?.click()}
+                        onClick={openSpreadUploadPicker}
                     >
                         <svg
                             className="ae-upload-zone-icon"
@@ -585,18 +579,11 @@ export default function AlbumEditorSidebar({
                             <div className="ae-spread-actions-header">
                                 <span className="ae-spread-actions-title">Current cover actions</span>
                             </div>
-                            <input
-                                ref={fileRef}
-                                type="file"
-                                accept="image/*,application/pdf,.pdf"
-                                className="ae-file-input"
-                                onChange={handleSpreadUpload}
-                            />
                             <button
                                 type="button"
                                 className="ae-upload-zone ae-upload-zone--spread"
                                 disabled={uploading || !canSelectGrid}
-                                onClick={() => fileRef.current?.click()}
+                                onClick={openSpreadUploadPicker}
                             >
                                 <svg
                                     className="ae-upload-zone-icon"

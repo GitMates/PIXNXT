@@ -1,5 +1,5 @@
 import { storageService } from '../../services/storage.service';
-import { expandUploadFilesToImages, isImageFile, isPdfFile } from '../../lib/pdfToImages';
+import { expandUploadFilesToImages, isImageFile, isPdfFile, probeImageFile } from '../../lib/pdfToImages';
 import { compressImageForUpload } from '../../lib/prepareUploadFile';
 import { getAlbumUploadPixelTarget } from './albumGridSize';
 import { moveFileInOrder } from '../../lib/uploadFileOrder';
@@ -239,7 +239,8 @@ async function buildCollectionWorkItems(files) {
     const batches = await Promise.all(
         (files || []).map(async (file, fileIndex) => {
             try {
-                if (isImageFile(file)) {
+                const isImage = isImageFile(file) || (await probeImageFile(file));
+                if (isImage) {
                     return [{ kind: 'file', file, name: file.name || 'Photo', fileIndex }];
                 }
                 if (isPdfFile(file)) {
@@ -891,7 +892,9 @@ export async function replaceCollectionItemFile(
     file,
     { photographerId, compressionTarget = null, retainPreviousStorage = false } = {}
 ) {
-    if (!albumId || !itemId || !file || !isImageFile(file)) return null;
+    if (!albumId || !itemId || !file || isPdfFile(file)) return null;
+    const isImage = isImageFile(file) || (await probeImageFile(file));
+    if (!isImage) return null;
     const item = getCollectionItem(albumId, itemId);
     if (!item) return null;
 
