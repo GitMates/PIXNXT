@@ -159,28 +159,6 @@ function getOverviewPageImage(album, pageNum, totalPages, showSamples) {
     return slot.src || (showSamples ? getSampleImageForPage(pageNum) : null);
 }
 
-/** Crisp drag preview from the spread thumbnail (avoids native browser ghost trails). */
-function createOverviewSpreadDragGhost(thumbEl, clientX, clientY) {
-    const rect = thumbEl.getBoundingClientRect();
-    const ghost = thumbEl.cloneNode(true);
-    ghost.classList.add('ab-overview-drag-ghost');
-    ghost.setAttribute('aria-hidden', 'true');
-    Object.assign(ghost.style, {
-        position: 'fixed',
-        top: '-9999px',
-        left: '-9999px',
-        width: `${rect.width}px`,
-        height: `${rect.height}px`,
-        margin: '0',
-        pointerEvents: 'none',
-        zIndex: '10000',
-    });
-    document.body.appendChild(ghost);
-    const offsetX = Math.min(Math.max(clientX - rect.left, 0), rect.width);
-    const offsetY = Math.min(Math.max(clientY - rect.top, 0), rect.height);
-    return { ghost, offsetX, offsetY };
-}
-
 const AlbumBook = ({
     album,
     totalPages,
@@ -318,9 +296,7 @@ const AlbumBook = ({
     const [overviewTargetSpreadIndex, setOverviewTargetSpreadIndex] = useState(0);
     const overviewDragFromRef = useRef(null);
     const overviewDidDragRef = useRef(false);
-    const overviewDragGhostRef = useRef(null);
     const [overviewDragOverIndex, setOverviewDragOverIndex] = useState(null);
-    const [overviewDraggingIndex, setOverviewDraggingIndex] = useState(null);
     const [focusOpen, setFocusOpen] = useState(false);
     const [focusStartPage, setFocusStartPage] = useState(0);
     const focusPageRef = useRef(0);
@@ -584,28 +560,10 @@ const AlbumBook = ({
         (spreadIndex) => {
             if (!canDragOverviewSpreads) return;
             if (!isDraggableOverviewSpread(spreadIndex, totalPages, spreadOpts)) return;
-            if (overviewDragFromRef.current === spreadIndex) {
-                setOverviewDragOverIndex(null);
-                return;
-            }
             setOverviewDragOverIndex(spreadIndex);
         },
         [canDragOverviewSpreads, totalPages, spreadOpts]
     );
-
-    const clearOverviewSpreadDragGhost = useCallback(() => {
-        if (overviewDragGhostRef.current) {
-            overviewDragGhostRef.current.remove();
-            overviewDragGhostRef.current = null;
-        }
-    }, []);
-
-    const handleOverviewSpreadDragEnd = useCallback(() => {
-        overviewDragFromRef.current = null;
-        setOverviewDragOverIndex(null);
-        setOverviewDraggingIndex(null);
-        clearOverviewSpreadDragGhost();
-    }, [clearOverviewSpreadDragGhost]);
 
     const handleOverviewSpreadDrop = useCallback(
         (toSpreadIndex) => {
@@ -620,7 +578,10 @@ const AlbumBook = ({
         [canDragOverviewSpreads, onReorderOverviewSpread]
     );
 
-    useEffect(() => () => clearOverviewSpreadDragGhost(), [clearOverviewSpreadDragGhost]);
+    const handleOverviewSpreadDragEnd = useCallback(() => {
+        overviewDragFromRef.current = null;
+        setOverviewDragOverIndex(null);
+    }, []);
 
     const atStart = external3DCover ? false : spreadIndex <= 0;
     const atEnd = spreadIndex >= totalSpreads - 1;
@@ -1888,8 +1849,6 @@ const AlbumBook = ({
                     <div
                         className={`ab-overview-grid${
                             pageCountBusy ? ' ab-overview-grid--transitioning' : ''
-                        }${
-                            overviewDraggingIndex != null ? ' ab-overview-grid--dragging' : ''
                         }`}
                     >
                         {Array.from({ length: totalSpreads }, (_, overviewSpreadIndex) => {
@@ -1935,11 +1894,7 @@ const AlbumBook = ({
                                     spreadOpts
                                 );
                             const spreadDragOver =
-                                spreadDraggable &&
-                                overviewDragOverIndex === overviewSpreadIndex &&
-                                overviewDraggingIndex !== overviewSpreadIndex;
-                            const spreadDragging =
-                                overviewDraggingIndex === overviewSpreadIndex;
+                                spreadDraggable && overviewDragOverIndex === overviewSpreadIndex;
                             return (
                                 <button
                                     key={`spread-${overviewSpreadIndex}`}
@@ -1950,8 +1905,6 @@ const AlbumBook = ({
                                         isSelected ? ' ab-overview-item--active' : ''
                                     }${
                                         spreadDraggable ? ' ab-overview-item--draggable' : ''}${
-                                        spreadDragging ? ' ab-overview-item--dragging' : ''
-                                    }${
                                         spreadDragOver ? ' ab-overview-item--drag-over' : ''
                                     }`}
                                     draggable={spreadDraggable}
@@ -1971,25 +1924,11 @@ const AlbumBook = ({
                                             'text/plain',
                                             String(overviewSpreadIndex)
                                         );
-                                        const thumb = e.currentTarget.querySelector('.ab-overview-thumb');
-                                        if (thumb) {
-                                            clearOverviewSpreadDragGhost();
-                                            const { ghost, offsetX, offsetY } =
-                                                createOverviewSpreadDragGhost(
-                                                    thumb,
-                                                    e.clientX,
-                                                    e.clientY
-                                                );
-                                            overviewDragGhostRef.current = ghost;
-                                            e.dataTransfer.setDragImage(ghost, offsetX, offsetY);
-                                        }
-                                        setOverviewDraggingIndex(overviewSpreadIndex);
                                         handleOverviewSpreadDragStart(overviewSpreadIndex);
                                     }}
                                     onDragOver={(e) => {
                                         if (!spreadDraggable) return;
                                         e.preventDefault();
-                                        e.dataTransfer.dropEffect = 'move';
                                         e.stopPropagation();
                                         handleOverviewSpreadDragOver(overviewSpreadIndex);
                                     }}
@@ -2002,23 +1941,6 @@ const AlbumBook = ({
                                     onDragEnd={handleOverviewSpreadDragEnd}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--spread">
-                                        {spreadDraggable ? (
-                                            <span className="ab-overview-drag-grip" aria-hidden>
-                                                <svg
-                                                    width="14"
-                                                    height="14"
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                >
-                                                    <circle cx="9" cy="7" r="1.5" />
-                                                    <circle cx="15" cy="7" r="1.5" />
-                                                    <circle cx="9" cy="12" r="1.5" />
-                                                    <circle cx="15" cy="12" r="1.5" />
-                                                    <circle cx="9" cy="17" r="1.5" />
-                                                    <circle cx="15" cy="17" r="1.5" />
-                                                </svg>
-                                            </span>
-                                        ) : null}
                                         {showSpreadFull ? (
                                             <span className="ab-overview-page ab-overview-page--spread-full">
                                                 <img src={spreadSrc} alt="" loading="lazy" draggable={false} />
