@@ -39,6 +39,7 @@ export const AuthProvider = ({ children }) => {
       void resolveAuthSession().then(applyAuthState);
     };
     document.addEventListener('visibilitychange', refreshIfVisible);
+    window.addEventListener('focus', refreshIfVisible);
 
     // Subscribe to auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -51,6 +52,7 @@ export const AuthProvider = ({ children }) => {
 
     return () => {
       document.removeEventListener('visibilitychange', refreshIfVisible);
+      window.removeEventListener('focus', refreshIfVisible);
       subscription.unsubscribe();
     };
   }, []);
