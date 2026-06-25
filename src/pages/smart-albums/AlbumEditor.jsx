@@ -1625,6 +1625,8 @@ export default function AlbumEditor({
                 return;
             }
             setTransformRevision(getTransformRevision(albumId));
+            setSwapMarks(getSwapMarks(albumId));
+            setPhotoPins(getPhotoPins(albumId));
             syncCollectionOrderToPlacements(albumId);
             scheduleWorkspaceRefresh();
             showToast('Spread order updated.', { variant: 'success', duration: 3000 });
@@ -1965,13 +1967,13 @@ export default function AlbumEditor({
     }, [loadProofSpreadComments, albumId, loadSpreadComments]);
 
     useEffect(() => {
-        if (!loadProofSpreadComments || !albumId) return undefined;
+        if (!albumId) return undefined;
         const onChanged = (e) => {
             if (e.detail?.albumId === albumId) loadSpreadComments();
         };
         window.addEventListener(COMMENTS_CHANGED_EVENT, onChanged);
         return () => window.removeEventListener(COMMENTS_CHANGED_EVENT, onChanged);
-    }, [loadProofSpreadComments, albumId, loadSpreadComments]);
+    }, [albumId, loadSpreadComments]);
 
     const pickerSubtitle =
         collectionItems.length > 0

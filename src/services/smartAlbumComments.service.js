@@ -409,6 +409,39 @@ export async function purgeSpreadCommentsOnSpreadDelete(albumId, deletedSpreadIn
     notifyCommentsChanged(albumId);
 }
 
+/** Reindex local spread comments when overview spreads are drag-reordered. */
+export function reorderLocalSpreadCommentsForOverview(albumId, draggable, newOrder) {
+    if (!albumId || !draggable?.length || !newOrder?.length) return false;
+
+    const all = readLocal();
+    const bucket = all[albumId];
+    if (!bucket) return false;
+
+    const snapshots = Object.fromEntries(
+        draggable.map((spreadIndex) => [spreadIndex, bucket[spreadIndex] || []])
+    );
+
+    const next = { ...bucket };
+    for (const spreadIndex of draggable) {
+        delete next[spreadIndex];
+    }
+
+    for (let i = 0; i < draggable.length; i += 1) {
+        const targetSpread = draggable[i];
+        const sourceSpread = newOrder[i];
+        const rows = (snapshots[sourceSpread] || []).map((row) => ({
+            ...row,
+            spread_index: targetSpread,
+        }));
+        if (rows.length) next[targetSpread] = rows;
+    }
+
+    all[albumId] = next;
+    writeLocal(all);
+    notifyCommentsChanged(albumId);
+    return true;
+}
+
 export const smartAlbumCommentsService = {
     async listSpreadComments(albumId, spreadIndex) {
         const local = listLocalAlbumComments(albumId, spreadIndex);

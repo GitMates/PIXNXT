@@ -1,3 +1,9 @@
+import {
+    remapPageForSpreadMove,
+    remapSpreadIndexAfterOverviewReorder,
+    spreadIndexForPageNum,
+} from './albumSpreadReorder';
+
 const STORAGE_KEY = 'pixnxt_album_photo_pins';
 const SEEN_KEY = 'pixnxt_album_photo_pins_seen';
 
@@ -204,4 +210,45 @@ export function updatePhotoPin(albumId, pinId, patch = {}) {
 export function slotsMatch(a, b) {
     if (!a || !b) return false;
     return a.pageNum === b.pageNum && (a.cellId ?? 0) === (b.cellId ?? 0);
+}
+
+/** Move comment pins when overview spreads are drag-reordered. */
+export function reorderPhotoPinsForOverview(albumId, draggable, newOrder, totalPages, spreadOpts) {
+    if (!albumId || !draggable?.length) return false;
+
+    const all = readAll();
+    const list = all[albumId];
+    if (!list?.length) return false;
+
+    let changed = false;
+    const next = list.map((pin) => {
+        const spreadIndex = spreadIndexForPageNum(pin.pageNum, totalPages, spreadOpts);
+        if (!draggable.includes(spreadIndex)) return pin;
+
+        const newSpreadIndex = remapSpreadIndexAfterOverviewReorder(
+            spreadIndex,
+            draggable,
+            newOrder
+        );
+        if (newSpreadIndex === spreadIndex) return pin;
+
+        changed = true;
+        return {
+            ...pin,
+            pageNum: remapPageForSpreadMove(
+                pin.pageNum,
+                spreadIndex,
+                newSpreadIndex,
+                totalPages,
+                spreadOpts
+            ),
+        };
+    });
+
+    if (!changed) return false;
+
+    all[albumId] = next;
+    writeAll(all);
+    notify(albumId);
+    return true;
 }

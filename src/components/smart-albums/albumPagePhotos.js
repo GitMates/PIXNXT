@@ -9,7 +9,6 @@ import {
     enumerateCoverCollectionPlacements,
     enumerateWholeSpreadBlankCoverPlacements,
     getAlbumSpreadOptions,
-    getDraggableOverviewSpreadIndices,
     getEndSpreadPageIndices,
     getLastSpreadInfo,
     getPreBackHalfSpreadInfo,
@@ -23,7 +22,10 @@ import {
 } from './albumSpreadUtils';
 import { readAlbumTransformBucket, writeAlbumTransformBucket } from './albumPageTransforms';
 import { computePageCountFromPhotoCount } from '../../pages/smart-albums/createAlbumLayout';
-import { moveItemInOrder } from '../../lib/uploadFileOrder';
+import {
+    buildOverviewSpreadReorderPlan,
+    reorderOverviewSpreadMetadata,
+} from './albumSpreadReorder';
 import {
     photoFillsWholeFromItem,
     resolvePhotoFillsWholeFlags,
@@ -1538,10 +1540,15 @@ export function reorderOverviewSpreads(
     if (!albumId || fromSpreadIndex === toSpreadIndex) return false;
 
     const opts = spreadOpts ?? { showCover: true, hasCovers: true, blankCovers: false };
-    const draggable = getDraggableOverviewSpreadIndices(totalPages, opts);
-    const fromPos = draggable.indexOf(fromSpreadIndex);
-    const toPos = draggable.indexOf(toSpreadIndex);
-    if (fromPos < 0 || toPos < 0) return false;
+    const plan = buildOverviewSpreadReorderPlan(
+        fromSpreadIndex,
+        toSpreadIndex,
+        totalPages,
+        opts
+    );
+    if (!plan) return false;
+
+    const { draggable, newOrder } = plan;
 
     const photoAll = readAll();
     const photoAlbum = { ...(photoAll[albumId] || {}) };
@@ -1559,8 +1566,6 @@ export function reorderOverviewSpreads(
             ),
         ])
     );
-
-    const newOrder = moveItemInOrder(draggable, fromPos, toPos);
 
     for (const spreadIndex of draggable) {
         clearOverviewSpreadSlot(photoAlbum, transformAlbum, spreadIndex, totalPages, opts);
@@ -1582,5 +1587,9 @@ export function reorderOverviewSpreads(
     photoAll[albumId] = photoAlbum;
     writeAll(photoAll);
     writeAlbumTransformBucket(albumId, transformAlbum);
+    reorderOverviewSpreadMetadata(albumId, fromSpreadIndex, toSpreadIndex, {
+        totalPages,
+        spreadOpts: opts,
+    });
     return true;
 }

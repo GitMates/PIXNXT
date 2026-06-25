@@ -12,6 +12,11 @@ import {
     spreadNumberFromLeftPage,
 } from './albumSpreadUtils';
 import { getSampleImageForPage } from './sampleAlbumImages';
+import {
+    remapPageForSpreadMove,
+    remapSpreadIndexAfterOverviewReorder,
+    spreadIndexForPageNum,
+} from './albumSpreadReorder';
 
 const STORAGE_KEY = 'pixnxt_album_swap_marks';
 const SEEN_KEY = 'pixnxt_album_swap_marks_seen';
@@ -887,4 +892,92 @@ export function getSwapTargetThumbnail(albumId, slot, { showSamples = false, alb
         );
     }
     return null;
+}
+
+function remapSlotKeyForOverviewReorder(key, draggable, newOrder, totalPages, spreadOpts) {
+    if (!key) return key;
+    const { pageNum, cellId } = parseSlotKey(key);
+    const spreadIndex = spreadIndexForPageNum(pageNum, totalPages, spreadOpts);
+    const newSpreadIndex = remapSpreadIndexAfterOverviewReorder(
+        spreadIndex,
+        draggable,
+        newOrder
+    );
+    if (newSpreadIndex === spreadIndex) return key;
+    const remappedPage = remapPageForSpreadMove(
+        pageNum,
+        spreadIndex,
+        newSpreadIndex,
+        totalPages,
+        spreadOpts
+    );
+    return makeSlotKey(remappedPage, cellId);
+}
+
+function remapSwapPointForOverviewReorder(point, draggable, newOrder, totalPages, spreadOpts) {
+    if (!point || !Number.isFinite(point.pageNum)) return point;
+    const spreadIndex = spreadIndexForPageNum(point.pageNum, totalPages, spreadOpts);
+    const newSpreadIndex = remapSpreadIndexAfterOverviewReorder(
+        spreadIndex,
+        draggable,
+        newOrder
+    );
+    if (newSpreadIndex === spreadIndex) return point;
+    return {
+        ...point,
+        pageNum: remapPageForSpreadMove(
+            point.pageNum,
+            spreadIndex,
+            newSpreadIndex,
+            totalPages,
+            spreadOpts
+        ),
+    };
+}
+
+/** Move swap marks when overview spreads are drag-reordered. */
+export function reorderSwapMarksForOverview(albumId, draggable, newOrder, totalPages, spreadOpts) {
+    if (!albumId || !draggable?.length) return false;
+
+    const all = readAll();
+    const list = all[albumId];
+    if (!list?.length) return false;
+
+    const next = list.map((mark) => ({
+        ...mark,
+        a: remapSlotKeyForOverviewReorder(mark.a, draggable, newOrder, totalPages, spreadOpts),
+        b: remapSlotKeyForOverviewReorder(mark.b, draggable, newOrder, totalPages, spreadOpts),
+        pointA: mark.pointA
+            ? remapSwapPointForOverviewReorder(
+                  mark.pointA,
+                  draggable,
+                  newOrder,
+                  totalPages,
+                  spreadOpts
+              )
+            : mark.pointA ?? null,
+        pointB: mark.pointB
+            ? remapSwapPointForOverviewReorder(
+                  mark.pointB,
+                  draggable,
+                  newOrder,
+                  totalPages,
+                  spreadOpts
+              )
+            : mark.pointB ?? null,
+    }));
+
+    const changed = next.some(
+        (mark, index) =>
+            mark.a !== list[index].a ||
+            mark.b !== list[index].b ||
+            mark.pointA?.pageNum !== list[index].pointA?.pageNum ||
+            mark.pointB?.pageNum !== list[index].pointB?.pageNum
+    );
+    if (!changed) return false;
+
+    all[albumId] = next;
+    writeAll(all);
+    notify(albumId);
+    return true;
 }
