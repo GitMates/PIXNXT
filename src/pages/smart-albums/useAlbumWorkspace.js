@@ -287,10 +287,8 @@ export function useAlbumWorkspace() {
                     if (albumSpreadOpts.hasCovers) {
                         restorePreBackPlacement(albumId, next, capturedPreBack, albumSpreadOpts);
                         restoreEndCoverPlacement(albumId, next, capturedEndCover);
-                        if (!spreadDelete) {
-                            migratePreBackHalfSpreadToLeftPage(albumId, next, album);
-                            migrateEndHalfSpreadToLeftPage(albumId, next, album);
-                        }
+                        migratePreBackHalfSpreadToLeftPage(albumId, next, album);
+                        migrateEndHalfSpreadToLeftPage(albumId, next, album);
                     }
                 }
 

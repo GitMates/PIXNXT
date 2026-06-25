@@ -1012,23 +1012,54 @@ export function clearCollectionItemPlacements(albumId, collectionItemId, { keepS
     return writeAll(all);
 }
 
-/** Collection item ids on page/spread keys removed by deleting one spread. */
-export function collectCollectionItemIdsOnDeletedSpread(albumId, removeAt, count) {
-    if (!albumId || count <= 0) return [];
+/** Storage keys removed when deleting one spread (left page + count pages). */
+export function deletedSpreadStorageKeys(removeAt, count) {
     const start = Number(removeAt);
     const end = start + count;
-    if (!Number.isFinite(start)) return [];
+    if (!Number.isFinite(start) || count <= 0) return new Set();
 
-    const ids = new Set();
     const keys = new Set([spreadStorageKey(start)]);
     for (let page = start; page < end; page += 1) {
         keys.add(String(page));
     }
-    for (let left = start + 1; left < end; left += 1) {
-        keys.add(spreadStorageKey(left));
+    return keys;
+}
+
+function collectionItemOnlyOnDeletedSpreadKeys(albumId, itemId, deleteKeys) {
+    if (!albumId || !itemId || !deleteKeys?.size) return false;
+
+    const allKeys = new Set();
+    const album = readAll()[albumId];
+    if (album) {
+        for (const key of Object.keys(album)) {
+            if (key !== '__revision') allKeys.add(key);
+        }
+    }
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.pages) {
+        for (const key of Object.keys(remote.pages)) allKeys.add(key);
     }
 
-    for (const key of keys) {
+    let foundOnDeleteKey = false;
+    for (const key of allKeys) {
+        const stored = getStoredPlacement(albumId, key);
+        if (!stored || typeof stored !== 'object' || stored.collectionItemId !== itemId) continue;
+        if (deleteKeys.has(key)) {
+            foundOnDeleteKey = true;
+        } else {
+            return false;
+        }
+    }
+    return foundOnDeleteKey;
+}
+
+/** Collection item ids on page/spread keys removed by deleting one spread. */
+export function collectCollectionItemIdsOnDeletedSpread(albumId, removeAt, count) {
+    if (!albumId || count <= 0) return [];
+    const deleteKeys = deletedSpreadStorageKeys(removeAt, count);
+
+    const ids = new Set();
+    for (const key of deleteKeys) {
         const stored = getStoredPlacement(albumId, key);
         const itemId = stored?.collectionItemId;
         if (itemId) ids.add(itemId);
@@ -1039,7 +1070,10 @@ export function collectCollectionItemIdsOnDeletedSpread(albumId, removeAt, count
 
 /** Drop collection sidebar entries for photos on a spread that is being deleted. */
 export function removeCollectionItemsOnDeletedSpread(albumId, removeAt, count) {
-    const itemIds = collectCollectionItemIdsOnDeletedSpread(albumId, removeAt, count);
+    const deleteKeys = deletedSpreadStorageKeys(removeAt, count);
+    const itemIds = collectCollectionItemIdsOnDeletedSpread(albumId, removeAt, count).filter(
+        (itemId) => collectionItemOnlyOnDeletedSpreadKeys(albumId, itemId, deleteKeys)
+    );
     if (!itemIds.length) return [];
 
     for (const itemId of itemIds) {

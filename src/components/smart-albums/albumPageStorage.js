@@ -65,13 +65,18 @@ function rescueMisplacedSpreadKeysInBucket(bucket, removeAt, count) {
 
     const next = { ...bucket };
     let changed = false;
+    const startKey = `spread:${start}`;
 
     for (let left = start + 1; left < removeEnd; left += 1) {
         const misKey = `spread:${left}`;
         if (next[misKey] == null) continue;
-        const rescueKey = `spread:${removeEnd}`;
-        if (next[rescueKey] == null) {
-            next[rescueKey] = next[misKey];
+        if (next[startKey] == null) {
+            next[startKey] = next[misKey];
+        } else {
+            const rescueKey = `spread:${removeEnd}`;
+            if (next[rescueKey] == null) {
+                next[rescueKey] = next[misKey];
+            }
         }
         delete next[misKey];
         changed = true;

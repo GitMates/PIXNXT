@@ -773,6 +773,10 @@ export function getLockedCollectionIndices(collectionItems, album = null) {
         locked.add(toCollectionIndex(1));
     }
 
+    if (placementItems.length > 2) {
+        locked.add(toCollectionIndex(placementItems.length - 2));
+    }
+
     if (placementItems.length > 1) {
         locked.add(toCollectionIndex(placementItems.length - 1));
     }
