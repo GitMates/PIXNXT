@@ -24,6 +24,7 @@ import {
     migrateMiskeyedInnerSpreadPhotos,
     migrateWholeSpreadPagePhotosToSpreadKeys,
     migrateWholeSpreadPhotoOffRightPage,
+    removeCollectionItemsOnDeletedSpread,
 } from '../../components/smart-albums/albumPagePhotos';
 import {
     migrateInsideCoverSpreadTransform,
@@ -266,6 +267,7 @@ export function useAlbumWorkspace() {
                                 revision: (remote.revision || 0) + 1,
                             });
                         }
+                        removeCollectionItemsOnDeletedSpread(albumId, removeAt, removeCount);
                     }
                     removeAlbumStoragePages(albumId, removeAt, removeCount);
                     shiftAlbumRemotePreviewPages(albumId, removeAt, -removeCount);

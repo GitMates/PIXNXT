@@ -37,6 +37,7 @@ import {
     getCollectionItemDisplayUrl,
     isCoverWrapCollectionItem,
     markCollectionItemAsCoverWrap,
+    removeCollectionItem,
 } from './albumCollection';
 import { getSampleImageForPage } from './sampleAlbumImages';
 import {
@@ -1009,6 +1010,56 @@ export function clearCollectionItemPlacements(albumId, collectionItemId, { keepS
     next.__revision = (next.__revision || 0) + 1;
     all[albumId] = next;
     return writeAll(all);
+}
+
+/** Collection item ids on page/spread keys removed by deleting one spread. */
+export function collectCollectionItemIdsOnDeletedSpread(albumId, removeAt, count) {
+    if (!albumId || count <= 0) return [];
+    const start = Number(removeAt);
+    const end = start + count;
+    if (!Number.isFinite(start)) return [];
+
+    const ids = new Set();
+    const keys = new Set([spreadStorageKey(start)]);
+    for (let page = start; page < end; page += 1) {
+        keys.add(String(page));
+    }
+    for (let left = start + 1; left < end; left += 1) {
+        keys.add(spreadStorageKey(left));
+    }
+
+    for (const key of keys) {
+        const stored = getStoredPlacement(albumId, key);
+        const itemId = stored?.collectionItemId;
+        if (itemId) ids.add(itemId);
+    }
+
+    return [...ids];
+}
+
+/** Drop collection sidebar entries for photos on a spread that is being deleted. */
+export function removeCollectionItemsOnDeletedSpread(albumId, removeAt, count) {
+    const itemIds = collectCollectionItemIdsOnDeletedSpread(albumId, removeAt, count);
+    if (!itemIds.length) return [];
+
+    for (const itemId of itemIds) {
+        removeCollectionItem(albumId, itemId);
+    }
+
+    const remote = getRemotePreviewData(albumId);
+    if (remote?.collection?.length) {
+        const drop = new Set(itemIds);
+        const nextCollection = remote.collection.filter((item) => !drop.has(item.id));
+        if (nextCollection.length !== remote.collection.length) {
+            hydrateAlbumPreviewData(albumId, {
+                ...remote,
+                collection: nextCollection,
+                revision: (remote.revision || 0) + 1,
+            });
+        }
+    }
+
+    return itemIds;
 }
 
 /** Remove all placed photos from album pages (collection is unchanged). */
