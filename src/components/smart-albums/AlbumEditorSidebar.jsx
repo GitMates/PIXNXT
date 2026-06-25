@@ -78,6 +78,7 @@ export default function AlbumEditorSidebar({
     album,
     totalPages,
     collectionItems = [],
+    collectionRevision = 0,
     onUploadForCurrentSpread,
     onOpenPicker,
     onClearAllPhotos,
@@ -492,6 +493,7 @@ export default function AlbumEditorSidebar({
                                                     {spreadLabel || index + 1}
                                                 </span>
                                                 <CollectionSpreadThumb
+                                                    key={`${item.id}-r${collectionRevision}`}
                                                     layout={collectionThumbLayouts[index]}
                                                     alt=""
                                                 />

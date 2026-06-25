@@ -24,6 +24,7 @@ import {
     replaceCollectionItemFile,
     getAlbumCollection,
     getAlbumCollectionRevision,
+    ALBUM_COLLECTION_CHANGED_EVENT,
     getAlbumLayoutPhotoCount,
     getCollectionItem,
     isCoverWrapCollectionItem,
@@ -323,6 +324,7 @@ export default function AlbumEditor({
     const [collectionRevision, setCollectionRevision] = useState(0);
     const [transformRevision, setTransformRevision] = useState(0);
     const [photoLayoutRev, setPhotoLayoutRev] = useState(0);
+    const [workspaceTick, setWorkspaceTick] = useState(0);
     const [pickerOpen, setPickerOpen] = useState(false);
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
@@ -383,22 +385,12 @@ export default function AlbumEditor({
               : buildCellSelection(0, 1);
     });
 
-    const wrapAspect = useAlbumWrapAspect(
-        album,
-        albumId,
-        photoRevision || photoLayoutRev || transformRevision
-    );
-
-    const albumForBook = useMemo(
-        () => withAlbumWrapAspect(album, albumId, wrapAspect),
-        [album, albumId, wrapAspect]
-    );
-
     const bumpWorkspace = useCallback(() => {
         onPhotosUploaded?.();
         setTransformRevision(getTransformRevision(albumId));
         setCollectionRevision(getAlbumCollectionRevision(albumId));
-        setPhotoLayoutRev(getAlbumPhotoRevision(albumId) || Date.now());
+        setPhotoLayoutRev(getAlbumPhotoRevision(albumId) || 0);
+        setWorkspaceTick((t) => t + 1);
     }, [albumId, onPhotosUploaded]);
     bumpWorkspaceRef.current = bumpWorkspace;
 
@@ -409,11 +401,32 @@ export default function AlbumEditor({
         });
     }, [bumpWorkspace]);
 
-    const layoutRevision = photoRevision || photoLayoutRev || transformRevision;
+    const layoutRevision = useMemo(
+        () =>
+            `${workspaceTick}:${photoRevision}:${photoLayoutRev}:${transformRevision}:${collectionRevision}`,
+        [workspaceTick, photoRevision, photoLayoutRev, transformRevision, collectionRevision]
+    );
+
+    const wrapAspect = useAlbumWrapAspect(album, albumId, layoutRevision);
+
+    const albumForBook = useMemo(
+        () => withAlbumWrapAspect(album, albumId, wrapAspect),
+        [album, albumId, wrapAspect]
+    );
 
     useEffect(() => {
         setCollectionRevision(getAlbumCollectionRevision(albumId));
     }, [albumId]);
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const onAlbumDataChanged = (e) => {
+            if (e.detail?.albumId !== albumId) return;
+            scheduleWorkspaceRefresh();
+        };
+        window.addEventListener(ALBUM_COLLECTION_CHANGED_EVENT, onAlbumDataChanged);
+        return () => window.removeEventListener(ALBUM_COLLECTION_CHANGED_EVENT, onAlbumDataChanged);
+    }, [albumId, scheduleWorkspaceRefresh]);
 
     useEffect(() => {
         if (!albumId) return;
@@ -1455,6 +1468,7 @@ export default function AlbumEditor({
             if (added.length > 0) {
                 setCollectionRevision(getAlbumCollectionRevision(albumId));
                 await ensurePageCountForCollection();
+                scheduleWorkspaceRefresh();
                 showToast(
                     `Added ${added.length} image${added.length === 1 ? '' : 's'} to collection${skippedDuplicates ? `, skipped ${skippedDuplicates} duplicate${skippedDuplicates === 1 ? '' : 's'}` : ''}.`,
                     { variant: 'success', duration: 4500 }
@@ -2154,6 +2168,7 @@ export default function AlbumEditor({
                     album={album}
                     totalPages={totalPages}
                     collectionItems={collectionItems}
+                    collectionRevision={collectionRevision}
                     onUploadForCurrentSpread={handleUploadForCurrentSpread}
                     onOpenPicker={openPicker}
                     onClearAllPhotos={handleClearAllPhotos}

@@ -11,6 +11,7 @@ import {
 import { loadCollectionItemDimensions, loadImageDimensionsFromFile } from './albumGridSize';
 
 const STORAGE_KEY = 'pixnxt_album_collections';
+export const ALBUM_COLLECTION_CHANGED_EVENT = 'pixnxt-album-collection-changed';
 const ALBUM_PATH_CACHE = new Map();
 const PHOTOGRAPHER_PATH_CACHE = new Map();
 
@@ -216,6 +217,11 @@ function persistCollectionBucket(all, albumId, bucket) {
     };
     all[albumId] = nextBucket;
     writeAll(all);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+            new CustomEvent(ALBUM_COLLECTION_CHANGED_EVENT, { detail: { albumId } })
+        );
+    }
     return nextBucket;
 }
 

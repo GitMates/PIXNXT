@@ -1,5 +1,5 @@
 import { photoFillsWholeSpread } from './albumGridSize';
-import { getCollectionItemDisplayUrl, isCoverWrapCollectionItem } from './albumCollection';
+import { getCollectionItemDisplayUrl, getAlbumCollectionRevision, isCoverWrapCollectionItem } from './albumCollection';
 import { getCollectionItemPlacementInfo } from './albumPagePhotos';
 import {
     enumerateCollectionPlacementPages,
@@ -80,7 +80,8 @@ function getCollectionPlacementSlots(collectionItems, album, totalPages) {
  */
 export function resolveCollectionThumbLayout(index, collectionItems, album, totalPages) {
     const item = collectionItems[index];
-    const src = getCollectionItemDisplayUrl(item) || null;
+    const cacheBust = album?.id ? getAlbumCollectionRevision(album.id) : null;
+    const src = getCollectionItemDisplayUrl(item, { cacheBust }) || null;
     if (!src) return { mode: 'photo', src: null };
 
     const gridLayout = album?.grid_layout || 'two-page';
