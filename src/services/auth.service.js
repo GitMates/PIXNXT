@@ -95,6 +95,36 @@ export async function resolveAuthSession() {
   return { user: refreshed.session.user ?? null, session: refreshed.session };
 }
 
+/** Error code when refresh fails or there is no valid session. */
+export const AUTH_SESSION_EXPIRED = 'AUTH_SESSION_EXPIRED';
+
+export function isAuthExpiredError(error) {
+  if (!error) return false;
+  if (error.code === AUTH_SESSION_EXPIRED) return true;
+  const message = String(error.message || error.msg || '').toLowerCase();
+  return (
+    message.includes('jwt expired') ||
+    message.includes('invalid jwt') ||
+    message.includes('session expired') ||
+    error.status === 401 ||
+    error.statusCode === 401
+  );
+}
+
+/**
+ * Refresh if needed and return a valid session, or throw with AUTH_SESSION_EXPIRED.
+ * @returns {Promise<{ user: Object, session: Object }>}
+ */
+export async function ensureAuthSession() {
+  const { user, session } = await resolveAuthSession();
+  if (!user || !session) {
+    const err = new Error('Your session has expired. Please sign in again.');
+    err.code = AUTH_SESSION_EXPIRED;
+    throw err;
+  }
+  return { user, session };
+}
+
 /**
  * Retrieves the current session.
  * @returns {Promise<Object|null>} - Current session data.

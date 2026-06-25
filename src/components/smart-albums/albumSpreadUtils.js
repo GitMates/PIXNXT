@@ -183,19 +183,6 @@ export function canInsertSpreadAfterSpread(spreadLeft, totalPages, opts = {}) {
     return canInsertSpreadAt(getSpreadInsertIndexAfter(spreadLeft), totalPages, opts);
 }
 
-/** Whether the spread at spreadLeft may be deleted (not cover, pre-back, or back). */
-export function canDeleteSpreadAt(spreadLeft, totalPages, opts = {}) {
-    if (spreadLeft == null || Number.isNaN(spreadLeft)) return false;
-    if (isReservedSpreadLeft(spreadLeft, totalPages, opts)) return false;
-    const spreadOpts = normalizeSpreadOpts(opts);
-    const preBack = getPreBackHalfSpreadInfo(totalPages, spreadOpts);
-    if (preBack && spreadLeft >= preBack.left) return false;
-    const { left: endLeft } = getEndSpreadPageIndices(totalPages);
-    if (spreadLeft >= endLeft) return false;
-    const minPages = spreadOpts.hasCovers ? MIN_ALBUM_PAGES : 2;
-    return totalPages - PAGES_PER_SPREAD >= minPages;
-}
-
 /**
  * Index where pages are removed when shrinking — the spread before the last two
  * (never removes front cover pages 0–1 or the last two spreads).
@@ -330,8 +317,7 @@ export function getSpreadPages(spreadIndex, totalPages, opts = {}) {
         return getEndSpreadPageIndices(totalPages);
     }
 
-    // Inner spreads: 2|3, 4|5, … (spread 0 = front cover 0|1).
-    const left = hasCovers && showCover ? spreadIndex * 2 : spreadIndex * 2;
+    const left = spreadIndexToPage(spreadIndex, { ...spreadOpts, totalPages });
     const maxInnerRight = usesReservedEndSpread(totalPages, spreadOpts)
         ? totalPages - RESERVED_END_PAGES - 1
         : totalPages - 1;

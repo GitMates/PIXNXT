@@ -12,6 +12,7 @@ export default function AlbumSpreadSlotMenu({
     canAddSpreadBefore = false,
     canAddSpreadAfter = false,
     canDeleteSpread = false,
+    deleteSpreadLeft = null,
     pageCountBusy = false,
     onAddSpreadBefore,
     onAddSpreadAfter,
@@ -151,13 +152,18 @@ export default function AlbumSpreadSlotMenu({
                         </button>
                     ) : null}
 
-                    {canDeleteSpread && onDeleteSpread ? (
+                    {canDeleteSpread && onDeleteSpread && deleteSpreadLeft != null ? (
                         <button
                             type="button"
                             className="ab-slot-menu-item ab-slot-menu-item--danger"
                             role="menuitem"
                             disabled={pageCountBusy}
-                            onClick={onDeleteSpread}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (pageCountBusy) return;
+                                onDeleteSpread();
+                            }}
                         >
                             <span className="ab-slot-menu-icon" aria-hidden>
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -168,7 +174,7 @@ export default function AlbumSpreadSlotMenu({
                                 </svg>
                             </span>
                             <span className="ab-slot-menu-text">
-                                <strong>Delete spread</strong>
+                                <strong>Remove spread</strong>
                                 <small>Remove this spread and its images</small>
                             </span>
                         </button>

@@ -5,6 +5,7 @@
 
 import {
     getEndSpreadPageIndices,
+    getSpreadPages,
     isCoverInsidePage,
     normalizeSpreadOpts,
     usesReservedEndSpread,
@@ -87,6 +88,13 @@ export function getSpreadLeftPageIndex(pageNum, opts = {}) {
         return pageNum % 2 === 0 ? pageNum : pageNum - 1;
     }
     return pageNum % 2 === 0 ? pageNum : pageNum - 1;
+}
+
+/** Resolve remove-at page from any page/cell on a spread. */
+export function resolveSpreadRemoveAt(pageNum, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    const totalPages = opts.totalPages ?? 0;
+    return getSpreadLeftPageIndex(pageNum, { ...spreadOpts, totalPages });
 }
 
 /**

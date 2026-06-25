@@ -11,7 +11,10 @@ import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
 import CollectionSpreadThumb from './CollectionSpreadThumb';
 import CoverLeatherColorPicker from './CoverLeatherColorPicker';
-import { resolveCollectionThumbLayout } from './collectionThumbLayout';
+import {
+    resolveCollectionSpreadLabel,
+    resolveCollectionThumbLayout,
+} from './collectionThumbLayout';
 import { getLockedCollectionIndices } from './albumCollection';
 import { formatAlbumGridSizeDisplay, parseGridSizeAspect } from './albumGridSize';
 import {
@@ -136,6 +139,13 @@ export default function AlbumEditorSidebar({
         () =>
             collectionItems.map((_, index) =>
                 resolveCollectionThumbLayout(index, collectionItems, album, totalPages)
+            ),
+        [collectionItems, album, totalPages]
+    );
+    const collectionSpreadLabels = useMemo(
+        () =>
+            collectionItems.map((_, index) =>
+                resolveCollectionSpreadLabel(index, collectionItems, album, totalPages)
             ),
         [collectionItems, album, totalPages]
     );
@@ -438,6 +448,12 @@ export default function AlbumEditorSidebar({
                                 <div className="ae-collection-grid" role="list">
                                     {collectionItems.map((item, index) => {
                                         const isLocked = lockedCollectionIndices.has(index);
+                                        const spreadLabel = collectionSpreadLabels[index] || '';
+                                        const spreadTitle = spreadLabel
+                                            ? spreadLabel === 'Cover' || spreadLabel === 'Back'
+                                                ? spreadLabel
+                                                : `Spread ${spreadLabel}`
+                                            : `Photo ${index + 1}`;
                                         return (
                                         <div
                                             key={item.id}
@@ -473,10 +489,13 @@ export default function AlbumEditorSidebar({
                                                     handleCollectionDrop(index);
                                                 }}
                                                 onDragEnd={handleCollectionDragEnd}
-                                                title={`${index + 1}. ${item.name || 'Photo'}${isLocked ? ' — fixed position' : ''}`}
+                                                title={`${spreadTitle}. ${item.name || 'Photo'}${isLocked ? ' — fixed position' : ''}`}
                                             >
-                                                <span className="ae-collection-order" aria-hidden>
-                                                    {index + 1}
+                                                <span
+                                                    className={`ae-collection-order${spreadLabel.length > 2 ? ' ae-collection-order--wide' : ''}`}
+                                                    aria-hidden
+                                                >
+                                                    {spreadLabel || index + 1}
                                                 </span>
                                                 <CollectionSpreadThumb
                                                     layout={collectionThumbLayouts[index]}

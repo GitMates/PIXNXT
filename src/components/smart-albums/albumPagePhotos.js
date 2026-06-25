@@ -305,9 +305,9 @@ export function migrateEndHalfSpreadToLeftPage(albumId, totalPages, albumMeta = 
 }
 
 /**
- * With cover spreads, inner photos belong on odd left-page keys (1, 3, 5, …).
- * Legacy data sometimes used even keys (2, 4, …) — move those up by one.
- * Skipped for no-cover albums (correct keys are 0, 2, 4, …) and whole-spread layout.
+ * Cover albums store inner spreads on even left-page keys (2, 4, 6, …).
+ * Legacy data sometimes used odd keys (1, 3, 5, …) — move those to the next even key.
+ * Skipped for no-cover albums and whole-spread layout.
  */
 export function migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, albumMeta = null) {
     if (!albumId || totalPages == null || totalPages < 4) return false;
@@ -327,11 +327,11 @@ export function migrateMiskeyedInnerSpreadPhotos(albumId, totalPages, albumMeta 
     const next = { ...album };
     let changed = false;
 
-    for (let wrongLeft = 2; wrongLeft < endLeft; wrongLeft += 2) {
-        const wrongKey = spreadStorageKey(wrongLeft);
+    for (let oddLeft = 1; oddLeft < endLeft; oddLeft += 2) {
+        const wrongKey = spreadStorageKey(oddLeft);
         if (next[wrongKey] == null) continue;
 
-        const correctKey = spreadStorageKey(wrongLeft - 1);
+        const correctKey = spreadStorageKey(oddLeft + 1);
         if (next[correctKey] == null) {
             next[correctKey] = next[wrongKey];
         }

@@ -1194,9 +1194,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         : ''
                 }`}
                 onClick={canSelectCover ? () => liveOnSelectCover?.() : undefined}
-                aria-label={canSelectCover ? 'Choose cover photo' : undefined}
+                aria-label={
+                    canSelectCover
+                        ? 'Choose cover photo'
+                        : showLeatherCover && coverText
+                          ? coverText
+                          : undefined
+                }
                 style={showLeatherCover ? leatherStyle : undefined}
-                aria-label={showLeatherCover && coverText ? coverText : undefined}
             >
                 <AlbumPhotoPinLayer
                     hasPhoto={Boolean(src)}
