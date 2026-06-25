@@ -1,5 +1,5 @@
 import { storageService } from '../../services/storage.service';
-import { expandUploadFilesToImages, isImageFile, isPdfFile } from '../../lib/pdfToImages';
+import { expandUploadFilesToImages, isImageFile, isPdfFile, probeImageFile } from '../../lib/pdfToImages';
 import { compressImageForUpload } from '../../lib/prepareUploadFile';
 import { getAlbumUploadPixelTarget } from './albumGridSize';
 import { moveFileInOrder } from '../../lib/uploadFileOrder';
@@ -11,6 +11,7 @@ import {
 import { loadCollectionItemDimensions, loadImageDimensionsFromFile } from './albumGridSize';
 
 const STORAGE_KEY = 'pixnxt_album_collections';
+export const ALBUM_COLLECTION_CHANGED_EVENT = 'pixnxt-album-collection-changed';
 const ALBUM_PATH_CACHE = new Map();
 const PHOTOGRAPHER_PATH_CACHE = new Map();
 
@@ -216,6 +217,11 @@ function persistCollectionBucket(all, albumId, bucket) {
     };
     all[albumId] = nextBucket;
     writeAll(all);
+    if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+            new CustomEvent(ALBUM_COLLECTION_CHANGED_EVENT, { detail: { albumId } })
+        );
+    }
     return nextBucket;
 }
 
@@ -239,7 +245,8 @@ async function buildCollectionWorkItems(files) {
     const batches = await Promise.all(
         (files || []).map(async (file, fileIndex) => {
             try {
-                if (isImageFile(file)) {
+                const isImage = isImageFile(file) || (await probeImageFile(file));
+                if (isImage) {
                     return [{ kind: 'file', file, name: file.name || 'Photo', fileIndex }];
                 }
                 if (isPdfFile(file)) {
@@ -766,6 +773,10 @@ export function getLockedCollectionIndices(collectionItems, album = null) {
         locked.add(toCollectionIndex(1));
     }
 
+    if (placementItems.length > 2) {
+        locked.add(toCollectionIndex(placementItems.length - 2));
+    }
+
     if (placementItems.length > 1) {
         locked.add(toCollectionIndex(placementItems.length - 1));
     }
@@ -821,6 +832,41 @@ export function reorderCollectionItems(albumId, fromIndex, toIndex, { album = nu
     return true;
 }
 
+/** Apply an explicit collection order (updates sortOrder). */
+export function applyCollectionSortOrder(albumId, orderedItemIds) {
+    if (!albumId || !orderedItemIds?.length) return false;
+    const all = readAll();
+    const bucket = all[albumId];
+    if (!bucket?.items?.length) return false;
+
+    const byId = new Map(bucket.items.map((item) => [item.id, item]));
+    const reordered = [];
+    for (const id of orderedItemIds) {
+        const item = byId.get(id);
+        if (item) reordered.push(item);
+    }
+    for (const item of sortCollectionItems(bucket.items)) {
+        if (!reordered.some((row) => row.id === item.id)) {
+            reordered.push(item);
+        }
+    }
+
+    const sorted = sortCollectionItems(bucket.items);
+    const unchanged =
+        reordered.length === sorted.length &&
+        reordered.every((item, index) => item.id === sorted[index]?.id);
+    if (unchanged) return false;
+
+    persistCollectionBucket(all, albumId, {
+        ...bucket,
+        items: reordered.map((item, index) => ({
+            ...item,
+            sortOrder: index,
+        })),
+    });
+    return true;
+}
+
 export function getCollectionItem(albumId, itemId) {
     return getAlbumCollection(albumId).find((i) => i.id === itemId) ?? null;
 }
@@ -856,7 +902,9 @@ export async function replaceCollectionItemFile(
     file,
     { photographerId, compressionTarget = null, retainPreviousStorage = false } = {}
 ) {
-    if (!albumId || !itemId || !file || !isImageFile(file)) return null;
+    if (!albumId || !itemId || !file || isPdfFile(file)) return null;
+    const isImage = isImageFile(file) || (await probeImageFile(file));
+    if (!isImage) return null;
     const item = getCollectionItem(albumId, itemId);
     if (!item) return null;
 

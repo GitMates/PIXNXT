@@ -289,7 +289,12 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
     const labelForPin = (pinPageNum, cellId, whole = false) =>
         getSlotLabel(pinPageNum, cellId, whole, totalPages, album);
     const spreadWholePhoto = Boolean(albumId && getSpreadPhotoOverride(albumId, spreadLeftForPage));
-    const useHalfSpreadLayout = !isWholeSpreadAlbum || !spreadWholePhoto;
+    const isPreBackHalfPage =
+        preBackSpreadRole === 'half-left' ||
+        preBackSpreadRole === 'half-blank' ||
+        isPreBackHalfSpreadRightPage(pageNum, totalPages, spreadOpts);
+    const useHalfSpreadLayout =
+        isPreBackHalfPage || !isWholeSpreadAlbum || !spreadWholePhoto;
     const endHalfLeftPage = isEndHalfSpreadLeftPage(spreadLeftForPage, totalPages, spreadOpts);
     const useLeftGrid = isProofLeftGridPage(pageNum, gridOpts) && !endHalfLeftPage;
     const useRightGrid = isProofRightGridPage(pageNum, gridOpts);
@@ -1189,9 +1194,14 @@ const AlbumFlipPage = React.forwardRef(function AlbumFlipPage(
                         : ''
                 }`}
                 onClick={canSelectCover ? () => liveOnSelectCover?.() : undefined}
-                aria-label={canSelectCover ? 'Choose cover photo' : undefined}
+                aria-label={
+                    canSelectCover
+                        ? 'Choose cover photo'
+                        : showLeatherCover && coverText
+                          ? coverText
+                          : undefined
+                }
                 style={showLeatherCover ? leatherStyle : undefined}
-                aria-label={showLeatherCover && coverText ? coverText : undefined}
             >
                 <AlbumPhotoPinLayer
                     hasPhoto={Boolean(src)}

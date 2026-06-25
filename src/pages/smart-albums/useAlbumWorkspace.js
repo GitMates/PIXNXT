@@ -5,17 +5,26 @@ import {
     MIN_ALBUM_PAGES,
     PAGES_PER_SPREAD,
     insertAlbumStoragePages,
+    pruneAlbumStorageForPageCount,
     removeAlbumStoragePages,
+    rescueMisplacedAlbumStorageBeforeSpreadRemove,
+    rescueMisplacedKeysInPhotoMap,
 } from '../../components/smart-albums/albumPageStorage';
 import {
     mergeRemotePreviewPagesIntoLocal,
+    captureEndCoverPlacement,
+    capturePreBackPlacement,
+    restoreEndCoverPlacement,
+    restorePreBackPlacement,
     migrateInsideCoverSpreadToPageTwo,
     migrateEndHalfSpreadToLeftPage,
+    migratePreBackHalfSpreadToLeftPage,
     migrateBackCoverUsesBookWrap,
     migrateFrontCoverToFullSpread,
     migrateMiskeyedInnerSpreadPhotos,
     migrateWholeSpreadPagePhotosToSpreadKeys,
     migrateWholeSpreadPhotoOffRightPage,
+    removeCollectionItemsOnDeletedSpread,
 } from '../../components/smart-albums/albumPagePhotos';
 import {
     migrateInsideCoverSpreadTransform,
@@ -26,6 +35,7 @@ import {
     getEndSpreadPageIndices,
     getPageInsertIndex,
     getPageRemoveIndex,
+    getSpreadPages,
     getTotalSpreads,
     normalizeStoragePageIndex,
 } from '../../components/smart-albums/albumSpreadUtils';
@@ -33,9 +43,12 @@ import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
     hydrateAlbumPreviewData,
+    getRemotePreviewData,
     shiftAlbumRemotePreviewPages,
 } from '../../components/smart-albums/albumPreviewData';
 import { shiftAlbumPhotoPins } from '../../components/smart-albums/albumPhotoPins';
+import { shiftAlbumSwapMarks } from '../../components/smart-albums/albumSwapMarks';
+import { purgeSpreadCommentsOnSpreadDelete } from '../../services/smartAlbumComments.service';
 
 export function parseUrlPage(raw, totalPages, spreadOpts = {}) {
     if (raw == null || raw === '') return 0;
@@ -162,7 +175,16 @@ export function useAlbumWorkspace() {
     );
 
     const changePageCount = useCallback(
-        async (pageDelta) => {
+        async (
+            pageDelta,
+            {
+                insertAt: customInsertAt,
+                removeAt: customRemoveAt,
+                spreadIndex: customSpreadIndex,
+                navigateToPage,
+                spreadDelete = false,
+            } = {}
+        ) => {
             if (!user || !albumId || !album) return null;
             const current = album.page_count || 21;
             const albumSpreadOpts = getAlbumSpreadOptions(album);
@@ -175,19 +197,99 @@ export function useAlbumWorkspace() {
 
             try {
                 const countDelta = next - current;
-                mergeRemotePreviewPagesIntoLocal(albumId);
+                if (!spreadDelete) {
+                    mergeRemotePreviewPagesIntoLocal(albumId);
+                }
+
+                let shrinkRemoveAt = null;
+                if (countDelta < 0) {
+                    const removeCount = -countDelta;
+                    if (spreadDelete) {
+                        const targetLeft = Number(customRemoveAt);
+                        if (Number.isFinite(targetLeft)) {
+                            shrinkRemoveAt = targetLeft;
+                        } else if (Number.isFinite(Number(customSpreadIndex))) {
+                            const deleteIdx = Number(customSpreadIndex);
+                            const { left } = getSpreadPages(
+                                deleteIdx,
+                                current,
+                                albumSpreadOpts
+                            );
+                            if (!Number.isFinite(left)) {
+                                console.error(
+                                    'delete spread: invalid spread index',
+                                    deleteIdx
+                                );
+                                return null;
+                            }
+                            shrinkRemoveAt = left;
+                        } else {
+                            console.error(
+                                'delete spread: missing spread index or left page'
+                            );
+                            return null;
+                        }
+                    } else {
+                        shrinkRemoveAt =
+                            customRemoveAt != null
+                                ? customRemoveAt
+                                : getPageRemoveIndex(current, removeCount, albumSpreadOpts);
+                    }
+                }
 
                 if (countDelta > 0) {
-                    const insertAt = getPageInsertIndex(current, albumSpreadOpts);
+                    const insertAt = customInsertAt ?? getPageInsertIndex(current, albumSpreadOpts);
                     insertAlbumStoragePages(albumId, insertAt, countDelta);
                     shiftAlbumRemotePreviewPages(albumId, insertAt, countDelta);
                     shiftAlbumPhotoPins(albumId, insertAt, countDelta);
                 } else if (countDelta < 0) {
                     const removeCount = -countDelta;
-                    const removeAt = getPageRemoveIndex(current, removeCount, albumSpreadOpts);
+                    const removeAt = shrinkRemoveAt;
+                    const capturedEndCover = albumSpreadOpts.hasCovers
+                        ? captureEndCoverPlacement(albumId, current)
+                        : null;
+                    const capturedPreBack = albumSpreadOpts.hasCovers
+                        ? capturePreBackPlacement(albumId, current, albumSpreadOpts)
+                        : null;
+                    if (spreadDelete) {
+                        rescueMisplacedAlbumStorageBeforeSpreadRemove(
+                            albumId,
+                            removeAt,
+                            removeCount
+                        );
+                        const remote = getRemotePreviewData(albumId);
+                        if (remote?.pages) {
+                            hydrateAlbumPreviewData(albumId, {
+                                ...remote,
+                                pages: rescueMisplacedKeysInPhotoMap(
+                                    remote.pages,
+                                    removeAt,
+                                    removeCount
+                                ),
+                                revision: (remote.revision || 0) + 1,
+                            });
+                        }
+                        removeCollectionItemsOnDeletedSpread(albumId, removeAt, removeCount);
+                        if (Number.isFinite(Number(customSpreadIndex))) {
+                            await purgeSpreadCommentsOnSpreadDelete(
+                                albumId,
+                                Number(customSpreadIndex)
+                            );
+                        }
+                    }
                     removeAlbumStoragePages(albumId, removeAt, removeCount);
                     shiftAlbumRemotePreviewPages(albumId, removeAt, -removeCount);
                     shiftAlbumPhotoPins(albumId, removeAt, -removeCount);
+                    shiftAlbumSwapMarks(albumId, removeAt, -removeCount);
+                    if (spreadDelete) {
+                        pruneAlbumStorageForPageCount(albumId, next);
+                    }
+                    if (albumSpreadOpts.hasCovers) {
+                        restorePreBackPlacement(albumId, next, capturedPreBack, albumSpreadOpts);
+                        restoreEndCoverPlacement(albumId, next, capturedEndCover);
+                        migratePreBackHalfSpreadToLeftPage(albumId, next, album);
+                        migrateEndHalfSpreadToLeftPage(albumId, next, album);
+                    }
                 }
 
                 const updated = await smartAlbumsService.updateAlbumPageCount(
@@ -200,12 +302,29 @@ export function useAlbumWorkspace() {
                 const urlPage = parseUrlPage(searchParams.get('page'), current, albumSpreadOpts);
                 let clamped = Math.min(urlPage, next - 1);
                 if (countDelta > 0) {
-                    const insertAt = getPageInsertIndex(current, albumSpreadOpts);
-                    clamped = parseUrlPage(insertAt, next, albumSpreadOpts);
+                    const insertAt = customInsertAt ?? getPageInsertIndex(current, albumSpreadOpts);
+                    if (navigateToPage != null) {
+                        clamped = parseUrlPage(navigateToPage, next, albumSpreadOpts);
+                    } else {
+                        clamped = parseUrlPage(insertAt, next, albumSpreadOpts);
+                    }
                 } else if (countDelta < 0) {
-                    const removeAt = getPageRemoveIndex(current, -countDelta, albumSpreadOpts);
+                    const removeAt = shrinkRemoveAt;
                     const removeEnd = removeAt - countDelta;
-                    if (urlPage >= removeAt && urlPage < removeEnd) {
+                    if (spreadDelete && Number.isFinite(Number(customSpreadIndex))) {
+                        const stayIdx = Math.min(
+                            Number(customSpreadIndex),
+                            getTotalSpreads(next, albumSpreadOpts) - 1
+                        );
+                        const { left: stayPage } = getSpreadPages(
+                            stayIdx,
+                            next,
+                            albumSpreadOpts
+                        );
+                        clamped = parseUrlPage(stayPage, next, albumSpreadOpts);
+                    } else if (navigateToPage != null) {
+                        clamped = parseUrlPage(navigateToPage, next, albumSpreadOpts);
+                    } else if (urlPage >= removeAt && urlPage < removeEnd) {
                         clamped = Math.max(0, removeAt - 1);
                     } else if (urlPage >= removeEnd) {
                         clamped = Math.min(urlPage + countDelta, next - 1);

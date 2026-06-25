@@ -107,16 +107,88 @@ function normalizeWhatsAppPhone(
 
 type WhatsAppSendResult = { ok: boolean; messageId?: string; error?: string; errorCode?: number };
 
-/** Meta sandbox templates ship with fixed body text — no parameters. */
-const ZERO_PARAM_TEMPLATES = new Set(['hello_world', 'jaspers_market_order_confirmation']);
+/** Meta sandbox templates with fixed body text — no parameters. */
+const ZERO_PARAM_TEMPLATES = new Set(['hello_world']);
 
-const WHATSAPP_TEMPLATE_FALLBACKS = ['hello_world', 'jaspers_market_order_confirmation'];
+/** Meta sandbox order template: Hi {{1}}! Your order {{2}} is confirmed. Estimated delivery: {{3}}. */
+const THREE_PARAM_TEMPLATES = new Set(['jaspers_market_order_confirmation']);
+
+const WHATSAPP_TEMPLATE_FALLBACKS = ['jaspers_market_order_confirmation'];
 const WHATSAPP_LANG_FALLBACKS = ['en_US', 'en'];
+
+/** PixNXT custom templates use 5 body variables matching the email layout. */
+const PIXNXT_NOTIFICATION_TEMPLATES = new Set([
+  'pixnxt_client_commenting',
+  'pixnxt_album_approved',
+  'pixnxt_album_notification',
+]);
 
 function whatsAppTemplateParamCount(templateName: string, configuredCount: number | null): number {
   if (configuredCount !== null) return configuredCount;
   if (ZERO_PARAM_TEMPLATES.has(templateName)) return 0;
+  if (THREE_PARAM_TEMPLATES.has(templateName)) return 3;
+  if (PIXNXT_NOTIFICATION_TEMPLATES.has(templateName)) return 5;
   return 5;
+}
+
+function resolveWhatsAppTemplate(primaryEnv: string): string {
+  const value = Deno.env.get(primaryEnv)?.trim() || '';
+  // Never use hello_world — it cannot carry album notification content.
+  if (value === 'hello_world') return '';
+  return value;
+}
+
+function parseTemplateParamCount(raw: string | undefined): number | null {
+  if (raw === '' || raw === undefined) return null;
+  return Math.max(0, parseInt(raw, 10) || 0);
+}
+
+function shouldFallbackToTemplate(errorCode?: number): boolean {
+  return errorCode === 131047 || errorCode === 131026 || errorCode === 132000 || errorCode === 132001;
+}
+
+async function sendWhatsAppTextMessage(toPhone: string, body: string): Promise<WhatsAppSendResult> {
+  const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN') || '';
+  const phoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '';
+
+  if (!accessToken || !phoneNumberId) {
+    return { ok: false, error: 'WhatsApp is not configured on the server' };
+  }
+
+  try {
+    const response = await fetch(
+      `https://graph.facebook.com/v25.0/${phoneNumberId}/messages`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          recipient_type: 'individual',
+          to: toPhone,
+          type: 'text',
+          text: { preview_url: true, body: body.slice(0, 4096) },
+        }),
+      }
+    );
+
+    const respData = await response.json();
+    if (!response.ok) {
+      const errCode = respData?.error?.code as number | undefined;
+      const errMsg =
+        typeof respData?.error?.message === 'string'
+          ? respData.error.message
+          : 'WhatsApp API request failed';
+      return { ok: false, error: errMsg, errorCode: errCode };
+    }
+
+    const messageId = respData?.messages?.[0]?.id as string | undefined;
+    return { ok: true, messageId };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'WhatsApp fetch failed' };
+  }
 }
 
 async function listWhatsAppTemplateNames(accessToken: string, wabaId: string): Promise<string[]> {
@@ -227,19 +299,23 @@ async function sendWhatsAppTemplateWithFallback(
   toPhone: string,
   preferredTemplate: string,
   preferredLang: string,
-  bodyParameters: string[]
+  bodyParameters: string[],
+  configuredParamCount: number | null = null
 ): Promise<WhatsAppSendResult & { template?: string; language?: string }> {
   const accessToken = Deno.env.get('WHATSAPP_ACCESS_TOKEN') || '';
   const phoneNumberId = Deno.env.get('WHATSAPP_PHONE_NUMBER_ID') || '';
   const wabaId = Deno.env.get('WHATSAPP_BUSINESS_ACCOUNT_ID') || '1892297801470358';
 
   const phoneCheck = await verifyWhatsAppPhoneAccess(accessToken, phoneNumberId);
-  if (!phoneCheck.ok) {
-    const msg = `WHATSAPP_ACCESS_TOKEN is invalid or does not match WHATSAPP_PHONE_NUMBER_ID — copy a fresh token from Meta API Setup: ${phoneCheck.error}`;
-    console.error('send-album-proof-email:', msg);
-    return { ok: false, error: msg };
+  if (phoneCheck.ok) {
+    console.log('send-album-proof-email: WhatsApp phone verified:', phoneCheck.displayPhone);
+  } else {
+    // Temporary Meta tokens can send messages without read permission on the phone-number object.
+    console.warn(
+      'send-album-proof-email: WhatsApp phone pre-check failed (continuing anyway):',
+      phoneCheck.error
+    );
   }
-  console.log('send-album-proof-email: WhatsApp phone verified:', phoneCheck.displayPhone);
 
   const templatesToTry = [
     preferredTemplate,
@@ -247,7 +323,7 @@ async function sendWhatsAppTemplateWithFallback(
   ];
 
   for (const templateName of templatesToTry) {
-    const paramCount = whatsAppTemplateParamCount(templateName, null);
+    const paramCount = whatsAppTemplateParamCount(templateName, configuredParamCount);
     const params = bodyParameters.slice(0, paramCount);
     const langsToTry =
       templateName === preferredTemplate
@@ -276,7 +352,11 @@ async function sendWhatsAppTemplateWithFallback(
 
       if (result.errorCode !== 132001) {
         console.error('send-album-proof-email WhatsApp error:', result.error);
-        return result;
+        const oauthHint =
+          result.errorCode === 190 || result.errorCode === 10
+            ? ' — copy a fresh WHATSAPP_ACCESS_TOKEN from Meta API Setup (same page as Phone number ID 1152342977957303)'
+            : '';
+        return { ...result, error: `${result.error}${oauthHint}` };
       }
       console.warn(
         `send-album-proof-email: template "${templateName}" (${tryLang}) not found, trying next...`
@@ -292,6 +372,185 @@ async function sendWhatsAppTemplateWithFallback(
   return { ok: false, error: msg, errorCode: 132001 };
 }
 
+function buildAlbumApprovedWhatsAppTemplateParams(options: {
+  photographerName: string;
+  clientName: string;
+  albumName: string;
+  approvedAt: string;
+}): string[] {
+  const { photographerName, clientName, albumName, approvedAt } = options;
+  // jaspers_market_order_confirmation: Hi {{1}}! Your order {{2}} is confirmed. Estimated delivery: {{3}}.
+  return [
+    photographerName || 'Photographer',
+    albumName,
+    approvedAt,
+  ];
+}
+
+function buildPixnxtNotificationTemplateParams(options: {
+  photographerName: string;
+  title: string;
+  description: string;
+  albumName: string;
+  guestName: string;
+  eventAt: string;
+}): string[] {
+  const { photographerName, title, description, albumName, guestName, eventAt } = options;
+  return [
+    photographerName || 'Photographer',
+    title,
+    description,
+    albumName,
+    `${guestName}\n${eventAt}`,
+  ];
+}
+
+function buildClientStartedNotificationText(options: {
+  photographerName: string;
+  albumName: string;
+  guestName: string;
+  startedAt: string;
+  editorUrl?: string;
+}): string {
+  const { photographerName, albumName, guestName, startedAt, editorUrl } = options;
+  const lines = [
+    photographerName || 'Photographer',
+    '',
+    'Client started commenting',
+    'A client opened your shared album preview and left their first comment or swap request:',
+    albumName,
+    guestName,
+    startedAt,
+  ];
+  if (editorUrl) lines.push('', `Open album: ${editorUrl}`);
+  return lines.join('\n');
+}
+
+function buildAlbumApprovedNotificationText(options: {
+  photographerName: string;
+  albumName: string;
+  guestName: string;
+  approvedAt: string;
+  editorUrl?: string;
+}): string {
+  const { photographerName, albumName, guestName, approvedAt, editorUrl } = options;
+  const lines = [
+    photographerName || 'Photographer',
+    '',
+    'Album approved for binding',
+    'Your client has approved the final album and confirmed it is ready for production:',
+    albumName,
+    guestName,
+    approvedAt,
+  ];
+  if (editorUrl) lines.push('', `Open album: ${editorUrl}`);
+  return lines.join('\n');
+}
+
+type WhatsAppNotifyResult =
+  | { sent: true; to: string; messageId?: string; template?: string }
+  | { sent: false; skipped?: string; error?: string; to?: string };
+
+async function sendPhotographerWhatsApp(
+  photographer: {
+    phone: string | null;
+    business_country: string | null;
+    time_zone: string | null;
+  },
+  options: {
+    messageText: string;
+    templateName: string;
+    templateLang: string;
+    configuredParamCount: number | null;
+    templateParameters: string[];
+    albumId: string;
+    actionLabel: string;
+    templateEnvHint: string;
+  }
+): Promise<WhatsAppNotifyResult> {
+  const {
+    messageText,
+    templateName,
+    templateLang,
+    configuredParamCount,
+    templateParameters,
+    albumId,
+    actionLabel,
+    templateEnvHint,
+  } = options;
+
+  const normalizedPhone = photographer.phone
+    ? normalizeWhatsAppPhone(photographer.phone, photographer.business_country, photographer.time_zone)
+    : null;
+
+  if (!photographer.phone) {
+    return { sent: false, skipped: 'no_phone' };
+  }
+  if (!normalizedPhone) {
+    return { sent: false, skipped: 'invalid_phone', to: photographer.phone };
+  }
+
+  console.log(
+    `send-album-proof-email: sending WhatsApp (${actionLabel}) to ${normalizedPhone} (raw: ${photographer.phone})`
+  );
+
+  // 1) Send the same text as the email (works inside the 24h customer service window).
+  const textResult = await sendWhatsAppTextMessage(normalizedPhone, messageText);
+  if (textResult.ok) {
+    console.log(
+      `WhatsApp text sent (${actionLabel}) to ${normalizedPhone} for album ${albumId} (messageId: ${textResult.messageId || 'n/a'})`
+    );
+    return {
+      sent: true,
+      to: normalizedPhone,
+      messageId: textResult.messageId,
+      template: 'text',
+    };
+  }
+
+  console.warn(
+    `send-album-proof-email: WhatsApp text failed (${actionLabel}), trying template:`,
+    textResult.error
+  );
+
+  if (!templateName) {
+    const hint =
+      shouldFallbackToTemplate(textResult.errorCode)
+        ? ` Outside 24h window — create template ${templateEnvHint} in Meta Business Manager or message the business number first.`
+        : '';
+    return { sent: false, error: `${textResult.error}${hint}`, to: normalizedPhone };
+  }
+
+  const paramCount = whatsAppTemplateParamCount(templateName, configuredParamCount);
+  const bodyParams = templateParameters.slice(0, paramCount);
+  console.log(
+    `send-album-proof-email: WhatsApp template fallback "${templateName}" (${paramCount} params)`
+  );
+
+  const sendResult = await sendWhatsAppTemplateWithFallback(
+    normalizedPhone,
+    templateName,
+    templateLang,
+    bodyParams,
+    configuredParamCount
+  );
+
+  if (sendResult.ok) {
+    console.log(
+      `WhatsApp template sent (${actionLabel}) to ${normalizedPhone} for album ${albumId} (messageId: ${sendResult.messageId || 'n/a'}, template: ${sendResult.template})`
+    );
+    return {
+      sent: true,
+      to: normalizedPhone,
+      messageId: sendResult.messageId,
+      template: sendResult.template || templateName,
+    };
+  }
+
+  console.error(`send-album-proof-email: WhatsApp failed (${actionLabel}):`, sendResult.error);
+  return { sent: false, error: sendResult.error, to: normalizedPhone };
+}
+
 function buildClientStartedWhatsAppTemplateParams(options: {
   photographerName: string;
   clientName: string;
@@ -300,13 +559,7 @@ function buildClientStartedWhatsAppTemplateParams(options: {
   editorUrl: string;
 }): string[] {
   const { photographerName, clientName, albumName, startedAt, editorUrl } = options;
-  return [
-    photographerName || 'Photographer',
-    clientName,
-    albumName,
-    startedAt,
-    editorUrl,
-  ];
+  return [photographerName || 'Photographer', clientName, albumName, startedAt, editorUrl];
 }
 
 function spreadLabel(spreadIndex: number): string {
@@ -335,14 +588,10 @@ function buildApproveEmailHtml(options: {
   photographerName: string;
   albumName: string;
   guestName: string;
-  guestEmail: string | null;
   approvedAt: string;
   editorUrl: string;
 }): string {
-  const { photographerName, albumName, guestName, guestEmail, approvedAt, editorUrl } = options;
-  const guestLine = guestEmail
-    ? `${escapeHtml(guestName)} (${escapeHtml(guestEmail)})`
-    : escapeHtml(guestName);
+  const { photographerName, albumName, guestName, approvedAt, editorUrl } = options;
 
   return `<!DOCTYPE html>
 <html>
@@ -354,19 +603,18 @@ function buildApproveEmailHtml(options: {
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
           <tr>
             <td style="padding:36px 40px 32px;text-align:left;">
-              <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999;">${escapeHtml(photographerName)}</p>
-              <h1 style="margin:0 0 20px;font-size:20px;font-weight:700;letter-spacing:0.5px;color:#111;line-height:1.3;">Album approved for binding</h1>
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 20px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
+              <p style="margin:0 0 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999;">${escapeHtml(photographerName)}</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;">
                 <tr>
-                  <td style="padding:18px 20px;">
-                    <p style="margin:0 0 10px;font-size:13px;line-height:1.5;color:#166534;">Your client has approved the final album and confirmed it is ready for production.</p>
-                    <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:#111;">${escapeHtml(albumName)}</p>
-                    <p style="margin:0 0 4px;font-size:14px;line-height:1.5;color:#444;">Approved by ${guestLine}</p>
-                    <p style="margin:8px 0 0;font-size:12px;color:#666;">${escapeHtml(approvedAt)}</p>
+                  <td style="padding:20px 22px;">
+                    <p style="margin:0 0 14px;font-size:18px;font-weight:700;color:#111;line-height:1.3;">Album approved for binding</p>
+                    <p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#444;">Your client has approved the final album and confirmed it is ready for production:</p>
+                    <p style="margin:0 0 8px;font-size:16px;font-weight:600;color:#111;line-height:1.4;">${escapeHtml(albumName)}</p>
+                    <p style="margin:0 0 8px;font-size:14px;line-height:1.5;color:#333;">${escapeHtml(guestName)}</p>
+                    <p style="margin:0;font-size:13px;line-height:1.5;color:#666;">${escapeHtml(approvedAt)}</p>
                   </td>
                 </tr>
               </table>
-              <p style="margin:0 0 24px;font-size:14px;line-height:1.6;color:#555;">No further client changes are expected. You may proceed with binding and delivery.</p>
               <table role="presentation" cellspacing="0" cellpadding="0">
                 <tr>
                   <td style="border-radius:6px;background:#111;">
@@ -511,29 +759,6 @@ function buildChangesEmailHtml(options: {
   </table>
 </body>
 </html>`;
-}
-
-function buildClientStartedNotificationText(options: {
-  photographerName: string;
-  albumName: string;
-  guestName: string;
-  startedAt: string;
-  editorUrl?: string;
-}): string {
-  const { photographerName, albumName, guestName, startedAt, editorUrl } = options;
-  const lines = [
-    photographerName || 'Photographer',
-    '',
-    'Client started commenting',
-    'A client opened your shared album preview and left their first comment or swap request:',
-    albumName,
-    guestName,
-    startedAt,
-  ];
-  if (editorUrl) {
-    lines.push('', `Open album: ${editorUrl}`);
-  }
-  return lines.join('\n');
 }
 
 function buildClientStartedEmailHtml(options: {
@@ -726,14 +951,13 @@ serve(async (req) => {
 
     if (action === 'client_started_commenting') {
       subject = `Client started commenting — ${album.name || 'Album'}`;
-      const notificationText = buildClientStartedNotificationText({
+      plainBody = buildClientStartedNotificationText({
         photographerName: photographer.display_name || 'Photographer',
         albumName: album.name || 'Album',
         guestName: clientName,
         startedAt,
         editorUrl,
       });
-      plainBody = notificationText;
       html = buildClientStartedEmailHtml({
         photographerName: photographer.display_name || 'Photographer',
         albumName: album.name || 'Album',
@@ -743,21 +967,17 @@ serve(async (req) => {
       });
     } else if (action === 'approve') {
       subject = `Album approved for binding — ${album.name || 'Album'}`;
-      plainBody = [
-        `Hi ${photographer.display_name || 'Photographer'},`,
-        '',
-        `${clientName} has approved "${album.name}" for binding.`,
-        '',
-        'The client confirmed the album is final and ready for production. No further changes are expected.',
-        '',
-        `Approved on: ${approvedAt}`,
-        `Open album: ${editorUrl}`,
-      ].join('\n');
+      plainBody = buildAlbumApprovedNotificationText({
+        photographerName: photographer.display_name || 'Photographer',
+        albumName: album.name || 'Album',
+        guestName: clientName,
+        approvedAt,
+        editorUrl,
+      });
       html = buildApproveEmailHtml({
         photographerName: photographer.display_name || 'Photographer',
         albumName: album.name || 'Album',
         guestName: clientName,
-        guestEmail: guestEmail?.trim() || null,
         approvedAt,
         editorUrl,
       });
@@ -827,75 +1047,51 @@ serve(async (req) => {
       await client.close();
     }
 
-    let whatsappResult:
-      | { sent: true; to: string; messageId?: string; template?: string }
-      | { sent: false; skipped?: string; error?: string; to?: string } = { sent: false };
+    let whatsappResult: WhatsAppNotifyResult = { sent: false };
 
-    if (action === 'client_started_commenting') {
-      const templateName =
-        Deno.env.get('WHATSAPP_CLIENT_STARTED_TEMPLATE') ||
-        (Deno.env.get('WHATSAPP_ACCESS_TOKEN') ? 'hello_world' : '');
-      const templateLang = Deno.env.get('WHATSAPP_CLIENT_STARTED_TEMPLATE_LANG') || 'en_US';
-      const normalizedPhone = photographer.phone
-        ? normalizeWhatsAppPhone(
-            photographer.phone,
-            photographer.business_country,
-            photographer.time_zone
-          )
-        : null;
+    if (action === 'client_started_commenting' || action === 'approve') {
+      const isApprove = action === 'approve';
+      const templateName = isApprove
+        ? resolveWhatsAppTemplate('WHATSAPP_ALBUM_APPROVED_TEMPLATE') || 'jaspers_market_order_confirmation'
+        : resolveWhatsAppTemplate('WHATSAPP_CLIENT_STARTED_TEMPLATE') ||
+          resolveWhatsAppTemplate('WHATSAPP_ALBUM_APPROVED_TEMPLATE');
+      const templateLang =
+        (isApprove
+          ? Deno.env.get('WHATSAPP_ALBUM_APPROVED_TEMPLATE_LANG')
+          : Deno.env.get('WHATSAPP_CLIENT_STARTED_TEMPLATE_LANG')) || 'en_US';
+      const configuredParamCount = isApprove
+        ? parseTemplateParamCount(Deno.env.get('WHATSAPP_ALBUM_APPROVED_TEMPLATE_PARAM_COUNT'))
+        : parseTemplateParamCount(Deno.env.get('WHATSAPP_CLIENT_STARTED_TEMPLATE_PARAM_COUNT'));
+      const templateParameters = isApprove
+        ? buildPixnxtNotificationTemplateParams({
+            photographerName: photographer.display_name || 'Photographer',
+            title: 'Album approved for binding',
+            description:
+              'Your client has approved the final album and confirmed it is ready for production:',
+            albumName: album.name || 'Album',
+            guestName: clientName,
+            eventAt: approvedAt,
+          })
+        : buildPixnxtNotificationTemplateParams({
+            photographerName: photographer.display_name || 'Photographer',
+            title: 'Client started commenting',
+            description:
+              'A client opened your shared album preview and left their first comment or swap request:',
+            albumName: album.name || 'Album',
+            guestName: clientName,
+            eventAt: startedAt,
+          });
 
-      if (!templateName) {
-        console.warn(
-          'send-album-proof-email: WhatsApp skipped — set WHATSAPP_CLIENT_STARTED_TEMPLATE in Edge Function secrets'
-        );
-        whatsappResult = { sent: false, skipped: 'no_template' };
-      } else if (!photographer.phone) {
-        console.warn('send-album-proof-email: WhatsApp skipped — photographer has no phone on profile');
-        whatsappResult = { sent: false, skipped: 'no_phone' };
-      } else if (!normalizedPhone) {
-        console.warn(
-          `send-album-proof-email: WhatsApp skipped — invalid phone "${photographer.phone}"`
-        );
-        whatsappResult = { sent: false, skipped: 'invalid_phone', to: photographer.phone };
-      } else {
-        const templateParams = buildClientStartedWhatsAppTemplateParams({
-          photographerName: photographer.display_name || 'Photographer',
-          clientName,
-          albumName: album.name || 'Album',
-          startedAt,
-          editorUrl,
-        });
-        const paramCountRaw = Deno.env.get('WHATSAPP_CLIENT_STARTED_TEMPLATE_PARAM_COUNT');
-        const configuredParamCount =
-          paramCountRaw === '' || paramCountRaw === undefined
-            ? null
-            : Math.max(0, parseInt(paramCountRaw, 10) || 0);
-        const paramCount = whatsAppTemplateParamCount(templateName, configuredParamCount);
-        const bodyParams = templateParams.slice(0, paramCount);
-        console.log(
-          `send-album-proof-email: sending WhatsApp to ${normalizedPhone} (raw: ${photographer.phone}), preferred template "${templateName}"`
-        );
-        const sendResult = await sendWhatsAppTemplateWithFallback(
-          normalizedPhone,
-          templateName,
-          templateLang,
-          bodyParams
-        );
-        if (sendResult.ok) {
-          whatsappResult = {
-            sent: true,
-            to: normalizedPhone,
-            messageId: sendResult.messageId,
-            template: sendResult.template || templateName,
-          };
-          console.log(
-            `WhatsApp template sent to ${normalizedPhone} for album ${albumId} (messageId: ${sendResult.messageId || 'n/a'}, template: ${sendResult.template})`
-          );
-        } else {
-          whatsappResult = { sent: false, error: sendResult.error, to: normalizedPhone };
-          console.error('send-album-proof-email: WhatsApp failed:', sendResult.error);
-        }
-      }
+      whatsappResult = await sendPhotographerWhatsApp(photographer, {
+        messageText: plainBody,
+        templateName,
+        templateLang,
+        configuredParamCount,
+        templateParameters,
+        albumId,
+        actionLabel: isApprove ? 'album approved' : 'client started commenting',
+        templateEnvHint: isApprove ? 'pixnxt_album_approved' : 'pixnxt_client_commenting',
+      });
       console.log('send-album-proof-email: whatsapp result:', whatsappResult);
     }
 

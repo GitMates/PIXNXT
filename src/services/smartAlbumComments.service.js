@@ -352,6 +352,96 @@ function removeLocalCommentTree(albumId, commentId) {
     writeLocal(all);
 }
 
+/** Remove spread comments for a deleted spread and reindex later spreads. */
+export async function purgeSpreadCommentsOnSpreadDelete(albumId, deletedSpreadIndex) {
+    const idx = Number(deletedSpreadIndex);
+    if (!albumId || !Number.isFinite(idx)) return;
+
+    const all = readLocal();
+    const bucket = all[albumId];
+    if (bucket) {
+        const next = {};
+        Object.keys(bucket).forEach((key) => {
+            const spreadIdx = Number(key);
+            if (!Number.isFinite(spreadIdx) || spreadIdx === idx) return;
+            const targetIdx = spreadIdx > idx ? spreadIdx - 1 : spreadIdx;
+            const rows = (bucket[key] || []).map((row) => ({
+                ...row,
+                spread_index: targetIdx,
+            }));
+            next[targetIdx] = [...(next[targetIdx] || []), ...rows];
+        });
+        all[albumId] = next;
+        writeLocal(all);
+    }
+
+    try {
+        const { error: deleteError } = await supabase
+            .from('smart_album_comments')
+            .delete()
+            .eq('album_id', albumId)
+            .eq('spread_index', idx);
+        if (deleteError && !isMissingTableError(deleteError)) {
+            console.warn('purgeSpreadCommentsOnSpreadDelete delete:', deleteError.message);
+        }
+
+        const { data, error } = await supabase
+            .from('smart_album_comments')
+            .select('id, spread_index')
+            .eq('album_id', albumId)
+            .gt('spread_index', idx);
+        if (!error && data?.length) {
+            await Promise.all(
+                data.map((row) =>
+                    supabase
+                        .from('smart_album_comments')
+                        .update({ spread_index: row.spread_index - 1 })
+                        .eq('id', row.id)
+                )
+            );
+        } else if (error && !isMissingTableError(error)) {
+            console.warn('purgeSpreadCommentsOnSpreadDelete shift:', error.message);
+        }
+    } catch (err) {
+        console.warn('purgeSpreadCommentsOnSpreadDelete remote failed:', err);
+    }
+
+    notifyCommentsChanged(albumId);
+}
+
+/** Reindex local spread comments when overview spreads are drag-reordered. */
+export function reorderLocalSpreadCommentsForOverview(albumId, draggable, newOrder) {
+    if (!albumId || !draggable?.length || !newOrder?.length) return false;
+
+    const all = readLocal();
+    const bucket = all[albumId];
+    if (!bucket) return false;
+
+    const snapshots = Object.fromEntries(
+        draggable.map((spreadIndex) => [spreadIndex, bucket[spreadIndex] || []])
+    );
+
+    const next = { ...bucket };
+    for (const spreadIndex of draggable) {
+        delete next[spreadIndex];
+    }
+
+    for (let i = 0; i < draggable.length; i += 1) {
+        const targetSpread = draggable[i];
+        const sourceSpread = newOrder[i];
+        const rows = (snapshots[sourceSpread] || []).map((row) => ({
+            ...row,
+            spread_index: targetSpread,
+        }));
+        if (rows.length) next[targetSpread] = rows;
+    }
+
+    all[albumId] = next;
+    writeLocal(all);
+    notifyCommentsChanged(albumId);
+    return true;
+}
+
 export const smartAlbumCommentsService = {
     async listSpreadComments(albumId, spreadIndex) {
         const local = listLocalAlbumComments(albumId, spreadIndex);

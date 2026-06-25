@@ -9,9 +9,14 @@ export default function AlbumSpreadSlotMenu({
     hasPhoto,
     canSwap = true,
     swapHint = 'Any left or right photo',
-    canRemoveSpread = false,
-    onReplace,
-    onChooseFromCollection,
+    canAddSpreadBefore = false,
+    canAddSpreadAfter = false,
+    canDeleteSpread = false,
+    deleteSpreadLeft = null,
+    pageCountBusy = false,
+    onAddSpreadBefore,
+    onAddSpreadAfter,
+    onDeleteSpread,
     onCoverText,
     hasCoverText = false,
     onRemovePhotos,
@@ -67,38 +72,44 @@ export default function AlbumSpreadSlotMenu({
             >
                 <p className="ab-slot-menu-eyebrow">{slotLabel || 'Photo slot'}</p>
                 <div className="ab-slot-menu-actions">
-                    <button type="button" className="ab-slot-menu-item ab-slot-menu-item--primary" role="menuitem" onClick={onReplace}>
-                        <span className="ab-slot-menu-icon" aria-hidden>
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                <polyline points="17 8 12 3 7 8" />
-                                <line x1="12" y1="3" x2="12" y2="15" />
-                            </svg>
-                        </span>
-                        <span className="ab-slot-menu-text">
-                            <strong>{hasPhoto ? 'Replace photo' : 'Add photo'}</strong>
-                            <small>Upload from computer</small>
-                        </span>
-                    </button>
+                    {canAddSpreadAfter && onAddSpreadAfter ? (
+                        <button
+                            type="button"
+                            className="ab-slot-menu-item ab-slot-menu-item--primary"
+                            role="menuitem"
+                            disabled={pageCountBusy}
+                            onClick={onAddSpreadAfter}
+                        >
+                            <span className="ab-slot-menu-icon" aria-hidden>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                            </span>
+                            <span className="ab-slot-menu-text">
+                                <strong>Add spread</strong>
+                                <small>After this spread</small>
+                            </span>
+                        </button>
+                    ) : null}
 
-                    {onChooseFromCollection ? (
+                    {canAddSpreadBefore && onAddSpreadBefore ? (
                         <button
                             type="button"
                             className="ab-slot-menu-item"
                             role="menuitem"
-                            onClick={onChooseFromCollection}
+                            disabled={pageCountBusy}
+                            onClick={onAddSpreadBefore}
                         >
                             <span className="ab-slot-menu-icon" aria-hidden>
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                    <rect x="3" y="3" width="7" height="7" />
-                                    <rect x="14" y="3" width="7" height="7" />
-                                    <rect x="3" y="14" width="7" height="7" />
-                                    <rect x="14" y="14" width="7" height="7" />
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
                                 </svg>
                             </span>
                             <span className="ab-slot-menu-text">
-                                <strong>Choose from collection</strong>
-                                <small>Pick an uploaded photo</small>
+                                <strong>Add spread</strong>
+                                <small>Before this spread</small>
                             </span>
                         </button>
                     ) : null}
@@ -137,6 +148,34 @@ export default function AlbumSpreadSlotMenu({
                             <span className="ab-slot-menu-text">
                                 <strong>Swap with another photo</strong>
                                 <small>{swapHint}</small>
+                            </span>
+                        </button>
+                    ) : null}
+
+                    {canDeleteSpread && onDeleteSpread && deleteSpreadLeft != null ? (
+                        <button
+                            type="button"
+                            className="ab-slot-menu-item ab-slot-menu-item--danger"
+                            role="menuitem"
+                            disabled={pageCountBusy}
+                            onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (pageCountBusy) return;
+                                onDeleteSpread();
+                            }}
+                        >
+                            <span className="ab-slot-menu-icon" aria-hidden>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                    <polyline points="3 6 5 6 21 6" />
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                                    <line x1="10" y1="11" x2="10" y2="17" />
+                                    <line x1="14" y1="11" x2="14" y2="17" />
+                                </svg>
+                            </span>
+                            <span className="ab-slot-menu-text">
+                                <strong>Remove spread</strong>
+                                <small>Remove this spread and its images</small>
                             </span>
                         </button>
                     ) : null}

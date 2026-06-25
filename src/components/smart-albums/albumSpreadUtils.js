@@ -1,26 +1,8 @@
 import { getAlbumCollection, getAlbumLayoutPhotoCount } from './albumCollection';
+import { MIN_ALBUM_PAGES, PAGES_PER_SPREAD } from './albumPageStorage';
 
 /** Pages reserved for the back cover spread (left = photo, right = blank). */
 export const RESERVED_END_PAGES = 2;
-
-/** Minimum pages when using front + back cover spreads (matches createAlbumLayout). */
-function minPageCountForCovers(photoCount, gridLayout = 'two-page', blankCovers = false) {
-    const n = Math.max(0, Math.floor(Number(photoCount) || 0));
-    if (n === 0) return 5;
-    if (isWholeSpreadLayout(gridLayout)) {
-        if (blankCovers) {
-            return Math.max(4, 2 + 2 * n + 2);
-        }
-        return Math.max(4, 2 * n + 2);
-    }
-    if (blankCovers) {
-        if (n <= 1) return 6;
-        return Math.max(6, n + 6);
-    }
-    if (n === 1) return 4;
-    if (n === 2) return 6;
-    return Math.max(6, n + 5);
-}
 
 /** True when the album uses front + back cover spreads (book wrap or blank). */
 export function albumHasCoverSpreads(album) {
@@ -41,18 +23,12 @@ export function albumUsesBookWrap(album) {
 export function getAlbumSpreadOptions(album, { collectionCount } = {}) {
     let hasCovers = albumHasCoverSpreads(album);
     const pageCount = album?.page_count ?? 21;
-    const n =
-        collectionCount != null
-            ? Math.max(0, Math.floor(Number(collectionCount) || 0))
-            : getAlbumLayoutPhotoCount(album?.id, album);
-    const gridLayout = album?.grid_layout;
-
     const blankCovers = albumHasBlankCovers(album);
-    const photoCountForMin = n > 0 ? n : pageCount;
-    const minPages = minPageCountForCovers(photoCountForMin, gridLayout, blankCovers);
 
-    // Album saved with too few pages for cover spreads (e.g. 6 pages / 6 photos) — use linear layout.
-    if (hasCovers && pageCount < minPages) {
+    // Keep cover/back spreads for cover albums unless below the absolute page minimum.
+    // Do not derive layout from photo count — manual spread edits can have fewer pages than
+    // auto-fill would require without collapsing Cover / Back into a linear album.
+    if (hasCovers && pageCount < MIN_ALBUM_PAGES) {
         hasCovers = false;
     }
 
@@ -60,7 +36,7 @@ export function getAlbumSpreadOptions(album, { collectionCount } = {}) {
         showCover: hasCovers,
         hasCovers,
         blankCovers,
-        gridLayout: gridLayout || 'two-page',
+        gridLayout: album?.grid_layout || 'two-page',
     };
 }
 
@@ -89,6 +65,16 @@ export function formatSpreadDisplayLabel(spreadIndex, opts = {}) {
     const { hasCovers } = normalizeSpreadOpts(opts);
     if (hasCovers && idx <= 0) return 'Cover';
     return `Spread ${idx + 1}`;
+}
+
+/** Label under a spread thumbnail in page overview (matches flipbook counter, e.g. 4/7 → "4"). */
+export function formatOverviewSpreadLabel(spreadIndex, totalPages, opts = {}) {
+    const idx = Number(spreadIndex);
+    if (!Number.isFinite(idx)) return '';
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (spreadOpts.hasCovers && idx <= 0) return 'Cover';
+    if (isEndHalfSpreadIndex(idx, totalPages, spreadOpts)) return 'Back';
+    return String(idx + 1);
 }
 
 export function normalizeSpreadOpts(opts = {}) {
@@ -155,6 +141,51 @@ export function getPageInsertIndex(totalPages, opts = {}) {
     );
     if (!spreadOpts.hasCovers) return Math.max(0, insertAt);
     return Math.max(2, insertAt);
+}
+
+/** Minimum page index where a new spread may be inserted. */
+export function getMinSpreadInsertIndex(opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    return spreadOpts.hasCovers ? 2 : 0;
+}
+
+export function canInsertSpreadAt(insertAt, totalPages, opts = {}) {
+    const minAt = getMinSpreadInsertIndex(opts);
+    const maxAt = getPageInsertIndex(totalPages, opts);
+    return insertAt >= minAt && insertAt <= maxAt;
+}
+
+export function getSpreadInsertIndexBefore(spreadLeft) {
+    return spreadLeft;
+}
+
+export function getSpreadInsertIndexAfter(spreadLeft, pagesPerSpread = 2) {
+    return spreadLeft + pagesPerSpread;
+}
+
+function isReservedSpreadLeft(spreadLeft, totalPages, opts = {}) {
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (spreadOpts.hasCovers && isFrontCoverSpreadLeft(spreadLeft, spreadOpts)) return true;
+    if (isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts)) return true;
+    if (isPreBackHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts)) return true;
+    return false;
+}
+
+export function canInsertSpreadBeforeSpread(spreadLeft, totalPages, opts = {}) {
+    if (spreadLeft == null || Number.isNaN(spreadLeft)) return false;
+    const spreadOpts = normalizeSpreadOpts(opts);
+    if (spreadOpts.hasCovers && isInsideCoverSpreadLeft(spreadLeft, totalPages, spreadOpts)) {
+        return false;
+    }
+    if (spreadOpts.hasCovers && isFrontCoverSpreadLeft(spreadLeft, spreadOpts)) return false;
+    if (isEndHalfSpreadLeftPage(spreadLeft, totalPages, spreadOpts)) return false;
+    return canInsertSpreadAt(getSpreadInsertIndexBefore(spreadLeft), totalPages, opts);
+}
+
+export function canInsertSpreadAfterSpread(spreadLeft, totalPages, opts = {}) {
+    if (spreadLeft == null || Number.isNaN(spreadLeft)) return false;
+    if (isReservedSpreadLeft(spreadLeft, totalPages, opts)) return false;
+    return canInsertSpreadAt(getSpreadInsertIndexAfter(spreadLeft), totalPages, opts);
 }
 
 /**
@@ -291,8 +322,7 @@ export function getSpreadPages(spreadIndex, totalPages, opts = {}) {
         return getEndSpreadPageIndices(totalPages);
     }
 
-    // Inner spreads: 2|3, 4|5, … (spread 0 = front cover 0|1).
-    const left = hasCovers && showCover ? spreadIndex * 2 : spreadIndex * 2;
+    const left = spreadIndexToPage(spreadIndex, { ...spreadOpts, totalPages });
     const maxInnerRight = usesReservedEndSpread(totalPages, spreadOpts)
         ? totalPages - RESERVED_END_PAGES - 1
         : totalPages - 1;

@@ -4,6 +4,7 @@ import { DatePicker } from '../../components/ui/DatePicker';
 import { addFilesToAlbumCollection } from '../../components/smart-albums/albumCollection';
 import { applyCollectionOrderToPages } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
+import { ensureAuthSession, isAuthExpiredError } from '../../services/auth.service';
 import { galleryService } from '../../services/gallery.service';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
@@ -302,8 +303,10 @@ const CreateAlbum = () => {
         }
 
         let cancelled = false;
-        galleryService
-            .getCollections(user.id)
+        ensureAuthSession()
+            .then(({ user: activeUser }) =>
+                galleryService.getCollections(activeUser.id)
+            )
             .then((rows) => {
                 if (!cancelled) setGalleryCollections(rows || []);
             })
@@ -818,8 +821,10 @@ const CreateAlbum = () => {
                 total: 0,
             });
 
+            const { user: activeUser } = await ensureAuthSession();
+
             const album = await smartAlbumsService.createAlbum({
-                photographer_id: user.id,
+                photographer_id: activeUser.id,
                 name,
                 event_date: date || null,
                 page_count: finalPageCount,
@@ -846,7 +851,7 @@ const CreateAlbum = () => {
                         total: 1,
                     });
                     await addFilesToAlbumCollection(album.id, [coverFile], {
-                        photographerId: user.id,
+                        photographerId: activeUser.id,
                         skipDuplicateCheck: true,
                         coverWrap: true,
                         album: uploadAlbumMeta,
@@ -859,7 +864,7 @@ const CreateAlbum = () => {
                 let added = [];
                 if (photoFiles.length > 0) {
                     added = await addFilesToAlbumCollection(album.id, photoFiles, {
-                        photographerId: user.id,
+                        photographerId: activeUser.id,
                         skipDuplicateCheck: true,
                         album: uploadAlbumMeta,
                         compressionTarget: getAlbumUploadPixelTarget(uploadAlbumMeta),
@@ -924,7 +929,7 @@ const CreateAlbum = () => {
                 let albumForPlace = album;
                 if (requiredPageCount !== (album.page_count || 0)) {
                     albumForPlace = await smartAlbumsService.updateAlbumPageCount(
-                        user.id,
+                        activeUser.id,
                         album.id,
                         requiredPageCount
                     );
@@ -956,14 +961,19 @@ const CreateAlbum = () => {
                 total: 0,
             });
 
-            await smartAlbumsService.syncAlbumPreviewData(user.id, album.id);
+            const { user: syncUser } = await ensureAuthSession();
+            await smartAlbumsService.syncAlbumPreviewData(syncUser.id, album.id);
 
             navigate(`/smart-albums/album/${album.id}`, {
                 state: { syncCollectionOrder: true },
             });
         } catch (err) {
             console.error('Error creating album:', err);
-            setError(err.message || 'Failed to create album. Please try again.');
+            setError(
+                isAuthExpiredError(err)
+                    ? 'Your session has expired. Please sign in again.'
+                    : err.message || 'Failed to create album. Please try again.'
+            );
             setProgress(null);
         } finally {
             setIsSubmitting(false);

@@ -7,7 +7,11 @@ import {
 import { getRemotePreviewData, patchRemotePreviewImageReplacements } from './albumPreviewData';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
 import { getSpreadContext, pageToSpreadIndex } from './albumSpreadUtils';
-import { getSlotLabel, makeSlotKey } from './albumSwapMarks';
+import { getSlotLabel, makeSlotKey, parseSlotKey } from './albumSwapMarks';
+import {
+    remapPageForSpreadMove,
+    remapSpreadIndexAfterOverviewReorder,
+} from './albumSpreadReorder';
 
 const STORAGE_KEY = 'pixnxt_album_image_replacements';
 const REVIEW_SNAPSHOT_MAX_WIDTH = 960;
@@ -409,4 +413,67 @@ export function serializeImageReplacementsForSnapshot(albumId) {
         version: row.version ?? null,
         createdAt: row.createdAt,
     }));
+}
+
+/** Move image-version history when overview spreads are drag-reordered. */
+export function reorderImageReplacementsForOverview(
+    albumId,
+    draggable,
+    newOrder,
+    totalPages,
+    spreadOpts
+) {
+    if (!albumId || !draggable?.length) return false;
+
+    const all = readAll();
+    const bucket = all[albumId];
+    if (!Array.isArray(bucket) || !bucket.length) return false;
+
+    let changed = false;
+    const next = bucket.map((row) => {
+        const spreadIndex = row.spreadIndex;
+        if (spreadIndex == null || !draggable.includes(spreadIndex)) return row;
+
+        const newSpreadIndex = remapSpreadIndexAfterOverviewReorder(
+            spreadIndex,
+            draggable,
+            newOrder
+        );
+        if (newSpreadIndex === spreadIndex && row.pageNum == null && !row.slotKey) {
+            return row;
+        }
+
+        changed = true;
+        const updated = { ...row, spreadIndex: newSpreadIndex };
+        if (row.pageNum != null) {
+            updated.pageNum = remapPageForSpreadMove(
+                row.pageNum,
+                spreadIndex,
+                newSpreadIndex,
+                totalPages,
+                spreadOpts
+            );
+        }
+        if (row.slotKey) {
+            const { pageNum, cellId } = parseSlotKey(row.slotKey);
+            const remappedPage = remapPageForSpreadMove(
+                pageNum,
+                spreadIndex,
+                newSpreadIndex,
+                totalPages,
+                spreadOpts
+            );
+            updated.slotKey = makeSlotKey(remappedPage, cellId);
+            if (updated.pageNum == null) updated.pageNum = remappedPage;
+        }
+        return updated;
+    });
+
+    if (!changed) return false;
+
+    all[albumId] = next;
+    writeAll(all);
+    patchRemotePreviewImageReplacements(albumId, next);
+    notify(albumId);
+    return true;
 }

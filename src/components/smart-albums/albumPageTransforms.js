@@ -157,11 +157,11 @@ export function migrateMiskeyedInnerSpreadTransforms(albumId, endLeft = 99) {
     const next = { ...album };
     let changed = false;
 
-    for (let wrongLeft = 2; wrongLeft < endLeft; wrongLeft += 2) {
-        const wrongKey = spreadTransformKey(wrongLeft);
+    for (let oddLeft = 1; oddLeft < endLeft; oddLeft += 2) {
+        const wrongKey = spreadTransformKey(oddLeft);
         if (next[wrongKey] == null) continue;
 
-        const correctKey = spreadTransformKey(wrongLeft - 1);
+        const correctKey = spreadTransformKey(oddLeft + 1);
         if (next[correctKey] == null) {
             next[correctKey] = next[wrongKey];
         }

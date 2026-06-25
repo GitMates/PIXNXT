@@ -1568,6 +1568,15 @@
   pointer-events: none;
 }
 
+.ae-collection-order--wide {
+  min-width: auto;
+  height: auto;
+  min-height: 18px;
+  padding: 2px 6px;
+  font-size: 9px;
+  letter-spacing: 0.02em;
+}
+
 .ae-collection-order-note {
   margin: 8px 0 0;
   font-size: 11px;

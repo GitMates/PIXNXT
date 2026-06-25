@@ -55,18 +55,82 @@ export async function signOut() {
   }
 }
 
+/** Refresh when the access token expires within this many seconds. */
+const SESSION_REFRESH_BUFFER_SEC = 60;
+
+function isSessionExpired(session) {
+  if (!session?.expires_at) return false;
+  const now = Math.floor(Date.now() / 1000);
+  return session.expires_at <= now + SESSION_REFRESH_BUFFER_SEC;
+}
+
+/**
+ * Returns a valid session, refreshing when the JWT is expired or near expiry.
+ * Clears auth state when the refresh token is no longer valid.
+ * @returns {Promise<{ user: Object|null, session: Object|null }>}
+ */
+export async function resolveAuthSession() {
+  const { data: { session }, error } = await supabase.auth.getSession();
+
+  if (error) {
+    console.error('Session retrieval error:', error.message);
+    return { user: null, session: null };
+  }
+
+  if (!session) {
+    return { user: null, session: null };
+  }
+
+  if (!isSessionExpired(session)) {
+    return { user: session.user ?? null, session };
+  }
+
+  const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+  if (refreshError || !refreshed.session) {
+    console.warn('Session refresh failed:', refreshError?.message ?? 'no session');
+    await supabase.auth.signOut().catch(() => {});
+    return { user: null, session: null };
+  }
+
+  return { user: refreshed.session.user ?? null, session: refreshed.session };
+}
+
+/** Error code when refresh fails or there is no valid session. */
+export const AUTH_SESSION_EXPIRED = 'AUTH_SESSION_EXPIRED';
+
+export function isAuthExpiredError(error) {
+  if (!error) return false;
+  if (error.code === AUTH_SESSION_EXPIRED) return true;
+  const message = String(error.message || error.msg || '').toLowerCase();
+  return (
+    message.includes('jwt expired') ||
+    message.includes('invalid jwt') ||
+    message.includes('session expired') ||
+    error.status === 401 ||
+    error.statusCode === 401
+  );
+}
+
+/**
+ * Refresh if needed and return a valid session, or throw with AUTH_SESSION_EXPIRED.
+ * @returns {Promise<{ user: Object, session: Object }>}
+ */
+export async function ensureAuthSession() {
+  const { user, session } = await resolveAuthSession();
+  if (!user || !session) {
+    const err = new Error('Your session has expired. Please sign in again.');
+    err.code = AUTH_SESSION_EXPIRED;
+    throw err;
+  }
+  return { user, session };
+}
+
 /**
  * Retrieves the current session.
  * @returns {Promise<Object|null>} - Current session data.
  */
 export async function getSession() {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  
-  if (error) {
-    console.error('Session retrieval error:', error.message);
-    throw error;
-  }
-  
+  const { session } = await resolveAuthSession();
   return session;
 }
 

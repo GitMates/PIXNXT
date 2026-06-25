@@ -57,6 +57,43 @@ function pruneBucket(bucket, newTotalPages) {
     return next;
 }
 
+function rescueMisplacedSpreadKeysInBucket(bucket, removeAt, count) {
+    if (!bucket || count <= 0) return { bucket, changed: false };
+    const start = Number(removeAt);
+    const removeEnd = start + count;
+    if (!Number.isFinite(start)) return { bucket, changed: false };
+
+    const next = { ...bucket };
+    let changed = false;
+    const startKey = `spread:${start}`;
+
+    for (let left = start + 1; left < removeEnd; left += 1) {
+        const misKey = `spread:${left}`;
+        if (next[misKey] == null) continue;
+        if (next[startKey] == null) {
+            next[startKey] = next[misKey];
+        } else {
+            const rescueKey = `spread:${removeEnd}`;
+            if (next[rescueKey] == null) {
+                next[rescueKey] = next[misKey];
+            }
+        }
+        delete next[misKey];
+        changed = true;
+    }
+
+    if (!changed) return { bucket, changed: false };
+    next.__revision = (bucket.__revision || 0) + 1;
+    return { bucket: next, changed: true };
+}
+
+/** Spread keys use the spread's left page only — not every page in the removed range. */
+function spreadKeysDroppedForPageRemove(removeAt, count) {
+    const start = Number(removeAt);
+    if (!Number.isFinite(start) || count <= 0) return [];
+    return [`spread:${start}`];
+}
+
 function spliceBucketPages(bucket, insertAt, delta) {
     if (!bucket || delta === 0) return bucket;
     const next = { __revision: (bucket.__revision || 0) + 1 };
@@ -95,7 +132,7 @@ function spliceBucketPages(bucket, insertAt, delta) {
                 }
             } else {
                 const removeEnd = insertAt - delta;
-                if (left >= insertAt && left < removeEnd) continue;
+                if (left === insertAt) continue;
                 if (left >= removeEnd) {
                     next[`spread:${left + delta}`] = bucket[key];
                 } else {
@@ -111,9 +148,9 @@ function spliceBucketPages(bucket, insertAt, delta) {
     return next;
 }
 
-/** Insert pages before the end-cover spread; shifts stored photos/transforms up. */
+/** Insert or remove pages; negative count removes a range and shifts later keys down. */
 export function insertAlbumStoragePages(albumId, insertAt, count) {
-    if (!albumId || count <= 0) return;
+    if (!albumId || count === 0) return;
 
     const photosAll = readJson(PHOTOS_KEY);
     if (photosAll[albumId]) {
@@ -128,15 +165,87 @@ export function insertAlbumStoragePages(albumId, insertAt, count) {
     }
 }
 
+/** Move miskeyed spread/page photos out of a page-remove range before splicing. */
+export function rescueMisplacedAlbumStorageBeforeSpreadRemove(albumId, removeAt, count) {
+    if (!albumId || count <= 0) return;
+
+    const photosAll = readJson(PHOTOS_KEY);
+    if (photosAll[albumId]) {
+        const { bucket, changed } = rescueMisplacedSpreadKeysInBucket(
+            photosAll[albumId],
+            removeAt,
+            count
+        );
+        if (changed) {
+            photosAll[albumId] = bucket;
+            writeJson(PHOTOS_KEY, photosAll);
+        }
+    }
+
+    const transformsAll = readJson(TRANSFORMS_KEY);
+    if (transformsAll[albumId]) {
+        const { bucket, changed } = rescueMisplacedSpreadKeysInBucket(
+            transformsAll[albumId],
+            removeAt,
+            count
+        );
+        if (changed) {
+            transformsAll[albumId] = bucket;
+            writeJson(TRANSFORMS_KEY, transformsAll);
+        }
+    }
+}
+
 /** Remove a page range and shift later pages down (before end-cover shrink). */
 export function removeAlbumStoragePages(albumId, removeAt, count) {
     if (!albumId || count <= 0) return;
     insertAlbumStoragePages(albumId, removeAt, -count);
 }
 
+/** @deprecated Spread delete uses splice only — do not call before removeAlbumStoragePages. */
+export function purgeAlbumPageRange(albumId, removeAt, count) {
+    if (!albumId || count <= 0) return;
+    const start = Number(removeAt);
+    const end = start + count;
+    if (!Number.isFinite(start)) return;
+
+    const keysToDrop = new Set(spreadKeysDroppedForPageRemove(start, count));
+    for (let page = start; page < end; page += 1) {
+        keysToDrop.add(String(page));
+    }
+
+    const photosAll = readJson(PHOTOS_KEY);
+    if (photosAll[albumId]) {
+        const album = { ...photosAll[albumId] };
+        for (const key of keysToDrop) {
+            delete album[key];
+        }
+        album.__revision = (album.__revision || 0) + 1;
+        photosAll[albumId] = album;
+        writeJson(PHOTOS_KEY, photosAll);
+    }
+
+    const transformsAll = readJson(TRANSFORMS_KEY);
+    if (transformsAll[albumId]) {
+        const bucket = { ...transformsAll[albumId] };
+        for (const key of keysToDrop) {
+            delete bucket[key];
+        }
+        bucket.__revision = (bucket.__revision || 0) + 1;
+        transformsAll[albumId] = bucket;
+        writeJson(TRANSFORMS_KEY, transformsAll);
+    }
+}
+
 /** Shift page / spread keys in a photo map (used for remote preview cache). */
 export function spliceIndexedPhotoMap(map, insertAt, delta) {
     return spliceBucketPages(map || {}, insertAt, delta);
+}
+
+/** Rescue miskeyed spread keys in a preview page map before spread delete. */
+export function rescueMisplacedKeysInPhotoMap(map, removeAt, count) {
+    const { bucket } = rescueMisplacedSpreadKeysInBucket(map || {}, removeAt, count);
+    return bucket;
 }
 
 /** Drop photo + transform data for pages removed when shrinking the album. */

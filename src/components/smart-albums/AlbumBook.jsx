@@ -9,6 +9,7 @@ import {
     resolveCoverImageSrc,
 } from './albumPagePhotos';
 import { getSpreadLeftPageIndex } from './albumSpreadGrid';
+import { canDeleteSpreadAtLeftPage } from './albumDeleteSpread';
 import {
     flipbookIndexToStoragePage,
     getAlbumSpreadOptions,
@@ -20,6 +21,7 @@ import {
     isDraggableOverviewSpread,
     isEndHalfSpreadIndex,
     isWholeSpreadLayout,
+    formatOverviewSpreadLabel,
     normalizeStoragePageIndex,
     pageToSpreadIndex,
     spreadIndexToPage,
@@ -178,8 +180,7 @@ const AlbumBook = ({
     photoRevision = 0,
     canAddPages = false,
     onAddPages,
-    canRemovePages = false,
-    onRemovePages,
+    onDeleteSpread,
     onReorderOverviewSpread,
     pageCountBusy = false,
     showGridComments = false,
@@ -292,6 +293,7 @@ const AlbumBook = ({
     }, [initialPage, totalPages, spreadOpts]);
 
     const [overviewOpen, setOverviewOpen] = useState(false);
+    const [overviewTargetSpreadIndex, setOverviewTargetSpreadIndex] = useState(0);
     const overviewDragFromRef = useRef(null);
     const overviewDidDragRef = useRef(false);
     const [overviewDragOverIndex, setOverviewDragOverIndex] = useState(null);
@@ -329,7 +331,8 @@ const AlbumBook = ({
     }, [flipBookMountKey]);
 
     const totalSpreads = getTotalSpreads(totalPages, spreadOpts);
-    const spreadIndex = pageToSpreadIndex(pageIndex, spreadCtx);
+    const spreadLeftPage = getSpreadLeftPageIndex(pageIndex, spreadCtx);
+    const spreadIndex = pageToSpreadIndex(spreadLeftPage, spreadCtx);
     const currentSpreadComments =
         showGridComments && spreadCommentsBySpread
             ? spreadCommentsBySpread[spreadIndex] || null
@@ -347,9 +350,10 @@ const AlbumBook = ({
     const { left: leftNum, right: rightNum } = getSpreadPages(spreadIndex, totalPages, spreadOpts);
 
     const counterLabel = useMemo(() => {
-        const spreadNum = spreadIndex + 1;
-        return `${spreadNum}/${totalSpreads}`;
-    }, [spreadIndex, totalSpreads]);
+        const label = formatOverviewSpreadLabel(spreadIndex, totalPages, spreadOpts);
+        if (!label) return `${spreadIndex + 1}/${totalSpreads}`;
+        return `${label}/${totalSpreads}`;
+    }, [spreadIndex, totalPages, totalSpreads, spreadOpts]);
 
     const pageRangeLabel = useMemo(() => {
         if (rightNum < totalPages) return `${leftNum}–${rightNum}`;
@@ -525,6 +529,22 @@ const AlbumBook = ({
     );
 
     const canDragOverviewSpreads = Boolean(editable && onReorderOverviewSpread && !pageCountBusy);
+
+    const canDeleteOverviewSpread = useMemo(() => {
+        if (!onDeleteSpread) return false;
+        return canDeleteSpreadAtLeftPage(spreadLeftPage, totalPages, spreadOpts);
+    }, [onDeleteSpread, spreadLeftPage, totalPages, spreadOpts]);
+
+    useEffect(() => {
+        if (!overviewOpen) return;
+        setOverviewTargetSpreadIndex(spreadIndex);
+    }, [overviewOpen, spreadIndex]);
+
+    const openOverview = useCallback(() => {
+        closeAlbumPinPopovers();
+        setOverviewTargetSpreadIndex(spreadIndex);
+        setOverviewOpen(true);
+    }, [spreadIndex]);
 
     const handleOverviewSpreadDragStart = useCallback(
         (spreadIndex) => {
@@ -1712,10 +1732,7 @@ const AlbumBook = ({
                         type="button"
                         className="ab-control-icon ab-control-icon--button"
                         aria-label="Show page overview"
-                        onClick={() => {
-                            closeAlbumPinPopovers();
-                            setOverviewOpen(true);
-                        }}
+                        onClick={openOverview}
                     >
                         <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
                             {Array.from({ length: 9 }, (_, i) => {
@@ -1868,7 +1885,7 @@ const AlbumBook = ({
                                     : null;
                             const isEndHalf = isEndSpread;
                             const showSpreadFull = Boolean(spreadSrc);
-                            const isCurrent = overviewSpreadIndex === spreadIndex;
+                            const isSelected = overviewSpreadIndex === overviewTargetSpreadIndex;
                             const spreadDraggable =
                                 canDragOverviewSpreads &&
                                 isDraggableOverviewSpread(
@@ -1885,7 +1902,7 @@ const AlbumBook = ({
                                     className={`ab-overview-item${
                                         isCover ? ' ab-overview-item--cover' : ''
                                     }${isEndSpread ? ' ab-overview-item--back' : ''}${
-                                        isCurrent ? ' ab-overview-item--active' : ''
+                                        isSelected ? ' ab-overview-item--active' : ''
                                     }${
                                         spreadDraggable ? ' ab-overview-item--draggable' : ''}${
                                         spreadDragOver ? ' ab-overview-item--drag-over' : ''
@@ -1896,8 +1913,8 @@ const AlbumBook = ({
                                             overviewDidDragRef.current = false;
                                             return;
                                         }
+                                        setOverviewTargetSpreadIndex(overviewSpreadIndex);
                                         goToPage(targetPage);
-                                        setOverviewOpen(false);
                                     }}
                                     onDragStart={(e) => {
                                         if (!spreadDraggable) return;
@@ -1989,19 +2006,17 @@ const AlbumBook = ({
                                         )}
                                     </span>
                                     <span className="ab-overview-label">
-                                        {isCover
-                                            ? 'Cover'
-                                            : isEndSpread
-                                              ? 'Back'
-                                              : spreadOpts.hasCovers
-                                                ? overviewSpreadIndex
-                                                : overviewSpreadIndex + 1}
+                                        {formatOverviewSpreadLabel(
+                                            overviewSpreadIndex,
+                                            totalPages,
+                                            spreadOpts
+                                        )}
                                     </span>
                                 </button>
                             );
                         })}
                     </div>
-                    {(canAddPages || canRemovePages) && (
+                    {(canAddPages || canRemoveOverviewSpread) && (
                         <div className="ab-overview-actions">
                             {canAddPages && onAddPages && (
                                 <button
@@ -2021,14 +2036,15 @@ const AlbumBook = ({
                                     </span>
                                 </button>
                             )}
-                            {canRemovePages && onRemovePages && (
+                            {canDeleteOverviewSpread && onDeleteSpread && (
                                 <button
                                     type="button"
                                     className="ab-overview-item ab-overview-item--remove"
                                     disabled={pageCountBusy}
                                     onClick={async (e) => {
                                         e.stopPropagation();
-                                        await onRemovePages();
+                                        await onDeleteSpread(spreadLeftPage);
+                                        setOverviewOpen(false);
                                     }}
                                 >
                                     <span className="ab-overview-thumb ab-overview-thumb--remove">

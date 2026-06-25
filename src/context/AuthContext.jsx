@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase/client';
-import { getSession } from '../services/auth.service';
+import { resolveAuthSession } from '../services/auth.service';
 
 const AuthContext = createContext();
 
@@ -16,13 +16,17 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     // Initialize session and user state
+    const applyAuthState = ({ user: nextUser, session: nextSession }) => {
+      setSession(nextSession);
+      setUser(nextUser);
+    };
+
     const initializeAuth = async () => {
       try {
-        const initialSession = await getSession();
-        setSession(initialSession);
-        setUser(initialSession?.user ?? null);
+        applyAuthState(await resolveAuthSession());
       } catch (error) {
         console.error('Auth initialization error:', error.message);
+        applyAuthState({ user: null, session: null });
       } finally {
         setLoading(false);
       }
@@ -30,16 +34,25 @@ export const AuthProvider = ({ children }) => {
 
     initializeAuth();
 
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      void resolveAuthSession().then(applyAuthState);
+    };
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    window.addEventListener('focus', refreshIfVisible);
+
     // Subscribe to auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      (_event, nextSession) => {
+        setSession(nextSession);
+        setUser(nextSession?.user ?? null);
         setLoading(false);
       }
     );
 
     return () => {
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+      window.removeEventListener('focus', refreshIfVisible);
       subscription.unsubscribe();
     };
   }, []);

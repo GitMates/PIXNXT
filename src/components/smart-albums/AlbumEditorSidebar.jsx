@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { filesFromInput } from '../../lib/uploadFileOrder';
+import { pickImageFiles } from '../../lib/pickImageFiles';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
     getSlotLabel,
@@ -11,7 +11,10 @@ import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
 import CollectionSpreadThumb from './CollectionSpreadThumb';
 import CoverLeatherColorPicker from './CoverLeatherColorPicker';
-import { resolveCollectionThumbLayout } from './collectionThumbLayout';
+import {
+    resolveCollectionSpreadLabel,
+    resolveCollectionThumbLayout,
+} from './collectionThumbLayout';
 import { getLockedCollectionIndices } from './albumCollection';
 import { formatAlbumGridSizeDisplay, parseGridSizeAspect } from './albumGridSize';
 import {
@@ -75,6 +78,7 @@ export default function AlbumEditorSidebar({
     album,
     totalPages,
     collectionItems = [],
+    collectionRevision = 0,
     onUploadForCurrentSpread,
     onOpenPicker,
     onClearAllPhotos,
@@ -104,7 +108,6 @@ export default function AlbumEditorSidebar({
     onReorderCollectionItem = null,
     proofSeenTick = 0,
 }) {
-    const fileRef = useRef(null);
     const collectionDragFromRef = useRef(null);
     const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
     const [imageReplacements, setImageReplacements] = useState([]);
@@ -136,6 +139,13 @@ export default function AlbumEditorSidebar({
         () =>
             collectionItems.map((_, index) =>
                 resolveCollectionThumbLayout(index, collectionItems, album, totalPages)
+            ),
+        [collectionItems, album, totalPages]
+    );
+    const collectionSpreadLabels = useMemo(
+        () =>
+            collectionItems.map((_, index) =>
+                resolveCollectionSpreadLabel(index, collectionItems, album, totalPages)
             ),
         [collectionItems, album, totalPages]
     );
@@ -250,11 +260,13 @@ export default function AlbumEditorSidebar({
         (item) => !item.requiresCovers || album?.has_covers === true
     );
 
-    const handleSpreadUpload = (e) => {
-        const files = filesFromInput(e.target.files);
-        if (files.length) onUploadForCurrentSpread?.(files);
-        e.target.value = '';
-    };
+    const openSpreadUploadPicker = useCallback(() => {
+        pickImageFiles({
+            onPick: (files) => {
+                if (files.length) onUploadForCurrentSpread?.(files);
+            },
+        });
+    }, [onUploadForCurrentSpread]);
 
     const renderSpreadUploadActions = (showPicker = true) => {
         if (gridSelection?.mode === 'cover') return null;
@@ -264,18 +276,11 @@ export default function AlbumEditorSidebar({
                     <div className="ae-spread-actions-header">
                         <span className="ae-spread-actions-title">Current spread actions</span>
                     </div>
-                    <input
-                        ref={fileRef}
-                        type="file"
-                        accept="image/*,application/pdf,.pdf"
-                        className="ae-file-input"
-                        onChange={handleSpreadUpload}
-                    />
                     <button
                         type="button"
                         className="ae-upload-zone ae-upload-zone--spread"
                         disabled={uploading || !canSelectGrid}
-                        onClick={() => fileRef.current?.click()}
+                        onClick={openSpreadUploadPicker}
                     >
                         <svg
                             className="ae-upload-zone-icon"
@@ -438,6 +443,12 @@ export default function AlbumEditorSidebar({
                                 <div className="ae-collection-grid" role="list">
                                     {collectionItems.map((item, index) => {
                                         const isLocked = lockedCollectionIndices.has(index);
+                                        const spreadLabel = collectionSpreadLabels[index] || '';
+                                        const spreadTitle = spreadLabel
+                                            ? spreadLabel === 'Cover' || spreadLabel === 'Back'
+                                                ? spreadLabel
+                                                : `Spread ${spreadLabel}`
+                                            : `Photo ${index + 1}`;
                                         return (
                                         <div
                                             key={item.id}
@@ -473,12 +484,16 @@ export default function AlbumEditorSidebar({
                                                     handleCollectionDrop(index);
                                                 }}
                                                 onDragEnd={handleCollectionDragEnd}
-                                                title={`${index + 1}. ${item.name || 'Photo'}${isLocked ? ' — fixed position' : ''}`}
+                                                title={`${spreadTitle}. ${item.name || 'Photo'}${isLocked ? ' — fixed position' : ''}`}
                                             >
-                                                <span className="ae-collection-order" aria-hidden>
-                                                    {index + 1}
+                                                <span
+                                                    className={`ae-collection-order${spreadLabel.length > 2 ? ' ae-collection-order--wide' : ''}`}
+                                                    aria-hidden
+                                                >
+                                                    {spreadLabel || index + 1}
                                                 </span>
                                                 <CollectionSpreadThumb
+                                                    key={`${item.id}-r${collectionRevision}`}
                                                     layout={collectionThumbLayouts[index]}
                                                     alt=""
                                                 />
@@ -566,18 +581,11 @@ export default function AlbumEditorSidebar({
                             <div className="ae-spread-actions-header">
                                 <span className="ae-spread-actions-title">Current cover actions</span>
                             </div>
-                            <input
-                                ref={fileRef}
-                                type="file"
-                                accept="image/*,application/pdf,.pdf"
-                                className="ae-file-input"
-                                onChange={handleSpreadUpload}
-                            />
                             <button
                                 type="button"
                                 className="ae-upload-zone ae-upload-zone--spread"
                                 disabled={uploading || !canSelectGrid}
-                                onClick={() => fileRef.current?.click()}
+                                onClick={openSpreadUploadPicker}
                             >
                                 <svg
                                     className="ae-upload-zone-icon"
