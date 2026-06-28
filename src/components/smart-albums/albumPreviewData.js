@@ -2,6 +2,7 @@ import { getAlbumCollection } from './albumCollection';
 import { spliceIndexedPhotoMap } from './albumPageStorage';
 import { serializeImageReplacementsForSnapshot } from './albumImageReplacements';
 import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
+import { mergeAlbumClientFlagsFromProoferAccess } from './albumProoferPreview';
 
 const PHOTOS_KEY = 'pixnxt_album_page_photos';
 const REMOTE_CACHE = new Map();
@@ -222,7 +223,7 @@ export function normalizeAlbumForClientPreview(album) {
         album.id && album.photographer_id
             ? patchAlbumPreviewProoferAccess(album.id, album) || album.preview_data || {}
             : album.preview_data || {};
-    return {
+    return mergeAlbumClientFlagsFromProoferAccess({
         ...album,
         preview_data: previewData,
         has_covers: resolveHasCoversFromPreview(album, previewData),
@@ -230,7 +231,7 @@ export function normalizeAlbumForClientPreview(album) {
         spread_grid_size: previewData.spread_grid_size ?? album.spread_grid_size ?? null,
         grid_size: album.grid_size ?? 'square',
         grid_layout: album.grid_layout ?? 'two-page',
-    };
+    });
 }
 
 export function hydrateAlbumPreviewData(albumId, previewData) {

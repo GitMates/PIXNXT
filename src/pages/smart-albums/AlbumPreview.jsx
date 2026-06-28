@@ -27,7 +27,7 @@ import {
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import AlbumPreviewProofActions from '../../components/smart-albums/AlbumPreviewProofActions';
-import AlbumPreviewSpreadFeed from '../../components/smart-albums/AlbumPreviewSpreadFeed';
+import AlbumPreviewFeedbackSidebar from '../../components/smart-albums/AlbumPreviewFeedbackSidebar';
 import { buildSpreadFeedbackFeed } from '../../components/smart-albums/spreadFeedbackFeed';
 import { galleryService } from '../../services/gallery.service';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
@@ -38,6 +38,12 @@ import {
     removeImageReplacement,
 } from '../../components/smart-albums/albumImageReplacements';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
+import {
+    ALBUM_PROOFER_SETTINGS_CHANGED_EVENT,
+    smartAlbumProoferSettingsService,
+} from '../../services/smartAlbumProoferSettings.service';
+import { canClientLeaveFeedback } from '../../components/smart-albums/albumProoferPreview';
+import AlbumPreviewGuestNamePrompt from '../../components/smart-albums/AlbumPreviewGuestNamePrompt';
 import './AlbumViewer.css';
 
 /**
@@ -90,8 +96,44 @@ export default function AlbumPreview({
         [bookPage, spreadOpts, totalPages]
     );
     const spreadCount = getTotalSpreads(totalPages, spreadOpts);
-    const commentsEnabled = album?.comments_enabled !== false;
-    const messagesEnabled = album?.messages_enabled !== false;
+    const [settingsRevision, setSettingsRevision] = useState(0);
+    const [guestNamePromptOpen, setGuestNamePromptOpen] = useState(false);
+
+    const prooferAccess = useMemo(() => {
+        if (!clientPreview || !album?.photographer_id || !albumId) return null;
+        return smartAlbumProoferSettingsService.getEffectiveAlbumAccess(
+            album.photographer_id,
+            albumId,
+            album,
+            album.preview_data
+        );
+    }, [clientPreview, album, albumId, settingsRevision]);
+
+    const commentsEnabled = prooferAccess?.commentsEnabled ?? album?.comments_enabled !== false;
+    const messagesEnabled = prooferAccess?.swapsEnabled ?? album?.messages_enabled !== false;
+
+    useEffect(() => {
+        if (!albumId) return undefined;
+        const onSettingsChanged = (event) => {
+            if (event.detail?.albumId === albumId) {
+                setSettingsRevision((value) => value + 1);
+            }
+        };
+        window.addEventListener(ALBUM_PROOFER_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+        return () => {
+            window.removeEventListener(ALBUM_PROOFER_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+        };
+    }, [albumId]);
+
+    const handleProoferBlocked = useCallback(
+        (message, code) => {
+            if (code === 'name-required') {
+                setGuestNamePromptOpen(true);
+            }
+            showToast(message, { variant: 'warning', duration: 4500 });
+        },
+        [showToast]
+    );
     const [spreadCommentsBySpread, setSpreadCommentsBySpread] = useState({});
     const [photoPins, setPhotoPins] = useState([]);
     const [editingPinId, setEditingPinId] = useState(null);
@@ -290,6 +332,13 @@ export default function AlbumPreview({
         );
     }, [spreadCommentsBySpread, spreadIndex]);
 
+    const visibleClientMessages = useMemo(() => {
+        const rows = spreadCommentsBySpread?.[spreadIndex] || [];
+        return rows.filter(
+            (c) => c.author_type === 'client' && String(c.body || '').trim()
+        );
+    }, [spreadCommentsBySpread, spreadIndex]);
+
     const visibleImageReplacements = useMemo(
         () =>
             imageReplacements.filter((replacement) => replacement.spreadIndex === spreadIndex),
@@ -300,6 +349,7 @@ export default function AlbumPreview({
         () =>
             buildSpreadFeedbackFeed({
                 photographerMessages: visiblePhotographerMessages,
+                clientMessages: visibleClientMessages,
                 photoPins: visiblePhotoCommentItems,
                 swapMarks: visibleSwapItems,
                 imageReplacements: visibleImageReplacements,
@@ -307,6 +357,7 @@ export default function AlbumPreview({
             }),
         [
             visiblePhotographerMessages,
+            visibleClientMessages,
             visiblePhotoCommentItems,
             visibleSwapItems,
             visibleImageReplacements,
@@ -314,7 +365,6 @@ export default function AlbumPreview({
         ]
     );
 
-    const spreadFeedbackCount = visibleSpreadFeed.length;
 
     useEffect(() => {
         if (!clientPreview || !albumId) return;
@@ -352,6 +402,9 @@ export default function AlbumPreview({
     const albumBookProps = useMemo(
         () => ({
             previewMode: true,
+            clientPreview,
+            prooferAccess,
+            onProoferBlocked: clientPreview ? handleProoferBlocked : undefined,
             showSamples: false,
             transformRevision: photoRevision,
             proofSpotPicker: commentsEnabled || messagesEnabled,
@@ -364,6 +417,9 @@ export default function AlbumPreview({
             spreadCommentsBySpread: commentsEnabled ? spreadCommentsBySpread : null,
         }),
         [
+            clientPreview,
+            prooferAccess,
+            handleProoferBlocked,
             photoRevision,
             commentsEnabled,
             messagesEnabled,
@@ -430,46 +486,44 @@ export default function AlbumPreview({
                     </div>
                 </div>
 
-                    <aside className="ae-sidebar av-preview-sidebar av-preview-sidebar--comments-only" aria-label="Preview comments">
-                        <div className="ae-panel av-preview-sidebar-panel">
-                                    <h3 className="ae-panel-title">Comment</h3>
-                            <div className="av-preview-sidebar-comments">
-                                {spreadFeedbackCount === 0 ? (
-                                    <p className="av-preview-sidebar-text">
-                                        No comments, swap requests, or photo changes on this
-                                        spread yet.
-                                                </p>
-                                            ) : (
-                                    <AlbumPreviewSpreadFeed
-                                        feed={visibleSpreadFeed}
-                                        albumId={albumId}
-                                        businessName={businessName}
-                                        spreadOpts={spreadOpts}
-                                        editingPinId={editingPinId}
-                                        editingPinMessage={editingPinMessage}
-                                        onEditPinStart={(pin) => {
-                                            setEditingPinId(pin.id);
-                                            setEditingPinMessage(pin.message);
-                                        }}
-                                        onEditPinCancel={() => {
-                                                                                setEditingPinId(null);
-                                                                                setEditingPinMessage('');
-                                                                            }}
-                                        onEditPinMessageChange={setEditingPinMessage}
-                                        onEditPinSave={() => {
-                                                                                    setEditingPinId(null);
-                                                                                    setEditingPinMessage('');
-                                        }}
-                                        onJumpToSpread={jumpToSpread}
-                                        onRemoveSwap={(id) => removeSwapMark(albumId, id)}
-                                        onRemoveReplacement={handleRemoveImageReplacement}
-                                    />
-                                )}
-                            </div>
-                        </div>
-                    </aside>
+                    <AlbumPreviewFeedbackSidebar
+                        albumId={albumId}
+                        spreadIndex={spreadIndex}
+                        spreadOpts={spreadOpts}
+                        businessName={businessName}
+                        clientPreview={clientPreview}
+                        commentsEnabled={commentsEnabled}
+                        prooferAccess={prooferAccess}
+                        visibleSpreadFeed={visibleSpreadFeed}
+                        editingPinId={editingPinId}
+                        editingPinMessage={editingPinMessage}
+                        onEditPinStart={(pin) => {
+                            setEditingPinId(pin.id);
+                            setEditingPinMessage(pin.message);
+                        }}
+                        onEditPinCancel={() => {
+                            setEditingPinId(null);
+                            setEditingPinMessage('');
+                        }}
+                        onEditPinMessageChange={setEditingPinMessage}
+                        onEditPinSave={() => {
+                            setEditingPinId(null);
+                            setEditingPinMessage('');
+                        }}
+                        onJumpToSpread={jumpToSpread}
+                        onRemoveSwap={(id) => removeSwapMark(albumId, id)}
+                        onRemoveReplacement={handleRemoveImageReplacement}
+                        onBlocked={clientPreview ? handleProoferBlocked : undefined}
+                        onNotify={(message) => showToast(message, { variant: 'info', duration: 3500 })}
+                        onCommentsChanged={loadSpreadComments}
+                    />
                 </div>
             </div>
+            <AlbumPreviewGuestNamePrompt
+                albumId={albumId}
+                open={guestNamePromptOpen}
+                onClose={() => setGuestNamePromptOpen(false)}
+            />
             <AppToast toast={toast} onDismiss={clearToast} />
         </div>
     );

@@ -457,6 +457,9 @@ export const smartAlbumProoferSettingsService = {
             allowExternalUploads: effective.allowExternalUploads,
             maxRevisionRounds: effective.maxRevisionRounds,
             sendReminderEmails: effective.sendReminderEmails,
+            commentsEnabled: effective.commentsEnabled,
+            swapsEnabled: effective.swapsEnabled,
+            shareLinkEnabled: effective.shareLinkEnabled,
         };
     },
 

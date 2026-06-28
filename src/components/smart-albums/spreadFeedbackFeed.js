@@ -32,6 +32,7 @@ function groupImageReplacementsForFeed(imageReplacements = []) {
 /** Merge spread feedback items; oldest first, newest at bottom. */
 export function buildSpreadFeedbackFeed({
     photographerMessages = [],
+    clientMessages = [],
     photoPins = [],
     swapMarks = [],
     imageReplacements = [],
@@ -43,6 +44,15 @@ export function buildSpreadFeedbackFeed({
         items.push({
             kind: 'photographer-message',
             id: `msg-${comment.id}`,
+            sortAt: feedItemSortTime(comment.updated_at || comment.created_at),
+            comment,
+        });
+    });
+
+    clientMessages.forEach((comment) => {
+        items.push({
+            kind: 'client-message',
+            id: `client-msg-${comment.id}`,
             sortAt: feedItemSortTime(comment.updated_at || comment.created_at),
             comment,
         });

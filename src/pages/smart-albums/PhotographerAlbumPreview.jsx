@@ -1,9 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
-import { ALBUM_PROOFER_SETTINGS_CHANGED_EVENT } from '../../services/smartAlbumProoferSettings.service';
+import {
+    ALBUM_PROOFER_SETTINGS_CHANGED_EVENT,
+    smartAlbumProoferSettingsService,
+} from '../../services/smartAlbumProoferSettings.service';
+import AlbumPreviewAccessGate from '../../components/smart-albums/AlbumPreviewAccessGate';
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { parseUrlPage } from './useAlbumWorkspace';
@@ -83,6 +87,16 @@ export default function PhotographerAlbumPreview() {
     const spreadOpts = getAlbumSpreadOptions(album);
     const initialPage = parseUrlPage(searchParams.get('page'), totalPages, spreadOpts);
 
+    const access = useMemo(() => {
+        if (!album?.id) return null;
+        return smartAlbumProoferSettingsService.getEffectiveAlbumAccess(
+            album.photographer_id,
+            albumId,
+            album,
+            album.preview_data
+        );
+    }, [album, albumId]);
+
     const handlePageChange = (pageIdx) => {
         const next = new URLSearchParams(searchParams);
         next.set('page', String(pageIdx));
@@ -106,15 +120,17 @@ export default function PhotographerAlbumPreview() {
     }
 
     return (
-        <AlbumPreview
-            album={normalizeAlbumForClientPreview(album)}
-            albumId={albumId}
-            totalPages={totalPages}
-            initialPage={initialPage}
-            photoRevision={photoRevision}
-            onPageChange={handlePageChange}
-            minimalChrome
-            clientPreview
-        />
+        <AlbumPreviewAccessGate albumId={albumId} access={access}>
+            <AlbumPreview
+                album={normalizeAlbumForClientPreview(album)}
+                albumId={albumId}
+                totalPages={totalPages}
+                initialPage={initialPage}
+                photoRevision={photoRevision}
+                onPageChange={handlePageChange}
+                minimalChrome
+                clientPreview
+            />
+        </AlbumPreviewAccessGate>
     );
 }

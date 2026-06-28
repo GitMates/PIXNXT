@@ -99,6 +99,18 @@ export default function AlbumEditorSettingsPanel({
         };
     }, [photographerId, albumId, album?.id]);
 
+    useEffect(() => {
+        if (loading || !album) return;
+        setAllowComments(album.comments_enabled !== false);
+        setAllowSwaps(album.messages_enabled !== false);
+        setShareLink(album.share_link_enabled !== false);
+    }, [
+        loading,
+        album?.comments_enabled,
+        album?.messages_enabled,
+        album?.share_link_enabled,
+    ]);
+
     const triggerSaved = useCallback(() => {
         setSaved(true);
         if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
@@ -276,9 +288,16 @@ export default function AlbumEditorSettingsPanel({
                     <p className="ae-settings-section__label">Album Link &amp; Security</p>
 
                     <div className="ae-settings-field">
-                        <label className="ae-settings-field__label">Live Share Link</label>
+                        <label className="ae-settings-field__label" htmlFor="ae-live-share-link">
+                            Live Share Link
+                        </label>
                         <div className="ae-settings-inset">
-                            <input type="text" value={shareDisplayUrl} readOnly />
+                            <input
+                                id="ae-live-share-link"
+                                type="text"
+                                value={shareDisplayUrl}
+                                readOnly
+                            />
                             <button
                                 type="button"
                                 className="ae-settings-copy-btn"
@@ -291,25 +310,31 @@ export default function AlbumEditorSettingsPanel({
                     </div>
 
                     <div className="ae-settings-field">
-                        <label className="ae-settings-field__label">Access Level</label>
-                        <select
-                            className="ae-settings-select"
-                            value={accessLevel}
-                            onChange={(e) => setAccessLevel(e.target.value)}
-                        >
-                            <option value="public">Public</option>
-                            <option value="password">Password Protected</option>
-                            <option value="private">Private (Link Only)</option>
-                        </select>
+                        <label className="ae-settings-field__label" htmlFor="ae-access-level">
+                            Access Level
+                        </label>
+                        <div className="ae-settings-select-wrap">
+                            <select
+                                id="ae-access-level"
+                                className="ae-settings-select"
+                                value={accessLevel}
+                                onChange={(e) => setAccessLevel(e.target.value)}
+                            >
+                                <option value="public">Public</option>
+                                <option value="password">Password Protected</option>
+                                <option value="private">Private (Link Only)</option>
+                            </select>
+                        </div>
                         {accessLevel === 'password' && (
-                            <input
-                                type="password"
-                                className="ae-settings-input"
-                                style={{ marginTop: 10 }}
-                                value={albumPassword}
-                                onChange={(e) => setAlbumPassword(e.target.value)}
-                                placeholder="Set album password"
-                            />
+                            <div className="ae-settings-field ae-settings-field--password">
+                                <input
+                                    type="password"
+                                    className="ae-settings-input"
+                                    value={albumPassword}
+                                    onChange={(e) => setAlbumPassword(e.target.value)}
+                                    placeholder="Set album password"
+                                />
+                            </div>
                         )}
                         {accessLevel === 'private' && (
                             <p className="ae-settings-private-hint">
@@ -321,52 +346,8 @@ export default function AlbumEditorSettingsPanel({
                     </div>
                 </section>
 
-                <div className="ae-settings-divider" />
-
                 <section className="ae-settings-section">
                     <p className="ae-settings-section__label">Proofing &amp; Collaboration</p>
-
-                    <div className="ae-settings-row">
-                        <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Allow comments</p>
-                            <p className="ae-settings-field__desc">
-                                Clients can leave feedback on each spread in the preview
-                            </p>
-                        </div>
-                        <SettingsToggle
-                            on={allowComments}
-                            onChange={() => setAllowComments((v) => !v)}
-                            label="Allow comments"
-                        />
-                    </div>
-
-                    <div className="ae-settings-row">
-                        <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Allow swaps</p>
-                            <p className="ae-settings-field__desc">
-                                Clients can place swap requests on photos in the preview
-                            </p>
-                        </div>
-                        <SettingsToggle
-                            on={allowSwaps}
-                            onChange={() => setAllowSwaps((v) => !v)}
-                            label="Allow swaps"
-                        />
-                    </div>
-
-                    <div className="ae-settings-row">
-                        <div className="ae-settings-row__text">
-                            <p className="ae-settings-field__title">Client share link</p>
-                            <p className="ae-settings-field__desc">
-                                Clients can open the album with your share link
-                            </p>
-                        </div>
-                        <SettingsToggle
-                            on={shareLink}
-                            onChange={() => setShareLink((v) => !v)}
-                            label="Client share link"
-                        />
-                    </div>
 
                     <div className="ae-settings-row">
                         <div className="ae-settings-row__text">
@@ -383,11 +364,14 @@ export default function AlbumEditorSettingsPanel({
                     </div>
 
                     <div className="ae-settings-field">
-                        <label className="ae-settings-field__label">Max Allowed Free Swaps</label>
+                        <label className="ae-settings-field__label" htmlFor="ae-max-swaps">
+                            Max Allowed Free Swaps
+                        </label>
                         <input
+                            id="ae-max-swaps"
                             type="number"
                             min="0"
-                            className="ae-settings-input"
+                            className="ae-settings-input ae-settings-input--compact"
                             value={maxSwaps}
                             onChange={(e) =>
                                 setMaxSwaps(Math.max(0, parseInt(e.target.value, 10) || 0))
@@ -408,9 +392,53 @@ export default function AlbumEditorSettingsPanel({
                             label="External uploads"
                         />
                     </div>
-                </section>
 
-                <div className="ae-settings-divider" />
+                    <div className="ae-settings-subsection">
+                        <p className="ae-settings-subsection__label">Client preview</p>
+
+                        <div className="ae-settings-row">
+                            <div className="ae-settings-row__text">
+                                <p className="ae-settings-field__title">Allow comments</p>
+                                <p className="ae-settings-field__desc">
+                                    Clients can leave feedback on each spread
+                                </p>
+                            </div>
+                            <SettingsToggle
+                                on={allowComments}
+                                onChange={() => setAllowComments((v) => !v)}
+                                label="Allow comments"
+                            />
+                        </div>
+
+                        <div className="ae-settings-row">
+                            <div className="ae-settings-row__text">
+                                <p className="ae-settings-field__title">Allow swaps</p>
+                                <p className="ae-settings-field__desc">
+                                    Clients can place swap requests on photos
+                                </p>
+                            </div>
+                            <SettingsToggle
+                                on={allowSwaps}
+                                onChange={() => setAllowSwaps((v) => !v)}
+                                label="Allow swaps"
+                            />
+                        </div>
+
+                        <div className="ae-settings-row">
+                            <div className="ae-settings-row__text">
+                                <p className="ae-settings-field__title">Client share link</p>
+                                <p className="ae-settings-field__desc">
+                                    Clients can open the album with your share link
+                                </p>
+                            </div>
+                            <SettingsToggle
+                                on={shareLink}
+                                onChange={() => setShareLink((v) => !v)}
+                                label="Client share link"
+                            />
+                        </div>
+                    </div>
+                </section>
 
                 <section className="ae-settings-section">
                     <p className="ae-settings-section__label">Sign-Off &amp; Automation</p>

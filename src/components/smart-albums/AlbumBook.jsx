@@ -57,6 +57,7 @@ import {
     albumHadClientFeedbackBefore,
     notifyAfterClientFeedbackAdded,
 } from './albumClientFeedbackNotify';
+import { canClientLeaveFeedback } from './albumProoferPreview';
 import './AlbumBook.css';
 import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
@@ -191,6 +192,9 @@ const AlbumBook = ({
     proofSpotPicker = false,
     spotCanComment = false,
     spotCanSwap = false,
+    clientPreview = false,
+    prooferAccess = null,
+    onProoferBlocked = null,
     external3DCover = false,
     coverRevealFrom3D = false,
     coverRevealDelayMs = 0,
@@ -224,6 +228,19 @@ const AlbumBook = ({
     const [pinComposer, setPinComposer] = useState(null);
     const [initialized, setInitialized] = useState(false);
     const [commentsSeenTick, setCommentsSeenTick] = useState(0);
+
+    const ensureClientFeedback = useCallback(
+        (action) => {
+            if (!previewMode || !clientPreview || !prooferAccess || !album?.id) return true;
+            const result = canClientLeaveFeedback(album.id, prooferAccess, action);
+            if (!result.ok) {
+                onProoferBlocked?.(result.message, result.code);
+                return false;
+            }
+            return true;
+        },
+        [previewMode, clientPreview, prooferAccess, album?.id, onProoferBlocked]
+    );
     const isPinModeOn = previewMode ? pinMarkMode : pinModeActive;
     const spreadOpts = useMemo(
         () => getSpreadContext(album, totalPages),
@@ -1185,6 +1202,7 @@ const AlbumBook = ({
     const handleSwapPick = useCallback(
         (secondSlot) => {
             if (!album?.id || !secondSlot) return;
+            if (!ensureClientFeedback('swap')) return;
             const originSlot = swapPickerOrigin || swapPinFlow?.originSlot;
             if (!originSlot) return;
 
@@ -1231,7 +1249,7 @@ const AlbumBook = ({
                 goToPage(secondSlot.pageNum ?? originSlot.pageNum);
             }
         },
-        [album?.id, swapPickerOrigin, swapPinFlow, previewMode, goToPage, spreadOpts, totalPages]
+        [album?.id, swapPickerOrigin, swapPinFlow, previewMode, goToPage, spreadOpts, totalPages, ensureClientFeedback]
     );
 
     const handleSwapSpreadNavigate = useCallback(
@@ -1252,6 +1270,7 @@ const AlbumBook = ({
             };
             if (!swapPinFlow) {
                 if (!swapMarkMode && !proofSpotPicker) return;
+                if (!ensureClientFeedback('swap')) return;
                 setSwapPinFlow({
                     originSlot: placement,
                     originPoint: placementPoint,
@@ -1276,6 +1295,7 @@ const AlbumBook = ({
                     return;
                 }
                 const hadFeedback = albumHadClientFeedbackBefore(album.id);
+                if (!ensureClientFeedback('swap')) return;
                 const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: {
                         xPct: 50,
@@ -1298,6 +1318,7 @@ const AlbumBook = ({
 
             if (slotsMatch(originSlot, placement)) {
                 const hadFeedback = albumHadClientFeedbackBefore(album.id);
+                if (!ensureClientFeedback('swap')) return;
                 const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: swapPinFlow.originPoint,
                     pointB: placementPoint,
@@ -1314,6 +1335,7 @@ const AlbumBook = ({
             }
 
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
+            if (!ensureClientFeedback('swap')) return;
             const mark = addSwapMark(album.id, originSlot, placement, {
                 pointA: swapPinFlow.originPoint,
                 pointB: placementPoint,
@@ -1325,7 +1347,7 @@ const AlbumBook = ({
                 setSwapPinFlow(null);
             }
         },
-        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker, previewMode]
+        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker, previewMode, ensureClientFeedback]
     );
 
     const getSwapMarkInfo = useCallback(
@@ -1368,6 +1390,7 @@ const AlbumBook = ({
     const handlePinSave = useCallback(
         (message) => {
             if (!album?.id || !pinComposer) return;
+            if (!ensureClientFeedback('comment')) return;
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addPhotoPin(album.id, { ...pinComposer, message });
             if (previewMode) {
@@ -1375,19 +1398,20 @@ const AlbumBook = ({
             }
             setPinComposer(null);
         },
-        [album?.id, pinComposer, previewMode]
+        [album?.id, pinComposer, previewMode, ensureClientFeedback]
     );
 
     const handlePinSaveDirect = useCallback(
         (placement) => {
             if (!album?.id || !placement?.message?.trim()) return;
+            if (!ensureClientFeedback('comment')) return;
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addPhotoPin(album.id, placement);
             if (previewMode) {
                 notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
             }
         },
-        [album?.id, previewMode]
+        [album?.id, previewMode, ensureClientFeedback]
     );
 
     const handlePinRemove = useCallback(

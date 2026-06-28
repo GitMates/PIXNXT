@@ -2,6 +2,7 @@ import React from 'react';
 import {
     formatCommentTime,
     formatFeedDateLabel,
+    isCommentUnseen,
     isGuestCommentUnseen,
 } from '../../services/smartAlbumComments.service';
 import {
@@ -165,6 +166,47 @@ export default function AlbumPreviewSpreadFeed({
                                 ) : null}
                             </footer>
                         </ChatRow>
+                        </React.Fragment>
+                    );
+                }
+
+                if (item.kind === 'client-message') {
+                    const comment = item.comment;
+                    const createdAtLabel = formatCommentTime(
+                        comment.updated_at || comment.created_at
+                    );
+                    const unseen = proofMode
+                        ? isCommentUnseen(albumId, comment)
+                        : false;
+                    const outgoing = !proofMode;
+
+                    return (
+                        <React.Fragment key={item.id}>
+                            {dateDivider}
+                            <ChatRow
+                                outgoing={outgoing}
+                                unseen={unseen}
+                                actions={null}
+                            >
+                                {!outgoing ? (
+                                    <p className="av-chat-bubble-sender">
+                                        {comment.author_name || 'Client'}
+                                    </p>
+                                ) : null}
+                                <div className="av-chat-bubble-text">{comment.body}</div>
+                                <footer className="av-chat-bubble-foot">
+                                    {createdAtLabel ? (
+                                        <time
+                                            dateTime={comment.updated_at || comment.created_at}
+                                        >
+                                            {createdAtLabel}
+                                        </time>
+                                    ) : null}
+                                    {unseen ? (
+                                        <span className="av-chat-bubble-new">New</span>
+                                    ) : null}
+                                </footer>
+                            </ChatRow>
                         </React.Fragment>
                     );
                 }

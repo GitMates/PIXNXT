@@ -236,10 +236,16 @@ export default function AlbumEditorSidebar({
         );
     }, [spreadCommentsBySpread, currentSpreadIndex]);
 
+    const visibleClientMessages = useMemo(() => {
+        const rows = spreadCommentsBySpread?.[currentSpreadIndex] || [];
+        return rows.filter((c) => c.author_type === 'client' && String(c.body || '').trim());
+    }, [spreadCommentsBySpread, currentSpreadIndex]);
+
     const visibleSpreadFeed = useMemo(
         () =>
             buildSpreadFeedbackFeed({
                 photographerMessages: visibleSentMessages,
+                clientMessages: visibleClientMessages,
                 photoPins: visiblePhotoPins,
                 swapMarks: visibleSwapMarks,
                 imageReplacements: visibleImageReplacements,
@@ -247,6 +253,7 @@ export default function AlbumEditorSidebar({
             }),
         [
             visibleSentMessages,
+            visibleClientMessages,
             visiblePhotoPins,
             visibleSwapMarks,
             visibleImageReplacements,
