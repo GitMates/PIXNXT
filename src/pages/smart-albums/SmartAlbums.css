@@ -594,3 +594,61 @@
   width: 100%;
   text-align: right;
 }
+
+.sa-settings-content {
+  max-width: 720px;
+}
+
+.sa-settings-section {
+  margin-bottom: 32px;
+}
+
+.sa-settings-section-title {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888;
+}
+
+.sa-settings-card {
+  padding: 24px;
+  border: 1px solid #e8eaed;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.sa-settings-desc {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.55;
+  color: #555;
+}
+
+.sa-settings-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.sa-settings-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 16px;
+  border: 1px solid #d9dde3;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1f2933;
+  text-decoration: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.sa-settings-link:hover {
+  border-color: #c7cdd5;
+  background: #f8f9fb;
+  color: #111;
+}
