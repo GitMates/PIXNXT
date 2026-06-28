@@ -394,6 +394,7 @@ export default function AlbumPreview({
                     <AlbumPreviewProofActions
                         albumId={albumId}
                         albumName={album?.name}
+                        album={album}
                         onToast={(message, variant = 'info') =>
                             showToast(message, { variant, duration: 4500 })
                         }

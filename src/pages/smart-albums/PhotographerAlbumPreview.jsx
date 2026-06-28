@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
 import { useAuth } from '../../hooks/useAuth';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
+import { ALBUM_PROOFER_SETTINGS_CHANGED_EVENT } from '../../services/smartAlbumProoferSettings.service';
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { parseUrlPage } from './useAlbumWorkspace';
@@ -39,6 +40,26 @@ export default function PhotographerAlbumPreview() {
         })();
         return () => {
             cancelled = true;
+        };
+    }, [user?.id, albumId]);
+
+    useEffect(() => {
+        if (!user?.id || !albumId) return undefined;
+
+        const reloadAlbum = () => {
+            smartAlbumsService
+                .getAlbum(user.id, albumId)
+                .then((data) => setAlbum(data))
+                .catch((e) => console.error(e));
+        };
+
+        const onSettingsChanged = (event) => {
+            if (event.detail?.albumId === albumId) reloadAlbum();
+        };
+
+        window.addEventListener(ALBUM_PROOFER_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+        return () => {
+            window.removeEventListener(ALBUM_PROOFER_SETTINGS_CHANGED_EVENT, onSettingsChanged);
         };
     }, [user?.id, albumId]);
 

@@ -19,7 +19,12 @@ function SettingsSwitch({ id, checked, disabled, busy, onChange, label }) {
     );
 }
 
-export default function AlbumCommentSettings({ album, photographerId, onUpdated }) {
+export default function AlbumCommentSettings({
+    album,
+    photographerId,
+    onUpdated,
+    onOpenFullSettings,
+}) {
     const commentsOn = album?.comments_enabled !== false;
     const swapsOn = album?.messages_enabled !== false;
     const published = album?.status === 'published';
@@ -177,6 +182,16 @@ export default function AlbumCommentSettings({ album, photographerId, onUpdated 
                     Album is published, but the client share link is off. Clients cannot open the
                     public preview until you turn the link back on.
                 </p>
+            )}
+
+            {onOpenFullSettings && (
+                <button
+                    type="button"
+                    className="asc-settings-full-btn"
+                    onClick={onOpenFullSettings}
+                >
+                    Open album settings
+                </button>
             )}
         </div>
     );

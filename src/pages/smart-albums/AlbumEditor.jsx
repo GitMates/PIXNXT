@@ -120,7 +120,7 @@ import {
     captureSlotImageBeforeReplaceAsync,
     trackSpreadImageReplacement,
 } from '../../components/smart-albums/albumImageReplacements';
-import AlbumCommentSettings from '../../components/smart-albums/AlbumCommentSettings';
+import AlbumEditorSettingsPanel from '../../components/smart-albums/AlbumEditorSettingsPanel';
 import {
     getSwapMarks,
     isWholeGridSwapSlot,
@@ -2160,10 +2160,10 @@ export default function AlbumEditor({
                     onPanelChange={handlePanelChange}
                     commentSettings={
                         user?.id ? (
-                            <AlbumCommentSettings
+                            <AlbumEditorSettingsPanel
                                 album={album}
                                 photographerId={user.id}
-                                onUpdated={onAlbumUpdate}
+                                onAlbumUpdated={onAlbumUpdate}
                             />
                         ) : null
                     }

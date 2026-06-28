@@ -1,9 +1,15 @@
 import { supabase } from '../lib/supabase/client';
+import { smartAlbumProoferSettingsService } from './smartAlbumProoferSettings.service';
 import { categoryTagsToDb } from '../lib/categoryTags';
 import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../components/smart-albums/albumCollection';
 import { clearAllAlbumPagePhotos } from '../components/smart-albums/albumPagePhotos';
 import { clearAlbumTransforms } from '../components/smart-albums/albumPageTransforms';
-import { buildAlbumPreviewSnapshot, getAlbumIdsWithLocalAssets, hydrateAlbumPreviewData } from '../components/smart-albums/albumPreviewData';
+import {
+  buildAlbumPreviewSnapshot,
+  getAlbumIdsWithLocalAssets,
+  hydrateAlbumPreviewData,
+  patchAlbumPreviewProoferAccess,
+} from '../components/smart-albums/albumPreviewData';
 import { getAlbumCoverColor } from '../components/smart-albums/albumCoverColor';
 import { getAlbumSpineBoundsOverride } from '../components/smart-albums/albumSpineSettings';
 import { duplicateAlbumAssets } from '../components/smart-albums/albumDuplicate';
@@ -240,6 +246,7 @@ const OPTIONAL_ALBUM_INSERT_COLUMNS = [
   'replies_enabled',
   'comments_enabled',
   'share_link_enabled',
+  'proofer_settings',
   'expiry_date',
   'category_tags',
   'is_starred',
@@ -955,6 +962,14 @@ export const smartAlbumsService = {
         blank_covers: blank_covers === true,
         spread_grid_size: spread_grid_size || null,
       });
+      smartAlbumProoferSettingsService.applyDefaultsToNewAlbum(photographer_id, data.id);
+      const defaults = smartAlbumProoferSettingsService.getPhotographerDefaults(photographer_id);
+      writeSettingsOverride(photographer_id, data.id, {
+        comments_enabled: true,
+        messages_enabled: true,
+        share_link_enabled: defaults.accessControl === 'link',
+        replies_enabled: defaults.multiUserCollaboration,
+      });
       removeLocalAlbum(photographer_id, data.id);
       return mapAlbumRow(data, photographer_id);
     }
@@ -992,6 +1007,14 @@ export const smartAlbumsService = {
           has_covers: has_covers === true,
           blank_covers: blank_covers === true,
           spread_grid_size: spread_grid_size || null,
+        });
+        smartAlbumProoferSettingsService.applyDefaultsToNewAlbum(photographer_id, album.id);
+        const defaults = smartAlbumProoferSettingsService.getPhotographerDefaults(photographer_id);
+        writeSettingsOverride(photographer_id, album.id, {
+          comments_enabled: true,
+          messages_enabled: true,
+          share_link_enabled: defaults.accessControl === 'link',
+          replies_enabled: defaults.multiUserCollaboration,
         });
 
         return mapAlbumRow(
@@ -1127,6 +1150,32 @@ export const smartAlbumsService = {
     }
 
     return { ...album, ...patch };
+  },
+
+  async syncAlbumPreviewProoferSettings(photographerId, albumId, album = null) {
+    const freshAlbum = album || (await this.getAlbum(photographerId, albumId));
+    if (!freshAlbum) return null;
+
+    const previewData = patchAlbumPreviewProoferAccess(albumId, freshAlbum);
+    if (!previewData) return null;
+
+    const { data, error } = await updateAlbumRowResilient(photographerId, albumId, {
+      preview_data: previewData,
+    });
+
+    if (error && shouldUseLocalStore(error)) {
+      return previewData;
+    }
+
+    if (error) {
+      console.warn('syncAlbumPreviewProoferSettings:', error.message);
+      hydrateAlbumPreviewData(albumId, previewData);
+      return previewData;
+    }
+
+    const synced = data?.preview_data ?? previewData;
+    hydrateAlbumPreviewData(albumId, synced);
+    return synced;
   },
 
   async syncAlbumPreviewData(photographerId, albumId) {

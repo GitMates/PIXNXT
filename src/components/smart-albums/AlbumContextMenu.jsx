@@ -23,6 +23,12 @@ const IconEdit = () => (
         <path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
     </svg>
 );
+const IconSettings = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+);
 const IconDuplicate = () => (
     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
         <rect x="8" y="8" width="14" height="14" rx="2" ry="2" />
@@ -189,6 +195,7 @@ export function AlbumContextMenu({
     variant = 'grid',
     onPreview,
     onQuickEdit,
+    onAlbumSettings,
     onDuplicate,
     onDelete,
     onShareByEmail,
@@ -266,6 +273,10 @@ export function AlbumContextMenu({
             <button type="button" className="cg-ctx-item" onClick={run(onQuickEdit)}>
                 <IconEdit />
                 Quick edit
+            </button>
+            <button type="button" className="cg-ctx-item" onClick={run(onAlbumSettings)}>
+                <IconSettings />
+                Album settings
             </button>
             <button type="button" className="cg-ctx-item" onClick={run(onDuplicate)}>
                 <IconDuplicate />

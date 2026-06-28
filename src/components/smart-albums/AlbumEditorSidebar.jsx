@@ -64,7 +64,7 @@ const NAV_BASE = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
     { id: 'cover', label: 'Edit cover', icon: IconEditCover, requiresCovers: true },
     { id: 'pin', label: 'Comment', icon: IconComments },
-    { id: 'comments', label: 'Setting', icon: IconSettings },
+    { id: 'comments', label: 'Settings', icon: IconSettings },
 ];
 
 const GRID_LAYOUT_LABELS = {
@@ -378,17 +378,8 @@ export default function AlbumEditorSidebar({
                 ))}
             </nav>
 
-            <div className={`ae-panel${activePanel === 'pin' ? ' ae-panel--pin' : ''}`}>
-                {activePanel === 'comments' && (
-                    <>
-                        <h3 className="ae-panel-title">Settings</h3>
-                        {commentSettings || (
-                            <p className="ae-panel-text ae-panel-text--muted">
-                                Sign in to manage client comments and publishing.
-                            </p>
-                        )}
-                    </>
-                )}
+            <div className={`ae-panel${activePanel === 'pin' ? ' ae-panel--pin' : ''}${activePanel === 'comments' ? ' ae-panel--settings' : ''}`}>
+                {activePanel === 'comments' && commentSettings}
 
                 {activePanel === 'pin' && (
                     <div className="ae-panel-pin-layout">

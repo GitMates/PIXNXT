@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
     albumProofService,
@@ -6,6 +6,7 @@ import {
     markAlbumApproved,
 } from '../../services/albumProof.service';
 import { getGuestProfile } from '../../services/smartAlbumComments.service';
+import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
 
 function ProofConfirmModal({
     open,
@@ -62,10 +63,26 @@ function ProofConfirmModal({
     );
 }
 
-export default function AlbumPreviewProofActions({ albumId, albumName, onToast }) {
+export default function AlbumPreviewProofActions({ albumId, albumName, album, onToast }) {
     const [approveOpen, setApproveOpen] = useState(false);
+    const [pinOpen, setPinOpen] = useState(false);
+    const [pinInput, setPinInput] = useState('');
+    const [pinError, setPinError] = useState('');
     const [busy, setBusy] = useState(false);
     const [approvedAt, setApprovedAt] = useState(() => getAlbumApprovedAt(albumId));
+
+    const access = useMemo(
+        () =>
+            smartAlbumProoferSettingsService.getEffectiveAlbumAccess(
+                album?.photographer_id,
+                albumId,
+                album,
+                album?.preview_data
+            ),
+        [album, albumId]
+    );
+
+    const requiresPin = Boolean(access?.requireDigitalVerification && access?.approvalPin);
 
     const resolveGuest = useCallback(() => {
         const guest = getGuestProfile(albumId);
@@ -74,6 +91,25 @@ export default function AlbumPreviewProofActions({ albumId, albumName, onToast }
             email: guest?.email?.trim() || '',
         };
     }, [albumId]);
+
+    const handleApproveClick = () => {
+        if (requiresPin) {
+            setPinInput('');
+            setPinError('');
+            setPinOpen(true);
+            return;
+        }
+        setApproveOpen(true);
+    };
+
+    const handlePinSubmit = () => {
+        if (pinInput.replace(/\s/g, '') !== String(access.approvalPin || '').replace(/\s/g, '')) {
+            setPinError('Incorrect approval PIN.');
+            return;
+        }
+        setPinOpen(false);
+        setApproveOpen(true);
+    };
 
     const handleApprove = async () => {
         if (!albumId || busy) return;
@@ -104,7 +140,7 @@ export default function AlbumPreviewProofActions({ albumId, albumName, onToast }
                 <button
                     type="button"
                     className="av-preview-header-action av-preview-header-action--primary"
-                    onClick={() => setApproveOpen(true)}
+                    onClick={handleApproveClick}
                     disabled={Boolean(approvedAt)}
                     title={
                         approvedAt
@@ -115,6 +151,54 @@ export default function AlbumPreviewProofActions({ albumId, albumName, onToast }
                     {approvedAt ? 'Approved' : 'Approve album'}
                 </button>
             </div>
+
+            {pinOpen &&
+                createPortal(
+                    <div
+                        className="av-proof-modal-backdrop"
+                        onClick={() => setPinOpen(false)}
+                        role="presentation"
+                    >
+                        <div
+                            className="av-proof-modal"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="Enter approval PIN"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <h2 className="av-proof-modal-title">Enter approval PIN</h2>
+                            <p className="av-proof-modal-lead">
+                                Enter the secure PIN your photographer provided.
+                            </p>
+                            <input
+                                type="password"
+                                inputMode="numeric"
+                                value={pinInput}
+                                onChange={(e) => setPinInput(e.target.value)}
+                                className="w-full rounded-lg border border-[#e0e0e0] px-3 py-2 text-sm mb-2"
+                                autoFocus
+                            />
+                            {pinError && <p className="text-sm text-red-600 mb-2">{pinError}</p>}
+                            <div className="av-proof-modal-actions">
+                                <button
+                                    type="button"
+                                    className="av-proof-modal-btn av-proof-modal-btn--ghost"
+                                    onClick={() => setPinOpen(false)}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="av-proof-modal-btn av-proof-modal-btn--confirm av-proof-modal-btn--approve"
+                                    onClick={handlePinSubmit}
+                                >
+                                    Continue
+                                </button>
+                            </div>
+                        </div>
+                    </div>,
+                    document.body
+                )}
 
             <ProofConfirmModal
                 open={approveOpen}

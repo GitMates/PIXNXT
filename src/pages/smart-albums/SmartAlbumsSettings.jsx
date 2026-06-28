@@ -1,12 +1,10 @@
 import React from 'react';
-import '../ClientGallery.css';
-import './SmartAlbums.css';
+import SmartAlbumProoferSettingsPanel from '../../components/smart-albums/settings/SmartAlbumProoferSettingsPanel';
+import '../../components/smart-albums/settings/SmartAlbumProoferSettings.css';
 
 const SmartAlbumsSettings = () => (
-    <main className="sa-main cg-style-2">
-        <header className="sa-header cg-style-3">
-            <h1 className="cg-style-5 sa-title-inline">Settings</h1>
-        </header>
+    <main className="sa-proofer-settings-page">
+        <SmartAlbumProoferSettingsPanel />
     </main>
 );
 

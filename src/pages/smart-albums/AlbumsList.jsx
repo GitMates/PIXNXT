@@ -7,6 +7,7 @@ import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu
 import AlbumListCoverThumb from '../../components/smart-albums/AlbumListCoverThumb';
 import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
 import EditAlbumModal from '../../components/smart-albums/EditAlbumModal';
+import AlbumSettingsSheet from '../../components/smart-albums/AlbumSettingsSheet';
 import { formatStorageBytes } from '../../utils/formatStorageBytes';
 import '../ClientGallery.css';
 import './SmartAlbums.css';
@@ -134,6 +135,7 @@ const AlbumsList = ({ starredOnly = false }) => {
     const [duplicateBusyId, setDuplicateBusyId] = useState(null);
     const [editAlbum, setEditAlbum] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
+    const [settingsAlbum, setSettingsAlbum] = useState(null);
     const contextRef = useRef(null);
     const filtersRef = useRef(null);
     const pageTitle = starredOnly ? 'Starred' : 'Albums';
@@ -319,6 +321,10 @@ const AlbumsList = ({ starredOnly = false }) => {
                     openSmartAlbumPreview(album.id);
                 }}
                 onQuickEdit={() => handleQuickEdit(album)}
+                onAlbumSettings={() => {
+                    closeContextMenu();
+                    setSettingsAlbum(album);
+                }}
                 onDuplicate={() => handleDuplicateAlbum(album)}
                 onDelete={() => handleDeleteAlbum(album)}
                 onShareByEmail={() => handleShareByEmail(album)}
@@ -532,6 +538,21 @@ const AlbumsList = ({ starredOnly = false }) => {
                 onSave={handleEditSave}
                 onAdvanced={(album) => navigate(`/smart-albums/album/${album.id}`)}
                 saving={editSaving}
+            />
+            <AlbumSettingsSheet
+                isOpen={Boolean(settingsAlbum)}
+                onClose={() => setSettingsAlbum(null)}
+                album={settingsAlbum}
+                photographerId={user?.id}
+                onSaved={(updated) => {
+                    if (!updated?.id) return;
+                    setAlbums((prev) =>
+                        prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
+                    );
+                    setSettingsAlbum((current) =>
+                        current?.id === updated.id ? { ...current, ...updated } : current
+                    );
+                }}
             />
         </main>
     );

@@ -6,6 +6,7 @@ import smartAlbumPng from '../../assets/icons/smart album.png';
 import dashboardPng from '../../assets/icons/dashboard.png';
 import helpPng from '../../assets/icons/help.png';
 import SmartAlbumNotifications from './SmartAlbumNotifications';
+import '../smart-albums/settings/SmartAlbumProoferSettings.css';
 import '../../pages/ClientGallery.css';
 
 const PURPLE = '#9b59b6';
@@ -318,7 +319,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                         {(!isCollapsed || isMobileMenuOpen) && <span className="uppercase tracking-[0.08em] text-[15px] font-bold">Starred</span>}
                     </div>
                     <div
-                        className={navItemClass(isSettingsActive)}
+                        className={`${navItemClass(isSettingsActive)} sa-nav-item--settings${isSettingsActive ? ' sa-nav-item--active' : ''}`}
                         onMouseEnter={(e) => {
                             if (!isSettingsActive) e.currentTarget.style.background = PURPLE_HOVER;
                         }}

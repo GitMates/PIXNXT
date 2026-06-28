@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getAlbumPhotoRevision } from '../../components/smart-albums/albumPagePhotos';
 import { hydrateAlbumPreviewData, clearAlbumPreviewDataCache, normalizeAlbumForClientPreview } from '../../components/smart-albums/albumPreviewData';
+import AlbumPreviewAccessGate from '../../components/smart-albums/AlbumPreviewAccessGate';
 import { smartAlbumCommentsService } from '../../services/smartAlbumComments.service';
+import {
+    ALBUM_PROOFER_SETTINGS_CHANGED_EVENT,
+    smartAlbumProoferSettingsService,
+} from '../../services/smartAlbumProoferSettings.service';
 import AlbumPreview from './AlbumPreview';
 import { getAlbumSpreadOptions } from '../../components/smart-albums/albumSpreadUtils';
 import { isClientShareLinkLive } from '../../lib/shareSmartAlbum';
@@ -40,6 +45,26 @@ export default function PublicAlbumPreview() {
     }, [albumId]);
 
     useEffect(() => {
+        if (!albumId) return undefined;
+
+        const reloadAlbum = () => {
+            smartAlbumCommentsService
+                .getAlbumPublic(albumId)
+                .then((data) => setAlbum(data))
+                .catch((e) => console.error(e));
+        };
+
+        const onSettingsChanged = (event) => {
+            if (event.detail?.albumId === albumId) reloadAlbum();
+        };
+
+        window.addEventListener(ALBUM_PROOFER_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+        return () => {
+            window.removeEventListener(ALBUM_PROOFER_SETTINGS_CHANGED_EVENT, onSettingsChanged);
+        };
+    }, [albumId]);
+
+    useEffect(() => {
         if (album?.preview_data) {
             hydrateAlbumPreviewData(albumId, album.preview_data);
         }
@@ -58,6 +83,16 @@ export default function PublicAlbumPreview() {
     const totalPages = album?.page_count || 21;
     const spreadOpts = getAlbumSpreadOptions(album);
     const initialPage = parseUrlPage(searchParams.get('page'), totalPages, spreadOpts);
+
+    const access = useMemo(() => {
+        if (!album?.id) return null;
+        return smartAlbumProoferSettingsService.getEffectiveAlbumAccess(
+            album.photographer_id,
+            albumId,
+            album,
+            album.preview_data
+        );
+    }, [album, albumId]);
 
     const handlePageChange = (pageIdx) => {
         const next = new URLSearchParams(searchParams);
@@ -84,15 +119,21 @@ export default function PublicAlbumPreview() {
     }
 
     return (
-        <AlbumPreview
-            album={normalizeAlbumForClientPreview(album)}
+        <AlbumPreviewAccessGate
             albumId={albumId}
-            totalPages={totalPages}
-            initialPage={initialPage}
-            photoRevision={photoRevision}
-            onPageChange={handlePageChange}
-            minimalChrome
-            clientPreview
-        />
+            photographerId={album.photographer_id}
+            access={access}
+        >
+            <AlbumPreview
+                album={normalizeAlbumForClientPreview(album)}
+                albumId={albumId}
+                totalPages={totalPages}
+                initialPage={initialPage}
+                photoRevision={photoRevision}
+                onPageChange={handlePageChange}
+                minimalChrome
+                clientPreview
+            />
+        </AlbumPreviewAccessGate>
     );
 }
