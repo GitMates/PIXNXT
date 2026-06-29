@@ -41,7 +41,7 @@ const SettingsNavIcon = () => (
 );
 
 const ModuleBookIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
         <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
     </svg>
@@ -71,11 +71,11 @@ function splitBrandLines(name) {
     if (!trimmed) return { primary: 'STUDIO', subtitle: 'PHOTOGRAPHY' };
     const parts = trimmed.split(/\s+/);
     if (parts.length === 1) {
-        return { primary: parts[0], subtitle: 'PHOTOGRAPHY' };
+        return { primary: parts[0].toUpperCase(), subtitle: 'PHOTOGRAPHY' };
     }
     return {
-        primary: parts[0],
-        subtitle: parts.slice(1).join(' '),
+        primary: parts[0].toUpperCase(),
+        subtitle: parts.slice(1).join(' ').toUpperCase(),
     };
 }
 
@@ -108,7 +108,6 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
     const { primary: brandPrimary, subtitle: brandSubtitle } = splitBrandLines(displayName);
     const profileIconUrl = profile?.profile_icon_url?.trim() || '';
     const profileInitial = getProfileInitial(profile, user);
-    const isSettingsActive = path.startsWith('/smart-albums/settings');
 
     useEffect(() => {
         if (!user?.id) {
@@ -265,7 +264,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
             )}
 
             <aside
-                className={`sa-sidebar fixed md:static top-0 w-[280px] h-screen flex flex-col shrink-0 z-[1000] transition-[left] duration-300 ease ${
+                className={`sa-sidebar fixed md:static top-0 h-screen flex flex-col shrink-0 z-[1000] transition-[left] duration-300 ease ${
                     isMobileMenuOpen ? 'left-0' : '-left-[280px]'
                 } md:left-0 overflow-y-auto neu-scroll`}
             >
@@ -278,7 +277,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                         </div>
                     </div>
                     <div className="sa-sidebar-actions">
-                        <SmartAlbumNotifications userId={user?.id} />
+                        <SmartAlbumNotifications userId={user?.id} variant="sidebar" />
                         <div className="relative" ref={appDropdownRef}>
                             <button
                                 type="button"
@@ -335,17 +334,13 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                         aria-label="Account menu"
                         title={displayName}
                     >
-                        {profileIconUrl ? (
-                            <img src={profileIconUrl} alt="" />
-                        ) : (
-                            profileInitial
-                        )}
+                        {profileInitial}
                     </button>
                     {showProfileDropdown && renderProfileDropdown()}
                 </div>
             </aside>
 
-            <div className={`flex-1 flex flex-col min-h-screen md:h-screen w-full md:w-auto overflow-auto ${isSettingsActive ? 'bg-[oklch(0.968_0.006_85)]' : 'bg-white'}`}>
+            <div className="sa-sidebar-main flex-1 flex flex-col min-h-screen md:h-screen w-full md:w-auto overflow-auto">
                 {children}
             </div>
         </div>

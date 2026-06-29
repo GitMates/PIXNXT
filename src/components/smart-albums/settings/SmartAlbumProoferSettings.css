@@ -4,6 +4,7 @@
 .theme-mono .sa-proofer-settings-page {
   flex: 1;
   min-height: 100%;
+  width: 100%;
   background: oklch(0.968 0.006 85);
   overflow: auto;
   display: flex;
@@ -14,7 +15,7 @@
 .theme-mono .sa-proofer-settings {
   width: 100%;
   max-width: 720px;
-  padding: 40px 32px 56px;
+  padding: 44px 40px 64px;
   font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
     sans-serif;
   color: oklch(0.23 0.004 60);
@@ -22,7 +23,8 @@
 
 @media (max-width: 768px) {
   .theme-mono .sa-proofer-settings {
-    padding: 28px 20px 48px;
+    max-width: 100%;
+    padding: 32px 24px 48px;
   }
 }
 
@@ -32,12 +34,13 @@
 
 .theme-mono .sa-proofer-settings__title {
   margin: 0;
-  font-family: 'EB Garamond', Georgia, 'Times New Roman', serif;
-  font-size: clamp(1.875rem, 3.5vw, 2.25rem);
-  font-weight: 500;
+  font-family: 'EB Garamond', Georgia, 'Times New Roman', serif !important;
+  font-size: clamp(1.875rem, 3.5vw, 2.25rem) !important;
+  font-weight: 500 !important;
   line-height: 1.15;
-  letter-spacing: -0.02em;
-  color: oklch(0.23 0.004 60);
+  letter-spacing: -0.02em !important;
+  text-transform: none !important;
+  color: oklch(0.23 0.004 60) !important;
 }
 
 .theme-mono .sa-proofer-settings__subtitle {
@@ -45,6 +48,10 @@
   max-width: 36rem;
   font-size: 14px;
   line-height: 1.55;
+  font-family: 'Outfit', system-ui, sans-serif;
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
   color: oklch(0.55 0.01 70);
 }
 
@@ -66,7 +73,7 @@
   flex: 1;
   border: none;
   border-radius: 10px;
-  padding: 10px 14px;
+  padding: 11px 12px;
   font-family: inherit;
   font-size: 13px;
   font-weight: 500;
@@ -74,6 +81,7 @@
   color: oklch(0.55 0.01 70);
   background: transparent;
   cursor: pointer;
+  white-space: nowrap;
   transition:
     color 0.18s ease,
     background 0.18s ease,
@@ -130,6 +138,8 @@
   font-weight: 600;
   color: oklch(0.23 0.004 60);
   line-height: 1.35;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .theme-mono .sa-proofer-field__desc {
@@ -262,7 +272,7 @@
 .theme-mono .sa-proofer-divider {
   height: 1px;
   background: oklch(0.905 0.007 82);
-  margin: 18px 0;
+  margin: 20px 0;
 }
 
 .theme-mono .sa-proofer-input {
@@ -393,8 +403,9 @@
 .theme-mono .sa-proofer-loading {
   width: 100%;
   max-width: 720px;
-  padding: 48px 32px;
+  padding: 48px 40px;
   font-size: 14px;
+  font-family: 'Outfit', system-ui, sans-serif;
   color: oklch(0.55 0.01 70);
 }
 
