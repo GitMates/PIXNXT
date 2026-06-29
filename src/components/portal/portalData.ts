@@ -24,6 +24,7 @@ export interface PipelineCard {
   invoiceSent?: boolean
   depositReceived?: boolean
   bookingAmount?: string
+  paidAmount?: string
   statusLabel?: string
   statusTone?: FinancialTone
 }
@@ -136,7 +137,7 @@ export const INITIAL_STAGES: PipelineStage[] = [
         amount: "₹1,50,000",
         depositReceived: true,
         bookingAmount: "₹1,50,000",
-        statusLabel: "₹88,500 Paid",
+        paidAmount: "₹88,500",
         statusTone: "paid",
       },
       {
@@ -147,7 +148,7 @@ export const INITIAL_STAGES: PipelineStage[] = [
         amount: "₹1,70,000",
         depositReceived: true,
         bookingAmount: "₹1,70,000",
-        statusLabel: "₹85,000 Paid",
+        paidAmount: "₹85,500",
         statusTone: "paid",
       },
       {
@@ -158,7 +159,7 @@ export const INITIAL_STAGES: PipelineStage[] = [
         amount: "₹1,90,000",
         depositReceived: true,
         bookingAmount: "₹1,90,000",
-        statusLabel: "₹95,000 Paid",
+        paidAmount: "₹95,000",
         statusTone: "paid",
       },
     ],

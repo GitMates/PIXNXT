@@ -11,16 +11,20 @@ import {
   FileText,
   MoreHorizontal,
 } from "lucide-react"
-import { type PipelineStage, type FinancialTone } from "./portalData"
+import {
+  type PipelineCard,
+  type PipelineStage,
+  type FinancialTone,
+} from "./portalData"
 
 const statusToneStyles: Record<
   FinancialTone,
   { dot: string; text: string }
 > = {
-  paid: { dot: "bg-emerald-500", text: "text-emerald-600" },
-  awaiting: { dot: "bg-amber-500", text: "text-amber-600" },
-  editing: { dot: "bg-slate-400", text: "text-slate-500" },
-  delivered: { dot: "bg-emerald-500", text: "text-emerald-600" },
+  paid: { dot: "bg-[#00875A]", text: "text-[#006D5B]" },
+  awaiting: { dot: "bg-[#BF4E00]", text: "text-[#BF4E00]" },
+  editing: { dot: "bg-[#5A6B81]", text: "text-[#5A6B81]" },
+  delivered: { dot: "bg-[#00875A]", text: "text-[#00875A]" },
 }
 
 export interface PortalPipelineViewProps {
@@ -94,6 +98,48 @@ function CardMenu({
   )
 }
 
+function FinancialBar({ card }: { card: PipelineCard }) {
+  const displayAmount = card.bookingAmount || card.amount
+  if (!displayAmount || !card.statusTone) return null
+
+  const tone = statusToneStyles[card.statusTone]
+
+  if (card.statusTone === "paid" && card.paidAmount) {
+    return (
+      <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl bg-[#F5F5F5] px-3 py-2">
+        <span className="text-[13px] font-bold tracking-tight text-[#1A1A1A]">
+          {displayAmount}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <span className={`size-1.5 shrink-0 rounded-full ${tone.dot}`} />
+          <div className="text-right leading-tight">
+            <p className={`text-xs font-semibold ${tone.text}`}>
+              {card.paidAmount}
+            </p>
+            <p className={`text-[10px] font-medium ${tone.text}`}>Paid</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-2.5 flex items-center justify-between gap-2 rounded-full bg-[#F5F5F5] px-3 py-1.5">
+      <span className="text-[13px] font-bold tracking-tight text-[#1A1A1A]">
+        {displayAmount}
+      </span>
+      {card.statusLabel && (
+        <span
+          className={`inline-flex items-center gap-1 text-[10px] font-medium ${tone.text}`}
+        >
+          <span className={`size-1.5 shrink-0 rounded-full ${tone.dot}`} />
+          {card.statusLabel}
+        </span>
+      )}
+    </div>
+  )
+}
+
 export function PortalPipelineView({
   filteredStages,
   searchQuery,
@@ -111,10 +157,10 @@ export function PortalPipelineView({
     <div className="portal-pipeline flex h-full flex-col overflow-hidden bg-[#FAF9F6]">
       <header className="flex-shrink-0 bg-[#FAF9F6] px-6 pb-4 pt-5 md:px-8">
         <p className="font-serif text-sm text-[#71717A]">Pixnxt Portal</p>
-        <h1 className="mt-1 font-serif text-[2rem] font-medium leading-tight tracking-tight text-[#1A1A1A]">
+        <h1 className="mt-1 font-heading text-[1.75rem] font-medium uppercase leading-tight tracking-tight text-[#1A1A1A] md:text-[2rem]">
           Project &amp; Lead Pipeline
         </h1>
-        <p className="mt-1.5 text-sm text-[#71717A]">
+        <p className="mt-1.5 text-sm text-[#757575]">
           Manage your bookings, leads, and projects in one unified view
         </p>
       </header>
@@ -173,13 +219,13 @@ export function PortalPipelineView({
           <div
             className="grid h-full min-h-0 grid-rows-1 gap-5 overflow-x-auto neu-scroll"
             style={{
-              gridTemplateColumns: `repeat(${filteredStages.length}, minmax(248px, 1fr))`,
+              gridTemplateColumns: `repeat(${filteredStages.length}, minmax(220px, 1fr))`,
             }}
           >
             {filteredStages.map((stage) => (
-              <div key={stage.id} className="flex h-full min-w-[248px] flex-col">
-                <div className="mb-3 flex items-center justify-between gap-2 px-0.5">
-                  <h3 className="text-[13px] font-semibold text-[#1A1A1A]">
+              <div key={stage.id} className="flex h-full min-w-[220px] flex-col">
+                <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
+                  <h3 className="font-heading text-[11px] font-bold uppercase tracking-wide text-[#1A1A1A]">
                     {stage.title}
                   </h3>
                   <span className="shrink-0 rounded-full bg-[#ECEAE6] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
@@ -188,86 +234,60 @@ export function PortalPipelineView({
                   </span>
                 </div>
 
-                <div className="flex-1 space-y-3 overflow-y-auto pr-1 neu-scroll">
-                  {stage.cards.map((card) => {
-                    const tone = card.statusTone
-                      ? statusToneStyles[card.statusTone]
-                      : null
-                    const displayAmount =
-                      card.bookingAmount || card.amount || null
-                    const showFinancials =
-                      Boolean(displayAmount && card.statusTone)
-
-                    return (
-                      <div
-                        key={card.id}
-                        className="rounded-[20px] border border-[#F0F0F0] bg-white p-5 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-shadow duration-200 hover:shadow-[0_12px_36px_rgba(0,0,0,0.07)]"
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <h4
-                            onClick={() => onOpenProject(card.clientName)}
-                            className="cursor-pointer font-serif text-[17px] font-medium leading-snug tracking-tight text-[#1A1A1A] line-clamp-1 hover:underline"
-                          >
-                            {card.clientName}
-                          </h4>
-                          <CardMenu
-                            cardId={card.id}
-                            onArchive={onArchiveProject}
-                          />
-                        </div>
-
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[#A1A1AA]">
-                          <span className="inline-flex min-w-0 items-center gap-1">
-                            <Calendar className="size-3 shrink-0" />
-                            <span className="truncate">{card.eventDate}</span>
-                          </span>
-                          <span className="inline-flex min-w-0 items-center justify-end gap-1 text-right">
-                            <MapPin className="size-3 shrink-0" />
-                            <span className="truncate">
-                              {card.location.split(",")[0]}
-                            </span>
-                          </span>
-                        </div>
-
-                        {showFinancials && (
-                          <div className="mt-3.5 flex items-center justify-between gap-2">
-                            <span className="text-[15px] font-bold tracking-tight text-[#1A1A1A]">
-                              {displayAmount}
-                            </span>
-                            {card.statusLabel && tone && (
-                              <span
-                                className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${tone.text}`}
-                              >
-                                <span
-                                  className={`size-1.5 shrink-0 rounded-full ${tone.dot}`}
-                                />
-                                {card.statusLabel}
-                              </span>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="mt-4 flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => onQuoteCard(card.id)}
-                            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-[#E5E7EB] bg-white px-3 py-2.5 text-[11px] font-semibold text-[#1A1A1A] transition-colors hover:bg-[#FAFAFA]"
-                          >
-                            <FileText className="size-3.5 text-[#A1A1AA]" />
-                            Review Proposal
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => onOpenProject(card.clientName)}
-                            className="inline-flex size-[38px] shrink-0 items-center justify-center rounded-xl border border-[#E5E7EB] bg-white text-[#A1A1AA] transition-colors hover:bg-[#FAFAFA] hover:text-[#1A1A1A]"
-                            title="View project"
-                          >
-                            <Eye className="size-4" />
-                          </button>
-                        </div>
+                <div className="flex-1 space-y-2 overflow-y-auto pr-1 neu-scroll">
+                  {stage.cards.map((card) => (
+                    <div
+                      key={card.id}
+                      className="rounded-[20px] bg-white p-3.5 shadow-[0_4px_16px_rgba(0,0,0,0.04)] transition-shadow duration-200 hover:shadow-[0_6px_20px_rgba(0,0,0,0.06)]"
+                    >
+                      <div className="flex items-start justify-between gap-1.5">
+                        <h4
+                          onClick={() => onOpenProject(card.clientName)}
+                          className="cursor-pointer font-serif text-[15px] font-semibold leading-tight tracking-tight text-[#1A1A1A] line-clamp-1 hover:underline"
+                        >
+                          {card.clientName}
+                        </h4>
+                        <CardMenu
+                          cardId={card.id}
+                          onArchive={onArchiveProject}
+                        />
                       </div>
-                    )
-                  })}
+
+                      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-[#757575]">
+                        <span className="inline-flex min-w-0 items-center gap-1">
+                          <Calendar className="size-2.5 shrink-0" />
+                          <span className="truncate">{card.eventDate}</span>
+                        </span>
+                        <span className="inline-flex min-w-0 items-center gap-1">
+                          <MapPin className="size-2.5 shrink-0" />
+                          <span className="truncate">
+                            {card.location.split(",")[0]}
+                          </span>
+                        </span>
+                      </div>
+
+                      <FinancialBar card={card} />
+
+                      <div className="mt-2.5 flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => onQuoteCard(card.id)}
+                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#F5F5F5] text-[#717171] transition-colors hover:bg-[#EBEBEB] hover:text-[#1A1A1A]"
+                          title="Review proposal"
+                        >
+                          <Eye className="size-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onOpenProject(card.clientName)}
+                          className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-[#F5F5F5] px-2.5 py-1.5 text-[10px] font-semibold text-[#1A1A1A] transition-colors hover:bg-[#EBEBEB]"
+                        >
+                          <FileText className="size-3 text-[#717171]" />
+                          Review Proposal
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
@@ -289,7 +309,7 @@ export function PortalPipelineView({
                 {archivedProjects.map((proj) => (
                   <div
                     key={proj.id}
-                    className="flex items-center justify-between gap-6 rounded-[20px] border border-[#F0F0F0] bg-white px-6 py-5 shadow-[0_8px_30px_rgba(0,0,0,0.04)]"
+                    className="flex items-center justify-between gap-6 rounded-[28px] bg-white px-6 py-5 shadow-[0_8px_30px_rgba(0,0,0,0.05)]"
                   >
                     <div>
                       <p className="font-serif text-lg font-medium text-[#1A1A1A]">
@@ -316,7 +336,7 @@ export function PortalPipelineView({
                 ))}
               </div>
             ) : (
-              <div className="flex h-40 items-center justify-center rounded-[20px] border border-dashed border-[#E5E7EB] bg-white/60">
+              <div className="flex h-40 items-center justify-center rounded-[28px] border border-dashed border-[#E5E7EB] bg-white/60">
                 <p className="text-sm text-[#71717A]">
                   No archived projects found.
                 </p>

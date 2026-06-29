@@ -1,12 +1,12 @@
 /* Custom Neumorphic Soft UI & Glassmorphism styles for Pixnxt Portal */
 
 .theme-mono {
-  --background: #faf9f6;
-  --foreground: #1a1a1a;
-  --card: #ffffff;
-  --border: #eceae6;
-  --sidebar: #faf9f6;
-  --primary: #1a1a1a;
+  --background: oklch(0.968 0.006 85);
+  --foreground: oklch(0.23 0.004 60);
+  --card: oklch(0.995 0.004 85);
+  --border: oklch(0.905 0.007 82);
+  --sidebar: oklch(0.972 0.006 85);
+  --primary: oklch(0.26 0.006 60);
 
   --neu-light: oklch(1 0.004 85 / 0.95);
   --neu-dark: oklch(0.4 0.01 70 / 0.13);
@@ -14,8 +14,10 @@
 
 .theme-mono .glass-panel {
   background-color: var(--sidebar);
-  border-color: rgba(0, 0, 0, 0.06);
-  box-shadow: none;
+  border-color: var(--border);
+  box-shadow:
+    -8px 0 18px oklch(1 0 0 / 0.6),
+    6px 0 22px var(--neu-dark);
 }
 
 .theme-mono .neu-inset {
@@ -90,4 +92,12 @@
 .theme-mono input,
 .theme-mono textarea {
   transition: all 0.2s ease-in-out;
+}
+
+.theme-mono select:focus,
+.theme-mono input:focus,
+.theme-mono textarea:focus {
+  outline: none;
+  background-color: #ffffff;
+  box-shadow: 0 0 0 2px oklch(0.26 0.006 60 / 0.2);
 }

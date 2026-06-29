@@ -75,14 +75,6 @@ export function PixnxtPortalSingle() {
   const [notifReminders, setNotifReminders] = useState(false)
   const [whatsappEnabled, setWhatsappEnabled] = useState(true)
 
-  const [workspaceTab, setWorkspaceTab] = useState<
-    "overview" | "chat" | "proposals" | "contracts" | "team"
-  >("proposals")
-  const [simulatedRole, setSimulatedRole] = useState<
-    "Owner" | "Studio Manager" | "Lead Editor"
-  >("Owner")
-  const [roleMenuOpen, setRoleMenuOpen] = useState(false)
-
   const filteredStages = useMemo(() => {
     return stages.map((stage) => ({
       ...stage,
@@ -99,7 +91,6 @@ export function PixnxtPortalSingle() {
 
   const handleOpenProject = (clientName: string) => {
     setWorkspaceProjectName(clientName)
-    setWorkspaceTab("proposals")
   }
 
   const handleCloseProject = () => {
@@ -309,12 +300,6 @@ export function PixnxtPortalSingle() {
         {workspaceProjectName ? (
           <PortalWorkspaceView
             workspaceProjectName={workspaceProjectName}
-            workspaceTab={workspaceTab}
-            setWorkspaceTab={setWorkspaceTab}
-            simulatedRole={simulatedRole}
-            setSimulatedRole={setSimulatedRole}
-            roleMenuOpen={roleMenuOpen}
-            setRoleMenuOpen={setRoleMenuOpen}
             onCloseProject={handleCloseProject}
           />
         ) : (
@@ -403,8 +388,10 @@ export function PixnxtPortalSingle() {
         isNewProjectModalOpen={isNewProjectModalOpen}
         setIsNewProjectModalOpen={setIsNewProjectModalOpen}
         setStages={setStages}
+        stages={stages}
         quoteCardId={quoteCardId}
         setQuoteCardId={setQuoteCardId}
+        onOpenWorkspace={handleOpenProject}
         editTarget={editTarget}
         setEditTarget={setEditTarget}
         editorTitle={editorTitle}
