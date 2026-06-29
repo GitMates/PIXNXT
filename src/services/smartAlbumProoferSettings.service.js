@@ -21,6 +21,8 @@ export const DEFAULT_PROOFER_SETTINGS = {
     multiUserCollaboration: true,
     capRevisions: false,
     revisionLimit: 3,
+    reviewDeadlineDays: 14,
+    requireSpreadComment: true,
     photographerAlerts: 'digest',
     enableClientNudges: true,
     nudgeDays: 5,

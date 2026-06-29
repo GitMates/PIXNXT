@@ -165,7 +165,7 @@ export function CollapsibleStatusSection({ title, isOpen, onToggle, children }) 
                     strokeLinejoin="round"
                     aria-hidden
                 >
-                    <polyline points="6 9 12 15 18 9" />
+                    <polyline points="9 18 15 12 9 6" />
                 </svg>
             </button>
             {isOpen && <div className="sa-proofer-collapse__body">{children}</div>}

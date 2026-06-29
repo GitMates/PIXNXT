@@ -1,0 +1,311 @@
+/* Smart Albums sidebar — portal neumorphic reference */
+
+.theme-mono .sa-sidebar {
+  background: oklch(0.972 0.006 85);
+  border-right: 1px solid oklch(0.905 0.007 82);
+  font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+}
+
+.theme-mono .sa-sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 16px 14px;
+  border-bottom: none;
+}
+
+.theme-mono .sa-sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.theme-mono .sa-sidebar-brand-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.theme-mono .sa-sidebar-brand-icon--fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: oklch(0.26 0.006 60);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.theme-mono .sa-sidebar-brand-text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.theme-mono .sa-sidebar-brand-name {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: oklch(0.23 0.004 60);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-mono .sa-sidebar-brand-sub {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: oklch(0.55 0.01 70);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-mono .sa-sidebar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.theme-mono .sa-sidebar-actions .sa-notifications-trigger {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: oklch(0.995 0.004 85);
+  box-shadow:
+    -2px -2px 5px oklch(1 0.004 85 / 0.6),
+    2px 2px 6px oklch(0.4 0.01 70 / 0.07);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: oklch(0.55 0.01 70);
+  cursor: pointer;
+  padding: 0;
+}
+
+.theme-mono .sa-sidebar-actions .sa-notifications-trigger:hover {
+  color: oklch(0.23 0.004 60);
+}
+
+.theme-mono .sa-sidebar-actions .sa-notifications-badge {
+  top: 4px;
+  right: 4px;
+  min-width: 7px;
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  font-size: 0;
+  border-radius: 50%;
+  background: oklch(0.26 0.006 60) !important;
+}
+
+.theme-mono .sa-sidebar-grid-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: oklch(0.995 0.004 85);
+  box-shadow:
+    -2px -2px 5px oklch(1 0.004 85 / 0.6),
+    2px 2px 6px oklch(0.4 0.01 70 / 0.07);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: oklch(0.55 0.01 70);
+  cursor: pointer;
+  transition: color 0.18s ease, transform 0.18s ease;
+}
+
+.theme-mono .sa-sidebar-grid-btn:hover {
+  color: oklch(0.23 0.004 60);
+  transform: translateY(-1px);
+}
+
+.theme-mono .sa-sidebar-module {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 4px 12px 0;
+  padding: 10px 8px;
+  cursor: default;
+}
+
+.theme-mono .sa-sidebar-module-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: oklch(0.26 0.006 60);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.theme-mono .sa-sidebar-module-label {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: oklch(0.4 0.006 60);
+}
+
+.theme-mono .sa-sidebar-module-chevron {
+  color: oklch(0.55 0.01 70);
+  flex-shrink: 0;
+}
+
+.theme-mono .sa-sidebar-divider {
+  height: 1px;
+  margin: 8px 16px 12px;
+  background: oklch(0.905 0.007 82);
+}
+
+.theme-mono .sa-sidebar-nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 8px;
+}
+
+.theme-mono .sa-sidebar-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 44px;
+  padding: 0 16px;
+  margin: 0 4px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 500;
+  color: oklch(0.45 0.006 60);
+  cursor: pointer;
+  transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  border: none;
+  background: transparent;
+  text-align: left;
+  width: calc(100% - 8px);
+}
+
+.theme-mono .sa-sidebar-nav-item:hover:not(.sa-sidebar-nav-item--active) {
+  color: oklch(0.23 0.004 60);
+}
+
+.theme-mono .sa-sidebar-nav-item--active {
+  color: oklch(0.23 0.004 60);
+  background: oklch(0.952 0.005 85);
+  box-shadow:
+    inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
+    inset -2px -2px 5px oklch(1 0.004 85 / 0.75);
+}
+
+.theme-mono .sa-sidebar-nav-icon {
+  flex-shrink: 0;
+  color: inherit;
+  opacity: 0.85;
+}
+
+.theme-mono .sa-sidebar-footer {
+  padding: 16px 20px 20px;
+  margin-top: auto;
+  position: relative;
+}
+
+.theme-mono .sa-sidebar-profile-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: oklch(0.26 0.006 60);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.theme-mono .sa-sidebar-profile-btn img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.theme-mono .sa-app-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 320px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid oklch(0.905 0.007 82);
+  box-shadow: 0 12px 40px oklch(0.4 0.01 70 / 0.12);
+  z-index: 9999;
+  padding: 8px 0;
+  animation: cgFadeIn 0.15s ease;
+}
+
+.theme-mono .sa-app-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.theme-mono .sa-app-dropdown-item:hover {
+  background: oklch(0.968 0.006 85);
+}
+
+.theme-mono .sa-profile-dropdown {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 16px;
+  width: 260px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid oklch(0.905 0.007 82);
+  box-shadow: 0 12px 40px oklch(0.4 0.01 70 / 0.12);
+  z-index: 500;
+  padding: 4px 0;
+  animation: cgFadeIn 0.15s ease;
+}
+
+.theme-mono .sa-profile-dropdown-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid oklch(0.905 0.007 82);
+}
+
+.theme-mono .sa-profile-dropdown-item {
+  padding: 11px 16px;
+  font-size: 14px;
+  color: oklch(0.45 0.006 60);
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.theme-mono .sa-profile-dropdown-item:hover {
+  background: oklch(0.968 0.006 85);
+  color: oklch(0.23 0.004 60);
+}

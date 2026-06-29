@@ -118,7 +118,16 @@ const AlbumStarButton = ({ starred, onClick }) => (
     </svg>
 );
 
-const AlbumsList = ({ starredOnly = false }) => {
+function isAwaitingFeedback(album) {
+    if (album.client_approved_at) return false;
+    return album.status === 'published' && album.share_link_enabled !== false;
+}
+
+function isApprovedAlbum(album) {
+    return Boolean(album.client_approved_at);
+}
+
+const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const navigate = useNavigate();
     const { user, loading: authLoading } = useAuth();
     const [albums, setAlbums] = useState([]);
@@ -138,7 +147,14 @@ const AlbumsList = ({ starredOnly = false }) => {
     const [settingsAlbum, setSettingsAlbum] = useState(null);
     const contextRef = useRef(null);
     const filtersRef = useRef(null);
-    const pageTitle = starredOnly ? 'Starred' : 'Albums';
+    const pageTitle =
+        proofFilter === 'awaiting'
+            ? 'Awaiting feedback'
+            : proofFilter === 'approved'
+              ? 'Approved'
+              : starredOnly
+                ? 'Starred'
+                : 'Albums';
 
     const closeContextMenu = useCallback(() => {
         setContextMenuId(null);
@@ -361,6 +377,8 @@ const AlbumsList = ({ starredOnly = false }) => {
     const filteredAlbums = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
         const result = albums.filter((a) => {
+            if (proofFilter === 'awaiting' && !isAwaitingFeedback(a)) return false;
+            if (proofFilter === 'approved' && !isApprovedAlbum(a)) return false;
             if (starredOnly && !a.is_starred) return false;
             if (starFilter === 'starred' && !a.is_starred) return false;
             if (starFilter === 'not-starred' && a.is_starred) return false;
@@ -377,7 +395,7 @@ const AlbumsList = ({ starredOnly = false }) => {
             const bTime = new Date(b.created_at || 0).getTime() || 0;
             return createdFilter === 'oldest' ? aTime - bTime : bTime - aTime;
         });
-    }, [albums, searchQuery, starredOnly, starFilter, createdFilter, categoryFilter]);
+    }, [albums, searchQuery, starredOnly, proofFilter, starFilter, createdFilter, categoryFilter]);
 
     const hasActiveFilters =
         (!starredOnly && starFilter !== 'all') ||
