@@ -330,6 +330,15 @@ export const INITIAL_EVENTS: StudioEvent[] = [
     asset: "Full Edited Gallery",
     status: "overdue",
   },
+  {
+    id: "deadline-anjali-teaser",
+    date: "2026-09-12",
+    kind: "deadline",
+    title: "Anjali & Vikram — Teaser Edit",
+    detail: "Retoucher hand-off",
+    asset: "Teaser Film Delivery",
+    status: "overdue",
+  },
 ]
 
 export const INITIAL_PACKAGES: Package[] = [

@@ -1,31 +1,37 @@
 "use client"
 
-import React, { useState, useRef, useMemo } from "react"
+import React, { useState, useMemo } from "react"
 import "./portal.css"
 import {
   type ViewMode,
-  type SettingsTab,
   type EventKind,
   type CalendarView,
   type PipelineCard,
   type PipelineStage,
   INITIAL_STAGES,
-  adaptCardToStage,
   INITIAL_EVENTS,
-  INITIAL_PACKAGES,
-  INITIAL_ADDONS,
-  INITIAL_LEGAL_TEMPLATES,
+  adaptCardToStage,
 } from "./portalData"
 import { PortalSidebar } from "./PortalSidebar"
 import { PortalPipelineView } from "./PortalPipelineView"
 import { PortalCalendarView } from "./PortalCalendarView"
-import { PortalSettingsView } from "./PortalSettingsView"
+import { PortalSettingsPage } from "./PortalSettingsPage"
 import { PortalWorkspaceView } from "./PortalWorkspaceView"
 import { PortalModals } from "./PortalModals"
 
+function formatEventDate(iso: string) {
+  if (!iso) return "Date TBD"
+  const d = new Date(iso + "T00:00:00")
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString("en-IN", {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  })
+}
+
 export function PixnxtPortalSingle() {
   const [activeView, setActiveView] = useState<ViewMode>("pipeline")
-  const [activeSettingsTab, setActiveSettingsTab] = useState<SettingsTab>("General")
 
   const [stages, setStages] = useState<PipelineStage[]>(INITIAL_STAGES)
   const [searchQuery, setSearchQuery] = useState("")
@@ -39,42 +45,12 @@ export function PixnxtPortalSingle() {
   const [workspaceProjectName, setWorkspaceProjectName] = useState<string | null>(null)
 
   const [calendarYear, setCalendarYear] = useState(2026)
-  const [calendarMonth, setCalendarMonth] = useState(6)
+  const [calendarMonth, setCalendarMonth] = useState(7)
   const [calendarViewMode, setCalendarViewMode] = useState<CalendarView>("month")
   const [calendarFilters, setCalendarFilters] = useState<Set<EventKind>>(
-    new Set(["shoot", "milestone", "deadline"])
+    new Set(["shoot", "milestone", "deadline"]),
   )
   const [events] = useState(INITIAL_EVENTS)
-
-  const [packagesList, setPackagesList] = useState(INITIAL_PACKAGES)
-  const [addonsList, setAddonsList] = useState(INITIAL_ADDONS)
-  const [editTarget, setEditTarget] = useState<{ kind: "package" | "addon"; id: string } | null>(null)
-  const [editorTitle, setEditorTitle] = useState("")
-  const [editorPrice, setEditorPrice] = useState("")
-  const [editorDesc, setEditorDesc] = useState("")
-
-  const [brandColors, setBrandColors] = useState([
-    { label: "Primary Accent", hex: "#1a1a1a" },
-    { label: "Neutral", hex: "#8a8478" },
-    { label: "Background Tint", hex: "#f4f1ec" },
-  ])
-  const [fontFamily, setFontFamily] = useState("Playfair Display (Serif)")
-  const [brandTemplate, setBrandTemplate] = useState("classic")
-
-  const [legalTemplates, setLegalTemplates] = useState(INITIAL_LEGAL_TEMPLATES)
-  const [selectedTemplateId, setSelectedTemplateId] = useState("commercial")
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-
-  const [profileName, setProfileName] = useState("Karakovan Studio")
-  const [profileEmail, setProfileEmail] = useState("hello@karakovan.studio")
-  const [profilePhone, setProfilePhone] = useState("+91 98765 43210")
-  const [profileCurrency, setProfileCurrency] = useState("INR (₹)")
-
-  const [clientChatAccess, setClientChatAccess] = useState(true)
-  const [notifViewed, setNotifViewed] = useState(true)
-  const [notifSigned, setNotifSigned] = useState(true)
-  const [notifReminders, setNotifReminders] = useState(false)
-  const [whatsappEnabled, setWhatsappEnabled] = useState(true)
 
   const filteredStages = useMemo(() => {
     return stages.map((stage) => ({
@@ -101,6 +77,38 @@ export function PixnxtPortalSingle() {
   const goToView = (view: ViewMode) => {
     setActiveView(view)
     handleCloseProject()
+  }
+
+  const handleCreateProject = ({
+    clientNames,
+    eventDate,
+    location,
+  }: {
+    clientNames: string
+    eventDate: string
+    location: string
+    modules: Record<string, boolean>
+  }) => {
+    const loc = location.trim() || "Mumbai, Maharashtra"
+    setStages((prev) =>
+      prev.map((s) => {
+        if (s.id === "inquiry") {
+          return {
+            ...s,
+            cards: [
+              ...s.cards,
+              {
+                id: `card-${Date.now()}`,
+                clientName: clientNames.trim(),
+                eventDate: formatEventDate(eventDate),
+                location: loc.includes(",") ? loc : `${loc}, India`,
+              },
+            ],
+          }
+        }
+        return s
+      }),
+    )
   }
 
   const handleMoveCard = (cardId: string, toStageId: string) => {
@@ -179,7 +187,7 @@ export function PixnxtPortalSingle() {
             }
           }
           return s
-        })
+        }),
       )
     }
   }
@@ -228,92 +236,6 @@ export function PixnxtPortalSingle() {
       else next.add(kind)
       return next
     })
-  }
-
-  const handleEditPackage = (pkg: (typeof packagesList)[0]) => {
-    setEditTarget({ kind: "package", id: pkg.id })
-    setEditorTitle(pkg.name)
-    setEditorPrice(String(pkg.price))
-    setEditorDesc(pkg.duration)
-  }
-
-  const handleEditAddon = (add: (typeof addonsList)[0]) => {
-    setEditTarget({ kind: "addon", id: add.id })
-    setEditorTitle(add.name)
-    setEditorPrice(String(add.price))
-    setEditorDesc(add.description)
-  }
-
-  const handleSaveEditor = () => {
-    if (!editTarget) return
-    const parsedPrice = Number(editorPrice.replace(/[^0-9.]/g, "")) || 0
-    if (editTarget.kind === "package") {
-      setPackagesList((prev) =>
-        prev.map((p) =>
-          p.id === editTarget.id
-            ? { ...p, name: editorTitle, price: parsedPrice, duration: editorDesc }
-            : p
-        )
-      )
-    } else {
-      setAddonsList((prev) =>
-        prev.map((a) =>
-          a.id === editTarget.id
-            ? { ...a, name: editorTitle, price: parsedPrice, description: editorDesc }
-            : a
-        )
-      )
-    }
-    setEditTarget(null)
-  }
-
-  const activeLegalTemplate = useMemo(() => {
-    return legalTemplates.find((t) => t.id === selectedTemplateId) ?? legalTemplates[0]
-  }, [legalTemplates, selectedTemplateId])
-
-  const handleUpdateTemplateBody = (val: string) => {
-    setLegalTemplates((prev) =>
-      prev.map((t) => (t.id === selectedTemplateId ? { ...t, body: val } : t))
-    )
-  }
-
-  const handleInsertToken = (token: string) => {
-    const el = textareaRef.current
-    if (!el) {
-      handleUpdateTemplateBody(`${activeLegalTemplate.body} ${token}`)
-      return
-    }
-    const start = el.selectionStart
-    const end = el.selectionEnd
-    const next =
-      activeLegalTemplate.body.slice(0, start) +
-      token +
-      activeLegalTemplate.body.slice(end)
-    handleUpdateTemplateBody(next)
-    requestAnimationFrame(() => {
-      el.focus()
-      const caret = start + token.length
-      el.setSelectionRange(caret, caret)
-    })
-  }
-
-  const handleCreateTemplate = () => {
-    const id = `template-${Date.now()}`
-    const newTpl = {
-      id,
-      name: "New Boilerplate Agreement Draft",
-      updated: "Created just now",
-      body: "Draft your terms here. Insert token placeholders like {{Client Name}}, {{Event Date}} or {{Package Value}}.",
-    }
-    setLegalTemplates([newTpl, ...legalTemplates])
-    setSelectedTemplateId(id)
-  }
-
-  const handleDeleteTemplate = (id: string) => {
-    setLegalTemplates((prev) => prev.filter((t) => t.id !== id))
-    if (selectedTemplateId === id && legalTemplates.length > 1) {
-      setSelectedTemplateId(legalTemplates.find((t) => t.id !== id)?.id ?? "")
-    }
   }
 
   return (
@@ -365,51 +287,7 @@ export function PixnxtPortalSingle() {
               />
             )}
 
-            {activeView === "settings" && (
-              <PortalSettingsView
-                activeSettingsTab={activeSettingsTab}
-                setActiveSettingsTab={setActiveSettingsTab}
-                profileName={profileName}
-                setProfileName={setProfileName}
-                profileEmail={profileEmail}
-                setProfileEmail={setProfileEmail}
-                profilePhone={profilePhone}
-                setProfilePhone={setProfilePhone}
-                profileCurrency={profileCurrency}
-                setProfileCurrency={setProfileCurrency}
-                packagesList={packagesList}
-                setPackagesList={setPackagesList}
-                addonsList={addonsList}
-                setAddonsList={setAddonsList}
-                onEditPackage={handleEditPackage}
-                onEditAddon={handleEditAddon}
-                brandColors={brandColors}
-                setBrandColors={setBrandColors}
-                fontFamily={fontFamily}
-                setFontFamily={setFontFamily}
-                brandTemplate={brandTemplate}
-                setBrandTemplate={setBrandTemplate}
-                notifViewed={notifViewed}
-                setNotifViewed={setNotifViewed}
-                notifSigned={notifSigned}
-                setNotifSigned={setNotifSigned}
-                notifReminders={notifReminders}
-                setNotifReminders={setNotifReminders}
-                clientChatAccess={clientChatAccess}
-                setClientChatAccess={setClientChatAccess}
-                whatsappEnabled={whatsappEnabled}
-                setWhatsappEnabled={setWhatsappEnabled}
-                legalTemplates={legalTemplates}
-                selectedTemplateId={selectedTemplateId}
-                setSelectedTemplateId={setSelectedTemplateId}
-                activeLegalTemplate={activeLegalTemplate}
-                textareaRef={textareaRef}
-                onUpdateTemplateBody={handleUpdateTemplateBody}
-                onInsertToken={handleInsertToken}
-                onCreateTemplate={handleCreateTemplate}
-                onDeleteTemplate={handleDeleteTemplate}
-              />
-            )}
+            {activeView === "settings" && <PortalSettingsPage />}
           </>
         )}
       </main>
@@ -417,20 +295,11 @@ export function PixnxtPortalSingle() {
       <PortalModals
         isNewProjectModalOpen={isNewProjectModalOpen}
         setIsNewProjectModalOpen={setIsNewProjectModalOpen}
-        setStages={setStages}
+        onCreateProject={handleCreateProject}
         stages={stages}
         quoteCardId={quoteCardId}
         setQuoteCardId={setQuoteCardId}
         onOpenWorkspace={handleOpenProject}
-        editTarget={editTarget}
-        setEditTarget={setEditTarget}
-        editorTitle={editorTitle}
-        setEditorTitle={setEditorTitle}
-        editorPrice={editorPrice}
-        setEditorPrice={setEditorPrice}
-        editorDesc={editorDesc}
-        setEditorDesc={setEditorDesc}
-        onSaveEditor={handleSaveEditor}
       />
     </div>
   )
