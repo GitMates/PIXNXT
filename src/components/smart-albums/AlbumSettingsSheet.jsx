@@ -1,7 +1,8 @@
 import React from 'react';
 import { X } from 'lucide-react';
-import AlbumEditorSettingsPanel from './AlbumEditorSettingsPanel';
-import './AlbumEditorSettings.css';
+import AlbumProoferSettingsDrawerPanel from './AlbumProoferSettingsDrawerPanel';
+import '../portal/portal.css';
+import './AlbumProoferSettingsDrawer.css';
 
 export default function AlbumSettingsSheet({
     isOpen,
@@ -13,37 +14,34 @@ export default function AlbumSettingsSheet({
     if (!isOpen) return null;
 
     return (
-        <>
-            <div
-                className="fixed inset-0 z-[1400] bg-black/20 backdrop-blur-sm"
-                onClick={onClose}
-                aria-hidden
-            />
-            <div className="fixed right-0 top-0 z-[1500] flex h-screen w-full max-w-md flex-col overflow-hidden bg-white shadow-2xl">
-                <div className="flex shrink-0 items-center justify-between border-b border-[#e8e4dc] px-5 py-4">
+        <div className="theme-mono">
+            <div className="sa-album-settings-backdrop" onClick={onClose} aria-hidden />
+            <aside className="sa-album-settings-drawer" role="dialog" aria-label="Album Settings">
+                <header className="sa-album-settings-drawer__header">
                     <div>
-                        <h2 className="text-lg font-semibold text-[#222]">Album Settings</h2>
-                        <p className="mt-0.5 text-xs text-[#888]">{album?.name || 'Album'}</p>
+                        <h2 className="sa-album-settings-drawer__title">Album Settings</h2>
+                        <p className="sa-album-settings-drawer__subtitle">
+                            {album?.name || 'Album'}
+                        </p>
                     </div>
                     <button
                         type="button"
                         onClick={onClose}
-                        className="inline-flex size-8 items-center justify-center rounded-full text-[#222] hover:bg-[#f3f4f6]"
+                        className="sa-album-settings-drawer__close"
                         aria-label="Close settings"
                     >
-                        <X className="size-4" />
+                        <X size={18} strokeWidth={2} />
                     </button>
+                </header>
+                <div className="sa-album-settings-drawer__panel-wrap">
+                    <AlbumProoferSettingsDrawerPanel
+                    album={album}
+                    photographerId={photographerId}
+                    onAlbumUpdated={onSaved}
+                    onClose={onClose}
+                />
                 </div>
-                <div className="min-h-0 flex-1">
-                    <AlbumEditorSettingsPanel
-                        album={album}
-                        photographerId={photographerId}
-                        onAlbumUpdated={(updated) => {
-                            onSaved?.(updated);
-                        }}
-                    />
-                </div>
-            </div>
-        </>
+            </aside>
+        </div>
     );
 }

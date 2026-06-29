@@ -1,0 +1,294 @@
+/* Album Settings drawer — reference mockup */
+
+.theme-mono .sa-album-settings-drawer {
+  position: fixed;
+  right: 0;
+  top: 0;
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 400px;
+  height: 100vh;
+  background: oklch(0.995 0.004 85);
+  box-shadow: -8px 0 32px oklch(0.4 0.01 70 / 0.12);
+  font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    sans-serif;
+}
+
+.theme-mono .sa-album-settings-drawer__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px 22px 24px;
+}
+
+.theme-mono .sa-album-settings-drawer__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 22px 18px;
+  border-bottom: 1px solid oklch(0.905 0.007 82);
+  flex-shrink: 0;
+}
+
+.theme-mono .sa-album-settings-drawer__title {
+  margin: 0;
+  font-family: 'Outfit', system-ui, sans-serif !important;
+  font-size: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: oklch(0.23 0.004 60) !important;
+}
+
+.theme-mono .sa-album-settings-drawer__subtitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: oklch(0.55 0.01 70);
+}
+
+.theme-mono .sa-album-settings-drawer__close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: oklch(0.45 0.006 60);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.theme-mono .sa-album-settings-drawer__close:hover {
+  background: oklch(0.952 0.005 85);
+  color: oklch(0.23 0.004 60);
+}
+
+.theme-mono .sa-album-settings-drawer__panel-wrap {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.theme-mono .sa-album-settings-drawer__panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+}
+
+.theme-mono .sa-album-settings-drawer__section {
+  margin-bottom: 28px;
+}
+
+.theme-mono .sa-album-settings-drawer__section-head {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.theme-mono .sa-album-settings-drawer__section-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: oklch(0.952 0.005 85);
+  color: oklch(0.35 0.006 60);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow:
+    inset 2px 2px 4px oklch(0.4 0.01 70 / 0.06),
+    inset -1px -1px 3px oklch(1 0.004 85 / 0.65);
+}
+
+.theme-mono .sa-album-settings-drawer__section-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: oklch(0.23 0.004 60);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.theme-mono .sa-album-settings-drawer__section-desc {
+  margin: 3px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: oklch(0.55 0.01 70);
+}
+
+.theme-mono .sa-album-settings-drawer__field-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: oklch(0.4 0.006 60);
+}
+
+.theme-mono .sa-album-settings-drawer__select-wrap {
+  position: relative;
+}
+
+.theme-mono .sa-album-settings-drawer__select {
+  appearance: none;
+  width: 100%;
+  height: 42px;
+  padding: 0 36px 0 14px;
+  border: none;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  color: oklch(0.23 0.004 60);
+  background: oklch(0.952 0.005 85);
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
+  cursor: pointer;
+}
+
+.theme-mono .sa-album-settings-drawer__select-wrap::after {
+  content: '';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-right: 2px solid oklch(0.55 0.01 70);
+  border-bottom: 2px solid oklch(0.55 0.01 70);
+  transform: translateY(-65%) rotate(45deg);
+  pointer-events: none;
+}
+
+.theme-mono .sa-album-settings-drawer__option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 14px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.theme-mono .sa-album-settings-drawer__option:last-child {
+  margin-bottom: 0;
+}
+
+.theme-mono .sa-album-settings-drawer__option-radio {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid oklch(0.85 0.005 85);
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.theme-mono .sa-album-settings-drawer__option--on .sa-album-settings-drawer__option-radio {
+  border-color: oklch(0.26 0.006 60);
+  background: oklch(0.26 0.006 60);
+  box-shadow: inset 0 0 0 3px oklch(0.995 0.004 85);
+}
+
+.theme-mono .sa-album-settings-drawer__option-text {
+  font-size: 13px;
+  line-height: 1.45;
+  color: oklch(0.35 0.006 60);
+}
+
+.theme-mono .sa-album-settings-drawer__viewers-label {
+  margin: 18px 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: oklch(0.55 0.01 70);
+}
+
+.theme-mono .sa-album-settings-drawer__viewer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  border-radius: 12px;
+  background: oklch(0.952 0.005 85);
+  box-shadow:
+    inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
+    inset -2px -2px 5px oklch(1 0.004 85 / 0.75);
+}
+
+.theme-mono .sa-album-settings-drawer__viewer-email {
+  font-size: 13px;
+  color: oklch(0.35 0.006 60);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theme-mono .sa-album-settings-drawer__revoke {
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: oklch(0.55 0.14 25);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.theme-mono .sa-album-settings-drawer__revoke:hover {
+  color: oklch(0.48 0.16 25);
+}
+
+.theme-mono .sa-album-settings-drawer__footer {
+  flex-shrink: 0;
+  padding: 16px 22px 22px;
+  border-top: 1px solid oklch(0.905 0.007 82);
+  background: oklch(0.995 0.004 85);
+}
+
+.theme-mono .sa-album-settings-drawer__save {
+  width: 100%;
+  height: 46px;
+  border: none;
+  border-radius: 12px;
+  background: oklch(0.26 0.006 60);
+  color: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.18s ease;
+}
+
+.theme-mono .sa-album-settings-drawer__save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.theme-mono .sa-album-settings-drawer__save:hover:not(:disabled) {
+  opacity: 0.92;
+}
+
+.theme-mono .sa-album-settings-drawer__loading {
+  padding: 32px 22px;
+  font-size: 14px;
+  color: oklch(0.55 0.01 70);
+}
+
+.theme-mono .sa-album-settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  background: oklch(0.4 0.01 70 / 0.25);
+  backdrop-filter: blur(4px);
+}

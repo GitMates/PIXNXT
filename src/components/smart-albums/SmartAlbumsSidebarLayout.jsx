@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { galleryService } from '../../services/gallery.service';
+import { smartAlbumsService } from '../../services/smartAlbums.service';
+import { formatStorageBytes } from '../../utils/formatStorageBytes';
 import brandPng from '../../assets/icons/client gallery.png';
 import smartAlbumPng from '../../assets/icons/smart album.png';
 import dashboardPng from '../../assets/icons/dashboard.png';
@@ -92,11 +94,14 @@ const NAV_ITEMS = [
     { key: 'settings', label: 'Settings', path: '/smart-albums/settings', icon: SettingsNavIcon, match: (path) => path.startsWith('/smart-albums/settings') },
 ];
 
+const STORAGE_LIMIT_BYTES = 100 * 1024 ** 3;
+
 const SmartAlbumsSidebarLayout = ({ children }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [showAppDropdown, setShowAppDropdown] = useState(false);
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [profile, setProfile] = useState(null);
+    const [storageUsed, setStorageUsed] = useState(0);
     const navigate = useNavigate();
     const location = useLocation();
     const path = location.pathname;
@@ -108,6 +113,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
     const { primary: brandPrimary, subtitle: brandSubtitle } = splitBrandLines(displayName);
     const profileIconUrl = profile?.profile_icon_url?.trim() || '';
     const profileInitial = getProfileInitial(profile, user);
+    const storagePct = Math.min(100, (storageUsed / STORAGE_LIMIT_BYTES) * 100);
 
     useEffect(() => {
         if (!user?.id) {
@@ -122,6 +128,30 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
             })
             .catch(() => {
                 if (!cancelled) setProfile(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setStorageUsed(0);
+            return undefined;
+        }
+        let cancelled = false;
+        smartAlbumsService
+            .getAlbums(user.id)
+            .then((albums) => {
+                if (cancelled) return;
+                const total = (albums || []).reduce(
+                    (sum, album) => sum + (Number(album.storage_bytes) || 0),
+                    0
+                );
+                setStorageUsed(total);
+            })
+            .catch(() => {
+                if (!cancelled) setStorageUsed(0);
             });
         return () => {
             cancelled = true;
@@ -326,17 +356,43 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                     })}
                 </nav>
 
-                <div className="sa-sidebar-footer" ref={profileDropdownRef}>
-                    <button
-                        type="button"
-                        className="sa-sidebar-profile-btn"
-                        onClick={() => setShowProfileDropdown((open) => !open)}
-                        aria-label="Account menu"
-                        title={displayName}
-                    >
-                        {profileInitial}
-                    </button>
-                    {showProfileDropdown && renderProfileDropdown()}
+                <div className="sa-sidebar-footer">
+                    <div className="sa-sidebar-storage">
+                        <div className="sa-sidebar-storage__head">
+                            <span className="sa-sidebar-storage__label">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                                </svg>
+                                Storage
+                            </span>
+                            <button type="button" className="sa-sidebar-storage__add" aria-label="Upgrade storage">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="sa-sidebar-storage__bar">
+                            <div className="sa-sidebar-storage__fill" style={{ width: `${storagePct}%` }} />
+                        </div>
+                        <p className="sa-sidebar-storage__text">
+                            {formatStorageBytes(storageUsed)} of 100 GB used
+                        </p>
+                    </div>
+                    <div className="sa-sidebar-profile-row" ref={profileDropdownRef}>
+                        <button
+                            type="button"
+                            className="sa-sidebar-profile-btn"
+                            onClick={() => setShowProfileDropdown((open) => !open)}
+                            aria-label="Account menu"
+                            title={displayName}
+                        >
+                            {profileInitial}
+                        </button>
+                        {showProfileDropdown && renderProfileDropdown()}
+                    </div>
                 </div>
             </aside>
 

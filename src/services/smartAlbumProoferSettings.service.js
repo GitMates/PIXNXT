@@ -122,11 +122,16 @@ function dbAlbumToSettings(row = {}) {
             Number(raw.max_revision_rounds ?? raw.maxRevisionRounds ?? 3) || 1,
         approvalPin: String(raw.approval_pin ?? raw.approvalPin ?? ''),
         sendReminderEmails: raw.send_reminder_emails ?? raw.sendReminderEmails ?? false,
+        allowDownloads: raw.allow_downloads ?? raw.allowDownloads,
+        multiUserCollaboration: raw.multi_user_collaboration ?? raw.multiUserCollaboration,
+        activeViewers: Array.isArray(raw.active_viewers ?? raw.activeViewers)
+            ? raw.active_viewers ?? raw.activeViewers
+            : undefined,
     });
 }
 
 function settingsToDbFull(settings) {
-    return {
+    const out = {
         access_level: settings.accessLevel || 'password',
         album_password: settings.albumPassword || '',
         private_share_token: settings.privateShareToken || '',
@@ -137,6 +142,16 @@ function settingsToDbFull(settings) {
         approval_pin: settings.approvalPin || '',
         send_reminder_emails: Boolean(settings.sendReminderEmails),
     };
+    if (settings.allowDownloads !== undefined) {
+        out.allow_downloads = Boolean(settings.allowDownloads);
+    }
+    if (settings.multiUserCollaboration !== undefined) {
+        out.multi_user_collaboration = Boolean(settings.multiUserCollaboration);
+    }
+    if (settings.activeViewers !== undefined) {
+        out.active_viewers = Array.isArray(settings.activeViewers) ? settings.activeViewers : [];
+    }
+    return out;
 }
 
 function settingsToDb(patch) {
