@@ -1,4 +1,18 @@
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useMemo } from "react"
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCorners,
+  useDraggable,
+  useDroppable,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core"
+import { CSS } from "@dnd-kit/utilities"
 import {
   Search,
   Layers,
@@ -44,6 +58,7 @@ export interface PortalPipelineViewProps {
   onArchiveProject: (cardId: string) => void
   onRestoreProject: (arcId: string) => void
   onQuoteCard: (cardId: string) => void
+  onMoveCard: (cardId: string, toStageId: string) => void
 }
 
 function CardMenu({
@@ -140,6 +155,136 @@ function FinancialBar({ card }: { card: PipelineCard }) {
   )
 }
 
+interface PipelineCardContentProps {
+  card: PipelineCard
+  onOpenProject: (clientName: string) => void
+  onArchiveProject: (cardId: string) => void
+  onQuoteCard: (cardId: string) => void
+}
+
+function PipelineCardContent({
+  card,
+  onOpenProject,
+  onArchiveProject,
+  onQuoteCard,
+}: PipelineCardContentProps) {
+  return (
+    <>
+      <div className="flex items-start justify-between gap-1.5">
+        <h4
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => onOpenProject(card.clientName)}
+          className="cursor-pointer font-serif text-[15px] font-semibold leading-tight tracking-tight text-[#1A1A1A] line-clamp-1 hover:underline"
+        >
+          {card.clientName}
+        </h4>
+        <CardMenu cardId={card.id} onArchive={onArchiveProject} />
+      </div>
+
+      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-[#757575]">
+        <span className="inline-flex min-w-0 items-center gap-1">
+          <Calendar className="size-2.5 shrink-0" />
+          <span className="truncate">{card.eventDate}</span>
+        </span>
+        <span className="inline-flex min-w-0 items-center gap-1">
+          <MapPin className="size-2.5 shrink-0" />
+          <span className="truncate">{card.location.split(",")[0]}</span>
+        </span>
+      </div>
+
+      <FinancialBar card={card} />
+
+      <div className="mt-2.5 flex items-center gap-1.5">
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => onQuoteCard(card.id)}
+          className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-[#F5F5F5] px-2.5 py-1.5 text-[10px] font-semibold text-[#1A1A1A] transition-colors hover:bg-[#EBEBEB]"
+        >
+          <FileText className="size-3 text-[#717171]" />
+          Review Proposal
+        </button>
+        <button
+          type="button"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={() => onOpenProject(card.clientName)}
+          className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#F5F5F5] text-[#717171] transition-colors hover:bg-[#EBEBEB] hover:text-[#1A1A1A]"
+          title="View project"
+        >
+          <Eye className="size-3.5" />
+        </button>
+      </div>
+    </>
+  )
+}
+
+function DraggablePipelineCard({
+  card,
+  onOpenProject,
+  onArchiveProject,
+  onQuoteCard,
+}: PipelineCardContentProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({ id: card.id })
+
+  const style = transform
+    ? { transform: CSS.Translate.toString(transform) }
+    : undefined
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...listeners}
+      {...attributes}
+      className={`touch-none rounded-[20px] bg-white p-3.5 shadow-[0_4px_16px_rgba(0,0,0,0.04)] transition-shadow duration-200 hover:shadow-[0_6px_20px_rgba(0,0,0,0.06)] ${
+        isDragging ? "cursor-grabbing opacity-40" : "cursor-grab"
+      }`}
+    >
+      <PipelineCardContent
+        card={card}
+        onOpenProject={onOpenProject}
+        onArchiveProject={onArchiveProject}
+        onQuoteCard={onQuoteCard}
+      />
+    </div>
+  )
+}
+
+function DroppableStageColumn({
+  stage,
+  children,
+  isOver,
+}: {
+  stage: PipelineStage
+  children: React.ReactNode
+  isOver: boolean
+}) {
+  const { setNodeRef } = useDroppable({ id: stage.id })
+
+  return (
+    <div ref={setNodeRef} className="flex h-full min-w-[220px] flex-col">
+      <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
+        <h3 className="font-heading text-[11px] font-bold uppercase tracking-wide text-[#1A1A1A]">
+          {stage.title}
+        </h3>
+        <span className="shrink-0 rounded-full bg-[#ECEAE6] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
+          {stage.cards.length}{" "}
+          {stage.section === "leads" ? "LEADS" : "PROJECTS"}
+        </span>
+      </div>
+
+      <div
+        className={`flex-1 space-y-2 overflow-y-auto rounded-xl pr-1 neu-scroll transition-colors ${
+          isOver ? "bg-[#1A1A1A]/[0.03] ring-2 ring-[#1A1A1A]/10" : ""
+        }`}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export function PortalPipelineView({
   filteredStages,
   searchQuery,
@@ -152,7 +297,72 @@ export function PortalPipelineView({
   onArchiveProject,
   onRestoreProject,
   onQuoteCard,
+  onMoveCard,
 }: PortalPipelineViewProps) {
+  const [activeCardId, setActiveCardId] = useState<string | null>(null)
+  const [overStageId, setOverStageId] = useState<string | null>(null)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+  )
+
+  const cardById = useMemo(() => {
+    const map = new Map<string, PipelineCard>()
+    filteredStages.forEach((stage) => {
+      stage.cards.forEach((card) => map.set(card.id, card))
+    })
+    return map
+  }, [filteredStages])
+
+  const activeCard = activeCardId ? cardById.get(activeCardId) : null
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveCardId(String(event.active.id))
+  }
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const overId = event.over?.id
+    if (!overId) {
+      setOverStageId(null)
+      return
+    }
+    const id = String(overId)
+    if (filteredStages.some((s) => s.id === id)) {
+      setOverStageId(id)
+      return
+    }
+    for (const stage of filteredStages) {
+      if (stage.cards.some((c) => c.id === id)) {
+        setOverStageId(stage.id)
+        return
+      }
+    }
+    setOverStageId(null)
+  }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    setActiveCardId(null)
+    setOverStageId(null)
+    if (!over) return
+
+    let toStageId = String(over.id)
+    if (!filteredStages.some((s) => s.id === toStageId)) {
+      const host = filteredStages.find((s) =>
+        s.cards.some((c) => c.id === toStageId),
+      )
+      if (!host) return
+      toStageId = host.id
+    }
+
+    onMoveCard(String(active.id), toStageId)
+  }
+
+  const handleDragCancel = () => {
+    setActiveCardId(null)
+    setOverStageId(null)
+  }
+
   return (
     <div className="portal-pipeline flex h-full flex-col overflow-hidden bg-[#FAF9F6]">
       <header className="flex-shrink-0 bg-[#FAF9F6] px-6 pb-4 pt-5 md:px-8">
@@ -216,82 +426,52 @@ export function PortalPipelineView({
 
       {!archivedView ? (
         <div className="flex-1 overflow-hidden px-6 pb-6 md:px-8">
-          <div
-            className="grid h-full min-h-0 grid-rows-1 gap-5 overflow-x-auto neu-scroll"
-            style={{
-              gridTemplateColumns: `repeat(${filteredStages.length}, minmax(220px, 1fr))`,
-            }}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDragCancel={handleDragCancel}
           >
-            {filteredStages.map((stage) => (
-              <div key={stage.id} className="flex h-full min-w-[220px] flex-col">
-                <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
-                  <h3 className="font-heading text-[11px] font-bold uppercase tracking-wide text-[#1A1A1A]">
-                    {stage.title}
-                  </h3>
-                  <span className="shrink-0 rounded-full bg-[#ECEAE6] px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[#71717A]">
-                    {stage.cards.length}{" "}
-                    {stage.section === "leads" ? "LEADS" : "PROJECTS"}
-                  </span>
-                </div>
-
-                <div className="flex-1 space-y-2 overflow-y-auto pr-1 neu-scroll">
+            <div
+              className="grid h-full min-h-0 grid-rows-1 gap-5 overflow-x-auto neu-scroll"
+              style={{
+                gridTemplateColumns: `repeat(${filteredStages.length}, minmax(220px, 1fr))`,
+              }}
+            >
+              {filteredStages.map((stage) => (
+                <DroppableStageColumn
+                  key={stage.id}
+                  stage={stage}
+                  isOver={overStageId === stage.id}
+                >
                   {stage.cards.map((card) => (
-                    <div
+                    <DraggablePipelineCard
                       key={card.id}
-                      className="rounded-[20px] bg-white p-3.5 shadow-[0_4px_16px_rgba(0,0,0,0.04)] transition-shadow duration-200 hover:shadow-[0_6px_20px_rgba(0,0,0,0.06)]"
-                    >
-                      <div className="flex items-start justify-between gap-1.5">
-                        <h4
-                          onClick={() => onOpenProject(card.clientName)}
-                          className="cursor-pointer font-serif text-[15px] font-semibold leading-tight tracking-tight text-[#1A1A1A] line-clamp-1 hover:underline"
-                        >
-                          {card.clientName}
-                        </h4>
-                        <CardMenu
-                          cardId={card.id}
-                          onArchive={onArchiveProject}
-                        />
-                      </div>
-
-                      <div className="mt-2 flex items-center justify-between gap-2 text-[10px] text-[#757575]">
-                        <span className="inline-flex min-w-0 items-center gap-1">
-                          <Calendar className="size-2.5 shrink-0" />
-                          <span className="truncate">{card.eventDate}</span>
-                        </span>
-                        <span className="inline-flex min-w-0 items-center gap-1">
-                          <MapPin className="size-2.5 shrink-0" />
-                          <span className="truncate">
-                            {card.location.split(",")[0]}
-                          </span>
-                        </span>
-                      </div>
-
-                      <FinancialBar card={card} />
-
-                      <div className="mt-2.5 flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => onQuoteCard(card.id)}
-                          className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-[#F5F5F5] text-[#717171] transition-colors hover:bg-[#EBEBEB] hover:text-[#1A1A1A]"
-                          title="Review proposal"
-                        >
-                          <Eye className="size-3.5" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onOpenProject(card.clientName)}
-                          className="inline-flex flex-1 items-center justify-center gap-1 rounded-full bg-[#F5F5F5] px-2.5 py-1.5 text-[10px] font-semibold text-[#1A1A1A] transition-colors hover:bg-[#EBEBEB]"
-                        >
-                          <FileText className="size-3 text-[#717171]" />
-                          Review Proposal
-                        </button>
-                      </div>
-                    </div>
+                      card={card}
+                      onOpenProject={onOpenProject}
+                      onArchiveProject={onArchiveProject}
+                      onQuoteCard={onQuoteCard}
+                    />
                   ))}
+                </DroppableStageColumn>
+              ))}
+            </div>
+
+            <DragOverlay dropAnimation={null}>
+              {activeCard ? (
+                <div className="w-[220px] rotate-1 cursor-grabbing rounded-[20px] bg-white p-3.5 shadow-[0_12px_32px_rgba(0,0,0,0.12)]">
+                  <PipelineCardContent
+                    card={activeCard}
+                    onOpenProject={onOpenProject}
+                    onArchiveProject={onArchiveProject}
+                    onQuoteCard={onQuoteCard}
+                  />
                 </div>
-              </div>
-            ))}
-          </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto px-6 py-6 md:px-8">

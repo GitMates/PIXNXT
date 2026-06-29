@@ -10,6 +10,7 @@ import {
   type PipelineCard,
   type PipelineStage,
   INITIAL_STAGES,
+  adaptCardToStage,
   INITIAL_EVENTS,
   INITIAL_PACKAGES,
   INITIAL_ADDONS,
@@ -100,6 +101,34 @@ export function PixnxtPortalSingle() {
   const goToView = (view: ViewMode) => {
     setActiveView(view)
     handleCloseProject()
+  }
+
+  const handleMoveCard = (cardId: string, toStageId: string) => {
+    setStages((prev) => {
+      let moved: PipelineCard | null = null
+      let fromStageId: string | null = null
+
+      const stripped = prev.map((stage) => {
+        const remaining = stage.cards.filter((c) => {
+          if (c.id === cardId) {
+            moved = c
+            fromStageId = stage.id
+            return false
+          }
+          return true
+        })
+        return { ...stage, cards: remaining }
+      })
+
+      if (!moved || !fromStageId || fromStageId === toStageId) return prev
+
+      const adapted = adaptCardToStage(moved, toStageId)
+      return stripped.map((stage) =>
+        stage.id === toStageId
+          ? { ...stage, cards: [...stage.cards, adapted] }
+          : stage,
+      )
+    })
   }
 
   const handleArchiveProject = (cardId: string) => {
@@ -317,6 +346,7 @@ export function PixnxtPortalSingle() {
                 onArchiveProject={handleArchiveProject}
                 onRestoreProject={handleRestoreProject}
                 onQuoteCard={setQuoteCardId}
+                onMoveCard={handleMoveCard}
               />
             )}
 

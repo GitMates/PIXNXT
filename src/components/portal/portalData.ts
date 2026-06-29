@@ -36,6 +36,60 @@ export interface PipelineStage {
   cards: PipelineCard[]
 }
 
+/** Update card fields to match the target pipeline stage. */
+export function adaptCardToStage(
+  card: PipelineCard,
+  stageId: string,
+): PipelineCard {
+  const base: PipelineCard = {
+    id: card.id,
+    clientName: card.clientName,
+    eventDate: card.eventDate,
+    location: card.location,
+  }
+  const amount = card.bookingAmount || card.amount || "₹1,20,000"
+
+  switch (stageId) {
+    case "inquiry":
+      return base
+    case "quote-sent":
+      return {
+        ...base,
+        quoteSent: true,
+        bookingAmount: amount,
+        statusLabel: "Awaiting Signature",
+        statusTone: "awaiting",
+      }
+    case "booked":
+      return {
+        ...base,
+        amount,
+        bookingAmount: amount,
+        depositReceived: true,
+        paidAmount: card.paidAmount || "₹60,000",
+        statusTone: "paid",
+      }
+    case "post-production":
+      return {
+        ...base,
+        amount,
+        bookingAmount: amount,
+        statusLabel: "In Editing",
+        statusTone: "editing",
+      }
+    case "completed":
+      return {
+        ...base,
+        amount,
+        bookingAmount: amount,
+        statusLabel: "Delivered",
+        statusTone: "delivered",
+      }
+    default:
+      return card
+  }
+}
+
 export interface StudioEvent {
   id: string
   date: string
