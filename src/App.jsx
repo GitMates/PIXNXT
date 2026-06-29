@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard';
 import ClientGallery from './pages/ClientGallery';
 import SmartAlbums from './pages/smart-albums';
 import MobileGallery from './pages/mobile-gallery';
+import PixnxtPortal from './pages/portal';
 import CreateCollection from './pages/CreateCollection';
 import CreateFolder from './pages/CreateFolder';
 import FolderView from './pages/FolderView';
@@ -96,6 +97,7 @@ function App() {
     location.pathname === '/client-gallery' ||
     location.pathname.startsWith('/smart-albums') ||
     location.pathname.startsWith('/mobile-gallery') ||
+    location.pathname.startsWith('/portal') ||
     location.pathname.startsWith('/folders/') ||
     location.pathname === '/collections/create' ||
     location.pathname === '/folders/create' ||
@@ -157,6 +159,7 @@ function App() {
           <Route path="/client-gallery" element={<ClientGallery />} />
           <Route path="/smart-albums/*" element={<ProtectedRoute><SmartAlbums /></ProtectedRoute>} />
           <Route path="/mobile-gallery/*" element={<ProtectedRoute><MobileGallery /></ProtectedRoute>} />
+          <Route path="/portal/*" element={<ProtectedRoute><PixnxtPortal /></ProtectedRoute>} />
           <Route path="/photos" element={<ProtectedRoute><PhotoLibrary /></ProtectedRoute>} />
           <Route path="/starred" element={<ProtectedRoute><Navigate to="/starred/collections" replace /></ProtectedRoute>} />
           <Route path="/starred/:tab" element={<ProtectedRoute><Starred /></ProtectedRoute>} />

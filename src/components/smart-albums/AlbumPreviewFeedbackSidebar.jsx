@@ -272,7 +272,7 @@ export default function AlbumPreviewFeedbackSidebar({
             </header>
 
             <div className="av-feedback-sidebar__body">
-                {!tutorialDismissed ? (
+                {!tutorialDismissed && !hasFeed ? (
                     <FeedbackTutorial
                         onDismiss={dismissTutorial}
                         onVideoClick={() => onNotify?.('Tutorial video coming soon.')}

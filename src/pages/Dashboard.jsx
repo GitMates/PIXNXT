@@ -181,6 +181,17 @@ const products = [
     ],
   },
   {
+    name: 'Pixnxt Portal',
+    color: 'blue',
+    icon: <BriefcaseIcon />,
+    route: '/portal',
+    links: [
+      { label: 'Pipeline / Leads', path: '/portal' },
+      { label: 'Studio Calendar', path: '/portal' },
+      { label: 'Settings', path: '/portal' },
+    ],
+  },
+  {
     name: 'Mobile Gallery',
     color: 'yellow',
     icon: <SmartphoneIcon />,

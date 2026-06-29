@@ -46,6 +46,23 @@ export default {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        sidebar: {
+          DEFAULT: "oklch(0.972 0.006 85)",
+          foreground: "oklch(0.45 0.004 60)",
+          border: "oklch(0.905 0.007 82)",
+        },
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
+        primary: {
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))",
+        },
+        popover: {
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))",
+        },
         brand: {
           DEFAULT: "#000000",
           foreground: "#ffffff",

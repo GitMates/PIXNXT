@@ -524,6 +524,11 @@ const AlbumBook = ({
         viewportHeight: bookDims?.height ?? 0,
     });
 
+    const zoomPercentLabel = useMemo(
+        () => `${Math.round(spreadMagnify.scale * 100)}%`,
+        [spreadMagnify.scale]
+    );
+
     const goToPage = useCallback(
         (pageNum) => {
             closeAlbumPinPopovers();
@@ -1740,14 +1745,57 @@ const AlbumBook = ({
                 </div>
                 </div>
                 </div>
-                <div className="ab-spread-controls">
+                <div
+                    className={`ab-spread-controls${
+                        previewMode ? ' ab-spread-controls--preview' : ''
+                    }`}
+                >
+                    {previewMode ? (
+                        <>
+                            <button
+                                type="button"
+                                className="ab-control-icon ab-control-icon--button"
+                                aria-label="Zoom out"
+                                disabled={!spreadMagnify.canZoomOut}
+                                onClick={spreadMagnify.zoomOut}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                            <span className="ab-zoom-level" aria-live="polite">
+                                {zoomPercentLabel}
+                            </span>
+                            <button
+                                type="button"
+                                className="ab-control-icon ab-control-icon--button"
+                                aria-label="Zoom in"
+                                disabled={!spreadMagnify.canZoomIn}
+                                onClick={spreadMagnify.zoomIn}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                            <span className="ab-spread-controls-divider" aria-hidden />
+                        </>
+                    ) : null}
                     <button
                         type="button"
                         className="ab-control-icon ab-control-icon--button"
                         aria-label="Show spread full screen"
                         onClick={openFocusView}
                     >
-                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                        <svg
+                            width={previewMode ? 20 : 28}
+                            height={previewMode ? 20 : 28}
+                            viewBox="0 0 28 28"
+                            fill="none"
+                        >
                             <path d="M5 11V5h6M17 5h6v6M23 17v6h-6M11 23H5v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
                             <path d="M6 6l6 6M22 6l-6 6M22 22l-6-6M6 22l6-6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="square" />
                         </svg>
@@ -1758,7 +1806,12 @@ const AlbumBook = ({
                         aria-label="Show page overview"
                         onClick={openOverview}
                     >
-                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                        <svg
+                            width={previewMode ? 20 : 28}
+                            height={previewMode ? 20 : 28}
+                            viewBox="0 0 28 28"
+                            fill="none"
+                        >
                             {Array.from({ length: 9 }, (_, i) => {
                                 const x = 5 + (i % 3) * 7;
                                 const y = 5 + Math.floor(i / 3) * 7;
@@ -1766,36 +1819,6 @@ const AlbumBook = ({
                             })}
                         </svg>
                     </button>
-                    {previewMode ? (
-                        <>
-                            <button
-                                type="button"
-                                className="ab-control-icon ab-control-icon--button"
-                                aria-label="Zoom out"
-                                disabled={!spreadMagnify.canZoomOut}
-                                onClick={spreadMagnify.zoomOut}
-                            >
-                                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                    <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                </svg>
-                            </button>
-                            <button
-                                type="button"
-                                className="ab-control-icon ab-control-icon--button"
-                                aria-label="Zoom in"
-                                disabled={!spreadMagnify.canZoomIn}
-                                onClick={spreadMagnify.zoomIn}
-                            >
-                                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                    <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                </svg>
-                            </button>
-                        </>
-                    ) : null}
                     <span className="ab-page-counter" title={`Pages ${pageRangeLabel}`}>
                         {counterLabel}
                     </span>

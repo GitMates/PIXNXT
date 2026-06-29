@@ -25,6 +25,8 @@
   font-size: 22px;
   font-weight: 600;
   line-height: 1.2;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: #1c1c1c;
 }
 
@@ -223,6 +225,70 @@
 
 .av-feedback-sidebar__feed .av-preview-sidebar-feed {
   padding-right: 2px;
+}
+
+/* Reference chat styling — client green bubbles, centered date pills */
+.av-feedback-sidebar .av-chat-feed {
+  gap: 10px;
+}
+
+.av-feedback-sidebar .av-chat-feed-date {
+  padding: 10px 0 4px;
+}
+
+.av-feedback-sidebar .av-chat-feed-date span {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #8a8580;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.av-feedback-sidebar .av-chat-row {
+  max-width: 82%;
+}
+
+.av-feedback-sidebar .av-chat-row--out {
+  align-self: flex-end;
+}
+
+.av-feedback-sidebar .av-chat-bubble {
+  padding: 8px 12px 7px;
+  border-radius: 14px;
+  box-shadow: none;
+  min-width: 64px;
+}
+
+.av-feedback-sidebar .av-chat-bubble--out {
+  background: #d9f7c8;
+  border: none;
+  border-top-right-radius: 14px;
+}
+
+.av-feedback-sidebar .av-chat-bubble--in {
+  background: #fff;
+  border: 1px solid #ebe8e2;
+  border-top-left-radius: 14px;
+}
+
+.av-feedback-sidebar .av-chat-bubble-text {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #1c1c1c;
+}
+
+.av-feedback-sidebar .av-chat-bubble-foot {
+  margin-top: 5px;
+  gap: 6px;
+}
+
+.av-feedback-sidebar .av-chat-bubble-foot time {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 10px;
+  color: rgba(28, 28, 28, 0.45);
 }
 
 .av-feedback-compose {
