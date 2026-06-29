@@ -1,6 +1,6 @@
 /**
  * Runs before React on /m/:slug install & pwa routes.
- * iOS reads apple-touch-icon from same-origin URL at Add to Home Screen time.
+ * Registers manifest, icons, and service worker early so Android Chrome can install.
  */
 (function () {
   var path = location.pathname;
@@ -12,6 +12,9 @@
   var encodedSlug = encodeURIComponent(slug);
   var manifestHref = '/m/' + encodedSlug + '/manifest.json';
   var iconHref = '/m/' + encodedSlug + '/apple-touch-icon.png';
+  var icon192 = '/m/' + encodedSlug + '/icon-192.png';
+  var icon512 = '/m/' + encodedSlug + '/icon-512.png';
+  var pwaPath = '/m/' + encodedSlug + '/pwa';
   var iconSizes = [
     '57x57',
     '60x60',
@@ -30,6 +33,40 @@
 
   document.documentElement.classList.add('mg-public-route');
 
+  function isMobile() {
+    var ua = navigator.userAgent || '';
+    return /Android|iPhone|iPad|iPod|Mobile/i.test(ua);
+  }
+
+  function isIosSafari() {
+    var ua = navigator.userAgent || '';
+    return /iPhone|iPad|iPod/i.test(ua) && /Safari/i.test(ua) && !/CriOS|FxiOS|GSA|Gmail/i.test(ua);
+  }
+
+  function isInAppBrowser() {
+    var ua = navigator.userAgent || '';
+    if (/iPhone|iPad|iPod/i.test(ua)) {
+      if (/GSA|Gmail|FBIOS|FBAV|FBAN|Instagram|Line\//i.test(ua)) return true;
+      if (/AppleWebKit/i.test(ua) && !/Safari/i.test(ua)) return true;
+    }
+    if (/Android/i.test(ua) && /(wv|Instagram|FBAV|FBAN)/i.test(ua)) return true;
+    return false;
+  }
+
+  function isStandalone() {
+    return (
+      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+      window.navigator.standalone === true
+    );
+  }
+
+  // Email link lands on /m/:slug — send mobile users to gallery + install surface.
+  if (!isPwaRoute && isMobile() && !isInAppBrowser() && !isStandalone()) {
+    sessionStorage.setItem('mg-pending-install:' + slug, '1');
+    location.replace(pwaPath);
+    return;
+  }
+
   document.querySelectorAll('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(function (node) {
     node.parentNode.removeChild(node);
   });
@@ -47,11 +84,11 @@
   defaultIcon.href = iconHref;
   document.head.appendChild(defaultIcon);
 
-  var preload = document.createElement('link');
-  preload.rel = 'preload';
-  preload.as = 'image';
-  preload.href = iconHref;
-  document.head.appendChild(preload);
+  var favicon = document.createElement('link');
+  favicon.rel = 'icon';
+  favicon.type = 'image/png';
+  favicon.href = icon192;
+  document.head.appendChild(favicon);
 
   if (!document.querySelector('link[rel="manifest"]')) {
     var manifest = document.createElement('link');
@@ -69,31 +106,15 @@
     }
   });
 
-  function isIosSafari() {
-    var ua = navigator.userAgent || '';
-    return /iPhone|iPad|iPod/i.test(ua) && /Safari/i.test(ua) && !/CriOS|FxiOS|GSA|Gmail/i.test(ua);
+  if (!document.querySelector('meta[name="theme-color"]')) {
+    var theme = document.createElement('meta');
+    theme.name = 'theme-color';
+    theme.content = '#20a398';
+    document.head.appendChild(theme);
   }
 
-  function isInAppBrowser() {
-    var ua = navigator.userAgent || '';
-    if (/iPhone|iPad|iPod/i.test(ua)) {
-      if (/GSA|Gmail|FBIOS|FBAV|FBAN|Instagram|Line\//i.test(ua)) return true;
-      if (/AppleWebKit/i.test(ua) && !/Safari/i.test(ua)) return true;
-    }
-    return false;
-  }
-
-  if (!isPwaRoute && isIosSafari() && !isInAppBrowser()) {
-    history.replaceState({}, document.title, '/m/' + encodedSlug + '/pwa');
-  }
-
-  if (isPwaRoute) {
-    var standalone =
-      (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
-      window.navigator.standalone === true;
-    if (!standalone) {
-      window.location.replace('/m/' + encodedSlug);
-    }
+  if (isIosSafari() && !isInAppBrowser() && isPwaRoute && !isStandalone()) {
+    history.replaceState({}, document.title, pwaPath);
   }
 
   function applyManifest(data) {
@@ -117,4 +138,11 @@
     })
     .then(applyManifest)
     .catch(function () {});
+
+  if ('serviceWorker' in navigator && window === window.top) {
+    var swScope = '/m/' + encodedSlug + '/';
+    navigator.serviceWorker
+      .register('/m/sw.js', { scope: swScope })
+      .catch(function () {});
+  }
 })();
