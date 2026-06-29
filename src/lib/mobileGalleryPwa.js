@@ -1,4 +1,4 @@
-import { isIosSafari } from './mobileGalleryInstall';
+import { isIosSafari, isMobileDevice, isStandaloneDisplay } from './mobileGalleryInstall';
 import { APPLE_TOUCH_ICON_SIZES, getAppleTouchIconUrl } from './mobileGalleryIcon';
 
 export function getManifestUrl(slug) {
@@ -11,35 +11,49 @@ export function getPwaPath(slug) {
   return `/m/${encodeURIComponent(slug)}/pwa`;
 }
 
+function getOrigin() {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin.replace(/\/$/, '');
+  }
+  return '';
+}
+
 export function buildWebManifest({ app, photographerName }) {
   const slug = app?.slug;
+  const origin = getOrigin();
+  const base = origin ? `${origin}/m/${encodeURIComponent(slug)}` : `/m/${slug}`;
+  const remoteIcon = app?.icon_url || app?.cover_image_url || '';
+  const iconType = /\.jpe?g($|\?)/i.test(remoteIcon)
+    ? 'image/jpeg'
+    : /\.webp($|\?)/i.test(remoteIcon)
+      ? 'image/webp'
+      : 'image/png';
+
   const description = photographerName
     ? `${app?.name || 'Gallery'} mobile gallery by ${photographerName}`
     : `${app?.name || 'Gallery'} mobile gallery`;
 
   return {
+    id: `/m/${slug}/`,
     name: app?.name || 'Gallery',
     short_name: String(app?.name || 'Gallery').slice(0, 12),
     description,
-    start_url: './pwa',
+    start_url: `${base}/pwa`,
     scope: `/m/${slug}/`,
     display: 'standalone',
+    orientation: 'portrait',
     background_color: '#ffffff',
     theme_color: '#20a398',
     icons: slug
       ? [
-          {
-            src: './apple-touch-icon.png',
-            sizes: '192x192 512x512',
-            type: 'image/png',
-            purpose: 'any maskable',
-          },
+          { src: `${base}/icon-192.png`, sizes: '192x192', type: iconType, purpose: 'any' },
+          { src: `${base}/icon-512.png`, sizes: '512x512', type: iconType, purpose: 'any' },
+          { src: `${base}/icon-512.png`, sizes: '512x512', type: iconType, purpose: 'maskable' },
         ]
       : [],
   };
 }
 
-/** Gmail, Instagram, Facebook, etc. — cannot install PWA from these browsers on iOS. */
 export function isInAppBrowser() {
   if (typeof window === 'undefined') return false;
   const ua = navigator.userAgent || '';
@@ -57,26 +71,27 @@ export function shouldShowSafariInstallFlow() {
   return isIosSafari() && !isInAppBrowser();
 }
 
+export function shouldShowInstallPrompt() {
+  return isMobileDevice() && !isInAppBrowser() && !isStandaloneDisplay();
+}
+
+export function ensurePwaUrl(slug) {
+  if (!slug || typeof window === 'undefined') return;
+  const pwaPath = getPwaPath(slug);
+  const current = window.location.pathname.replace(/\/$/, '');
+  const target = pwaPath.replace(/\/$/, '');
+  if (current !== target || window.location.search) {
+    window.history.replaceState({}, document.title, pwaPath);
+  }
+}
+
 export function registerMobileGalleryServiceWorker(slug) {
-  if (typeof window === 'undefined' || !slug) return undefined;
-  if (window !== window.top) return undefined;
-  if (!('serviceWorker' in navigator)) return undefined;
+  if (typeof window === 'undefined' || !slug) return;
+  if (window !== window.top) return;
+  if (!('serviceWorker' in navigator)) return;
 
   const scope = `/m/${encodeURIComponent(slug)}/`;
-
-  const register = () => {
-    navigator.serviceWorker
-      .register('/m/sw.js', { scope })
-      .catch((err) => console.warn('MG service worker registration failed', err));
-  };
-
-  if (document.readyState === 'complete') {
-    register();
-  } else {
-    window.addEventListener('load', register, { once: true });
-  }
-
-  return undefined;
+  navigator.serviceWorker.register('/m/sw.js', { scope }).catch(() => {});
 }
 
 export function applyAppleTouchIcons(slug) {
@@ -104,6 +119,12 @@ export function applyAppleTouchIcons(slug) {
   document.head.appendChild(defaultTouch);
   created.push(defaultTouch);
 
+  const favicon = document.createElement('link');
+  favicon.rel = 'icon';
+  favicon.href = `/m/${encodeURIComponent(slug)}/icon-192.png`;
+  document.head.appendChild(favicon);
+  created.push(favicon);
+
   const appTitle = document.createElement('meta');
   appTitle.name = 'apple-mobile-web-app-title';
   document.head.appendChild(appTitle);
@@ -115,7 +136,6 @@ export function applyAppleTouchIcons(slug) {
 export function applyMobileGalleryPwaHead({ app, slug, photographerName, logoUrl }) {
   if (!app || !slug || typeof document === 'undefined') return () => {};
 
-  const iconUrl = app.icon_url || app.cover_image_url;
   const created = [];
 
   document.title = app.name || 'Gallery';
@@ -124,98 +144,32 @@ export function applyMobileGalleryPwaHead({ app, slug, photographerName, logoUrl
   created.push(...touchIcons);
   if (appTitle) appTitle.content = app.name || 'Gallery';
 
-  const manifestLink = document.createElement('link');
-  manifestLink.rel = 'manifest';
-  if (import.meta.env.DEV) {
-    const blob = new Blob([JSON.stringify(buildWebManifest({ app, photographerName }))], {
-      type: 'application/json',
-    });
-    manifestLink.href = URL.createObjectURL(blob);
-  } else {
-    manifestLink.href = getManifestUrl(slug);
-  }
-  document.head.appendChild(manifestLink);
-  created.push(manifestLink);
-
-  const themeColor = document.createElement('meta');
-  themeColor.name = 'theme-color';
-  themeColor.content = '#20a398';
-  document.head.appendChild(themeColor);
-  created.push(themeColor);
-
-  const appleCapable = document.createElement('meta');
-  appleCapable.name = 'apple-mobile-web-app-capable';
-  appleCapable.content = 'yes';
-  document.head.appendChild(appleCapable);
-  created.push(appleCapable);
-
-  const appleStatus = document.createElement('meta');
-  appleStatus.name = 'apple-mobile-web-app-status-bar-style';
-  appleStatus.content = 'default';
-  document.head.appendChild(appleStatus);
-  created.push(appleStatus);
-
-  const mobileCapable = document.createElement('meta');
-  mobileCapable.name = 'mobile-web-app-capable';
-  mobileCapable.content = 'yes';
-  document.head.appendChild(mobileCapable);
-  created.push(mobileCapable);
-
-  const description = buildWebManifest({ app, photographerName }).description;
-  let ogDescription = document.querySelector('meta[property="og:description"]');
-  if (!ogDescription) {
-    ogDescription = document.createElement('meta');
-    ogDescription.setAttribute('property', 'og:description');
-    document.head.appendChild(ogDescription);
-    created.push(ogDescription);
-  }
-  ogDescription.content = description;
-
-  let ogTitle = document.querySelector('meta[property="og:title"]');
-  if (!ogTitle) {
-    ogTitle = document.createElement('meta');
-    ogTitle.setAttribute('property', 'og:title');
-    document.head.appendChild(ogTitle);
-    created.push(ogTitle);
-  }
-  ogTitle.content = app.name || 'Gallery';
-
-  if (iconUrl) {
-    let ogImage = document.querySelector('meta[property="og:image"]');
-    if (!ogImage) {
-      ogImage = document.createElement('meta');
-      ogImage.setAttribute('property', 'og:image');
-      document.head.appendChild(ogImage);
-      created.push(ogImage);
+  if (!document.querySelector('link[rel="manifest"]')) {
+    const manifestLink = document.createElement('link');
+    manifestLink.rel = 'manifest';
+    if (import.meta.env.DEV) {
+      const blob = new Blob([JSON.stringify(buildWebManifest({ app, photographerName }))], {
+        type: 'application/json',
+      });
+      manifestLink.href = URL.createObjectURL(blob);
+    } else {
+      manifestLink.href = getManifestUrl(slug);
     }
-    ogImage.content = iconUrl;
-  }
-
-  if (logoUrl) {
-    let ogSite = document.querySelector('meta[property="og:site_name"]');
-    if (!ogSite) {
-      ogSite = document.createElement('meta');
-      ogSite.setAttribute('property', 'og:site_name');
-      document.head.appendChild(ogSite);
-      created.push(ogSite);
-    }
-    ogSite.content = photographerName || 'PIXNXT';
+    document.head.appendChild(manifestLink);
+    created.push(manifestLink);
   }
 
   registerMobileGalleryServiceWorker(slug);
 
   return () => {
-    if (import.meta.env.DEV && manifestLink.href.startsWith('blob:')) {
-      URL.revokeObjectURL(manifestLink.href);
+    const manifestNode = created.find((n) => n.rel === 'manifest');
+    if (manifestNode?.href?.startsWith('blob:')) {
+      URL.revokeObjectURL(manifestNode.href);
     }
     created.forEach((node) => node.remove());
   };
 }
 
 export function replaceInstallUrlWithPwa(slug) {
-  if (!slug || typeof window === 'undefined') return;
-  const pwaPath = getPwaPath(slug);
-  if (window.location.pathname !== pwaPath) {
-    window.history.replaceState({}, document.title, pwaPath);
-  }
+  ensurePwaUrl(slug);
 }

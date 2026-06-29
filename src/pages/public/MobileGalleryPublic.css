@@ -244,6 +244,101 @@
   font-weight: 600;
 }
 
+.mg-install-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: 16px;
+  box-sizing: border-box;
+}
+
+.mg-install-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.mg-install-overlay-card {
+  position: relative;
+  width: min(100%, 420px);
+  background: #fff;
+  border-radius: 16px 16px 12px 12px;
+  padding: 20px 18px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.22);
+}
+
+.mg-install-overlay-eyebrow {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #20a398;
+}
+
+.mg-install-overlay-title {
+  margin: 0 0 8px;
+  font-size: 22px;
+  font-weight: 600;
+  color: #111;
+}
+
+.mg-install-overlay-subtitle {
+  margin: 0 0 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #666;
+}
+
+.mg-install-overlay-panel .mg-install-callout-text {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  color: #444;
+}
+
+.mg-install-callout-hint {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: #888;
+  line-height: 1.45;
+}
+
+.mg-install-native-btn {
+  display: block;
+  width: 100%;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 4px;
+  background: #3a3a3a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.mg-install-native-btn:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.mg-install-overlay-dismiss {
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  color: #666;
+  font-size: 14px;
+  cursor: pointer;
+}
+
 .mg-install-phone-illustration {
   margin-top: 8px;
 }
