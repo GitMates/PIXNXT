@@ -1,5 +1,7 @@
+/* Cover leather swatches — circular neumorphic reference */
+
 .ae-cover-color {
-  margin-top: 4px;
+  margin-top: 0;
 }
 
 .ae-cover-color-header {
@@ -10,53 +12,71 @@
 }
 
 .ae-cover-color-title {
+  font-family: 'Outfit', system-ui, sans-serif;
   font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  font-weight: 600;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: #6b7280;
+  color: oklch(0.68 0.01 70);
 }
 
 .ae-cover-color-hint {
-  margin: 0 0 10px;
-  font-size: 12px;
+  margin: 0 0 14px;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 11px;
   line-height: 1.45;
-  color: #6b7280;
+  color: oklch(0.62 0.01 70);
 }
 
 .ae-cover-color-swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
+  align-items: center;
 }
 
 .ae-cover-color-swatch {
-  width: 44px;
-  height: 44px;
+  position: relative;
+  width: 40px;
+  height: 40px;
   padding: 0;
-  border: 2px solid rgba(0, 0, 0, 0.04);
-  border-radius: 10px;
+  border: none;
+  border-radius: 50%;
   cursor: pointer;
-  box-shadow: none;
+  box-shadow:
+    -2px -2px 6px oklch(1 0.004 85 / 0.85),
+    2px 3px 8px oklch(0.42 0.012 70 / 0.14);
   transition:
     transform 0.15s ease,
-    box-shadow 0.15s ease,
-    border-color 0.15s ease;
+    box-shadow 0.15s ease;
 }
 
 .ae-cover-color-swatch:hover {
   transform: translateY(-1px);
-  box-shadow: none;
 }
 
 .ae-cover-color-swatch--selected {
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.25);
+  box-shadow:
+    -2px -2px 6px oklch(1 0.004 85 / 0.85),
+    2px 3px 10px oklch(0.42 0.012 70 / 0.18),
+    0 0 0 2px oklch(0.995 0.004 85),
+    0 0 0 3px oklch(0.42 0.012 70 / 0.12);
+}
+
+.ae-cover-color-swatch-check {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  filter: drop-shadow(0 1px 2px oklch(0.2 0.006 60 / 0.45));
+  pointer-events: none;
 }
 
 .ae-cover-color-swatch:focus-visible {
-  outline: 2px solid #7c3aed;
-  outline-offset: 2px;
+  outline: 2px solid oklch(0.42 0.012 70 / 0.35);
+  outline-offset: 3px;
 }
 
 .ae-cover-color-swatch.ab-cover-leather-canvas {

@@ -313,7 +313,7 @@ export default function AlbumEditorSettingsPanel({
                         <label className="ae-settings-field__label" htmlFor="ae-access-level">
                             Access Level
                         </label>
-                        <div className="ae-settings-select-wrap">
+                        <div className="ae-settings-inset ae-settings-inset--select">
                             <select
                                 id="ae-access-level"
                                 className="ae-settings-select"

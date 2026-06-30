@@ -30,6 +30,7 @@ import {
     pageToSpreadIndex,
 } from './albumSpreadUtils';
 import '../../pages/smart-albums/AlbumViewer.css';
+import './AlbumCoverPanel.css';
 
 const ICON_PROPS = {
     width: 20,
@@ -59,9 +60,9 @@ const IconComments = () => (
 );
 
 const IconSettings = () => (
-    <svg {...ICON_PROPS}>
-        <circle cx="12" cy="12" r="2.65" />
-        <path d="M12 4.15v2.05M12 17.8v2.05M4.15 12h2.05M17.8 12h2.05M6.22 6.22l1.45 1.45M16.33 16.33l1.45 1.45M6.22 17.78l1.45-1.45M16.33 7.67l1.45-1.45" />
+    <svg {...ICON_PROPS} strokeWidth={1.65}>
+        <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" />
+        <circle cx="12" cy="12" r="3" />
     </svg>
 );
 
@@ -84,6 +85,21 @@ const GRID_LAYOUT_LABELS = {
     'two-page': 'Two-page grid (left + right)',
     'whole-spread': 'Whole-spread photo',
 };
+
+function CoverSpineToggle({ on, onChange, label }) {
+    return (
+        <button
+            type="button"
+            role="switch"
+            aria-checked={on}
+            aria-label={label}
+            onClick={onChange}
+            className={`ae-cover-spine-toggle${on ? ' ae-cover-spine-toggle--on' : ''}`}
+        >
+            <span className="ae-cover-spine-toggle__knob" />
+        </button>
+    );
+}
 
 export default function AlbumEditorSidebar({
     activePanel,
@@ -120,6 +136,8 @@ export default function AlbumEditorSidebar({
     onNavigateToSwapSlotKey = null,
     onReorderCollectionItem = null,
     proofSeenTick = 0,
+    showCoverSpine = true,
+    onShowCoverSpineChange = null,
 }) {
     const collectionDragFromRef = useRef(null);
     const [collectionDragOverIndex, setCollectionDragOverIndex] = useState(null);
@@ -398,7 +416,7 @@ export default function AlbumEditorSidebar({
                 ))}
             </nav>
 
-            <div className={`ae-panel${activePanel === 'pin' ? ' ae-panel--pin' : ''}${activePanel === 'comments' ? ' ae-panel--settings' : ''}`}>
+            <div className={`ae-panel${activePanel === 'pin' ? ' ae-panel--pin' : ''}${activePanel === 'comments' ? ' ae-panel--settings' : ''}${activePanel === 'cover' ? ' ae-panel--cover' : ''}`}>
                 {activePanel === 'comments' && commentSettings}
 
                 {activePanel === 'pin' && (
@@ -570,64 +588,68 @@ export default function AlbumEditorSidebar({
                 )}
 
                 {activePanel === 'cover' && (
-                    <>
-                        <h3 className="ae-panel-title">Edit cover</h3>
+                    <div className="ae-cover-panel">
+                        <h2 className="ae-cover-panel__title">Edit cover</h2>
                         {albumHasBlankCovers(album) ? (
-                            <>
-                                <p className="ae-panel-text">
-                                    Covers start blank. Choose a wide photo for back, spine, and
-                                    front — or leave empty for a plain cover spread.
-                                </p>
-                            </>
+                            <p className="ae-cover-panel__intro">
+                                Covers start blank. Choose a wide photo for back, spine, and
+                                front — or leave empty for a plain leather cover spread.
+                            </p>
                         ) : (
-                            <>
-                                <p className="ae-panel-text">
-                                    Book wrap (photo 1) is wider than inner spreads. The center strip
-                                    is the spine; outer portions are back and front covers (not
-                                    shown on spine in the flipbook).
-                                </p>
-                            </>
+                            <p className="ae-cover-panel__intro">
+                                Book wrap (photo 1) is wider than inner spreads. The center strip
+                                is the spine; outer portions are back and front covers (not
+                                shown on spine in the flipbook).
+                            </p>
                         )}
-                        <div className="ae-spread-actions">
-                            <div className="ae-spread-actions-header">
-                                <span className="ae-spread-actions-title">Current cover actions</span>
-                            </div>
-                            <button
-                                type="button"
-                                className="ae-upload-zone ae-upload-zone--spread"
-                                disabled={uploading || !canSelectGrid}
-                                onClick={openSpreadUploadPicker}
+                        <button
+                            type="button"
+                            className="ae-cover-panel__upload"
+                            disabled={uploading || !canSelectGrid}
+                            onClick={openSpreadUploadPicker}
+                        >
+                            <svg
+                                className="ae-cover-panel__upload-icon"
+                                width="22"
+                                height="22"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                aria-hidden
                             >
-                                <svg
-                                    className="ae-upload-zone-icon"
-                                    width="22"
-                                    height="22"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    strokeWidth="1.75"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    aria-hidden
-                                >
-                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                                    <polyline points="17 8 12 3 7 8" />
-                                    <line x1="12" y1="3" x2="12" y2="15" />
-                                </svg>
-                                <span>
-                                    {uploading
-                                        ? 'Uploading…'
-                                        : 'Upload new photo for this cover'}
-                                </span>
-                                <span className="ae-upload-hint">
-                                    Replaces the photo on the cover you are viewing
-                                </span>
-                            </button>
-                            {albumHasBlankCovers(album) ? (
-                                <CoverLeatherColorPicker albumId={albumId} />
-                            ) : null}
-                        </div>
-                    </>
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
+                            </svg>
+                            <span className="ae-cover-panel__upload-title">
+                                {uploading ? 'Uploading…' : 'Upload new photo for this cover'}
+                            </span>
+                            <span className="ae-cover-panel__upload-hint">
+                                Replaces the photo on the cover you are viewing
+                            </span>
+                        </button>
+                        {albumHasBlankCovers(album) ? (
+                            <CoverLeatherColorPicker albumId={albumId} />
+                        ) : null}
+                        {onShowCoverSpineChange ? (
+                            <div className="ae-cover-panel__spine">
+                                <div className="ae-cover-panel__spine-text">
+                                    <p className="ae-cover-panel__spine-title">Show spine</p>
+                                    <p className="ae-cover-panel__spine-hint">
+                                        Toggle the spine panel in the cover view
+                                    </p>
+                                </div>
+                                <CoverSpineToggle
+                                    on={showCoverSpine}
+                                    onChange={() => onShowCoverSpineChange(!showCoverSpine)}
+                                    label="Show spine in cover view"
+                                />
+                            </div>
+                        ) : null}
+                    </div>
                 )}
 
                 {activePanel === 'edit' && (

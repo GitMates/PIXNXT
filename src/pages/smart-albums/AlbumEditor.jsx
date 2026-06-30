@@ -329,6 +329,7 @@ export default function AlbumEditor({
     const [pageCountBusy, setPageCountBusy] = useState(false);
     const [showShareMenu, setShowShareMenu] = useState(false);
     const [shareLinkOpen, setShareLinkOpen] = useState(false);
+    const [showCoverSpine, setShowCoverSpine] = useState(true);
     const [publishBusy, setPublishBusy] = useState(false);
     const [swapMarks, setSwapMarks] = useState(() => getSwapMarks(albumId));
     const [photoPins, setPhotoPins] = useState(() => getPhotoPins(albumId));
@@ -2114,6 +2115,8 @@ export default function AlbumEditor({
                                 onSlotActivate={handleSlotActivate}
                                 transformRevision={transformRevision}
                                 photoRevision={layoutRevision}
+                                showSpine={showCoverSpine}
+                                onShowSpineChange={setShowCoverSpine}
                             />
                         ) : (
                             <AlbumBook
@@ -2200,6 +2203,8 @@ export default function AlbumEditor({
                     onNavigateToSwapSlotKey={handleNavigateToSwapSlotKey}
                     onReorderCollectionItem={handleReorderCollectionItem}
                     proofSeenTick={proofSeenTick}
+                    showCoverSpine={showCoverSpine}
+                    onShowCoverSpineChange={setShowCoverSpine}
                 />
             </div>
 

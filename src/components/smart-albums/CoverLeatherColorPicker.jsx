@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
+import { Check } from 'lucide-react';
 import {
     COVER_COLOR_CHANGED_EVENT,
     COVER_LEATHER_PRESETS,
@@ -61,7 +62,13 @@ export default function CoverLeatherColorPicker({ albumId }) {
                             }`}
                             style={getCoverLeatherSurfaceStyle(preset.id, { aspect: 1 })}
                             onClick={() => handleSelect(preset.id)}
-                        />
+                        >
+                            {isSelected ? (
+                                <span className="ae-cover-color-swatch-check" aria-hidden>
+                                    <Check size={14} strokeWidth={2.5} />
+                                </span>
+                            ) : null}
+                        </button>
                     );
                 })}
             </div>

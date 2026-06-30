@@ -58,11 +58,16 @@ export default function AlbumCoverEditView({
     onSlotActivate,
     transformRevision = 0,
     photoRevision = 0,
+    showSpine: showSpineProp,
+    onShowSpineChange,
 }) {
     const stageRef = useRef(null);
     const spreadRef = useRef(null);
     const [dims, setDims] = useState(null);
-    const [showSpine, setShowSpine] = useState(true);
+    const [internalShowSpine, setInternalShowSpine] = useState(true);
+    const showSpineControlled = showSpineProp !== undefined;
+    const showSpine = showSpineControlled ? showSpineProp : internalShowSpine;
+    const setShowSpine = onShowSpineChange || setInternalShowSpine;
     const [spineBoundsTick, setSpineBoundsTick] = useState(0);
     const [spineBounds, setSpineBounds] = useState(null);
     const [spineDragging, setSpineDragging] = useState(false);
@@ -414,7 +419,7 @@ export default function AlbumCoverEditView({
 
     return (
         <div className="ab-cover-edit-root" ref={stageRef}>
-            {(spineLayout.hasSpine || isBlankCoverAlbum) && (
+            {!showSpineControlled && (spineLayout.hasSpine || isBlankCoverAlbum) && (
                 <button
                     type="button"
                     className={`ab-cover-edit-spine-toggle${
