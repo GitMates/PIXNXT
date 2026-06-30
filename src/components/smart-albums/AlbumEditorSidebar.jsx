@@ -31,32 +31,45 @@ import {
 } from './albumSpreadUtils';
 import '../../pages/smart-albums/AlbumViewer.css';
 
+const ICON_PROPS = {
+    width: 20,
+    height: 20,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 1.35,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': true,
+};
+
 const IconCollection = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <rect x="3" y="3" width="7" height="7" rx="1" />
-        <rect x="14" y="3" width="7" height="7" rx="1" />
-        <rect x="3" y="14" width="7" height="7" rx="1" />
-        <rect x="14" y="14" width="7" height="7" rx="1" />
+    <svg {...ICON_PROPS}>
+        <rect x="4.25" y="4.25" width="6.25" height="6.25" rx="1.15" />
+        <rect x="13.5" y="4.25" width="6.25" height="6.25" rx="1.15" />
+        <rect x="4.25" y="13.5" width="6.25" height="6.25" rx="1.15" />
+        <rect x="13.5" y="13.5" width="6.25" height="6.25" rx="1.15" />
     </svg>
 );
 
 const IconComments = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    <svg {...ICON_PROPS}>
+        <path d="M7.25 5.75h9.5a1.75 1.75 0 0 1 1.75 1.75v6.75a1.75 1.75 0 0 1-1.75 1.75H11.5L7.25 18.5v-3.25a1.75 1.75 0 0 1-1.75-1.75V7.5a1.75 1.75 0 0 1 1.75-1.75z" />
     </svg>
 );
 
 const IconSettings = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <circle cx="12" cy="12" r="3" />
-        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0A1.65 1.65 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    <svg {...ICON_PROPS}>
+        <circle cx="12" cy="12" r="2.65" />
+        <path d="M12 4.15v2.05M12 17.8v2.05M4.15 12h2.05M17.8 12h2.05M6.22 6.22l1.45 1.45M16.33 16.33l1.45 1.45M6.22 17.78l1.45-1.45M16.33 7.67l1.45-1.45" />
     </svg>
 );
 
 const IconEditCover = () => (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    <svg {...ICON_PROPS}>
+        <path d="M12 5.25c-4.2-1.15-7.75-.55-7.75 2.45V17c0 2.35 3.05 2.85 7.75 1.55" />
+        <path d="M12 5.25c4.2-1.15 7.75-.55 7.75 2.45V17c0 2.35-3.05 2.85-7.75 1.55" />
+        <path d="M12 5.25v13.3" />
     </svg>
 );
 
