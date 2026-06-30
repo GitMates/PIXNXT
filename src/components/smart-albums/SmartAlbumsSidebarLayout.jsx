@@ -4,13 +4,10 @@ import { useAuth } from '../../hooks/useAuth';
 import { galleryService } from '../../services/gallery.service';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import { formatStorageBytes } from '../../utils/formatStorageBytes';
-import brandPng from '../../assets/icons/client gallery.png';
-import smartAlbumPng from '../../assets/icons/smart album.png';
-import dashboardPng from '../../assets/icons/dashboard.png';
+import { products } from '../../lib/products';
 import SmartAlbumNotifications from './SmartAlbumNotifications';
 import '../portal/portal.css';
 import './SmartAlbumsSidebar.css';
-import '../../pages/ClientGallery.css';
 
 const AlbumNavIcon = () => (
     <svg className="sa-sidebar-nav-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -98,14 +95,14 @@ const STORAGE_LIMIT_BYTES = 100 * 1024 ** 3;
 
 const SmartAlbumsSidebarLayout = ({ children }) => {
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-    const [showAppDropdown, setShowAppDropdown] = useState(false);
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+    const [showEcosystemMenu, setShowEcosystemMenu] = useState(false);
     const [profile, setProfile] = useState(null);
     const [storageUsed, setStorageUsed] = useState(0);
     const navigate = useNavigate();
     const location = useLocation();
     const path = location.pathname;
-    const appDropdownRef = useRef(null);
+    const ecosystemMenuRef = useRef(null);
     const profileDropdownRef = useRef(null);
     const { user, logout } = useAuth();
 
@@ -160,8 +157,8 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
 
     useEffect(() => {
         const handleClickOutside = (e) => {
-            if (appDropdownRef.current && !appDropdownRef.current.contains(e.target)) {
-                setShowAppDropdown(false);
+            if (ecosystemMenuRef.current && !ecosystemMenuRef.current.contains(e.target)) {
+                setShowEcosystemMenu(false);
             }
             if (profileDropdownRef.current && !profileDropdownRef.current.contains(e.target)) {
                 setShowProfileDropdown(false);
@@ -213,66 +210,23 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
         </div>
     );
 
-    const renderAppDropdown = () => (
-        <div className="sa-app-dropdown">
-            <div
-                className="sa-app-dropdown-item"
-                onClick={() => {
-                    navigate('/client-gallery');
-                    setShowAppDropdown(false);
-                    setIsMobileMenuOpen(false);
-                }}
-            >
-                <img src={brandPng} alt="" className="w-10 h-10 object-contain shrink-0 mix-blend-multiply" />
-                <div className="min-w-0">
-                    <div className="text-sm font-semibold text-[#1A1A1A]">Client Gallery</div>
-                    <div className="text-xs text-[#888]">Share, deliver, proof and sell</div>
-                </div>
-            </div>
-            <div
-                className="sa-app-dropdown-item"
-                onClick={() => {
-                    navigate('/smart-albums');
-                    setShowAppDropdown(false);
-                    setIsMobileMenuOpen(false);
-                }}
-            >
-                <img src={smartAlbumPng} alt="" className="w-10 h-10 object-contain shrink-0 mix-blend-multiply" />
-                <div className="min-w-0">
-                    <div className="text-sm font-semibold text-[#1A1A1A]">Smart Albums</div>
-                    <div className="text-xs text-[#888]">Design and deliver photo albums</div>
-                </div>
-            </div>
-            <div
-                className="sa-app-dropdown-item"
-                onClick={() => {
-                    navigate('/mobile-gallery');
-                    setShowAppDropdown(false);
-                    setIsMobileMenuOpen(false);
-                }}
-            >
-                <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-gradient-to-br from-[#f1c40f] to-[#f39c12]">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
-                </div>
-                <div className="min-w-0">
-                    <div className="text-sm font-semibold text-[#1A1A1A]">Mobile Gallery App</div>
-                    <div className="text-xs text-[#888]">Personalized mobile photo albums</div>
-                </div>
-            </div>
-            <div className="h-px bg-[#ECEAE6] my-1 mx-4" />
-            <div
-                className="sa-app-dropdown-item"
-                onClick={() => {
-                    navigate('/dashboard');
-                    setShowAppDropdown(false);
-                    setIsMobileMenuOpen(false);
-                }}
-            >
-                <img src={dashboardPng} alt="" className="w-[18px] h-[18px] shrink-0 object-contain" />
-                <span className="text-sm font-medium text-[#333]">View Dashboard</span>
-            </div>
-        </div>
-    );
+    const handleGoToDashboard = () => {
+        navigate('/dashboard');
+        setIsMobileMenuOpen(false);
+    };
+
+    const isProductActive = (href) => {
+        if (href === '/smart-albums') {
+            return path === '/smart-albums' || path.startsWith('/smart-albums/');
+        }
+        return path.startsWith(href);
+    };
+
+    const handleEcosystemNavigate = (href) => {
+        navigate(href);
+        setShowEcosystemMenu(false);
+        setIsMobileMenuOpen(false);
+    };
 
     return (
         <div className="theme-mono flex flex-col md:flex-row min-h-screen md:h-screen w-full bg-[oklch(0.968_0.006_85)] md:overflow-hidden">
@@ -308,29 +262,82 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                     </div>
                     <div className="sa-sidebar-actions">
                         <SmartAlbumNotifications userId={user?.id} variant="sidebar" />
-                        <div className="relative" ref={appDropdownRef}>
-                            <button
-                                type="button"
-                                className="sa-sidebar-grid-btn neu-circle"
-                                onClick={() => setShowAppDropdown((open) => !open)}
-                                aria-label="App switcher"
-                                aria-expanded={showAppDropdown}
-                            >
-                                <GridIcon />
-                            </button>
-                            {showAppDropdown && renderAppDropdown()}
-                        </div>
+                        <button
+                            type="button"
+                            className="sa-sidebar-grid-btn neu-circle"
+                            onClick={handleGoToDashboard}
+                            aria-label="Go to dashboard"
+                            title="Dashboard"
+                        >
+                            <GridIcon />
+                        </button>
                     </div>
                 </div>
 
-                <div className="sa-sidebar-module">
-                    <span className="sa-sidebar-module-icon">
-                        <ModuleBookIcon />
-                    </span>
-                    <span className="sa-sidebar-module-label">Album Proofer</span>
-                    <svg className="sa-sidebar-module-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        <polyline points="6 9 12 15 18 9" />
-                    </svg>
+                <div className="sa-sidebar-module-wrap" ref={ecosystemMenuRef}>
+                    <button
+                        type="button"
+                        className={`sa-sidebar-module${showEcosystemMenu ? ' sa-sidebar-module--open' : ''}`}
+                        onClick={() => setShowEcosystemMenu((open) => !open)}
+                        aria-expanded={showEcosystemMenu}
+                        aria-haspopup="menu"
+                    >
+                        <span className="sa-sidebar-module-icon">
+                            <ModuleBookIcon />
+                        </span>
+                        <span className="sa-sidebar-module-label">Album Proofer</span>
+                        <svg
+                            className={`sa-sidebar-module-chevron${showEcosystemMenu ? ' sa-sidebar-module-chevron--open' : ''}`}
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="14"
+                            height="14"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            aria-hidden
+                        >
+                            <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                    </button>
+                    {showEcosystemMenu && (
+                        <div className="sa-ecosystem-menu" role="menu" aria-label="Pixnxt Ecosystem">
+                            <p className="sa-ecosystem-menu__heading">Pixnxt Ecosystem</p>
+                            <ul className="sa-ecosystem-menu__list">
+                                {products.map((product) => {
+                                    const active = isProductActive(product.href);
+                                    const ProductIcon = product.icon;
+                                    return (
+                                        <li key={product.id}>
+                                            <button
+                                                type="button"
+                                                role="menuitem"
+                                                className={`sa-ecosystem-menu__item${active ? ' sa-ecosystem-menu__item--active' : ''}`}
+                                                onClick={() => handleEcosystemNavigate(product.href)}
+                                            >
+                                                <span
+                                                    className={`sa-ecosystem-menu__icon${active ? ' sa-ecosystem-menu__icon--active' : ''}`}
+                                                >
+                                                    <ProductIcon size={16} strokeWidth={1.75} aria-hidden />
+                                                </span>
+                                                <span className="sa-ecosystem-menu__text">
+                                                    <span className="sa-ecosystem-menu__title-row">
+                                                        <span className="sa-ecosystem-menu__name">{product.name}</span>
+                                                        {active ? (
+                                                            <span className="sa-ecosystem-menu__badge">Current</span>
+                                                        ) : null}
+                                                    </span>
+                                                    <span className="sa-ecosystem-menu__tagline">{product.tagline}</span>
+                                                </span>
+                                            </button>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        </div>
+                    )}
                 </div>
 
                 <div className="sa-sidebar-divider" />
