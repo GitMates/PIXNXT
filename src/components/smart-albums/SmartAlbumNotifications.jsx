@@ -29,7 +29,7 @@ function clampPanelPosition(triggerRect) {
     return { top, left };
 }
 
-export default function SmartAlbumNotifications({ userId }) {
+export default function SmartAlbumNotifications({ userId, variant = 'default' }) {
     const navigate = useNavigate();
     const [open, setOpen] = useState(false);
     const [items, setItems] = useState([]);
@@ -182,24 +182,36 @@ export default function SmartAlbumNotifications({ userId }) {
 
     const badgeLabel = unreadCount > 99 ? '99+' : String(unreadCount);
 
+    const isSidebar = variant === 'sidebar';
+
     return (
         <div className="sa-notifications" ref={rootRef}>
             <button
                 type="button"
-                className="sa-notifications-trigger"
+                className={`sa-notifications-trigger${isSidebar ? ' sa-notifications-trigger--sidebar' : ''}`}
                 onClick={handleToggle}
                 aria-label={unreadCount ? `${unreadCount} unread notifications` : 'Notifications'}
                 aria-expanded={open}
             >
-                <img
-                    src={notificationPng}
-                    alt=""
-                    className="w-[18px] h-[18px] object-contain shrink-0"
-                    aria-hidden
-                />
+                {isSidebar ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                        <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                    </svg>
+                ) : (
+                    <img
+                        src={notificationPng}
+                        alt=""
+                        className="w-[18px] h-[18px] object-contain shrink-0"
+                        aria-hidden
+                    />
+                )}
                 {unreadCount > 0 && (
-                    <span className="sa-notifications-badge" style={{ background: PURPLE }}>
-                        {badgeLabel}
+                    <span
+                        className={`sa-notifications-badge${isSidebar ? ' sa-notifications-badge--dot' : ''}`}
+                        style={isSidebar ? undefined : { background: PURPLE }}
+                    >
+                        {isSidebar ? '' : badgeLabel}
                     </span>
                 )}
             </button>

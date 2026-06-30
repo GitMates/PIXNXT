@@ -57,6 +57,7 @@ import {
     albumHadClientFeedbackBefore,
     notifyAfterClientFeedbackAdded,
 } from './albumClientFeedbackNotify';
+import { canClientLeaveFeedback } from './albumProoferPreview';
 import './AlbumBook.css';
 import './AlbumSwapMarks.css';
 import './AlbumPhotoPins.css';
@@ -191,6 +192,9 @@ const AlbumBook = ({
     proofSpotPicker = false,
     spotCanComment = false,
     spotCanSwap = false,
+    clientPreview = false,
+    prooferAccess = null,
+    onProoferBlocked = null,
     external3DCover = false,
     coverRevealFrom3D = false,
     coverRevealDelayMs = 0,
@@ -224,6 +228,19 @@ const AlbumBook = ({
     const [pinComposer, setPinComposer] = useState(null);
     const [initialized, setInitialized] = useState(false);
     const [commentsSeenTick, setCommentsSeenTick] = useState(0);
+
+    const ensureClientFeedback = useCallback(
+        (action) => {
+            if (!previewMode || !clientPreview || !prooferAccess || !album?.id) return true;
+            const result = canClientLeaveFeedback(album.id, prooferAccess, action);
+            if (!result.ok) {
+                onProoferBlocked?.(result.message, result.code);
+                return false;
+            }
+            return true;
+        },
+        [previewMode, clientPreview, prooferAccess, album?.id, onProoferBlocked]
+    );
     const isPinModeOn = previewMode ? pinMarkMode : pinModeActive;
     const spreadOpts = useMemo(
         () => getSpreadContext(album, totalPages),
@@ -506,6 +523,11 @@ const AlbumBook = ({
         viewportWidth: bookDims ? bookDims.width * 2 : 0,
         viewportHeight: bookDims?.height ?? 0,
     });
+
+    const zoomPercentLabel = useMemo(
+        () => `${Math.round(spreadMagnify.scale * 100)}%`,
+        [spreadMagnify.scale]
+    );
 
     const goToPage = useCallback(
         (pageNum) => {
@@ -1185,6 +1207,7 @@ const AlbumBook = ({
     const handleSwapPick = useCallback(
         (secondSlot) => {
             if (!album?.id || !secondSlot) return;
+            if (!ensureClientFeedback('swap')) return;
             const originSlot = swapPickerOrigin || swapPinFlow?.originSlot;
             if (!originSlot) return;
 
@@ -1231,7 +1254,7 @@ const AlbumBook = ({
                 goToPage(secondSlot.pageNum ?? originSlot.pageNum);
             }
         },
-        [album?.id, swapPickerOrigin, swapPinFlow, previewMode, goToPage, spreadOpts, totalPages]
+        [album?.id, swapPickerOrigin, swapPinFlow, previewMode, goToPage, spreadOpts, totalPages, ensureClientFeedback]
     );
 
     const handleSwapSpreadNavigate = useCallback(
@@ -1252,6 +1275,7 @@ const AlbumBook = ({
             };
             if (!swapPinFlow) {
                 if (!swapMarkMode && !proofSpotPicker) return;
+                if (!ensureClientFeedback('swap')) return;
                 setSwapPinFlow({
                     originSlot: placement,
                     originPoint: placementPoint,
@@ -1276,6 +1300,7 @@ const AlbumBook = ({
                     return;
                 }
                 const hadFeedback = albumHadClientFeedbackBefore(album.id);
+                if (!ensureClientFeedback('swap')) return;
                 const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: {
                         xPct: 50,
@@ -1298,6 +1323,7 @@ const AlbumBook = ({
 
             if (slotsMatch(originSlot, placement)) {
                 const hadFeedback = albumHadClientFeedbackBefore(album.id);
+                if (!ensureClientFeedback('swap')) return;
                 const mark = addSwapMark(album.id, originSlot, placement, {
                     pointA: swapPinFlow.originPoint,
                     pointB: placementPoint,
@@ -1314,6 +1340,7 @@ const AlbumBook = ({
             }
 
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
+            if (!ensureClientFeedback('swap')) return;
             const mark = addSwapMark(album.id, originSlot, placement, {
                 pointA: swapPinFlow.originPoint,
                 pointB: placementPoint,
@@ -1325,7 +1352,7 @@ const AlbumBook = ({
                 setSwapPinFlow(null);
             }
         },
-        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker, previewMode]
+        [album?.id, swapPinFlow, swapMarkMode, proofSpotPicker, previewMode, ensureClientFeedback]
     );
 
     const getSwapMarkInfo = useCallback(
@@ -1368,6 +1395,7 @@ const AlbumBook = ({
     const handlePinSave = useCallback(
         (message) => {
             if (!album?.id || !pinComposer) return;
+            if (!ensureClientFeedback('comment')) return;
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addPhotoPin(album.id, { ...pinComposer, message });
             if (previewMode) {
@@ -1375,19 +1403,20 @@ const AlbumBook = ({
             }
             setPinComposer(null);
         },
-        [album?.id, pinComposer, previewMode]
+        [album?.id, pinComposer, previewMode, ensureClientFeedback]
     );
 
     const handlePinSaveDirect = useCallback(
         (placement) => {
             if (!album?.id || !placement?.message?.trim()) return;
+            if (!ensureClientFeedback('comment')) return;
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addPhotoPin(album.id, placement);
             if (previewMode) {
                 notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
             }
         },
-        [album?.id, previewMode]
+        [album?.id, previewMode, ensureClientFeedback]
     );
 
     const handlePinRemove = useCallback(
@@ -1716,14 +1745,57 @@ const AlbumBook = ({
                 </div>
                 </div>
                 </div>
-                <div className="ab-spread-controls">
+                <div
+                    className={`ab-spread-controls${
+                        previewMode ? ' ab-spread-controls--preview' : ''
+                    }`}
+                >
+                    {previewMode ? (
+                        <>
+                            <button
+                                type="button"
+                                className="ab-control-icon ab-control-icon--button"
+                                aria-label="Zoom out"
+                                disabled={!spreadMagnify.canZoomOut}
+                                onClick={spreadMagnify.zoomOut}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                            <span className="ab-zoom-level" aria-live="polite">
+                                {zoomPercentLabel}
+                            </span>
+                            <button
+                                type="button"
+                                className="ab-control-icon ab-control-icon--button"
+                                aria-label="Zoom in"
+                                disabled={!spreadMagnify.canZoomIn}
+                                onClick={spreadMagnify.zoomIn}
+                            >
+                                <svg width="20" height="20" viewBox="0 0 28 28" fill="none" aria-hidden>
+                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                    <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                                </svg>
+                            </button>
+                            <span className="ab-spread-controls-divider" aria-hidden />
+                        </>
+                    ) : null}
                     <button
                         type="button"
                         className="ab-control-icon ab-control-icon--button"
                         aria-label="Show spread full screen"
                         onClick={openFocusView}
                     >
-                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                        <svg
+                            width={previewMode ? 20 : 28}
+                            height={previewMode ? 20 : 28}
+                            viewBox="0 0 28 28"
+                            fill="none"
+                        >
                             <path d="M5 11V5h6M17 5h6v6M23 17v6h-6M11 23H5v-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="square" />
                             <path d="M6 6l6 6M22 6l-6 6M22 22l-6-6M6 22l6-6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="square" />
                         </svg>
@@ -1734,7 +1806,12 @@ const AlbumBook = ({
                         aria-label="Show page overview"
                         onClick={openOverview}
                     >
-                        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+                        <svg
+                            width={previewMode ? 20 : 28}
+                            height={previewMode ? 20 : 28}
+                            viewBox="0 0 28 28"
+                            fill="none"
+                        >
                             {Array.from({ length: 9 }, (_, i) => {
                                 const x = 5 + (i % 3) * 7;
                                 const y = 5 + Math.floor(i / 3) * 7;
@@ -1742,36 +1819,6 @@ const AlbumBook = ({
                             })}
                         </svg>
                     </button>
-                    {previewMode ? (
-                        <>
-                            <button
-                                type="button"
-                                className="ab-control-icon ab-control-icon--button"
-                                aria-label="Zoom out"
-                                disabled={!spreadMagnify.canZoomOut}
-                                onClick={spreadMagnify.zoomOut}
-                            >
-                                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                    <path d="M8 11h6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                </svg>
-                            </button>
-                            <button
-                                type="button"
-                                className="ab-control-icon ab-control-icon--button"
-                                aria-label="Zoom in"
-                                disabled={!spreadMagnify.canZoomIn}
-                                onClick={spreadMagnify.zoomIn}
-                            >
-                                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden>
-                                    <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
-                                    <path d="M16 16l5.5 5.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                    <path d="M8 11h6M11 8v6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-                                </svg>
-                            </button>
-                        </>
-                    ) : null}
                     <span className="ab-page-counter" title={`Pages ${pageRangeLabel}`}>
                         {counterLabel}
                     </span>

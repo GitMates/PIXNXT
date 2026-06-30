@@ -7,9 +7,12 @@ import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu
 import AlbumListCoverThumb from '../../components/smart-albums/AlbumListCoverThumb';
 import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
 import EditAlbumModal from '../../components/smart-albums/EditAlbumModal';
-import { formatStorageBytes } from '../../utils/formatStorageBytes';
-import '../ClientGallery.css';
+import AlbumSettingsSheet from '../../components/smart-albums/AlbumSettingsSheet';
+import AlbumStatusFilterPopover from '../../components/smart-albums/AlbumStatusFilterPopover';
+import '../../components/portal/portal.css';
+import '../../components/smart-albums/AlbumStatusFilterPopover.css';
 import './SmartAlbums.css';
+import './SmartAlbumsListProofer.css';
 
 function formatAlbumDate(dateStr) {
     if (!dateStr) return 'No date';
@@ -41,12 +44,6 @@ function isThisYear(dateStr) {
     return d.getFullYear() === new Date().getFullYear();
 }
 
-const STAR_FILTERS = [
-    { value: 'all', label: 'All albums' },
-    { value: 'starred', label: 'Starred' },
-    { value: 'not-starred', label: 'Not starred' },
-];
-
 const CREATED_FILTERS = [
     { value: 'newest', label: 'Newest first' },
     { value: 'oldest', label: 'Oldest first' },
@@ -54,70 +51,85 @@ const CREATED_FILTERS = [
     { value: 'this-year', label: 'This year' },
 ];
 
-function FilterDropdown({ id, label, valueLabel, open, onToggle, options, value, onChange }) {
-    return (
-        <div className="sa-filter-dropdown">
-            <button
-                type="button"
-                className={`sa-filter-pill${value !== 'all' && value !== 'newest' ? ' sa-filter-pill--active' : ''}`}
-                onClick={() => onToggle(open ? null : id)}
-                aria-expanded={open}
-            >
-                <span>{valueLabel || label}</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                    <polyline points="6 9 12 15 18 9" />
-                </svg>
-            </button>
-            {open && (
-                <div className="sa-filter-menu">
-                    {options.map((option) => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            className={`sa-filter-option${value === option.value ? ' sa-filter-option--selected' : ''}`}
-                            onClick={() => {
-                                onChange(option.value);
-                                onToggle(null);
-                            }}
-                        >
-                            <span>{option.label}</span>
-                            {value === option.value && <span className="sa-filter-check">✓</span>}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-    );
+function formatRelativeTime(dateStr) {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    if (Number.isNaN(date.getTime())) return '';
+    const diffMs = Date.now() - date.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} day${days === 1 ? '' : 's'} ago`;
+    return formatAlbumDate(dateStr);
 }
 
-const AlbumStarButton = ({ starred, onClick }) => (
-    <svg
-        className={`cg-style-76 ${starred ? 'opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]' : 'opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] group-hover:opacity-100'}`}
-        xmlns="http://www.w3.org/2000/svg"
-        width="22"
-        height="22"
-        viewBox="0 0 24 24"
-        fill={starred ? '#f5c518' : 'none'}
-        stroke={starred ? '#f5c518' : 'white'}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        onClick={onClick}
-        role="button"
-        tabIndex={0}
-        aria-label={starred ? 'Unstar album' : 'Star album'}
-        onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                onClick(e);
-            }
-        }}
-    >
-        <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-);
+function getAlbumProofStatus(album) {
+    if (album.client_approved_at) {
+        return { label: 'Approved', tone: 'approved' };
+    }
+    if (album.client_changes_submitted_at) {
+        return { label: 'Revision requested', tone: 'revision' };
+    }
+    if (album.status === 'published' && album.share_link_enabled !== false) {
+        return { label: 'Awaiting feedback', tone: 'awaiting' };
+    }
+    return { label: 'Draft', tone: 'draft' };
+}
 
-const AlbumsList = ({ starredOnly = false }) => {
+function getAlbumClientLabel(album) {
+    const tags = getAlbumCategories(album);
+    if (tags.length) return tags.join(' & ');
+    const parts = album.name?.split('—') || album.name?.split('-') || [];
+    if (parts.length > 1) {
+        const left = parts[0].trim();
+        if (left.includes(' x ')) {
+            return left
+                .split(' x ')
+                .map((part) => part.trim())
+                .filter(Boolean)
+                .join(' & ');
+        }
+    }
+    return '';
+}
+
+function getAlbumFootnote(album, status) {
+    if (status?.tone === 'revision' || album.client_changes_submitted_at) {
+        const spreads = album.page_count || 4;
+        return `${spreads} spreads have new comments`;
+    }
+    if (album.client_commenting_started_at) {
+        return 'Client started reviewing spreads';
+    }
+    if (album.client_approved_at) {
+        return 'Approved for binding';
+    }
+    if (isAwaitingFeedback(album)) {
+        return 'Awaiting client sign-off';
+    }
+    const pages = album.page_count || 0;
+    return pages ? `${pages} spreads in album` : '';
+}
+
+const PAGE_SUBTITLES = {
+    all: 'Upload your spreads, collect feedback, and get sign-off — all in one swipeable proof.',
+    awaiting: 'Albums shared with clients that are still waiting on feedback or approval.',
+    approved: 'Albums your clients have approved and are ready for production.',
+};
+
+function isAwaitingFeedback(album) {
+    if (album.client_approved_at) return false;
+    return album.status === 'published' && album.share_link_enabled !== false;
+}
+
+function isApprovedAlbum(album) {
+    return Boolean(album.client_approved_at);
+}
+
+const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const navigate = useNavigate();
     const { user, loading: authLoading } = useAuth();
     const [albums, setAlbums] = useState([]);
@@ -125,8 +137,10 @@ const AlbumsList = ({ starredOnly = false }) => {
     const [searchQuery, setSearchQuery] = useState('');
     const [starFilter, setStarFilter] = useState(starredOnly ? 'starred' : 'all');
     const [createdFilter, setCreatedFilter] = useState('newest');
-    const [categoryFilter, setCategoryFilter] = useState('all');
-    const [openFilter, setOpenFilter] = useState(null);
+    const [statusFilter, setStatusFilter] = useState('all');
+    const [pendingStatusFilter, setPendingStatusFilter] = useState('all');
+    const [showStatusFilter, setShowStatusFilter] = useState(false);
+    const [sortOpen, setSortOpen] = useState(false);
     const [contextMenuId, setContextMenuId] = useState(null);
     const [contextMenuAnchor, setContextMenuAnchor] = useState(null);
     const [shareLinkAlbum, setShareLinkAlbum] = useState(null);
@@ -134,9 +148,17 @@ const AlbumsList = ({ starredOnly = false }) => {
     const [duplicateBusyId, setDuplicateBusyId] = useState(null);
     const [editAlbum, setEditAlbum] = useState(null);
     const [editSaving, setEditSaving] = useState(false);
+    const [settingsAlbum, setSettingsAlbum] = useState(null);
     const contextRef = useRef(null);
     const filtersRef = useRef(null);
-    const pageTitle = starredOnly ? 'Starred' : 'Albums';
+    const pageTitle =
+        proofFilter === 'awaiting'
+            ? 'Awaiting feedback'
+            : proofFilter === 'approved'
+              ? 'Approved'
+              : starredOnly
+                ? 'Starred'
+                : 'Albums';
 
     const closeContextMenu = useCallback(() => {
         setContextMenuId(null);
@@ -181,7 +203,8 @@ const AlbumsList = ({ starredOnly = false }) => {
             if (contextMenuAnchor?.contains(e.target)) return;
             closeContextMenu();
             if (filtersRef.current?.contains(e.target)) return;
-            setOpenFilter(null);
+            setSortOpen(false);
+            setShowStatusFilter(false);
         };
         document.addEventListener('mousedown', onDocClick);
         return () => document.removeEventListener('mousedown', onDocClick);
@@ -190,25 +213,6 @@ const AlbumsList = ({ starredOnly = false }) => {
     useEffect(() => {
         if (starredOnly) setStarFilter('starred');
     }, [starredOnly]);
-
-    const handleToggleStar = async (e, album) => {
-        e.stopPropagation();
-        if (!user) return;
-        const next = !album.is_starred;
-        try {
-            await smartAlbumsService.updateAlbumStar(user.id, album.id, next);
-            if (starredOnly && !next) {
-                setAlbums((prev) => prev.filter((a) => a.id !== album.id));
-            } else {
-                setAlbums((prev) =>
-                    prev.map((a) => (a.id === album.id ? { ...a, is_starred: next } : a))
-                );
-            }
-        } catch (err) {
-            console.error(err);
-            alert('Could not update star. Please try again.');
-        }
-    };
 
     const openContextMenu = (e, albumId) => {
         e.stopPropagation();
@@ -319,6 +323,10 @@ const AlbumsList = ({ starredOnly = false }) => {
                     openSmartAlbumPreview(album.id);
                 }}
                 onQuickEdit={() => handleQuickEdit(album)}
+                onAlbumSettings={() => {
+                    closeContextMenu();
+                    setSettingsAlbum(album);
+                }}
                 onDuplicate={() => handleDuplicateAlbum(album)}
                 onDelete={() => handleDeleteAlbum(album)}
                 onShareByEmail={() => handleShareByEmail(album)}
@@ -329,41 +337,27 @@ const AlbumsList = ({ starredOnly = false }) => {
         );
     };
 
-    const categoryOptions = useMemo(() => {
-        const categories = Array.from(
-            new Set(albums.flatMap((album) => getAlbumCategories(album)))
-        ).sort((a, b) => a.localeCompare(b));
-        return [
-            { value: 'all', label: 'All categories' },
-            ...categories.map((category) => ({ value: category, label: category })),
-        ];
-    }, [albums]);
-
-    const starLabel =
-        starFilter === 'all'
-            ? 'Starred'
-            : STAR_FILTERS.find((f) => f.value === starFilter)?.label || 'Starred';
-    const createdLabel =
-        createdFilter === 'newest'
-            ? 'Created date'
-            : CREATED_FILTERS.find((f) => f.value === createdFilter)?.label || 'Created date';
-    const categoryLabel =
-        categoryFilter === 'all'
-            ? 'Category'
-            : categoryOptions.find((f) => f.value === categoryFilter)?.label || 'Category';
+    const sortLabel =
+        CREATED_FILTERS.find((f) => f.value === createdFilter)?.label || 'Newest';
 
     const filteredAlbums = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
         const result = albums.filter((a) => {
+            if (proofFilter === 'awaiting' && !isAwaitingFeedback(a)) return false;
+            if (proofFilter === 'approved' && !isApprovedAlbum(a)) return false;
+            if (statusFilter !== 'all' && getAlbumProofStatus(a).tone !== statusFilter) {
+                return false;
+            }
             if (starredOnly && !a.is_starred) return false;
             if (starFilter === 'starred' && !a.is_starred) return false;
             if (starFilter === 'not-starred' && a.is_starred) return false;
             if (createdFilter === 'this-month' && !isThisMonth(a.created_at)) return false;
             if (createdFilter === 'this-year' && !isThisYear(a.created_at)) return false;
-            if (categoryFilter !== 'all' && !getAlbumCategories(a).includes(categoryFilter)) {
-                return false;
+            if (q) {
+                const inName = a.name?.toLowerCase().includes(q);
+                const inClient = getAlbumClientLabel(a).toLowerCase().includes(q);
+                if (!inName && !inClient) return false;
             }
-            if (q && !a.name?.toLowerCase().includes(q)) return false;
             return true;
         });
         return result.sort((a, b) => {
@@ -371,146 +365,203 @@ const AlbumsList = ({ starredOnly = false }) => {
             const bTime = new Date(b.created_at || 0).getTime() || 0;
             return createdFilter === 'oldest' ? aTime - bTime : bTime - aTime;
         });
-    }, [albums, searchQuery, starredOnly, starFilter, createdFilter, categoryFilter]);
+    }, [albums, searchQuery, starredOnly, proofFilter, statusFilter, starFilter, createdFilter]);
 
     const hasActiveFilters =
         (!starredOnly && starFilter !== 'all') ||
         (starredOnly && starFilter !== 'starred') ||
-        createdFilter !== 'newest' ||
-        categoryFilter !== 'all';
+        statusFilter !== 'all' ||
+        createdFilter !== 'newest';
     const showEmpty = !loading && filteredAlbums.length === 0 && !searchQuery && !hasActiveFilters;
 
+    const pageSubtitle =
+        proofFilter === 'awaiting'
+            ? PAGE_SUBTITLES.awaiting
+            : proofFilter === 'approved'
+              ? PAGE_SUBTITLES.approved
+              : PAGE_SUBTITLES.all;
+
     return (
-        <main className="sa-main cg-style-2">
-            <header className="sa-header cg-style-3">
-                <div className="cg-style-4">
-                    <h1 className="cg-style-5 sa-title-inline">{pageTitle}</h1>
-                    <div className="cg-style-6">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <circle cx="11" cy="11" r="8" />
-                            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                        </svg>
-                        <input
-                            type="search"
-                            placeholder="Search albums"
-                            className="cg-style-7"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            aria-label="Search albums"
-                        />
-                    </div>
+        <main className="sa-proofer-albums">
+            <header className="sa-proofer-albums__hero">
+                <div>
+                    <h1 className="sa-proofer-albums__title">{pageTitle}</h1>
+                    <p className="sa-proofer-albums__subtitle">{pageSubtitle}</p>
                 </div>
-                {!starredOnly && (
-                    <div className="cg-style-8">
-                        <button type="button" className="sa-btn-primary" onClick={() => navigate('/smart-albums/create')}>
-                            New Album
-                        </button>
-                    </div>
+                {!starredOnly && proofFilter === 'all' && (
+                    <button
+                        type="button"
+                        className="sa-proofer-albums__new-btn"
+                        onClick={() => navigate('/smart-albums/create')}
+                    >
+                        + New album
+                    </button>
                 )}
             </header>
 
-            <div className="sa-filter-bar" ref={filtersRef}>
-                <FilterDropdown
-                    id="starred"
-                    label="Starred"
-                    valueLabel={starLabel}
-                    open={openFilter === 'starred'}
-                    onToggle={setOpenFilter}
-                    options={STAR_FILTERS}
-                    value={starFilter}
-                    onChange={setStarFilter}
-                />
-                <FilterDropdown
-                    id="created"
-                    label="Created date"
-                    valueLabel={createdLabel}
-                    open={openFilter === 'created'}
-                    onToggle={setOpenFilter}
-                    options={CREATED_FILTERS}
-                    value={createdFilter}
-                    onChange={setCreatedFilter}
-                />
-                <FilterDropdown
-                    id="category"
-                    label="Category"
-                    valueLabel={categoryLabel}
-                    open={openFilter === 'category'}
-                    onToggle={setOpenFilter}
-                    options={categoryOptions}
-                    value={categoryFilter}
-                    onChange={setCategoryFilter}
-                />
+            <div className="sa-proofer-albums__toolbar" ref={filtersRef}>
+                <label className="sa-proofer-albums__search">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                    <input
+                        type="search"
+                        placeholder="Search albums by title or client…"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        aria-label="Search albums"
+                    />
+                </label>
+                {proofFilter === 'all' && (
+                    <div className="sa-proofer-albums__filter-anchor">
+                        <button
+                            type="button"
+                            className={`sa-proofer-albums__icon-btn${showStatusFilter || statusFilter !== 'all' ? ' sa-proofer-albums__icon-btn--active' : ''}${statusFilter !== 'all' ? ' sa-proofer-albums__icon-btn--filtered' : ''}`}
+                            onClick={() => {
+                                setSortOpen(false);
+                                setShowStatusFilter((open) => {
+                                    if (!open) setPendingStatusFilter(statusFilter);
+                                    return !open;
+                                });
+                            }}
+                            aria-label="Filter albums"
+                            aria-expanded={showStatusFilter}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+                            </svg>
+                        </button>
+                        <AlbumStatusFilterPopover
+                            open={showStatusFilter}
+                            value={pendingStatusFilter}
+                            onChange={setPendingStatusFilter}
+                            onApply={() => {
+                                setStatusFilter(pendingStatusFilter);
+                                setShowStatusFilter(false);
+                            }}
+                            onClear={() => setPendingStatusFilter('all')}
+                            onClose={() => setShowStatusFilter(false)}
+                        />
+                    </div>
+                )}
+                <div className="sa-proofer-albums__sort">
+                    <button
+                        type="button"
+                        className="sa-proofer-albums__sort-btn"
+                        onClick={() => setSortOpen((open) => !open)}
+                        aria-expanded={sortOpen}
+                    >
+                        <span>{createdFilter === 'newest' ? 'Newest' : sortLabel}</span>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                            <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                    </button>
+                    {sortOpen && (
+                        <div className="sa-proofer-albums__sort-menu">
+                            {CREATED_FILTERS.map((option) => (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    className={`sa-proofer-albums__sort-option${createdFilter === option.value ? ' sa-proofer-albums__sort-option--selected' : ''}`}
+                                    onClick={() => {
+                                        setCreatedFilter(option.value);
+                                        setSortOpen(false);
+                                    }}
+                                >
+                                    <span>{option.label}</span>
+                                    {createdFilter === option.value && <span>✓</span>}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
             </div>
 
-            <div className="sa-content sa-albums-content">
+            <div className="sa-proofer-albums__content">
                 {loading ? (
-                    <p className="sa-loading-text">Loading albums…</p>
+                    <p className="sa-proofer-albums__loading">Loading albums…</p>
                 ) : showEmpty ? (
                     starredOnly ? (
-                        <div className="cg-style-60">
-                            <h3 className="cg-style-61">No starred albums</h3>
-                            <p className="cg-style-62">Star albums from the Albums page to see them here.</p>
+                        <div className="sa-proofer-albums__empty">
+                            <p>No starred albums yet. Star albums from the Albums page to see them here.</p>
                         </div>
                     ) : (
-                        <div className="sa-empty">
-                            <div className="sa-empty-icon">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
-                                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
-                                    <line x1="8" y1="6" x2="16" y2="6" />
-                                    <line x1="8" y1="10" x2="14" y2="10" />
-                                </svg>
-                            </div>
-                            <h2>Create your first Smart Album</h2>
+                        <div className="sa-proofer-albums__empty-card">
+                            <h2>Create your first album</h2>
                             <p>Design beautiful photo albums for your clients. Start from a template or build your own layout.</p>
-                            <button type="button" className="sa-btn-primary" onClick={() => navigate('/smart-albums/create')}>
-                                Create Album
+                            <button
+                                type="button"
+                                className="sa-proofer-albums__new-btn"
+                                onClick={() => navigate('/smart-albums/create')}
+                            >
+                                + New album
                             </button>
                         </div>
                     )
                 ) : filteredAlbums.length === 0 ? (
-                    <div className="cg-style-60">
-                        <h3 className="cg-style-61">No matching albums</h3>
-                        <p className="cg-style-62">Try a different search term.</p>
+                    <div className="sa-proofer-albums__empty">
+                        <p>No matching albums. Try a different search or filter.</p>
                     </div>
                 ) : (
-                    <div className="cg-style-37 sa-albums-grid">
-                        {filteredAlbums.map((album) => (
-                            <div
-                                key={album.id}
-                                className={`cg-style-73 group${contextMenuId === album.id ? ' cg-style-73--ctx-open' : ''}`}
-                                onClick={() => navigate(`/smart-albums/album/${album.id}`)}
-                                onKeyDown={(e) => e.key === 'Enter' && navigate(`/smart-albums/album/${album.id}`)}
-                                role="button"
-                                tabIndex={0}
-                            >
-                                <div className="cg-style-74">
-                                    <AlbumListCoverThumb album={album} alt={album.name} />
-                                    <div className="cg-style-39" onClick={(e) => openContextMenu(e, album.id)}>
-                                        ⋮
-                                    </div>
-                                    <AlbumStarButton
-                                        starred={!!album.is_starred}
-                                        onClick={(e) => handleToggleStar(e, album)}
-                                    />
-                                    {renderContextMenu(album)}
-                                </div>
-                                <div className="px-1">
-                                    <h3 className="cg-style-43">{album.name}</h3>
-                                    <div className="cg-style-44 cg-style-44--split">
-                                        <div className="cg-style-44-meta">
-                                            <span className="cg-style-45" />
-                                            <span>{album.page_count || 21} pages</span>
-                                            <span className="cg-style-46">·</span>
-                                            <span>{formatAlbumDate(album.event_date)}</span>
+                    <div className="sa-proofer-albums__grid">
+                        {filteredAlbums.map((album) => {
+                            const status = getAlbumProofStatus(album);
+                            const clientLabel = getAlbumClientLabel(album);
+                            const footnote = getAlbumFootnote(album, status);
+                            return (
+                                <article
+                                    key={album.id}
+                                    className={`sa-proofer-album-card${contextMenuId === album.id ? ' sa-proofer-album-card--menu-open' : ''}`}
+                                    onClick={() => navigate(`/smart-albums/album/${album.id}`)}
+                                    onKeyDown={(e) =>
+                                        e.key === 'Enter' && navigate(`/smart-albums/album/${album.id}`)
+                                    }
+                                    role="button"
+                                    tabIndex={0}
+                                >
+                                    <div className="sa-proofer-album-card__shell">
+                                        <div className="sa-proofer-album-card__media">
+                                            <AlbumListCoverThumb album={album} alt={album.name} />
+                                            <button
+                                                type="button"
+                                                className="sa-proofer-album-card__menu"
+                                                onClick={(e) => openContextMenu(e, album.id)}
+                                                aria-label="Album options"
+                                            >
+                                                ⋮
+                                            </button>
+                                            {renderContextMenu(album)}
                                         </div>
-                                        <span className="cg-style-80" title="Storage used by this album">
-                                            {formatStorageBytes(album.storage_bytes)}
-                                        </span>
+                                        <div className="sa-proofer-album-card__body">
+                                            <h3 className="sa-proofer-album-card__name">{album.name}</h3>
+                                            {clientLabel ? (
+                                                <p className="sa-proofer-album-card__client">{clientLabel}</p>
+                                            ) : null}
+                                            <div className="sa-proofer-album-card__divider" />
+                                            <div className="sa-proofer-album-card__meta">
+                                                <span
+                                                    className={`sa-proofer-album-badge sa-proofer-album-badge--${status.tone}`}
+                                                >
+                                                    {status.tone === 'revision' && (
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                                                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                                                        </svg>
+                                                    )}
+                                                    {status.label}
+                                                </span>
+                                                <span className="sa-proofer-album-card__time">
+                                                    {formatRelativeTime(album.updated_at || album.created_at)}
+                                                </span>
+                                            </div>
+                                            {footnote ? (
+                                                <p className="sa-proofer-album-card__note">{footnote}</p>
+                                            ) : null}
+                                        </div>
                                     </div>
-                                </div>
-                            </div>
-                        ))}
+                                </article>
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -532,6 +583,21 @@ const AlbumsList = ({ starredOnly = false }) => {
                 onSave={handleEditSave}
                 onAdvanced={(album) => navigate(`/smart-albums/album/${album.id}`)}
                 saving={editSaving}
+            />
+            <AlbumSettingsSheet
+                isOpen={Boolean(settingsAlbum)}
+                onClose={() => setSettingsAlbum(null)}
+                album={settingsAlbum}
+                photographerId={user?.id}
+                onSaved={(updated) => {
+                    if (!updated?.id) return;
+                    setAlbums((prev) =>
+                        prev.map((a) => (a.id === updated.id ? { ...a, ...updated } : a))
+                    );
+                    setSettingsAlbum((current) =>
+                        current?.id === updated.id ? { ...current, ...updated } : current
+                    );
+                }}
             />
         </main>
     );

@@ -395,6 +395,95 @@
   cursor: not-allowed;
 }
 
+.av-guest-name-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(17, 24, 39, 0.45);
+}
+
+.av-guest-name-modal {
+  width: 100%;
+  max-width: 380px;
+  border-radius: 16px;
+  background: #fff;
+  padding: 24px;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.18);
+}
+
+.av-guest-name-modal__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.av-guest-name-modal__lead {
+  margin: 8px 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+.av-guest-name-modal__input {
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  background: #f3f4f6;
+  padding: 11px 14px;
+  font-size: 14px;
+  color: #111827;
+  outline: none;
+}
+
+.av-guest-name-modal__input:focus {
+  background: #eceef1;
+}
+
+.av-guest-name-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.av-guest-name-modal__btn {
+  border: none;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.av-guest-name-modal__btn--ghost {
+  background: transparent;
+  color: #6b7280;
+}
+
+.av-guest-name-modal__btn--ghost:hover {
+  background: #f3f4f6;
+  color: #111827;
+}
+
+.av-guest-name-modal__btn--primary {
+  background: #111827;
+  color: #fff;
+}
+
+.av-guest-name-modal__btn--primary:hover:not(:disabled) {
+  background: #1f2937;
+}
+
+.av-guest-name-modal__btn--primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 @media (max-width: 720px) {
   .av-preview-header {
     grid-template-columns: 40px minmax(0, 1fr);

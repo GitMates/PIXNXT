@@ -708,6 +708,25 @@
   border-radius: 6px;
 }
 
+.asc-settings-full-btn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.asc-settings-full-btn:hover {
+  background: #f8f9fb;
+  border-color: #c7cdd5;
+}
+
 
 /* Proofing comment bar (footer) — gallery reference layout */
 .asc-footer-wrap {

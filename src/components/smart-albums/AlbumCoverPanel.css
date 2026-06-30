@@ -1,0 +1,178 @@
+/* Edit cover sidebar panel — neumorphic reference */
+
+.ae-panel--cover {
+  padding: 0 !important;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background: oklch(0.995 0.004 85 / 0.88);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  scrollbar-width: thin;
+  scrollbar-color: oklch(0.55 0.01 70 / 0.45) transparent;
+}
+
+.ae-panel--cover::-webkit-scrollbar {
+  width: 5px;
+}
+
+.ae-panel--cover::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: oklch(0.55 0.01 70 / 0.45);
+}
+
+.ae-cover-panel {
+  --ae-cover-bg: oklch(0.968 0.006 85);
+  --ae-cover-inset: oklch(0.948 0.005 85);
+  --ae-cover-text: oklch(0.23 0.004 60);
+  --ae-cover-label: oklch(0.52 0.008 70);
+  --ae-cover-muted: oklch(0.62 0.01 70);
+  --ae-cover-section: oklch(0.68 0.01 70);
+  --ae-cover-neu-light: oklch(1 0.004 85 / 0.92);
+  --ae-cover-neu-dark: oklch(0.42 0.012 70 / 0.11);
+  --ae-cover-toggle-on: #10b981;
+
+  padding: 18px 20px 24px;
+  min-height: 0;
+}
+
+.ae-cover-panel__title {
+  margin: 0 0 10px;
+  font-family: 'EB Garamond', Georgia, 'Times New Roman', serif !important;
+  font-size: 24px !important;
+  font-weight: 500 !important;
+  letter-spacing: normal !important;
+  text-transform: none !important;
+  color: var(--ae-cover-text) !important;
+  line-height: 1.15;
+}
+
+.ae-cover-panel__intro {
+  margin: 0 0 20px;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--ae-cover-label);
+}
+
+.ae-cover-panel__upload {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 132px;
+  margin: 0 0 24px;
+  padding: 22px 18px;
+  border: none;
+  border-radius: 20px;
+  background: var(--ae-cover-inset);
+  color: var(--ae-cover-text);
+  cursor: pointer;
+  text-align: center;
+  box-shadow:
+    inset 3px 3px 9px var(--ae-cover-neu-dark),
+    inset -3px -3px 9px var(--ae-cover-neu-light);
+  transition: opacity 0.15s ease;
+}
+
+.ae-cover-panel__upload:hover:not(:disabled) {
+  opacity: 0.96;
+}
+
+.ae-cover-panel__upload:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.ae-cover-panel__upload-icon {
+  color: var(--ae-cover-label);
+  margin-bottom: 4px;
+}
+
+.ae-cover-panel__upload-title {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ae-cover-text);
+  line-height: 1.35;
+}
+
+.ae-cover-panel__upload-hint {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: var(--ae-cover-muted);
+  max-width: 220px;
+}
+
+.ae-cover-panel__spine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 22px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  background: var(--ae-cover-inset);
+  box-shadow:
+    inset 3px 3px 9px var(--ae-cover-neu-dark),
+    inset -3px -3px 9px var(--ae-cover-neu-light);
+}
+
+.ae-cover-panel__spine-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ae-cover-panel__spine-title {
+  margin: 0;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ae-cover-text);
+  line-height: 1.35;
+}
+
+.ae-cover-panel__spine-hint {
+  margin: 3px 0 0;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--ae-cover-muted);
+}
+
+.ae-cover-spine-toggle {
+  position: relative;
+  flex-shrink: 0;
+  width: 42px;
+  height: 24px;
+  border: none;
+  border-radius: 999px;
+  padding: 0;
+  cursor: pointer;
+  background: oklch(0.88 0.007 82);
+  box-shadow: inset 1px 1px 3px oklch(0.42 0.012 70 / 0.08);
+  transition: background 0.2s ease;
+}
+
+.ae-cover-spine-toggle--on {
+  background: var(--ae-cover-toggle-on);
+}
+
+.ae-cover-spine-toggle__knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px oklch(0.4 0.01 70 / 0.18);
+  transition: transform 0.2s ease;
+}
+
+.ae-cover-spine-toggle--on .ae-cover-spine-toggle__knob {
+  transform: translateX(18px);
+}

@@ -1,6 +1,8 @@
 import { getAlbumCollection } from './albumCollection';
 import { spliceIndexedPhotoMap } from './albumPageStorage';
 import { serializeImageReplacementsForSnapshot } from './albumImageReplacements';
+import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
+import { mergeAlbumClientFlagsFromProoferAccess } from './albumProoferPreview';
 
 const PHOTOS_KEY = 'pixnxt_album_page_photos';
 const REMOTE_CACHE = new Map();
@@ -176,6 +178,15 @@ export function buildAlbumPreviewSnapshot(
     }
 
     snapshot.cover_url = deriveCoverUrlFromSnapshot(snapshot);
+
+    if (album?.photographer_id) {
+        snapshot.proofer_access = smartAlbumProoferSettingsService.serializeAccessForPreview(
+            album.photographer_id,
+            albumId,
+            album
+        );
+    }
+
     return snapshot;
 }
 
@@ -186,18 +197,41 @@ function resolveHasCoversFromPreview(album, previewData) {
     return true;
 }
 
+/** Refresh embedded proofer access rules on a preview snapshot from the live album row. */
+export function patchAlbumPreviewProoferAccess(albumId, album) {
+    if (!albumId || !album?.photographer_id) return null;
+
+    const remote = REMOTE_CACHE.get(albumId) || album.preview_data || {};
+    const proofer_access = smartAlbumProoferSettingsService.serializeAccessForPreview(
+        album.photographer_id,
+        albumId,
+        { ...album, preview_data: remote }
+    );
+    const patched = {
+        ...remote,
+        proofer_access,
+        updated_at: new Date().toISOString(),
+    };
+    REMOTE_CACHE.set(albumId, patched);
+    return patched;
+}
+
 /** Merge cloud preview snapshot layout into album row for anonymous / client preview. */
 export function normalizeAlbumForClientPreview(album) {
     if (!album) return album;
-    const previewData = album.preview_data || {};
-    return {
+    const previewData =
+        album.id && album.photographer_id
+            ? patchAlbumPreviewProoferAccess(album.id, album) || album.preview_data || {}
+            : album.preview_data || {};
+    return mergeAlbumClientFlagsFromProoferAccess({
         ...album,
+        preview_data: previewData,
         has_covers: resolveHasCoversFromPreview(album, previewData),
         blank_covers: previewData.blank_covers === true || album.blank_covers === true,
         spread_grid_size: previewData.spread_grid_size ?? album.spread_grid_size ?? null,
         grid_size: album.grid_size ?? 'square',
         grid_layout: album.grid_layout ?? 'two-page',
-    };
+    });
 }
 
 export function hydrateAlbumPreviewData(albumId, previewData) {
