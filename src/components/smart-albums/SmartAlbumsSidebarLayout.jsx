@@ -311,7 +311,7 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                         <div className="relative" ref={appDropdownRef}>
                             <button
                                 type="button"
-                                className="sa-sidebar-grid-btn"
+                                className="sa-sidebar-grid-btn neu-circle"
                                 onClick={() => setShowAppDropdown((open) => !open)}
                                 aria-label="App switcher"
                                 aria-expanded={showAppDropdown}
@@ -357,7 +357,8 @@ const SmartAlbumsSidebarLayout = ({ children }) => {
                 </nav>
 
                 <div className="sa-sidebar-footer">
-                    <div className="sa-sidebar-storage">
+                    <div className="sa-sidebar-divider sa-sidebar-divider--footer" />
+                    <div className="sa-sidebar-storage neu-raised">
                         <div className="sa-sidebar-storage__head">
                             <span className="sa-sidebar-storage__label">
                                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
