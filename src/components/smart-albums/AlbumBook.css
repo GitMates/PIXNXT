@@ -1325,11 +1325,9 @@
 }
 
 .ab-root--preview .ab-spread-display > .ab-spread-controls--preview {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  margin-top: 0;
-  align-self: auto;
+  position: static;
+  align-self: flex-end;
+  margin-top: 12px;
   display: inline-flex;
   align-items: center;
   gap: 8px;

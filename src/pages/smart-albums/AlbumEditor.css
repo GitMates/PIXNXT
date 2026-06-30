@@ -634,31 +634,47 @@
 }
 
 .ae-spread-message-compose-box {
-  position: relative;
-  background: #fff;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: oklch(0.968 0.006 85);
   border: 1px solid #d1d7db;
   border-radius: 24px;
-  padding: 8px 52px 8px 14px;
+  padding: 10px 10px 10px 14px;
   box-shadow: 0 1px 2px rgba(11, 20, 26, 0.08);
 }
 
-.ae-spread-message-compose-input {
+.ae-spread-message-compose-box .ae-spread-message-compose-input {
+  all: unset;
+  box-sizing: border-box;
   display: block;
-  width: 100%;
-  min-height: 24px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 1.45em;
   max-height: 120px;
+  margin: 0;
   padding: 0;
   border: none;
   resize: none;
+  overflow: auto;
+  font-family: inherit;
   font-size: 14px;
   line-height: 1.45;
-  font-family: inherit;
   color: #111b21;
   background: transparent;
+  cursor: text;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
-.ae-spread-message-compose-input:focus {
+.ae-spread-message-compose-box .ae-spread-message-compose-input:focus,
+.ae-spread-message-compose-box .ae-spread-message-compose-input:focus-visible {
   outline: none;
+  box-shadow: none;
+  border: none;
+  background: transparent;
 }
 
 .ae-spread-message-compose-input::placeholder {
@@ -670,9 +686,8 @@
 }
 
 .ae-spread-message-compose-post {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
+  flex-shrink: 0;
+  align-self: flex-end;
   min-width: 40px;
   height: 36px;
   padding: 0 14px;
@@ -848,7 +863,7 @@
   overflow: visible;
   max-width: 100%;
   padding: 10px 8px 12px;
-  background: #fff;
+  background: oklch(0.968 0.006 85);
   border-radius: 10px;
 }
 
@@ -951,7 +966,7 @@
 }
 
 .ae-swap-marks--panel .ae-swap-marks-item {
-  background: #f9fafb;
+  background: oklch(0.968 0.006 85);
   border: 1px solid #e5e7eb;
 }
 
@@ -960,14 +975,14 @@
   align-items: stretch;
   gap: 0;
   padding: 10px 12px;
-  background: #f9fafb;
+  background: oklch(0.968 0.006 85);
   border-color: #e5e7eb;
   position: relative;
 }
 
 .ae-swap-marks--panel .ae-photo-pins-item {
-  background: #faf7ff;
-  border-color: #e9e5ff;
+  background: oklch(0.968 0.006 85);
+  border-color: #e5e7eb;
 }
 
 .ae-swap-marks-body {
@@ -1001,7 +1016,7 @@
   padding: 5px 10px;
   border: 1px solid #d1d5db;
   border-radius: 999px;
-  background: #fff;
+  background: oklch(0.955 0.008 85);
   color: #374151;
   font-size: 12px;
   font-weight: 600;
@@ -1153,7 +1168,7 @@
 
 /* Unseen highlight should appear only inside the swap/pin list rows. */
 .ae-swap-marks--panel .ae-swap-marks-card.ae-proof-item--unseen {
-  background: #eff6ff !important;
+  background: oklch(0.968 0.006 85) !important;
   border-color: #bfdbfe !important;
   box-shadow: inset 3px 0 0 #2563eb;
 }
@@ -1170,7 +1185,7 @@
   border-radius: 6px;
   padding: 6px 8px;
   margin: -6px -8px 0;
-  background: #eef2ff;
+  background: oklch(0.968 0.006 85);
   box-shadow: inset 3px 0 0 #7c3aed;
 }
 

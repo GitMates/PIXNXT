@@ -44,7 +44,7 @@ export default function EditorSpreadMessageCompose({
             <div className="ae-spread-message-compose-box">
                 <textarea
                     className="ae-spread-message-compose-input"
-                    rows={3}
+                    rows={2}
                     placeholder="Add a comment to this spread…"
                     value={draft}
                     disabled={disabled || posting}

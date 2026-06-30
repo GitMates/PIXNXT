@@ -744,7 +744,7 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
   padding: 10px 8px 12px;
-  background: #fff;
+  background: oklch(0.968 0.006 85);
   border-radius: 10px;
 }
 

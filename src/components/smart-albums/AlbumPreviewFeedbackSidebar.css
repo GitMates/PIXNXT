@@ -262,9 +262,25 @@
 }
 
 .av-feedback-sidebar .av-chat-bubble--out {
-  background: #d9f7c8;
-  border: none;
+  background: #f0faf0;
+  border: 1px solid #d4e8d8;
   border-top-right-radius: 14px;
+}
+
+.av-feedback-sidebar .av-chat-bubble--out:has(.av-chat-bubble-sender--swap),
+.av-feedback-sidebar .av-chat-bubble--out:has(.av-chat-bubble-sender--photo) {
+  background: #f0faf0;
+  border: 1px solid #d4e8d8;
+}
+
+.av-feedback-sidebar .av-chat-bubble--out:has(.av-chat-bubble-sender--swap) .av-chat-bubble-sender--swap,
+.av-feedback-sidebar .av-chat-bubble--out:has(.av-chat-bubble-sender--photo) .av-chat-bubble-sender--photo {
+  color: #9ab5a8;
+}
+
+.av-feedback-sidebar .av-chat-bubble--out:has(.av-chat-bubble-sender--swap) .av-chat-bubble-foot time,
+.av-feedback-sidebar .av-chat-bubble--out:has(.av-chat-bubble-sender--photo) .av-chat-bubble-foot time {
+  color: rgba(28, 28, 28, 0.38);
 }
 
 .av-feedback-sidebar .av-chat-bubble--in {

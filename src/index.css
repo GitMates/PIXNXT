@@ -132,6 +132,15 @@
     letter-spacing: 0.12em !important;
     font-weight: 700 !important;
   }
+
+  textarea.ae-spread-message-compose-input {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
 }
 
 /* Custom Utilities for Nova Theme */
