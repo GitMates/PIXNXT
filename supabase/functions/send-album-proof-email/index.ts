@@ -1,6 +1,13 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SmtpClient } from 'https://deno.land/x/smtp@v0.7.0/mod.ts';
+import {
+  applyTemplate,
+  buildAlbumPreviewUrl,
+  buildClientTemplateEmailHtml,
+  loadPhotographerProoferSettings,
+  templateToHtmlParagraphs,
+} from '../_shared/smartAlbumProoferEmail.ts';
 
 if (!Deno.writeAll) {
   // @ts-ignore
@@ -851,7 +858,7 @@ serve(async (req) => {
     const { data: album, error: albumError } = await supabaseAdmin
       .from('smart_albums')
       .select(
-        'id, name, status, photographer_id, client_commenting_started_at, client_commenting_started_by'
+        'id, name, slug, status, photographer_id, proofer_settings, client_commenting_started_at, client_commenting_started_by, client_approved_notified_at'
       )
       .eq('id', albumId)
       .maybeSingle();
@@ -864,16 +871,32 @@ serve(async (req) => {
       });
     }
 
-    if (action === 'client_started_commenting' && album.client_commenting_started_at) {
-      return new Response(
-        JSON.stringify({
-          ok: true,
-          skipped: true,
-          alreadyNotified: true,
-          notifiedAt: album.client_commenting_started_at,
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const prooferSettings = await loadPhotographerProoferSettings(supabaseAdmin, album.photographer_id);
+    const photographerAlerts = prooferSettings.photographerAlerts || 'digest';
+
+    if (action === 'client_started_commenting') {
+      if (photographerAlerts === 'digest') {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: 'digest_mode',
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      if (album.client_commenting_started_at) {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            skipped: true,
+            alreadyNotified: true,
+            notifiedAt: album.client_commenting_started_at,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     const photoRows: PhotoCommentRow[] = (Array.isArray(photoComments) ? photoComments : []).filter(
@@ -1034,6 +1057,16 @@ serve(async (req) => {
     }
 
     const client = new SmtpClient();
+    let clientEmailResult: { sent?: boolean; skipped?: string; to?: string; error?: string } = {
+      skipped: 'not_requested',
+    };
+
+    const shouldSendClientApproved =
+      action === 'approve' &&
+      prooferSettings.statusChangeEmails &&
+      !album.client_approved_notified_at &&
+      Boolean(guestEmail?.trim());
+
     try {
       await client.connectTLS(smtpConfig);
       await client.send({
@@ -1043,6 +1076,43 @@ serve(async (req) => {
         content: plainBody,
         html,
       });
+
+      if (shouldSendClientApproved) {
+        const clientEmail = guestEmail!.trim();
+        try {
+          const albumLink = buildAlbumPreviewUrl(album, album.proofer_settings, origin);
+          const approvedTemplate = prooferSettings.approvedTemplate || '';
+          const clientPlain = applyTemplate(approvedTemplate, {
+            client_name: clientName,
+            album_name: album.name || 'your album',
+            album_link: albumLink,
+            view_album_link: albumLink,
+          });
+          const clientHtml = buildClientTemplateEmailHtml({
+            photographerName: photographer.display_name || 'Your photographer',
+            albumName: album.name || 'your album',
+            bodyHtml: templateToHtmlParagraphs(clientPlain),
+            ctaUrl: albumLink,
+            ctaLabel: 'View album',
+          });
+
+          await client.send({
+            from: smtpConfig.username,
+            to: clientEmail,
+            subject: `Approved: ${album.name || 'your album'}`,
+            content: clientPlain,
+            html: clientHtml,
+          });
+          clientEmailResult = { sent: true, to: clientEmail };
+        } catch (clientErr) {
+          console.warn('send-album-proof-email: client approval email failed', clientErr);
+          clientEmailResult = {
+            error: clientErr instanceof Error ? clientErr.message : 'client_email_failed',
+          };
+        }
+      } else if (action === 'approve' && prooferSettings.statusChangeEmails) {
+        clientEmailResult = { skipped: guestEmail?.trim() ? 'already_notified' : 'no_client_email' };
+      }
     } finally {
       await client.close();
     }
@@ -1095,21 +1165,32 @@ serve(async (req) => {
       console.log('send-album-proof-email: whatsapp result:', whatsappResult);
     }
 
-    const proofPatch =
-      action === 'approve'
-        ? {
-            client_approved_at: new Date().toISOString(),
-            client_approved_by: clientName,
-          }
-        : action === 'client_started_commenting'
-          ? {
-              client_commenting_started_at: new Date().toISOString(),
-              client_commenting_started_by: clientName,
-            }
-          : {
-              client_changes_submitted_at: new Date().toISOString(),
-              client_changes_submitted_by: clientName,
-            };
+    const now = new Date().toISOString();
+    const proofPatch: Record<string, string> = {
+      client_last_activity_at: now,
+    };
+
+    if (guestEmail?.trim()) {
+      proofPatch.client_contact_email = guestEmail.trim();
+      proofPatch.client_contact_name = clientName;
+    } else {
+      proofPatch.client_contact_name = clientName;
+    }
+
+    if (action === 'approve') {
+      proofPatch.client_approved_at = now;
+      proofPatch.client_approved_by = clientName;
+      if (clientEmailResult.sent && guestEmail?.trim()) {
+        proofPatch.client_approved_notified_at = now;
+        proofPatch.client_contact_email = guestEmail.trim();
+      }
+    } else if (action === 'client_started_commenting') {
+      proofPatch.client_commenting_started_at = now;
+      proofPatch.client_commenting_started_by = clientName;
+    } else {
+      proofPatch.client_changes_submitted_at = now;
+      proofPatch.client_changes_submitted_by = clientName;
+    }
 
     const { error: proofUpdateError } = await supabaseAdmin
       .from('smart_albums')
@@ -1126,6 +1207,7 @@ serve(async (req) => {
         action,
         to: photographer.email,
         whatsapp: whatsappResult,
+        clientEmail: clientEmailResult,
         photoCount: photoRows.length,
         swapCount: swapRows.length,
         commentCount: spreadRows.length,

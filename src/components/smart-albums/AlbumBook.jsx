@@ -44,6 +44,7 @@ import {
     getSwapMarks,
     makeSlotKey,
     slotsMatch,
+    getSlotLabel,
     SWAP_MARKS_CHANGED_EVENT,
 } from './albumSwapMarks';
 import {
@@ -55,7 +56,7 @@ import {
 } from './albumPhotoPins';
 import {
     albumHadClientFeedbackBefore,
-    notifyAfterClientFeedbackAdded,
+    notifyClientFeedbackEvent,
 } from './albumClientFeedbackNotify';
 import { canClientLeaveFeedback } from './albumProoferPreview';
 import './AlbumBook.css';
@@ -1242,7 +1243,13 @@ const AlbumBook = ({
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addSwapMark(album.id, originSlot, secondSlot, { pointA, pointB });
             if (previewMode) {
-                notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+                notifyClientFeedbackEvent(album.id, {
+                    photographerId: album.photographer_id,
+                    hadFeedbackBefore: hadFeedback,
+                    eventType: 'swap',
+                    eventLabel: 'Swap request',
+                    eventDetail: `${originSlot.label || getSlotLabel(originSlot.pageNum, originSlot.cellId, originSlot.whole)} ↔ ${secondSlot.label || getSlotLabel(secondSlot.pageNum, secondSlot.cellId, secondSlot.whole)}`,
+                });
             }
             setSwapPickerOrigin(null);
             setSwapPinFlow(null);
@@ -1312,8 +1319,12 @@ const AlbumBook = ({
                 });
                 if (mark) {
                     if (previewMode) {
-                        notifyAfterClientFeedbackAdded(album.id, {
+                        notifyClientFeedbackEvent(album.id, {
+                            photographerId: album.photographer_id,
                             hadFeedbackBefore: hadFeedback,
+                            eventType: 'swap',
+                            eventLabel: 'Swap request',
+                            eventDetail: `${originSlot.label || getSlotLabel(originSlot.pageNum, originSlot.cellId, originSlot.whole)} ↔ ${placement.label || getSlotLabel(placement.pageNum, placement.cellId, placement.whole)}`,
                         });
                     }
                     setSwapPinFlow(null);
@@ -1330,8 +1341,12 @@ const AlbumBook = ({
                 });
                 if (mark) {
                     if (previewMode) {
-                        notifyAfterClientFeedbackAdded(album.id, {
+                        notifyClientFeedbackEvent(album.id, {
+                            photographerId: album.photographer_id,
                             hadFeedbackBefore: hadFeedback,
+                            eventType: 'swap',
+                            eventLabel: 'Swap request',
+                            eventDetail: `${originSlot.label || getSlotLabel(originSlot.pageNum, originSlot.cellId, originSlot.whole)} ↔ ${placement.label || getSlotLabel(placement.pageNum, placement.cellId, placement.whole)}`,
                         });
                     }
                     setSwapPinFlow(null);
@@ -1347,7 +1362,13 @@ const AlbumBook = ({
             });
             if (mark) {
                 if (previewMode) {
-                    notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+                    notifyClientFeedbackEvent(album.id, {
+                        photographerId: album.photographer_id,
+                        hadFeedbackBefore: hadFeedback,
+                        eventType: 'swap',
+                        eventLabel: 'Swap request',
+                        eventDetail: `${originSlot.label || getSlotLabel(originSlot.pageNum, originSlot.cellId, originSlot.whole)} ↔ ${placement.label || getSlotLabel(placement.pageNum, placement.cellId, placement.whole)}`,
+                    });
                 }
                 setSwapPinFlow(null);
             }
@@ -1399,7 +1420,13 @@ const AlbumBook = ({
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addPhotoPin(album.id, { ...pinComposer, message });
             if (previewMode) {
-                notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+                notifyClientFeedbackEvent(album.id, {
+                    photographerId: album.photographer_id,
+                    hadFeedbackBefore: hadFeedback,
+                    eventType: 'photo_comment',
+                    eventLabel: 'Photo comment',
+                    eventDetail: message,
+                });
             }
             setPinComposer(null);
         },
@@ -1413,7 +1440,13 @@ const AlbumBook = ({
             const hadFeedback = albumHadClientFeedbackBefore(album.id);
             addPhotoPin(album.id, placement);
             if (previewMode) {
-                notifyAfterClientFeedbackAdded(album.id, { hadFeedbackBefore: hadFeedback });
+                notifyClientFeedbackEvent(album.id, {
+                    photographerId: album.photographer_id,
+                    hadFeedbackBefore: hadFeedback,
+                    eventType: 'photo_comment',
+                    eventLabel: 'Photo comment',
+                    eventDetail: placement.message,
+                });
             }
         },
         [album?.id, previewMode, ensureClientFeedback]

@@ -15,7 +15,7 @@ import {
 } from '../../services/smartAlbumComments.service';
 import {
     albumHadClientFeedbackBefore,
-    notifyAfterClientFeedbackAdded,
+    notifyClientFeedbackEvent,
 } from './albumClientFeedbackNotify';
 import './AlbumSpreadComments.css';
 
@@ -25,6 +25,7 @@ function commentCountFromThreads(threads) {
 
 export default function AlbumSpreadComments({
     albumId,
+    photographerId = null,
     spreadIndex,
     spreadLabel = 'Spread',
     commentsEnabled = true,
@@ -260,14 +261,21 @@ export default function AlbumSpreadComments({
                 }
                 setSyncedAt(new Date());
                 if (showClientCompose) {
-                    notifyAfterClientFeedbackAdded(albumId, { hadFeedbackBefore: hadFeedback });
+                    notifyClientFeedbackEvent(albumId, {
+                        photographerId,
+                        hadFeedbackBefore: hadFeedback,
+                        eventType: 'comment',
+                        eventLabel: spreadLabel,
+                        eventDetail: trimmed,
+                        comments: [{ spread_index: spreadIndex, body: trimmed, author_name: guest.name }],
+                    });
                 }
             } catch (e) {
                 console.error(e);
                 setSaveState('error');
             }
         },
-        [albumId, spreadIndex, draftId, loadComments, persistGuestProfile, isFooter, refreshAlbumCommentCount, showClientCompose]
+        [albumId, photographerId, spreadIndex, spreadLabel, draftId, loadComments, persistGuestProfile, isFooter, refreshAlbumCommentCount, showClientCompose]
     );
 
     const clearDraftComment = useCallback(async () => {

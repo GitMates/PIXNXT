@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase/client';
+import { albumProofService } from './albumProof.service';
 import { smartAlbumProoferSettingsService } from './smartAlbumProoferSettings.service';
 import { categoryTagsToDb } from '../lib/categoryTags';
 import { deleteAlbumCollectionAssets, getAlbumCollectionStorageBytes } from '../components/smart-albums/albumCollection';
@@ -279,6 +280,13 @@ const ALBUM_LIST_FIELDS = [
   'client_changes_submitted_by',
   'client_commenting_started_at',
   'client_commenting_started_by',
+  'client_contact_email',
+  'client_contact_name',
+  'client_last_activity_at',
+  'client_reminder_sent_at',
+  'published_at',
+  'revision_ready_notified_at',
+  'client_approved_notified_at',
   'storage_bytes',
 ].join(', ');
 
@@ -1109,6 +1117,9 @@ export const smartAlbumsService = {
         payload.preview_data = previewData;
         payload.cover_image_url = previewData.cover_url || null;
       }
+      if (!album?.published_at) {
+        payload.published_at = new Date().toISOString();
+      }
     }
 
     let { data, error } = await supabase
@@ -1131,7 +1142,23 @@ export const smartAlbumsService = {
     }
 
     if (!error && data) {
-      return mapAlbumRow(data, photographerId);
+      const mapped = mapAlbumRow(data, photographerId);
+      if (
+        patch.status === 'published' &&
+        mapped.client_changes_submitted_at &&
+        !mapped.revision_ready_notified_at &&
+        !mapped.client_approved_at
+      ) {
+        void albumProofService
+          .notifyClientRevisionReady({
+            albumId,
+            siteOrigin: typeof window !== 'undefined' ? window.location.origin : '',
+          })
+          .catch((err) => {
+            console.warn('Revision-ready client email:', err?.message || err);
+          });
+      }
+      return mapped;
     }
 
     if (error && shouldUseLocalStore(error)) {

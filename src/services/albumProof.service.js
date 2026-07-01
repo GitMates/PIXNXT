@@ -151,4 +151,65 @@ export const albumProofService = {
             siteOrigin: siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
         });
     },
+
+    async notifyPhotographerInstantFeedback({
+        albumId,
+        guestName,
+        guestEmail,
+        siteOrigin,
+        eventType = 'comment',
+        eventLabel,
+        eventDetail,
+        comments = [],
+    }) {
+        const { data, error } = await supabase.functions.invoke('send-album-comments-email', {
+            body: {
+                albumId,
+                mode: 'instant',
+                guestName: guestName?.trim() || null,
+                guestEmail: guestEmail?.trim() || null,
+                siteOrigin:
+                    siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+                clientTimezone: getClientTimezone(),
+                eventType,
+                eventLabel,
+                eventDetail,
+                comments,
+            },
+        });
+
+        if (error) {
+            throw new Error(await readFunctionErrorMessage(error));
+        }
+        if (data?.error) {
+            throw new Error(data.error);
+        }
+        return data;
+    },
+
+    async notifyClientRevisionReady({
+        albumId,
+        guestName,
+        guestEmail,
+        siteOrigin,
+    }) {
+        const { data, error } = await supabase.functions.invoke('send-smart-album-client-email', {
+            body: {
+                albumId,
+                action: 'status_revision_ready',
+                guestName: guestName?.trim() || null,
+                guestEmail: guestEmail?.trim() || null,
+                siteOrigin:
+                    siteOrigin || (typeof window !== 'undefined' ? window.location.origin : ''),
+            },
+        });
+
+        if (error) {
+            throw new Error(await readFunctionErrorMessage(error));
+        }
+        if (data?.error) {
+            throw new Error(data.error);
+        }
+        return data;
+    },
 };

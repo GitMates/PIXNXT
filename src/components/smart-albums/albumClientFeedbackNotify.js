@@ -1,8 +1,7 @@
 import {
-    albumHasClientCommentingStartedNotified,
     albumProofService,
-    markClientCommentingStartedNotified,
 } from '../../services/albumProof.service';
+import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
 import {
     countClientRootComments,
     getGuestProfile,
@@ -19,29 +18,71 @@ export function albumHadClientFeedbackBefore(albumId) {
     return pins + swaps + comments > 0;
 }
 
+function photographerUsesInstantAlerts(photographerId) {
+    if (!photographerId) return false;
+    const defaults = smartAlbumProoferSettingsService.getPhotographerDefaults(photographerId);
+    return defaults.photographerAlerts === 'instant';
+}
+
 /**
- * After a client adds their first comment or swap in preview, email and WhatsApp the photographer once.
- * @param {boolean} hadFeedbackBefore — pass true when feedback existed before this action.
+ * Notify the photographer about client feedback using account alert settings.
  */
-export function notifyAfterClientFeedbackAdded(albumId, { hadFeedbackBefore = false } = {}) {
-    if (!albumId || hadFeedbackBefore) return;
-    if (albumHasClientCommentingStartedNotified(albumId)) return;
+export function notifyClientFeedbackEvent(
+    albumId,
+    {
+        photographerId = null,
+        hadFeedbackBefore = false,
+        eventType = 'comment',
+        eventLabel,
+        eventDetail,
+        comments = [],
+    } = {}
+) {
+    if (!albumId) return;
 
     const guest = getGuestProfile(albumId);
+    const siteOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+    const guestName = guest?.name?.trim() || 'Album client';
+    const guestEmail = guest?.email?.trim() || null;
+
+    if (photographerUsesInstantAlerts(photographerId)) {
+        void albumProofService
+            .notifyPhotographerInstantFeedback({
+                albumId,
+                guestName,
+                guestEmail,
+                siteOrigin,
+                eventType,
+                eventLabel,
+                eventDetail,
+                comments,
+            })
+            .catch((err) => {
+                console.warn('Instant photographer notification:', err);
+            });
+        return;
+    }
+
+    if (hadFeedbackBefore) return;
+
     void albumProofService
         .notifyPhotographerClientStartedCommenting({
             albumId,
-            guestName: guest?.name?.trim() || 'Album client',
-            guestEmail: guest?.email?.trim() || null,
-            siteOrigin: typeof window !== 'undefined' ? window.location.origin : '',
-        })
-        .then((result) => {
-            if (result?.ok) markClientCommentingStartedNotified(albumId);
-            if (result?.whatsapp && !result.whatsapp.sent) {
-                console.warn('WhatsApp notification skipped or failed:', result.whatsapp);
-            }
+            guestName,
+            guestEmail,
+            siteOrigin,
         })
         .catch((err) => {
             console.warn('Client started commenting notification:', err);
         });
+}
+
+/** @deprecated Use notifyClientFeedbackEvent */
+export function notifyAfterClientFeedbackAdded(albumId, options = {}) {
+    notifyClientFeedbackEvent(albumId, options);
+}
+
+/** @deprecated Use notifyClientFeedbackEvent */
+export function notifyInstantClientFeedback(albumId, options = {}) {
+    notifyClientFeedbackEvent(albumId, options);
 }

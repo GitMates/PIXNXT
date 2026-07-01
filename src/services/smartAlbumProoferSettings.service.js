@@ -223,6 +223,14 @@ export function getAlbumShareCopyUrl(album, settings) {
     return getSmartAlbumPreviewShareUrl(album);
 }
 
+export function albumRemindersEnabled(photographerId, albumSettings = null) {
+    const defaults = readCachedPhotographerDefaults(photographerId);
+    const albumSend =
+        albumSettings?.sendReminderEmails ?? albumSettings?.send_reminder_emails;
+    if (albumSend === true) return true;
+    return Boolean(defaults.enableClientNudges);
+}
+
 export const smartAlbumProoferSettingsService = {
     getPhotographerDefaults(photographerId) {
         return readCachedPhotographerDefaults(photographerId);

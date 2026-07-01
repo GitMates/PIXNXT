@@ -6,6 +6,7 @@ import {
     saveGuestProfile,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
+import { notifyClientFeedbackEvent } from './albumClientFeedbackNotify';
 import { prepareCommentAttachmentFromFile } from './albumCommentAttachments';
 import { canClientLeaveFeedback } from './albumProoferPreview';
 import { useFeedbackVoiceRecorder } from './useFeedbackVoiceRecorder';
@@ -90,7 +91,9 @@ function FeedbackTutorial({ onDismiss, onVideoClick }) {
 
 function FeedbackCompose({
     albumId,
+    photographerId = null,
     spreadIndex,
+    spreadLabel = 'Spread',
     commentsEnabled,
     clientPreview,
     prooferAccess,
@@ -200,6 +203,13 @@ function FeedbackCompose({
             }
             setDraft('');
             setPendingAttachment(null);
+            notifyClientFeedbackEvent(albumId, {
+                photographerId,
+                eventType: 'comment',
+                eventLabel: spreadLabel,
+                eventDetail: body || pendingAttachment?.name || 'Attachment',
+                comments: [{ spread_index: spreadIndex, body, author_name: guest.name }],
+            });
             onSaved?.();
         } catch (err) {
             console.error(err);
@@ -220,6 +230,8 @@ function FeedbackCompose({
         onBlocked,
         onSaved,
         onNotify,
+        photographerId,
+        spreadLabel,
     ]);
 
     const handleKeyDown = (event) => {
@@ -347,7 +359,9 @@ function FeedbackCompose({
 
 export default function AlbumPreviewFeedbackSidebar({
     albumId,
+    photographerId = null,
     spreadIndex,
+    spreadLabel = 'Spread',
     spreadOpts,
     businessName,
     clientPreview = false,
@@ -417,7 +431,9 @@ export default function AlbumPreviewFeedbackSidebar({
 
             <FeedbackCompose
                 albumId={albumId}
+                photographerId={photographerId}
                 spreadIndex={spreadIndex}
+                spreadLabel={spreadLabel}
                 commentsEnabled={commentsEnabled}
                 clientPreview={clientPreview}
                 prooferAccess={prooferAccess}

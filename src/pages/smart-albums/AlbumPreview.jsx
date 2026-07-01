@@ -65,6 +65,12 @@ export default function AlbumPreview({
     const [bookPage, setBookPage] = useState(initialPage);
 
     useEffect(() => {
+        if (!album?.photographer_id) return undefined;
+        void smartAlbumProoferSettingsService.loadPhotographerDefaults(album.photographer_id);
+        return undefined;
+    }, [album?.photographer_id]);
+
+    useEffect(() => {
         setBookPage(initialPage);
     }, [initialPage]);
 
@@ -491,7 +497,13 @@ export default function AlbumPreview({
 
                     <AlbumPreviewFeedbackSidebar
                         albumId={albumId}
+                        photographerId={album?.photographer_id}
                         spreadIndex={spreadIndex}
+                        spreadLabel={
+                            spreadIndex <= 0
+                                ? 'Cover'
+                                : `Spread ${spreadIndex}`
+                        }
                         spreadOpts={spreadOpts}
                         businessName={businessName}
                         clientPreview={clientPreview}
