@@ -29,6 +29,7 @@ import {
 import AlbumPreviewProofActions from '../../components/smart-albums/AlbumPreviewProofActions';
 import AlbumPreviewFeedbackSidebar from '../../components/smart-albums/AlbumPreviewFeedbackSidebar';
 import { buildSpreadFeedbackFeed } from '../../components/smart-albums/spreadFeedbackFeed';
+import { hasCommentAttachment } from '../../components/smart-albums/albumCommentAttachments';
 import { galleryService } from '../../services/gallery.service';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import { useAuth } from '../../hooks/useAuth';
@@ -335,7 +336,9 @@ export default function AlbumPreview({
     const visibleClientMessages = useMemo(() => {
         const rows = spreadCommentsBySpread?.[spreadIndex] || [];
         return rows.filter(
-            (c) => c.author_type === 'client' && String(c.body || '').trim()
+            (c) =>
+                c.author_type === 'client' &&
+                (String(c.body || '').trim() || hasCommentAttachment(c))
         );
     }, [spreadCommentsBySpread, spreadIndex]);
 

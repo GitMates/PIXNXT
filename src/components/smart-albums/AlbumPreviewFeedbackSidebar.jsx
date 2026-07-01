@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Mic, Paperclip, Play, Send, X } from 'lucide-react';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import {
@@ -6,7 +6,10 @@ import {
     saveGuestProfile,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
+import { prepareCommentAttachmentFromFile } from './albumCommentAttachments';
 import { canClientLeaveFeedback } from './albumProoferPreview';
+import { useFeedbackVoiceRecorder } from './useFeedbackVoiceRecorder';
+import VoiceMessagePlayer from './VoiceMessagePlayer';
 import './AlbumPreviewFeedbackSidebar.css';
 
 const TUTORIAL_DISMISS_KEY = 'pixnxt_album_feedback_tutorial_dismissed';
@@ -91,17 +94,34 @@ function FeedbackCompose({
     commentsEnabled,
     clientPreview,
     prooferAccess,
-    allowExternalUploads,
     onBlocked,
     onSaved,
     onNotify,
 }) {
     const [draft, setDraft] = useState('');
     const [saving, setSaving] = useState(false);
+    const [pendingAttachment, setPendingAttachment] = useState(null);
+    const [preparingAttachment, setPreparingAttachment] = useState(false);
+    const fileInputRef = useRef(null);
+
+    const {
+        recording,
+        preparing: preparingVoice,
+        elapsedLabel,
+        toggleRecording,
+        cancelRecording,
+    } = useFeedbackVoiceRecorder({
+        onError: onNotify,
+        onRecordingReady: setPendingAttachment,
+    });
 
     useEffect(() => {
         setDraft('');
-    }, [spreadIndex]);
+        setPendingAttachment(null);
+        setPreparingAttachment(false);
+        cancelRecording();
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    }, [spreadIndex, cancelRecording]);
 
     const resolveGuest = useCallback(() => {
         const profile = getGuestProfile(albumId);
@@ -111,9 +131,34 @@ function FeedbackCompose({
         };
     }, [albumId]);
 
+    const handlePickAttachment = useCallback(() => {
+        if (!commentsEnabled || saving || preparingAttachment || recording || preparingVoice) return;
+        fileInputRef.current?.click();
+    }, [commentsEnabled, saving, preparingAttachment, recording, preparingVoice]);
+
+    const handleAttachmentSelected = useCallback(
+        async (event) => {
+            const file = event.target.files?.[0];
+            event.target.value = '';
+            if (!file) return;
+
+            setPreparingAttachment(true);
+            try {
+                const prepared = await prepareCommentAttachmentFromFile(file);
+                setPendingAttachment(prepared);
+            } catch (err) {
+                console.error(err);
+                onNotify?.(err?.message || 'Could not attach image. Please try another file.');
+            } finally {
+                setPreparingAttachment(false);
+            }
+        },
+        [onNotify]
+    );
+
     const handleSend = useCallback(async () => {
         const body = draft.trim();
-        if (!body || !albumId || spreadIndex == null || saving) return;
+        if ((!body && !pendingAttachment) || !albumId || spreadIndex == null || saving) return;
         if (!commentsEnabled) return;
 
         if (clientPreview && prooferAccess) {
@@ -142,6 +187,9 @@ function FeedbackCompose({
                 body,
                 authorName: guest.name,
                 authorEmail: guest.email,
+                attachmentUrl: pendingAttachment?.url || null,
+                attachmentName: pendingAttachment?.name || null,
+                attachmentType: pendingAttachment?.type || null,
             });
             if (guest.name) {
                 saveGuestProfile(albumId, {
@@ -151,6 +199,7 @@ function FeedbackCompose({
                 });
             }
             setDraft('');
+            setPendingAttachment(null);
             onSaved?.();
         } catch (err) {
             console.error(err);
@@ -160,6 +209,7 @@ function FeedbackCompose({
         }
     }, [
         draft,
+        pendingAttachment,
         albumId,
         spreadIndex,
         saving,
@@ -178,43 +228,105 @@ function FeedbackCompose({
         void handleSend();
     };
 
-    const disabled = !commentsEnabled || saving;
+    const disabled =
+        !commentsEnabled || saving || preparingAttachment || recording || preparingVoice;
+    const canSend = Boolean(draft.trim() || pendingAttachment);
+    const hasInlineAttachment = Boolean(pendingAttachment);
+    const showCompactInput = hasInlineAttachment || recording;
 
     return (
         <footer className="av-feedback-compose">
-            <textarea
-                className="av-feedback-compose__input"
-                rows={3}
-                placeholder="Add a comment, image, or audio recording..."
-                value={draft}
-                disabled={disabled}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={handleKeyDown}
-                aria-label="Add feedback for this spread"
+            <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="av-feedback-compose__file-input"
+                tabIndex={-1}
+                aria-hidden
+                onChange={(event) => void handleAttachmentSelected(event)}
             />
+            <div
+                className={`av-feedback-compose__input-shell${
+                    recording ? ' av-feedback-compose__input-shell--recording' : ''
+                }${hasInlineAttachment ? ' av-feedback-compose__input-shell--has-attachment' : ''}`}
+            >
+                {recording ? (
+                    <div
+                        className="av-feedback-compose__recording av-feedback-compose__recording--inline"
+                        role="status"
+                        aria-live="polite"
+                    >
+                        <span className="av-feedback-compose__recording-dot" aria-hidden />
+                        <span className="av-feedback-compose__recording-label">
+                            Recording {elapsedLabel}
+                        </span>
+                        <span className="av-feedback-compose__recording-hint">
+                            Tap mic to stop
+                        </span>
+                    </div>
+                ) : null}
+                {pendingAttachment ? (
+                    <div className="av-feedback-compose__inline-attachment">
+                        {pendingAttachment.type === 'audio' ? (
+                            <VoiceMessagePlayer
+                                src={pendingAttachment.url}
+                                className="av-voice-player--compose"
+                                onRemove={() => setPendingAttachment(null)}
+                                removeLabel="Remove voice message"
+                                ariaLabel="Voice message preview"
+                            />
+                        ) : (
+                            <div className="av-feedback-compose__inline-image-wrap">
+                                <img
+                                    src={pendingAttachment.url}
+                                    alt={pendingAttachment.name || 'Attached image'}
+                                    className="av-feedback-compose__inline-image"
+                                />
+                                <button
+                                    type="button"
+                                    className="av-feedback-compose__inline-image-remove"
+                                    onClick={() => setPendingAttachment(null)}
+                                    aria-label="Remove attached image"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ) : null}
+                <textarea
+                    className={`av-feedback-compose__input${
+                        showCompactInput ? ' av-feedback-compose__input--compact' : ''
+                    }`}
+                    rows={showCompactInput ? 2 : 3}
+                    placeholder="Add a comment, image, or audio recording..."
+                    value={draft}
+                    disabled={disabled}
+                    onChange={(e) => setDraft(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    aria-label="Add feedback for this spread"
+                />
+            </div>
             <div className="av-feedback-compose__actions">
                 <div className="av-feedback-compose__actions-left">
                     <button
                         type="button"
                         className="av-feedback-compose__icon-btn"
-                        disabled={disabled || !allowExternalUploads}
-                        onClick={() =>
-                            onNotify?.(
-                                allowExternalUploads
-                                    ? 'Use the photo annotation tools to attach images to swap requests.'
-                                    : 'External image uploads are disabled for this album.'
-                            )
-                        }
-                        aria-label="Attach image"
+                        disabled={disabled}
+                        onClick={handlePickAttachment}
+                        aria-label="Attach image from computer"
                     >
                         <Paperclip size={18} />
                     </button>
                     <button
                         type="button"
-                        className="av-feedback-compose__icon-btn"
-                        disabled={disabled}
-                        onClick={() => onNotify?.('Audio recording is coming soon.')}
-                        aria-label="Record audio"
+                        className={`av-feedback-compose__icon-btn${
+                            recording ? ' av-feedback-compose__icon-btn--recording' : ''
+                        }`}
+                        disabled={disabled && !recording}
+                        onClick={toggleRecording}
+                        aria-label={recording ? 'Stop recording' : 'Record voice message'}
+                        aria-pressed={recording}
                     >
                         <Mic size={18} />
                     </button>
@@ -222,7 +334,7 @@ function FeedbackCompose({
                 <button
                     type="button"
                     className="av-feedback-compose__icon-btn av-feedback-compose__icon-btn--send"
-                    disabled={disabled || !draft.trim()}
+                    disabled={disabled || !canSend}
                     onClick={() => void handleSend()}
                     aria-label="Send feedback"
                 >
@@ -263,7 +375,6 @@ export default function AlbumPreviewFeedbackSidebar({
     }, []);
 
     const hasFeed = visibleSpreadFeed.length > 0;
-    const allowExternal = prooferAccess?.allowExternalUploads ?? false;
 
     return (
         <aside className="av-feedback-sidebar" aria-label="Feedback">
@@ -310,7 +421,6 @@ export default function AlbumPreviewFeedbackSidebar({
                 commentsEnabled={commentsEnabled}
                 clientPreview={clientPreview}
                 prooferAccess={prooferAccess}
-                allowExternalUploads={allowExternal}
                 onBlocked={onBlocked}
                 onSaved={onCommentsChanged}
                 onNotify={onNotify}

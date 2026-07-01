@@ -9,6 +9,7 @@ import {
 import EditorSpreadMessageCompose from './EditorSpreadMessageCompose';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import { buildSpreadFeedbackFeed } from './spreadFeedbackFeed';
+import { hasCommentAttachment } from './albumCommentAttachments';
 import CollectionSpreadThumb from './CollectionSpreadThumb';
 import CoverLeatherColorPicker from './CoverLeatherColorPicker';
 import {
@@ -269,7 +270,11 @@ export default function AlbumEditorSidebar({
 
     const visibleClientMessages = useMemo(() => {
         const rows = spreadCommentsBySpread?.[currentSpreadIndex] || [];
-        return rows.filter((c) => c.author_type === 'client' && String(c.body || '').trim());
+        return rows.filter(
+            (c) =>
+                c.author_type === 'client' &&
+                (String(c.body || '').trim() || hasCommentAttachment(c))
+        );
     }, [spreadCommentsBySpread, currentSpreadIndex]);
 
     const visibleSpreadFeed = useMemo(
