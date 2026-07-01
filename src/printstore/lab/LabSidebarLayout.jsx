@@ -78,10 +78,11 @@ const LabSidebarLayout = ({ children, labUser, onLogout }) => {
                 </svg>
             )
         },
-        // --- Orders Queue gets total count ---
+        // --- New Orders gets pending count ---
         {
-            label: 'Orders Queue',
+            label: 'New Orders',
             path: '/lab/queue',
+            countKey: 'pending',
             icon: () => (
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
@@ -101,9 +102,9 @@ const LabSidebarLayout = ({ children, labUser, onLogout }) => {
             )
         },
         {
-            label: 'Print Queue',
+            label: 'Print Production',
             path: '/lab/print-queue',
-            countKey: 'pending',
+            countKey: 'printing',
             icon: () => (
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                     <polyline points="6 9 6 2 18 2 18 9" />

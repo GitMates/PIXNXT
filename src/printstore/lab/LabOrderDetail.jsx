@@ -134,7 +134,7 @@ const CONTEXT_CONFIG = {
   },
   full: {
     title: 'Full Details of Order',
-    backLabel: 'Back to Queue',
+    backLabel: 'Back to New Orders',
     backPath: '/lab/queue',
     showCustomer: true,
     showShipping: true,
@@ -178,7 +178,7 @@ export default function LabOrderDetail() {
     if (referrerPath) {
       if (referrerPath.includes('/production')) return 'Back to Production Board';
       if (referrerPath.includes('/dashboard')) return 'Back to Dashboard';
-      if (referrerPath.includes('/queue')) return 'Back to Orders Queue';
+      if (referrerPath.includes('/queue')) return 'Back to New Orders';
       if (referrerPath.includes('/print-queue')) return 'Back to Print Queue';
       if (referrerPath.includes('/quality-control')) return 'Back to Quality Control';
       if (referrerPath.includes('/reprints')) return 'Back to Reprints';
