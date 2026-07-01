@@ -18,20 +18,6 @@ const AlbumNavIcon = () => (
     </svg>
 );
 
-const AwaitingNavIcon = () => (
-    <svg className="sa-sidebar-nav-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" />
-        <polyline points="12 6 12 12 16 14" />
-    </svg>
-);
-
-const ApprovedNavIcon = () => (
-    <svg className="sa-sidebar-nav-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-        <polyline points="22 4 12 14.01 9 11.01" />
-    </svg>
-);
-
 const SettingsNavIcon = () => (
     <svg className="sa-sidebar-nav-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <circle cx="12" cy="12" r="3" />
@@ -86,8 +72,6 @@ function getProfileInitial(profile, user) {
 
 const NAV_ITEMS = [
     { key: 'albums', label: 'Albums', path: '/smart-albums', icon: AlbumNavIcon, match: (path) => path === '/smart-albums' || path === '/smart-albums/' },
-    { key: 'awaiting', label: 'Awaiting feedback', path: '/smart-albums/awaiting', icon: AwaitingNavIcon, match: (path) => path.startsWith('/smart-albums/awaiting') },
-    { key: 'approved', label: 'Approved', path: '/smart-albums/approved', icon: ApprovedNavIcon, match: (path) => path.startsWith('/smart-albums/approved') },
     { key: 'settings', label: 'Settings', path: '/smart-albums/settings', icon: SettingsNavIcon, match: (path) => path.startsWith('/smart-albums/settings') },
 ];
 
