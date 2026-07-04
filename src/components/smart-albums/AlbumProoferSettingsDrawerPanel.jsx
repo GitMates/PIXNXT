@@ -225,52 +225,6 @@ export default function AlbumProoferSettingsDrawerPanel({
                     )}
                 </section>
 
-                <section className="sa-album-settings-drawer__section">
-                    <div className="sa-album-settings-drawer__section-head">
-                        <span className="sa-album-settings-drawer__section-icon">
-                            <Download size={16} strokeWidth={2} />
-                        </span>
-                        <div>
-                            <h3 className="sa-album-settings-drawer__section-title">
-                                Client Downloads &amp; Collaboration
-                            </h3>
-                            <p className="sa-album-settings-drawer__section-desc">
-                                Manage client access and permissions
-                            </p>
-                        </div>
-                    </div>
-                    <CircleOption
-                        checked={allowDownloads}
-                        label="Allow clients to download individual spreads or full layouts for this album"
-                        onClick={() => setAllowDownloads((v) => !v)}
-                    />
-                    <CircleOption
-                        checked={multiUserCollab}
-                        label="Allow multiple client accounts to comment simultaneously"
-                        onClick={() => setMultiUserCollab((v) => !v)}
-                    />
-                    {activeViewers.length > 0 && (
-                        <>
-                            <p className="sa-album-settings-drawer__viewers-label">
-                                Active Client Viewers
-                            </p>
-                            {activeViewers.map((email) => (
-                                <div key={email} className="sa-album-settings-drawer__viewer-row">
-                                    <span className="sa-album-settings-drawer__viewer-email">
-                                        {email}
-                                    </span>
-                                    <button
-                                        type="button"
-                                        className="sa-album-settings-drawer__revoke"
-                                        onClick={() => revokeViewer(email)}
-                                    >
-                                        Revoke Access
-                                    </button>
-                                </div>
-                            ))}
-                        </>
-                    )}
-                </section>
 
                 <section className="sa-album-settings-drawer__section">
                     <div className="sa-album-settings-drawer__section-head">

@@ -18,7 +18,6 @@ import './SmartAlbumProoferSettings.css';
 
 const TABS = [
     { id: 'permissions', label: 'Permissions & Access' },
-    { id: 'workflow', label: 'Review Workflow' },
     { id: 'notifications', label: 'Notifications' },
 ];
 
@@ -107,7 +106,7 @@ export default function SmartAlbumProoferSettingsPanel() {
             <header className="sa-proofer-settings__header">
                 <h1 className="sa-proofer-settings__title">Album Proofer Settings</h1>
                 <p className="sa-proofer-settings__subtitle">
-                    Configure default permissions, review workflows, and automated
+                    Configure default permissions and automated
                     notifications for your client albums.
                 </p>
             </header>
@@ -174,37 +173,6 @@ export default function SmartAlbumProoferSettingsPanel() {
                     </>
                 )}
 
-                {activeTab === 'workflow' && (
-                    <>
-                        <SettingGroup title="Review Completion">
-                            <SelectField
-                                label="Default Review Deadline"
-                                description="How long clients have to complete their first review"
-                                value={String(settings.reviewDeadlineDays ?? 14)}
-                                onChange={(reviewDeadlineDays) =>
-                                    patch({ reviewDeadlineDays: Number(reviewDeadlineDays) })
-                                }
-                                options={[
-                                    { value: '7', label: '7 days' },
-                                    { value: '14', label: '14 days' },
-                                    { value: '21', label: '21 days' },
-                                    { value: '30', label: '30 days' },
-                                ]}
-                            />
-                        </SettingGroup>
-
-                        <SettingGroup title="Feedback Rules">
-                            <SettingsToggle
-                                checked={settings.requireSpreadComment ?? true}
-                                onChange={(requireSpreadComment) =>
-                                    patch({ requireSpreadComment })
-                                }
-                                label="Require Comment Per Spread"
-                                description="Clients must leave at least one note before submitting a revision request"
-                            />
-                        </SettingGroup>
-                    </>
-                )}
 
                 {activeTab === 'notifications' && (
                     <>
