@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { BookOpen, LayoutGrid, MessageSquare, Settings } from 'lucide-react';
 import { pickImageFiles } from '../../lib/pickImageFiles';
 import { PROOF_CELL_LABELS, PROOF_SLOT_COUNT, getSpreadLeftPageIndex } from './albumSpreadGrid';
 import {
@@ -33,47 +34,17 @@ import {
 import '../../pages/smart-albums/AlbumViewer.css';
 import './AlbumCoverPanel.css';
 
-const ICON_PROPS = {
-    width: 20,
-    height: 20,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 1.35,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
+const NAV_ICON_PROPS = {
+    size: 20,
+    strokeWidth: 1.65,
+    absoluteStrokeWidth: true,
     'aria-hidden': true,
 };
 
-const IconCollection = () => (
-    <svg {...ICON_PROPS}>
-        <rect x="4.25" y="4.25" width="6.25" height="6.25" rx="1.15" />
-        <rect x="13.5" y="4.25" width="6.25" height="6.25" rx="1.15" />
-        <rect x="4.25" y="13.5" width="6.25" height="6.25" rx="1.15" />
-        <rect x="13.5" y="13.5" width="6.25" height="6.25" rx="1.15" />
-    </svg>
-);
-
-const IconComments = () => (
-    <svg {...ICON_PROPS}>
-        <path d="M7.25 5.75h9.5a1.75 1.75 0 0 1 1.75 1.75v6.75a1.75 1.75 0 0 1-1.75 1.75H11.5L7.25 18.5v-3.25a1.75 1.75 0 0 1-1.75-1.75V7.5a1.75 1.75 0 0 1 1.75-1.75z" />
-    </svg>
-);
-
-const IconSettings = () => (
-    <svg {...ICON_PROPS} strokeWidth={1.65}>
-        <path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" />
-        <circle cx="12" cy="12" r="3" />
-    </svg>
-);
-
-const IconEditCover = () => (
-    <svg {...ICON_PROPS}>
-        <path d="M12 5.25c-4.2-1.15-7.75-.55-7.75 2.45V17c0 2.35 3.05 2.85 7.75 1.55" />
-        <path d="M12 5.25c4.2-1.15 7.75-.55 7.75 2.45V17c0 2.35-3.05 2.85-7.75 1.55" />
-        <path d="M12 5.25v13.3" />
-    </svg>
-);
+const IconCollection = () => <LayoutGrid {...NAV_ICON_PROPS} />;
+const IconComments = () => <MessageSquare {...NAV_ICON_PROPS} />;
+const IconSettings = () => <Settings {...NAV_ICON_PROPS} />;
+const IconEditCover = () => <BookOpen {...NAV_ICON_PROPS} />;
 
 const NAV_BASE = [
     { id: 'collections', label: 'Collections', icon: IconCollection },
