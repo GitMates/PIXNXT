@@ -10,7 +10,6 @@ import {
     NumberInput,
     SelectField,
     SettingGroup,
-    SettingsSaveBar,
     SettingsTabs,
     SettingsToggle,
     TemplateTextarea,
@@ -29,8 +28,6 @@ export default function SmartAlbumProoferSettingsPanel() {
     const [activeTab, setActiveTab] = useState('permissions');
     const [settings, setSettings] = useState({ ...DEFAULT_PROOFER_SETTINGS });
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
     const [expandedStatus, setExpandedStatus] = useState(null);
     const saveTimerRef = useRef(null);
     const skipSaveRef = useRef(true);
@@ -65,18 +62,13 @@ export default function SmartAlbumProoferSettingsPanel() {
     const persist = useCallback(
         async (next) => {
             if (!photographerId) return;
-            setSaving(true);
-            setSaved(false);
             try {
                 await smartAlbumProoferSettingsService.savePhotographerDefaults(
                     photographerId,
                     next
                 );
-                setSaved(true);
             } catch (err) {
                 console.error(err);
-            } finally {
-                setSaving(false);
             }
         },
         [photographerId]
@@ -132,11 +124,20 @@ export default function SmartAlbumProoferSettingsPanel() {
                                 value={settings.accessControl}
                                 onChange={(accessControl) => patch({ accessControl })}
                                 options={[
-                                    { value: 'link', label: 'Public via link' },
-                                    { value: 'password', label: 'Password Protected' },
+                                    {
+                                        value: 'link',
+                                        label: 'Public via link',
+                                        description: 'Anyone with the link can open the album',
+                                    },
+                                    {
+                                        value: 'password',
+                                        label: 'Password protected',
+                                        description: 'Clients must enter a password before viewing',
+                                    },
                                     {
                                         value: 'restricted',
-                                        label: 'Restricted to Specific Client Emails',
+                                        label: 'Restricted to client emails',
+                                        description: 'Only invited email addresses can access',
                                     },
                                 ]}
                             />
@@ -216,11 +217,13 @@ export default function SmartAlbumProoferSettingsPanel() {
                                 options={[
                                     {
                                         value: 'instant',
-                                        label: 'Instant: Notify on every comment',
+                                        label: 'Instant',
+                                        description: 'Notify on every comment',
                                     },
                                     {
                                         value: 'digest',
-                                        label: 'Digest: Summary when client completes review',
+                                        label: 'Digest',
+                                        description: 'Summary when client completes review',
                                     },
                                 ]}
                             />
@@ -330,8 +333,6 @@ export default function SmartAlbumProoferSettingsPanel() {
                     </>
                 )}
             </div>
-
-            <SettingsSaveBar saving={saving} saved={saved} />
         </div>
     );
 }

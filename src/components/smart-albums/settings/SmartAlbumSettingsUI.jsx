@@ -1,5 +1,5 @@
-import React from 'react';
-import { CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { Check, ChevronDown } from 'lucide-react';
 import './SmartAlbumProoferSettings.css';
 
 export function SectionTitle({ children }) {
@@ -53,23 +53,111 @@ export function SelectField({
     options,
     disabled = false,
 }) {
+    const [open, setOpen] = useState(false);
+    const rootRef = useRef(null);
+    const listId = useId();
+    const selected = options.find((option) => option.value === value) || options[0];
+
+    useEffect(() => {
+        if (!open) return undefined;
+
+        const handlePointerDown = (event) => {
+            if (!rootRef.current?.contains(event.target)) {
+                setOpen(false);
+            }
+        };
+
+        const handleKeyDown = (event) => {
+            if (event.key === 'Escape') setOpen(false);
+        };
+
+        document.addEventListener('mousedown', handlePointerDown);
+        document.addEventListener('keydown', handleKeyDown);
+        return () => {
+            document.removeEventListener('mousedown', handlePointerDown);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [open]);
+
+    const handleSelect = (nextValue) => {
+        if (disabled || nextValue === value) {
+            setOpen(false);
+            return;
+        }
+        onChange(nextValue);
+        setOpen(false);
+    };
+
     return (
         <div>
             <FieldLabel>{label}</FieldLabel>
             {description && <FieldDescription>{description}</FieldDescription>}
-            <div className="sa-proofer-select-wrap">
-                <select
-                    value={value}
+            <div
+                ref={rootRef}
+                className={`sa-proofer-select-menu${open ? ' sa-proofer-select-menu--open' : ''}`}
+            >
+                <button
+                    type="button"
+                    className="sa-proofer-select-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded={open}
+                    aria-controls={listId}
                     disabled={disabled}
-                    onChange={(e) => onChange(e.target.value)}
-                    className="sa-proofer-select"
+                    onClick={() => setOpen((current) => !current)}
                 >
-                    {options.map((option) => (
-                        <option key={option.value} value={option.value}>
-                            {option.label}
-                        </option>
-                    ))}
-                </select>
+                    <span className="sa-proofer-select-trigger__label">{selected?.label}</span>
+                    <ChevronDown
+                        size={16}
+                        strokeWidth={2}
+                        className="sa-proofer-select-trigger__chevron"
+                        aria-hidden
+                    />
+                </button>
+
+                {open && (
+                    <ul
+                        id={listId}
+                        className="sa-proofer-select-options"
+                        role="listbox"
+                        aria-label={label}
+                    >
+                        {options.map((option) => {
+                            const isActive = option.value === value;
+                            return (
+                                <li key={option.value} role="presentation">
+                                    <button
+                                        type="button"
+                                        role="option"
+                                        aria-selected={isActive}
+                                        className={`sa-proofer-select-option${
+                                            isActive ? ' sa-proofer-select-option--active' : ''
+                                        }`}
+                                        onClick={() => handleSelect(option.value)}
+                                    >
+                                        <span className="sa-proofer-select-option__text">
+                                            <span className="sa-proofer-select-option__label">
+                                                {option.label}
+                                            </span>
+                                            {option.description ? (
+                                                <span className="sa-proofer-select-option__desc">
+                                                    {option.description}
+                                                </span>
+                                            ) : null}
+                                        </span>
+                                        {isActive ? (
+                                            <Check
+                                                size={15}
+                                                strokeWidth={2.5}
+                                                className="sa-proofer-select-option__check"
+                                                aria-hidden
+                                            />
+                                        ) : null}
+                                    </button>
+                                </li>
+                            );
+                        })}
+                    </ul>
+                )}
             </div>
         </div>
     );
@@ -179,22 +267,6 @@ export function SettingGroup({ title, children }) {
             <SectionTitle>{title}</SectionTitle>
             <div className="sa-proofer-card">{children}</div>
         </section>
-    );
-}
-
-export function SettingsSaveBar({ saving, saved }) {
-    return (
-        <div className="sa-proofer-save">
-            <p className="sa-proofer-save__hint">
-                {saving ? 'Saving…' : 'Changes are saved automatically'}
-            </p>
-            {!saving && saved && (
-                <div className="sa-proofer-save__status">
-                    <CheckCircle2 size={16} strokeWidth={2} />
-                    All settings saved
-                </div>
-            )}
-        </div>
     );
 }
 
