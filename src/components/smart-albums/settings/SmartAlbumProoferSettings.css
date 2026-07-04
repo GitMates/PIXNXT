@@ -515,3 +515,9 @@
     inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
     inset -2px -2px 5px oklch(1 0.004 85 / 0.75);
 }
+
+.theme-mono .sa-proofer-select-trigger__desc-text {
+  color: oklch(0.55 0.01 70);
+  font-weight: 400;
+  font-size: 13px;
+}

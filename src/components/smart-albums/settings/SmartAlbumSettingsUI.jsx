@@ -105,7 +105,14 @@ export function SelectField({
                     disabled={disabled}
                     onClick={() => setOpen((current) => !current)}
                 >
-                    <span className="sa-proofer-select-trigger__label">{selected?.label}</span>
+                    <span className="sa-proofer-select-trigger__label">
+                        {selected?.label}
+                        {selected?.description && (
+                            <span className="sa-proofer-select-trigger__desc-text">
+                                 — {selected.description}
+                            </span>
+                        )}
+                    </span>
                     <ChevronDown
                         size={16}
                         strokeWidth={2}
