@@ -2096,7 +2096,7 @@ const AlbumBook = ({
                             );
                         })}
                     </div>
-                    {(canAddPages || canRemoveOverviewSpread) && (
+                    {(canAddPages || canDeleteOverviewSpread) && (
                         <div className="ab-overview-actions">
                             {canAddPages && onAddPages && (
                                 <button
