@@ -292,3 +292,145 @@
   background: oklch(0.4 0.01 70 / 0.25);
   backdrop-filter: blur(4px);
 }
+
+.theme-mono .sa-album-settings-drawer__actions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.theme-mono .sa-album-settings-drawer__action-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  border-radius: 12px;
+  background: oklch(0.97 0.004 85);
+  color: oklch(0.35 0.006 60);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 
+    3px 3px 6px oklch(0.4 0.01 70 / 0.05),
+    -3px -3px 6px oklch(1 0.004 85 / 0.8);
+  transition: all 0.2s ease;
+}
+
+.theme-mono .sa-album-settings-drawer__action-btn:hover {
+  background: oklch(0.952 0.005 85);
+  color: oklch(0.23 0.004 60);
+  box-shadow: 
+    inset 2px 2px 5px oklch(0.4 0.01 70 / 0.06),
+    inset -2px -2px 5px oklch(1 0.004 85 / 0.6);
+  transform: translateY(1px);
+}
+
+.theme-mono .sa-album-settings-drawer__action-btn svg {
+  color: oklch(0.45 0.006 60);
+  transition: color 0.2s ease;
+}
+
+.theme-mono .sa-album-settings-drawer__action-btn:hover svg {
+  color: oklch(0.23 0.004 60);
+}
+
+.theme-mono .sa-album-settings-drawer__action-btn--danger {
+  color: oklch(0.55 0.14 25);
+}
+
+.theme-mono .sa-album-settings-drawer__action-btn--danger svg {
+  color: oklch(0.55 0.14 25);
+}
+
+.theme-mono .sa-album-settings-drawer__action-btn--danger:hover {
+  color: oklch(0.48 0.16 25);
+}
+
+.theme-mono .sa-album-settings-drawer__action-btn--danger:hover svg {
+  color: oklch(0.48 0.16 25);
+}
+
+.theme-mono .sa-album-settings-drawer__pin-container {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.theme-mono .sa-album-settings-drawer__pin-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.theme-mono .sa-album-settings-drawer__pin-digits {
+  display: flex;
+  gap: 8px;
+}
+
+.theme-mono .sa-album-settings-drawer__pin-digit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 12px;
+  background: oklch(0.952 0.005 85);
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  color: oklch(0.23 0.004 60);
+  box-shadow:
+    inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
+    inset -2px -2px 5px oklch(1 0.004 85 / 0.75);
+}
+
+.theme-mono .sa-album-settings-drawer__pin-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 12px;
+  background: oklch(0.952 0.005 85);
+  padding: 10px;
+  color: oklch(0.45 0.006 60);
+  cursor: pointer;
+  box-shadow:
+    inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
+    inset -2px -2px 5px oklch(1 0.004 85 / 0.75);
+  transition: color 0.15s;
+}
+
+.theme-mono .sa-album-settings-drawer__pin-copy:hover {
+  color: oklch(0.23 0.004 60);
+}
+
+.theme-mono .sa-album-settings-drawer__regenerate {
+  display: inline-flex;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 999px;
+  background: oklch(0.952 0.005 85);
+  padding: 10px 14px;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: oklch(0.35 0.006 60);
+  cursor: pointer;
+  box-shadow:
+    inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
+    inset -2px -2px 5px oklch(1 0.004 85 / 0.75);
+  transition: color 0.15s;
+}
+
+.theme-mono .sa-album-settings-drawer__regenerate:hover {
+  color: oklch(0.23 0.004 60);
+}

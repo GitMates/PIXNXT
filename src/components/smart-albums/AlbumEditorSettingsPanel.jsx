@@ -59,6 +59,7 @@ export default function AlbumEditorSettingsPanel({
     const [maxSwaps, setMaxSwaps] = useState(5);
     const [allowExternal, setAllowExternal] = useState(false);
     const [allowVoice, setAllowVoice] = useState(true);
+    const [requireVerification, setRequireVerification] = useState(false);
     const [approvalPin, setApprovalPin] = useState('');
     const [sendReminders, setSendReminders] = useState(false);
     const [privateShareToken, setPrivateShareToken] = useState('');
@@ -98,7 +99,11 @@ export default function AlbumEditorSettingsPanel({
                 setMaxSwaps(proofer.maxFreeSwaps);
                 setAllowExternal(proofer.allowExternalUploads);
                 setAllowVoice(proofer.allowVoiceRecordings !== false);
-                setApprovalPin(proofer.approvalPin || '');
+                
+                const pin = proofer.approvalPin || '';
+                setApprovalPin(pin);
+                setRequireVerification(Boolean(pin) || defaults.requireApprovalPin);
+                
                 setSendReminders(proofer.sendReminderEmails);
                 setPrivateShareToken(proofer.privateShareToken || '');
                 setAllowComments(album?.comments_enabled !== false);
@@ -133,6 +138,10 @@ export default function AlbumEditorSettingsPanel({
         if (!photographerId || !albumId) return;
 
         try {
+            const nextPin = requireVerification
+                ? approvalPin || smartAlbumProoferSettingsService.randomPin()
+                : '';
+
             const prooferPatch = {
                 accessLevel,
                 albumPassword: accessLevel === 'password' ? albumPassword : '',
@@ -145,12 +154,15 @@ export default function AlbumEditorSettingsPanel({
                 maxFreeSwaps: maxSwaps,
                 allowExternalUploads: allowExternal,
                 allowVoiceRecordings: allowVoice,
-                approvalPin,
+                approvalPin: nextPin,
                 sendReminderEmails: sendReminders,
             };
 
             if (accessLevel === 'private' && !privateShareToken) {
                 setPrivateShareToken(prooferPatch.privateShareToken);
+            }
+            if (requireVerification && !approvalPin) {
+                setApprovalPin(nextPin);
             }
 
             const clientPatch = {
@@ -200,6 +212,7 @@ export default function AlbumEditorSettingsPanel({
         maxSwaps,
         allowExternal,
         allowVoice,
+        requireVerification,
         approvalPin,
         sendReminders,
         allowComments,
@@ -230,6 +243,7 @@ export default function AlbumEditorSettingsPanel({
         maxSwaps,
         allowExternal,
         allowVoice,
+        requireVerification,
         approvalPin,
         sendReminders,
         allowComments,
@@ -460,34 +474,57 @@ export default function AlbumEditorSettingsPanel({
                 <section className="ae-settings-section">
                     <p className="ae-settings-section__label">Sign-Off &amp; Automation</p>
 
-                    <div className="ae-settings-field">
-                        <label className="ae-settings-field__label">Approval PIN</label>
-                        <div className="ae-settings-pin-row">
-                            <div className="ae-settings-pin-digits">
-                                {approvalPin.split('').map((digit, i) => (
-                                    <div key={i} className="ae-settings-pin-digit">
-                                        {digit}
-                                    </div>
-                                ))}
+                    <div className="ae-settings-row">
+                        <div className="ae-settings-row__text">
+                            <p className="ae-settings-field__title">Approval PIN</p>
+                            <p className="ae-settings-field__desc">
+                                Require unique PIN for final album approval
+                            </p>
+                        </div>
+                        <SettingsToggle
+                            on={requireVerification}
+                            onChange={() => {
+                                setRequireVerification((v) => {
+                                    const nextV = !v;
+                                    if (nextV && !approvalPin) {
+                                        setApprovalPin(smartAlbumProoferSettingsService.randomPin());
+                                    }
+                                    return nextV;
+                                });
+                            }}
+                            label="Approval PIN"
+                        />
+                    </div>
+
+                    {requireVerification && (
+                        <div className="ae-settings-field">
+                            <div className="ae-settings-pin-row">
+                                <div className="ae-settings-pin-digits">
+                                    {(approvalPin || '----').split('').map((digit, i) => (
+                                        <div key={i} className="ae-settings-pin-digit">
+                                            {digit}
+                                        </div>
+                                    ))}
+                                </div>
+                                <button
+                                    type="button"
+                                    className="ae-settings-pin-copy"
+                                    onClick={handleCopyPin}
+                                    aria-label="Copy PIN"
+                                >
+                                    {pinCopied ? <Check size={16} /> : <Copy size={16} />}
+                                </button>
                             </div>
                             <button
                                 type="button"
-                                className="ae-settings-pin-copy"
-                                onClick={handleCopyPin}
-                                aria-label="Copy PIN"
+                                className="ae-settings-regenerate"
+                                onClick={handleRegeneratePin}
                             >
-                                {pinCopied ? <Check size={16} /> : <Copy size={16} />}
+                                <RefreshCw size={14} />
+                                Regenerate
                             </button>
                         </div>
-                        <button
-                            type="button"
-                            className="ae-settings-regenerate"
-                            onClick={handleRegeneratePin}
-                        >
-                            <RefreshCw size={14} />
-                            Regenerate
-                        </button>
-                    </div>
+                    )}
 
                     <div className="ae-settings-row">
                         <div className="ae-settings-row__text">

@@ -603,6 +603,46 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                         current?.id === updated.id ? { ...current, ...updated } : current
                     );
                 }}
+                onPreview={() => {
+                    if (settingsAlbum) {
+                        openSmartAlbumPreview(settingsAlbum.id);
+                        setSettingsAlbum(null);
+                    }
+                }}
+                onQuickEdit={() => {
+                    if (settingsAlbum) {
+                        handleQuickEdit(settingsAlbum);
+                        setSettingsAlbum(null);
+                    }
+                }}
+                onDuplicate={() => {
+                    if (settingsAlbum) {
+                        handleDuplicateAlbum(settingsAlbum);
+                        setSettingsAlbum(null);
+                    }
+                }}
+                onDelete={() => {
+                    if (settingsAlbum) {
+                        handleDeleteAlbum(settingsAlbum);
+                        setSettingsAlbum(null);
+                    }
+                }}
+                onShareByEmail={() => {
+                    if (settingsAlbum) handleShareByEmail(settingsAlbum);
+                    setSettingsAlbum(null);
+                }}
+                onGetDirectLink={() => {
+                    if (settingsAlbum) handleGetDirectLink(settingsAlbum);
+                    setSettingsAlbum(null);
+                }}
+                onGetQrCode={() => {
+                    if (settingsAlbum) handleGetQrCode(settingsAlbum);
+                    setSettingsAlbum(null);
+                }}
+                onShareWhatsApp={() => {
+                    if (settingsAlbum) handleShareWhatsApp(settingsAlbum);
+                    setSettingsAlbum(null);
+                }}
             />
         </main>
     );

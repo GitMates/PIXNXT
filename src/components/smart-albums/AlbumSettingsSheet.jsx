@@ -11,6 +11,14 @@ export default function AlbumSettingsSheet({
     album,
     photographerId,
     onSaved,
+    onPreview,
+    onQuickEdit,
+    onDuplicate,
+    onDelete,
+    onShareByEmail,
+    onGetDirectLink,
+    onGetQrCode,
+    onShareWhatsApp,
 }) {
     if (!isOpen) return null;
 
@@ -40,6 +48,14 @@ export default function AlbumSettingsSheet({
                         photographerId={photographerId}
                         onAlbumUpdated={onSaved}
                         onClose={onClose}
+                        onPreview={onPreview}
+                        onQuickEdit={onQuickEdit}
+                        onDuplicate={onDuplicate}
+                        onDelete={onDelete}
+                        onShareByEmail={onShareByEmail}
+                        onGetDirectLink={onGetDirectLink}
+                        onGetQrCode={onGetQrCode}
+                        onShareWhatsApp={onShareWhatsApp}
                     />
                 </div>
             </aside>
