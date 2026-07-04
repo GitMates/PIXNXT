@@ -360,9 +360,6 @@ export default function AlbumProoferSettingsDrawerPanel({
                         <button type="button" className="sa-album-settings-drawer__action-btn" onClick={onGetDirectLink}>
                             <Link size={16} /> Get Direct Link
                         </button>
-                        <button type="button" className="sa-album-settings-drawer__action-btn" onClick={onDuplicate}>
-                            <Copy size={16} /> Duplicate Album
-                        </button>
                         <button type="button" className="sa-album-settings-drawer__action-btn sa-album-settings-drawer__action-btn--danger" onClick={onDelete}>
                             <Trash2 size={16} /> Delete Album
                         </button>

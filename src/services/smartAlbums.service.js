@@ -726,7 +726,13 @@ async function syncLocalAlbumSettingsToSupabase(photographerId, remoteRows) {
 
 async function deleteAlbumAssets(albumId) {
 
-  await deleteAlbumCollectionAssets(albumId);
+  try {
+    await deleteAlbumCollectionAssets(albumId);
+  } catch (err) {
+    // Storage deletion (R2) may fail due to CORS in dev or missing credentials.
+    // Log but don't block the DB record deletion.
+    console.warn('[deleteAlbum] Could not delete storage assets, continuing:', err?.message);
+  }
 
   clearAllAlbumPagePhotos(albumId);
 

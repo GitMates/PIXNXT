@@ -621,10 +621,17 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                         setSettingsAlbum(null);
                     }
                 }}
-                onDelete={() => {
-                    if (settingsAlbum) {
-                        handleDeleteAlbum(settingsAlbum);
-                        setSettingsAlbum(null);
+                onDelete={async () => {
+                    if (!settingsAlbum) return;
+                    const albumToDelete = settingsAlbum;
+                    if (!window.confirm(`Delete "${albumToDelete.name}"? This cannot be undone.`)) return;
+                    setSettingsAlbum(null);
+                    try {
+                        await smartAlbumsService.deleteAlbum(user?.id, albumToDelete.id);
+                        setAlbums((prev) => prev.filter((a) => a.id !== albumToDelete.id));
+                    } catch (err) {
+                        console.error(err);
+                        alert('Failed to delete album. Please try again.');
                     }
                 }}
                 onShareByEmail={() => {
