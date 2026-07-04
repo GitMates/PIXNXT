@@ -42,6 +42,7 @@ export const DEFAULT_ALBUM_PROOFER_SETTINGS = {
     requireNameForComments: false,
     maxFreeSwaps: 5,
     allowExternalUploads: false,
+    allowVoiceRecordings: true,
     maxRevisionRounds: 3,
     approvalPin: '',
     sendReminderEmails: false,
@@ -118,6 +119,8 @@ function dbAlbumToSettings(row = {}) {
         maxFreeSwaps: Number(raw.max_free_swaps ?? raw.maxFreeSwaps ?? 5) || 0,
         allowExternalUploads:
             raw.allow_external_uploads ?? raw.allowExternalUploads ?? false,
+        allowVoiceRecordings:
+            raw.allow_voice_recordings ?? raw.allowVoiceRecordings ?? true,
         maxRevisionRounds:
             Number(raw.max_revision_rounds ?? raw.maxRevisionRounds ?? 3) || 1,
         approvalPin: String(raw.approval_pin ?? raw.approvalPin ?? ''),
@@ -138,6 +141,7 @@ function settingsToDbFull(settings) {
         require_name_for_comments: Boolean(settings.requireNameForComments),
         max_free_swaps: Number(settings.maxFreeSwaps) || 0,
         allow_external_uploads: Boolean(settings.allowExternalUploads),
+        allow_voice_recordings: settings.allowVoiceRecordings !== false,
         max_revision_rounds: Number(settings.maxRevisionRounds) || 1,
         approval_pin: settings.approvalPin || '',
         send_reminder_emails: Boolean(settings.sendReminderEmails),
@@ -165,6 +169,9 @@ function settingsToDb(patch) {
     if (patch.maxFreeSwaps !== undefined) out.max_free_swaps = patch.maxFreeSwaps;
     if (patch.allowExternalUploads !== undefined) {
         out.allow_external_uploads = patch.allowExternalUploads;
+    }
+    if (patch.allowVoiceRecordings !== undefined) {
+        out.allow_voice_recordings = patch.allowVoiceRecordings !== false;
     }
     if (patch.maxRevisionRounds !== undefined) out.max_revision_rounds = patch.maxRevisionRounds;
     if (patch.approvalPin !== undefined) out.approval_pin = patch.approvalPin;
@@ -384,6 +391,7 @@ export const smartAlbumProoferSettingsService = {
                   requireNameForComments: fromSnapshot.requireNameForComments ?? false,
                   maxFreeSwaps: fromSnapshot.maxFreeSwaps ?? 5,
                   allowExternalUploads: fromSnapshot.allowExternalUploads ?? false,
+                  allowVoiceRecordings: fromSnapshot.allowVoiceRecordings ?? true,
                   maxRevisionRounds: fromSnapshot.maxRevisionRounds ?? 3,
                   sendReminderEmails: fromSnapshot.sendReminderEmails ?? false,
               })
@@ -428,6 +436,7 @@ export const smartAlbumProoferSettingsService = {
             requireNameForComments: parsed.requireNameForComments,
             maxFreeSwaps: parsed.maxFreeSwaps,
             allowExternalUploads: parsed.allowExternalUploads,
+            allowVoiceRecordings: parsed.allowVoiceRecordings !== false,
             maxRevisionRounds: parsed.maxRevisionRounds,
             sendReminderEmails: parsed.sendReminderEmails,
             commentsEnabled: album?.comments_enabled !== false,
@@ -480,6 +489,7 @@ export const smartAlbumProoferSettingsService = {
             requireNameForComments: effective.requireNameForComments,
             maxFreeSwaps: effective.maxFreeSwaps,
             allowExternalUploads: effective.allowExternalUploads,
+            allowVoiceRecordings: effective.allowVoiceRecordings !== false,
             maxRevisionRounds: effective.maxRevisionRounds,
             sendReminderEmails: effective.sendReminderEmails,
             commentsEnabled: effective.commentsEnabled,

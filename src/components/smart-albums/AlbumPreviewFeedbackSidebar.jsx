@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Mic, Paperclip, Play, Send, X } from 'lucide-react';
 import AlbumPreviewSpreadFeed from './AlbumPreviewSpreadFeed';
 import {
@@ -8,7 +8,7 @@ import {
 } from '../../services/smartAlbumComments.service';
 import { notifyClientFeedbackEvent } from './albumClientFeedbackNotify';
 import { prepareCommentAttachmentFromFile } from './albumCommentAttachments';
-import { canClientLeaveFeedback } from './albumProoferPreview';
+import { canClientAttachImage, canClientLeaveFeedback, canClientRecordVoice } from './albumProoferPreview';
 import { useFeedbackVoiceRecorder } from './useFeedbackVoiceRecorder';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
 import './AlbumPreviewFeedbackSidebar.css';
@@ -134,10 +134,51 @@ function FeedbackCompose({
         };
     }, [albumId]);
 
+    const canAttachImage = canClientAttachImage(prooferAccess, { clientPreview });
+    const canRecordVoice = canClientRecordVoice(prooferAccess, { clientPreview });
+
+    useEffect(() => {
+        if (canAttachImage && canRecordVoice) return;
+        if (!canAttachImage && pendingAttachment?.type === 'image') {
+            setPendingAttachment(null);
+        }
+        if (!canRecordVoice) {
+            if (pendingAttachment?.type === 'audio') {
+                setPendingAttachment(null);
+            }
+            cancelRecording();
+        }
+    }, [canAttachImage, canRecordVoice, pendingAttachment, cancelRecording]);
+
+    const composePlaceholder = useMemo(() => {
+        if (canAttachImage && canRecordVoice) {
+            return 'Add a comment, image, or audio recording...';
+        }
+        if (canAttachImage) {
+            return 'Add a comment or attach an image...';
+        }
+        if (canRecordVoice) {
+            return 'Add a comment or record a voice message...';
+        }
+        return 'Add a comment...';
+    }, [canAttachImage, canRecordVoice]);
+
     const handlePickAttachment = useCallback(() => {
         if (!commentsEnabled || saving || preparingAttachment || recording || preparingVoice) return;
+        if (!canAttachImage) {
+            onNotify?.('Image uploads are disabled for this album.');
+            return;
+        }
         fileInputRef.current?.click();
-    }, [commentsEnabled, saving, preparingAttachment, recording, preparingVoice]);
+    }, [
+        commentsEnabled,
+        saving,
+        preparingAttachment,
+        recording,
+        preparingVoice,
+        canAttachImage,
+        onNotify,
+    ]);
 
     const handleAttachmentSelected = useCallback(
         async (event) => {
@@ -163,6 +204,15 @@ function FeedbackCompose({
         const body = draft.trim();
         if ((!body && !pendingAttachment) || !albumId || spreadIndex == null || saving) return;
         if (!commentsEnabled) return;
+
+        if (pendingAttachment?.type === 'image' && !canAttachImage) {
+            onNotify?.('Image uploads are disabled for this album.');
+            return;
+        }
+        if (pendingAttachment?.type === 'audio' && !canRecordVoice) {
+            onNotify?.('Voice recordings are disabled for this album.');
+            return;
+        }
 
         if (clientPreview && prooferAccess) {
             const guard = canClientLeaveFeedback(albumId, prooferAccess, 'comment');
@@ -232,6 +282,8 @@ function FeedbackCompose({
         onNotify,
         photographerId,
         spreadLabel,
+        canAttachImage,
+        canRecordVoice,
     ]);
 
     const handleKeyDown = (event) => {
@@ -311,7 +363,7 @@ function FeedbackCompose({
                         showCompactInput ? ' av-feedback-compose__input--compact' : ''
                     }`}
                     rows={showCompactInput ? 2 : 3}
-                    placeholder="Add a comment, image, or audio recording..."
+                    placeholder={composePlaceholder}
                     value={draft}
                     disabled={disabled}
                     onChange={(e) => setDraft(e.target.value)}
@@ -321,27 +373,37 @@ function FeedbackCompose({
             </div>
             <div className="av-feedback-compose__actions">
                 <div className="av-feedback-compose__actions-left">
-                    <button
-                        type="button"
-                        className="av-feedback-compose__icon-btn"
-                        disabled={disabled}
-                        onClick={handlePickAttachment}
-                        aria-label="Attach image from computer"
-                    >
-                        <Paperclip size={18} />
-                    </button>
-                    <button
-                        type="button"
-                        className={`av-feedback-compose__icon-btn${
-                            recording ? ' av-feedback-compose__icon-btn--recording' : ''
-                        }`}
-                        disabled={disabled && !recording}
-                        onClick={toggleRecording}
-                        aria-label={recording ? 'Stop recording' : 'Record voice message'}
-                        aria-pressed={recording}
-                    >
-                        <Mic size={18} />
-                    </button>
+                    {canAttachImage ? (
+                        <button
+                            type="button"
+                            className="av-feedback-compose__icon-btn"
+                            disabled={disabled}
+                            onClick={handlePickAttachment}
+                            aria-label="Attach image from computer"
+                        >
+                            <Paperclip size={18} />
+                        </button>
+                    ) : null}
+                    {canRecordVoice ? (
+                        <button
+                            type="button"
+                            className={`av-feedback-compose__icon-btn${
+                                recording ? ' av-feedback-compose__icon-btn--recording' : ''
+                            }`}
+                            disabled={disabled && !recording}
+                            onClick={() => {
+                                if (!canRecordVoice) {
+                                    onNotify?.('Voice recordings are disabled for this album.');
+                                    return;
+                                }
+                                toggleRecording();
+                            }}
+                            aria-label={recording ? 'Stop recording' : 'Record voice message'}
+                            aria-pressed={recording}
+                        >
+                            <Mic size={18} />
+                        </button>
+                    ) : null}
                 </div>
                 <button
                     type="button"

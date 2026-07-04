@@ -58,6 +58,7 @@ export default function AlbumEditorSettingsPanel({
     const [requireName, setRequireName] = useState(false);
     const [maxSwaps, setMaxSwaps] = useState(5);
     const [allowExternal, setAllowExternal] = useState(false);
+    const [allowVoice, setAllowVoice] = useState(true);
     const [approvalPin, setApprovalPin] = useState('');
     const [sendReminders, setSendReminders] = useState(false);
     const [privateShareToken, setPrivateShareToken] = useState('');
@@ -96,6 +97,7 @@ export default function AlbumEditorSettingsPanel({
                 setRequireName(proofer.requireNameForComments);
                 setMaxSwaps(proofer.maxFreeSwaps);
                 setAllowExternal(proofer.allowExternalUploads);
+                setAllowVoice(proofer.allowVoiceRecordings !== false);
                 setApprovalPin(proofer.approvalPin || '');
                 setSendReminders(proofer.sendReminderEmails);
                 setPrivateShareToken(proofer.privateShareToken || '');
@@ -142,6 +144,7 @@ export default function AlbumEditorSettingsPanel({
                 requireNameForComments: requireName,
                 maxFreeSwaps: maxSwaps,
                 allowExternalUploads: allowExternal,
+                allowVoiceRecordings: allowVoice,
                 approvalPin,
                 sendReminderEmails: sendReminders,
             };
@@ -196,6 +199,7 @@ export default function AlbumEditorSettingsPanel({
         requireName,
         maxSwaps,
         allowExternal,
+        allowVoice,
         approvalPin,
         sendReminders,
         allowComments,
@@ -225,6 +229,7 @@ export default function AlbumEditorSettingsPanel({
         requireName,
         maxSwaps,
         allowExternal,
+        allowVoice,
         approvalPin,
         sendReminders,
         allowComments,
@@ -381,13 +386,27 @@ export default function AlbumEditorSettingsPanel({
                         <div className="ae-settings-row__text">
                             <p className="ae-settings-field__title">Allow External Image Uploads</p>
                             <p className="ae-settings-field__desc">
-                                Clients can attach images in swap requests
+                                Clients can attach images in comments and swap requests
                             </p>
                         </div>
                         <SettingsToggle
                             on={allowExternal}
                             onChange={() => setAllowExternal((v) => !v)}
                             label="External uploads"
+                        />
+                    </div>
+
+                    <div className="ae-settings-row">
+                        <div className="ae-settings-row__text">
+                            <p className="ae-settings-field__title">Allow Voice Recordings</p>
+                            <p className="ae-settings-field__desc">
+                                Clients can record and send voice messages in feedback
+                            </p>
+                        </div>
+                        <SettingsToggle
+                            on={allowVoice}
+                            onChange={() => setAllowVoice((v) => !v)}
+                            label="Voice recordings"
                         />
                     </div>
 
