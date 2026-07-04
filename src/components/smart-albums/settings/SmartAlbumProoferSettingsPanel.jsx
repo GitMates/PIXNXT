@@ -175,27 +175,6 @@ export default function SmartAlbumProoferSettingsPanel() {
 
                 {activeTab === 'workflow' && (
                     <>
-                        <SettingGroup title="Revision Limits">
-                            <SettingsToggle
-                                checked={settings.capRevisions}
-                                onChange={(capRevisions) => patch({ capRevisions })}
-                                label="Cap Total Revision Rounds"
-                                description="Limit how many times a client can request changes before final approval"
-                            />
-                            {settings.capRevisions && (
-                                <div className="sa-proofer-nested">
-                                    <NumberInput
-                                        label="Maximum Revision Rounds"
-                                        description="Number of revision cycles included in the package"
-                                        value={settings.revisionLimit}
-                                        onChange={(revisionLimit) => patch({ revisionLimit })}
-                                        min={1}
-                                        max={10}
-                                    />
-                                </div>
-                            )}
-                        </SettingGroup>
-
                         <SettingGroup title="Review Completion">
                             <SelectField
                                 label="Default Review Deadline"
