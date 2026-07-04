@@ -212,15 +212,14 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         if (starredOnly) setStarFilter('starred');
     }, [starredOnly]);
 
-    const openContextMenu = (e, albumId) => {
-        e.stopPropagation();
-        if (contextMenuId === albumId) {
+    const openAlbumSettings = useCallback(
+        (e, album) => {
+            e.stopPropagation();
             closeContextMenu();
-            return;
-        }
-        setContextMenuAnchor(e.currentTarget);
-        setContextMenuId(albumId);
-    };
+            setSettingsAlbum(album);
+        },
+        [closeContextMenu]
+    );
 
     const handleDeleteAlbum = async (album) => {
         if (!user) return;
@@ -519,7 +518,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                             return (
                                 <article
                                     key={album.id}
-                                    className={`sa-proofer-album-card${contextMenuId === album.id ? ' sa-proofer-album-card--menu-open' : ''}`}
+                                    className={`sa-proofer-album-card${settingsAlbum?.id === album.id ? ' sa-proofer-album-card--menu-open' : ''}`}
                                     onClick={() => navigate(`/smart-albums/album/${album.id}`)}
                                     onKeyDown={(e) =>
                                         e.key === 'Enter' && navigate(`/smart-albums/album/${album.id}`)
@@ -533,12 +532,11 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                             <button
                                                 type="button"
                                                 className="sa-proofer-album-card__menu"
-                                                onClick={(e) => openContextMenu(e, album.id)}
-                                                aria-label="Album options"
+                                                onClick={(e) => openAlbumSettings(e, album)}
+                                                aria-label="Open album settings"
                                             >
                                                 ⋮
                                             </button>
-                                            {renderContextMenu(album)}
                                         </div>
                                         <div className="sa-proofer-album-card__body">
                                             <h3 className="sa-proofer-album-card__name">{album.name}</h3>
