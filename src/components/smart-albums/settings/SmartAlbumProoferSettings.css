@@ -121,15 +121,15 @@
   color: oklch(0.58 0.01 70);
 }
 
-/* Raised white cards */
+/* Raised white cards -> updated to inset background-colored cards */
 .theme-mono .sa-proofer-card {
   border-radius: 16px;
   border: 1px solid oklch(0.905 0.007 82);
-  background: oklch(0.995 0.004 85);
+  background: oklch(0.98 0.004 85);
   padding: 20px 22px;
   box-shadow:
-    -1px -1px 4px oklch(1 0.004 85 / 0.55),
-    2px 3px 10px oklch(0.4 0.01 70 / 0.06);
+    inset 2px 2px 5px oklch(0.4 0.01 70 / 0.06),
+    inset -2px -2px 5px oklch(1 0.004 85 / 0.7);
 }
 
 .theme-mono .sa-proofer-field__label {
