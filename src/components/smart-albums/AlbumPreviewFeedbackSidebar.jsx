@@ -6,7 +6,7 @@ import {
     saveGuestProfile,
     smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
-import { notifyClientFeedbackEvent } from './albumClientFeedbackNotify';
+import { notifyClientFeedbackEvent, albumHadClientFeedbackBefore } from './albumClientFeedbackNotify';
 import { prepareCommentAttachmentFromFile } from './albumCommentAttachments';
 import { canClientAttachImage, canClientLeaveFeedback, canClientRecordVoice } from './albumProoferPreview';
 import { useFeedbackVoiceRecorder } from './useFeedbackVoiceRecorder';
@@ -231,6 +231,7 @@ function FeedbackCompose({
         }
 
         const guest = resolveGuest();
+        const hadFeedbackBefore = albumHadClientFeedbackBefore(albumId);
 
         setSaving(true);
         try {
@@ -255,6 +256,7 @@ function FeedbackCompose({
             setPendingAttachment(null);
             notifyClientFeedbackEvent(albumId, {
                 photographerId,
+                hadFeedbackBefore,
                 eventType: 'comment',
                 eventLabel: spreadLabel,
                 eventDetail: body || pendingAttachment?.name || 'Attachment',

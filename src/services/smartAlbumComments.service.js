@@ -1009,6 +1009,75 @@ export const smartAlbumCommentsService = {
         }
         return data;
     },
+
+    async getAlbumProofSummaries(albumIds) {
+        if (!Array.isArray(albumIds) || albumIds.length === 0) return {};
+
+        const summaries = {};
+        albumIds.forEach((albumId) => {
+            summaries[albumId] = {
+                clientCommentCount: 0,
+                clientSpreadCount: 0,
+                latestClientActivityAt: null,
+            };
+        });
+
+        try {
+            const { data, error } = await supabase
+                .from('smart_album_comments')
+                .select('album_id, spread_index, author_type, body, created_at, updated_at, parent_id')
+                .in('album_id', albumIds)
+                .is('parent_id', null);
+
+            if (error) throw error;
+
+            const spreadSets = {};
+            for (const row of data || []) {
+                if (row.author_type !== 'client' || !hasCommentBody(row)) continue;
+                const albumId = row.album_id;
+                if (!summaries[albumId]) continue;
+                summaries[albumId].clientCommentCount += 1;
+                if (!spreadSets[albumId]) spreadSets[albumId] = new Set();
+                spreadSets[albumId].add(row.spread_index);
+                const stamp = row.updated_at || row.created_at;
+                if (
+                    stamp &&
+                    (!summaries[albumId].latestClientActivityAt ||
+                        new Date(stamp).getTime() >
+                            new Date(summaries[albumId].latestClientActivityAt).getTime())
+                ) {
+                    summaries[albumId].latestClientActivityAt = stamp;
+                }
+            }
+
+            albumIds.forEach((albumId) => {
+                summaries[albumId].clientSpreadCount = spreadSets[albumId]?.size || 0;
+                const localCount = countClientRootComments(albumId);
+                if (localCount > summaries[albumId].clientCommentCount) {
+                    summaries[albumId].clientCommentCount = localCount;
+                    if (!summaries[albumId].latestClientActivityAt) {
+                        summaries[albumId].latestClientActivityAt = new Date().toISOString();
+                    }
+                }
+            });
+        } catch (err) {
+            console.warn('getAlbumProofSummaries:', err?.message || err);
+            albumIds.forEach((albumId) => {
+                const localCount = countClientRootComments(albumId);
+                if (localCount > 0) {
+                    summaries[albumId].clientCommentCount = localCount;
+                    summaries[albumId].clientSpreadCount = Math.max(
+                        summaries[albumId].clientSpreadCount,
+                        1
+                    );
+                    summaries[albumId].latestClientActivityAt =
+                        summaries[albumId].latestClientActivityAt || new Date().toISOString();
+                }
+            });
+        }
+
+        return summaries;
+    },
 };
 
 export function groupCommentsByThread(comments) {

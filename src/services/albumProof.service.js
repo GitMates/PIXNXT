@@ -58,6 +58,37 @@ export function markClientCommentingStartedNotified(albumId) {
     writeMap(COMMENTING_STARTED_KEY, all);
 }
 
+export async function trackAlbumProofActivity({
+    albumId,
+    action = 'activity',
+    guestName = null,
+    guestEmail = null,
+} = {}) {
+    if (!albumId) return null;
+    try {
+        const { data, error } = await supabase.functions.invoke('track-album-proof-activity', {
+            body: {
+                albumId,
+                action,
+                guestName: guestName?.trim() || null,
+                guestEmail: guestEmail?.trim() || null,
+            },
+        });
+        if (error) {
+            console.warn('trackAlbumProofActivity:', error.message);
+            return null;
+        }
+        if (data?.error) {
+            console.warn('trackAlbumProofActivity:', data.error);
+            return null;
+        }
+        return data;
+    } catch (err) {
+        console.warn('trackAlbumProofActivity failed:', err?.message || err);
+        return null;
+    }
+}
+
 async function readFunctionErrorMessage(error) {
     let message = error?.message || 'Could not send notification email';
     if (error instanceof FunctionsHttpError) {

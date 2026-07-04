@@ -1,5 +1,7 @@
 import {
     albumProofService,
+    markClientCommentingStartedNotified,
+    trackAlbumProofActivity,
 } from '../../services/albumProof.service';
 import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
 import {
@@ -8,6 +10,7 @@ import {
 } from '../../services/smartAlbumComments.service';
 import { getPhotoPins } from './albumPhotoPins';
 import { getSwapMarks } from './albumSwapMarks';
+import { notifyAlbumProofStatusChanged } from './albumProofStatus';
 
 /** Whether the album already has client photo comments, swaps, or spread comments. */
 export function albumHadClientFeedbackBefore(albumId) {
@@ -44,6 +47,18 @@ export function notifyClientFeedbackEvent(
     const siteOrigin = typeof window !== 'undefined' ? window.location.origin : '';
     const guestName = guest?.name?.trim() || 'Album client';
     const guestEmail = guest?.email?.trim() || null;
+
+    void trackAlbumProofActivity({
+        albumId,
+        action: hadFeedbackBefore ? 'activity' : 'client_started_commenting',
+        guestName,
+        guestEmail,
+    }).then(() => {
+        if (!hadFeedbackBefore) {
+            markClientCommentingStartedNotified(albumId);
+        }
+        notifyAlbumProofStatusChanged(albumId);
+    });
 
     if (photographerUsesInstantAlerts(photographerId)) {
         void albumProofService
