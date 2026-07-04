@@ -4,23 +4,28 @@ import { getGuestProfile, saveGuestProfile } from '../../services/smartAlbumComm
 
 export default function AlbumPreviewGuestNamePrompt({ albumId, open, onClose }) {
     const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
 
     useEffect(() => {
         if (!open) return;
-        setName(getGuestProfile(albumId)?.name || '');
+        const profile = getGuestProfile(albumId);
+        setName(profile?.name || '');
+        setEmail(profile?.email || '');
     }, [albumId, open]);
 
     if (!open) return null;
 
     const handleSubmit = (event) => {
         event.preventDefault();
-        const trimmed = name.trim();
-        if (!trimmed) return;
+        const trimmedName = name.trim();
+        const trimmedEmail = email.trim();
+        if (!trimmedName) return;
         saveGuestProfile(albumId, {
             ...(getGuestProfile(albumId) || {}),
-            name: trimmed,
+            name: trimmedName,
+            email: trimmedEmail,
         });
-        onClose?.(trimmed);
+        onClose?.(trimmedName);
     };
 
     return createPortal(
@@ -34,18 +39,29 @@ export default function AlbumPreviewGuestNamePrompt({ albumId, open, onClose }) 
                 onClick={(e) => e.stopPropagation()}
                 onSubmit={handleSubmit}
             >
-                <h2 className="av-guest-name-modal__title">Your name</h2>
+                <h2 className="av-guest-name-modal__title">Your Details</h2>
                 <p className="av-guest-name-modal__lead">
-                    This album requires your name so the photographer knows who left feedback.
+                    This album requires your name and email so the photographer knows who left feedback and can send reminders.
                 </p>
-                <input
-                    type="text"
-                    className="av-guest-name-modal__input"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Enter your name"
-                    autoFocus
-                />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '24px' }}>
+                    <input
+                        type="text"
+                        className="av-guest-name-modal__input"
+                        style={{ marginBottom: 0 }}
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Enter your name"
+                        autoFocus
+                    />
+                    <input
+                        type="email"
+                        className="av-guest-name-modal__input"
+                        style={{ marginBottom: 0 }}
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email"
+                    />
+                </div>
                 <div className="av-guest-name-modal__actions">
                     <button type="button" className="av-guest-name-modal__btn av-guest-name-modal__btn--ghost" onClick={onClose}>
                         Cancel
@@ -53,7 +69,7 @@ export default function AlbumPreviewGuestNamePrompt({ albumId, open, onClose }) 
                     <button
                         type="submit"
                         className="av-guest-name-modal__btn av-guest-name-modal__btn--primary"
-                        disabled={!name.trim()}
+                        disabled={!name.trim() || !email.trim()}
                     >
                         Continue
                     </button>

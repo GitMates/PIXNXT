@@ -343,14 +343,14 @@ export default function AlbumSpreadComments({
     );
 
     const handleGuestContinue = () => {
-        if (!guestName.trim()) return;
-        persistGuestProfile({ name: guestName.trim(), email: guestEmail.trim() || null });
+        if (!guestName.trim() || !guestEmail.trim()) return;
+        persistGuestProfile({ name: guestName.trim(), email: guestEmail.trim() });
         setShowGuestFields(false);
         setGuestModalOpen(false);
     };
 
     const openConfirmModal = useCallback(async () => {
-        if (showGuestFields && !guestName.trim()) {
+        if (showGuestFields && (!guestName.trim() || !guestEmail.trim())) {
             setGuestModalOpen(true);
             return;
         }
@@ -522,12 +522,12 @@ export default function AlbumSpreadComments({
                                 autoFocus
                                 onChange={(e) => setGuestName(e.target.value)}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && guestName.trim()) handleGuestContinue();
+                                    if (e.key === 'Enter' && guestName.trim() && guestEmail.trim()) handleGuestContinue();
                                 }}
                             />
                         </label>
                         <label className="asc-field">
-                            <span className="asc-field-label">Email (optional)</span>
+                            <span className="asc-field-label">Email</span>
                             <input
                                 type="email"
                                 className="asc-input"
@@ -535,7 +535,7 @@ export default function AlbumSpreadComments({
                                 value={guestEmail}
                                 onChange={(e) => setGuestEmail(e.target.value)}
                                 onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && guestName.trim()) handleGuestContinue();
+                                    if (e.key === 'Enter' && guestName.trim() && guestEmail.trim()) handleGuestContinue();
                                 }}
                             />
                         </label>
@@ -717,7 +717,7 @@ export default function AlbumSpreadComments({
                                 />
                             </label>
                             <label className="asc-field">
-                                <span className="asc-field-label">Email (optional)</span>
+                                <span className="asc-field-label">Email</span>
                                 <input
                                     type="email"
                                     className="asc-input"
