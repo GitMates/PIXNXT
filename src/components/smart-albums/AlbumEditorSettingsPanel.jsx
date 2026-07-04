@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, CheckCircle2, Copy, RefreshCw } from 'lucide-react';
+import { Check, Copy, RefreshCw } from 'lucide-react';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
 import {
     smartAlbumProoferSettingsService,
@@ -7,6 +7,25 @@ import {
     getAlbumShareDisplayUrl,
 } from '../../services/smartAlbumProoferSettings.service';
 import './AlbumEditorSettings.css';
+import AeSettingsSelect from './AeSettingsSelect';
+
+const ACCESS_LEVEL_OPTIONS = [
+    {
+        value: 'public',
+        label: 'Public',
+        description: 'Anyone with the link can open the album',
+    },
+    {
+        value: 'password',
+        label: 'Password Protected',
+        description: 'Clients must enter a password before viewing',
+    },
+    {
+        value: 'private',
+        label: 'Private (Link Only)',
+        description: 'Hidden URL with a unique token — not publicly listed',
+    },
+];
 
 function SettingsToggle({ on, onChange, label }) {
     return (
@@ -30,8 +49,6 @@ export default function AlbumEditorSettingsPanel({
 }) {
     const albumId = album?.id;
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
     const [copied, setCopied] = useState(false);
     const [pinCopied, setPinCopied] = useState(false);
     const [notification, setNotification] = useState('');
@@ -50,7 +67,6 @@ export default function AlbumEditorSettingsPanel({
     const [shareLink, setShareLink] = useState(true);
 
     const saveTimerRef = useRef(null);
-    const savedTimerRef = useRef(null);
     const skipSaveRef = useRef(true);
     const globalDefaultsRef = useRef(null);
 
@@ -111,16 +127,9 @@ export default function AlbumEditorSettingsPanel({
         album?.share_link_enabled,
     ]);
 
-    const triggerSaved = useCallback(() => {
-        setSaved(true);
-        if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
-        savedTimerRef.current = window.setTimeout(() => setSaved(false), 2500);
-    }, []);
-
     const persist = useCallback(async () => {
         if (!photographerId || !albumId) return;
 
-        setSaving(true);
         try {
             const prooferPatch = {
                 accessLevel,
@@ -174,11 +183,8 @@ export default function AlbumEditorSettingsPanel({
             }
 
             onAlbumUpdated?.(merged);
-            triggerSaved();
         } catch (err) {
             console.error(err);
-        } finally {
-            setSaving(false);
         }
     }, [
         photographerId,
@@ -196,7 +202,6 @@ export default function AlbumEditorSettingsPanel({
         allowSwaps,
         shareLink,
         onAlbumUpdated,
-        triggerSaved,
     ]);
 
     useEffect(() => {
@@ -264,7 +269,6 @@ export default function AlbumEditorSettingsPanel({
     const handleRegeneratePin = () => {
         const pin = smartAlbumProoferSettingsService.randomPin();
         setApprovalPin(pin);
-        triggerSaved();
     };
 
     if (loading) {
@@ -313,18 +317,12 @@ export default function AlbumEditorSettingsPanel({
                         <label className="ae-settings-field__label" htmlFor="ae-access-level">
                             Access Level
                         </label>
-                        <div className="ae-settings-inset ae-settings-inset--select">
-                            <select
-                                id="ae-access-level"
-                                className="ae-settings-select"
-                                value={accessLevel}
-                                onChange={(e) => setAccessLevel(e.target.value)}
-                            >
-                                <option value="public">Public</option>
-                                <option value="password">Password Protected</option>
-                                <option value="private">Private (Link Only)</option>
-                            </select>
-                        </div>
+                        <AeSettingsSelect
+                            id="ae-access-level"
+                            value={accessLevel}
+                            onChange={setAccessLevel}
+                            options={ACCESS_LEVEL_OPTIONS}
+                        />
                         {accessLevel === 'password' && (
                             <div className="ae-settings-field ae-settings-field--password">
                                 <input
@@ -487,18 +485,6 @@ export default function AlbumEditorSettingsPanel({
                         />
                     </div>
                 </section>
-            </div>
-
-            <div className="ae-settings-footer">
-                <p className="ae-settings-footer__hint">
-                    {saving ? 'Saving…' : 'Changes are saved automatically'}
-                </p>
-                {saved && !saving && (
-                    <div className="ae-settings-footer__saved">
-                        <CheckCircle2 size={14} />
-                        All settings saved
-                    </div>
-                )}
             </div>
 
             {notification && <div className="ae-settings-toast">{notification}</div>}
