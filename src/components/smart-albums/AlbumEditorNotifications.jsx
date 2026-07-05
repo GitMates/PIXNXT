@@ -231,6 +231,11 @@ export default function AlbumEditorNotifications({
                                                         totalPages
                                                     )}
                                                 </span>
+                                                {item.createdAt && (
+                                                    <span className="ae-notifications-item-time">
+                                                        {formatCommentDateTime(item.createdAt)}
+                                                    </span>
+                                                )}
                                             </span>
                                         </span>
                                         <span className="ae-notifications-item-preview">

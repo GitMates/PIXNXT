@@ -276,8 +276,9 @@
 
 .ae-notifications-item-meta {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
   flex-shrink: 0;
 }
 
@@ -298,6 +299,13 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+.ae-notifications-item-time {
+  font-size: 10px;
+  color: oklch(0.55 0.01 70);
+  white-space: nowrap;
+  font-weight: 400;
 }
 
 .ae-topbar-right {
