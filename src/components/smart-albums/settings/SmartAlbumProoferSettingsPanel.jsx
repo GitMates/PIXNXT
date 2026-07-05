@@ -142,14 +142,6 @@ export default function SmartAlbumProoferSettingsPanel() {
                             />
                         </SettingGroup>
 
-                        <SettingGroup title="Download Permissions">
-                            <SettingsToggle
-                                checked={settings.allowDownloads}
-                                onChange={(allowDownloads) => patch({ allowDownloads })}
-                                label="Allow Client Downloads"
-                                description="Clients can download individual spreads or full album layouts"
-                            />
-                        </SettingGroup>
 
                         <SettingGroup title="Approval Authorization">
                             <SettingsToggle
