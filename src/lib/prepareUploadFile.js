@@ -109,7 +109,7 @@ export async function compressImageForUpload(file, options = {}) {
     ctx.drawImage(bitmap, 0, 0, outW, outH);
     bitmap.close();
 
-    const quality = jpegQualityForOutput(srcW, srcH, outW, outH, file.size);
+    const quality = options.quality ?? jpegQualityForOutput(srcW, srcH, outW, outH, file.size);
     const blob = await new Promise((resolve) => {
       canvas.toBlob(resolve, 'image/jpeg', quality);
     });

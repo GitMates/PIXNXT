@@ -744,7 +744,7 @@
   -webkit-overflow-scrolling: touch;
   scrollbar-gutter: stable;
   padding: 10px 8px 12px;
-  background: #fff;
+  background: oklch(0.968 0.006 85);
   border-radius: 10px;
 }
 
@@ -864,6 +864,36 @@
 
 .av-chat-bubble-text--clickable {
   cursor: pointer;
+}
+
+.av-chat-bubble-attachment {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  max-height: 160px;
+  margin-bottom: 6px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fff;
+}
+
+.av-chat-bubble-attachment-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin-bottom: 6px;
+}
+
+.av-chat-bubble-attachment-wrap .av-voice-player {
+  width: 100%;
+}
+
+.av-chat-bubble-attachment + .av-chat-bubble-text {
+  margin-top: 4px;
+}
+
+.av-chat-bubble-attachment-wrap + .av-chat-bubble-text {
+  margin-top: 4px;
 }
 
 .av-chat-bubble-foot {

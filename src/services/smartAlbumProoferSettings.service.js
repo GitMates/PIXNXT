@@ -33,6 +33,8 @@ export const DEFAULT_PROOFER_SETTINGS = {
         'Hi {{client_name}},\n\nThank you for your feedback on {{album_name}}! Based on your input, we\'ve prepared some revisions for your review.\n\nView the updated album: {{view_album_link}}\n\nPlease let us know if these changes work better for you.\n\nBest regards',
     approvedTemplate:
         'Hi {{client_name}},\n\nWonderful news! Your album {{album_name}} has been approved and is ready for final delivery.\n\nThank you for your collaboration throughout this process!\n\nBest regards',
+    clientStartedFeedbackTemplate:
+        'Hi {{photographer_name}},\n\nGreat news! Your client {{client_name}} has started reviewing the album {{album_name}} and left their first comment, swap request, or voice message.\n\nOpen the album editor to see the feedback: {{editor_link}}\n\nBest regards,\nPIXNXT Team',
 };
 
 export const DEFAULT_ALBUM_PROOFER_SETTINGS = {
@@ -42,6 +44,7 @@ export const DEFAULT_ALBUM_PROOFER_SETTINGS = {
     requireNameForComments: false,
     maxFreeSwaps: 5,
     allowExternalUploads: false,
+    allowVoiceRecordings: true,
     maxRevisionRounds: 3,
     approvalPin: '',
     sendReminderEmails: false,
@@ -118,6 +121,8 @@ function dbAlbumToSettings(row = {}) {
         maxFreeSwaps: Number(raw.max_free_swaps ?? raw.maxFreeSwaps ?? 5) || 0,
         allowExternalUploads:
             raw.allow_external_uploads ?? raw.allowExternalUploads ?? false,
+        allowVoiceRecordings:
+            raw.allow_voice_recordings ?? raw.allowVoiceRecordings ?? true,
         maxRevisionRounds:
             Number(raw.max_revision_rounds ?? raw.maxRevisionRounds ?? 3) || 1,
         approvalPin: String(raw.approval_pin ?? raw.approvalPin ?? ''),
@@ -138,6 +143,7 @@ function settingsToDbFull(settings) {
         require_name_for_comments: Boolean(settings.requireNameForComments),
         max_free_swaps: Number(settings.maxFreeSwaps) || 0,
         allow_external_uploads: Boolean(settings.allowExternalUploads),
+        allow_voice_recordings: settings.allowVoiceRecordings !== false,
         max_revision_rounds: Number(settings.maxRevisionRounds) || 1,
         approval_pin: settings.approvalPin || '',
         send_reminder_emails: Boolean(settings.sendReminderEmails),
@@ -165,6 +171,9 @@ function settingsToDb(patch) {
     if (patch.maxFreeSwaps !== undefined) out.max_free_swaps = patch.maxFreeSwaps;
     if (patch.allowExternalUploads !== undefined) {
         out.allow_external_uploads = patch.allowExternalUploads;
+    }
+    if (patch.allowVoiceRecordings !== undefined) {
+        out.allow_voice_recordings = patch.allowVoiceRecordings !== false;
     }
     if (patch.maxRevisionRounds !== undefined) out.max_revision_rounds = patch.maxRevisionRounds;
     if (patch.approvalPin !== undefined) out.approval_pin = patch.approvalPin;
@@ -221,6 +230,14 @@ export function getAlbumShareCopyUrl(album, settings) {
         return `${origin}/album-preview/${encodeURIComponent(album?.id || '')}?token=${token}`;
     }
     return getSmartAlbumPreviewShareUrl(album);
+}
+
+export function albumRemindersEnabled(photographerId, albumSettings = null) {
+    const defaults = readCachedPhotographerDefaults(photographerId);
+    const albumSend =
+        albumSettings?.sendReminderEmails ?? albumSettings?.send_reminder_emails;
+    if (albumSend === true) return true;
+    return Boolean(defaults.enableClientNudges);
 }
 
 export const smartAlbumProoferSettingsService = {
@@ -376,6 +393,7 @@ export const smartAlbumProoferSettingsService = {
                   requireNameForComments: fromSnapshot.requireNameForComments ?? false,
                   maxFreeSwaps: fromSnapshot.maxFreeSwaps ?? 5,
                   allowExternalUploads: fromSnapshot.allowExternalUploads ?? false,
+                  allowVoiceRecordings: fromSnapshot.allowVoiceRecordings ?? true,
                   maxRevisionRounds: fromSnapshot.maxRevisionRounds ?? 3,
                   sendReminderEmails: fromSnapshot.sendReminderEmails ?? false,
               })
@@ -420,6 +438,7 @@ export const smartAlbumProoferSettingsService = {
             requireNameForComments: parsed.requireNameForComments,
             maxFreeSwaps: parsed.maxFreeSwaps,
             allowExternalUploads: parsed.allowExternalUploads,
+            allowVoiceRecordings: parsed.allowVoiceRecordings !== false,
             maxRevisionRounds: parsed.maxRevisionRounds,
             sendReminderEmails: parsed.sendReminderEmails,
             commentsEnabled: album?.comments_enabled !== false,
@@ -472,6 +491,7 @@ export const smartAlbumProoferSettingsService = {
             requireNameForComments: effective.requireNameForComments,
             maxFreeSwaps: effective.maxFreeSwaps,
             allowExternalUploads: effective.allowExternalUploads,
+            allowVoiceRecordings: effective.allowVoiceRecordings !== false,
             maxRevisionRounds: effective.maxRevisionRounds,
             sendReminderEmails: effective.sendReminderEmails,
             commentsEnabled: effective.commentsEnabled,

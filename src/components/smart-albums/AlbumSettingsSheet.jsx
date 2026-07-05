@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import AlbumProoferSettingsDrawerPanel from './AlbumProoferSettingsDrawerPanel';
 import '../portal/portal.css';
@@ -10,10 +11,18 @@ export default function AlbumSettingsSheet({
     album,
     photographerId,
     onSaved,
+    onPreview,
+    onQuickEdit,
+    onDuplicate,
+    onDelete,
+    onShareByEmail,
+    onGetDirectLink,
+    onGetQrCode,
+    onShareWhatsApp,
 }) {
     if (!isOpen) return null;
 
-    return (
+    return createPortal(
         <div className="theme-mono">
             <div className="sa-album-settings-backdrop" onClick={onClose} aria-hidden />
             <aside className="sa-album-settings-drawer" role="dialog" aria-label="Album Settings">
@@ -35,13 +44,22 @@ export default function AlbumSettingsSheet({
                 </header>
                 <div className="sa-album-settings-drawer__panel-wrap">
                     <AlbumProoferSettingsDrawerPanel
-                    album={album}
-                    photographerId={photographerId}
-                    onAlbumUpdated={onSaved}
-                    onClose={onClose}
-                />
+                        album={album}
+                        photographerId={photographerId}
+                        onAlbumUpdated={onSaved}
+                        onClose={onClose}
+                        onPreview={onPreview}
+                        onQuickEdit={onQuickEdit}
+                        onDuplicate={onDuplicate}
+                        onDelete={onDelete}
+                        onShareByEmail={onShareByEmail}
+                        onGetDirectLink={onGetDirectLink}
+                        onGetQrCode={onGetQrCode}
+                        onShareWhatsApp={onShareWhatsApp}
+                    />
                 </div>
             </aside>
-        </div>
+        </div>,
+        document.body
     );
 }

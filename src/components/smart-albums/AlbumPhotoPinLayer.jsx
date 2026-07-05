@@ -165,7 +165,15 @@ function PinMarker({ layerRef, pin, open, onToggle, onRemove, allowRemove }) {
             >
                 <span className="ab-photo-pin-marker-body">
                     {isSwap ? (
-                        <SwapIcon className="ab-photo-pin-swap-icon" size={11} />
+                        <>
+                            <SwapIcon className="ab-photo-pin-swap-icon" size={11} />
+                            <span className="ab-photo-pin-badge">
+                                {(() => {
+                                    const match = pin.pinLabel?.match(/\d+/);
+                                    return match ? match[0] : '1';
+                                })()}
+                            </span>
+                        </>
                     ) : (
                         <CommentIcon className="ab-photo-pin-marker-icon" />
                     )}

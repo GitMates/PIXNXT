@@ -3,6 +3,15 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { openSmartAlbumPreview, getSmartAlbumPreviewShareUrl, openShareByEmail, openWhatsAppShare } from '../../lib/shareSmartAlbum';
 import { smartAlbumsService } from '../../services/smartAlbums.service';
+import { smartAlbumCommentsService, COMMENTS_CHANGED_EVENT } from '../../services/smartAlbumComments.service';
+import {
+    ALBUM_PROOF_STATUS_CHANGED_EVENT,
+    getAlbumProofActivityAt,
+    getAlbumProofFootnote,
+    getAlbumProofStatus,
+    isAlbumAwaitingFeedback,
+    mergeAlbumProofTimestamps,
+} from '../../components/smart-albums/albumProofStatus';
 import { AlbumContextMenu } from '../../components/smart-albums/AlbumContextMenu';
 import AlbumListCoverThumb from '../../components/smart-albums/AlbumListCoverThumb';
 import { AlbumPreviewLinkModal, AlbumPreviewQrModal } from '../../components/smart-albums/AlbumShareModals';
@@ -66,19 +75,6 @@ function formatRelativeTime(dateStr) {
     return formatAlbumDate(dateStr);
 }
 
-function getAlbumProofStatus(album) {
-    if (album.client_approved_at) {
-        return { label: 'Approved', tone: 'approved' };
-    }
-    if (album.client_changes_submitted_at) {
-        return { label: 'Revision requested', tone: 'revision' };
-    }
-    if (album.status === 'published' && album.share_link_enabled !== false) {
-        return { label: 'Awaiting feedback', tone: 'awaiting' };
-    }
-    return { label: 'Draft', tone: 'draft' };
-}
-
 function getAlbumClientLabel(album) {
     const tags = getAlbumCategories(album);
     if (tags.length) return tags.join(' & ');
@@ -96,43 +92,21 @@ function getAlbumClientLabel(album) {
     return '';
 }
 
-function getAlbumFootnote(album, status) {
-    if (status?.tone === 'revision' || album.client_changes_submitted_at) {
-        const spreads = album.page_count || 4;
-        return `${spreads} spreads have new comments`;
-    }
-    if (album.client_commenting_started_at) {
-        return 'Client started reviewing spreads';
-    }
-    if (album.client_approved_at) {
-        return 'Approved for binding';
-    }
-    if (isAwaitingFeedback(album)) {
-        return 'Awaiting client sign-off';
-    }
-    const pages = album.page_count || 0;
-    return pages ? `${pages} spreads in album` : '';
-}
-
 const PAGE_SUBTITLES = {
     all: 'Upload your spreads, collect feedback, and get sign-off — all in one swipeable proof.',
     awaiting: 'Albums shared with clients that are still waiting on feedback or approval.',
     approved: 'Albums your clients have approved and are ready for production.',
 };
 
-function isAwaitingFeedback(album) {
-    if (album.client_approved_at) return false;
-    return album.status === 'published' && album.share_link_enabled !== false;
-}
-
 function isApprovedAlbum(album) {
-    return Boolean(album.client_approved_at);
+    return Boolean(album?.client_approved_at);
 }
 
 const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const navigate = useNavigate();
     const { user, loading: authLoading } = useAuth();
     const [albums, setAlbums] = useState([]);
+    const [proofSummaries, setProofSummaries] = useState({});
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [starFilter, setStarFilter] = useState(starredOnly ? 'starred' : 'all');
@@ -165,37 +139,61 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         setContextMenuAnchor(null);
     }, []);
 
-    useEffect(() => {
-        if (authLoading) return;
-
-        if (!user) {
+    const loadAlbums = useCallback(async () => {
+        if (!user?.id) {
             setAlbums([]);
+            setProofSummaries({});
             setLoading(false);
             return;
         }
 
-        let cancelled = false;
-        (async () => {
-            try {
-                setLoading(true);
-                const data = starredOnly
-                    ? await smartAlbumsService.getStarredAlbums(user.id)
-                    : await smartAlbumsService.getAlbums(user.id);
-                if (!cancelled) {
-                    setAlbums(data);
-                }
-            } catch (err) {
-                console.error(err);
-                if (!cancelled) setAlbums([]);
-            } finally {
-                if (!cancelled) setLoading(false);
-            }
-        })();
+        try {
+            setLoading(true);
+            const data = starredOnly
+                ? await smartAlbumsService.getStarredAlbums(user.id)
+                : await smartAlbumsService.getAlbums(user.id);
+            const summaries = await smartAlbumCommentsService.getAlbumProofSummaries(
+                data.map((album) => album.id)
+            );
+            setProofSummaries(summaries);
+            setAlbums(data);
+        } catch (err) {
+            console.error(err);
+            setAlbums([]);
+            setProofSummaries({});
+        } finally {
+            setLoading(false);
+        }
+    }, [user?.id, starredOnly]);
+
+    useEffect(() => {
+        if (authLoading) return;
+        void loadAlbums();
+    }, [authLoading, loadAlbums]);
+
+    useEffect(() => {
+        if (!user?.id) return undefined;
+
+        const refresh = () => {
+            void loadAlbums();
+        };
+
+        const onCommentsChanged = () => refresh();
+        const onProofStatusChanged = () => refresh();
+
+        window.addEventListener(COMMENTS_CHANGED_EVENT, onCommentsChanged);
+        window.addEventListener(ALBUM_PROOF_STATUS_CHANGED_EVENT, onProofStatusChanged);
+        window.addEventListener('focus', refresh);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') refresh();
+        });
 
         return () => {
-            cancelled = true;
+            window.removeEventListener(COMMENTS_CHANGED_EVENT, onCommentsChanged);
+            window.removeEventListener(ALBUM_PROOF_STATUS_CHANGED_EVENT, onProofStatusChanged);
+            window.removeEventListener('focus', refresh);
         };
-    }, [user, authLoading, starredOnly]);
+    }, [user?.id, loadAlbums]);
 
     useEffect(() => {
         const onDocClick = (e) => {
@@ -214,15 +212,14 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
         if (starredOnly) setStarFilter('starred');
     }, [starredOnly]);
 
-    const openContextMenu = (e, albumId) => {
-        e.stopPropagation();
-        if (contextMenuId === albumId) {
+    const openAlbumSettings = useCallback(
+        (e, album) => {
+            e.stopPropagation();
             closeContextMenu();
-            return;
-        }
-        setContextMenuAnchor(e.currentTarget);
-        setContextMenuId(albumId);
-    };
+            setSettingsAlbum(album);
+        },
+        [closeContextMenu]
+    );
 
     const handleDeleteAlbum = async (album) => {
         if (!user) return;
@@ -340,10 +337,18 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
     const sortLabel =
         CREATED_FILTERS.find((f) => f.value === createdFilter)?.label || 'Newest';
 
+    const enrichedAlbums = useMemo(
+        () =>
+            albums.map((album) =>
+                mergeAlbumProofTimestamps(album, proofSummaries[album.id] || null)
+            ),
+        [albums, proofSummaries]
+    );
+
     const filteredAlbums = useMemo(() => {
         const q = searchQuery.trim().toLowerCase();
-        const result = albums.filter((a) => {
-            if (proofFilter === 'awaiting' && !isAwaitingFeedback(a)) return false;
+        const result = enrichedAlbums.filter((a) => {
+            if (proofFilter === 'awaiting' && !isAlbumAwaitingFeedback(a)) return false;
             if (proofFilter === 'approved' && !isApprovedAlbum(a)) return false;
             if (statusFilter !== 'all' && getAlbumProofStatus(a).tone !== statusFilter) {
                 return false;
@@ -365,7 +370,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
             const bTime = new Date(b.created_at || 0).getTime() || 0;
             return createdFilter === 'oldest' ? aTime - bTime : bTime - aTime;
         });
-    }, [albums, searchQuery, starredOnly, proofFilter, statusFilter, starFilter, createdFilter]);
+    }, [enrichedAlbums, searchQuery, starredOnly, proofFilter, statusFilter, starFilter, createdFilter]);
 
     const hasActiveFilters =
         (!starredOnly && starFilter !== 'all') ||
@@ -508,11 +513,12 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                         {filteredAlbums.map((album) => {
                             const status = getAlbumProofStatus(album);
                             const clientLabel = getAlbumClientLabel(album);
-                            const footnote = getAlbumFootnote(album, status);
+                            const footnote = getAlbumProofFootnote(album, status);
+                            const activityAt = getAlbumProofActivityAt(album);
                             return (
                                 <article
                                     key={album.id}
-                                    className={`sa-proofer-album-card${contextMenuId === album.id ? ' sa-proofer-album-card--menu-open' : ''}`}
+                                    className={`sa-proofer-album-card${settingsAlbum?.id === album.id ? ' sa-proofer-album-card--menu-open' : ''}`}
                                     onClick={() => navigate(`/smart-albums/album/${album.id}`)}
                                     onKeyDown={(e) =>
                                         e.key === 'Enter' && navigate(`/smart-albums/album/${album.id}`)
@@ -526,12 +532,11 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                             <button
                                                 type="button"
                                                 className="sa-proofer-album-card__menu"
-                                                onClick={(e) => openContextMenu(e, album.id)}
-                                                aria-label="Album options"
+                                                onClick={(e) => openAlbumSettings(e, album)}
+                                                aria-label="Open album settings"
                                             >
                                                 ⋮
                                             </button>
-                                            {renderContextMenu(album)}
                                         </div>
                                         <div className="sa-proofer-album-card__body">
                                             <h3 className="sa-proofer-album-card__name">{album.name}</h3>
@@ -551,7 +556,7 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                                                     {status.label}
                                                 </span>
                                                 <span className="sa-proofer-album-card__time">
-                                                    {formatRelativeTime(album.updated_at || album.created_at)}
+                                                    {formatRelativeTime(activityAt)}
                                                 </span>
                                             </div>
                                             {footnote ? (
@@ -597,6 +602,53 @@ const AlbumsList = ({ starredOnly = false, proofFilter = 'all' }) => {
                     setSettingsAlbum((current) =>
                         current?.id === updated.id ? { ...current, ...updated } : current
                     );
+                }}
+                onPreview={() => {
+                    if (settingsAlbum) {
+                        openSmartAlbumPreview(settingsAlbum.id);
+                        setSettingsAlbum(null);
+                    }
+                }}
+                onQuickEdit={() => {
+                    if (settingsAlbum) {
+                        handleQuickEdit(settingsAlbum);
+                        setSettingsAlbum(null);
+                    }
+                }}
+                onDuplicate={() => {
+                    if (settingsAlbum) {
+                        handleDuplicateAlbum(settingsAlbum);
+                        setSettingsAlbum(null);
+                    }
+                }}
+                onDelete={async () => {
+                    if (!settingsAlbum) return;
+                    const albumToDelete = settingsAlbum;
+                    if (!window.confirm(`Delete "${albumToDelete.name}"? This cannot be undone.`)) return;
+                    setSettingsAlbum(null);
+                    try {
+                        await smartAlbumsService.deleteAlbum(user?.id, albumToDelete.id);
+                        setAlbums((prev) => prev.filter((a) => a.id !== albumToDelete.id));
+                    } catch (err) {
+                        console.error(err);
+                        alert('Failed to delete album. Please try again.');
+                    }
+                }}
+                onShareByEmail={() => {
+                    if (settingsAlbum) handleShareByEmail(settingsAlbum);
+                    setSettingsAlbum(null);
+                }}
+                onGetDirectLink={() => {
+                    if (settingsAlbum) handleGetDirectLink(settingsAlbum);
+                    setSettingsAlbum(null);
+                }}
+                onGetQrCode={() => {
+                    if (settingsAlbum) handleGetQrCode(settingsAlbum);
+                    setSettingsAlbum(null);
+                }}
+                onShareWhatsApp={() => {
+                    if (settingsAlbum) handleShareWhatsApp(settingsAlbum);
+                    setSettingsAlbum(null);
                 }}
             />
         </main>

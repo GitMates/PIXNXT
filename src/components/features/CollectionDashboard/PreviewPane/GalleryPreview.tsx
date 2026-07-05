@@ -548,7 +548,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           ref={gridWrapperRef}
           className="cd-preview-grid-scaler"
           style={{
-            backgroundColor: 'var(--gallery-bg)',
+            backgroundColor: 'var(--gallery-secondary-bg)',
             width: '100%',
             overflow: 'hidden',
             position: 'relative',

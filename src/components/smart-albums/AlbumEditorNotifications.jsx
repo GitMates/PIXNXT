@@ -5,6 +5,7 @@ import {
     getAlbumSpreadOptions,
     pageToSpreadIndex,
 } from './albumSpreadUtils';
+import { MessageSquare, ArrowLeftRight } from 'lucide-react';
 import {
     getNotificationPage,
     getNotificationPanel,
@@ -205,33 +206,42 @@ export default function AlbumEditorNotifications({
                                     role="menuitem"
                                     onClick={() => handleSelect(item)}
                                 >
-                                    <span className="ae-notifications-item-top">
-                                        <span className="ae-notifications-item-type">
-                                            {getNotificationTypeLabel(item.type)}
-                                        </span>
-                                        <span className="ae-notifications-item-meta">
-                                            {!item.isUnread ? (
-                                                <span className="ae-notifications-item-status">
-                                                    Resolved
+                                    <div className="ae-notifications-item-icon-container">
+                                        {item.type === 'swap' ? (
+                                            <ArrowLeftRight size={16} />
+                                        ) : (
+                                            <MessageSquare size={16} />
+                                        )}
+                                    </div>
+                                    <div className="ae-notifications-item-content">
+                                        <span className="ae-notifications-item-top">
+                                            <span className="ae-notifications-item-type">
+                                                {getNotificationTypeLabel(item.type)}
+                                            </span>
+                                            <span className="ae-notifications-item-meta">
+                                                {!item.isUnread ? (
+                                                    <span className="ae-notifications-item-status">
+                                                        Resolved
+                                                    </span>
+                                                ) : null}
+                                                <span className="ae-notifications-item-location">
+                                                    {getNotificationLocationLabel(
+                                                        item,
+                                                        album,
+                                                        totalPages
+                                                    )}
                                                 </span>
-                                            ) : null}
-                                            <span className="ae-notifications-item-location">
-                                                {getNotificationLocationLabel(
-                                                    item,
-                                                    album,
-                                                    totalPages
+                                                {item.createdAt && (
+                                                    <span className="ae-notifications-item-time">
+                                                        {formatCommentDateTime(item.createdAt)}
+                                                    </span>
                                                 )}
                                             </span>
                                         </span>
-                                    </span>
-                                    <span className="ae-notifications-item-preview">
-                                        {item.preview}
-                                    </span>
-                                    {item.createdAt && (
-                                        <span className="ae-notifications-item-time">
-                                            {formatCommentDateTime(item.createdAt)}
+                                        <span className="ae-notifications-item-preview">
+                                            {item.preview}
                                         </span>
-                                    )}
+                                    </div>
                                 </button>
                             </li>
                         ))}

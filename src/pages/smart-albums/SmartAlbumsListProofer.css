@@ -93,9 +93,10 @@
 
 .theme-mono .sa-proofer-albums__search input {
   flex: 1;
-  border: none;
-  outline: none;
-  background: transparent;
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
   font-family: inherit;
   font-size: 14px;
   color: oklch(0.23 0.004 60);

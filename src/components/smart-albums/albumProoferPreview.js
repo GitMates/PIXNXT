@@ -39,6 +39,16 @@ export function canClientLeaveFeedback(albumId, prooferAccess, action = 'comment
     return { ok: true };
 }
 
+export function canClientAttachImage(prooferAccess, { clientPreview = true } = {}) {
+    if (!clientPreview) return true;
+    return Boolean(prooferAccess?.allowExternalUploads);
+}
+
+export function canClientRecordVoice(prooferAccess, { clientPreview = true } = {}) {
+    if (!clientPreview) return true;
+    return prooferAccess?.allowVoiceRecordings !== false;
+}
+
 export function mergeAlbumClientFlagsFromProoferAccess(album) {
     if (!album) return album;
     const access = album.preview_data?.proofer_access;

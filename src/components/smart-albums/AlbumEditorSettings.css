@@ -66,15 +66,13 @@
 .ae-settings-section {
   margin-top: 26px;
   padding-top: 26px;
-  border-top: 1px solid transparent;
-  box-shadow: inset 0 1px 0 var(--ae-set-neu-light);
+  border-top: 1px solid var(--ae-set-line);
 }
 
 .ae-settings-section:first-of-type {
   margin-top: 20px;
   padding-top: 0;
   border-top: none;
-  box-shadow: none;
 }
 
 .ae-settings-section__label {
@@ -149,26 +147,149 @@
   outline: none;
 }
 
-.ae-settings-inset--select {
+.ae-settings-select-menu {
   position: relative;
-  padding: 0;
+  width: 100%;
 }
 
-.ae-settings-inset--select::after {
-  content: '';
+.ae-settings-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: none;
+  border-radius: 999px;
+  background: var(--ae-set-inset);
+  padding: 11px 15px;
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ae-set-text);
+  cursor: pointer;
+  outline: none;
+  box-shadow:
+    inset 3px 3px 8px var(--ae-set-neu-dark),
+    inset -3px -3px 8px var(--ae-set-neu-light);
+  transition: box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.ae-settings-select-trigger:hover:not(:disabled) {
+  background: oklch(0.97 0.004 85);
+}
+
+.ae-settings-select-menu--open .ae-settings-select-trigger,
+.ae-settings-select-trigger:focus-visible {
+  box-shadow:
+    inset 4px 4px 9px oklch(0.42 0.012 70 / 0.13),
+    inset -3px -3px 8px var(--ae-set-neu-light),
+    0 0 0 2px oklch(0.26 0.006 60 / 0.1);
+}
+
+.ae-settings-select-trigger:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ae-settings-select-trigger__label {
+  min-width: 0;
+  text-align: left;
+}
+
+.ae-settings-select-trigger__chevron {
+  flex-shrink: 0;
+  color: var(--ae-set-muted);
+  transition: transform 0.18s ease;
+}
+
+.ae-settings-select-menu--open .ae-settings-select-trigger__chevron {
+  transform: rotate(180deg);
+}
+
+.ae-settings-select-options {
   position: absolute;
-  right: 16px;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  border-right: 1.5px solid var(--ae-set-muted);
-  border-bottom: 1.5px solid var(--ae-set-muted);
-  transform: translateY(-65%) rotate(45deg);
-  pointer-events: none;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 30;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid oklch(0.9 0.004 85);
+  box-shadow:
+    0 10px 28px oklch(0.2 0.01 70 / 0.12),
+    0 2px 8px oklch(0.2 0.01 70 / 0.06);
+  animation: ae-settings-select-in 0.16s ease;
 }
 
-.ae-settings-input,
-.ae-settings-select {
+@keyframes ae-settings-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.ae-settings-select-option {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.ae-settings-select-option:hover {
+  background: oklch(0.965 0.004 85);
+}
+
+.ae-settings-select-option--active,
+.ae-settings-select-option--active:hover {
+  background: oklch(0.955 0.008 145);
+}
+
+.ae-settings-select-option__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ae-settings-select-option__label {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ae-set-text);
+  line-height: 1.35;
+}
+
+.ae-settings-select-option__desc {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--ae-set-muted);
+  line-height: 1.4;
+}
+
+.ae-settings-select-option__check {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: oklch(0.34 0.04 145);
+}
+
+.ae-settings-input {
   width: 100%;
   border: none;
   border-radius: 999px;
@@ -185,30 +306,14 @@
   transition: box-shadow 0.15s ease;
 }
 
-.ae-settings-inset--select .ae-settings-select {
-  background: transparent;
-  box-shadow: none;
-  padding: 11px 36px 11px 15px;
-}
-
-.ae-settings-select {
-  appearance: none;
-  cursor: pointer;
-}
-
 .ae-settings-input::placeholder {
   color: var(--ae-set-muted);
 }
 
-.ae-settings-input:focus,
-.ae-settings-select:focus {
+.ae-settings-input:focus {
   box-shadow:
     inset 4px 4px 9px oklch(0.42 0.012 70 / 0.13),
     inset -3px -3px 8px var(--ae-set-neu-light);
-}
-
-.ae-settings-inset--select .ae-settings-select:focus {
-  box-shadow: none;
 }
 
 .ae-settings-input--compact {

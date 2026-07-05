@@ -61,13 +61,7 @@ export function getPhotoGridDisplayUrl(photo, preferOriginalAspect = false) {
   if (isRawMedia(photo)) {
     return getRawPreviewUrl(photo);
   }
-  if (isGifMedia(photo)) {
-    return pickDisplayableUrl(photo.web_url, photo.full_url, photo.thumbnail_url);
-  }
-  if (preferOriginalAspect) {
-    return pickDisplayableUrl(photo.full_url, photo.web_url, photo.thumbnail_url);
-  }
-  return pickDisplayableUrl(photo.thumbnail_url, photo.web_url, photo.full_url);
+  return resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
 }
 
 /**
@@ -82,7 +76,7 @@ export function getPhotoFullDisplayUrl(photo) {
   if (isRawMedia(photo)) {
     return getRawPreviewUrl(photo);
   }
-  return pickDisplayableUrl(photo.full_url, photo.web_url, photo.thumbnail_url);
+  return resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
 }
 
 /** Original file URL (RAW on R2) — used when full-resolution original is required. */

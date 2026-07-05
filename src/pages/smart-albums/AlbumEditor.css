@@ -201,16 +201,21 @@
 
 .ae-notifications-item {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 3px;
+  flex-direction: row;
+  align-items: center;
+  gap: 14px;
   width: 100%;
-  padding: 10px 14px;
+  padding: 14px 16px;
   border: none;
+  border-bottom: 1px solid oklch(0.92 0.005 85);
   background: transparent;
   text-align: left;
   cursor: pointer;
   font-family: inherit;
+}
+
+.ae-notifications-item:last-child {
+  border-bottom: none;
 }
 
 .ae-notifications-item:hover {
@@ -218,11 +223,32 @@
 }
 
 .ae-notifications-item--unread {
-  background: rgba(155, 89, 182, 0.06);
+  background: rgba(155, 89, 182, 0.04);
 }
 
 .ae-notifications-item--unread:hover {
-  background: rgba(155, 89, 182, 0.1);
+  background: rgba(155, 89, 182, 0.08);
+}
+
+.ae-notifications-item-icon-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: oklch(0.98 0.003 85);
+  border: 1px solid oklch(0.92 0.005 85);
+  color: oklch(0.23 0.004 60);
+  flex-shrink: 0;
+}
+
+.ae-notifications-item-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
 }
 
 .ae-notifications-item-top {
@@ -236,22 +262,23 @@
 .ae-notifications-item-type {
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: #555;
+  color: oklch(0.55 0.01 70);
 }
 
 .ae-notifications-item-location {
-  font-size: 11px;
-  font-weight: 600;
-  color: #9b59b6;
+  font-size: 12px;
+  font-weight: 700;
+  color: oklch(0.23 0.004 60);
   white-space: nowrap;
 }
 
 .ae-notifications-item-meta {
   display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
   flex-shrink: 0;
 }
 
@@ -266,8 +293,8 @@
 
 .ae-notifications-item-preview {
   font-size: 13px;
-  line-height: 1.35;
-  color: #222;
+  line-height: 1.4;
+  color: oklch(0.23 0.004 60);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -275,11 +302,10 @@
 }
 
 .ae-notifications-item-time {
-  font-size: 11px;
-  color: #888;
-  align-self: flex-end;
-  width: 100%;
-  text-align: right;
+  font-size: 10px;
+  color: oklch(0.55 0.01 70);
+  white-space: nowrap;
+  font-weight: 400;
 }
 
 .ae-topbar-right {
@@ -557,6 +583,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  color: inherit;
+}
+
+.ae-nav-rail-icon svg {
+  display: block;
   width: 20px;
   height: 20px;
 }
@@ -634,31 +668,47 @@
 }
 
 .ae-spread-message-compose-box {
-  position: relative;
-  background: #fff;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  background: oklch(0.968 0.006 85);
   border: 1px solid #d1d7db;
   border-radius: 24px;
-  padding: 8px 52px 8px 14px;
+  padding: 10px 10px 10px 14px;
   box-shadow: 0 1px 2px rgba(11, 20, 26, 0.08);
 }
 
-.ae-spread-message-compose-input {
+.ae-spread-message-compose-box .ae-spread-message-compose-input {
+  all: unset;
+  box-sizing: border-box;
   display: block;
-  width: 100%;
-  min-height: 24px;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 1.45em;
   max-height: 120px;
+  margin: 0;
   padding: 0;
   border: none;
   resize: none;
+  overflow: auto;
+  font-family: inherit;
   font-size: 14px;
   line-height: 1.45;
-  font-family: inherit;
   color: #111b21;
   background: transparent;
+  cursor: text;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  appearance: none;
+  -webkit-appearance: none;
 }
 
-.ae-spread-message-compose-input:focus {
+.ae-spread-message-compose-box .ae-spread-message-compose-input:focus,
+.ae-spread-message-compose-box .ae-spread-message-compose-input:focus-visible {
   outline: none;
+  box-shadow: none;
+  border: none;
+  background: transparent;
 }
 
 .ae-spread-message-compose-input::placeholder {
@@ -670,9 +720,8 @@
 }
 
 .ae-spread-message-compose-post {
-  position: absolute;
-  right: 6px;
-  bottom: 6px;
+  flex-shrink: 0;
+  align-self: flex-end;
   min-width: 40px;
   height: 36px;
   padding: 0 14px;
@@ -848,7 +897,7 @@
   overflow: visible;
   max-width: 100%;
   padding: 10px 8px 12px;
-  background: #fff;
+  background: oklch(0.968 0.006 85);
   border-radius: 10px;
 }
 
@@ -951,7 +1000,7 @@
 }
 
 .ae-swap-marks--panel .ae-swap-marks-item {
-  background: #f9fafb;
+  background: oklch(0.968 0.006 85);
   border: 1px solid #e5e7eb;
 }
 
@@ -960,14 +1009,14 @@
   align-items: stretch;
   gap: 0;
   padding: 10px 12px;
-  background: #f9fafb;
+  background: oklch(0.968 0.006 85);
   border-color: #e5e7eb;
   position: relative;
 }
 
 .ae-swap-marks--panel .ae-photo-pins-item {
-  background: #faf7ff;
-  border-color: #e9e5ff;
+  background: oklch(0.968 0.006 85);
+  border-color: #e5e7eb;
 }
 
 .ae-swap-marks-body {
@@ -1001,7 +1050,7 @@
   padding: 5px 10px;
   border: 1px solid #d1d5db;
   border-radius: 999px;
-  background: #fff;
+  background: oklch(0.955 0.008 85);
   color: #374151;
   font-size: 12px;
   font-weight: 600;
@@ -1153,7 +1202,7 @@
 
 /* Unseen highlight should appear only inside the swap/pin list rows. */
 .ae-swap-marks--panel .ae-swap-marks-card.ae-proof-item--unseen {
-  background: #eff6ff !important;
+  background: oklch(0.968 0.006 85) !important;
   border-color: #bfdbfe !important;
   box-shadow: inset 3px 0 0 #2563eb;
 }
@@ -1170,7 +1219,7 @@
   border-radius: 6px;
   padding: 6px 8px;
   margin: -6px -8px 0;
-  background: #eef2ff;
+  background: oklch(0.968 0.006 85);
   box-shadow: inset 3px 0 0 #7c3aed;
 }
 

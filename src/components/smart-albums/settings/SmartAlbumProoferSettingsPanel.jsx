@@ -10,7 +10,6 @@ import {
     NumberInput,
     SelectField,
     SettingGroup,
-    SettingsSaveBar,
     SettingsTabs,
     SettingsToggle,
     TemplateTextarea,
@@ -19,7 +18,6 @@ import './SmartAlbumProoferSettings.css';
 
 const TABS = [
     { id: 'permissions', label: 'Permissions & Access' },
-    { id: 'workflow', label: 'Review Workflow' },
     { id: 'notifications', label: 'Notifications' },
 ];
 
@@ -29,8 +27,6 @@ export default function SmartAlbumProoferSettingsPanel() {
     const [activeTab, setActiveTab] = useState('permissions');
     const [settings, setSettings] = useState({ ...DEFAULT_PROOFER_SETTINGS });
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
-    const [saved, setSaved] = useState(false);
     const [expandedStatus, setExpandedStatus] = useState(null);
     const saveTimerRef = useRef(null);
     const skipSaveRef = useRef(true);
@@ -65,18 +61,13 @@ export default function SmartAlbumProoferSettingsPanel() {
     const persist = useCallback(
         async (next) => {
             if (!photographerId) return;
-            setSaving(true);
-            setSaved(false);
             try {
                 await smartAlbumProoferSettingsService.savePhotographerDefaults(
                     photographerId,
                     next
                 );
-                setSaved(true);
             } catch (err) {
                 console.error(err);
-            } finally {
-                setSaving(false);
             }
         },
         [photographerId]
@@ -115,7 +106,7 @@ export default function SmartAlbumProoferSettingsPanel() {
             <header className="sa-proofer-settings__header">
                 <h1 className="sa-proofer-settings__title">Album Proofer Settings</h1>
                 <p className="sa-proofer-settings__subtitle">
-                    Configure default permissions, review workflows, and automated
+                    Configure default permissions and automated
                     notifications for your client albums.
                 </p>
             </header>
@@ -132,24 +123,25 @@ export default function SmartAlbumProoferSettingsPanel() {
                                 value={settings.accessControl}
                                 onChange={(accessControl) => patch({ accessControl })}
                                 options={[
-                                    { value: 'link', label: 'Public via link' },
-                                    { value: 'password', label: 'Password Protected' },
+                                    {
+                                        value: 'link',
+                                        label: 'Public via link',
+                                        description: 'Anyone with the link can open the album',
+                                    },
+                                    {
+                                        value: 'password',
+                                        label: 'Password protected',
+                                        description: 'Clients must enter a password before viewing',
+                                    },
                                     {
                                         value: 'restricted',
-                                        label: 'Restricted to Specific Client Emails',
+                                        label: 'Restricted to client emails',
+                                        description: 'Only invited email addresses can access',
                                     },
                                 ]}
                             />
                         </SettingGroup>
 
-                        <SettingGroup title="Download Permissions">
-                            <SettingsToggle
-                                checked={settings.allowDownloads}
-                                onChange={(allowDownloads) => patch({ allowDownloads })}
-                                label="Allow Client Downloads"
-                                description="Clients can download individual spreads or full album layouts"
-                            />
-                        </SettingGroup>
 
                         <SettingGroup title="Approval Authorization">
                             <SettingsToggle
@@ -173,58 +165,6 @@ export default function SmartAlbumProoferSettingsPanel() {
                     </>
                 )}
 
-                {activeTab === 'workflow' && (
-                    <>
-                        <SettingGroup title="Revision Limits">
-                            <SettingsToggle
-                                checked={settings.capRevisions}
-                                onChange={(capRevisions) => patch({ capRevisions })}
-                                label="Cap Total Revision Rounds"
-                                description="Limit how many times a client can request changes before final approval"
-                            />
-                            {settings.capRevisions && (
-                                <div className="sa-proofer-nested">
-                                    <NumberInput
-                                        label="Maximum Revision Rounds"
-                                        description="Number of revision cycles included in the package"
-                                        value={settings.revisionLimit}
-                                        onChange={(revisionLimit) => patch({ revisionLimit })}
-                                        min={1}
-                                        max={10}
-                                    />
-                                </div>
-                            )}
-                        </SettingGroup>
-
-                        <SettingGroup title="Review Completion">
-                            <SelectField
-                                label="Default Review Deadline"
-                                description="How long clients have to complete their first review"
-                                value={String(settings.reviewDeadlineDays ?? 14)}
-                                onChange={(reviewDeadlineDays) =>
-                                    patch({ reviewDeadlineDays: Number(reviewDeadlineDays) })
-                                }
-                                options={[
-                                    { value: '7', label: '7 days' },
-                                    { value: '14', label: '14 days' },
-                                    { value: '21', label: '21 days' },
-                                    { value: '30', label: '30 days' },
-                                ]}
-                            />
-                        </SettingGroup>
-
-                        <SettingGroup title="Feedback Rules">
-                            <SettingsToggle
-                                checked={settings.requireSpreadComment ?? true}
-                                onChange={(requireSpreadComment) =>
-                                    patch({ requireSpreadComment })
-                                }
-                                label="Require Comment Per Spread"
-                                description="Clients must leave at least one note before submitting a revision request"
-                            />
-                        </SettingGroup>
-                    </>
-                )}
 
                 {activeTab === 'notifications' && (
                     <>
@@ -237,11 +177,13 @@ export default function SmartAlbumProoferSettingsPanel() {
                                 options={[
                                     {
                                         value: 'instant',
-                                        label: 'Instant: Notify on every comment',
+                                        label: 'Instant',
+                                        description: 'Notify on every comment',
                                     },
                                     {
                                         value: 'digest',
-                                        label: 'Digest: Summary when client completes review',
+                                        label: 'Digest',
+                                        description: 'Summary when client completes review',
                                     },
                                 ]}
                             />
@@ -348,11 +290,27 @@ export default function SmartAlbumProoferSettingsPanel() {
                                 </div>
                             )}
                         </SettingGroup>
+
+                        <SettingGroup title="Client Started Review Notification">
+                            <TemplateTextarea
+                                label="Client Started Feedback Email Template"
+                                description="Customize the email sent to you when a client leaves their first comment, swap request, or voice message"
+                                value={settings.clientStartedFeedbackTemplate || ''}
+                                onChange={(clientStartedFeedbackTemplate) =>
+                                    patch({ clientStartedFeedbackTemplate })
+                                }
+                                variables={[
+                                    '{{photographer_name}}',
+                                    '{{client_name}}',
+                                    '{{album_name}}',
+                                    '{{editor_link}}',
+                                ]}
+                                placeholder="Hi {{photographer_name}}, Great news! Your client {{client_name}} has started reviewing the album..."
+                            />
+                        </SettingGroup>
                     </>
                 )}
             </div>
-
-            <SettingsSaveBar saving={saving} saved={saved} />
         </div>
     );
 }

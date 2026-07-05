@@ -132,6 +132,15 @@
     letter-spacing: 0.12em !important;
     font-weight: 700 !important;
   }
+
+  textarea.ae-spread-message-compose-input {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+  }
 }
 
 /* Custom Utilities for Nova Theme */
@@ -153,78 +162,72 @@
   scrollbar-width: none;
 }
 
-/* Typography presets — gallery view + gallery preview */
-.font-sans {
-  --body-font: 'EB Garamond', serif;
-  --heading-font: 'EB Garamond', serif;
+/* Typography presets — gallery view + gallery preview wrapper styles */
+:is(.gallery-view-page, .cd-preview-gallery-card, .cd-design-preview-pane).font-sans {
+  --body-font: 'Outfit', sans-serif;
+  --heading-font: 'Outfit', sans-serif;
   --heading-letter-spacing: 0.15em;
   --heading-transform: uppercase;
   --heading-weight: 500;
   --heading-style: normal;
-  font-family: var(--body-font);
 }
 
-.font-serif {
+:is(.gallery-view-page, .cd-preview-gallery-card, .cd-design-preview-pane).font-serif {
   --body-font: 'Lora', serif;
   --heading-font: 'Playfair Display', serif;
   --heading-letter-spacing: 0.02em;
   --heading-transform: none;
   --heading-weight: 400;
   --heading-style: normal;
-  font-family: var(--body-font);
 }
 
-.font-modern {
+:is(.gallery-view-page, .cd-preview-gallery-card, .cd-design-preview-pane).font-modern {
   --body-font: 'Montserrat', sans-serif;
   --heading-font: 'Montserrat', sans-serif;
   --heading-letter-spacing: 0.05em;
   --heading-transform: uppercase;
   --heading-weight: 600;
   --heading-style: normal;
-  font-family: var(--body-font);
 }
 
-.font-timeless {
+:is(.gallery-view-page, .cd-preview-gallery-card, .cd-design-preview-pane).font-timeless {
   --body-font: 'Lora', serif;
-  --heading-font: 'Lora', serif;
+  --heading-font: 'Cormorant Garamond', serif;
   --heading-letter-spacing: 0.05em;
   --heading-weight: 300;
   --heading-style: italic;
   --heading-transform: none;
-  font-family: var(--body-font);
 }
 
-.font-bold {
-  --body-font: 'Inter', sans-serif;
+:is(.gallery-view-page, .cd-preview-gallery-card, .cd-design-preview-pane).font-bold {
+  --body-font: 'Outfit', sans-serif;
   --heading-font: 'Unbounded', sans-serif;
   --heading-letter-spacing: -0.02em;
   --heading-weight: 700;
   --heading-transform: uppercase;
   --heading-style: normal;
-  font-family: var(--body-font);
 }
 
-.font-subtle {
+:is(.gallery-view-page, .cd-preview-gallery-card, .cd-design-preview-pane).font-subtle {
   --body-font: 'Outfit', sans-serif;
   --heading-font: 'Outfit', sans-serif;
   --heading-weight: 200;
   --heading-letter-spacing: 0.25em;
   --heading-transform: uppercase;
   --heading-style: normal;
-  font-family: var(--body-font);
 }
 
-/* Typography scope — dashboard preview + public gallery */
+/* Apply font-family to wrappers */
 .gallery-view-page[class*='font-'],
 .cd-preview-gallery-card[class*='font-'],
 .cd-design-preview-pane[class*='font-'] {
-  font-family: var(--body-font);
+  font-family: var(--body-font) !important;
 }
 
 .gallery-view-page[class*='font-'] *,
 .cd-preview-gallery-card[class*='font-'] *,
 .cd-design-preview-pane[class*='font-'] * {
-  font-family: inherit;
+  font-family: inherit !important;
 }
 
 /* Headings + cover titles — !important beats cover layout CSS */
@@ -311,7 +314,7 @@
     button,
     textarea
   ) {
-  font-family: inherit;
+  font-family: inherit !important;
 }
 
 /* VIEW GALLERY — uses active color theme (GalleryPreview + GalleryView) */
@@ -325,4 +328,14 @@
 
 .cover-text-grid__button.view-gallery-btn:hover {
   filter: brightness(1.08);
+}
+
+/* Full-bleed covers overlaying text directly on the cover photo must always use white text for legibility */
+.cover-over-photo,
+.cover-over-photo :not(.view-gallery-btn) {
+  color: #ffffff !important;
+}
+
+.cover-over-photo .view-gallery-btn {
+  color: var(--gallery-on-accent, #ffffff) !important;
 }

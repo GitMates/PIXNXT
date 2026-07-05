@@ -4,9 +4,11 @@ import {
     albumProofService,
     getAlbumApprovedAt,
     markAlbumApproved,
+    trackAlbumProofActivity,
 } from '../../services/albumProof.service';
 import { getGuestProfile } from '../../services/smartAlbumComments.service';
 import { smartAlbumProoferSettingsService } from '../../services/smartAlbumProoferSettings.service';
+import { notifyAlbumProofStatusChanged } from './albumProofStatus';
 
 function ProofConfirmModal({
     open,
@@ -122,8 +124,15 @@ export default function AlbumPreviewProofActions({ albumId, albumName, album, on
                 guestEmail: guest.email,
                 siteOrigin: window.location.origin,
             });
+            await trackAlbumProofActivity({
+                albumId,
+                action: 'approve',
+                guestName: guest.name,
+                guestEmail: guest.email,
+            });
             markAlbumApproved(albumId);
             setApprovedAt(new Date().toISOString());
+            notifyAlbumProofStatusChanged(albumId);
             setApproveOpen(false);
             onToast?.('Album approved. Your photographer has been notified.', 'success');
         } catch (e) {

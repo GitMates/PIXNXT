@@ -1,9 +1,12 @@
 import React from 'react';
+import CommentAttachmentContent from './CommentAttachmentContent';
+import { hasCommentAttachment, isCommentAudioAttachment } from './albumCommentAttachments';
 import {
     formatCommentTime,
     formatFeedDateLabel,
     isCommentUnseen,
     isGuestCommentUnseen,
+    smartAlbumCommentsService,
 } from '../../services/smartAlbumComments.service';
 import {
     isPhotoPinUnseen,
@@ -179,6 +182,8 @@ export default function AlbumPreviewSpreadFeed({
                         ? isCommentUnseen(albumId, comment)
                         : false;
                     const outgoing = !proofMode;
+                    const audioOnly =
+                        isCommentAudioAttachment(comment) && !String(comment.body || '').trim();
 
                     return (
                         <React.Fragment key={item.id}>
@@ -187,14 +192,39 @@ export default function AlbumPreviewSpreadFeed({
                                 outgoing={outgoing}
                                 unseen={unseen}
                                 actions={null}
+                                bubbleClassName={audioOnly ? 'av-chat-bubble--voice' : ''}
                             >
                                 {!outgoing ? (
                                     <p className="av-chat-bubble-sender">
                                         {comment.author_name || 'Client'}
                                     </p>
                                 ) : null}
-                                <div className="av-chat-bubble-text">{comment.body}</div>
-                                <footer className="av-chat-bubble-foot">
+                                {hasCommentAttachment(comment) ? (
+                                    <CommentAttachmentContent comment={comment} />
+                                ) : null}
+                                {comment.body ? (
+                                    <div className="av-chat-bubble-text">{comment.body}</div>
+                                ) : null}
+                                <footer className="av-chat-bubble-foot av-chat-bubble-foot--actions">
+                                    {!proofMode ? (
+                                        <BubbleInlineActions>
+                                            <button
+                                                type="button"
+                                                className="av-chat-action av-chat-action--danger"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    void smartAlbumCommentsService.deleteClientComment(
+                                                        {
+                                                            albumId,
+                                                            commentId: comment.id,
+                                                        }
+                                                    );
+                                                }}
+                                            >
+                                                Delete
+                                            </button>
+                                        </BubbleInlineActions>
+                                    ) : null}
                                     {createdAtLabel ? (
                                         <time
                                             dateTime={comment.updated_at || comment.created_at}

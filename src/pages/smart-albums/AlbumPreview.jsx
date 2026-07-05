@@ -22,13 +22,19 @@ import {
 } from '../../components/smart-albums/albumPhotoPins';
 import {
     COMMENTS_CHANGED_EVENT,
+    countClientRootComments,
     groupRootCommentsBySpread,
     markGuestCommentsSeen,
     smartAlbumCommentsService,
+    getCommentsSubmittedAt,
+    markCommentsSubmitted,
+    getGuestProfile,
+    hasCommentBody,
 } from '../../services/smartAlbumComments.service';
 import AlbumPreviewProofActions from '../../components/smart-albums/AlbumPreviewProofActions';
 import AlbumPreviewFeedbackSidebar from '../../components/smart-albums/AlbumPreviewFeedbackSidebar';
 import { buildSpreadFeedbackFeed } from '../../components/smart-albums/spreadFeedbackFeed';
+import { hasCommentAttachment } from '../../components/smart-albums/albumCommentAttachments';
 import { galleryService } from '../../services/gallery.service';
 import { AppToast, useAppToast } from '../../components/ui/AppToast';
 import { useAuth } from '../../hooks/useAuth';
@@ -64,6 +70,12 @@ export default function AlbumPreview({
     const [bookPage, setBookPage] = useState(initialPage);
 
     useEffect(() => {
+        if (!album?.photographer_id) return undefined;
+        void smartAlbumProoferSettingsService.loadPhotographerDefaults(album.photographer_id);
+        return undefined;
+    }, [album?.photographer_id]);
+
+    useEffect(() => {
         setBookPage(initialPage);
     }, [initialPage]);
 
@@ -79,6 +91,8 @@ export default function AlbumPreview({
             body.style.overflow = prevBodyOverflow;
         };
     }, []);
+
+
 
     const wrapAspect = useAlbumWrapAspect(album, albumId, photoRevision);
 
@@ -146,6 +160,86 @@ export default function AlbumPreview({
     const [profileIconUrl, setProfileIconUrl] = useState(
         () => album?.preview_data?.profile_icon_url?.trim() || ''
     );
+
+    const hasUnsubmittedComments = useMemo(() => {
+        if (!clientPreview || !albumId) return false;
+        // Check all forms of client feedback: spread comments, photo pins, swap marks
+        const localCommentCount = countClientRootComments(albumId);
+        const pinCount = photoPins.filter((p) => p.author_type === 'client').length;
+        const swapCount = swapMarks.length;
+        const spreadCount2 = Object.values(spreadCommentsBySpread || {}).flat().filter(
+            (c) => c.author_type === 'client' && hasCommentBody(c)
+        ).length;
+        const totalFeedback = localCommentCount + pinCount + swapCount + spreadCount2;
+        if (totalFeedback === 0) return false;
+        return !getCommentsSubmittedAt(albumId);
+    }, [clientPreview, albumId, spreadCommentsBySpread, photoPins, swapMarks]);
+
+    useEffect(() => {
+        if (!hasUnsubmittedComments) return undefined;
+
+        const handleBeforeUnload = (e) => {
+            const msg = 'If you leave the site, your feedback will be sent to the photographer. Accept to leave or continue commenting.';
+            e.preventDefault();
+            e.returnValue = msg;
+            return msg;
+        };
+
+        const handleUnload = () => {
+            const guest = getGuestProfile(albumId);
+            if (!guest?.name) return;
+
+            const flatComments = Object.values(spreadCommentsBySpread || {}).flat();
+            const roots = flatComments.filter(
+                (c) => !c.parent_id && hasCommentBody(c) && c.author_type === 'client'
+            );
+            if (roots.length === 0) return;
+
+            const payload = {
+                albumId,
+                guestName: guest.name,
+                guestEmail: guest.email || null,
+                siteOrigin: window.location.origin,
+                clientTimezone: (() => {
+                    try {
+                        return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+                    } catch {
+                        return null;
+                    }
+                })(),
+                comments: roots.map((c) => ({
+                    spread_index: c.spread_index,
+                    author_name: c.author_name,
+                    body: c.body,
+                    created_at: c.created_at,
+                    updated_at: c.updated_at,
+                })),
+            };
+
+            const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-album-comments-email`;
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY}`,
+            };
+
+            fetch(url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(payload),
+                keepalive: true,
+            });
+
+            markCommentsSubmitted(albumId);
+        };
+
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        window.addEventListener('pagehide', handleUnload);
+
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+            window.removeEventListener('pagehide', handleUnload);
+        };
+    }, [hasUnsubmittedComments, albumId, spreadCommentsBySpread]);
 
     useEffect(() => {
         const fromSnapshotName = album?.preview_data?.business_name?.trim();
@@ -335,7 +429,9 @@ export default function AlbumPreview({
     const visibleClientMessages = useMemo(() => {
         const rows = spreadCommentsBySpread?.[spreadIndex] || [];
         return rows.filter(
-            (c) => c.author_type === 'client' && String(c.body || '').trim()
+            (c) =>
+                c.author_type === 'client' &&
+                (String(c.body || '').trim() || hasCommentAttachment(c))
         );
     }, [spreadCommentsBySpread, spreadIndex]);
 
@@ -488,7 +584,13 @@ export default function AlbumPreview({
 
                     <AlbumPreviewFeedbackSidebar
                         albumId={albumId}
+                        photographerId={album?.photographer_id}
                         spreadIndex={spreadIndex}
+                        spreadLabel={
+                            spreadIndex <= 0
+                                ? 'Cover'
+                                : `Spread ${spreadIndex}`
+                        }
                         spreadOpts={spreadOpts}
                         businessName={businessName}
                         clientPreview={clientPreview}
