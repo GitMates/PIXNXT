@@ -1,4 +1,4 @@
-﻿.gallery-back-to-top-wrap {
+.gallery-back-to-top-wrap {
   display: flex;
   justify-content: center;
   width: 100%;
@@ -7,7 +7,13 @@
 }
 
 .gallery-back-to-top-wrap--preview {
-  padding: 48px 12px 32px;
+  padding: 20px 12px 12px;
+}
+
+.gallery-back-to-top-wrap--preview .gallery-back-to-top {
+  padding: 8px 18px;
+  font-size: 8px;
+  letter-spacing: 0.16em;
 }
 
 .gallery-back-to-top {
