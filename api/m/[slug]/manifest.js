@@ -33,7 +33,7 @@ function buildManifest(app, photographerName, origin) {
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#ffffff',
-    theme_color: '#20a398',
+    theme_color: '#1A1A1A',
     icons: [
       {
         src: `${base}/icon-192.png`,

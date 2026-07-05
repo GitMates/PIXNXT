@@ -109,7 +109,7 @@
   if (!document.querySelector('meta[name="theme-color"]')) {
     var theme = document.createElement('meta');
     theme.name = 'theme-color';
-    theme.content = '#20a398';
+    theme.content = '#1A1A1A';
     document.head.appendChild(theme);
   }
 

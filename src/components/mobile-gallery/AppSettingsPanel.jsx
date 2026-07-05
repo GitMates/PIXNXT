@@ -37,14 +37,16 @@ function InlineSaveRow({
 }) {
   return (
     <div className="mg-app-settings-inline-row">
-      <input
-        id={id}
-        type={type}
-        className="mg-app-settings-input mg-app-settings-input--inline"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-      />
+      <div className="neu-inset cg-field-shell mg-app-settings-inline-shell">
+        <input
+          id={id}
+          type={type}
+          className="mg-app-settings-input mg-app-settings-input--inline"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+        />
+      </div>
       <button
         type="button"
         className="mg-app-settings-cancel"
@@ -55,7 +57,7 @@ function InlineSaveRow({
       </button>
       <button
         type="button"
-        className="mg-app-settings-save"
+        className="mg-app-settings-save neu-pill"
         onClick={onSave}
         disabled={!dirty || saving}
       >
@@ -178,30 +180,34 @@ const AppSettingsPanel = ({ app, photographerId, onAppUpdated }) => {
       {saving && <p className="mg-app-settings-saving" aria-live="polite">Saving…</p>}
 
       <div className="mg-app-settings-field">
-        <label className="mg-app-settings-label" htmlFor="mg-app-name">
+        <label className="mg-app-settings-label cg-field-label" htmlFor="mg-app-name">
           App Name
         </label>
-        <input
-          id="mg-app-name"
-          type="text"
-          className="mg-app-settings-input"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onBlur={handleNameBlur}
-        />
+        <div className="neu-inset cg-field-shell">
+          <input
+            id="mg-app-name"
+            type="text"
+            className="mg-app-settings-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={handleNameBlur}
+          />
+        </div>
       </div>
 
       <div className="mg-app-settings-field">
-        <label className="mg-app-settings-label" htmlFor="mg-app-event-date">
+        <label className="mg-app-settings-label cg-field-label" htmlFor="mg-app-event-date">
           Event Date
         </label>
-        <input
-          id="mg-app-event-date"
-          type="date"
-          className="mg-app-settings-input"
-          value={eventDate}
-          onChange={(e) => handleDateChange(e.target.value)}
-        />
+        <div className="neu-inset cg-field-shell">
+          <input
+            id="mg-app-event-date"
+            type="date"
+            className="mg-app-settings-input"
+            value={eventDate}
+            onChange={(e) => handleDateChange(e.target.value)}
+          />
+        </div>
       </div>
 
       <section className="mg-app-settings-section">

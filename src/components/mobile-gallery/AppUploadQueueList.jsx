@@ -38,7 +38,7 @@ const AppUploadQueueList = ({
           <button type="button" className="mg-btn-outline" onClick={onUploadMore}>
             Upload More
           </button>
-          <button type="button" className="mg-btn-primary" onClick={onManageApp}>
+          <button type="button" className="mg-btn-primary neu-pill" onClick={onManageApp}>
             Manage Gallery App
           </button>
         </div>

@@ -40,7 +40,7 @@ export function buildInviteEmailHtml({
 
   const websiteBlock =
     websiteHref && websiteLabel
-      ? `<a href="${escapeHtml(websiteHref)}" style="color:#20a398;text-decoration:none;font-size:13px;">${escapeHtml(websiteLabel)}</a>`
+      ? `<a href="${escapeHtml(websiteHref)}" style="color:#1A1A1A;text-decoration:none;font-size:13px;">${escapeHtml(websiteLabel)}</a>`
       : '';
 
   return `<!DOCTYPE html>

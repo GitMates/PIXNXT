@@ -80,7 +80,7 @@ function CoverLayoutIcon({ type }) {
 
         <rect x="4" y="4" width="32" height="56" rx="2" fill="#fff" stroke="#ccc" />
 
-        <rect x="8" y="8" width="24" height="48" fill="#20a398" opacity="0.35" />
+        <rect x="8" y="8" width="24" height="48" fill="#1A1A1A" opacity="0.35" />
 
       </svg>
 
@@ -96,7 +96,7 @@ function CoverLayoutIcon({ type }) {
 
         <rect x="4" y="4" width="32" height="56" rx="2" fill="#fff" stroke="#ccc" />
 
-        <rect x="8" y="8" width="24" height="14" fill="#20a398" opacity="0.35" />
+        <rect x="8" y="8" width="24" height="14" fill="#1A1A1A" opacity="0.35" />
 
         <rect x="11" y="28" width="10" height="1.5" rx="0.75" fill="#bbb" />
 
@@ -653,11 +653,12 @@ const AppDesignPanel = ({ app, photographerId, onAppUpdated, onEditIcon, iconUpl
 
             <label className="mg-design-field">
 
-              <span className="mg-design-field-label">Grid Style</span>
+              <span className="mg-design-field-label cg-field-label">Grid Style</span>
 
+              <div className="set-select-wrap neu-inset cg-field-shell">
               <select
 
-                className="mg-design-select"
+                className="mg-design-select set-select"
 
                 value={design.grid_style}
 
@@ -670,6 +671,7 @@ const AppDesignPanel = ({ app, photographerId, onAppUpdated, onEditIcon, iconUpl
                 <option value="horizontal">Horizontal</option>
 
               </select>
+              </div>
 
               <p className="mg-design-help">
 
@@ -683,11 +685,12 @@ const AppDesignPanel = ({ app, photographerId, onAppUpdated, onEditIcon, iconUpl
 
             <label className="mg-design-field">
 
-              <span className="mg-design-field-label">Color Theme</span>
+              <span className="mg-design-field-label cg-field-label">Color Theme</span>
 
+              <div className="set-select-wrap neu-inset cg-field-shell">
               <select
 
-                className="mg-design-select"
+                className="mg-design-select set-select"
 
                 value={design.color_theme}
 
@@ -700,6 +703,7 @@ const AppDesignPanel = ({ app, photographerId, onAppUpdated, onEditIcon, iconUpl
                 <option value="dark">Dark</option>
 
               </select>
+              </div>
 
               <p className="mg-design-help">Choose between a light or dark theme that best suits your photos.</p>
 

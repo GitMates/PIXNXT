@@ -179,7 +179,7 @@ const AppPhotoUploadZone = ({
           <p className="mg-upload-or">Or...</p>
           <button
             type="button"
-            className="mg-btn-primary mg-upload-select-btn"
+            className="mg-btn-primary neu-pill mg-upload-select-btn"
             onClick={(e) => {
               e.stopPropagation();
               if (!uploading) fileInputRef.current?.click();

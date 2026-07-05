@@ -5,6 +5,7 @@ import { mobileGalleryService } from '../../services/mobileGallery.service';
 import { getMobileGalleryDbErrorMessage } from '../../lib/mobileGalleryDbError';
 import CreateAppModal from '../../components/mobile-gallery/CreateAppModal';
 import AppContextMenu from '../../components/mobile-gallery/AppContextMenu';
+import { ClientGallerySearchField } from '../../components/features/ClientGallery/ClientGalleryPageShell';
 import './MobileGallery.css';
 
 function getAppInitial(name) {
@@ -18,7 +19,6 @@ const AppsList = () => {
   const { user, loading: authLoading } = useAuth();
   const [apps, setApps] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -147,41 +147,22 @@ const AppsList = () => {
   return (
     <div className="mg-apps-page mg-content">
       <header className="mg-apps-header">
-        <h1 className="mg-apps-title">Mobile Gallery Apps</h1>
-        <div className="mg-apps-header-actions">
-          {searchOpen ? (
-            <div className="mg-search-bar">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                type="search"
-                placeholder="Search apps"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label="Search apps"
-                autoFocus
-              />
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="mg-search-toggle"
-              onClick={() => setSearchOpen(true)}
-              aria-label="Search apps"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            </button>
-          )}
-          <button type="button" className="mg-btn-primary" onClick={() => setCreateOpen(true)}>
-            + Create New
-          </button>
-        </div>
+        <h1 className="mg-apps-title cg-page-title">Mobile Gallery Apps</h1>
+        <button type="button" className="mg-btn-primary neu-pill mg-apps-create-btn" onClick={() => setCreateOpen(true)}>
+          + Create New
+        </button>
       </header>
+
+      <div className="mg-apps-toolbar">
+        <ClientGallerySearchField
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search apps…"
+          ariaLabel="Search apps"
+          className="mg-apps-search"
+          typewriterPlaceholder
+        />
+      </div>
 
       {loadError && (
         <div className="mg-empty" role="alert">
@@ -202,7 +183,7 @@ const AppsList = () => {
           </div>
           <h2>Create your first Mobile Gallery App</h2>
           <p>Give your clients a beautiful, personalized mobile experience to view and share their photos.</p>
-          <button type="button" className="mg-btn-primary" onClick={() => setCreateOpen(true)}>
+          <button type="button" className="mg-btn-primary neu-pill" onClick={() => setCreateOpen(true)}>
             + Create New
           </button>
         </div>
@@ -216,21 +197,20 @@ const AppsList = () => {
           {filteredApps.map((app) => (
             <div
               key={app.id}
-              className="mg-app-card"
+              className="mg-app-card group"
               onClick={() => navigate(`/mobile-gallery/app/${app.id}`)}
               onKeyDown={(e) => e.key === 'Enter' && navigate(`/mobile-gallery/app/${app.id}`)}
               role="button"
               tabIndex={0}
             >
-              <div className="mg-app-card-thumb">
-                {app.cover_image_url || app.icon_url ? (
-                  <img src={app.cover_image_url || app.icon_url} alt="" />
+              <div className={`mg-app-card-thumb${app.cover_image_url ? ' mg-app-card-thumb--cover' : ' mg-app-card-thumb--icon'}`}>
+                {app.cover_image_url ? (
+                  <img src={app.cover_image_url} alt="" className="mg-app-card-cover-img" />
+                ) : app.icon_url ? (
+                  <img src={app.icon_url} alt="" className="mg-app-card-icon-img" />
                 ) : (
                   <div className="mg-app-card-icon">{getAppInitial(app.name)}</div>
                 )}
-              </div>
-              <div className="mg-app-card-footer">
-                <h3 className="mg-app-card-name">{app.name}</h3>
                 <button
                   type="button"
                   className="mg-app-card-menu"
@@ -245,6 +225,9 @@ const AppsList = () => {
                     <circle cx="16" cy="2" r="1.5" />
                   </svg>
                 </button>
+              </div>
+              <div className="mg-app-card-footer">
+                <h3 className="mg-app-card-name">{app.name}</h3>
               </div>
               {contextMenuId === app.id && (
                 <AppContextMenu

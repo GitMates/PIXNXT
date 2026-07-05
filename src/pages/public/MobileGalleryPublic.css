@@ -1,6 +1,6 @@
 .mg-install-page {
   min-height: 100dvh;
-  background: #f7f7f7;
+  background: #f9f9f7;
   color: #111;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
@@ -97,7 +97,7 @@
 }
 
 .mg-install-copy-btn--copied {
-  background: #20a398;
+  background: #1A1A1A;
 }
 
 .mg-install-copy-btn--hidden {
@@ -239,7 +239,7 @@
 }
 
 .mg-install-open-gallery a {
-  color: #20a398;
+  color: #1A1A1A;
   text-decoration: none;
   font-weight: 600;
 }
@@ -276,7 +276,7 @@
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #20a398;
+  color: #1A1A1A;
 }
 
 .mg-install-overlay-title {
@@ -366,7 +366,7 @@
 }
 
 .mg-install-phone-tile--active {
-  background: linear-gradient(135deg, #b8e6de, #20a398);
+  background: linear-gradient(135deg, #e8e6e3, #1A1A1A);
 }
 
 .mg-client-page {

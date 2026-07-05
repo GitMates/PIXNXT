@@ -276,7 +276,14 @@
 .theme-mono .cg-field-shell.neu-inset .hp-input,
 .theme-mono .hp-input-wrap.cg-field-shell.neu-inset .hp-input,
 .theme-mono .cg-field-shell.neu-inset .hp-input-read,
-.theme-mono .hp-input-wrap.cg-field-shell.neu-inset .hp-input-read {
+.theme-mono .hp-input-wrap.cg-field-shell.neu-inset .hp-input-read,
+.theme-mono .cg-field-shell.neu-inset .mg-field-input,
+.theme-mono .cg-field-shell.neu-inset .mg-share-input,
+.theme-mono .cg-field-shell.neu-inset .mg-app-settings-input,
+.theme-mono .cg-field-shell.neu-inset .mg-email-templates-name-input,
+.theme-mono .cg-field-shell.neu-inset .mg-settings-input,
+.theme-mono .cg-field-shell.neu-inset .acct-field-input,
+.theme-mono .cg-field-shell-textarea.neu-inset .acct-field-textarea {
   width: 100%;
   flex: 1;
   min-width: 0;
@@ -292,7 +299,8 @@
 }
 
 .theme-mono .cg-field-shell.neu-inset .set-select,
-.theme-mono .set-select-wrap.cg-field-shell.neu-inset .set-select {
+.theme-mono .set-select-wrap.cg-field-shell.neu-inset .set-select,
+.theme-mono .cg-field-shell.neu-inset .mg-design-select {
   width: 100%;
   flex: 1;
   min-width: 0;
@@ -319,7 +327,8 @@
 }
 
 .theme-mono .cg-field-shell-textarea.neu-inset .hp-textarea,
-.theme-mono .hp-textarea-wrap.cg-field-shell-textarea.neu-inset .hp-textarea {
+.theme-mono .hp-textarea-wrap.cg-field-shell-textarea.neu-inset .hp-textarea,
+.theme-mono .cg-field-shell-textarea.neu-inset .mg-share-textarea {
   width: 100%;
   background: transparent;
   border: 0;
@@ -328,6 +337,8 @@
   font-size: 0.875rem;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   resize: vertical;
+  min-height: 180px;
+  padding: 0.75rem 1rem;
 }
 
 .theme-mono .set-rte-box.cg-field-shell-textarea.neu-inset {

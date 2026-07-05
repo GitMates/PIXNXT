@@ -187,7 +187,7 @@ const ModuleSettings = () => {
   if (loading || !settings) {
     return (
       <div className="mg-settings-page mg-content">
-        <h1>Settings</h1>
+        <h1 className="cg-page-title mg-settings-page-title">Settings</h1>
         <p className="mg-settings-loading">Loading settings…</p>
       </div>
     );
@@ -195,7 +195,7 @@ const ModuleSettings = () => {
 
   return (
     <div className="mg-settings-page mg-content">
-      <h1>Settings</h1>
+      <h1 className="cg-page-title mg-settings-page-title">Settings</h1>
 
       {/* Contact Page */}
       <section className="mg-settings-block">
@@ -229,15 +229,17 @@ const ModuleSettings = () => {
         <div className="mg-settings-card">
           <h3 className="mg-settings-card-title">Custom Domain</h3>
           <div className="mg-settings-domain-row">
-            <input
-              type="text"
-              className="mg-settings-input"
-              placeholder="www.yourdomain.com"
-              value={customDomainDraft}
-              onChange={(e) => setCustomDomainDraft(e.target.value)}
-              onBlur={handleCustomDomainBlur}
-              disabled={!isUpgraded}
-            />
+            <div className="neu-inset cg-field-shell mg-settings-domain-shell">
+              <input
+                type="text"
+                className="mg-settings-input"
+                placeholder="www.yourdomain.com"
+                value={customDomainDraft}
+                onChange={(e) => setCustomDomainDraft(e.target.value)}
+                onBlur={handleCustomDomainBlur}
+                disabled={!isUpgraded}
+              />
+            </div>
             {!isUpgraded && (
               <button type="button" className="mg-settings-upgrade-btn" onClick={handleUpgrade}>
                 Upgrade to Enable

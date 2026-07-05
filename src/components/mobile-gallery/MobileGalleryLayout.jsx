@@ -7,6 +7,8 @@ import MobileGalleryIcon from './MobileGalleryIcon';
 import MobileGalleryHelpDropdown from './MobileGalleryHelpDropdown';
 import MobileGalleryNotifications from './MobileGalleryNotifications';
 import MobileGalleryProfileDropdown from './MobileGalleryProfileDropdown';
+import '../../styles/clientGalleryTheme.css';
+import '../../styles/mobileGalleryTheme.css';
 import '../../pages/ClientGallery.css';
 import '../../pages/mobile-gallery/MobileGallery.css';
 
@@ -36,7 +38,7 @@ const MobileGalleryLayout = ({ children }) => {
   const closePanels = () => setOpenPanel(null);
 
   return (
-    <div className="mg-shell">
+    <div className="theme-mono cg-shell mg-theme mg-shell">
       <header className="mg-topbar">
         <div className="mg-topbar-left">
           <span className="mg-brand-logo" onClick={() => navigate('/dashboard')} role="button" tabIndex={0}>
@@ -114,16 +116,19 @@ const MobileGalleryLayout = ({ children }) => {
             open={openPanel === 'help'}
             onToggle={() => togglePanel('help')}
             onClose={closePanels}
+            triggerClassName="mg-topbar-icon neu-circle"
           />
           <MobileGalleryNotifications
             open={openPanel === 'notifications'}
             onToggle={() => togglePanel('notifications')}
             onClose={closePanels}
+            triggerClassName="mg-topbar-icon neu-circle"
           />
           <MobileGalleryProfileDropdown
             open={openPanel === 'profile'}
             onToggle={() => togglePanel('profile')}
             onClose={closePanels}
+            triggerClassName="mg-profile-btn"
           />
         </div>
       </header>
@@ -148,7 +153,7 @@ const MobileGalleryLayout = ({ children }) => {
         </nav>
       )}
 
-      <main className="mg-main">{children}</main>
+      <main className="mg-main cg-style-2">{children}</main>
     </div>
   );
 };

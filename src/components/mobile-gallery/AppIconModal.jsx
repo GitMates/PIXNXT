@@ -37,7 +37,7 @@ function AppIconModal({ open, uploading, onUpload, onClose }) {
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mg-icon-modal-header">
-          <h2 id="mg-icon-modal-title" className="mg-icon-modal-title">
+          <h2 id="mg-icon-modal-title" className="mg-icon-modal-title cg-page-title">
             Change App Icon
           </h2>
           <button type="button" className="mg-icon-modal-cancel" onClick={onClose} disabled={uploading}>

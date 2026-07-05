@@ -43,7 +43,7 @@ export function buildWebManifest({ app, photographerName }) {
     display: 'standalone',
     orientation: 'portrait',
     background_color: '#ffffff',
-    theme_color: '#20a398',
+    theme_color: '#1A1A1A',
     icons: slug
       ? [
           { src: `${base}/icon-192.png`, sizes: '192x192', type: iconType, purpose: 'any' },
