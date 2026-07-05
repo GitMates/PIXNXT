@@ -298,6 +298,24 @@ export default function SmartAlbumProoferSettingsPanel() {
                                 </div>
                             )}
                         </SettingGroup>
+
+                        <SettingGroup title="Client Started Review Notification">
+                            <TemplateTextarea
+                                label="Client Started Feedback Email Template"
+                                description="Customize the email sent to you when a client leaves their first comment, swap request, or voice message"
+                                value={settings.clientStartedFeedbackTemplate || ''}
+                                onChange={(clientStartedFeedbackTemplate) =>
+                                    patch({ clientStartedFeedbackTemplate })
+                                }
+                                variables={[
+                                    '{{photographer_name}}',
+                                    '{{client_name}}',
+                                    '{{album_name}}',
+                                    '{{editor_link}}',
+                                ]}
+                                placeholder="Hi {{photographer_name}}, Great news! Your client {{client_name}} has started reviewing the album..."
+                            />
+                        </SettingGroup>
                     </>
                 )}
             </div>

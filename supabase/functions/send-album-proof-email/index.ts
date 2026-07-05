@@ -974,20 +974,52 @@ serve(async (req) => {
 
     if (action === 'client_started_commenting') {
       subject = `Client started commenting — ${album.name || 'Album'}`;
-      plainBody = buildClientStartedNotificationText({
-        photographerName: photographer.display_name || 'Photographer',
-        albumName: album.name || 'Album',
-        guestName: clientName,
-        startedAt,
-        editorUrl,
+      const template = prooferSettings.clientStartedFeedbackTemplate ||
+        'Hi {{photographer_name}},\n\nGreat news! Your client {{client_name}} has started reviewing the album {{album_name}} and left their first comment, swap request, or voice message.\n\nOpen the album editor to see the feedback: {{editor_link}}\n\nBest regards,\nPIXNXT Team';
+      
+      const parsedBody = applyTemplate(template, {
+        photographer_name: photographer.display_name || 'Photographer',
+        client_name: clientName,
+        album_name: album.name || 'Album',
+        editor_link: editorUrl,
       });
-      html = buildClientStartedEmailHtml({
-        photographerName: photographer.display_name || 'Photographer',
-        albumName: album.name || 'Album',
-        guestName: clientName,
-        startedAt,
-        editorUrl,
-      });
+
+      plainBody = parsedBody;
+      html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f0f0f0;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f0f0;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:36px 40px 32px;text-align:left;">
+              <p style="margin:0 0 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999;">${escapeHtml(photographer.display_name || 'Photographer')}</p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;background:#f7fdf9;border:1px solid #d9f0e3;border-radius:10px;">
+                <tr>
+                  <td style="padding:20px 22px;">
+                    <p style="margin:0 0 14px;font-size:18px;font-weight:700;color:#111;line-height:1.3;">Client started commenting</p>
+                    ${templateToHtmlParagraphs(parsedBody.replace(/^Hi\s+[^\n]+,\n*/i, ''))}
+                  </td>
+                </tr>
+              </table>
+              <table role="presentation" cellspacing="0" cellpadding="0">
+                <tr>
+                  <td style="border-radius:6px;background:#111;">
+                    <a href="${escapeHtml(editorUrl)}" style="display:inline-block;padding:14px 28px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#ffffff;text-decoration:none;">Open album in editor</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0;font-size:11px;color:#aaa;text-align:center;">Sent by PIXNXT</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
     } else if (action === 'approve') {
       subject = `Album approved for binding — ${album.name || 'Album'}`;
       plainBody = buildAlbumApprovedNotificationText({

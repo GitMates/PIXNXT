@@ -6,6 +6,7 @@ export type ProoferSettings = {
   clientReminderTemplate?: string;
   revisionRequestedTemplate?: string;
   approvedTemplate?: string;
+  clientStartedFeedbackTemplate?: string;
 };
 
 export const DEFAULT_PROOFER_SETTINGS: ProoferSettings = {
@@ -19,6 +20,8 @@ export const DEFAULT_PROOFER_SETTINGS: ProoferSettings = {
     'Hi {{client_name}},\n\nThank you for your feedback on {{album_name}}! Based on your input, we\'ve prepared some revisions for your review.\n\nView the updated album: {{view_album_link}}\n\nPlease let us know if these changes work better for you.\n\nBest regards',
   approvedTemplate:
     'Hi {{client_name}},\n\nWonderful news! Your album {{album_name}} has been approved and is ready for final delivery.\n\nThank you for your collaboration throughout this process!\n\nBest regards',
+  clientStartedFeedbackTemplate:
+    'Hi {{photographer_name}},\n\nGreat news! Your client {{client_name}} has started reviewing the album {{album_name}} and left their first comment, swap request, or voice message.\n\nOpen the album editor to see the feedback: {{editor_link}}\n\nBest regards,\nPIXNXT Team',
 };
 
 export function mergeProoferSettings(raw: unknown): ProoferSettings {
