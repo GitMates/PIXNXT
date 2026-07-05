@@ -6,6 +6,10 @@ import { galleryService } from '../services/gallery.service';
 import { getPhotoGridDisplayUrl, getPhotoVideoSrc } from '../lib/photoDisplayUrl';
 import { formatStorageBytes } from '../utils/formatStorageBytes';
 import { isGalleryVideo } from '../lib/galleryMediaType';
+import {
+    ClientGalleryPageShell,
+    ClientGallerySubpageTabs,
+} from '../components/features/ClientGallery/ClientGalleryPageShell';
 import './PhotoLibrary.css';
 import './ClientGallery.css';
 import './Starred.css';
@@ -85,28 +89,20 @@ const Starred = () => {
 
     return (
         <SidebarLayout>
-            <main className="pl-main st-main">
-                <header className="st-header">
-                    <h1 className="st-title">Starred</h1>
-
-                    <div className="st-tabs">
-                        <button
-                            type="button"
-                            className={`st-tab ${activeTab === 'collections' ? 'active' : ''}`}
-                            onClick={() => navigate('/starred/collections')}
-                        >
-                            Collections
-                        </button>
-                        <button
-                            type="button"
-                            className={`st-tab ${activeTab === 'photos' ? 'active' : ''}`}
-                            onClick={() => navigate('/starred/photos')}
-                        >
-                            Photos
-                        </button>
-                    </div>
-                </header>
-
+            <ClientGalleryPageShell
+                title="Starred"
+                toolbar={(
+                    <ClientGallerySubpageTabs
+                        tabs={[
+                            { id: 'collections', label: 'Collections' },
+                            { id: 'photos', label: 'Photos' },
+                        ]}
+                        activeId={activeTab}
+                        onChange={(id) => navigate(`/starred/${id}`)}
+                    />
+                )}
+                contentClassName="pt-8"
+            >
                 {loading ? (
                     <div className="st-loading">Loading…</div>
                 ) : error ? (
@@ -128,7 +124,7 @@ const Starred = () => {
                                 <p className="pl-empty-text">
                                     Star collections from the Collections page to see them here.
                                 </p>
-                                <button type="button" className="pl-new-btn" onClick={() => navigate('/client-gallery')}>
+                                <button type="button" className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium" onClick={() => navigate('/client-gallery')}>
                                     Go to Collections
                                 </button>
                             </>
@@ -138,14 +134,14 @@ const Starred = () => {
                                 <p className="pl-empty-text">
                                     Star photos inside a collection to track your favorites here.
                                 </p>
-                                <button type="button" className="pl-new-btn" onClick={() => navigate('/client-gallery')}>
+                                <button type="button" className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium" onClick={() => navigate('/client-gallery')}>
                                     Go to Collections
                                 </button>
                             </>
                         )}
                     </div>
                 ) : activeTab === 'collections' ? (
-                    <div className="st-grid cg-style-37 px-10 pb-12">
+                    <div className="st-grid cg-style-37">
                         {collections.map((collection) => (
                             <div
                                 key={collection.id}
@@ -197,7 +193,7 @@ const Starred = () => {
                         ))}
                     </div>
                 ) : (
-                    <div className="st-photo-grid px-10 pb-12">
+                    <div className="st-photo-grid">
                         {photos.map((photo) => {
                             const isVideo = isGalleryVideo(photo);
                             const src = isVideo ? getPhotoVideoSrc(photo) : getPhotoGridDisplayUrl(photo);
@@ -234,7 +230,7 @@ const Starred = () => {
                         })}
                     </div>
                 )}
-            </main>
+            </ClientGalleryPageShell>
         </SidebarLayout>
     );
 };

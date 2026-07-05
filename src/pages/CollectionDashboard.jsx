@@ -28,6 +28,8 @@ import { COVER_IMAGE_ACCEPT, MEDIA_FILE_INPUT_ACCEPT, pickMediaFilesOrFallback }
 import { setCoverPhotoDragData, endCoverPhotoDrag, isGalleryImagePhoto } from '../lib/coverPhotoDrag';
 import { DatePicker } from '../components/ui/DatePicker';
 import './CollectionDashboard.css';
+import '../styles/clientGalleryTheme.css';
+import '../styles/collectionDashboardTheme.css';
 import '../components/features/CollectionDashboard/Activity/DownloadActivity.css';
 import '../components/features/CollectionDashboard/Activity/FavoriteActivity.css';
 import '../components/features/CollectionDashboard/Settings/Settings.css';
@@ -209,6 +211,7 @@ const CollectionDashboard = () => {
     const [downloadPin, setDownloadPin] = useState(true);
     const [pinValue, setPinValue] = useState('1060');
     const [showAdditionalOptions, setShowAdditionalOptions] = useState(false);
+    const [showGeneralAdditionalOptions, setShowGeneralAdditionalOptions] = useState(false);
 
     // Additional options states
     const [galleryDownload, setGalleryDownload] = useState(true);
@@ -2258,7 +2261,7 @@ const CollectionDashboard = () => {
 
     if (loading) {
         return (
-            <div className="flex h-screen items-center justify-center bg-white">
+            <div className="theme-mono cd-dashboard-shell flex h-screen items-center justify-center bg-[#F9F9F7]">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-[#111111] border-t-transparent rounded-full animate-spin"></div>
                     <p className="text-[#111111] font-medium tracking-widest uppercase text-[16px]">Loading Collection...</p>
@@ -2269,7 +2272,7 @@ const CollectionDashboard = () => {
 
     if (error || !collection) {
         return (
-            <div className="flex h-screen items-center justify-center bg-white">
+            <div className="theme-mono cd-dashboard-shell flex h-screen items-center justify-center bg-[#F9F9F7]">
                 <div className="flex flex-col items-center gap-4 max-w-md text-center">
                     <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
                     <div>
@@ -2279,7 +2282,7 @@ const CollectionDashboard = () => {
                         <p className="text-[#666] mb-4">{error || 'This collection may have been deleted or you may not have permission to access it.'}</p>
                         <button 
                             onClick={() => navigate('/client-gallery')}
-                            className="px-6 py-2 bg-[#111111] text-white rounded hover:bg-[#333] transition-colors"
+                            className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium"
                         >
                             Back to Collections
                         </button>
@@ -2290,7 +2293,7 @@ const CollectionDashboard = () => {
     }
 
     return (
-        <div className={`cd-layout-container ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+        <div className={`cd-layout-container theme-mono cd-dashboard-shell ${isSidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
 
             {/* Top Navigation Bar ALWAYS Top */}
             <header className="cd-topbar">
@@ -3047,6 +3050,8 @@ const CollectionDashboard = () => {
                                 categoryTags={categoryTags}
                                 onCategoryTagsChange={handleCategoryTagsChange}
                                 categoryTagsSaving={categoryTagsSaving}
+                                showGeneralAdditionalOptions={showGeneralAdditionalOptions}
+                                setShowGeneralAdditionalOptions={setShowGeneralAdditionalOptions}
                             />
                         )}
                         {activeSidebarTab === 'settings' && activeSettingsTab === 'privacy' && (
@@ -3986,16 +3991,18 @@ const CollectionDashboard = () => {
                             </div>
                             <div className="cd-form-group mt-6">
                                 <label className="cd-form-label">Target Set</label>
-                                <select
-                                    className="cd-form-input"
-                                    value={targetSetId || ''}
-                                    onChange={(e) => setTargetSetId(e.target.value || null)}
-                                >
-                                    <option value="">Highlights</option>
-                                    {sets.map(s => (
-                                        <option key={s.id} value={s.id}>{s.name}</option>
-                                    ))}
-                                </select>
+                                <div className="settings-select-wrapper">
+                                    <select
+                                        className="settings-select"
+                                        value={targetSetId || ''}
+                                        onChange={(e) => setTargetSetId(e.target.value || null)}
+                                    >
+                                        <option value="">Highlights</option>
+                                        {sets.map(s => (
+                                            <option key={s.id} value={s.id}>{s.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         </div>
                         <div className="cd-modal-footer">

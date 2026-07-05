@@ -1,5 +1,6 @@
 import React from 'react';
 import { DatePicker } from '../../../ui/DatePicker';
+import { ClientGallerySelect } from '../../ClientGallery/ClientGallerySelect';
 import { galleryService } from '../../../../services/gallery.service';
 import { cacheSlideshowEnabled } from '../../../../lib/collectionFeatureFlags';
 import { CategoryTagsField } from './CategoryTagsField';
@@ -32,6 +33,8 @@ export interface GeneralSettingsProps {
     categoryTags: string[];
     onCategoryTagsChange: (tags: string[]) => void;
     categoryTagsSaving?: boolean;
+    showGeneralAdditionalOptions: boolean;
+    setShowGeneralAdditionalOptions: (val: boolean) => void;
 }
 
 export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
@@ -62,6 +65,8 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
     categoryTags,
     onCategoryTagsChange,
     categoryTagsSaving = false,
+    showGeneralAdditionalOptions,
+    setShowGeneralAdditionalOptions,
 }) => {
     const broadcastGallerySettings = (settings: {
         slideshow_enabled?: boolean;
@@ -137,14 +142,16 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
 
                 <div className="settings-section">
                     <label className="settings-label">Default Watermark</label>
-                    <div className="settings-select-wrapper">
-                        <select className="settings-select" value={defaultWatermark} onChange={(e) => setDefaultWatermark(e.target.value)}>
-                            <option>No watermark</option>
-                            <option>Center Watermark</option>
-                            <option>Bottom Right Watermark</option>
-                        </select>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="select-arrow"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </div>
+                    <ClientGallerySelect
+                        value={defaultWatermark}
+                        onChange={setDefaultWatermark}
+                        aria-label="Default watermark"
+                        options={[
+                            { value: 'No watermark', label: 'No watermark' },
+                            { value: 'Center Watermark', label: 'Center Watermark' },
+                            { value: 'Bottom Right Watermark', label: 'Bottom Right Watermark' },
+                        ]}
+                    />
                     <p className="settings-desc">Set the default watermark to apply to photos. Manage watermarks in <span className="settings-link">App settings</span>.</p>
                 </div>
 
@@ -249,47 +256,55 @@ export const GeneralSettings: React.FC<GeneralSettingsProps> = ({
                         </div>
                     </div>
                     <p className="settings-desc small">Allow visitors to view the images in their collection as a slideshow. <span className="settings-link">Learn more</span></p>
-                    <button className="settings-action-btn secondary">
-                        Additional options <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    <button
+                        type="button"
+                        className={`settings-action-btn secondary ${showGeneralAdditionalOptions ? 'active' : ''}`}
+                        onClick={() => setShowGeneralAdditionalOptions(!showGeneralAdditionalOptions)}
+                    >
+                        Additional options <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: showGeneralAdditionalOptions ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}><polyline points="6 9 12 15 18 9"></polyline></svg>
                     </button>
-                </div>
 
-                <div className="settings-toggle-section">
-                    <div className="settings-toggle-row">
-                        <div className="toggle-info">
-                            <label className="settings-label">Social Sharing</label>
+                    {showGeneralAdditionalOptions && (
+                        <div className="additional-options-panel">
+                            <div className="settings-toggle-row">
+                                <div className="toggle-info">
+                                    <label className="settings-label">Social Sharing</label>
+                                </div>
+                                <div className="toggle-control">
+                                    <label className="cd-toggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={socialSharing}
+                                            onChange={() => {
+                                                const newValue = !socialSharing;
+                                                setSocialSharing(newValue);
+                                                setCollection(prev => prev ? { ...prev, social_sharing_enabled: newValue } : prev);
+                                                void persistGalleryVisitorFlags({ social_sharing_enabled: newValue });
+                                            }}
+                                        />
+                                        <span className="cd-toggle-slider"></span>
+                                    </label>
+                                    <span className="toggle-state-label">{socialSharing ? 'On' : 'Off'}</span>
+                                </div>
+                            </div>
+                            <p className="settings-desc small no-margin">Allow collection visitors to share your work to social media.</p>
                         </div>
-                        <div className="toggle-control">
-                            <label className="cd-toggle">
-                                <input 
-                                    type="checkbox" 
-                                    checked={socialSharing} 
-                                    onChange={() => {
-                                        const newValue = !socialSharing;
-                                        setSocialSharing(newValue);
-                                        setCollection(prev => prev ? { ...prev, social_sharing_enabled: newValue } : prev);
-                                        void persistGalleryVisitorFlags({ social_sharing_enabled: newValue });
-                                    }} 
-                                />
-                                <span className="cd-toggle-slider"></span>
-                            </label>
-                            <span className="toggle-state-label">{socialSharing ? 'On' : 'Off'}</span>
-                        </div>
-                    </div>
-                    <p className="settings-desc small">Allow collection visitors to share your work to social media.</p>
+                    )}
                 </div>
 
                 <div className="settings-section">
                     <label className="settings-label">Language</label>
-                    <div className="settings-select-wrapper">
-                        <select className="settings-select" value={language} onChange={(e) => setLanguage(e.target.value)}>
-                            <option>English</option>
-                            <option>Spanish</option>
-                            <option>French</option>
-                            <option>German</option>
-                        </select>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#999" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="select-arrow"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </div>
+                    <ClientGallerySelect
+                        value={language}
+                        onChange={setLanguage}
+                        aria-label="Collection language"
+                        options={[
+                            { value: 'English', label: 'English' },
+                            { value: 'Spanish', label: 'Spanish' },
+                            { value: 'French', label: 'French' },
+                            { value: 'German', label: 'German' },
+                        ]}
+                    />
                     <p className="settings-desc">Choose the language to display this collection in.</p>
                 </div>
             </div>

@@ -1,56 +1,4 @@
-﻿.st-header {
-    padding: 15px 10px 0 30px;
-    margin-bottom: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.st-title {
-    font-size: 32px;
-    font-weight: 400;
-    color: #000;
-    /* margin: 0 0 2px 0; */
-    font-family: inherit;
-}
-
-.st-tabs {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    border-bottom: none;
-    margin: 0;
-    padding: 0;
-}
-
-.st-tab {
-    background: none;
-    border: none;
-    padding: 0 0 10px 0;
-    font-size: 17px;
-    font-weight: 600;
-    color: #888;
-    cursor: pointer;
-    position: relative;
-    transition: all 0.2s ease;
-    font-family: inherit;
-    text-decoration: none;
-}
-
-.st-tab:hover {
-    color: #000;
-}
-
-.st-tab.active {
-    color: #333;
-    font-weight: 600;
-}
-
-/* Remove underline under active tab - no divider lines */
-.st-tab.active::after {
-    display: none;
-}
-
-.st-empty-state {
+﻿.st-empty-state {
     flex: 1;
     display: flex;
     flex-direction: column;
@@ -62,12 +10,6 @@
 
 .st-empty-graphic {
     margin-bottom: 32px;
-}
-
-.st-main {
-    display: flex;
-    flex-direction: column;
-    min-height: 100%;
 }
 
 .st-loading {
@@ -157,5 +99,3 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
-

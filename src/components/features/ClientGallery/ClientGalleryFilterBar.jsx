@@ -239,7 +239,7 @@ export function ClientGalleryFilterBar({ filters, onFiltersChange, collections }
   };
 
   const renderDateFilterPanel = (field, quickPresets) => (
-    <div className="cg-style-21">
+    <div className="cg-style-21 cg-filter-date-panel">
       <div className="cg-style-22">
         <div className="cg-style-23">
           <span className="cg-style-24">{MONTH_NAMES[calendarMonth]}</span>
@@ -309,7 +309,8 @@ export function ClientGalleryFilterBar({ filters, onFiltersChange, collections }
     filters.starred === true ? 'Starred: Yes' : filters.starred === false ? 'Starred: No' : 'Starred';
 
   return (
-    <div className="cg-style-16" ref={barRef}>
+    <div className="cg-filter-bar" ref={barRef}>
+        <div className="cg-style-16">
         <div className="relative inline-flex">
           <FilterChip
             active={filters.status != null}
@@ -421,10 +422,11 @@ export function ClientGalleryFilterBar({ filters, onFiltersChange, collections }
         </div>
 
         {hasActive ? (
-          <button type="button" className="cg-filter-clear-all" onClick={clearAllFilters}>
+          <button type="button" className="cg-filter-clear-all cg-filter-clear-all--inline" onClick={clearAllFilters}>
             Clear filters
           </button>
         ) : null}
+    </div>
     </div>
   );
 }

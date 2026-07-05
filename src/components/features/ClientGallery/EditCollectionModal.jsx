@@ -1,9 +1,12 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { X, Tag } from 'lucide-react';
 import DatePicker from '../../ui/DatePicker/DatePicker';
 import {
     categoryTagsFromCollection,
     normalizeCategoryTagsFromString,
 } from '../../../lib/categoryTags';
+import { cn } from '../../../lib/utils';
 import './EditCollectionModal.css';
 
 const STATUS_OPTIONS = [
@@ -12,23 +15,62 @@ const STATUS_OPTIONS = [
     { value: 'archived', label: 'Hidden' },
 ];
 
+const PRESET_TAGS = ['Wedding', 'Portrait', 'Editorial', 'Engagement', 'Family', 'Fashion', 'Maternity'];
+
 export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdvanced, saving }) {
     const [name, setName] = useState('');
     const [eventDate, setEventDate] = useState('');
     const [status, setStatus] = useState('draft');
     const [categoryTags, setCategoryTags] = useState('');
     const [showOnHomepage, setShowOnHomepage] = useState(false);
+    const [tagInput, setTagInput] = useState('');
 
     useEffect(() => {
         if (!collection || !isOpen) return;
         setName(collection.name || '');
         setEventDate(collection.event_date ? collection.event_date.slice(0, 10) : '');
         setStatus(collection.status || 'draft');
-        setCategoryTags(collection.description || '');
+        setCategoryTags(collection.description || categoryTagsFromCollection(collection).join(', '));
         setShowOnHomepage(Boolean(collection.show_on_homepage));
+        setTagInput('');
     }, [collection, isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) return undefined;
+        function onKey(e) {
+            if (e.key === 'Escape') onClose();
+        }
+        document.addEventListener('keydown', onKey);
+        return () => document.removeEventListener('keydown', onKey);
+    }, [isOpen, onClose]);
+
     if (!isOpen || !collection) return null;
+
+    const tags = normalizeCategoryTagsFromString(categoryTags);
+
+    const addTag = (tag) => {
+        const t = tag.trim();
+        if (!t) return;
+        const next = normalizeCategoryTagsFromString(
+            [...tags, t].join(', ')
+        );
+        setCategoryTags(next.join(', '));
+        setTagInput('');
+    };
+
+    const removeTag = (tag) => {
+        setCategoryTags(tags.filter((t) => t !== tag).join(', '));
+    };
+
+    const onTagKeyDown = (e) => {
+        if (e.nativeEvent.isComposing) return;
+        if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
+            e.preventDefault();
+            addTag(tagInput);
+        } else if (e.key === 'Backspace' && !tagInput && tags.length) {
+            removeTag(tags[tags.length - 1]);
+        }
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
@@ -41,17 +83,25 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
         });
     };
 
-    return (
-        <div className="ecm-overlay" onClick={onClose}>
-            <div className="ecm-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="ecm-title">
-                <div className="ecm-header">
-                    <h2 id="ecm-title" className="ecm-title">EDIT COLLECTION</h2>
-                    <button type="button" className="ecm-close" onClick={onClose} aria-label="Close">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+    const suggestions = PRESET_TAGS.filter(
+        (t) => !tags.includes(t) && t.toLowerCase().includes(tagInput.toLowerCase()),
+    );
+
+    return createPortal(
+        <>
+            <div className="ecm-backdrop" onClick={onClose} aria-hidden="true" />
+            <aside className="ecm-drawer" role="dialog" aria-labelledby="ecm-title">
+                <div className="ecm-drawer-header">
+                    <div>
+                        <p className="ecm-eyebrow">Collection</p>
+                        <h2 id="ecm-title" className="ecm-drawer-title">Edit Details</h2>
+                    </div>
+                    <button type="button" className="ecm-close" onClick={onClose} aria-label="Close panel">
+                        <X className="size-4" />
                     </button>
                 </div>
 
-                <form className="ecm-body" onSubmit={handleSubmit}>
+                <form className="ecm-drawer-body" onSubmit={handleSubmit}>
                     <div className="ecm-field">
                         <label className="ecm-label" htmlFor="ecm-name">Collection Name</label>
                         <input
@@ -64,85 +114,93 @@ export function EditCollectionModal({ collection, isOpen, onClose, onSave, onAdv
                         />
                     </div>
 
-                    <div className="ecm-row">
-                        <div className="ecm-field ecm-field--half">
-                            <label className="ecm-label">Event Date</label>
-                            <DatePicker value={eventDate} onChange={setEventDate} placeholder="MM/DD/YYYY" />
-                        </div>
-                        <div className="ecm-field ecm-field--half">
-                            <label className="ecm-label" htmlFor="ecm-status">Status</label>
-                            <div className="ecm-select-wrap">
-                                <select
-                                    id="ecm-status"
-                                    className="ecm-select"
-                                    value={status}
-                                    onChange={(e) => setStatus(e.target.value)}
-                                >
-                                    {STATUS_OPTIONS.map((opt) => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                    ))}
-                                </select>
-                                <svg className="ecm-select-chevron" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
-                            </div>
-                        </div>
+                    <div className="ecm-field">
+                        <label className="ecm-label">Event Date</label>
+                        <DatePicker value={eventDate} onChange={setEventDate} placeholder="MM/DD/YYYY" />
                     </div>
 
                     <div className="ecm-field">
-                        <label className="ecm-label" htmlFor="ecm-tags">Category Tags</label>
-                        <input
-                            id="ecm-tags"
-                            type="text"
+                        <label className="ecm-label" htmlFor="ecm-status">Status</label>
+                        <select
+                            id="ecm-status"
                             className="ecm-input"
-                            placeholder="Select or enter tags"
-                            value={categoryTags}
-                            onChange={(e) => setCategoryTags(e.target.value)}
-                        />
+                            value={status}
+                            onChange={(e) => setStatus(e.target.value)}
+                        >
+                            {STATUS_OPTIONS.map((opt) => (
+                                <option key={opt.value} value={opt.value}>{opt.label}</option>
+                            ))}
+                        </select>
                     </div>
 
-                    <div className="ecm-toggle-block">
-                        <div className="ecm-toggle-row">
-                            <span className="ecm-toggle-label">Show on Homepage</span>
-                            <button
-                                type="button"
-                                role="switch"
-                                aria-checked={showOnHomepage}
-                                className={`ecm-toggle ${showOnHomepage ? 'ecm-toggle--on' : ''}`}
-                                onClick={() => setShowOnHomepage((v) => !v)}
-                            >
-                                <span className="ecm-toggle-knob" />
-                            </button>
-                            <span className="ecm-toggle-state">{showOnHomepage ? 'On' : 'Off'}</span>
+                    <div className="ecm-toggle-card">
+                        <div className="min-w-0">
+                            <p className="ecm-toggle-title">Show in Showcase</p>
+                            <p className="ecm-toggle-hint">Display this collection on your public portfolio page</p>
                         </div>
-                        <p className="ecm-toggle-hint">
-                            Show this collection on your Homepage. Manage Homepage in{' '}
-                            <button type="button" className="ecm-link" onClick={() => window.location.assign('/homepage')}>
-                                Homepage settings
-                            </button>
-                            .
-                        </p>
-                    </div>
-
-                    <div className="ecm-footer">
                         <button
                             type="button"
-                            className="ecm-advanced"
-                            onClick={() => {
-                                onClose();
-                                onAdvanced?.(collection);
-                            }}
+                            role="switch"
+                            aria-checked={showOnHomepage}
+                            onClick={() => setShowOnHomepage((v) => !v)}
+                            className={cn('ecm-toggle', showOnHomepage && 'ecm-toggle--on')}
                         >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
-                            Advanced Settings
+                            <span className="ecm-toggle-knob" />
                         </button>
-                        <div className="ecm-actions">
-                            <button type="button" className="ecm-cancel" onClick={onClose}>Cancel</button>
-                            <button type="submit" className="ecm-save" disabled={saving || !name.trim()}>
-                                {saving ? 'Saving…' : 'Save'}
-                            </button>
-                        </div>
                     </div>
+
+                    <div className="ecm-field">
+                        <label className="ecm-label">Collection Tags</label>
+                        <div className="ecm-tag-input">
+                            {tags.map((tag) => (
+                                <span key={tag} className="ecm-tag-chip">
+                                    <Tag className="size-2.5 text-neutral-400" />
+                                    {tag}
+                                    <button type="button" onClick={() => removeTag(tag)} aria-label={`Remove ${tag}`}>
+                                        <X className="size-2.5" />
+                                    </button>
+                                </span>
+                            ))}
+                            <input
+                                type="text"
+                                value={tagInput}
+                                onChange={(e) => setTagInput(e.target.value)}
+                                onKeyDown={onTagKeyDown}
+                                placeholder={tags.length === 0 ? 'Add tags…' : ''}
+                                className="ecm-tag-text"
+                            />
+                        </div>
+                        {(tagInput ? suggestions : PRESET_TAGS.filter((t) => !tags.includes(t))).length > 0 && (
+                            <div className="ecm-tag-suggestions">
+                                {(tagInput ? suggestions : PRESET_TAGS.filter((t) => !tags.includes(t))).map((s) => (
+                                    <button key={s} type="button" className="ecm-tag-suggestion" onClick={() => addTag(s)}>
+                                        {tagInput ? `+ ${s}` : s}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        type="button"
+                        className="ecm-advanced"
+                        onClick={() => {
+                            onClose();
+                            onAdvanced?.(collection);
+                        }}
+                    >
+                        Advanced Settings
+                    </button>
                 </form>
-            </div>
-        </div>
+
+                <div className="ecm-drawer-footer">
+                    <button type="button" className="ecm-cancel" onClick={onClose}>Cancel</button>
+                    <button type="submit" className="ecm-save" disabled={saving || !name.trim()} onClick={handleSubmit}>
+                        {saving ? 'Saving…' : 'Save Changes'}
+                    </button>
+                </div>
+            </aside>
+        </>,
+        document.body,
     );
 }

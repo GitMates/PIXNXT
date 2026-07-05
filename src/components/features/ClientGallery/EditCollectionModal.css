@@ -1,267 +1,281 @@
-﻿.ecm-overlay {
+﻿.ecm-backdrop {
     position: fixed;
     inset: 0;
     z-index: 10000;
+    background: rgba(0, 0, 0, 0.2);
+    backdrop-filter: blur(4px);
+}
+
+.ecm-drawer {
+    position: fixed;
+    right: 0;
+    top: 0;
+    z-index: 10001;
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background: rgba(0, 0, 0, 0.45);
+    height: 100%;
+    width: 400px;
+    max-width: 100vw;
+    flex-direction: column;
+    background: #FAF9F6;
+    box-shadow: -8px 0 32px rgba(0, 0, 0, 0.12);
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
-.ecm-modal {
-    width: 100%;
-    max-width: 560px;
-    max-height: calc(100vh - 48px);
-    overflow-y: auto;
-    background: #fff;
-    border-radius: 4px;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.18);
-    font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-}
-
-.ecm-header {
+.ecm-drawer-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 20px 24px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 20px 24px;
 }
 
-.ecm-title {
+.ecm-eyebrow {
     margin: 0;
-    font-size: 13px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #a3a3a3;
+}
+
+.ecm-drawer-title {
+    margin: 4px 0 0;
+    font-size: 16px;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    color: #333;
+    color: #171717;
 }
 
 .ecm-close {
-    display: flex;
+    display: inline-flex;
+    width: 32px;
+    height: 32px;
     align-items: center;
     justify-content: center;
-    padding: 4px;
     border: none;
+    border-radius: 9999px;
     background: transparent;
-    color: #888;
+    color: #a3a3a3;
     cursor: pointer;
-    border-radius: 4px;
+    transition: background 0.15s ease, color 0.15s ease;
 }
 
 .ecm-close:hover {
-    color: #111;
     background: #f5f5f5;
+    color: #404040;
 }
 
-.ecm-body {
-    padding: 20px 24px 24px;
+.ecm-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
 }
 
 .ecm-field {
-    margin-bottom: 20px;
-}
-
-.ecm-field--half {
-    flex: 1;
-    min-width: 0;
-}
-
-.ecm-row {
     display: flex;
-    gap: 16px;
+    flex-direction: column;
+    gap: 6px;
 }
 
 .ecm-label {
-    display: block;
-    margin-bottom: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #555;
+    font-size: 12px;
+    font-weight: 600;
+    color: #404040;
 }
 
 .ecm-input {
     width: 100%;
     box-sizing: border-box;
-    padding: 11px 12px;
-    font-size: 16px;
-    color: #222;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #171717;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    background: #fff;
     outline: none;
-    transition: border-color 0.15s;
+    transition: border-color 0.15s ease;
 }
 
 .ecm-input:focus {
-    border-color: #20b2aa;
+    border-color: #a3a3a3;
 }
 
-.ecm-input::placeholder {
-    color: #aaa;
-}
-
-.ecm-select-wrap {
-    position: relative;
-}
-
-.ecm-select {
-    width: 100%;
-    appearance: none;
-    padding: 11px 36px 11px 12px;
-    font-size: 16px;
-    color: #222;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background: #fff;
-    cursor: pointer;
-    outline: none;
-}
-
-.ecm-select:focus {
-    border-color: #20b2aa;
-}
-
-.ecm-select-chevron {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    pointer-events: none;
-    color: #888;
-}
-
-.ecm-toggle-block {
-    margin-bottom: 8px;
-}
-
-.ecm-toggle-row {
+.ecm-toggle-card {
     display: flex;
     align-items: center;
-    gap: 12px;
-    margin-bottom: 8px;
+    justify-content: space-between;
+    gap: 16px;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    background: #fff;
+    padding: 14px 16px;
 }
 
-.ecm-toggle-label {
-    font-size: 16px;
-    font-weight: 500;
-    color: #333;
+.ecm-toggle-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: #262626;
+}
+
+.ecm-toggle-hint {
+    margin: 2px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: #a3a3a3;
 }
 
 .ecm-toggle {
     position: relative;
     width: 44px;
     height: 24px;
-    padding: 0;
+    flex-shrink: 0;
     border: none;
-    border-radius: 12px;
-    background: #d1d5db;
+    border-radius: 9999px;
+    background: #d4d4d4;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s ease;
 }
 
 .ecm-toggle--on {
-    background: #20b2aa;
+    background: #10b981;
 }
 
 .ecm-toggle-knob {
     position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 18px;
-    height: 18px;
+    top: 4px;
+    left: 4px;
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #fff;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    transition: transform 0.2s;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s ease;
 }
 
 .ecm-toggle--on .ecm-toggle-knob {
     transform: translateX(20px);
 }
 
-.ecm-toggle-state {
-    font-size: 15px;
-    color: #666;
-}
-
-.ecm-toggle-hint {
-    margin: 0;
-    font-size: 15px;
-    line-height: 1.5;
-    color: #888;
-}
-
-.ecm-link {
-    padding: 0;
-    border: none;
-    background: none;
-    font: inherit;
-    color: #20b2aa;
-    cursor: pointer;
-    text-decoration: none;
-}
-
-.ecm-link:hover {
-    text-decoration: underline;
-}
-
-.ecm-footer {
+.ecm-tag-input {
     display: flex;
+    min-height: 42px;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: space-between;
-    margin-top: 28px;
-    padding-top: 8px;
+    gap: 6px;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    background: #fff;
+    padding: 8px 12px;
+}
+
+.ecm-tag-input:focus-within {
+    border-color: #a3a3a3;
+}
+
+.ecm-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    border-radius: 9999px;
+    background: #f5f5f5;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #404040;
+}
+
+.ecm-tag-chip button {
+    display: inline-flex;
+    border: none;
+    background: transparent;
+    color: #a3a3a3;
+    cursor: pointer;
+    padding: 0;
+}
+
+.ecm-tag-text {
+    min-width: 80px;
+    flex: 1;
+    border: none;
+    background: transparent;
+    font-size: 14px;
+    color: #171717;
+    outline: none;
+}
+
+.ecm-tag-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-top: 4px;
+}
+
+.ecm-tag-suggestion {
+    border: 1px dashed #d4d4d4;
+    border-radius: 9999px;
+    background: transparent;
+    padding: 4px 10px;
+    font-size: 12px;
+    color: #a3a3a3;
+    cursor: pointer;
+}
+
+.ecm-tag-suggestion:hover {
+    border-color: #a3a3a3;
+    color: #525252;
 }
 
 .ecm-advanced {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 0;
+    align-self: flex-start;
     border: none;
     background: none;
-    font-size: 15px;
+    padding: 0;
+    font-size: 14px;
     font-weight: 500;
-    color: #20b2aa;
+    color: #525252;
     cursor: pointer;
-}
-
-.ecm-advanced:hover {
     text-decoration: underline;
 }
 
-.ecm-actions {
+.ecm-drawer-footer {
     display: flex;
     align-items: center;
     gap: 12px;
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 16px 24px;
+}
+
+.ecm-cancel,
+.ecm-save {
+    flex: 1;
+    border-radius: 12px;
+    padding: 10px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
 }
 
 .ecm-cancel {
-    padding: 10px 16px;
-    border: none;
-    background: transparent;
-    font-size: 16px;
-    font-weight: 500;
-    color: #555;
-    cursor: pointer;
+    border: 1px solid #e5e5e5;
+    background: #fff;
+    color: #404040;
 }
 
 .ecm-cancel:hover {
-    color: #111;
+    background: #fafafa;
 }
 
 .ecm-save {
-    padding: 10px 28px;
     border: none;
-    border-radius: 4px;
-    background: #20b2aa;
-    font-size: 16px;
-    font-weight: 600;
+    background: #171717;
     color: #fff;
-    cursor: pointer;
-    transition: background 0.15s;
 }
 
 .ecm-save:hover:not(:disabled) {
-    background: #1a9e97;
+    background: #262626;
 }
 
 .ecm-save:disabled {
@@ -269,8 +283,17 @@
     cursor: not-allowed;
 }
 
-.ecm-body .date-picker-container {
+.ecm-drawer-body .date-picker-container {
     width: 100%;
 }
 
-
+.ecm-drawer-body .date-picker-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    font-size: 14px;
+    color: #171717;
+    border: 1px solid #e5e5e5;
+    border-radius: 12px;
+    background: #fff;
+}

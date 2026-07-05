@@ -1,0 +1,479 @@
+/* Client Gallery — neumorphic mono theme (matches reference UI) */
+
+@import '../components/portal/portal.css';
+
+.theme-mono.cg-shell {
+  --cg-background: oklch(0.968 0.006 85);
+  --cg-foreground: oklch(0.23 0.004 60);
+  --cg-muted: oklch(0.52 0.006 70);
+  --cg-card: oklch(0.995 0.004 85);
+  --cg-border: oklch(0.905 0.007 82);
+  --cg-sidebar: oklch(0.972 0.006 85);
+  --cg-primary: oklch(0.26 0.006 60);
+  --cg-live: #207c50;
+  --cg-draft: #b45309;
+  --cg-hidden: #9ca3af;
+
+  color: var(--cg-foreground);
+  background-color: var(--cg-background);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.theme-mono.cg-shell .cg-page-title {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--cg-foreground);
+}
+
+.theme-mono .neu-glow-pill {
+  background-color: var(--cg-card);
+  box-shadow:
+    -3px -3px 8px oklch(1 0.004 85 / 0.75),
+    3px 3px 9px oklch(0.4 0.01 70 / 0.09);
+}
+
+.theme-mono .neu-pill {
+  background-image: linear-gradient(180deg, oklch(0.3 0 0), oklch(0.2 0 0));
+  color: oklch(0.98 0 0);
+  border: none;
+  box-shadow:
+    0 1px 0 0 oklch(1 0 0 / 0.15) inset,
+    0 12px 24px -10px oklch(0 0 0 / 0.5),
+    -4px -4px 12px var(--neu-light);
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.theme-mono .neu-pill:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 1px 0 0 oklch(1 0 0 / 0.2) inset,
+    0 16px 30px -10px oklch(0 0 0 / 0.55),
+    -4px -4px 12px var(--neu-light);
+}
+
+.theme-mono .neu-pill:active {
+  transform: translateY(0);
+  box-shadow:
+    0 2px 6px -2px oklch(0 0 0 / 0.4),
+    inset 0 2px 5px oklch(0 0 0 / 0.3);
+}
+
+.theme-mono .star-badge {
+  background-color: var(--cg-card);
+  box-shadow: 0 1px 2px oklch(0.4 0.01 70 / 0.05);
+}
+
+.theme-mono .glass {
+  background-color: var(--cg-card);
+  box-shadow:
+    -6px -6px 14px var(--neu-light),
+    6px 6px 16px var(--neu-dark);
+}
+
+.theme-mono .cg-status-dot--live {
+  background-color: var(--cg-live);
+}
+
+.theme-mono .cg-status-dot--draft {
+  background-color: var(--cg-draft);
+}
+
+.theme-mono .cg-status-dot--hidden {
+  background-color: var(--cg-hidden);
+}
+
+.theme-mono .neu-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+.theme-mono .neu-scroll:hover {
+  scrollbar-color: oklch(0.515 0.022 58 / 0.35) transparent;
+}
+
+.theme-mono .neu-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+.theme-mono .neu-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.theme-mono .neu-scroll::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+}
+
+.theme-mono .neu-scroll:hover::-webkit-scrollbar-thumb {
+  background-color: oklch(0.515 0.022 58 / 0.3);
+}
+
+.cg-app-switcher-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 9999;
+  width: 14.5rem;
+  max-width: calc(100vw - 2rem);
+  border-radius: 1rem;
+  background: #fff;
+  padding: 0.5rem;
+  border: 1px solid oklch(0.905 0.007 82);
+  box-shadow: 0 12px 40px oklch(0.4 0.01 70 / 0.12);
+  animation: cgFadeIn 0.15s ease;
+}
+
+@media (min-width: 768px) {
+  .cg-app-switcher-dropdown {
+    top: 0;
+    right: auto;
+    left: calc(100% + 12px);
+    width: 18rem;
+    max-width: min(18rem, calc(100vw - 16rem));
+  }
+}
+
+@media (max-width: 767px) {
+  .cg-app-switcher-dropdown {
+    position: fixed;
+    top: 4.5rem;
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    max-width: 20rem;
+    margin-inline: auto;
+  }
+}
+
+.cg-app-switcher-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: oklch(0 0 0 / 0.12);
+}
+
+/* Shared sub-page form fields (Homepage, Settings) */
+.cg-field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.cg-field-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.cg-field-help {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: #71717a;
+}
+
+.cg-field-help a {
+  color: #1a1a1a;
+  font-weight: 500;
+  text-decoration: underline;
+}
+
+.cg-field-input,
+.cg-field-textarea,
+.cg-field-select {
+  width: 100%;
+  border: 0;
+  outline: none;
+  color: #1a1a1a;
+  background: transparent;
+  font-size: 0.875rem;
+}
+
+.cg-field-input-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: 2.5rem;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+.cg-field-input-shell--pill {
+  border-radius: 9999px;
+}
+
+.cg-field-input-shell .cg-field-input {
+  flex: 1;
+  padding: 0 1rem;
+}
+
+.cg-field-textarea-shell {
+  min-height: 6rem;
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.cg-field-textarea-shell .cg-field-textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.cg-field-select-shell {
+  position: relative;
+  min-height: 2.5rem;
+  border-radius: 0.75rem;
+}
+
+.cg-field-select-shell .cg-field-select {
+  appearance: none;
+  padding: 0 2.25rem 0 1rem;
+  height: 2.5rem;
+}
+
+.cg-section-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.cg-section-divider {
+  border-bottom: 1px solid #eceae6;
+  padding-bottom: 1.5rem;
+}
+
+/* Neu-inset field shells — match Collections search field */
+.theme-mono .cg-field-shell.neu-inset {
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  width: 100%;
+  border: 0;
+  border-radius: 9999px;
+  height: 2.5rem;
+  min-height: 2.5rem;
+  background-color: oklch(0.952 0.005 85);
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
+}
+
+.theme-mono .cg-field-shell-textarea.neu-inset {
+  width: 100%;
+  border: 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background-color: oklch(0.952 0.005 85);
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
+}
+
+.theme-mono .cg-field-shell.neu-inset .set-input,
+.theme-mono .set-input-wrap.cg-field-shell.neu-inset .set-input,
+.theme-mono .cg-field-shell.neu-inset .hp-input,
+.theme-mono .hp-input-wrap.cg-field-shell.neu-inset .hp-input,
+.theme-mono .cg-field-shell.neu-inset .hp-input-read,
+.theme-mono .hp-input-wrap.cg-field-shell.neu-inset .hp-input-read {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  min-height: 2.5rem;
+  border: 0;
+  background: transparent;
+  padding: 0 1rem;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+  outline: none;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.theme-mono .cg-field-shell.neu-inset .set-select,
+.theme-mono .set-select-wrap.cg-field-shell.neu-inset .set-select {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  height: 2.5rem;
+  border: 0;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2371717a' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 1rem center;
+  background-size: 10px;
+  padding: 0 2.25rem 0 1rem;
+  font-size: 0.875rem;
+  color: #1a1a1a;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.theme-mono .cg-field-shell.neu-inset .set-select::-ms-expand {
+  display: none;
+}
+
+.theme-mono .cg-field-shell-textarea.neu-inset .hp-textarea,
+.theme-mono .hp-textarea-wrap.cg-field-shell-textarea.neu-inset .hp-textarea {
+  width: 100%;
+  background: transparent;
+  border: 0;
+  outline: none;
+  color: #1a1a1a;
+  font-size: 0.875rem;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  resize: vertical;
+}
+
+.theme-mono .set-rte-box.cg-field-shell-textarea.neu-inset {
+  border: 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background-color: oklch(0.952 0.005 85);
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
+}
+
+.theme-mono .set-rte-box.cg-field-shell-textarea.neu-inset .set-rte-toolbar {
+  background: transparent;
+  border-bottom: 1px solid #eceae6;
+}
+
+/* Protect inset selects from legacy page-level .set-select rules */
+.theme-mono .set-select-wrap.cg-field-shell.neu-inset .set-select,
+.theme-mono .cg-field-shell.neu-inset .set-select {
+  border: 0 !important;
+  border-radius: 0 !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.theme-mono .cg-field-shell.neu-inset:focus-within,
+.theme-mono .cg-field-shell-textarea.neu-inset:focus-within {
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
+}
+
+.theme-mono .hp-textarea-wrap.cg-field-shell-textarea.neu-inset .hp-textarea {
+  min-height: 100px;
+  line-height: 1.55;
+}
+
+.theme-mono .hp-textarea-wrap.cg-field-shell-textarea.neu-inset .hp-char-count {
+  color: #71717a;
+  font-size: 0.8125rem;
+}
+
+/* Custom select dropdown — replaces native OS popup */
+.theme-mono .cg-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  height: 2.5rem;
+  min-height: 2.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 9999px;
+  background-color: oklch(0.952 0.005 85);
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
+  cursor: pointer;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  text-align: left;
+  line-height: 1;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.theme-mono .cg-select-trigger:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85),
+    0 0 0 2px oklch(0.26 0.006 60 / 0.12);
+}
+
+.theme-mono .cg-select-trigger__label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 0 0 1rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  color: #1a1a1a;
+}
+
+.theme-mono .cg-select-trigger__chevron {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+  margin-right: 0.75rem;
+  color: #71717a;
+  transition: transform 0.2s ease;
+}
+
+.theme-mono .cg-select-trigger__chevron--open {
+  transform: rotate(180deg);
+}
+
+.cg-select-menu {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  margin: 0;
+  padding: 0.375rem;
+  list-style: none;
+  border-radius: 0.75rem;
+  border: 1px solid #eceae6;
+  background-color: #fafaf8;
+  box-shadow:
+    0 12px 40px oklch(0.4 0.01 70 / 0.1),
+    inset 0 1px 0 oklch(1 0.004 85 / 0.8);
+  animation: cgFadeIn 0.15s ease;
+  max-height: 16rem;
+  overflow-y: auto;
+}
+
+.cg-select-option {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  color: #1a1a1a;
+  font-size: 0.875rem;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.cg-select-option:hover {
+  background-color: #f4f3f0;
+}
+
+.cg-select-option--selected {
+  background-color: oklch(0.952 0.005 85);
+  box-shadow:
+    inset 2px 2px 5px oklch(0.4 0.01 70 / 0.08),
+    inset -2px -2px 5px oklch(1 0.004 85 / 0.85);
+  font-weight: 500;
+}
