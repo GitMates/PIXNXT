@@ -1,4 +1,4 @@
-﻿/* GalleryPreview â€“ in-dashboard live gallery (cover, nav, grid, cover style overrides) */
+/* GalleryPreview â€“ in-dashboard live gallery (cover, nav, grid, cover style overrides) */
 .cd-preview-gallery-card {
     display: flex;
     flex-direction: column;
@@ -657,7 +657,7 @@
 .cd-preview-gallery-header {
     min-height: 400px;
     height: auto;
-    background-color: #ffffff;
+    background-color: var(--gallery-bg);
     overflow: hidden;
 }
 
@@ -793,7 +793,7 @@
 
 .journal-right {
     flex: 1;
-    background-color: #ffffff;
+    background-color: var(--gallery-bg);
     display: flex;
     align-items: center;
     padding: 60px;
@@ -854,11 +854,11 @@
 
 /* NOVEL */
 .style-novel .cd-preview-gallery-header {
-    background-color: #ffffff;
+    background-color: var(--gallery-bg);
 }
 
 .style-novel .header-left {
-    background-color: #ffffff;
+    background-color: var(--gallery-bg);
     flex: 1;
 }
 
@@ -869,7 +869,7 @@
 
 /* VINTAGE */
 .style-vintage .cd-preview-gallery-header {
-    background-color: #f8f6f2;
+    background-color: var(--gallery-bg);
     /* Creamy background */
 }
 
@@ -891,7 +891,7 @@
 
 /* JOURNAL */
 .style-journal .journal-right {
-    background-color: #ffffff;
+    background-color: var(--gallery-bg);
     flex: 1;
 }
 

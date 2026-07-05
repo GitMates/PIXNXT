@@ -329,3 +329,13 @@
 .cover-text-grid__button.view-gallery-btn:hover {
   filter: brightness(1.08);
 }
+
+/* Full-bleed covers overlaying text directly on the cover photo must always use white text for legibility */
+.cover-over-photo,
+.cover-over-photo :not(.view-gallery-btn) {
+  color: #ffffff !important;
+}
+
+.cover-over-photo .view-gallery-btn {
+  color: var(--gallery-on-accent, #ffffff) !important;
+}
