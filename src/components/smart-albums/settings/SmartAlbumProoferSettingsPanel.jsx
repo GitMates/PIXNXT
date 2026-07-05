@@ -241,31 +241,7 @@ export default function SmartAlbumProoferSettingsPanel() {
                                     </p>
 
                                     <CollapsibleStatusSection
-                                        title="Revision Requested"
-                                        isOpen={expandedStatus === 'revision'}
-                                        onToggle={() =>
-                                            setExpandedStatus(
-                                                expandedStatus === 'revision' ? null : 'revision'
-                                            )
-                                        }
-                                    >
-                                        <TemplateTextarea
-                                            label="Email Template"
-                                            value={settings.revisionRequestedTemplate}
-                                            onChange={(revisionRequestedTemplate) =>
-                                                patch({ revisionRequestedTemplate })
-                                            }
-                                            variables={[
-                                                '{{client_name}}',
-                                                '{{album_name}}',
-                                                '{{view_album_link}}',
-                                            ]}
-                                            placeholder="Enter template for revision request emails..."
-                                        />
-                                    </CollapsibleStatusSection>
-
-                                    <CollapsibleStatusSection
-                                        title="Approved"
+                                         title="Approved"
                                         isOpen={expandedStatus === 'approved'}
                                         onToggle={() =>
                                             setExpandedStatus(
