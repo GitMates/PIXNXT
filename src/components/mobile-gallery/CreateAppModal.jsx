@@ -63,7 +63,8 @@ const CreateAppModal = ({ isOpen, onClose, onCreate, saving }) => {
                 value={eventDate}
                 onChange={setEventDate}
                 placeholder="Pick a date (optional)"
-                className="mg-date-picker"
+                className="mg-date-picker mg-date-picker--compact"
+                showQuickSearch={false}
               />
             </div>
           </div>

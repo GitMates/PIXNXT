@@ -726,12 +726,29 @@
   box-shadow: none;
 }
 
+.mg-modal .cg-field-shell.neu-inset:has(.custom-datepicker) {
+  overflow: visible;
+}
+
+.mg-modal .mg-modal-field:has(.custom-datepicker) {
+  overflow: visible;
+}
+
+.mg-modal .mg-modal-field:has(.dp-input-field.focused) {
+  position: relative;
+  z-index: 10;
+}
+
 .mg-modal .cg-field-shell.neu-inset .mg-date-picker,
 .mg-modal .cg-field-shell.neu-inset .custom-datepicker {
   width: 100%;
   flex: 1;
   min-width: 0;
   margin: 0;
+}
+
+.mg-modal .custom-datepicker.mg-date-picker--compact .dp-dropdown {
+  z-index: 1100;
 }
 
 .mg-modal .cg-field-shell.neu-inset .dp-input-field {
