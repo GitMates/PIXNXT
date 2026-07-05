@@ -112,14 +112,12 @@ export function UploadQueueProvider({ children }) {
       safePatch({ status: 'processing', progress: 0 });
 
       try {
-        const fileToUpload = await prepareUploadFile(uf.file, (pct) => {
-          safePatch({ status: 'processing', progress: Math.min(12, Math.round(pct * 0.12)) });
-        });
+        const fileToUpload = uf.file;
 
         safePatch({
           uploadSize: fileToUpload.size,
           status: 'uploading',
-          progress: 12,
+          progress: 0,
         });
 
         const photoData = await galleryService.uploadPhoto(
@@ -129,8 +127,7 @@ export function UploadQueueProvider({ children }) {
           sortIndex,
           setId,
           (percent) => {
-            const mapped = 12 + Math.round(percent * 0.88);
-            safePatch({ status: percent >= 100 ? 'processing' : 'uploading', progress: mapped });
+            safePatch({ status: percent >= 100 ? 'processing' : 'uploading', progress: percent });
           }
         );
 

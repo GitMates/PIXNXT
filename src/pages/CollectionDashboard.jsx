@@ -943,11 +943,10 @@ const CollectionDashboard = () => {
 
         try {
             setIsCoverUploading(true);
-            const prepared = await prepareUploadFile(file);
             const photoData = await galleryService.uploadPhoto(
                 collectionId,
                 collection.photographer_id,
-                prepared,
+                file,
                 photos.length,
                 uploadSetId
             );
@@ -1065,12 +1064,11 @@ const CollectionDashboard = () => {
 
         try {
             setSaving(true);
-            const fileToUpload = await prepareUploadFile(file);
             const updated = await galleryService.replacePhoto(
                 editingPhoto.id,
                 photographerId,
                 collectionId,
-                fileToUpload
+                file
             );
 
             clearMediaUrlCache();
