@@ -354,7 +354,7 @@ function FeedbackCompose({
                                     onClick={() => setPendingAttachment(null)}
                                     aria-label="Remove attached image"
                                 >
-                                    Delete
+                                    <X size={14} />
                                 </button>
                             </div>
                         )}
