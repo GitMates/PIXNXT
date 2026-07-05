@@ -155,6 +155,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/auth" element={<AuthPage />} />
+          <Route path="/login" element={<Navigate to="/auth" replace />} />
+          <Route path="/signup" element={<Navigate to="/auth?mode=signup" replace />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/client-gallery" element={<ClientGallery />} />
           <Route path="/smart-albums/*" element={<ProtectedRoute><SmartAlbums /></ProtectedRoute>} />

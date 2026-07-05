@@ -111,7 +111,7 @@ const SidebarLayout = ({ children }) => {
                 onClick={async () => {
                     try {
                         await logout();
-                        navigate('/login');
+                        navigate('/');
                     } catch (err) {
                         console.error('Logout failed', err);
                     }
