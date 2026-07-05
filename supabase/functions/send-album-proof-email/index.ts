@@ -875,27 +875,22 @@ serve(async (req) => {
     const photographerAlerts = prooferSettings.photographerAlerts || 'digest';
 
     if (action === 'client_started_commenting') {
-      if (photographerAlerts === 'digest') {
-        return new Response(
-          JSON.stringify({
-            ok: true,
-            skipped: true,
-            reason: 'digest_mode',
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
       if (album.client_commenting_started_at) {
-        return new Response(
-          JSON.stringify({
-            ok: true,
-            skipped: true,
-            alreadyNotified: true,
-            notifiedAt: album.client_commenting_started_at,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        const startedTime = new Date(album.client_commenting_started_at).getTime();
+        const now = Date.now();
+        // If it was marked started more than 30 seconds ago, skip to prevent double emails.
+        // This solves the race condition where track-album-proof-activity finishes first.
+        if (now - startedTime > 30000) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              skipped: true,
+              alreadyNotified: true,
+              notifiedAt: album.client_commenting_started_at,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
 

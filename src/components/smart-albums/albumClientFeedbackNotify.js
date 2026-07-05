@@ -60,6 +60,19 @@ export function notifyClientFeedbackEvent(
         notifyAlbumProofStatusChanged(albumId);
     });
 
+    if (!hadFeedbackBefore) {
+        void albumProofService
+            .notifyPhotographerClientStartedCommenting({
+                albumId,
+                guestName,
+                guestEmail,
+                siteOrigin,
+            })
+            .catch((err) => {
+                console.warn('Client started commenting notification:', err);
+            });
+    }
+
     if (photographerUsesInstantAlerts(photographerId)) {
         void albumProofService
             .notifyPhotographerInstantFeedback({
@@ -77,19 +90,6 @@ export function notifyClientFeedbackEvent(
             });
         return;
     }
-
-    if (hadFeedbackBefore) return;
-
-    void albumProofService
-        .notifyPhotographerClientStartedCommenting({
-            albumId,
-            guestName,
-            guestEmail,
-            siteOrigin,
-        })
-        .catch((err) => {
-            console.warn('Client started commenting notification:', err);
-        });
 }
 
 /** @deprecated Use notifyClientFeedbackEvent */
