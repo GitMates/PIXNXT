@@ -1,9 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DatePicker } from '../components/ui/DatePicker';
+import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
+import '../styles/clientGalleryTheme.css';
+import '../styles/collectionDashboardTheme.css';
 import './CreateCollection.css';
+
+const PRESET_OPTIONS = [
+    { value: 'default', label: 'Default' },
+    { value: 'wedding', label: 'Wedding' },
+    { value: 'portrait', label: 'Portrait' },
+    { value: 'event', label: 'Event' },
+];
 
 const CreateCollection = () => {
     const navigate = useNavigate();
@@ -54,7 +64,6 @@ const CreateCollection = () => {
 
             const newCollection = await galleryService.createCollection(collectionData);
             
-            // Navigate to management with the new collection ID
             navigate(`/collections/manage?id=${newCollection.id}`);
         } catch (err) {
             console.error('Error creating collection:', err);
@@ -73,10 +82,10 @@ const CreateCollection = () => {
     };
 
     return (
-        <div className="cc-page">
+        <div className="cc-page theme-mono cd-dashboard-shell">
             <header className="cc-header">
                 <div className="cc-header-left">
-                    <button className="cc-back-btn" onClick={handleClose} title="Back">
+                    <button type="button" className="cc-back-btn neu-circle" onClick={handleClose} title="Back">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                     </button>
                     <h1 className="cc-header-title">New Collection</h1>
@@ -86,52 +95,50 @@ const CreateCollection = () => {
             <main className="cc-main">
                 <div className="cc-form-container">
                     {error && (
-                        <div className="cc-error-message" style={{ color: '#dc2626', backgroundColor: '#fef2f2', padding: '12px', borderRadius: '8px', marginBottom: '24px', fontSize: '14px', border: '1px solid #fee2e2' }}>
+                        <div className="cc-error-message">
                             {error}
                         </div>
                     )}
 
                     <form onSubmit={handleCreate}>
                         <div className="cc-form-group">
-                            <label className="cc-label">Collection Name</label>
-                            <input
-                                type="text"
-                                className="cc-input"
-                                placeholder="e.g. Wedding of Sarah & James"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                required
-                            />
+                            <label className="cc-label" htmlFor="collection-name">Collection Name</label>
+                            <div className="cc-input-shell neu-inset">
+                                <input
+                                    id="collection-name"
+                                    type="text"
+                                    className="cc-input"
+                                    placeholder="e.g. Wedding of Sarah & James"
+                                    value={name}
+                                    onChange={(e) => setName(e.target.value)}
+                                    required
+                                />
+                            </div>
                         </div>
 
                         <div className="cc-form-group">
                             <label className="cc-label">Event Date</label>
-                            <DatePicker 
-                                value={date} 
-                                onChange={setDate} 
-                                placeholder="Select event date" 
-                            />
+                            <div className="cc-input-shell neu-inset cc-input-shell--rounded">
+                                <DatePicker 
+                                    value={date} 
+                                    onChange={setDate} 
+                                    placeholder="Select event date" 
+                                />
+                            </div>
                         </div>
 
                         <div className="cc-form-group">
                             <label className="cc-label">Preset</label>
-                            <div className="cc-select-wrapper">
-                                <select 
-                                    className="cc-select"
-                                    value={preset}
-                                    onChange={(e) => setPreset(e.target.value)}
-                                >
-                                    <option value="default">Default</option>
-                                    <option value="wedding">Wedding</option>
-                                    <option value="portrait">Portrait</option>
-                                    <option value="event">Event</option>
-                                </select>
-                                <svg className="cc-select-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                            </div>
+                            <ClientGallerySelect
+                                value={preset}
+                                onChange={setPreset}
+                                aria-label="Collection preset"
+                                options={PRESET_OPTIONS}
+                            />
                         </div>
 
                         <div className="cc-actions">
-                            <button type="submit" className="cc-submit-btn" disabled={isSubmitting}>
+                            <button type="submit" className="cc-submit-btn neu-pill" disabled={isSubmitting}>
                                 {isSubmitting ? 'Creating...' : 'Create Collection'}
                             </button>
                             <button type="button" className="cc-cancel-btn" onClick={handleClose}>

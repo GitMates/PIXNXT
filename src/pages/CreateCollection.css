@@ -2,8 +2,6 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    background-color: #ffffff;
-    font-family: 'Outfit', sans-serif;
 }
 
 .cc-header {
@@ -11,8 +9,6 @@
     display: flex;
     align-items: center;
     padding: 0 24px;
-    border-bottom: 1px solid #ebebeb;
-    background-color: #ffffff;
     position: sticky;
     top: 0;
     z-index: 100;
@@ -27,34 +23,31 @@
 .cc-back-btn {
     background: none;
     border: none;
-    color: #888;
+    color: #71717a;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
-    border-radius: 50%;
-    transition: background 0.2s, color 0.2s;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    transition: color 0.2s, background 0.2s;
 }
 
 .cc-back-btn:hover {
-    background-color: rgba(0, 0, 0, 0.05);
-    color: #111;
+    color: #1a1a1a;
 }
 
 .cc-header-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #111;
-    text-transform: none;
-    letter-spacing: normal;
+    font-size: 1rem;
+    margin: 0;
 }
 
 .cc-main {
     flex: 1;
     display: flex;
     justify-content: center;
-    padding: 80px 24px;
+    padding: 5rem 24px;
 }
 
 .cc-form-container {
@@ -62,70 +55,27 @@
     max-width: 580px;
 }
 
-.cc-form-title {
-    font-size: 34px;
-    font-weight: 700;
-    color: #111;
-    margin-bottom: 48px;
-    font-family: 'Roboto', system-ui, sans-serif;
-}
-
 .cc-form-group {
-    margin-bottom: 32px;
+    margin-bottom: 2rem;
 }
 
 .cc-label {
     display: block;
-    font-size: 13px;
-    font-weight: 700;
-    color: #888;
-    margin-bottom: 12px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    margin-bottom: 0.5rem;
 }
 
-.cc-input {
-    width: 100%;
-    height: 48px;
-    border: 1px solid #ebebeb;
-    border-radius: 0;
-    padding: 0 16px;
-    font-size: 16px;
-    color: #111;
-    background-color: #fff;
-    outline: none;
-    transition: border-color 0.2s;
+.cc-input-shell--rounded {
+    border-radius: 0.75rem;
 }
 
-.cc-input:focus {
-    border-color: #8BDFDD;
-}
-
-.cc-select-wrapper {
-    position: relative;
-    display: flex;
-    align-items: center;
-}
-
-.cc-select {
-    width: 100%;
-    height: 48px;
-    border: 1px solid #ebebeb;
-    border-radius: 0;
-    padding: 0 16px;
-    font-size: 16px;
-    color: #111;
-    outline: none;
-    appearance: none;
-    background-color: #fff;
-    cursor: pointer;
-}
-
-.cc-select-icon {
-    position: absolute;
-    right: 16px;
-    color: #aaa;
-    pointer-events: none;
+.cc-error-message {
+    color: #b45309;
+    background-color: #fef3c7;
+    padding: 12px;
+    border-radius: 0.75rem;
+    margin-bottom: 24px;
+    font-size: 14px;
+    border: 1px solid #fde68a;
 }
 
 .cc-actions {
@@ -135,47 +85,14 @@
     margin-top: 48px;
 }
 
-.cc-submit-btn {
-    background-color: #8BDFDD;
-    color: #222;
-    border: none;
-    border-radius: 0;
-    height: 44px;
-    padding: 0 32px;
-    font-size: 17px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: background 0.2s;
-}
-
-.cc-submit-btn:hover {
-    background-color: #8BDFDD;
+.cc-submit-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .cc-cancel-btn {
     background: none;
     border: none;
-    color: #666;
-    font-size: 16px;
-    font-weight: 600;
+    font-size: 0.875rem;
     cursor: pointer;
-    transition: color 0.2s;
 }
-
-.cc-cancel-btn:hover {
-    color: #111;
-}
-
-/* Custom DatePicker Overrides for this page */
-.cc-form-group .dp-wrapper {
-    border: 1px solid #ebebeb;
-    height: 48px;
-    border-radius: 0;
-}
-
-.cc-form-group .dp-wrapper:focus-within {
-    border-color: #8BDFDD;
-    box-shadow: none;
-}
-
-

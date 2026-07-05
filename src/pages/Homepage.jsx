@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import SidebarLayout from '../components/SidebarLayout';
+import { ClientGalleryPageShell } from '../components/features/ClientGallery/ClientGalleryPageShell';
+import { ClientGallerySelect } from '../components/features/ClientGallery/ClientGallerySelect';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import './Homepage.css';
+import './ClientGallery.css';
 import imageIconPlaceholder from '../assets/icons/image icon.png';
 
 
@@ -275,23 +278,28 @@ const Homepage = () => {
     // ─── Render ───────────────────────────────────────────────────────────────
     return (
         <SidebarLayout>
-            <main className="hp-main">
-                <header className="hp-header">
-                    <h1 className="hp-title">Homepage</h1>
-                    <div className="hp-header-actions">
-                        <button className="hp-view-btn" onClick={handleViewSite} disabled={profileLoading}>
-                            View Site
-                        </button>
-                    </div>
-                </header>
-
+            <ClientGalleryPageShell
+                title="Homepage"
+                subtitle="Manage your public photographer homepage and showcase collections."
+                actions={(
+                    <button
+                        type="button"
+                        className="neu-pill inline-flex h-10 items-center rounded-full px-5 text-sm font-medium"
+                        onClick={handleViewSite}
+                        disabled={profileLoading}
+                    >
+                        View Site
+                    </button>
+                )}
+                contentClassName="pt-2"
+            >
                 {error && (
                     <div className="hp-error-banner">{error}</div>
                 )}
 
                 {!user && (
                     <div className="hp-loading">
-                        <span style={{ color: '#888', fontSize: 14 }}>Please log in to view and edit your homepage settings.</span>
+                        <span className="text-sm text-[#71717A]">Please log in to view and edit your homepage settings.</span>
                     </div>
                 )}
 
@@ -329,7 +337,7 @@ const Homepage = () => {
                             {/* Homepage URL */}
                             <div className="hp-form-group">
                                 <label className="hp-label">Homepage URL</label>
-                                <div className="hp-input-wrap">
+                                <div className="hp-input-wrap neu-inset cg-field-shell">
                                     <div className="hp-input-read">{homepageUrl}</div>
                                     <button className="hp-input-action-btn" onClick={handleCopyUrl}>
                                         {copyDone ? (
@@ -345,7 +353,7 @@ const Homepage = () => {
                             {/* Homepage Password */}
                             <div className="hp-form-group">
                                 <label className="hp-label">Homepage Password</label>
-                                <div className={`hp-input-wrap ${password ? 'hp-input-wrap--has-value' : ''}`}>
+                                <div className="hp-input-wrap neu-inset cg-field-shell">
                                     <input
                                         type={showPassword ? 'text' : 'password'}
                                         className="hp-input"
@@ -424,7 +432,7 @@ const Homepage = () => {
                             {/* Biography */}
                             <div className="hp-form-group">
                                 <label className="hp-label">Biography</label>
-                                <div className="hp-textarea-wrap">
+                                <div className="hp-textarea-wrap neu-inset cg-field-shell-textarea">
                                     <textarea
                                         className="hp-textarea"
                                         maxLength="500"
@@ -462,24 +470,22 @@ const Homepage = () => {
                             {/* Collection Sort Order */}
                             <div className="hp-form-group">
                                 <label className="hp-label">Collection Sort Order</label>
-                                <div className="set-select-wrap">
-                                    <select
-                                        className="set-select"
-                                        value={collectionSort}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setCollectionSort(val);
-                                            autoSave({ homepage_sort: val }, true);
-                                        }}
-                                    >
-                                        <option value="created-new">Date created: New to Old</option>
-                                        <option value="created-old">Date created: Old to New</option>
-                                        <option value="event-new">Event Date: New to Old</option>
-                                        <option value="event-old">Event Date: Old to New</option>
-                                        <option value="name-az">Name: A → Z</option>
-                                        <option value="name-za">Name: Z → A</option>
-                                    </select>
-                                </div>
+                                <ClientGallerySelect
+                                    value={collectionSort}
+                                    onChange={(val) => {
+                                        setCollectionSort(val);
+                                        autoSave({ homepage_sort: val }, true);
+                                    }}
+                                    aria-label="Collection sort order"
+                                    options={[
+                                        { value: 'created-new', label: 'Date created: New to Old' },
+                                        { value: 'created-old', label: 'Date created: Old to New' },
+                                        { value: 'event-new', label: 'Event Date: New to Old' },
+                                        { value: 'event-old', label: 'Event Date: Old to New' },
+                                        { value: 'name-az', label: 'Name: A → Z' },
+                                        { value: 'name-za', label: 'Name: Z → A' },
+                                    ]}
+                                />
                                 <p className="hp-help-text mt-2">Select the order you wish your collections to appear on your public homepage.</p>
                             </div>
 
@@ -590,9 +596,9 @@ const Homepage = () => {
                         </div>
                     </div>
                 ) : null}
-            </main>
+            </ClientGalleryPageShell>
             {toastMessage && (
-                <div className="fixed bottom-6 right-6 bg-[#8BDFDD] text-[#222] px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-[15px] font-medium transition-all duration-300 z-[9999] flex items-center gap-2" style={{ animation: 'hpToastIn 0.3s ease-out' }}>
+                <div className="fixed bottom-6 right-6 z-[9999] flex items-center gap-2 rounded-full bg-[#1A1A1A] px-4 py-3 text-sm font-medium text-white shadow-xl shadow-black/20" style={{ animation: 'hpToastIn 0.3s ease-out' }}>
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
                         <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>

@@ -1,6 +1,17 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    Search,
+    Plus,
+    LayoutGrid,
+    Rows3,
+    Star,
+    Filter,
+    ArrowUpDown,
+    MoreHorizontal,
+} from 'lucide-react';
 import SidebarLayout from '../components/SidebarLayout';
+import { cn } from '../lib/utils';
 import { useAuth } from '../hooks/useAuth';
 import { galleryService } from '../services/gallery.service';
 import { openSpaPath } from '../lib/spaNavigation';
@@ -41,6 +52,11 @@ import {
 import { ClientGalleryFilterBar } from '../components/features/ClientGallery/ClientGalleryFilterBar';
 import { getFolderStudioUrl } from '../lib/folderStudioUrl';
 
+function getStatusDotClass(status) {
+    if (status === 'published') return 'cg-status-dot--live';
+    if (status === 'archived') return 'cg-status-dot--hidden';
+    return 'cg-status-dot--draft';
+}
 
 const ClientGallery = () => {
     const navigate = useNavigate();
@@ -57,7 +73,8 @@ const ClientGallery = () => {
     };
 
     const [showSortDropdown, setShowSortDropdown] = useState(false);
-    const [showViewDropdown, setShowViewDropdown] = useState(false);
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
+    const [displayPlaceholder, setDisplayPlaceholder] = useState('');
     const [activeView, setActiveView] = useState('grid');
     const [activeSort, setActiveSort] = useState('created-new');
     const [selectedCards, setSelectedCards] = useState([]);
@@ -87,7 +104,7 @@ const ClientGallery = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const fileInputRef = useRef(null);
     const sortRef = useRef(null);
-    const viewRef = useRef(null);
+    const filterRef = useRef(null);
     const contextRef = useRef(null);
     const folderMenuRef = useRef(null);
     const newCollectionRef = useRef(null);
@@ -230,6 +247,30 @@ const ClientGallery = () => {
     );
 
     const sortedCollections = sortedRootCollections;
+
+    const dashboardStats = useMemo(() => {
+        const liveCount = collections.filter((c) => c.status === 'published').length;
+        const photosDelivered = collections.reduce((n, c) => n + (c.photo_count || 0), 0);
+        return {
+            total: collections.length,
+            live: liveCount,
+            photos: photosDelivered,
+        };
+    }, [collections]);
+
+    useEffect(() => {
+        const fullText = 'Search collections or clients…';
+        let index = 0;
+        const interval = window.setInterval(() => {
+            if (index <= fullText.length) {
+                setDisplayPlaceholder(fullText.slice(0, index));
+                index += 1;
+            } else {
+                window.clearInterval(interval);
+            }
+        }, 80);
+        return () => window.clearInterval(interval);
+    }, []);
 
     const closeContextMenu = useCallback(() => {
         setContextMenuId(null);
@@ -449,8 +490,18 @@ const ClientGallery = () => {
         );
     };
 
-    const handleCardClick = (collection) => {
-        if (selectedCards.length > 0) return;
+    const handleCardClick = (collection, e) => {
+        const multiSelect = e?.metaKey || e?.ctrlKey || selectedCards.length > 0;
+        if (multiSelect) {
+            setContextMenuId(null);
+            setSelectedCards((prev) => {
+                if (prev.includes(collection.id)) {
+                    return prev.filter((id) => id !== collection.id);
+                }
+                return [...prev, collection.id];
+            });
+            return;
+        }
         navigate(`/collections/manage?id=${collection.id}`);
     };
 
@@ -488,7 +539,7 @@ const ClientGallery = () => {
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (sortRef.current && !sortRef.current.contains(e.target)) setShowSortDropdown(false);
-            if (viewRef.current && !viewRef.current.contains(e.target)) setShowViewDropdown(false);
+            if (filterRef.current && !filterRef.current.contains(e.target)) setShowFilterPanel(false);
             const inSharePortal = e.target.closest?.('.cg-ctx-submenu--portal, .cg-ctx-submenu-bridge, .cgm-overlay');
             if (
                 contextRef.current &&
@@ -512,18 +563,6 @@ const ClientGallery = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Toggle selection of a card
-    const toggleSelectCard = (e, collectionId) => {
-        e.stopPropagation();
-        setContextMenuId(null);
-        setSelectedCards(prev => {
-            if (prev.includes(collectionId)) {
-                return prev.filter(id => id !== collectionId);
-            }
-            return [...prev, collectionId];
-        });
-    };
-
     // Clear selection
     const clearSelection = () => {
         setSelectedCards([]);
@@ -545,86 +584,143 @@ const ClientGallery = () => {
     return (
         <SidebarLayout>
             <main className="cg-style-2">
-                {/* Header */}
-                <div className="cg-style-3">
-                    <div className="cg-style-4">
-                        <h1 className="cg-style-5">Collections</h1>
-                        <div className="cg-style-6">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                            <input
-                                type="search"
-                                placeholder="Search collections or photos"
-                                className="cg-style-7"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                aria-label="Search collections, folders, and photo filenames"
-                            />
+                <div className="mx-auto w-full max-w-7xl px-4 pt-10 sm:px-8 sm:pt-12">
+                    <div className="flex items-start justify-between gap-4">
+                        <div>
+                            <h1 className="cg-page-title text-3xl font-medium tracking-tight sm:text-4xl">Collections</h1>
+                            <p className="mt-2 text-sm text-[#71717A]">
+                                {dashboardStats.total} galleries · {dashboardStats.live} live ·{' '}
+                                {dashboardStats.photos.toLocaleString()} photos delivered
+                            </p>
                         </div>
-                    </div>
-                    <div className="cg-style-8">
-                        <button className="cg-style-9">View Presets</button>
-                        <div className="cg-style-10" ref={newCollectionRef}>
-                            <button className="cg-style-11" onClick={navigateNewCollection}>
-                                New Collection
+                        <div className="relative shrink-0 flex items-center gap-1" ref={newCollectionRef}>
+                            <button
+                                type="button"
+                                onClick={navigateNewCollection}
+                                className="neu-pill inline-flex h-10 items-center gap-1.5 rounded-full px-5 text-sm font-medium"
+                            >
+                                <Plus className="size-4" />
+                                New collection
                             </button>
-                            <button className="cg-style-12" onClick={() => setShowNewCollectionDropdown(!showNewCollectionDropdown)}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            <button
+                                type="button"
+                                onClick={() => setShowNewCollectionDropdown(!showNewCollectionDropdown)}
+                                className="neu-circle inline-flex size-8 items-center justify-center rounded-full text-[#1A1A1A]"
+                                aria-label="More create options"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9" /></svg>
                             </button>
                             {showNewCollectionDropdown && (
-                                <div className="cg-style-13">
-                                    <div className="cg-style-14" onClick={navigateNewFolder}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                                <div className="absolute right-0 top-[calc(100%+8px)] z-[150] min-w-[200px] overflow-hidden rounded-2xl bg-white py-1.5 shadow-xl shadow-black/10 border border-[#ECEAE6]">
+                                    <button
+                                        type="button"
+                                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm font-medium text-[#1A1A1A] hover:bg-[#F4F3F0]"
+                                        onClick={navigateNewFolder}
+                                    >
                                         New Folder
-                                    </div>
+                                    </button>
                                 </div>
                             )}
                         </div>
                     </div>
-                </div>
 
-                {/* Filter Bar */}
-                <div className="cg-style-15">
-                    <ClientGalleryFilterBar
-                        filters={galleryFilters}
-                        onFiltersChange={setGalleryFilters}
-                        collections={collections}
-                    />
-                    <div className="cg-style-32">
-                        <div className="relative inline-flex" ref={sortRef}>
-                            <button className="cg-view-icon-btn" onClick={() => { setShowSortDropdown(!showSortDropdown); setShowViewDropdown(false); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="16" y2="12"></line><line x1="8" y1="18" x2="12" y2="18"></line><line x1="3" y1="6" x2="3" y2="18"></line><polyline points="1 15 3 18 5 15"></polyline></svg>
-                            </button>
-                            {showSortDropdown && (
-                                <div className="cg-style-33">
-                                    <div className="cg-style-34">Sort dashboard by</div>
-                                    <div className={`cg-style-71 ${activeSort === 'created-new' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('created-new'); setShowSortDropdown(false); }}>Created: New → Old</div>
-                                    <div className={`cg-style-71 ${activeSort === 'created-old' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('created-old'); setShowSortDropdown(false); }}>Created: Old → New</div>
-                                    <div className={`cg-style-71 ${activeSort === 'event-new' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('event-new'); setShowSortDropdown(false); }}>Event Date: New → Old</div>
-                                    <div className={`cg-style-71 ${activeSort === 'event-old' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('event-old'); setShowSortDropdown(false); }}>Event Date: Old → New</div>
-                                    <div className={`cg-style-71 ${activeSort === 'name-az' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('name-az'); setShowSortDropdown(false); }}>Name: A-Z</div>
-                                    <div className={`cg-style-71 ${activeSort === 'name-za' ? 'cg-sort-active' : 'text-[#333]'}`} onClick={() => { setActiveSort('name-za'); setShowSortDropdown(false); }}>Name: Z-A</div>
-                                </div>
-                            )}
+                    <div className="mt-8 flex flex-col gap-3 lg:flex-row lg:items-center">
+                        <div className="relative flex-1">
+                            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#71717A]" />
+                            <input
+                                type="search"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder={displayPlaceholder}
+                                aria-label="Search collections, folders, and photo filenames"
+                                className="neu-inset h-10 w-full rounded-full border-0 pl-9 pr-3 text-sm text-[#1A1A1A] outline-none placeholder:text-[#71717A]"
+                            />
                         </div>
-                        <div className="relative inline-flex" ref={viewRef}>
-                            <button className={`cg-style-72 ${activeView === 'grid' ? 'text-[#444]' : 'text-[#b0b0b0] hover:text-[#444]'}`} onClick={() => { setShowViewDropdown(!showViewDropdown); setShowSortDropdown(false); }}>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                            </button>
-                            {showViewDropdown && (
-                                <div className="cg-style-35">
-                                    <div className="cg-style-34">View Style</div>
-                                    <div className={`cg-style-71 ${activeView === 'grid' ? 'text-[#44aaa7]' : 'text-[#333]'}`} onClick={() => { setActiveView('grid'); setShowViewDropdown(false); }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                                        Grid View
-                                        {activeView === 'grid' && <span className="cg-style-36">✓</span>}
+
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div className="relative" ref={filterRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowFilterPanel(!showFilterPanel); setShowSortDropdown(false); }}
+                                    className="neu-circle inline-flex size-10 items-center justify-center rounded-full text-[#1A1A1A]"
+                                    aria-label="Filters"
+                                >
+                                    <Filter className="size-5" />
+                                </button>
+                                {showFilterPanel && (
+                                    <div className="cg-filter-panel">
+                                        <ClientGalleryFilterBar
+                                            filters={galleryFilters}
+                                            onFiltersChange={setGalleryFilters}
+                                            collections={collections}
+                                        />
                                     </div>
-                                    <div className={`cg-style-71 ${activeView === 'list' ? 'text-[#44aaa7]' : 'text-[#333]'}`} onClick={() => { setActiveView('list'); setShowViewDropdown(false); }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                                        List View
-                                        {activeView === 'list' && <span className="cg-style-36">✓</span>}
+                                )}
+                            </div>
+
+                            <div className="relative" ref={sortRef}>
+                                <button
+                                    type="button"
+                                    onClick={() => { setShowSortDropdown(!showSortDropdown); setShowFilterPanel(false); }}
+                                    className="neu-circle inline-flex size-10 items-center justify-center rounded-full text-[#1A1A1A]"
+                                    aria-label="Sort"
+                                >
+                                    <ArrowUpDown className="size-5" />
+                                </button>
+                                {showSortDropdown && (
+                                    <div className="absolute right-0 top-12 z-40 w-48 overflow-hidden rounded-2xl bg-white p-2 shadow-xl shadow-black/10 border border-[#ECEAE6]">
+                                        {[
+                                            { id: 'created-new', label: 'Created: New → Old' },
+                                            { id: 'created-old', label: 'Created: Old → New' },
+                                            { id: 'event-new', label: 'Event Date: New → Old' },
+                                            { id: 'event-old', label: 'Event Date: Old → New' },
+                                            { id: 'name-az', label: 'Name: A–Z' },
+                                            { id: 'name-za', label: 'Name: Z–A' },
+                                        ].map((opt) => (
+                                            <button
+                                                key={opt.id}
+                                                type="button"
+                                                onClick={() => { setActiveSort(opt.id); setShowSortDropdown(false); }}
+                                                className={cn(
+                                                    'w-full rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                                                    activeSort === opt.id
+                                                        ? 'bg-[#1A1A1A] font-medium text-white'
+                                                        : 'text-[#1A1A1A] hover:bg-[#F4F3F0]',
+                                                )}
+                                            >
+                                                {opt.label}
+                                            </button>
+                                        ))}
                                     </div>
-                                </div>
-                            )}
+                                )}
+                            </div>
+
+                            <div className="neu-inset flex items-center rounded-full p-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveView('grid')}
+                                    className={cn(
+                                        'inline-flex size-8 items-center justify-center rounded-full transition-all',
+                                        activeView === 'grid' ? 'neu-circle text-[#1A1A1A]' : 'text-[#71717A] hover:text-[#1A1A1A]',
+                                    )}
+                                    aria-label="Grid view"
+                                    aria-pressed={activeView === 'grid'}
+                                >
+                                    <LayoutGrid className="size-4" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setActiveView('list')}
+                                    className={cn(
+                                        'inline-flex size-8 items-center justify-center rounded-full transition-all',
+                                        activeView === 'list' ? 'neu-circle text-[#1A1A1A]' : 'text-[#71717A] hover:text-[#1A1A1A]',
+                                    )}
+                                    aria-label="List view"
+                                    aria-pressed={activeView === 'list'}
+                                >
+                                    <Rows3 className="size-4" />
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -660,7 +756,7 @@ const ClientGallery = () => {
                         </button>
                     </div>
                 ) : dashboardGridItems.length > 0 && activeView === 'grid' ? (
-                    <div className="cg-style-37">
+                    <div className="cg-style-37 mx-auto w-full max-w-7xl px-4 sm:px-8">
                         {dashboardGridItems.map((item) =>
                             item.kind === 'folder' ? (
                                 <div
@@ -669,10 +765,21 @@ const ClientGallery = () => {
                                     onClick={() => handleFolderCardClick(item.folder)}
                                 >
                                     <div className="cg-style-74 cg-folder-thumb-wrap">
-                                        <FolderThumbGrid folder={item.folder} />
-                                        <div className="cg-style-39" onClick={(e) => openFolderContextMenu(e, item.folder.id)}>
-                                            ⋮
+                                        <div className="cg-card-cover">
+                                            <FolderThumbGrid folder={item.folder} />
                                         </div>
+                                        <button
+                                            type="button"
+                                            className={cn(
+                                                'cg-style-39',
+                                                folderContextMenuId === item.folder.id && 'cg-style-39--visible',
+                                                'group-hover:opacity-100',
+                                            )}
+                                            onClick={(e) => openFolderContextMenu(e, item.folder.id)}
+                                            aria-label="Folder options"
+                                        >
+                                            <MoreHorizontal className="size-3.5" strokeWidth={2} />
+                                        </button>
                                     </div>
                                     {renderFolderContextMenu(item.folder)}
                                     <div className="px-1">
@@ -703,37 +810,62 @@ const ClientGallery = () => {
                                 <div
                                     key={item.collection.id}
                                     className={`cg-style-73 group ${contextMenuId === item.collection.id ? 'cg-style-73--ctx-open' : ''}`}
-                                    onClick={() => handleCardClick(item.collection)}
+                                    onClick={(e) => handleCardClick(item.collection, e)}
                                 >
                                     <div className={`cg-style-74 ${selectedCards.includes(item.collection.id) ? 'cg-style-74--selected' : ''}`}>
-                                        {getCoverSrc(item.collection) ? (
-                                            <img src={getCoverSrc(item.collection)} alt={item.collection.name} loading="lazy" />
-                                        ) : (
-                                            <div className="cg-style-38">
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                            </div>
-                                        )}
-                                        <div className={`cg-style-75 ${selectedCards.includes(item.collection.id) ? 'border-[#8BDFDD] bg-[#8BDFDD] opacity-100' : 'border-white/85 bg-black/15 opacity-0 group-hover:opacity-100'}`} onClick={(e) => toggleSelectCard(e, item.collection.id)}>
-                                            {selectedCards.includes(item.collection.id) && (
-                                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#222" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                                        <div className="cg-card-cover">
+                                            {getCoverSrc(item.collection) ? (
+                                                <img src={getCoverSrc(item.collection)} alt={item.collection.name} loading="lazy" decoding="async" />
+                                            ) : (
+                                                <div className="cg-style-38">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#ccc" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                                </div>
                                             )}
                                         </div>
-                                        <div className="cg-style-39" onClick={(e) => openContextMenu(e, item.collection.id)}>⋮</div>
-                                        <svg className={`cg-style-76 ${item.collection.is_starred ? 'opacity-100 drop-shadow-[0_2px_4px_rgba(0,0,0,0.2)]' : 'opacity-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] group-hover:opacity-100'}`} xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill={item.collection.is_starred ? '#f5c518' : 'none'} stroke={item.collection.is_starred ? '#f5c518' : 'white'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" onClick={(e) => handleToggleCollectionStar(e, item.collection)}><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+
+                                        <button
+                                            type="button"
+                                            className={cn(
+                                                'cg-card-star-btn',
+                                                item.collection.is_starred
+                                                    ? 'cg-card-star-btn--starred'
+                                                    : 'cg-card-star-btn--idle group-hover:opacity-100',
+                                            )}
+                                            onClick={(e) => handleToggleCollectionStar(e, item.collection)}
+                                            aria-label={item.collection.is_starred ? 'Unstar collection' : 'Star collection'}
+                                        >
+                                            <Star
+                                                className="size-3.5"
+                                                fill={item.collection.is_starred ? 'currentColor' : 'none'}
+                                                strokeWidth={item.collection.is_starred ? 0 : 2}
+                                            />
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            className={cn(
+                                                'cg-style-39 group-hover:opacity-100',
+                                                contextMenuId === item.collection.id && 'cg-style-39--visible',
+                                            )}
+                                            onClick={(e) => openContextMenu(e, item.collection.id)}
+                                            aria-label="Collection options"
+                                        >
+                                            <MoreHorizontal className="size-3.5" strokeWidth={2} />
+                                        </button>
                                     </div>
                                     {renderContextMenu(item.collection)}
-                                    <div className="px-1">
-                                        <h3 className="cg-style-43">{item.collection.name}</h3>
-                                        <div className="cg-style-44 cg-style-44--split">
-                                            <div className="cg-style-44-meta">
-                                                <span className="cg-style-45"></span>
-                                                <span>{item.collection.photo_count || 0} items</span>
-                                                <span className="cg-style-46">·</span>
-                                                <span>{item.collection.event_date ? new Date(item.collection.event_date).toLocaleDateString() : 'No date'}</span>
-                                            </div>
-                                            <span className="cg-style-80" title="Storage used by this collection">
-                                                {formatStorageBytes(item.collection.storage_bytes)}
-                                            </span>
+                                    <div className="px-0 pt-2">
+                                        <h3 className="truncate text-xs font-bold leading-tight text-[#1A1A1A]">{item.collection.name}</h3>
+                                        <div className="flex items-center gap-1.5 text-xs leading-tight text-[#71717A]">
+                                            <span>{item.collection.photo_count || 0} items</span>
+                                            <span>•</span>
+                                            <span>{formatStorageBytes(item.collection.storage_bytes)}</span>
+                                            <span>•</span>
+                                            <span
+                                                className={cn('size-2 rounded-full', getStatusDotClass(item.collection.status))}
+                                                title={item.collection.status || 'draft'}
+                                                aria-label={item.collection.status || 'draft'}
+                                            />
                                         </div>
                                     </div>
                                 </div>
@@ -803,7 +935,7 @@ const ClientGallery = () => {
                                 <div
                                     key={item.collection.id}
                                     className="cg-style-52 cg-style-52--menu"
-                                    onClick={() => handleCardClick(item.collection)}
+                                    onClick={(e) => handleCardClick(item.collection, e)}
                                 >
                                     <div className="cg-style-48">
                                         <div className="cg-style-53">
@@ -857,7 +989,7 @@ const ClientGallery = () => {
                         </div>
                         <h3 className="cg-style-61">No collections yet</h3>
                         <p className="cg-style-62">Create your first collection to get started</p>
-                        <button className="cg-style-63" onClick={navigateNewCollection}>
+                        <button className="neu-pill inline-flex h-10 items-center gap-1.5 rounded-full px-5 text-sm font-medium" onClick={navigateNewCollection}>
                             Create Collection
                         </button>
                     </div>

@@ -21,6 +21,11 @@ export interface GeneralSettingsProps {
     setSocialSharing: (val: boolean) => void;
     language: string;
     setLanguage: (val: string) => void;
+    categoryTags: string[];
+    onCategoryTagsChange: (tags: string[]) => void;
+    categoryTagsSaving?: boolean;
+    showGeneralAdditionalOptions: boolean;
+    setShowGeneralAdditionalOptions: (val: boolean) => void;
 }
 
 export interface PrivacySettingsProps {

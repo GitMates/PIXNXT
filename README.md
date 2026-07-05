@@ -838,6 +838,12 @@ PIXNXT follows Pixieset's core design philosophy which is central to its success
 - **Photo Display:** Dark-on-light for portfolio, light-on-dark for gallery viewer mode
 - **Spacing:** Generous padding, grid-based layouts
 
+### Client Gallery UI Template (implemented)
+
+The Client Gallery module uses a **Neumorphic Cream UI** (charcoal text, cream backgrounds, inset field shells, dark `neu-pill` CTAs). For class names, tokens, layout patterns, and a checklist when building new modules, see:
+
+**[docs/CLIENT_GALLERY_UI_TEMPLATE.md](./docs/CLIENT_GALLERY_UI_TEMPLATE.md)**
+
 ---
 
 ## 16. Key User Journeys
