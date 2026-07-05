@@ -305,26 +305,7 @@ function collectSyncNotificationsForAlbum(album, dismissed) {
         }
     }
 
-    if (album.client_commenting_started_at) {
-        const id = `proof-commenting-started-${albumId}`;
-        if (!dismissed[id]) {
-            const by = album.client_commenting_started_by?.trim();
-            items.push({
-                id,
-                type: NOTIFICATION_TYPES.CLIENT_STARTED_COMMENTING,
-                albumId,
-                albumName,
-                preview: by
-                    ? `${by} started commenting on this album`
-                    : 'Client started commenting on this album',
-                createdAt: album.client_commenting_started_at,
-                isUnread: isProofCommentingStartedUnseen(
-                    albumId,
-                    album.client_commenting_started_at
-                ),
-            });
-        }
-    }
+
 
     return items;
 }
