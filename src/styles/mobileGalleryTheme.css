@@ -1064,3 +1064,140 @@
 .theme-mono.mg-theme .mg-main {
   background: var(--mg-bg);
 }
+
+/* DatePicker — compact neumorphic (Create modal + App Settings) */
+.theme-mono.mg-theme .cg-field-shell.neu-inset:has(.custom-datepicker),
+.theme-mono.mg-theme .mg-app-settings-field:has(.custom-datepicker),
+.theme-mono.mg-theme .mg-modal-field:has(.custom-datepicker) {
+  overflow: visible;
+}
+
+.theme-mono.mg-theme .mg-app-settings-field:has(.dp-input-field.focused),
+.theme-mono.mg-theme .mg-modal-field:has(.dp-input-field.focused) {
+  position: relative;
+  z-index: 10;
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .custom-datepicker,
+.theme-mono.mg-theme .cg-field-shell.neu-inset .mg-date-picker {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .dp-input-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 0;
+  background: transparent;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .dp-input-field.focused {
+  border: 0;
+  box-shadow: none;
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .dp-value {
+  font-size: 14px;
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .dp-value.placeholder {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .dp-icon {
+  color: var(--mg-muted);
+  flex-shrink: 0;
+}
+
+.theme-mono.mg-theme .custom-datepicker.mg-date-picker--compact .dp-dropdown {
+  min-width: 0;
+  width: 272px;
+  max-width: calc(100vw - 48px);
+  padding: 14px 16px;
+  flex-direction: column;
+  background: var(--mg-bg, #f9f9f7);
+  border: 1px solid var(--mg-border, #eceae6);
+  border-radius: 12px;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 oklch(1 0.004 85 / 0.6);
+  z-index: 1100;
+}
+
+.theme-mono.mg-theme .custom-datepicker.mg-date-picker--compact .dp-calendar-section {
+  padding-right: 0;
+  border-right: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-header {
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.theme-mono.mg-theme .custom-datepicker .month-year {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mg-text);
+  min-width: auto;
+}
+
+.theme-mono.mg-theme .custom-datepicker .nav-buttons button {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .custom-datepicker .nav-buttons button:hover {
+  background: oklch(0.4 0.01 70 / 0.06);
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .custom-datepicker .weekday {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-grid {
+  gap: 2px;
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-day {
+  font-size: 13px;
+  color: var(--mg-text);
+  border-radius: 6px;
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-day:hover:not(.disabled):not(.other-month) {
+  background: oklch(0.4 0.01 70 / 0.06);
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-day.other-month {
+  color: #c4c4c4;
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-day.selected {
+  background: var(--mg-text, #1a1a1a);
+  color: #fff;
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-day.today {
+  border-bottom-color: var(--mg-text, #1a1a1a);
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .custom-datepicker .dp-quick-search button:hover {
+  color: var(--mg-text);
+}

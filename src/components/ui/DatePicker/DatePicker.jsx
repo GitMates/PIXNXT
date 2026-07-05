@@ -8,7 +8,8 @@ const DatePicker = ({
   onChange, 
   placeholder = "Optional", 
   className,
-  disablePastDates = false
+  disablePastDates = false,
+  showQuickSearch = true,
 }) => {
   const parseDateLocal = (dateStr) => {
     if (!dateStr || typeof dateStr !== 'string' || dateStr === "Invalid Date") {
@@ -219,14 +220,16 @@ const DatePicker = ({
             </div>
           </div>
 
-          <div className="dp-quick-search">
-            <div className="quick-search-label">QUICK SEARCH</div>
-            <button onClick={() => handleQuickSearch('1w')}>1 week from now</button>
-            <button onClick={() => handleQuickSearch('2w')}>2 weeks from now</button>
-            <button onClick={() => handleQuickSearch('1m')}>1 month from now</button>
-            <button onClick={() => handleQuickSearch('6m')}>6 months from now</button>
-            <button onClick={() => handleQuickSearch('1y')}>1 year from now</button>
-          </div>
+          {showQuickSearch && (
+            <div className="dp-quick-search">
+              <div className="quick-search-label">QUICK SEARCH</div>
+              <button onClick={() => handleQuickSearch('1w')}>1 week from now</button>
+              <button onClick={() => handleQuickSearch('2w')}>2 weeks from now</button>
+              <button onClick={() => handleQuickSearch('1m')}>1 month from now</button>
+              <button onClick={() => handleQuickSearch('6m')}>6 months from now</button>
+              <button onClick={() => handleQuickSearch('1y')}>1 year from now</button>
+            </div>
+          )}
         </div>
       )}
     </div>

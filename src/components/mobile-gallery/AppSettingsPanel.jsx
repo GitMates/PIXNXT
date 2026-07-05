@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { DatePicker } from '../ui/DatePicker';
 import { mobileGalleryService } from '../../services/mobileGallery.service';
 import {
   DEFAULT_APP_CTA,
@@ -196,16 +197,16 @@ const AppSettingsPanel = ({ app, photographerId, onAppUpdated }) => {
       </div>
 
       <div className="mg-app-settings-field">
-        <label className="mg-app-settings-label cg-field-label" htmlFor="mg-app-event-date">
+        <label className="mg-app-settings-label cg-field-label">
           Event Date
         </label>
         <div className="neu-inset cg-field-shell">
-          <input
-            id="mg-app-event-date"
-            type="date"
-            className="mg-app-settings-input"
+          <DatePicker
             value={eventDate}
-            onChange={(e) => handleDateChange(e.target.value)}
+            onChange={handleDateChange}
+            placeholder="Pick a date (optional)"
+            className="mg-date-picker mg-date-picker--compact"
+            showQuickSearch={false}
           />
         </div>
       </div>
