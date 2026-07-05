@@ -21,6 +21,7 @@ import { sortMobileGalleryPhotos } from '../../lib/mobileGalleryPhotoSort';
 import FocalPointModal from './FocalPointModal';
 import ThemeCoverContent, { ThemeThumbContent } from './ThemeCoverContent';
 import MobileGalleryPhotoGrid from './MobileGalleryPhotoGrid';
+import { ClientGallerySelect } from '../features/ClientGallery/ClientGallerySelect';
 
 import '../../pages/mobile-gallery/MobileGallery.css';
 
@@ -655,23 +656,15 @@ const AppDesignPanel = ({ app, photographerId, onAppUpdated, onEditIcon, iconUpl
 
               <span className="mg-design-field-label cg-field-label">Grid Style</span>
 
-              <div className="set-select-wrap neu-inset cg-field-shell">
-              <select
-
-                className="mg-design-select set-select"
-
+              <ClientGallerySelect
                 value={design.grid_style}
-
-                onChange={(e) => updateDesign({ grid_style: e.target.value })}
-
-              >
-
-                <option value="vertical">Vertical</option>
-
-                <option value="horizontal">Horizontal</option>
-
-              </select>
-              </div>
+                onChange={(value) => updateDesign({ grid_style: value })}
+                aria-label="Grid style"
+                options={[
+                  { value: 'vertical', label: 'Vertical' },
+                  { value: 'horizontal', label: 'Horizontal' },
+                ]}
+              />
 
               <p className="mg-design-help">
 
@@ -687,23 +680,15 @@ const AppDesignPanel = ({ app, photographerId, onAppUpdated, onEditIcon, iconUpl
 
               <span className="mg-design-field-label cg-field-label">Color Theme</span>
 
-              <div className="set-select-wrap neu-inset cg-field-shell">
-              <select
-
-                className="mg-design-select set-select"
-
+              <ClientGallerySelect
                 value={design.color_theme}
-
-                onChange={(e) => updateDesign({ color_theme: e.target.value })}
-
-              >
-
-                <option value="light">Light</option>
-
-                <option value="dark">Dark</option>
-
-              </select>
-              </div>
+                onChange={(value) => updateDesign({ color_theme: value })}
+                aria-label="Color theme"
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                ]}
+              />
 
               <p className="mg-design-help">Choose between a light or dark theme that best suits your photos.</p>
 

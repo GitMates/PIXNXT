@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation, NavLink } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Settings } from 'lucide-react';
 import brandPng from '../../assets/icons/client gallery.png';
 import smartAlbumPng from '../../assets/icons/smart album.png';
 import dashboardPng from '../../assets/icons/dashboard.png';
@@ -20,6 +21,7 @@ const MobileGalleryLayout = ({ children }) => {
   const appDropdownRef = useRef(null);
 
   const isAppDetail = location.pathname.includes('/mobile-gallery/app/');
+  const isModuleSettings = location.pathname.startsWith('/mobile-gallery/settings');
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -112,6 +114,19 @@ const MobileGalleryLayout = ({ children }) => {
         </div>
 
         <div className="mg-topbar-right">
+          {!isAppDetail && !isModuleSettings && (
+            <button
+              type="button"
+              className="mg-topbar-icon neu-circle"
+              onClick={() => {
+                closePanels();
+                navigate('/mobile-gallery/settings');
+              }}
+              aria-label="Mobile Gallery settings"
+            >
+              <Settings size={18} strokeWidth={1.75} />
+            </button>
+          )}
           <MobileGalleryHelpDropdown
             open={openPanel === 'help'}
             onToggle={() => togglePanel('help')}
@@ -132,26 +147,6 @@ const MobileGalleryLayout = ({ children }) => {
           />
         </div>
       </header>
-
-      {!isAppDetail && (
-        <nav className="mg-module-tabs">
-          <div className="mg-content">
-            <NavLink
-              to="/mobile-gallery"
-              end
-              className={({ isActive }) => `mg-module-tab${isActive ? ' mg-module-tab--active' : ''}`}
-            >
-              Apps
-            </NavLink>
-            <NavLink
-              to="/mobile-gallery/settings"
-              className={({ isActive }) => `mg-module-tab${isActive ? ' mg-module-tab--active' : ''}`}
-            >
-              Settings
-            </NavLink>
-          </div>
-        </nav>
-      )}
 
       <main className="mg-main cg-style-2">{children}</main>
     </div>

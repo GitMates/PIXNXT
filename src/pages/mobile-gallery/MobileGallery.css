@@ -1354,8 +1354,42 @@
 }
 
 .mg-settings-page {
-  padding-top: 32px;
-  padding-bottom: 64px;
+  padding-top: 2rem;
+  padding-bottom: 4rem;
+}
+
+.mg-settings-header {
+  margin-bottom: 2rem;
+}
+
+.mg-settings-page-desc {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: #71717a;
+}
+
+.mg-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 520px;
+}
+
+.mg-settings-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #71717a;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.mg-settings-back:hover {
+  color: #1a1a1a;
 }
 
 .mg-settings-page h1 {
@@ -1373,29 +1407,35 @@
 }
 
 .mg-settings-block {
-  margin-bottom: 40px;
+  margin-bottom: 0;
 }
 
 .mg-settings-section-label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: #999;
-  margin: 0 0 16px;
+  color: #71717a;
+  margin: 0 0 12px;
 }
 
 .mg-settings-card {
-  background: #fff;
-  border: none;
-  padding: 0;
+  background: #fafaf8;
+  border: 1px solid #eceae6;
+  border-radius: 1rem;
+  padding: 1.5rem 1.75rem;
+  box-shadow:
+    -3px -3px 8px oklch(1 0.004 85 / 0.7),
+    4px 4px 12px oklch(0.4 0.01 70 / 0.06);
 }
 
 .mg-settings-card-title {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: #222;
+  color: #1a1a1a;
   margin: 0 0 8px;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .mg-settings-card-title--inline {
@@ -1489,60 +1529,50 @@
 
 .mg-settings-domain-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: stretch;
-  gap: 0;
+  gap: 12px;
   margin-bottom: 12px;
 }
 
 .mg-settings-input {
   flex: 1;
   min-width: 0;
-  height: 44px;
-  padding: 0 14px;
-  border: 1px solid #ddd;
-  border-radius: 3px 0 0 3px;
-  font-size: 15px;
-  color: #333;
-  background: #fff;
+  height: 2.75rem;
+  padding: 0 1rem;
+  border: none;
+  border-radius: 0;
+  font-size: 14px;
+  color: #1a1a1a;
+  background: transparent;
 }
 
 .mg-settings-input:disabled {
-  background: #f5f5f5;
-  color: #aaa;
+  color: #71717a;
   cursor: not-allowed;
 }
 
 .mg-settings-input:focus {
   outline: none;
-  border-color: #1A1A1A;
-}
-
-.mg-settings-domain-row .mg-settings-input:only-child,
-.mg-settings-domain-row .mg-settings-input:not(:disabled) {
-  border-radius: 3px;
-}
-
-.mg-settings-domain-row .mg-settings-input:disabled + .mg-settings-upgrade-btn {
-  border-radius: 0 3px 3px 0;
-  margin-left: -1px;
 }
 
 .mg-settings-upgrade-btn {
   flex-shrink: 0;
-  height: 44px;
-  padding: 0 20px;
+  min-height: 2.75rem;
+  padding: 0 1.25rem;
   border: none;
-  background: #1A1A1A;
+  background: #1a1a1a;
   color: #fff;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  border-radius: 9999px;
   transition: background 0.15s;
 }
 
 .mg-settings-upgrade-btn:hover {
-  background: #1a8a80;
+  background: #333;
 }
 
 .mg-settings-upgrade-btn--inline {
@@ -1554,29 +1584,42 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  background: #f3f4f5;
-  border-radius: 4px;
-  padding: 24px 28px;
-  margin-bottom: 28px;
+  background: #f4f3f0;
+  border: 1px solid #eceae6;
+  border-radius: 1rem;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
 }
 
 .mg-settings-upgrade-box-head {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  color: #555;
+  color: #71717a;
+}
+
+.mg-settings-upgrade-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  color: #1a1a1a;
 }
 
 .mg-settings-upgrade-box-title {
-  font-size: 17px;
+  font-size: 15px;
   font-weight: 600;
-  color: #222;
+  color: #1a1a1a;
   margin: 0 0 6px;
+  text-transform: none;
+  letter-spacing: normal;
 }
 
 .mg-settings-upgrade-box-desc {
   font-size: 14px;
-  color: #666;
+  color: #71717a;
   margin: 0;
   line-height: 1.5;
 }
@@ -1584,8 +1627,9 @@
 .mg-settings-logo-upload {
   width: 120px;
   height: 120px;
-  background: #ededed;
+  background: oklch(0.952 0.005 85);
   border: none;
+  border-radius: 0.75rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1593,6 +1637,13 @@
   margin-bottom: 16px;
   position: relative;
   padding: 0;
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85);
+}
+
+.mg-settings-logo-plus {
+  color: #71717a;
 }
 
 .mg-settings-logo-upload--locked {
@@ -1628,18 +1679,23 @@
 
 .mg-settings-branding-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin: 28px 0 8px;
+  margin: 24px 0 0;
   padding-top: 24px;
-  border-top: 1px solid #eee;
+  border-top: 1px solid #eceae6;
+}
+
+.mg-settings-help--tight {
+  margin-top: 4px;
 }
 
 .mg-settings-toggle-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
 }
 
 .mg-settings-toggle {
