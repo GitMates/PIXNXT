@@ -1021,21 +1021,24 @@ serve(async (req) => {
 </body>
 </html>`;
     } else if (action === 'approve') {
-      subject = `Album approved for binding — ${album.name || 'Album'}`;
-      plainBody = buildAlbumApprovedNotificationText({
-        photographerName: photographer.display_name || 'Photographer',
-        albumName: album.name || 'Album',
-        guestName: clientName,
-        approvedAt,
-        editorUrl,
+      const template = prooferSettings.approvedTemplate || '';
+      const albumLink = buildAlbumPreviewUrl(album, album.proofer_settings, origin);
+      const parsedBody = applyTemplate(template, {
+        client_name: clientName,
+        album_name: album.name || 'your album',
+        album_link: albumLink,
+        view_album_link: albumLink,
       });
-      html = buildApproveEmailHtml({
+
+      plainBody = parsedBody;
+      html = buildClientTemplateEmailHtml({
         photographerName: photographer.display_name || 'Photographer',
-        albumName: album.name || 'Album',
-        guestName: clientName,
-        approvedAt,
-        editorUrl,
+        albumName: album.name || 'your album',
+        bodyHtml: templateToHtmlParagraphs(plainBody),
+        ctaUrl: albumLink,
+        ctaLabel: 'View album',
       });
+      subject = `Approved: ${album.name || 'your album'}`;
     } else {
       subject = `Album change request — ${album.name || 'Album'}`;
       plainBody = [

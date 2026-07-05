@@ -1,7 +1,7 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { SmtpClient } from 'https://deno.land/x/smtp@v0.7.0/mod.ts';
-import { loadPhotographerProoferSettings } from '../_shared/smartAlbumProoferEmail.ts';
+import { loadPhotographerProoferSettings, applyTemplate } from '../_shared/smartAlbumProoferEmail.ts';
 
 if (!Deno.writeAll) {
   // @ts-ignore
@@ -397,33 +397,53 @@ serve(async (req) => {
         timeZone,
       });
     } else {
-      plainBody = [
-        `Hi ${photographer.display_name || 'Photographer'},`,
-        '',
-        `${clientName} confirmed their comments on "${album.name}".`,
-        `${rows.length} comment(s):`,
-        '',
-        ...groupedComments.flatMap(({ label, items }) => [
-          `${label}:`,
-          ...items.map(
-            (item) =>
-              `- ${item.author_name || 'Guest'}: ${String(item.body || '').trim()}`
-          ),
-          '',
-        ]),
-        `Open album: ${editorUrl}`,
-      ].join('\n');
-
-      html = buildCommentsEmailHtml({
-        photographerName: photographer.display_name || 'Photographer',
-        albumName: album.name || 'Album',
-        guestName: clientName,
-        guestEmail: guestEmail?.trim() || null,
-        commentCount: rows.length,
-        groupedComments,
-        editorUrl,
-        timeZone,
+      const template = prooferSettings.revisionRequestedTemplate || '';
+      const parsedBody = applyTemplate(template, {
+        client_name: clientName,
+        album_name: album.name || 'your album',
+        view_album_link: editorUrl,
+        album_link: editorUrl,
       });
+
+      plainBody = parsedBody;
+
+      const paragraphs = parsedBody
+        .split('\n')
+        .map((line) => {
+          if (!line.trim()) return '<p style="margin:0 0 16px;">&nbsp;</p>';
+          return `<p style="margin:0 0 16px;font-size:15px;line-height:1.8;color:#555;">${escapeHtml(line)}</p>`;
+        })
+        .join('\n');
+
+      html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+<body style="margin:0;padding:0;background-color:#f0f0f0;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color:#f0f0f0;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.06);">
+          <tr>
+            <td style="padding:36px 40px 32px;text-align:left;">
+              <p style="margin:0 0 16px;font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#999;">${escapeHtml(photographer.display_name || 'Photographer')}</p>
+              <h1 style="margin:0 0 24px;font-size:20px;font-weight:700;letter-spacing:0.5px;color:#111;line-height:1.3;">${escapeHtml(album.name || 'your album')}</h1>
+              <div style="margin:0 0 24px;">${paragraphs}</div>
+              <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:8px;">
+                <tr>
+                  <td style="border-radius:6px;background:#111;">
+                    <a href="${escapeHtml(editorUrl)}" style="display:inline-block;padding:14px 28px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#ffffff;text-decoration:none;">View album</a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:16px 0 0;font-size:11px;color:#aaa;text-align:center;">Sent by PIXNXT</p>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
     }
 
     const smtpConfig = {
