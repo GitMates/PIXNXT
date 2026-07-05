@@ -6,6 +6,22 @@ import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { storageService } from '../services/storage.service';
 import { supabase } from '../lib/supabase/client';
 import AccountTopbarIcons from '../components/account/AccountTopbarIcons';
+import { ClientGallerySubpageTabs } from '../components/features/ClientGallery/ClientGalleryPageShell';
+import brandPng from '../assets/icons/client gallery.png';
+import smartAlbumPng from '../assets/icons/smart album.png';
+import dashboardPng from '../assets/icons/dashboard.png';
+import '../components/portal/portal.css';
+import '../styles/clientGalleryTheme.css';
+import '../styles/accountSettingsTheme.css';
+import '../pages/mobile-gallery/MobileGallery.css';
+
+const ACCOUNT_TABS = [
+    { id: 'profile', label: 'Profile' },
+    { id: 'account', label: 'Account' },
+    { id: 'billing', label: 'Billing' },
+    { id: 'advanced', label: 'Advanced Settings' },
+    { id: 'refer', label: 'Refer a Friend' },
+];
 
 const getDynamicHomepageUrl = (slug) => {
     if (!slug) return '';
@@ -53,167 +69,103 @@ export default function AccountSettings() {
     }, []);
 
     return (
-        <div className="w-full min-h-screen bg-white text-[#111]">
-            {/* Top Navigation */}
-            <div className="w-full h-[80px] border-b border-[#cccccc] bg-[#f5f5f5] flex items-center justify-between px-10">
-                <div className="flex items-center">
-                    <div 
-                        className="text-[19px] font-medium cursor-pointer text-[#111]" 
-                        style={{ letterSpacing: '8px', marginRight: '60px' }}
-                        onClick={() => navigate('/dashboard')}
-                    >
-                        PIXNXT
-                    </div>
-                    
-                    {/* Account Dropdown Trigger */}
-                    <div className="relative" ref={dropdownRef}>
-                        <div 
-                            className="flex items-center gap-1.5 text-[16px] text-[#444] cursor-pointer hover:text-[#111] font-medium"
-                            onClick={() => setShowDropdown(!showDropdown)}
+        <div className="theme-mono cg-shell acct-shell w-full min-h-screen">
+            <header className="acct-header">
+                <div className="acct-header-inner">
+                    <div className="acct-header-left">
+                        <span
+                            className="acct-brand"
+                            onClick={() => navigate('/dashboard')}
+                            onKeyDown={(e) => e.key === 'Enter' && navigate('/dashboard')}
+                            role="button"
+                            tabIndex={0}
                         >
-                            Account
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mt-0.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                            PIXNXT
+                        </span>
+
+                        <div className="relative" ref={dropdownRef}>
+                            <button
+                                type="button"
+                                className="acct-app-switcher-trigger"
+                                onClick={() => setShowDropdown(!showDropdown)}
+                                aria-expanded={showDropdown}
+                            >
+                                Account
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><polyline points="6 9 12 15 18 9" /></svg>
+                            </button>
+
+                            {showDropdown && (
+                                <div className="mg-app-dropdown acct-app-dropdown">
+                                    <div
+                                        className="mg-app-dropdown-item"
+                                        onClick={() => { navigate('/client-gallery'); setShowDropdown(false); }}
+                                    >
+                                        <img src={brandPng} alt="" className="mg-app-dropdown-icon" />
+                                        <div>
+                                            <span className="mg-app-dropdown-title">Client Gallery</span>
+                                            <span className="mg-app-dropdown-desc">Better way to share, deliver, proof and sell</span>
+                                        </div>
+                                    </div>
+                                    <div
+                                        className="mg-app-dropdown-item"
+                                        onClick={() => { navigate('/smart-albums'); setShowDropdown(false); }}
+                                    >
+                                        <img src={smartAlbumPng} alt="" className="mg-app-dropdown-icon" />
+                                        <div>
+                                            <span className="mg-app-dropdown-title">Smart Albums</span>
+                                            <span className="mg-app-dropdown-desc">Design and deliver beautiful photo albums</span>
+                                        </div>
+                                    </div>
+                                    <div
+                                        className="mg-app-dropdown-item"
+                                        onClick={() => { navigate('/mobile-gallery'); setShowDropdown(false); }}
+                                    >
+                                        <div className="mg-app-dropdown-icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F4F3F0', borderRadius: 10 }}>
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2" /><line x1="12" y1="18" x2="12.01" y2="18" /></svg>
+                                        </div>
+                                        <div>
+                                            <span className="mg-app-dropdown-title">Mobile Gallery App</span>
+                                            <span className="mg-app-dropdown-desc">Simple, personalized mobile photo albums</span>
+                                        </div>
+                                    </div>
+                                    <div className="mg-app-dropdown-divider" />
+                                    <div
+                                        className="mg-app-dropdown-item mg-app-dropdown-item--compact"
+                                        onClick={() => { navigate('/dashboard'); setShowDropdown(false); }}
+                                    >
+                                        <img src={dashboardPng} alt="" className="mg-app-dropdown-icon-sm" />
+                                        <span className="mg-app-dropdown-link">View Dashboard</span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                        
-                        {/* Dropdown Menu (App Switcher matches Sidebar) */}
-                        {showDropdown && (
-                            <div className="absolute top-[100%] left-0 mt-4 w-[360px] bg-[#ffffff] rounded-none shadow-[0_12px_48px_rgba(0,0,0,0.15)] z-[500] py-3 animate-[cgFadeIn_0.15s_ease]">
-                                <div
-                                    className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]"
-                                    onClick={() => {
-                                        navigate('/client-gallery');
-                                        setShowDropdown(false);
-                                    }}
-                                >
-                                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #1a9b84, #147d6a)' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                                            <circle cx="8.5" cy="8.5" r="1.5" />
-                                            <polyline points="21 15 16 10 5 21" />
-                                        </svg>
-                                    </div>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[17px] font-semibold text-[#111]">Client Gallery</span>
-                                        <span className="text-[14px] text-[#888] leading-[1.4]">Better way to share, deliver, proof and sell</span>
-                                    </div>
-                                </div>
-                                <div
-                                    className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]"
-                                    onClick={() => {
-                                        navigate('/smart-albums');
-                                        setShowDropdown(false);
-                                    }}
-                                >
-                                    <div className="w-11 h-11 rounded-full flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #9b59b6, #8e44ad)' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                                            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                                            <line x1="8" y1="6" x2="16" y2="6"></line>
-                                            <line x1="8" y1="10" x2="14" y2="10"></line>
-                                        </svg>
-                                    </div>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[17px] font-semibold text-[#111]">Smart Albums</span>
-                                        <span className="text-[14px] text-[#888] leading-[1.4]">Design and deliver beautiful photo albums</span>
-                                    </div>
-                                </div>
-                                <div
-                                    className="flex items-center gap-4 px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]"
-                                    onClick={() => {
-                                        navigate('/mobile-gallery');
-                                        setShowDropdown(false);
-                                    }}
-                                >
-                                    <div className="w-11 h-11 rounded-[10px] flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #f1c40f, #f39c12)' }}>
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                                            <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                                        </svg>
-                                    </div>
-                                    <div className="flex flex-col gap-0.5">
-                                        <span className="text-[17px] font-semibold text-[#111]">Mobile Gallery App</span>
-                                        <span className="text-[14px] text-[#888] leading-[1.4]">Simple, personalized mobile photo albums</span>
-                                    </div>
-                                </div>
-                                <div className="h-px bg-[#f0f0f0] my-2" />
-                                <div
-                                    className="flex items-center gap-[14px] px-6 py-3.5 cursor-pointer transition-colors duration-120 hover:bg-[#f3f4f6]"
-                                    onClick={() => {
-                                        navigate('/dashboard');
-                                        setShowDropdown(false);
-                                    }}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                        <rect x="3" y="3" width="7" height="7" />
-                                        <rect x="14" y="3" width="7" height="7" />
-                                        <rect x="14" y="14" width="7" height="7" />
-                                        <rect x="3" y="14" width="7" height="7" />
-                                    </svg>
-                                    <span className="text-[16px] font-medium text-[#333]">View Dashboard</span>
-                                </div>
-                            </div>
-                        )}
                     </div>
+
+                    <AccountTopbarIcons userInitial={userInitial} />
                 </div>
+            </header>
 
-                <AccountTopbarIcons userInitial={userInitial} />
-            </div>
+            <nav className="acct-subnav">
+                <ClientGallerySubpageTabs
+                    tabs={ACCOUNT_TABS}
+                    activeId={activeTab}
+                    onChange={(id) => navigate(`/account/${id}`)}
+                />
+            </nav>
 
-            {/* Sub Navigation */}
-            <div className="w-full border-b border-[#cccccc] bg-[#fafafa]">
-                <div className="flex gap-8 px-10 pt-1">
-                    <button 
-                        className={`py-3 text-[16px] transition-colors relative ${activeTab === 'profile' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
-                        onClick={() => navigate('/account/profile')}
-                    >
-                        Profile
-                        {activeTab === 'profile' && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#1a9b84]" />}
-                    </button>
-                    <button 
-                        className={`py-3 text-[16px] transition-colors relative ${activeTab === 'account' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
-                        onClick={() => navigate('/account/account')}
-                    >
-                        Account
-                        {activeTab === 'account' && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#1a9b84]" />}
-                    </button>
-                    <button 
-                        className={`py-3 text-[16px] transition-colors relative ${activeTab === 'billing' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
-                        onClick={() => navigate('/account/billing')}
-                    >
-                        Billing
-                        {activeTab === 'billing' && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#1a9b84]" />}
-                    </button>
-                    <button 
-                        className={`py-3 text-[16px] transition-colors relative ${activeTab === 'advanced' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
-                        onClick={() => navigate('/account/advanced')}
-                    >
-                        Advanced Settings
-                        {activeTab === 'advanced' && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#1a9b84]" />}
-                    </button>
-                    <button 
-                        className={`py-3 text-[16px] transition-colors relative ${activeTab === 'refer' ? 'text-[#111] font-medium' : 'text-[#888] font-normal hover:text-[#111]'}`}
-                        onClick={() => navigate('/account/refer')}
-                    >
-                        Refer a Friend
-                        {activeTab === 'refer' && <div className="absolute bottom-[-1px] left-0 w-full h-[2px] bg-[#1a9b84]" />}
-                    </button>
-                </div>
-            </div>
-
-            {/* Main Content Area */}
-            <div className="w-full bg-white py-12 flex justify-center">
-                <div className="w-full max-w-[800px] px-6 lg:px-0">
+            <main className="acct-main">
+                <div className="acct-content">
                     {activeTab === 'profile' && <ProfileTab user={user} showToast={showToast} />}
                     {activeTab === 'account' && <AccountTab user={user} showToast={showToast} />}
                     {activeTab === 'billing' && <BillingTab user={user} showToast={showToast} />}
                     {activeTab === 'advanced' && <AdvancedTab user={user} showToast={showToast} />}
                     {activeTab === 'refer' && <ReferTab user={user} showToast={showToast} />}
                 </div>
-            </div>
+            </main>
             {toastMessage && (
-                <div className="fixed bottom-6 right-6 bg-[#1a9b84] text-white px-4 py-3 shadow-[0_8px_30px_rgb(0,0,0,0.12)] text-[15px] font-medium transition-all duration-300 z-[9999] flex items-center gap-2" style={{ animation: 'cgFadeIn 0.25s ease-out' }}>
+                <div className="acct-toast">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12"></polyline>
+                        <polyline points="20 6 9 17 4 12" />
                     </svg>
                     {toastMessage}
                 </div>
@@ -260,27 +212,13 @@ function InlineField({ label, name, value, type = 'text', placeholder = '', hint
         setDirty(false);
     };
 
-    const borderStyle = dirty
-        ? { border: '1px solid #1a9b84', boxShadow: '0 0 0 3px rgba(26,155,132,0.12)', outline: 'none' }
-        : { border: '1px solid #ddd', outline: 'none' };
-
-    const sharedStyle = {
-        width: '100%',
-        padding: '10px 16px',
-        fontSize: 17,
-        color: '#111',
-        fontFamily: 'inherit',
-        background: '#fff',
-        transition: 'border 0.15s, box-shadow 0.15s',
-        boxSizing: 'border-box',
-        ...borderStyle,
-    };
-
     return (
-        <div>
-            <label className="block text-[17px] font-bold text-[#111] mb-2">{label}</label>
-            <div style={{ display: 'flex', alignItems: rows ? 'flex-start' : 'center', gap: 12 }}>
-                <div style={{ flex: 1 }}>
+        <div className="acct-field">
+            <label className="acct-field-label">{label}</label>
+            <div className={`acct-field-row${rows ? ' acct-field-row--top' : ''}`}>
+                <div
+                    className={`neu-inset acct-field-shell${rows ? ' cg-field-shell-textarea acct-field-shell--textarea' : ' cg-field-shell'}${dirty ? ' acct-field-shell--dirty' : ''}`}
+                >
                     {rows ? (
                         <textarea
                             name={name}
@@ -289,7 +227,7 @@ function InlineField({ label, name, value, type = 'text', placeholder = '', hint
                             rows={rows}
                             maxLength={maxLength}
                             placeholder={placeholder}
-                            style={{ ...sharedStyle, resize: 'vertical' }}
+                            className="acct-field-textarea"
                         />
                     ) : (
                         <input
@@ -298,43 +236,29 @@ function InlineField({ label, name, value, type = 'text', placeholder = '', hint
                             value={current}
                             onChange={handleLocalChange}
                             placeholder={placeholder}
-                            style={sharedStyle}
+                            className="acct-field-input"
                         />
                     )}
                 </div>
 
-                {/* Save / Cancel — only visible when dirty */}
                 {dirty && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, marginTop: rows ? 2 : 0 }}>
+                    <div className={`acct-field-actions${rows ? ' pt-1' : ''}`}>
+                        <button type="button" className="acct-btn-text" onClick={handleCancel}>
+                            Cancel
+                        </button>
                         <button
-                            onClick={handleCancel}
-                            style={{
-                                background: 'transparent', border: 'none', cursor: 'pointer',
-                                fontSize: 14, color: '#888', fontFamily: 'inherit', padding: '0 4px',
-                                transition: 'color 0.15s', whiteSpace: 'nowrap',
-                            }}
-                            onMouseEnter={e => e.currentTarget.style.color = '#111'}
-                            onMouseLeave={e => e.currentTarget.style.color = '#888'}
-                        >Cancel</button>
-                        <button
+                            type="button"
+                            className="neu-pill acct-btn-save"
                             onClick={handleSave}
                             disabled={saving}
-                            style={{
-                                background: saving ? '#aaa' : '#1a9b84',
-                                color: '#fff', border: 'none',
-                                cursor: saving ? 'not-allowed' : 'pointer',
-                                fontSize: 14, fontWeight: 600, padding: '9px 20px',
-                                fontFamily: 'inherit', transition: 'background 0.15s',
-                                whiteSpace: 'nowrap',
-                            }}
-                            onMouseEnter={e => { if (!saving) e.currentTarget.style.background = '#147d6a'; }}
-                            onMouseLeave={e => { if (!saving) e.currentTarget.style.background = '#1a9b84'; }}
-                        >{saving ? 'Saving…' : 'Save'}</button>
+                        >
+                            {saving ? 'Saving…' : 'Save'}
+                        </button>
                     </div>
                 )}
             </div>
-            {maxLength && <div className="w-full text-left text-[14px] text-[#888] mt-1">{current.length} / {maxLength}</div>}
-            {hint && <p className="text-[15px] text-[#888] mt-2">{hint}</p>}
+            {maxLength && <div className="w-full text-left text-[14px] text-[#71717A] mt-1">{current.length} / {maxLength}</div>}
+            {hint && <p className="acct-field-help mt-2">{hint}</p>}
         </div>
     );
 }
@@ -468,113 +392,20 @@ function ProfileTab({ user, showToast }) {
     };
 
     if (loading) {
-        return <div className="py-8 text-[#888]">Loading profile...</div>;
+        return <div className="acct-loading">Loading profile...</div>;
     }
 
     return (
         <div className="flex flex-col gap-12 pb-20 relative">
-            <style>{`
-                .profile-upload-box {
-                    width: 120px;
-                    height: 120px;
-                    background-color: #f5f5f5;
-                    margin-bottom: 12px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    color: #999;
-                    cursor: pointer;
-                    position: relative;
-                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-                    border-radius: 4px;
-                    overflow: hidden;
-                }
-                .profile-upload-box:hover {
-                    background-color: #eaeaea;
-                }
-                .profile-upload-inner {
-                    width: 36px;
-                    height: 36px;
-                    border: 1.5px solid #d1d5db;
-                    border-radius: 8px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    background-color: #ffffff;
-                    color: #4b5563;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
-                    transition: all 0.2s ease;
-                }
-                .profile-upload-box:hover .profile-upload-inner {
-                    border-color: #9ca3af;
-                    transform: scale(1.08);
-                    box-shadow: 0 4px 6px rgba(0,0,0,0.08);
-                }
-                .profile-upload-overlay {
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background-color: rgba(0, 0, 0, 0.4);
-                    color: #ffffff;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    opacity: 0;
-                    transition: opacity 0.2s ease;
-                    font-size: 12px;
-                    font-weight: 500;
-                }
-                .profile-upload-box:hover .profile-upload-overlay {
-                    opacity: 1;
-                }
-                .profile-upload-remove-btn {
-                    position: absolute;
-                    top: 6px;
-                    right: 6px;
-                    background-color: rgba(255, 255, 255, 0.9);
-                    border: none;
-                    border-radius: 50%;
-                    width: 20px;
-                    height: 20px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    cursor: pointer;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-                    color: #ef4444;
-                    transition: all 0.15s ease;
-                    z-index: 10;
-                }
-                .profile-upload-remove-btn:hover {
-                    background-color: #ffffff;
-                    color: #dc2626;
-                    transform: scale(1.1);
-                }
-                .profile-upload-spinner {
-                    width: 24px;
-                    height: 24px;
-                    border: 2px solid rgba(0,0,0,0.1);
-                    border-top: 2px solid #1a9b84;
-                    border-radius: 50%;
-                    animation: profile-spin 0.8s linear infinite;
-                }
-                @keyframes profile-spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            `}</style>
             <div>
-                <h1 className="text-[30px] font-normal text-[#111] mb-8 pb-4 border-b border-[#f1f1f1]">Profile</h1>
+                <h1 className="cg-page-title text-3xl font-medium mb-8 pb-6 border-b border-[#ECEAE6]">Profile</h1>
                 
                 {/* Business Details */}
-                <h2 className="text-[13px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">BUSINESS DETAILS</h2>
+                <h2 className="acct-section-label mb-6">Business Details</h2>
                 
                 <div className="flex flex-col gap-8 w-full">
                     <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Profile Icon</label>
+                        <label className="acct-field-label">Profile Icon</label>
                         <div 
                             className="profile-upload-box" 
                             onClick={handleIconClick}
@@ -609,7 +440,7 @@ function ProfileTab({ user, showToast }) {
                                 </div>
                             )}
                         </div>
-                        <p className="text-[15px] text-[#888] leading-relaxed">Your profile icon is a center cropped square icon shown on your galleries, homepage<br/>and applicable places. Tip: make your image a square image before uploading.</p>
+                        <p className="acct-field-help leading-relaxed">Your profile icon is a center cropped square icon shown on your galleries, homepage<br/>and applicable places. Tip: make your image a square image before uploading.</p>
                     </div>
 
                     <InlineField
@@ -683,16 +514,16 @@ function ProfileTab({ user, showToast }) {
 
             {/* Business Address */}
             <div className="mt-2">
-                <h2 className="text-[14px] font-bold text-[#999] tracking-[0.1em] uppercase mb-4">BUSINESS ADDRESS</h2>
+                <h2 className="acct-section-label mb-4">BUSINESS ADDRESS</h2>
                 
                 <div className="flex flex-col gap-6 w-full">
                     <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Business Country</label>
+                        <label className="acct-field-label">Business Country</label>
                         <select 
                             name="business_country"
                             value={formData.business_country}
                             onChange={(e) => { handleChange('business_country', e.target.value); handleAutoSave('business_country', e.target.value); }}
-                            className="w-full border border-[#ddd] px-3 py-2 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
+                            className="w-full acct-input"
                         >
                             <option value="">Select a country</option>
                             <option value="US">United States</option>
@@ -751,12 +582,12 @@ function ProfileTab({ user, showToast }) {
                 
                 <div className="flex flex-col gap-6 w-full">
                     <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Time Zone</label>
+                        <label className="acct-field-label">Time Zone</label>
                         <select 
                             name="time_zone"
                             value={formData.time_zone}
                             onChange={(e) => { handleChange('time_zone', e.target.value); handleAutoSave('time_zone', e.target.value); }}
-                            className="w-full border border-[#ddd] px-3 py-2 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
+                            className="w-full acct-input"
                         >
                             <option value="(GMT-08:00) Pacific Time (US & Canada)">(GMT-08:00) Pacific Time (US & Canada)</option>
                             <option value="(GMT-05:00) Eastern Time (US & Canada)">(GMT-05:00) Eastern Time (US & Canada)</option>
@@ -767,12 +598,12 @@ function ProfileTab({ user, showToast }) {
                     </div>
                     
                     <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Preferred Date Format</label>
+                        <label className="acct-field-label">Preferred Date Format</label>
                         <select 
                             name="preferred_date_format"
                             value={formData.preferred_date_format}
                             onChange={(e) => { handleChange('preferred_date_format', e.target.value); handleAutoSave('preferred_date_format', e.target.value); }}
-                            className="w-full border border-[#ddd] px-3 py-2 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] bg-white h-[44px] transition-colors"
+                            className="w-full acct-input"
                         >
                             <option value="mm/dd/yyyy">mm/dd/yyyy</option>
                             <option value="dd/mm/yyyy">dd/mm/yyyy</option>
@@ -857,7 +688,7 @@ function ProfileTab({ user, showToast }) {
                                 onChange={handleChange}
                                 onBlur={(e) => handleAutoSave(social.name, e.target.value)}
                                 placeholder="e.g. mydomain.com"
-                                className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                className="w-full acct-input"
                             />
                         </div>
                     ))}
@@ -1104,19 +935,19 @@ function AccountTab({ user, showToast }) {
     return (
         <div className="flex flex-col gap-12 pb-20 relative">
             <div>
-                <h1 className="text-[30px] font-normal text-[#111] mb-8 pb-4 border-b border-[#f1f1f1]">Account</h1>
+                <h1 className="cg-page-title text-3xl font-medium mb-8 pb-6 border-b border-[#ECEAE6]">Account</h1>
                 
                 {/* Account Info */}
-                <h2 className="text-[13px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">ACCOUNT INFO</h2>
+                <h2 className="acct-section-label mb-6">ACCOUNT INFO</h2>
                 
                 <div className="flex flex-col gap-8 w-full">
                     {/* Username */}
                     <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Username</label>
+                        <label className="acct-field-label">Username</label>
                         <div className="w-full bg-[#f9f9f9] border border-[#f1f1f1] px-4 py-3 flex justify-between items-center group transition-colors hover:border-[#ddd]">
                             <span className="text-[17px] text-[#111]">{formData.homepage_slug}</span>
                             <svg 
-                                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+                                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
                                 className="cursor-pointer opacity-80 hover:opacity-100 flex-shrink-0 ml-2"
                                 onClick={() => {
                                     setModalUsername(formData.homepage_slug);
@@ -1133,7 +964,7 @@ function AccountTab({ user, showToast }) {
                                 href={getDynamicHomepageUrl(formData.homepage_slug)} 
                                 target="_blank" 
                                 rel="noopener noreferrer" 
-                                className="text-[#1a9b84] hover:underline font-medium"
+                                className="text-[#1A1A1A] hover:underline font-medium"
                             >
                                 {getDynamicHomepageUrl(formData.homepage_slug)}
                             </a>
@@ -1142,7 +973,7 @@ function AccountTab({ user, showToast }) {
 
                     {/* Account Email */}
                     <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Account Email</label>
+                        <label className="acct-field-label">Account Email</label>
                         
                         <div className="bg-[#fff9e6] border border-[#ffecb3] p-4 flex gap-3 mb-4 rounded-[2px]">
                             <div className="mt-0.5">
@@ -1151,14 +982,14 @@ function AccountTab({ user, showToast }) {
                                 </svg>
                             </div>
                             <div className="text-[15px] text-[#333] font-medium leading-relaxed">
-                                Your email address has not been verified. To keep your account safe and secure, we've sent an email to verify your email address and activate your account. <span className="text-[#1a9b84] cursor-pointer hover:underline">Resend confirmation email.</span>
+                                Your email address has not been verified. To keep your account safe and secure, we've sent an email to verify your email address and activate your account. <span className="text-[#1A1A1A] cursor-pointer hover:underline">Resend confirmation email.</span>
                             </div>
                         </div>
 
                         <div className="w-full bg-[#f9f9f9] border border-[#f1f1f1] px-4 py-3 flex justify-between items-center group transition-colors hover:border-[#ddd]">
                             <span className="text-[17px] text-[#111]">{formData.email}</span>
                             <svg 
-                                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
+                                width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" 
                                 className="cursor-pointer opacity-80 hover:opacity-100 flex-shrink-0 ml-2"
                                 onClick={() => setShowEmailModal(true)}
                             >
@@ -1171,7 +1002,7 @@ function AccountTab({ user, showToast }) {
 
                     {/* Account Password */}
                     <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Account Password</label>
+                        <label className="acct-field-label">Account Password</label>
                         <div className="w-full border border-[#f1f1f1] p-2 flex justify-between items-center bg-white">
                             <span className={`text-[17px] px-2 ${formData.login_password_set ? 'text-[#111]' : 'text-[#999]'}`}>
                                 {formData.login_password_set ? 'Password set' : 'No Password set'}
@@ -1192,7 +1023,7 @@ function AccountTab({ user, showToast }) {
 
                     {/* Social Login */}
                     <div>
-                        <label className="block text-[17px] font-bold text-[#111] mb-2">Social Login</label>
+                        <label className="acct-field-label">Social Login</label>
                         <div className="border border-[#f1f1f1] bg-white flex flex-col">
                             {/* Google */}
                             <div className="flex justify-between items-center p-3 border-b border-[#f1f1f1]">
@@ -1246,7 +1077,7 @@ function AccountTab({ user, showToast }) {
 
                 {/* Account Security */}
                 <div className="mt-14">
-                    <h2 className="text-[13px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">ACCOUNT SECURITY</h2>
+                    <h2 className="acct-section-label mb-6">ACCOUNT SECURITY</h2>
                     
                     <div className="flex flex-col gap-10 w-full">
                         {/* Two-Factor Authentication */}
@@ -1254,17 +1085,17 @@ function AccountTab({ user, showToast }) {
                             <h3 className="text-[17px] font-bold text-[#111] mb-4">Two-Factor Authentication</h3>
                             <div className="flex items-center gap-3 mb-4">
                                 <button 
-                                    className={`w-[48px] h-[24px] rounded-full relative transition-colors ${formData.two_factor_enabled ? 'bg-[#1a9b84]' : 'bg-[#e0e0e0]'}`}
+                                    className={`w-[48px] h-[24px] rounded-full relative transition-colors ${formData.two_factor_enabled ? 'bg-[#1A1A1A]' : 'bg-[#e0e0e0]'}`}
                                     onClick={toggle2FA}
                                 >
                                     <div className={`absolute top-1 left-1 w-[16px] h-[16px] rounded-full bg-white transition-transform ${formData.two_factor_enabled ? 'translate-x-[24px]' : 'translate-x-0'}`}></div>
                                 </button>
-                                <span className={`text-[16px] ${formData.two_factor_enabled ? 'text-[#1a9b84]' : 'text-[#999]'}`}>
+                                <span className={`text-[16px] ${formData.two_factor_enabled ? 'text-[#1A1A1A]' : 'text-[#999]'}`}>
                                     {formData.two_factor_enabled ? 'Enabled' : 'Disabled'}
                                 </span>
                             </div>
                             <p className="text-[15px] text-[#888] leading-relaxed">
-                                Two-factor authentication adds an extra layer of protection by requiring a verification code when you log in to your account with an email address and password. <span className="text-[#1a9b84] cursor-pointer hover:underline">Learn more</span>
+                                Two-factor authentication adds an extra layer of protection by requiring a verification code when you log in to your account with an email address and password. <span className="text-[#1A1A1A] cursor-pointer hover:underline">Learn more</span>
                             </p>
                         </div>
 
@@ -1281,7 +1112,7 @@ function AccountTab({ user, showToast }) {
                                 {formData.active_sessions.map((session, idx) => (
                                     <div key={session.id || idx} className="flex items-center border-b border-[#f1f1f1] py-4 text-[16px] group">
                                         <div className="w-[40%] text-[#333]">{session.device}</div>
-                                        <div className={`w-[30%] ${idx === 0 ? 'text-[#1a9b84]' : 'text-[#666]'}`}>
+                                        <div className={`w-[30%] ${idx === 0 ? 'text-[#1A1A1A]' : 'text-[#666]'}`}>
                                             {idx === 0 ? 'Current session' : session.lastActive}
                                         </div>
                                         <div className="w-[30%] text-[#666] flex justify-between items-center">
@@ -1306,9 +1137,9 @@ function AccountTab({ user, showToast }) {
 
                 {/* Manage Account */}
                 <div className="mt-14">
-                    <h2 className="text-[13px] font-bold text-[#999] tracking-[0.1em] uppercase mb-6">MANAGE ACCOUNT</h2>
+                    <h2 className="acct-section-label mb-6">MANAGE ACCOUNT</h2>
                     <p className="text-[16px] text-[#888] leading-relaxed">
-                        Please understand that by deleting your account, all photos, collections, mobile apps and other account data will be permanently deleted. Yes, <span onClick={() => setShowDeleteModal(true)} className="text-[#1a9b84] cursor-pointer hover:underline">delete</span> my account.
+                        Please understand that by deleting your account, all photos, collections, mobile apps and other account data will be permanently deleted. Yes, <span onClick={() => setShowDeleteModal(true)} className="text-[#1A1A1A] cursor-pointer hover:underline">delete</span> my account.
                     </p>
                 </div>
             </div>
@@ -1330,23 +1161,23 @@ function AccountTab({ user, showToast }) {
                                 </div>
                             )}
                             <div>
-                                <label className="block text-[17px] font-bold text-[#111] mb-2">New Password</label>
+                                <label className="acct-field-label">New Password</label>
                                 <input 
                                     type="password" 
                                     required
                                     value={passwordForm.newPassword}
                                     onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                    className="w-full acct-input"
                                 />
                             </div>
                             <div>
-                                <label className="block text-[17px] font-bold text-[#111] mb-2">Confirm Password</label>
+                                <label className="acct-field-label">Confirm Password</label>
                                 <input 
                                     type="password" 
                                     required
                                     value={passwordForm.confirmPassword}
                                     onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                    className="w-full acct-input"
                                 />
                             </div>
                         </div>
@@ -1366,7 +1197,7 @@ function AccountTab({ user, showToast }) {
                             <button 
                                 type="submit"
                                 disabled={passwordSaving}
-                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px] disabled:opacity-50"
+                                className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors disabled:opacity-50"
                             >
                                 {passwordSaving ? 'Saving...' : 'Save'}
                             </button>
@@ -1393,8 +1224,8 @@ function AccountTab({ user, showToast }) {
                                 </div>
                             )}
                             <div>
-                                <label className="block text-[17px] font-bold text-[#111] mb-2">
-                                    To confirm, type your account email: <strong className="select-all text-[#1a9b84]">{formData.email}</strong>
+                                <label className="acct-field-label">
+                                    To confirm, type your account email: <strong className="select-all text-[#1A1A1A]">{formData.email}</strong>
                                 </label>
                                 <input 
                                     type="text" 
@@ -1452,12 +1283,12 @@ function AccountTab({ user, showToast }) {
                             </div>
                             
                             <div>
-                                <label className="block text-[17px] font-bold text-[#111] mb-2">New Username</label>
+                                <label className="acct-field-label">New Username</label>
                                 <input 
                                     type="text" 
                                     value={modalUsername}
                                     onChange={(e) => setModalUsername(e.target.value)}
-                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                    className="w-full acct-input"
                                 />
                             </div>
                         </div>
@@ -1470,7 +1301,7 @@ function AccountTab({ user, showToast }) {
                                 Cancel
                             </button>
                             <button 
-                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px]"
+                                className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors"
                                 onClick={async () => {
                                     setFormData(prev => ({ ...prev, homepage_slug: modalUsername }));
                                     setShowUsernameModal(false);
@@ -1507,13 +1338,13 @@ function AccountTab({ user, showToast }) {
                                 </div>
                             ) : (
                                 <div>
-                                    <label className="block text-[17px] font-bold text-[#111] mb-2">New Account Email</label>
+                                    <label className="acct-field-label">New Account Email</label>
                                     <input 
                                         type="email" 
                                         value={formData.email}
                                         onChange={handleChange}
                                         name="email"
-                                        className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                                        className="w-full acct-input"
                                     />
                                     <p className="text-[15px] text-[#888] mt-2">Updating your email will require re-verification.</p>
                                 </div>
@@ -1537,7 +1368,7 @@ function AccountTab({ user, showToast }) {
                                         Cancel
                                     </button>
                                     <button 
-                                        className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px]"
+                                        className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors"
                                         onClick={async () => {
                                             setShowEmailModal(false);
                                             await handleAutoSave('contact_email', formData.email);
@@ -1686,11 +1517,11 @@ function BillingTab({ user, showToast }) {
         <div className="flex flex-col gap-10 pb-20 text-[#111]">
             {/* Header */}
             <div>
-                <h1 className="text-[28px] font-light text-[#222] mb-1">Billing</h1>
+                <h1 className="cg-page-title text-3xl font-medium mb-2">Billing</h1>
             </div>
 
             {/* Current Subscriptions */}
-            <div className="bg-white border border-[#eeeeee] rounded-[2px] p-8">
+            <div className="acct-card p-8">
                 <h2 className="text-[19px] font-medium text-[#222] mb-6">Current Subscriptions</h2>
                 
                 <div className="w-full">
@@ -1705,8 +1536,8 @@ function BillingTab({ user, showToast }) {
                     {/* Row 1: Client Gallery */}
                     <div className="grid grid-cols-[1.5fr_1fr_2.5fr_1.2fr] py-5 border-b border-[#f1f1f1] items-center text-[16px]">
                         <div className="flex items-center gap-3.5">
-                            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-[#e8f7f2]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0 bg-[#F4F3F0]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                             </div>
                             <span className="font-medium text-[#222]">Client Gallery</span>
                         </div>
@@ -1719,7 +1550,7 @@ function BillingTab({ user, showToast }) {
                         <div className="text-right">
                             <button 
                                 onClick={() => { setSelectedUpgradeProduct('Client Gallery'); setShowUpgradeModal(true); }}
-                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[15px] font-medium px-5 py-2 transition-colors rounded-[2px]"
+                                className="neu-pill acct-btn-primary text-[15px] font-medium px-5 py-2 transition-colors"
                             >
                                 Upgrade
                             </button>
@@ -1741,7 +1572,7 @@ function BillingTab({ user, showToast }) {
                         <div className="text-right">
                             <button 
                                 onClick={() => { setSelectedUpgradeProduct('Website'); setShowUpgradeModal(true); }}
-                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[15px] font-medium px-5 py-2 transition-colors rounded-[2px]"
+                                className="neu-pill acct-btn-primary text-[15px] font-medium px-5 py-2 transition-colors"
                             >
                                 Upgrade
                             </button>
@@ -1766,7 +1597,7 @@ function BillingTab({ user, showToast }) {
                         <div className="text-right">
                             <button 
                                 onClick={() => { setSelectedUpgradeProduct('Studio Manager'); setShowUpgradeModal(true); }}
-                                className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[15px] font-medium px-5 py-2 transition-colors rounded-[2px]"
+                                className="neu-pill acct-btn-primary text-[15px] font-medium px-5 py-2 transition-colors"
                             >
                                 Upgrade
                             </button>
@@ -1776,11 +1607,11 @@ function BillingTab({ user, showToast }) {
             </div>
 
             {/* The Pixnxt Suite Promo Card */}
-            <div className="bg-[#fafafa] border border-[#eeeeee] rounded-[2px] p-8 flex flex-col md:flex-row items-center justify-between gap-8">
+            <div className="acct-card p-8 flex flex-col md:flex-row items-center justify-between gap-8 bg-[#F9F9F7]">
                 <div className="flex flex-col md:flex-row items-center gap-8">
                     {/* Multi Badges Circle */}
                     <div className="flex -space-x-3 items-center">
-                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#1a9b84] text-white shadow-md border-2 border-white z-5"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>
+                        <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#1A1A1A] text-white shadow-md border-2 border-white z-5"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg></div>
                         <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#3498db] text-white shadow-md border-2 border-white z-4"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line></svg></div>
                         <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#2ecc71] text-white shadow-md border-2 border-white z-3"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path></svg></div>
                         <div className="w-10 h-10 rounded-full flex items-center justify-center bg-[#e74c3c] text-white shadow-md border-2 border-white z-2"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="9" cy="21" r="1"></circle><circle cx="20" cy="21" r="1"></circle><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"></path></svg></div>
@@ -1788,7 +1619,7 @@ function BillingTab({ user, showToast }) {
                     </div>
                     
                     <div className="flex flex-col gap-1 text-center md:text-left">
-                        <span className="text-[15px] font-bold text-[#1a9b84] uppercase tracking-wider">The Pixnxt Suite</span>
+                        <span className="text-[15px] font-bold text-[#1A1A1A] uppercase tracking-wider">The Pixnxt Suite</span>
                         <h3 className="text-[20px] font-bold text-[#222]">All essential apps. One simple plan.</h3>
                         <p className="text-[15px] text-[#666] max-w-[500px] leading-relaxed">Everything you need - Website, Client Gallery, Studio Manager, Store, Mobile Gallery App - in one package at a great price.</p>
                     </div>
@@ -1801,7 +1632,7 @@ function BillingTab({ user, showToast }) {
                     </div>
                     <button 
                         onClick={() => { setSelectedUpgradeProduct('The Pixnxt Suite'); setShowUpgradeModal(true); }}
-                        className="border border-[#1a9b84] text-[#1a9b84] hover:bg-[#1a9b84] hover:text-white transition-all text-[15px] font-semibold px-6 py-2.5 rounded-[2px]"
+                        className="acct-btn-outline text-[15px] font-semibold px-6 py-2.5 transition-all"
                     >
                         SEE PRICING
                     </button>
@@ -1809,11 +1640,11 @@ function BillingTab({ user, showToast }) {
             </div>
 
             {/* Credit Card Section */}
-            <div className="bg-white border border-[#eeeeee] rounded-[2px] p-8">
+            <div className="acct-card p-8">
                 <h2 className="text-[19px] font-medium text-[#222] mb-4">Credit Card</h2>
                 
                 {card ? (
-                    <div className="flex items-center justify-between border border-[#e8f7f2] bg-[#fcfdfe] p-5 rounded-[4px]">
+                    <div className="flex items-center justify-between border border-[#F4F3F0] bg-[#fcfdfe] p-5 rounded-[4px]">
                         <div className="flex items-center gap-4">
                             {/* Card Brand Badge */}
                             <div className="w-14 h-9 border border-[#eaeaea] bg-white rounded-[4px] flex items-center justify-center font-bold text-[15px] text-[#444] shadow-sm tracking-wide">
@@ -1864,7 +1695,7 @@ function BillingTab({ user, showToast }) {
                                     placeholder="e.g. John Doe"
                                     value={cardName}
                                     onChange={(e) => setCardName(e.target.value)}
-                                    className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px]"
+                                    className="w-full acct-input"
                                 />
                             </div>
 
@@ -1878,7 +1709,7 @@ function BillingTab({ user, showToast }) {
                                         placeholder="0000 0000 0000 0000"
                                         value={cardNumber}
                                         onChange={(e) => setCardNumber(formatCardNumber(e.target.value))}
-                                        className="w-full border border-[#ddd] pl-4 pr-12 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px] tracking-wider"
+                                        className="w-full acct-input tracking-wider pl-4 pr-12"
                                     />
                                     {/* Brand Detection Icon */}
                                     <div className="absolute right-4 text-[13px] font-bold text-[#888]">
@@ -1897,7 +1728,7 @@ function BillingTab({ user, showToast }) {
                                         placeholder="MM/YY"
                                         value={cardExpiry}
                                         onChange={(e) => setCardExpiry(formatExpiry(e.target.value))}
-                                        className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px] text-center"
+                                        className="w-full acct-input text-center"
                                     />
                                 </div>
                                 <div>
@@ -1909,7 +1740,7 @@ function BillingTab({ user, showToast }) {
                                         placeholder="•••"
                                         value={cardCvc}
                                         onChange={(e) => setCardCvc(e.target.value.replace(/[^0-9]/g, ''))}
-                                        className="w-full border border-[#ddd] px-4 py-2.5 text-[17px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors rounded-[2px] text-center"
+                                        className="w-full acct-input text-center"
                                     />
                                 </div>
                             </div>
@@ -1925,7 +1756,7 @@ function BillingTab({ user, showToast }) {
                                 <button 
                                     type="submit"
                                     disabled={savingCard}
-                                    className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px] min-w-[100px] flex items-center justify-center"
+                                    className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors min-w-[100px] flex items-center justify-center"
                                 >
                                     {savingCard ? 'Saving...' : 'Save Card'}
                                 </button>
@@ -1952,11 +1783,11 @@ function BillingTab({ user, showToast }) {
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
-                                <div className="border-2 border-[#1a9b84] bg-[#e8f7f2]/20 p-5 rounded-[4px] flex flex-col gap-2 relative cursor-pointer">
-                                    <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-[#1a9b84] flex items-center justify-center">
+                                <div className="border-2 border-[#1A1A1A] bg-[#F4F3F0]/20 p-5 rounded-[4px] flex flex-col gap-2 relative cursor-pointer">
+                                    <div className="absolute top-3 right-3 w-4 h-4 rounded-full bg-[#1A1A1A] flex items-center justify-center">
                                         <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
                                     </div>
-                                    <span className="text-[14px] font-bold text-[#1a9b84] uppercase tracking-wide">Yearly Plan</span>
+                                    <span className="text-[14px] font-bold text-[#1A1A1A] uppercase tracking-wide">Yearly Plan</span>
                                     <span className="text-[24px] font-bold text-[#222]">$28<span className="text-[16px] font-normal text-[#666]">/mo</span></span>
                                     <span className="text-[14px] text-[#2ecc71] font-semibold">Save 37% ($168 billed annually)</span>
                                 </div>
@@ -1998,7 +1829,7 @@ function BillingTab({ user, showToast }) {
                                             setShowUpgradeModal(false);
                                         }
                                     }}
-                                    className="bg-[#1a9b84] hover:bg-[#15826e] text-white text-[16px] font-medium px-6 py-2 transition-colors rounded-[2px]"
+                                    className="neu-pill acct-btn-primary text-[16px] font-medium px-6 py-2 transition-colors"
                                 >
                                     {card ? 'Complete Upgrade' : 'Add Card & Upgrade'}
                                 </button>
@@ -2126,7 +1957,7 @@ function AdvancedTab({ user, showToast }) {
             <div className="flex items-center gap-3 select-none">
                 <button
                     onClick={() => handleToggle(key)}
-                    className={`w-[44px] h-[24px] rounded-full transition-colors relative focus:outline-none ${settings[key] ? 'bg-[#1a9b84]' : 'bg-[#e4e4e4]'}`}
+                    className={`w-[44px] h-[24px] rounded-full transition-colors relative focus:outline-none ${settings[key] ? 'bg-[#1A1A1A]' : 'bg-[#e4e4e4]'}`}
                 >
                     <span className={`absolute top-[2px] left-[2px] w-[20px] h-[20px] bg-white rounded-full transition-transform shadow-[0_1px_3px_rgba(0,0,0,0.15)] ${settings[key] ? 'translate-x-[20px]' : 'translate-x-0'}`} />
                 </button>
@@ -2140,7 +1971,7 @@ function AdvancedTab({ user, showToast }) {
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[#eeeeee] pb-5">
                 <div>
-                    <h1 className="text-[28px] font-light text-[#222] mb-1">Advanced Settings</h1>
+                    <h1 className="cg-page-title text-3xl font-medium mb-2">Advanced Settings</h1>
                 </div>
             </div>
 
@@ -2159,8 +1990,8 @@ function AdvancedTab({ user, showToast }) {
                         onClick={() => toggleCategory('cg')}
                     >
                         <div className="flex items-center gap-3">
-                            <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 bg-[#e8f7f2]">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1a9b84" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                            <div className="w-[30px] h-[30px] rounded-full flex items-center justify-center shrink-0 bg-[#F4F3F0]">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                             </div>
                             <span className="font-semibold text-[17px] text-[#222]">Client Gallery</span>
                         </div>
@@ -2532,7 +2363,7 @@ function ReferTab({ user, showToast }) {
     return (
         <div className="flex flex-col gap-8 pb-20">
             <div>
-                <h1 className="text-[30px] font-normal text-[#111] mb-8 pb-4 border-b border-[#f1f1f1]">Referral Dashboard</h1>
+                <h1 className="cg-page-title text-3xl font-medium mb-8 pb-6 border-b border-[#ECEAE6]">Referral Dashboard</h1>
                 
                 <div className="mb-10">
                     <h2 className="text-[17px] font-bold text-[#111] mb-2">Invite Friends & Get $20</h2>
@@ -2542,14 +2373,14 @@ function ReferTab({ user, showToast }) {
                 </div>
 
                 <div className="mb-10">
-                    <label className="block text-[17px] font-bold text-[#111] mb-2">Your Referral Link</label>
+                    <label className="acct-field-label">Your Referral Link</label>
                     <div className="flex items-center">
                         <div className="flex-1 bg-[#f5f5f5] border border-r-0 border-[#ddd] px-4 py-3 text-[16px] text-[#555] select-all overflow-hidden text-ellipsis whitespace-nowrap">
                             {window.location.origin}/ref/{referralCode || 'YOUR_CODE'}
                         </div>
                         <button 
                             onClick={handleCopyLink}
-                            className="bg-[#1a9b84] hover:bg-[#147d6a] text-white px-6 py-3 border border-[#1a9b84] hover:border-[#147d6a] transition-colors text-[16px] font-medium whitespace-nowrap"
+                            className="neu-pill acct-btn-primary px-6 py-3 text-[16px] font-medium whitespace-nowrap"
                         >
                             Copy Link
                         </button>
@@ -2557,18 +2388,18 @@ function ReferTab({ user, showToast }) {
                 </div>
 
                 <div className="mb-12">
-                    <label className="block text-[17px] font-bold text-[#111] mb-2">Share With Friends</label>
+                    <label className="acct-field-label">Share With Friends</label>
                     <div className="flex items-center">
                         <input 
                             type="email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
                             placeholder="e.g. friend@mail.com"
-                            className="flex-1 border border-r-0 border-[#ddd] px-4 py-3 text-[16px] text-[#111] focus:outline-none focus:border-[#1a9b84] transition-colors"
+                            className="flex-1 border border-r-0 border-[#ddd] px-4 py-3 text-[16px] text-[#111] focus:outline-none focus:border-[#1A1A1A] transition-colors"
                         />
                         <button 
                             onClick={handleSendInvite}
-                            className="bg-[#1a9b84] hover:bg-[#147d6a] text-white px-6 py-3 border border-[#1a9b84] hover:border-[#147d6a] transition-colors text-[16px] font-medium whitespace-nowrap"
+                            className="neu-pill acct-btn-primary px-6 py-3 text-[16px] font-medium whitespace-nowrap"
                         >
                             Send Invite
                         </button>
@@ -2609,7 +2440,7 @@ function ReferTab({ user, showToast }) {
                     </div>
 
                     <div 
-                        className="inline-flex items-center gap-1.5 text-[15px] text-[#1a9b84] font-medium cursor-pointer hover:text-[#147d6a] transition-colors"
+                        className="inline-flex items-center gap-1.5 text-[15px] text-[#1A1A1A] font-medium cursor-pointer hover:text-[#2d2d2d] transition-colors"
                         onClick={() => setIsTrackingOpen(!isTrackingOpen)}
                     >
                         Track referrals status
@@ -2689,7 +2520,7 @@ function ReferTab({ user, showToast }) {
                                                         </div>
                                                     </td>
                                                     <td className="py-[30px] text-right">
-                                                        <div className={`inline-flex items-center justify-center px-[22px] py-1.5 rounded-full text-[15px] font-medium transition-colors ${ref.earned_reward > 0 ? 'bg-[#e8f7f2] text-[#1a9b84]' : 'bg-[#f2fcfa] text-[#1a9b84] opacity-40'}`}>
+                                                        <div className={`inline-flex items-center justify-center px-[22px] py-1.5 rounded-full text-[15px] font-medium transition-colors ${ref.earned_reward > 0 ? 'bg-[#F4F3F0] text-[#1A1A1A]' : 'bg-[#f2fcfa] text-[#1A1A1A] opacity-40'}`}>
                                                             ${(ref.earned_reward || 0).toFixed(2)}
                                                         </div>
                                                     </td>

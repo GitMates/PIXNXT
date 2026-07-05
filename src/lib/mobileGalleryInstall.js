@@ -72,5 +72,10 @@ export function isIosSafari() {
 export function isAndroidChrome() {
   if (typeof window === 'undefined') return false;
   const ua = navigator.userAgent || '';
-  return /Android/i.test(ua) && /Chrome/i.test(ua);
+  return /Android/i.test(ua) && /Chrome/i.test(ua) && !/EdgA|OPR|SamsungBrowser/i.test(ua);
+}
+
+export function isAndroid() {
+  if (typeof window === 'undefined') return false;
+  return /Android/i.test(navigator.userAgent || '');
 }

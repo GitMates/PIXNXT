@@ -21,7 +21,6 @@ const AppPhotosPanel = ({ app, photographerId, onAppUpdated }) => {
   const [uploadQueue, setUploadQueue] = useState([]);
   const [sortKey, setSortKey] = useState('position');
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchOpen, setSearchOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
   const [deleting, setDeleting] = useState(false);
 
@@ -265,8 +264,6 @@ const AppPhotosPanel = ({ app, photographerId, onAppUpdated }) => {
           onSortChange={setSortKey}
           searchQuery={searchQuery}
           onSearchQueryChange={setSearchQuery}
-          searchOpen={searchOpen}
-          onSearchOpenChange={setSearchOpen}
           onSelectAll={selectAll}
           onClearSelection={clearSelection}
           onDeleteSelected={deleteSelected}
@@ -325,7 +322,7 @@ const AppPhotosPanel = ({ app, photographerId, onAppUpdated }) => {
             </svg>
           </div>
           <p>You don&apos;t have any photos yet.</p>
-          <button type="button" className="mg-btn-primary" onClick={openUpload}>
+          <button type="button" className="mg-btn-primary neu-pill" onClick={openUpload}>
             Add Photos
           </button>
         </div>

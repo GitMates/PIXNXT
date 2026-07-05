@@ -59,9 +59,7 @@ function FocalPointModal({ open, coverUrl, focalX, focalY, onChange, onClose }) 
         onClick={(e) => e.stopPropagation()}
       >
         <header className="mg-focal-header">
-          <h2 id="mg-focal-title" className="mg-focal-title">
-            Focal Point
-          </h2>
+          <h2 id="mg-focal-title" className="mg-focal-title cg-page-title">Focal Point</h2>
           <button type="button" className="mg-focal-done" onClick={onClose}>
             Done
           </button>

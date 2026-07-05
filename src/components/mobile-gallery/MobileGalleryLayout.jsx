@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate, useLocation, NavLink } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Settings } from 'lucide-react';
 import brandPng from '../../assets/icons/client gallery.png';
 import smartAlbumPng from '../../assets/icons/smart album.png';
 import dashboardPng from '../../assets/icons/dashboard.png';
@@ -7,6 +8,8 @@ import MobileGalleryIcon from './MobileGalleryIcon';
 import MobileGalleryHelpDropdown from './MobileGalleryHelpDropdown';
 import MobileGalleryNotifications from './MobileGalleryNotifications';
 import MobileGalleryProfileDropdown from './MobileGalleryProfileDropdown';
+import '../../styles/clientGalleryTheme.css';
+import '../../styles/mobileGalleryTheme.css';
 import '../../pages/ClientGallery.css';
 import '../../pages/mobile-gallery/MobileGallery.css';
 
@@ -18,6 +21,7 @@ const MobileGalleryLayout = ({ children }) => {
   const appDropdownRef = useRef(null);
 
   const isAppDetail = location.pathname.includes('/mobile-gallery/app/');
+  const isModuleSettings = location.pathname.startsWith('/mobile-gallery/settings');
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -36,7 +40,7 @@ const MobileGalleryLayout = ({ children }) => {
   const closePanels = () => setOpenPanel(null);
 
   return (
-    <div className="mg-shell">
+    <div className="theme-mono cg-shell mg-theme mg-shell">
       <header className="mg-topbar">
         <div className="mg-topbar-left">
           <span className="mg-brand-logo" onClick={() => navigate('/dashboard')} role="button" tabIndex={0}>
@@ -110,45 +114,41 @@ const MobileGalleryLayout = ({ children }) => {
         </div>
 
         <div className="mg-topbar-right">
+          {!isAppDetail && !isModuleSettings && (
+            <button
+              type="button"
+              className="mg-topbar-icon neu-circle"
+              onClick={() => {
+                closePanels();
+                navigate('/mobile-gallery/settings');
+              }}
+              aria-label="Mobile Gallery settings"
+            >
+              <Settings size={18} strokeWidth={1.75} />
+            </button>
+          )}
           <MobileGalleryHelpDropdown
             open={openPanel === 'help'}
             onToggle={() => togglePanel('help')}
             onClose={closePanels}
+            triggerClassName="mg-topbar-icon neu-circle"
           />
           <MobileGalleryNotifications
             open={openPanel === 'notifications'}
             onToggle={() => togglePanel('notifications')}
             onClose={closePanels}
+            triggerClassName="mg-topbar-icon neu-circle"
           />
           <MobileGalleryProfileDropdown
             open={openPanel === 'profile'}
             onToggle={() => togglePanel('profile')}
             onClose={closePanels}
+            triggerClassName="mg-profile-btn"
           />
         </div>
       </header>
 
-      {!isAppDetail && (
-        <nav className="mg-module-tabs">
-          <div className="mg-content">
-            <NavLink
-              to="/mobile-gallery"
-              end
-              className={({ isActive }) => `mg-module-tab${isActive ? ' mg-module-tab--active' : ''}`}
-            >
-              Apps
-            </NavLink>
-            <NavLink
-              to="/mobile-gallery/settings"
-              className={({ isActive }) => `mg-module-tab${isActive ? ' mg-module-tab--active' : ''}`}
-            >
-              Settings
-            </NavLink>
-          </div>
-        </nav>
-      )}
-
-      <main className="mg-main">{children}</main>
+      <main className="mg-main cg-style-2">{children}</main>
     </div>
   );
 };

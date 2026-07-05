@@ -7,6 +7,7 @@ import AppPhotosPanel from '../../components/mobile-gallery/AppPhotosPanel';
 import AppDesignPanel from '../../components/mobile-gallery/AppDesignPanel';
 import AppSettingsPanel from '../../components/mobile-gallery/AppSettingsPanel';
 import AppPreviewDropdown from '../../components/mobile-gallery/AppPreviewDropdown';
+import { ClientGallerySubpageTabs } from '../../components/features/ClientGallery/ClientGalleryPageShell';
 import { AppDetailIconButton, useAppIconEditor } from '../../components/mobile-gallery/useAppIconEditor';
 import './MobileGallery.css';
 
@@ -68,7 +69,7 @@ const AppDetail = () => {
           <div className="mg-empty">
             <h2>App not found</h2>
             <p>This Mobile Gallery App may have been deleted.</p>
-            <button type="button" className="mg-btn-primary" onClick={() => navigate('/mobile-gallery')}>
+            <button type="button" className="mg-btn-primary neu-pill" onClick={() => navigate('/mobile-gallery')}>
               Back to Apps
             </button>
           </div>
@@ -94,13 +95,13 @@ const AppDetail = () => {
                 </svg>
               </button>
               <AppDetailIconButton app={app} onEdit={openIconEditor} uploading={uploadingIcon} />
-              <h1 className="mg-app-detail-name">{app.name}</h1>
+              <h1 className="mg-app-detail-name cg-page-title">{app.name}</h1>
             </div>
             <div className="mg-app-detail-actions">
               <AppPreviewDropdown appId={app.id} appName={app.name} />
               <button
                 type="button"
-                className="mg-btn-primary"
+                className="mg-btn-primary neu-pill"
                 onClick={() => navigate(`/mobile-gallery/app/${app.id}/share`)}
               >
                 Share →
@@ -110,18 +111,9 @@ const AppDetail = () => {
         </div>
 
         <div className="mg-app-detail-tabs-bar">
-          <nav className="mg-app-detail-tabs mg-content mg-content--wide">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className={`mg-app-detail-tab${activeTab === tab.id ? ' mg-app-detail-tab--active' : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+          <div className="mg-content mg-content--wide mg-app-detail-tabs-wrap">
+            <ClientGallerySubpageTabs tabs={TABS} activeId={activeTab} onChange={setActiveTab} />
+          </div>
         </div>
 
         <div className="mg-app-detail-content mg-content mg-content--wide">

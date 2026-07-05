@@ -1,5 +1,31 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from '../../../lib/utils';
+
+function useTypewriterPlaceholder(fullText, enabled, intervalMs = 80) {
+    const [displayPlaceholder, setDisplayPlaceholder] = useState(enabled ? '' : fullText);
+
+    useEffect(() => {
+        if (!enabled || !fullText) {
+            setDisplayPlaceholder(fullText || '');
+            return undefined;
+        }
+
+        setDisplayPlaceholder('');
+        let index = 0;
+        const interval = window.setInterval(() => {
+            if (index <= fullText.length) {
+                setDisplayPlaceholder(fullText.slice(0, index));
+                index += 1;
+            } else {
+                window.clearInterval(interval);
+            }
+        }, intervalMs);
+
+        return () => window.clearInterval(interval);
+    }, [enabled, fullText, intervalMs]);
+
+    return displayPlaceholder;
+}
 
 export function ClientGalleryPageShell({
     title,
@@ -35,7 +61,19 @@ export function ClientGalleryPageShell({
     );
 }
 
-export function ClientGallerySearchField({ value, onChange, placeholder, ariaLabel, className }) {
+export function ClientGallerySearchField({
+    value,
+    onChange,
+    placeholder,
+    ariaLabel,
+    className,
+    typewriterPlaceholder = false,
+}) {
+    const resolvedPlaceholder = useTypewriterPlaceholder(
+        placeholder,
+        typewriterPlaceholder,
+    );
+
     return (
         <div className={cn('relative flex-1', className)}>
             <svg
@@ -56,7 +94,7 @@ export function ClientGallerySearchField({ value, onChange, placeholder, ariaLab
                 type="search"
                 value={value}
                 onChange={onChange}
-                placeholder={placeholder}
+                placeholder={resolvedPlaceholder}
                 aria-label={ariaLabel || placeholder}
                 className="neu-inset h-10 w-full rounded-full border-0 pl-9 pr-3 text-sm text-[#1A1A1A] outline-none placeholder:text-[#71717A]"
             />

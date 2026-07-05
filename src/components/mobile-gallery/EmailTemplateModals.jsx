@@ -94,7 +94,7 @@ function ManageEmailTemplatesModal({
         aria-label="Manage email templates"
       >
         <div className="mg-email-templates-header">
-          <h2>Manage Email Templates</h2>
+          <h2 className="cg-page-title">Manage Email Templates</h2>
           <button type="button" className="mg-share-modal-close" onClick={onClose}>
             Close
           </button>
@@ -126,28 +126,34 @@ function ManageEmailTemplatesModal({
             ) : (
               <>
                 <label className="mg-share-field">
-                  <input
-                    type="text"
-                    className="mg-email-templates-name-input"
-                    value={draftName}
-                    onChange={(e) => setDraftName(e.target.value)}
-                    placeholder="Template name"
-                  />
+                  <div className="neu-inset cg-field-shell">
+                    <input
+                      type="text"
+                      className="mg-email-templates-name-input"
+                      value={draftName}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      placeholder="Template name"
+                    />
+                  </div>
                 </label>
                 <label className="mg-share-field">
-                  <span className="mg-share-label">Subject</span>
-                  <input
-                    type="text"
-                    className="mg-share-input"
-                    value={draftSubject}
-                    onChange={(e) => setDraftSubject(e.target.value)}
-                  />
+                  <span className="mg-share-label cg-field-label">Subject</span>
+                  <div className="neu-inset cg-field-shell">
+                    <input
+                      type="text"
+                      className="mg-share-input"
+                      value={draftSubject}
+                      onChange={(e) => setDraftSubject(e.target.value)}
+                    />
+                  </div>
                 </label>
-                <textarea
-                  className="mg-share-textarea mg-email-templates-body-input"
-                  value={draftBody}
-                  onChange={(e) => setDraftBody(e.target.value)}
-                />
+                <div className="neu-inset cg-field-shell-textarea">
+                  <textarea
+                    className="mg-share-textarea mg-email-templates-body-input"
+                    value={draftBody}
+                    onChange={(e) => setDraftBody(e.target.value)}
+                  />
+                </div>
                 <p className="mg-email-templates-preview-hint">
                   Preview: <strong>{previewSubject || '(no subject)'}</strong>
                 </p>
@@ -157,7 +163,7 @@ function ManageEmailTemplatesModal({
         </div>
 
         <div className="mg-email-templates-footer">
-          <button type="button" className="mg-btn-primary" onClick={handleSave} disabled={saving || !selectedId || loading}>
+          <button type="button" className="mg-btn-primary neu-pill" onClick={handleSave} disabled={saving || !selectedId || loading}>
             {saving ? 'Saving…' : 'Save'}
           </button>
         </div>
