@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { supabase } from '../lib/supabase/client';
 import {
     Bell,
     Home,
@@ -39,6 +40,53 @@ const SidebarLayout = ({ children }) => {
     const profileDropdownRef = useRef(null);
     const { user, logout } = useAuth();
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+
+    const [profile, setProfile] = useState(null);
+
+    useEffect(() => {
+        if (!user?.id) {
+            setProfile(null);
+            return;
+        }
+        supabase
+            .from('photographers')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+            .then(({ data }) => {
+                if (data) setProfile(data);
+            })
+            .catch((err) => console.error('Error loading photographer profile:', err));
+    }, [user?.id]);
+
+    const usedBytes = profile?.storage_used_bytes || 0;
+    const limitBytes = profile?.storage_limit_bytes;
+
+    const formatStorage = (bytes) => {
+        if (!bytes || bytes <= 0) return '0.00 MB';
+        const tbLimit = 1024 * 1024 * 1024 * 1024;
+        const gbLimit = 1024 * 1024 * 1024;
+        
+        if (bytes >= tbLimit) {
+            return `${(bytes / tbLimit).toFixed(2)} TB`;
+        }
+        if (bytes >= gbLimit) {
+            return `${(bytes / gbLimit).toFixed(2)} GB`;
+        }
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    };
+    
+    const getLimitBytes = () => {
+        if (limitBytes) return limitBytes;
+        const tier = String(profile?.plan || '').toLowerCase();
+        if (tier === 'pro') return 100 * 1024 * 1024 * 1024;
+        if (tier === 'premium') return 500 * 1024 * 1024 * 1024;
+        if (tier === 'free') return 5 * 1024 * 1024 * 1024;
+        return 10 * 1024 * 1024 * 1024;
+    };
+    
+    const maxBytes = getLimitBytes();
+    const storagePct = Math.min(100, maxBytes > 0 ? (usedBytes / maxBytes) * 100 : 0);
 
     const userInitial = getUserInitial(user);
     const userDisplayLabel = getUserDisplayLabel(user);
@@ -308,9 +356,9 @@ const SidebarLayout = ({ children }) => {
                             </button>
                         </div>
                         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[#ECEAE6]">
-                            <div className="h-full w-[0%] rounded-full bg-[#1A1A1A]" />
+                            <div className="h-full rounded-full bg-[#1A1A1A] transition-all duration-300" style={{ width: `${storagePct}%` }} />
                         </div>
-                        <p className="mt-1.5 text-xs text-[#71717A]">0 GB of 3 GB used</p>
+                        <p className="mt-1.5 text-xs text-[#71717A]">{formatStorage(usedBytes)} of {formatStorage(maxBytes)} used</p>
                     </div>
 
                     <div className="relative mt-3" ref={profileDropdownRef}>

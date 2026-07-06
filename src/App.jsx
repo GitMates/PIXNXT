@@ -26,6 +26,11 @@ import GalleryFavoritesHub from './pages/public/GalleryFavoritesHub';
 import MobileGalleryInstall from './pages/public/MobileGalleryInstall';
 import MobileGalleryClient from './pages/public/MobileGalleryClient';
 import PublicAlbumPreview from './pages/smart-albums/PublicAlbumPreview';
+import AdminLayout from './components/admin/AdminLayout';
+import AdminLogin from './pages/admin/AdminLogin';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminUserManagement from './pages/admin/AdminUserManagement';
+import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
@@ -112,6 +117,7 @@ function App() {
     location.pathname.startsWith('/gallery/') ||
     location.pathname.startsWith('/m/') ||
     location.pathname.startsWith('/album-preview/') ||
+    location.pathname.startsWith('/admin') ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
   if (location.pathname.startsWith('/m/')) {
@@ -192,6 +198,13 @@ function App() {
           <Route path="/m/:slug" element={<MobileGalleryInstall />} />
           <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
           <Route path="/ref/:code" element={<ReferralRedirect />} />
+          
+          <Route path="/admin/login" element={<AdminLogin />} />
+          <Route path="/admin" element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
+            <Route index element={<Navigate to="dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUserManagement />} />
+          </Route>
         </Routes>
 
         {!hideLayout && <Footer />}
