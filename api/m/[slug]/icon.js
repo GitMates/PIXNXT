@@ -4,6 +4,15 @@ function resolveIconUrl(app) {
   return app?.icon_url || app?.cover_image_url || null;
 }
 
+function getRequestOrigin(req) {
+  const fromEnv = process.env.VITE_PUBLIC_SITE_URL || process.env.PUBLIC_SITE_URL || '';
+  if (fromEnv) return String(fromEnv).replace(/\/$/, '');
+  const forwardedProto = req.headers['x-forwarded-proto'];
+  const host = req.headers.host;
+  if (host) return `${forwardedProto || 'https'}://${host}`;
+  return '';
+}
+
 export default async function handler(req, res) {
   const slug = String(req.query.slug || '').trim();
   if (!slug) {
@@ -42,6 +51,11 @@ export default async function handler(req, res) {
 
   const iconUrl = resolveIconUrl(app);
   if (!iconUrl) {
+    const origin = getRequestOrigin(req);
+    if (origin) {
+      res.redirect(302, `${origin}/logo.png`);
+      return;
+    }
     res.status(404).json({ error: 'Gallery has no icon' });
     return;
   }
@@ -53,10 +67,11 @@ export default async function handler(req, res) {
       return;
     }
 
-    const contentType = upstream.headers.get('content-type') || 'image/png';
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    const upstreamType = upstream.headers.get('content-type') || 'image/png';
     const buffer = Buffer.from(await upstream.arrayBuffer());
+
+    res.setHeader('Content-Type', upstreamType.includes('image/') ? upstreamType : 'image/png');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
     res.status(200).send(buffer);
   } catch (err) {
     console.error('[mg-icon] proxy failed', iconUrl, err);

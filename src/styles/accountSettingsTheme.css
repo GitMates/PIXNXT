@@ -1,0 +1,497 @@
+/**
+ * Account Settings — Neumorphic Cream UI (matches Client Gallery)
+ * Scoped under .theme-mono.cg-shell.acct-shell
+ */
+
+.theme-mono.cg-shell.acct-shell {
+  min-height: 100vh;
+  background: #f9f9f7;
+  color: #1a1a1a;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.acct-shell .acct-header {
+  background: #fff;
+  border-bottom: 1px solid #eceae6;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  padding: 0 40px;
+  flex-shrink: 0;
+}
+
+.acct-shell .acct-header-inner {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.acct-shell .acct-header-left {
+  display: flex;
+  align-items: center;
+  gap: 48px;
+}
+
+.acct-shell .acct-brand {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-size: 19px;
+  font-weight: 500;
+  letter-spacing: 0.28em;
+  color: #1a1a1a;
+  cursor: pointer;
+  user-select: none;
+}
+
+.acct-shell .acct-app-switcher-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: #71717a;
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: 9999px;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+}
+
+.acct-shell .acct-app-switcher-trigger:hover {
+  background: #f4f3f0;
+  color: #1a1a1a;
+}
+
+.acct-shell .acct-app-dropdown {
+  top: calc(100% + 8px);
+  left: 0;
+}
+
+/* ── Sub navigation ───────────────────────────────────── */
+.acct-shell .acct-subnav {
+  background: #f9f9f7;
+  border-bottom: 1px solid #eceae6;
+  padding: 16px 40px 20px;
+  flex-shrink: 0;
+}
+
+.acct-shell .acct-subnav .neu-inset {
+  max-width: 100%;
+}
+
+.acct-shell .acct-subnav button {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Main content ─────────────────────────────────────── */
+.acct-shell .acct-main {
+  flex: 1;
+  background: #f9f9f7;
+  padding: 32px 40px 80px;
+  min-height: 0;
+}
+
+.acct-shell .acct-content {
+  width: 100%;
+  max-width: 800px;
+  margin: 0;
+}
+
+/* ── Typography ─────────────────────────────────────────── */
+.acct-shell .cg-page-title {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: #1a1a1a;
+  text-transform: none;
+}
+
+.acct-shell .acct-section-label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #71717a;
+  font-family: inherit;
+}
+
+.acct-shell .acct-field-label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 8px;
+  font-family: inherit;
+}
+
+.acct-shell .acct-field-help {
+  font-size: 14px;
+  color: #71717a;
+  line-height: 1.55;
+  font-family: inherit;
+}
+
+.acct-shell .acct-loading {
+  padding: 32px 0;
+  color: #71717a;
+  font-size: 15px;
+}
+
+/* ── Form fields ──────────────────────────────────────── */
+.acct-shell .acct-field {
+  width: 100%;
+}
+
+.acct-shell .acct-field-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.acct-shell .acct-field-row--top {
+  align-items: flex-start;
+}
+
+.acct-shell .acct-field-shell {
+  flex: 1;
+  min-width: 0;
+}
+
+.acct-shell .acct-field-shell--dirty {
+  box-shadow:
+    inset 2px 2px 5px var(--neu-dark),
+    inset -2px -2px 5px var(--neu-light),
+    0 0 0 2px rgba(26, 26, 26, 0.08);
+}
+
+.acct-shell .acct-field-input,
+.acct-shell .acct-field-textarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  color: #1a1a1a;
+  font-size: 15px;
+  font-family: inherit;
+  padding: 0 16px;
+  min-height: 44px;
+}
+
+.acct-shell .acct-field-shell--textarea {
+  height: auto;
+  min-height: 0;
+  border-radius: 12px;
+  align-items: stretch;
+}
+
+.acct-shell .acct-field-shell--textarea .acct-field-textarea {
+  min-height: 120px;
+  padding: 12px 16px;
+  line-height: 1.5;
+  resize: vertical;
+  height: auto;
+}
+
+.acct-shell .cg-field-shell-textarea.neu-inset .acct-field-textarea {
+  min-height: 120px;
+  padding: 12px 16px;
+  height: auto;
+}
+
+.acct-shell .acct-field .text-\[14px\] {
+  padding-left: 2px;
+}
+
+.acct-shell .acct-input,
+.acct-shell .acct-select {
+  width: 100%;
+  border: none;
+  border-radius: 9999px;
+  background: var(--neu-inset-bg, oklch(0.952 0.005 85));
+  box-shadow: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
+  padding: 0 16px;
+  min-height: 44px;
+  font-size: 15px;
+  color: #1a1a1a;
+  outline: none;
+  font-family: inherit;
+  transition: box-shadow 0.15s ease;
+}
+
+.acct-shell .acct-input:focus,
+.acct-shell .acct-select:focus {
+  box-shadow:
+    inset 2px 2px 5px var(--neu-dark),
+    inset -2px -2px 5px var(--neu-light),
+    0 0 0 2px rgba(26, 26, 26, 0.1);
+}
+
+.acct-shell .acct-field-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.acct-shell .acct-btn-text {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #71717a;
+  font-family: inherit;
+  padding: 0 4px;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.acct-shell .acct-btn-text:hover {
+  color: #1a1a1a;
+}
+
+.acct-shell .acct-btn-save {
+  height: 40px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  color: #fff;
+  border: none;
+}
+
+.acct-shell .acct-btn-save:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.acct-shell .acct-btn-primary {
+  color: #fff;
+  border: none;
+  border-radius: 9999px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.acct-shell .acct-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.acct-shell .acct-btn-primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.acct-shell .acct-btn-outline {
+  border: 1px solid #eceae6;
+  background: #fff;
+  color: #1a1a1a;
+  border-radius: 9999px;
+  font-weight: 600;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.acct-shell .acct-btn-outline:hover {
+  background: #1a1a1a;
+  color: #fff;
+  border-color: #1a1a1a;
+}
+
+/* ── Profile icon upload ────────────────────────────────── */
+.acct-shell .profile-upload-box {
+  width: 120px;
+  height: 120px;
+  background: var(--neu-inset-bg, oklch(0.952 0.005 85));
+  box-shadow: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #71717a;
+  cursor: pointer;
+  position: relative;
+  transition: box-shadow 0.2s ease;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.acct-shell .profile-upload-box:hover {
+  box-shadow:
+    inset 2px 2px 5px var(--neu-dark),
+    inset -2px -2px 5px var(--neu-light),
+    0 0 0 2px rgba(26, 26, 26, 0.06);
+}
+
+.acct-shell .profile-upload-inner {
+  width: 40px;
+  height: 40px;
+  border: 1.5px solid #d4d4d8;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #71717a;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+}
+
+.acct-shell .profile-upload-box:hover .profile-upload-inner {
+  border-color: #a1a1aa;
+  transform: scale(1.05);
+}
+
+.acct-shell .profile-upload-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.acct-shell .profile-upload-box:hover .profile-upload-overlay {
+  opacity: 1;
+}
+
+.acct-shell .profile-upload-remove-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  color: #dc2626;
+  transition: transform 0.15s ease;
+  z-index: 10;
+}
+
+.acct-shell .profile-upload-remove-btn:hover {
+  transform: scale(1.08);
+}
+
+.acct-shell .profile-upload-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+  border-top-color: #1a1a1a;
+  border-radius: 50%;
+  animation: acct-profile-spin 0.8s linear infinite;
+}
+
+@keyframes acct-profile-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Toast ──────────────────────────────────────────────── */
+.acct-shell .acct-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: 9999px;
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  animation: cgFadeIn 0.25s ease-out;
+}
+
+/* ── Cards & panels ───────────────────────────────────── */
+.acct-shell .acct-card {
+  border: 1px solid #eceae6;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow:
+    -3px -3px 8px oklch(1 0.004 85 / 0.7),
+    4px 4px 12px oklch(0.4 0.01 70 / 0.08);
+}
+
+/* ── Toggle switches ────────────────────────────────────── */
+.acct-shell .acct-toggle-on {
+  background: #1a1a1a !important;
+}
+
+/* ── Teal legacy sweep (inline styles / tailwind remnants) */
+.acct-shell [style*="#1a9b84"],
+.acct-shell [style*="#147d6a"] {
+  /* nudge authors toward classes; key controls overridden below */
+}
+
+.acct-shell .text-\[\#1a9b84\] {
+  color: #1a1a1a !important;
+}
+
+.acct-shell .border-\[\#1a9b84\] {
+  border-color: #eceae6 !important;
+}
+
+.acct-shell .bg-\[\#e8f7f2\] {
+  background: #f4f3f0 !important;
+}
+
+.acct-shell .text-\[\#888\] {
+  color: #71717a;
+}
+
+.acct-shell .text-\[\#111\] {
+  color: #1a1a1a;
+}
+
+.acct-shell .text-\[\#999\] {
+  color: #71717a;
+}
+
+.acct-shell .border-\[\#f1f1f1\],
+.acct-shell .border-\[\#cccccc\] {
+  border-color: #eceae6;
+}
+
+.acct-shell .bg-white {
+  background-color: #fff;
+}
+
+.acct-shell .bg-\[\#fafafa\],
+.acct-shell .bg-\[\#f5f5f5\] {
+  background-color: #f9f9f7;
+}
+
+.acct-shell .mg-app-dropdown,
+.acct-shell .mg-profile-dropdown,
+.acct-shell .mg-help-panel,
+.acct-shell .mg-notifications-panel {
+  border: 1px solid #eceae6;
+  border-radius: 16px;
+  box-shadow:
+    -4px -4px 12px oklch(1 0.004 85 / 0.75),
+    8px 12px 28px oklch(0.4 0.01 70 / 0.08);
+}
+
+.acct-shell .mg-app-dropdown-item:hover,
+.acct-shell .mg-profile-dropdown-item:hover {
+  background: #f4f3f0;
+}

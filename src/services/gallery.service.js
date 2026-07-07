@@ -888,6 +888,38 @@ export const galleryService = {
       throw new Error('Collection or photographer is missing. Refresh the page and try again.');
     }
 
+    // Retrieve storage profile info to check limits
+    const { data: profile } = await supabase
+      .from('photographers')
+      .select('storage_used_bytes, storage_limit_bytes, plan')
+      .eq('id', photographerId)
+      .single();
+
+    if (profile) {
+      const usedBytes = profile.storage_used_bytes || 0;
+      let limitBytes = profile.storage_limit_bytes;
+
+      if (!limitBytes) {
+        const tier = String(profile.plan || '').toLowerCase();
+        if (tier === 'pro') limitBytes = 100 * 1024 * 1024 * 1024;
+        else if (tier === 'premium') limitBytes = 500 * 1024 * 1024 * 1024;
+        else if (tier === 'free') limitBytes = 5 * 1024 * 1024 * 1024;
+        else limitBytes = 10 * 1024 * 1024 * 1024;
+      }
+
+      if (usedBytes + file.size > limitBytes) {
+        const remainingBytes = Math.max(0, limitBytes - usedBytes);
+        const formatSize = (bytes) => {
+          if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+          if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+          return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+        };
+        throw new Error(
+          `Storage limit exceeded. Remaining storage space: ${formatSize(remainingBytes)}. This file size is ${formatSize(file.size)}.`
+        );
+      }
+    }
+
     const mime = getFileMime(file);
     const fileExt = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
@@ -1348,7 +1380,7 @@ export const galleryService = {
    */
   async getPhotographerProfileBySlug(slug) {
     if (!slug) return null;
-    
+
     // 1. Try to find by homepage_slug
     let { data, error } = await supabase
       .from('photographers')
@@ -1367,7 +1399,7 @@ export const galleryService = {
         .select('*')
         .ilike('display_name', slug)
         .single();
-      
+
       if (pError && pError.code !== 'PGRST116') {
         throw pError;
       }
@@ -1397,7 +1429,7 @@ export const galleryService = {
    */
   async updatePhotographerProfile(photographerId, updates) {
     if (!photographerId) throw new Error('Photographer ID is required.');
-    
+
     // First verify if the row exists because upsert can sometimes cause issues with RLS if not configured properly
     const { data: existing, error: existingError } = await supabase
       .from('photographers')
@@ -1460,7 +1492,7 @@ export const galleryService = {
           access_level: 'guest',
           created_at: new Date().toISOString()
         };
-        
+
         console.log('Attempting blind insert for session:', insertData);
         const { error: insertError } = await supabase
           .from('client_sessions')
@@ -1813,12 +1845,12 @@ export const galleryService = {
 
       (items || []).forEach(item => {
         countMap[item.list_id] = (countMap[item.list_id] || 0) + 1;
-        
+
         // Use the latest item creation date as the updated_at for the list
         if (!thumbMap[item.list_id] && item.photo) {
           thumbMap[item.list_id] = item.photo.thumbnail_url || item.photo.web_url;
         }
-        
+
         const itemDate = new Date(item.created_at);
         if (!updatedMap[item.list_id] || itemDate > updatedMap[item.list_id]) {
           updatedMap[item.list_id] = itemDate;
@@ -2113,7 +2145,7 @@ export const galleryService = {
         .select('*', { count: 'exact', head: true })
         .eq('collection_id', collectionId)
         .eq('event_type', 'download');
-      
+
       if (error) throw error;
       return count || 0;
     } catch (e) {
@@ -2157,7 +2189,7 @@ export const galleryService = {
         .from('client_sessions')
         .select('visitor_email', { count: 'exact', head: false })
         .eq('collection_id', collectionId);
-      
+
       const registeredEmails = new Set((registeredData || []).map(s => s.visitor_email).filter(Boolean));
       const registeredCount = registeredEmails.size;
 
@@ -2167,7 +2199,7 @@ export const galleryService = {
         .select('visitor_email')
         .eq('collection_id', collectionId)
         .eq('event_type', 'download');
-      
+
       const downloadedEmails = new Set((downloadData || []).map(a => a.visitor_email).filter(Boolean));
       const downloadedCount = downloadedEmails.size;
 
@@ -2185,14 +2217,14 @@ export const galleryService = {
           .from('favorite_items')
           .select('list_id')
           .in('list_id', listIds);
-        
+
         const listsWithItems = new Set((favItems || []).map(i => i.list_id));
         const favoritedSessionIds = new Set(
           favoriteLists
             .filter(l => listsWithItems.has(l.id))
             .map(l => l.session_id)
         );
-        
+
         // Map session IDs back to unique emails
         const favoritedEmails = new Set(
           (registeredData || [])

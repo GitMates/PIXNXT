@@ -138,6 +138,16 @@ export function UploadQueueProvider({ children }) {
         console.error('Upload failed:', err);
         const message =
           err instanceof Error ? err.message : 'Upload failed. Check your connection and try again.';
+          
+        if (message.includes('Storage limit exceeded') || message.includes('Remaining storage space')) {
+          let remaining = '0.00 MB';
+          const match = message.match(/Remaining storage space:\s*(.*?)\.\s*This/i);
+          if (match && match[1]) {
+            remaining = match[1].trim();
+          }
+          alert(`You have ${remaining} only. Try to upload files below this size limit.`);
+        }
+        
         safePatch({ status: 'error', progress: 0, errorMessage: message });
       }
     },

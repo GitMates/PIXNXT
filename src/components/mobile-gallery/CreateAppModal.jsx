@@ -34,31 +34,40 @@ const CreateAppModal = ({ isOpen, onClose, onCreate, saving }) => {
   return (
     <div className="mg-modal-overlay" onClick={onClose} role="presentation">
       <div className="mg-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-labelledby="mg-create-title">
-        <h2 id="mg-create-title" className="mg-modal-title">CREATE NEW APP</h2>
-        <form onSubmit={handleSubmit}>
-          <label className="mg-field-label" htmlFor="mg-app-name">
-            Mobile Gallery App Name
-          </label>
-          <input
-            ref={nameInputRef}
-            id="mg-app-name"
-            type="text"
-            className="mg-field-input"
-            placeholder="e.g. John & Jane"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            autoComplete="off"
-          />
+        <h2 id="mg-create-title" className="mg-modal-title cg-page-title">Create New App</h2>
+        <form className="mg-modal-form" onSubmit={handleSubmit}>
+          <div className="mg-modal-field">
+            <label className="mg-field-label cg-field-label" htmlFor="mg-app-name">
+              Mobile Gallery App Name
+            </label>
+            <div className="neu-inset cg-field-shell">
+              <input
+                ref={nameInputRef}
+                id="mg-app-name"
+                type="text"
+                className="mg-field-input"
+                placeholder="e.g. John & Jane"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+          </div>
 
-          <label className="mg-field-label" htmlFor="mg-app-date">
-            Event Date
-          </label>
-          <DatePicker
-            value={eventDate}
-            onChange={setEventDate}
-            placeholder="Pick a date (optional)"
-            className="mg-date-picker"
-          />
+          <div className="mg-modal-field">
+            <label className="mg-field-label cg-field-label" htmlFor="mg-app-date">
+              Event Date
+            </label>
+            <div className="neu-inset cg-field-shell">
+              <DatePicker
+                value={eventDate}
+                onChange={setEventDate}
+                placeholder="Pick a date (optional)"
+                className="mg-date-picker mg-date-picker--compact"
+                showQuickSearch={false}
+              />
+            </div>
+          </div>
 
           <p className="mg-modal-help">
             Looking to create an app from a client gallery?{' '}
@@ -71,7 +80,7 @@ const CreateAppModal = ({ isOpen, onClose, onCreate, saving }) => {
             <button type="button" className="mg-btn-text" onClick={onClose} disabled={saving}>
               Cancel
             </button>
-            <button type="submit" className="mg-btn-primary" disabled={!name.trim() || saving}>
+            <button type="submit" className="mg-btn-primary neu-pill" disabled={!name.trim() || saving}>
               {saving ? 'Creating…' : 'Create'}
             </button>
           </div>

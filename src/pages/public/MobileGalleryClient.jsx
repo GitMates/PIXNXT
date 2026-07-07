@@ -1,10 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { mobileGalleryPublicService } from '../../services/mobileGalleryPublic.service';
-import { getAppInstallLink } from '../../lib/mobileGalleryInstall';
+import { getAppInstallLink, isStandaloneDisplay } from '../../lib/mobileGalleryInstall';
 import { getAppCtaLink } from '../../lib/mobileGalleryAppSettings';
-import { applyMobileGalleryPwaHead } from '../../lib/mobileGalleryPwa';
+import { applyMobileGalleryPwaHead, ensurePwaUrl, shouldShowInstallPrompt } from '../../lib/mobileGalleryPwa';
 import MobileGalleryClientHome from '../../components/mobile-gallery/MobileGalleryClientHome';
+import MobileGalleryInstallOverlay from '../../components/mobile-gallery/MobileGalleryInstallOverlay';
+import { usePwaInstallPrompt } from '../../hooks/usePwaInstallPrompt';
 import { useMobileGalleryGridPhotos } from '../../components/mobile-gallery/MobileGalleryPhotoGrid';
 import { getAppDesignSettings } from '../../lib/mobileGalleryDesign';
 import '../mobile-gallery/MobileGallery.css';
@@ -77,6 +79,9 @@ const MobileGalleryClient = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('home');
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [showInstallOverlay, setShowInstallOverlay] = useState(false);
+  const standalone = useMemo(() => isStandaloneDisplay(), []);
+  const { canInstall, installing, triggerInstall } = usePwaInstallPrompt(slug);
 
   useEffect(() => {
     if (!slug) return undefined;
@@ -136,6 +141,39 @@ const MobileGalleryClient = () => {
     if (!app?.slug) return undefined;
     return applyMobileGalleryPwaHead({ app, slug: app.slug, photographerName, logoUrl: profileIconUrl });
   }, [app, photographerName, profileIconUrl]);
+
+  useEffect(() => {
+    if (!slug || standalone) return;
+
+    ensurePwaUrl(slug);
+
+    const pendingKey = `mg-pending-install:${slug}`;
+    const dismissedKey = `mg-install-dismissed:${slug}`;
+    const pending = sessionStorage.getItem(pendingKey) === '1';
+    const dismissed = sessionStorage.getItem(dismissedKey) === '1';
+
+    if (pending) {
+      sessionStorage.removeItem(pendingKey);
+    }
+
+    if (shouldShowInstallPrompt() && (pending || !dismissed)) {
+      setShowInstallOverlay(true);
+    }
+  }, [slug, standalone]);
+
+  const dismissInstallOverlay = () => {
+    if (slug) {
+      sessionStorage.setItem(`mg-install-dismissed:${slug}`, '1');
+    }
+    setShowInstallOverlay(false);
+  };
+
+  const handleNativeInstall = async () => {
+    const accepted = await triggerInstall();
+    if (accepted) {
+      dismissInstallOverlay();
+    }
+  };
 
   if (loading) {
     return <div className="mg-client-page"><p className="mg-install-loading">Loading…</p></div>;
@@ -221,6 +259,16 @@ const MobileGalleryClient = () => {
             alt=""
           />
         </div>
+      )}
+
+      {showInstallOverlay && (
+        <MobileGalleryInstallOverlay
+          appName={app.name}
+          onDismiss={dismissInstallOverlay}
+          onInstall={canInstall ? handleNativeInstall : undefined}
+          canInstall={canInstall}
+          installing={installing}
+        />
       )}
     </div>
   );

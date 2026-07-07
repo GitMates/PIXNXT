@@ -21,6 +21,7 @@ import { sortMobileGalleryPhotos } from '../../lib/mobileGalleryPhotoSort';
 import FocalPointModal from './FocalPointModal';
 import ThemeCoverContent, { ThemeThumbContent } from './ThemeCoverContent';
 import MobileGalleryPhotoGrid from './MobileGalleryPhotoGrid';
+import { ClientGallerySelect } from '../features/ClientGallery/ClientGallerySelect';
 
 import '../../pages/mobile-gallery/MobileGallery.css';
 
@@ -80,7 +81,7 @@ function CoverLayoutIcon({ type }) {
 
         <rect x="4" y="4" width="32" height="56" rx="2" fill="#fff" stroke="#ccc" />
 
-        <rect x="8" y="8" width="24" height="48" fill="#20a398" opacity="0.35" />
+        <rect x="8" y="8" width="24" height="48" fill="#1A1A1A" opacity="0.35" />
 
       </svg>
 
@@ -96,7 +97,7 @@ function CoverLayoutIcon({ type }) {
 
         <rect x="4" y="4" width="32" height="56" rx="2" fill="#fff" stroke="#ccc" />
 
-        <rect x="8" y="8" width="24" height="14" fill="#20a398" opacity="0.35" />
+        <rect x="8" y="8" width="24" height="14" fill="#1A1A1A" opacity="0.35" />
 
         <rect x="11" y="28" width="10" height="1.5" rx="0.75" fill="#bbb" />
 
@@ -653,23 +654,17 @@ const AppDesignPanel = ({ app, photographerId, onAppUpdated, onEditIcon, iconUpl
 
             <label className="mg-design-field">
 
-              <span className="mg-design-field-label">Grid Style</span>
+              <span className="mg-design-field-label cg-field-label">Grid Style</span>
 
-              <select
-
-                className="mg-design-select"
-
+              <ClientGallerySelect
                 value={design.grid_style}
-
-                onChange={(e) => updateDesign({ grid_style: e.target.value })}
-
-              >
-
-                <option value="vertical">Vertical</option>
-
-                <option value="horizontal">Horizontal</option>
-
-              </select>
+                onChange={(value) => updateDesign({ grid_style: value })}
+                aria-label="Grid style"
+                options={[
+                  { value: 'vertical', label: 'Vertical' },
+                  { value: 'horizontal', label: 'Horizontal' },
+                ]}
+              />
 
               <p className="mg-design-help">
 
@@ -683,23 +678,17 @@ const AppDesignPanel = ({ app, photographerId, onAppUpdated, onEditIcon, iconUpl
 
             <label className="mg-design-field">
 
-              <span className="mg-design-field-label">Color Theme</span>
+              <span className="mg-design-field-label cg-field-label">Color Theme</span>
 
-              <select
-
-                className="mg-design-select"
-
+              <ClientGallerySelect
                 value={design.color_theme}
-
-                onChange={(e) => updateDesign({ color_theme: e.target.value })}
-
-              >
-
-                <option value="light">Light</option>
-
-                <option value="dark">Dark</option>
-
-              </select>
+                onChange={(value) => updateDesign({ color_theme: value })}
+                aria-label="Color theme"
+                options={[
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                ]}
+              />
 
               <p className="mg-design-help">Choose between a light or dark theme that best suits your photos.</p>
 

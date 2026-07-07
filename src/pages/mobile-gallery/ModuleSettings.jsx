@@ -1,9 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { ChevronLeft, Megaphone, Plus } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { galleryService } from '../../services/gallery.service';
 import { storageService } from '../../services/storage.service';
 import { mobileGallerySettingsService } from '../../services/mobileGallerySettings.service';
+import '../../components/features/CollectionDashboard/Settings/Settings.css';
 import './MobileGallery.css';
 
 const CONTACT_FIELDS = [
@@ -16,11 +18,25 @@ const CONTACT_FIELDS = [
 ];
 
 const MegaphoneIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
-    <path d="m3 11 18-5v12L3 14v-3z" />
-    <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
-  </svg>
+  <Megaphone size={20} strokeWidth={1.75} aria-hidden />
 );
+
+function BrandingToggle({ on, onChange, disabled }) {
+  return (
+    <div className="mg-settings-toggle-row">
+      <label className="cd-toggle">
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={() => onChange(!on)}
+          disabled={disabled}
+        />
+        <span className="cd-toggle-slider" />
+      </label>
+      <span className="toggle-state-label">{on ? 'On' : 'Off'}</span>
+    </div>
+  );
+}
 
 function SettingsCheckbox({ checked, onChange, label }) {
   return (
@@ -33,23 +49,6 @@ function SettingsCheckbox({ checked, onChange, label }) {
       </span>
       <span className="mg-settings-checkbox-label">{label}</span>
     </label>
-  );
-}
-
-function BrandingToggle({ on, onChange, disabled }) {
-  return (
-    <div className="mg-settings-toggle-row">
-      <button
-        type="button"
-        className={`mg-settings-toggle${on ? ' mg-settings-toggle--on' : ''}`}
-        onClick={() => onChange(!on)}
-        disabled={disabled}
-        aria-pressed={on}
-      >
-        <span className="mg-settings-toggle-handle" />
-      </button>
-      <span className="mg-settings-toggle-label">{on ? 'On' : 'Off'}</span>
-    </div>
   );
 }
 
@@ -187,21 +186,37 @@ const ModuleSettings = () => {
   if (loading || !settings) {
     return (
       <div className="mg-settings-page mg-content">
-        <h1>Settings</h1>
-        <p className="mg-settings-loading">Loading settings…</p>
+        <header className="mg-settings-header">
+          <Link to="/mobile-gallery" className="mg-settings-back">
+            <ChevronLeft size={16} strokeWidth={2} aria-hidden />
+            Apps
+          </Link>
+          <h1 className="cg-page-title mg-settings-page-title">Settings</h1>
+          <p className="mg-settings-page-desc">Loading settings…</p>
+        </header>
       </div>
     );
   }
 
   return (
     <div className="mg-settings-page mg-content">
-      <h1>Settings</h1>
+      <header className="mg-settings-header">
+        <Link to="/mobile-gallery" className="mg-settings-back">
+          <ChevronLeft size={16} strokeWidth={2} aria-hidden />
+          Apps
+        </Link>
+        <h1 className="cg-page-title mg-settings-page-title">Settings</h1>
+        <p className="mg-settings-page-desc">
+          Manage contact info, domain, and branding for your mobile gallery apps.
+        </p>
+      </header>
 
+      <div className="mg-settings-form">
       {/* Contact Page */}
       <section className="mg-settings-block">
-        <h2 className="mg-settings-section-label">Contact Page</h2>
+        <h2 className="mg-settings-section-label">Contact page</h2>
         <div className="mg-settings-card">
-          <h3 className="mg-settings-card-title">Contact Page Info</h3>
+          <h3 className="mg-settings-card-title">Contact page info</h3>
           <p className="mg-settings-card-desc">Show the following profile info:</p>
           <div className="mg-settings-checkbox-list">
             {CONTACT_FIELDS.map(({ key, label }) => (
@@ -227,20 +242,22 @@ const ModuleSettings = () => {
       <section className="mg-settings-block">
         <h2 className="mg-settings-section-label">Domain</h2>
         <div className="mg-settings-card">
-          <h3 className="mg-settings-card-title">Custom Domain</h3>
+          <h3 className="mg-settings-card-title">Custom domain</h3>
           <div className="mg-settings-domain-row">
-            <input
-              type="text"
-              className="mg-settings-input"
-              placeholder="www.yourdomain.com"
-              value={customDomainDraft}
-              onChange={(e) => setCustomDomainDraft(e.target.value)}
-              onBlur={handleCustomDomainBlur}
-              disabled={!isUpgraded}
-            />
+            <div className="neu-inset cg-field-shell mg-settings-domain-shell">
+              <input
+                type="text"
+                className="mg-settings-input"
+                placeholder="www.yourdomain.com"
+                value={customDomainDraft}
+                onChange={(e) => setCustomDomainDraft(e.target.value)}
+                onBlur={handleCustomDomainBlur}
+                disabled={!isUpgraded}
+              />
+            </div>
             {!isUpgraded && (
-              <button type="button" className="mg-settings-upgrade-btn" onClick={handleUpgrade}>
-                Upgrade to Enable
+              <button type="button" className="mg-settings-upgrade-btn neu-pill" onClick={handleUpgrade}>
+                Upgrade to enable
               </button>
             )}
           </div>
@@ -256,20 +273,22 @@ const ModuleSettings = () => {
 
       {/* Logos & Branding */}
       <section className="mg-settings-block">
-        <h2 className="mg-settings-section-label">Logos &amp; Branding</h2>
+        <h2 className="mg-settings-section-label">Logos &amp; branding</h2>
 
         {!isUpgraded && (
           <div className="mg-settings-upgrade-box">
             <div className="mg-settings-upgrade-box-head">
-              <MegaphoneIcon />
+              <span className="mg-settings-upgrade-icon neu-circle" aria-hidden>
+                <MegaphoneIcon />
+              </span>
               <div>
                 <h3 className="mg-settings-upgrade-box-title">Upgrade for more brand control</h3>
                 <p className="mg-settings-upgrade-box-desc">
-                  Upgrade to a paid plan to create unlimited apps, add full logo and more.
+                  Upgrade to a paid plan to create unlimited apps, add a full logo, and more.
                 </p>
               </div>
             </div>
-            <button type="button" className="mg-settings-upgrade-btn mg-settings-upgrade-btn--inline" onClick={handleUpgrade}>
+            <button type="button" className="mg-settings-upgrade-btn neu-pill mg-settings-upgrade-btn--inline" onClick={handleUpgrade}>
               Upgrade
             </button>
           </div>
@@ -279,7 +298,7 @@ const ModuleSettings = () => {
           <h3 className="mg-settings-card-title">Logo</h3>
           <button
             type="button"
-            className={`mg-settings-logo-upload${!isUpgraded ? ' mg-settings-logo-upload--locked' : ''}`}
+            className={`mg-settings-logo-upload neu-inset${!isUpgraded ? ' mg-settings-logo-upload--locked' : ''}`}
             onClick={handleLogoClick}
             disabled={uploadingLogo}
             aria-label={isUpgraded ? 'Upload logo' : 'Upgrade to upload logo'}
@@ -294,10 +313,7 @@ const ModuleSettings = () => {
                 )}
               </>
             ) : (
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.5" aria-hidden>
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
+              <Plus size={24} strokeWidth={1.5} className="mg-settings-logo-plus" aria-hidden />
             )}
           </button>
           <input
@@ -313,17 +329,20 @@ const ModuleSettings = () => {
           </p>
 
           <div className="mg-settings-branding-row">
-            <h3 className="mg-settings-card-title mg-settings-card-title--inline">PIXNXT Branding</h3>
+            <div>
+              <h3 className="mg-settings-card-title mg-settings-card-title--inline">PIXNXT branding</h3>
+              <p className="mg-settings-help mg-settings-help--tight">
+                Switching this off will hide &ldquo;Powered by PIXNXT&rdquo;. Keep it on if you love us!
+              </p>
+            </div>
             <BrandingToggle
               on={Boolean(settings.show_pixnxt_branding)}
               onChange={(value) => persistSettings({ show_pixnxt_branding: value }, { immediate: true })}
             />
           </div>
-          <p className="mg-settings-help">
-            Switching this off will hide &ldquo;Powered by PIXNXT&rdquo;. Keep it on if you love us!
-          </p>
         </div>
       </section>
+      </div>
 
       {saving && <p className="mg-settings-saving" aria-live="polite">Saving…</p>}
     </div>

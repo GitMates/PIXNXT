@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { ClientGallerySearchField } from '../features/ClientGallery/ClientGalleryPageShell';
 import '../../pages/mobile-gallery/MobileGallery.css';
 
 const HELP_ARTICLES = [
@@ -65,19 +66,14 @@ const MobileGalleryHelpDropdown = ({ open, onToggle, onClose, triggerClassName =
       </button>
       {open && (
         <div className="mg-help-panel">
-          <div className="mg-help-search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-            <input
-              type="search"
-              placeholder="Search our articles"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              aria-label="Search help articles"
-            />
-          </div>
+          <ClientGallerySearchField
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search our articles…"
+            ariaLabel="Search help articles"
+            className="mg-help-search-field"
+            typewriterPlaceholder
+          />
           <div className="mg-help-articles">
             {filtered.length === 0 ? (
               <p className="mg-help-empty">No articles match your search.</p>

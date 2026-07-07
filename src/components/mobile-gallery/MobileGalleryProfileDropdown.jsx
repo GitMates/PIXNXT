@@ -3,9 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import '../../pages/mobile-gallery/MobileGallery.css';
 
-const TEAL = '#20a398';
-const TEAL_LIGHT = '#e8f7f6';
-
 const GiftIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
     <polyline points="20 12 20 22 4 22 4 12" />
@@ -59,7 +56,7 @@ const LogoutIcon = () => (
   </svg>
 );
 
-const MobileGalleryProfileDropdown = ({ open, onToggle, onClose }) => {
+const MobileGalleryProfileDropdown = ({ open, onToggle, onClose, triggerClassName = 'mg-profile-btn' }) => {
   const ref = useRef(null);
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -96,8 +93,7 @@ const MobileGalleryProfileDropdown = ({ open, onToggle, onClose }) => {
     <div className="mg-header-dropdown-wrap" ref={ref}>
       <button
         type="button"
-        className="mg-profile-btn"
-        style={{ background: TEAL }}
+        className={triggerClassName}
         onClick={onToggle}
         aria-label="Account menu"
         aria-expanded={open}
@@ -107,7 +103,7 @@ const MobileGalleryProfileDropdown = ({ open, onToggle, onClose }) => {
       {open && (
         <div className="mg-profile-dropdown mg-profile-dropdown--full">
           <div className="mg-profile-dropdown-header">
-            <div className="mg-profile-dropdown-avatar" style={{ background: TEAL_LIGHT, color: TEAL }}>
+            <div className="mg-profile-dropdown-avatar">
               {userInitial}
             </div>
             <div>
@@ -115,7 +111,7 @@ const MobileGalleryProfileDropdown = ({ open, onToggle, onClose }) => {
               <div className="mg-profile-dropdown-email">{user?.email || ''}</div>
             </div>
           </div>
-          <button type="button" className="mg-profile-dropdown-item mg-profile-dropdown-item--icon" onClick={() => go('/account/refer')}>
+          <button type="button" className="mg-profile-dropdown-item mg-profile-dropdown-item--icon mg-profile-dropdown-item--invite" onClick={() => go('/account/refer')}>
             <GiftIcon />
             Invite Friends &amp; Get $20
           </button>
@@ -137,7 +133,7 @@ const MobileGalleryProfileDropdown = ({ open, onToggle, onClose }) => {
             <GearIcon />
             Account
           </button>
-          <button type="button" className="mg-profile-dropdown-item mg-profile-dropdown-item--icon" onClick={handleLogout}>
+          <button type="button" className="mg-profile-dropdown-item mg-profile-dropdown-item--icon mg-profile-dropdown-item--logout" onClick={handleLogout}>
             <LogoutIcon />
             Log Out
           </button>

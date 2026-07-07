@@ -1,0 +1,1203 @@
+/**
+ * Mobile Gallery — Neumorphic Cream UI (matches Client Gallery template)
+ * Scoped under .theme-mono.mg-theme (see MobileGalleryLayout.jsx)
+ */
+
+.theme-mono.mg-theme {
+  --mg-bg: #f9f9f7;
+  --mg-surface: #ffffff;
+  --mg-surface-muted: #f4f3f0;
+  --mg-border: #eceae6;
+  --mg-text: #1a1a1a;
+  --mg-muted: #71717a;
+  --mg-accent: #1a1a1a;
+  --mg-live: #207c50;
+  --mg-draft: #b45309;
+}
+
+.theme-mono.mg-theme.mg-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--mg-bg);
+  color: var(--mg-text);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.theme-mono.mg-theme .mg-main {
+  flex: 1;
+  background: var(--mg-bg);
+}
+
+.theme-mono.mg-theme .mg-topbar {
+  background: var(--mg-surface);
+  border-bottom: 1px solid var(--mg-border);
+  height: 64px;
+}
+
+.theme-mono.mg-theme .mg-brand-logo {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-app-switcher-btn {
+  color: var(--mg-text);
+  border-radius: 9999px;
+}
+
+.theme-mono.mg-theme .mg-app-switcher-btn:hover {
+  background: var(--mg-surface-muted);
+}
+
+.theme-mono.mg-theme .mg-topbar-icon {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .mg-topbar-icon:hover,
+.theme-mono.mg-theme .mg-topbar-icon--active {
+  color: var(--mg-text);
+  background: transparent;
+}
+
+.theme-mono.mg-theme .mg-topbar-icon.neu-circle.mg-topbar-icon--active {
+  background: var(--neu-inset-bg, oklch(0.952 0.005 85));
+  box-shadow: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
+}
+
+.theme-mono.mg-theme .mg-app-dropdown,
+.theme-mono.mg-theme .mg-profile-dropdown,
+.theme-mono.mg-theme .mg-help-panel,
+.theme-mono.mg-theme .mg-notifications-panel {
+  border: 1px solid var(--mg-border);
+  border-radius: 16px;
+  box-shadow:
+    -4px -4px 12px oklch(1 0.004 85 / 0.75),
+    8px 12px 28px oklch(0.4 0.01 70 / 0.12);
+}
+
+.theme-mono.mg-theme .mg-app-dropdown-item:hover,
+.theme-mono.mg-theme .mg-profile-dropdown-item:hover {
+  background: var(--mg-surface-muted);
+}
+
+.theme-mono.mg-theme .mg-app-dropdown-desc,
+.theme-mono.mg-theme .mg-app-dropdown-title {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .mg-app-dropdown-item--active .mg-app-dropdown-title,
+.theme-mono.mg-theme .mg-app-dropdown-title {
+  color: var(--mg-text);
+}
+
+/* Module tabs — inset pill track (Client Gallery subpage tabs) */
+.theme-mono.mg-theme .mg-module-tabs {
+  background: var(--mg-bg);
+  border-bottom: none;
+  padding: 12px 0 0;
+}
+
+.theme-mono.mg-theme .mg-module-tabs .mg-content {
+  display: inline-flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 9999px;
+  background: var(--neu-inset-bg, oklch(0.952 0.005 85));
+  box-shadow: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
+  max-width: fit-content;
+  margin-bottom: 8px;
+}
+
+.theme-mono.mg-theme .mg-module-tab {
+  padding: 8px 20px;
+  margin-bottom: 0;
+  border-bottom: none;
+  border-radius: 9999px;
+  color: var(--mg-muted);
+  font-weight: 500;
+}
+
+.theme-mono.mg-theme .mg-module-tab:hover {
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-module-tab--active {
+  color: var(--mg-text);
+  background: var(--mg-surface);
+  box-shadow:
+    -2px -2px 6px var(--neu-light),
+    2px 2px 8px var(--neu-dark);
+}
+
+/* Page titles */
+.theme-mono.mg-theme .mg-apps-title,
+.theme-mono.mg-theme .mg-app-detail-name,
+.theme-mono.mg-theme .mg-modal-title,
+.theme-mono.mg-theme .mg-settings-title,
+.theme-mono.mg-theme .mg-share-title,
+.theme-mono.mg-theme .mg-design-section-head span {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-apps-title {
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+}
+
+/* Primary buttons → neu-pill */
+.theme-mono.mg-theme .mg-btn-primary {
+  background: transparent;
+  background-image: linear-gradient(180deg, oklch(0.3 0 0), oklch(0.2 0 0));
+  color: #fff;
+  border: none;
+  border-radius: 9999px;
+  padding: 0 20px;
+  height: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  box-shadow:
+    0 1px 0 0 oklch(1 0 0 / 0.15) inset,
+    0 12px 24px -10px oklch(0 0 0 / 0.5),
+    -4px -4px 12px var(--neu-light);
+  opacity: 1;
+}
+
+.theme-mono.mg-theme .mg-btn-primary:hover:not(:disabled) {
+  opacity: 1;
+  transform: translateY(-1px);
+}
+
+.theme-mono.mg-theme .mg-btn-outline {
+  border-radius: 9999px;
+  border: 1px solid var(--mg-border);
+  background: var(--mg-surface);
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-btn-text {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .mg-btn-text:hover:not(:disabled) {
+  color: var(--mg-text);
+}
+
+/* Search — neu-inset on input (Client Gallery pattern) */
+.theme-mono.mg-theme .mg-search-toggle {
+  border-radius: 9999px;
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .mg-search-toggle:hover {
+  background: var(--mg-surface-muted);
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-apps-search input,
+.theme-mono.mg-theme .mg-help-search-field input {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.theme-mono.mg-theme .mg-help-search-field {
+  padding: 0 12px 12px;
+}
+
+/* Form fields */
+.theme-mono.mg-theme .mg-field-label,
+.theme-mono.mg-theme .mg-share-label,
+.theme-mono.mg-theme .mg-design-subsection-title {
+  color: var(--mg-text);
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.theme-mono.mg-theme .mg-share-input,
+.theme-mono.mg-theme .mg-share-textarea {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+  color: var(--mg-text);
+  width: 100%;
+  outline: none;
+  padding: 0;
+  min-height: 0;
+}
+
+.theme-mono.mg-theme .cg-field-shell-textarea.neu-inset {
+  width: 100%;
+  min-height: 220px;
+  display: flex;
+  padding: 0;
+}
+
+.theme-mono.mg-theme .mg-share-textarea {
+  min-height: 200px;
+  resize: vertical;
+  padding: 12px 14px;
+}
+
+.theme-mono.mg-theme .mg-modal-help,
+.theme-mono.mg-theme .mg-loading,
+.theme-mono.mg-theme .mg-empty p {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .mg-link-btn {
+  color: var(--mg-text);
+  font-weight: 600;
+}
+
+/* Cards — match Client Gallery cg-style-73 / cg-style-74 */
+.theme-mono.mg-theme .mg-app-card {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.theme-mono.mg-theme .mg-app-card-thumb {
+  border-radius: 12px;
+  background: #e8e8e8;
+}
+
+.theme-mono.mg-theme .mg-app-card-footer {
+  border-top: none;
+  background: transparent;
+}
+
+.theme-mono.mg-theme .mg-app-card-name {
+  color: var(--mg-text);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.theme-mono.mg-theme .mg-app-card-icon {
+  background: var(--mg-accent);
+  color: #fff;
+  border-radius: 16px;
+}
+
+.theme-mono.mg-theme .mg-app-card-menu {
+  color: var(--mg-text);
+  border-radius: 9999px;
+}
+
+.theme-mono.mg-theme .mg-apps-toolbar .neu-inset {
+  width: 100%;
+}
+
+.theme-mono.mg-theme .mg-photo-thumb {
+  border-radius: 12px;
+  background: #e8e8e8;
+}
+
+/* App detail tabs */
+.theme-mono.mg-theme .mg-app-detail-tabs {
+  border-bottom: 1px solid var(--mg-border);
+  background: var(--mg-bg);
+}
+
+.theme-mono.mg-theme .mg-app-detail-tab {
+  color: var(--mg-muted);
+  border-bottom: 2px solid transparent;
+}
+
+.theme-mono.mg-theme .mg-app-detail-tab--active {
+  color: var(--mg-text);
+  border-bottom-color: var(--mg-accent);
+}
+
+.theme-mono.mg-theme .mg-app-detail-back {
+  color: var(--mg-muted);
+  border-radius: 9999px;
+}
+
+.theme-mono.mg-theme .mg-app-detail-back:hover {
+  color: var(--mg-text);
+  background: var(--mg-surface-muted);
+}
+
+/* Design panel accents */
+.theme-mono.mg-theme .mg-design-cover-layout--active,
+.theme-mono.mg-theme .mg-design-theme--active {
+  border-bottom-color: var(--mg-accent);
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-design-cover-layout--active {
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-design-section-head {
+  color: var(--mg-text);
+}
+
+/* Toggles */
+.theme-mono.mg-theme .mg-toggle.on .mg-toggle-track,
+.theme-mono.mg-theme .mg-settings-toggle.on {
+  background: var(--mg-accent);
+}
+
+.theme-mono.mg-theme .mg-toggle.off .mg-toggle-track,
+.theme-mono.mg-theme .mg-settings-toggle.off {
+  background: #d4d4d8;
+}
+
+/* Context menu */
+.theme-mono.mg-theme .mg-context-menu {
+  border: 1px solid var(--mg-border);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px oklch(0 0 0 / 0.12);
+}
+
+.theme-mono.mg-theme .mg-context-item {
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-context-item:hover {
+  background: var(--mg-surface-muted);
+}
+
+/* Modals */
+.theme-mono.mg-theme .mg-modal {
+  border: 1px solid var(--mg-border);
+  border-radius: 20px;
+  box-shadow: 0 24px 48px oklch(0 0 0 / 0.15);
+}
+
+.theme-mono.mg-theme .mg-modal-title {
+  text-transform: none;
+  font-size: 1.5rem;
+}
+
+/* Share / email preview */
+.theme-mono.mg-theme .mg-share-email-preview-install {
+  background: var(--mg-accent);
+  color: #fff;
+  border-radius: 0;
+}
+
+.theme-mono.mg-theme .mg-share-status--error {
+  color: #b91c1c;
+}
+
+.theme-mono.mg-theme .mg-share-status--success {
+  color: var(--mg-live);
+}
+
+/* Accent color sweep — legacy teal references */
+.theme-mono.mg-theme [class*='mg-'] {
+  --mg-teal-override: var(--mg-accent);
+}
+
+.theme-mono.mg-theme .mg-design-phone-preview,
+.theme-mono.mg-theme .mg-preview-bottom-nav-item--active {
+  color: var(--mg-accent);
+}
+
+.theme-mono.mg-theme .mg-open-gallery a,
+.theme-mono.mg-theme .mg-install-open-gallery a {
+  color: var(--mg-text);
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .mg-install-overlay-eyebrow {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .mg-install-native-btn {
+  background: var(--mg-accent);
+}
+
+/* Profile */
+.theme-mono.mg-theme .mg-profile-btn {
+  background: var(--mg-accent);
+}
+
+.theme-mono.mg-theme .mg-profile-dropdown-avatar {
+  background: #1a1a1a;
+  color: #fff;
+}
+
+.theme-mono.mg-theme .mg-profile-dropdown-name,
+.theme-mono.mg-theme .mg-profile-dropdown-item,
+.theme-mono.mg-theme .mg-help-article-title,
+.theme-mono.mg-theme .mg-notifications-title {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.theme-mono.mg-theme .mg-profile-dropdown-item--icon svg {
+  color: #71717a;
+}
+
+.theme-mono.mg-theme .mg-profile-dropdown-name {
+  color: var(--mg-text);
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .mg-profile-dropdown-email {
+  color: var(--mg-muted);
+  font-size: 13px;
+}
+
+/* Settings page */
+.theme-mono.mg-theme .mg-settings-page h1,
+.theme-mono.mg-theme .mg-settings-page h2,
+.theme-mono.mg-theme .mg-settings-page h3 {
+  text-transform: none !important;
+  letter-spacing: normal !important;
+}
+
+.theme-mono.mg-theme .mg-settings-header {
+  margin-bottom: 2rem;
+}
+
+.theme-mono.mg-theme .mg-settings-back {
+  margin-bottom: 1.25rem;
+}
+
+.theme-mono.mg-theme .mg-settings-page-title,
+.theme-mono.mg-theme .mg-settings-page > .mg-settings-header > h1 {
+  font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  font-weight: 500 !important;
+  font-size: clamp(1.75rem, 4vw, 2.25rem) !important;
+  letter-spacing: -0.02em !important;
+  color: var(--mg-text) !important;
+  margin: 0 0 0.5rem !important;
+}
+
+.theme-mono.mg-theme .mg-settings-page-desc {
+  margin: 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: var(--mg-muted);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.theme-mono.mg-theme .mg-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 520px;
+}
+
+.theme-mono.mg-theme .mg-settings-block {
+  margin-bottom: 0;
+}
+
+.theme-mono.mg-theme .mg-settings-section-label {
+  color: var(--mg-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 0.75rem;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.theme-mono.mg-theme .mg-settings-card {
+  border: 1px solid var(--mg-border) !important;
+  border-radius: 1rem !important;
+  background: var(--mg-surface) !important;
+  padding: 1.5rem 1.75rem !important;
+  box-shadow:
+    -3px -3px 8px oklch(1 0.004 85 / 0.7),
+    4px 4px 12px oklch(0.4 0.01 70 / 0.06) !important;
+}
+
+.theme-mono.mg-theme .mg-settings-card-title {
+  color: var(--mg-text) !important;
+  font-weight: 600 !important;
+  font-size: 0.9375rem !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  margin: 0 0 0.5rem !important;
+}
+
+.theme-mono.mg-theme .mg-settings-card-desc,
+.theme-mono.mg-theme .mg-settings-help,
+.theme-mono.mg-theme .mg-settings-footnote,
+.theme-mono.mg-theme .mg-settings-loading,
+.theme-mono.mg-theme .mg-settings-saving {
+  color: var(--mg-muted) !important;
+  font-size: 0.875rem !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+}
+
+.theme-mono.mg-theme .mg-settings-help--tight {
+  margin-top: 0.25rem;
+}
+
+.theme-mono.mg-theme .mg-settings-checkbox-list {
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding: 0.25rem 0;
+}
+
+.theme-mono.mg-theme .mg-settings-checkbox-label {
+  font-size: 0.875rem;
+  color: var(--mg-text);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.theme-mono.mg-theme .mg-settings-chk-box {
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 0.375rem;
+  border-color: var(--mg-border) !important;
+  background: var(--mg-surface) !important;
+}
+
+.theme-mono.mg-theme .mg-settings-checkbox input:checked + .mg-settings-chk-box {
+  background: var(--mg-accent) !important;
+  border-color: var(--mg-accent) !important;
+}
+
+.theme-mono.mg-theme .mg-settings-link {
+  color: var(--mg-text) !important;
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .mg-settings-domain-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.theme-mono.mg-theme .mg-settings-domain-shell {
+  flex: 1;
+  min-width: min(100%, 14rem);
+  border-radius: 9999px !important;
+  min-height: 2.75rem;
+}
+
+.theme-mono.mg-theme .mg-settings-input {
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--mg-text) !important;
+  padding: 0 1rem !important;
+  min-height: 2.75rem !important;
+  height: 2.75rem !important;
+  font-size: 0.875rem !important;
+  width: 100%;
+}
+
+.theme-mono.mg-theme .mg-settings-input:disabled {
+  color: var(--mg-muted) !important;
+  cursor: not-allowed;
+}
+
+.theme-mono.mg-theme .mg-settings-upgrade-btn {
+  border-radius: 9999px !important;
+  background: var(--mg-accent) !important;
+  color: #fff !important;
+  border: none !important;
+  font-weight: 600 !important;
+  font-size: 0.875rem !important;
+  padding: 0 1.25rem !important;
+  min-height: 2.75rem !important;
+  height: auto !important;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.theme-mono.mg-theme .mg-settings-upgrade-btn:hover {
+  background: oklch(0.25 0 0) !important;
+}
+
+.theme-mono.mg-theme .mg-settings-upgrade-box {
+  border: 1px solid var(--mg-border) !important;
+  border-radius: 1rem !important;
+  background: var(--mg-surface-muted) !important;
+  padding: 1.25rem 1.5rem !important;
+  margin-bottom: 1rem !important;
+  gap: 1rem !important;
+}
+
+.theme-mono.mg-theme .mg-settings-upgrade-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex-shrink: 0;
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-settings-upgrade-box-title {
+  font-size: 0.9375rem !important;
+  font-weight: 600 !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  color: var(--mg-text) !important;
+  margin: 0 0 0.25rem !important;
+}
+
+.theme-mono.mg-theme .mg-settings-upgrade-box-desc {
+  font-size: 0.875rem !important;
+  color: var(--mg-muted) !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+}
+
+.theme-mono.mg-theme .mg-settings-logo-upload {
+  width: 7.5rem;
+  height: 7.5rem;
+  border-radius: 0.75rem !important;
+  background: oklch(0.952 0.005 85) !important;
+  border: none !important;
+  margin-bottom: 1rem;
+  box-shadow:
+    inset 3px 3px 7px oklch(0.4 0.01 70 / 0.1),
+    inset -3px -3px 7px oklch(1 0.004 85 / 0.85) !important;
+}
+
+.theme-mono.mg-theme .mg-settings-logo-plus {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .mg-settings-branding-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin: 1.5rem 0 0;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-settings-branding-row .mg-settings-card-title--inline {
+  margin-bottom: 0;
+}
+
+.theme-mono.mg-theme .mg-settings-toggle-row {
+  flex-shrink: 0;
+  padding-top: 0.125rem;
+}
+
+.theme-mono.mg-theme .mg-settings-toggle-row .toggle-state-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--mg-muted);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.theme-mono.mg-theme .mg-settings-toggle-row .cd-toggle input:checked + .cd-toggle-slider {
+  background-color: var(--mg-accent) !important;
+}
+
+/* Share page */
+.theme-mono.mg-theme .mg-share-back {
+  color: var(--mg-muted);
+  border-radius: 9999px;
+}
+
+.theme-mono.mg-theme .mg-share-back:hover {
+  color: var(--mg-text);
+  background: var(--mg-surface-muted);
+}
+
+.theme-mono.mg-theme .mg-share-action-btn {
+  border-radius: 9999px;
+  border: 1px solid var(--mg-border);
+  background: var(--mg-surface);
+  color: var(--mg-text);
+  font-weight: 500;
+}
+
+.theme-mono.mg-theme .mg-share-action-btn:hover {
+  background: var(--mg-surface-muted);
+}
+
+.theme-mono.mg-theme .mg-share-form-panel {
+  border: 1px solid var(--mg-border);
+  border-radius: 16px;
+  background: var(--mg-surface);
+  padding: 20px;
+}
+
+.theme-mono.mg-theme .mg-share-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.theme-mono.mg-theme .mg-share-form-footer {
+  border-top: 1px solid var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-share-page {
+  background: var(--mg-bg);
+}
+
+.theme-mono.mg-theme .mg-share-subheader {
+  padding-top: 8px;
+}
+
+.theme-mono.mg-theme .mg-share-email-preview {
+  border: 1px solid var(--mg-border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.theme-mono.mg-theme .mg-share-email-preview-brand {
+  text-transform: none;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .mg-app-detail-tabs-bar {
+  background: var(--mg-bg);
+  border-bottom: none;
+  padding: 8px 0 16px;
+}
+
+.theme-mono.mg-theme .mg-app-detail-tabs-wrap {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.theme-mono.mg-theme .mg-app-detail-icon {
+  border-radius: 14px;
+}
+
+.theme-mono.mg-theme .mg-app-settings-input {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+
+.theme-mono.mg-theme .mg-app-settings-inline-shell {
+  flex: 1;
+  min-width: 0;
+}
+
+.theme-mono.mg-theme .mg-app-settings-save.neu-pill {
+  height: 40px;
+  padding: 0 18px;
+  color: #fff;
+  border: none;
+}
+
+.theme-mono.mg-theme .mg-app-settings-section-title,
+.theme-mono.mg-theme .mg-app-settings-label,
+.theme-mono.mg-theme .mg-design-field-label {
+  color: var(--mg-text);
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .mg-design-select {
+  border: none;
+  background: transparent;
+  max-width: none;
+}
+
+.theme-mono.mg-theme .mg-design-field .set-select-wrap,
+.theme-mono.mg-theme .mg-design-field .cg-select {
+  max-width: 320px;
+}
+
+.theme-mono.mg-theme .mg-design-section-head {
+  border-color: var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-design-accordion {
+  border-color: var(--mg-border);
+  border-radius: 16px;
+  background: var(--mg-surface);
+}
+
+.theme-mono.mg-theme .mg-email-templates-modal {
+  border-radius: 20px;
+  border: 1px solid var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-email-templates-header {
+  border-bottom-color: var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-email-templates-header h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: -0.02em;
+  font-size: 1.25rem;
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-email-templates-sidebar {
+  border-right-color: var(--mg-border);
+  background: var(--mg-surface-muted);
+}
+
+.theme-mono.mg-theme .mg-email-templates-list-item--active {
+  background: var(--mg-surface);
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-email-templates-list-item:hover {
+  background: var(--mg-surface-muted);
+}
+
+.theme-mono.mg-theme .mg-email-templates-footer {
+  border-top: 1px solid var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-icon-modal,
+.theme-mono.mg-theme .mg-focal-modal {
+  border-radius: 20px;
+  border: 1px solid var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-icon-modal-title,
+.theme-mono.mg-theme .mg-focal-title {
+  text-transform: none;
+  letter-spacing: -0.02em;
+  font-size: 1.25rem;
+}
+
+.theme-mono.mg-theme .mg-icon-modal-dropzone {
+  border-radius: 16px;
+  border: 2px dashed var(--mg-border);
+  background: var(--mg-surface-muted);
+}
+
+.theme-mono.mg-theme .mg-upload-dropzone {
+  border-radius: 16px;
+  border-color: var(--mg-border);
+  background: var(--mg-surface-muted);
+}
+
+.theme-mono.mg-theme .mg-upload-queue {
+  border: 1px solid var(--mg-border);
+  border-radius: 16px;
+}
+
+.theme-mono.mg-theme .mg-settings-chk-box {
+  border-color: var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-settings-domain-shell {
+  flex: 1;
+  min-width: 0;
+}
+
+.theme-mono.mg-theme .mg-context-item--danger {
+  color: #b91c1c;
+}
+
+.theme-mono.mg-theme .mg-preview-menu {
+  border-radius: 12px;
+  border: 1px solid var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-preview-menu-item:hover {
+  background: var(--mg-surface-muted);
+}
+
+.theme-mono.mg-theme .mg-btn-outline {
+  height: 40px;
+  padding: 0 16px;
+  font-weight: 500;
+}
+
+.theme-mono.mg-theme .mg-photos-more-menu {
+  border-radius: 12px;
+  border: 1px solid var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-share-modal-header h2 {
+  text-transform: none;
+  font-size: 1.25rem;
+}
+
+.theme-mono.mg-theme .mg-empty h2 {
+  text-transform: none;
+}
+
+.theme-mono.mg-theme .mg-apps-page,
+.theme-mono.mg-theme .mg-share-page,
+.theme-mono.mg-theme .mg-settings-page,
+.theme-mono.mg-theme .mg-app-settings {
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-main {
+  background: var(--mg-bg);
+}
+
+
+.theme-mono.mg-theme .mg-share-modal {
+  border: 1px solid var(--mg-border);
+  border-radius: 20px;
+}
+
+.theme-mono.mg-theme .mg-share-modal-header h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 500;
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-share-copy-btn {
+  border-radius: 9999px;
+  background: var(--mg-accent);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .mg-share-url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 4px 4px 14px;
+  border-radius: 9999px;
+  background: var(--neu-inset-bg, oklch(0.952 0.005 85));
+  box-shadow: inset 2px 2px 5px var(--neu-dark), inset -2px -2px 5px var(--neu-light);
+}
+
+.theme-mono.mg-theme .mg-share-url-input {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+  flex: 1;
+  min-width: 0;
+  outline: none;
+  color: var(--mg-text);
+}
+
+/* Photos toolbar */
+.theme-mono.mg-theme .mg-photos-search input {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+.theme-mono.mg-theme .mg-photos-bar {
+  border-bottom-color: var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-photos-count {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .mg-photos-sort-menu {
+  border-radius: 12px;
+  border-color: var(--mg-border);
+}
+
+.theme-mono.mg-theme .mg-photos-sort-option:hover,
+.theme-mono.mg-theme .mg-photos-sort-option--active {
+  background: var(--mg-surface-muted);
+}
+
+/* Design panel */
+.theme-mono.mg-theme .mg-design-panel {
+  background: var(--mg-bg);
+}
+
+.theme-mono.mg-theme .mg-design-sidebar {
+  border-right: 1px solid var(--mg-border);
+  background: var(--mg-surface);
+}
+
+.theme-mono.mg-theme .mg-design-cover-layout,
+.theme-mono.mg-theme .mg-design-theme {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .mg-design-phone-frame {
+  border: 1px solid var(--mg-border);
+  border-radius: 24px;
+  box-shadow:
+    -6px -6px 14px oklch(1 0.004 85 / 0.75),
+    8px 12px 28px oklch(0.4 0.01 70 / 0.12);
+}
+
+/* Empty / loading */
+.theme-mono.mg-theme .mg-empty h2 {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 500;
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-empty-icon {
+  color: var(--mg-muted);
+}
+
+/* Help panel articles */
+.theme-mono.mg-theme .mg-help-article-title {
+  color: var(--mg-text);
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .mg-help-article-desc {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .mg-modal-actions {
+  border-top: 1px solid var(--mg-border);
+  margin-top: 28px;
+  padding-top: 20px;
+  gap: 12px;
+}
+
+.theme-mono.mg-theme .mg-modal-field {
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.theme-mono.mg-theme .mg-content {
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .mg-main {
+  background: var(--mg-bg);
+}
+
+/* DatePicker — compact neumorphic (Create modal + App Settings) */
+.theme-mono.mg-theme .cg-field-shell.neu-inset:has(.custom-datepicker),
+.theme-mono.mg-theme .mg-app-settings-field:has(.custom-datepicker),
+.theme-mono.mg-theme .mg-modal-field:has(.custom-datepicker) {
+  overflow: visible;
+}
+
+.theme-mono.mg-theme .mg-app-settings-field:has(.dp-input-field.focused),
+.theme-mono.mg-theme .mg-modal-field:has(.dp-input-field.focused) {
+  position: relative;
+  z-index: 10;
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .custom-datepicker,
+.theme-mono.mg-theme .cg-field-shell.neu-inset .mg-date-picker {
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .dp-input-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0 1rem;
+  border: 0;
+  background: transparent;
+  box-sizing: border-box;
+  cursor: pointer;
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .dp-input-field.focused {
+  border: 0;
+  box-shadow: none;
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .dp-value {
+  font-size: 14px;
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .dp-value.placeholder {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .cg-field-shell.neu-inset .dp-icon {
+  color: var(--mg-muted);
+  flex-shrink: 0;
+}
+
+.theme-mono.mg-theme .custom-datepicker.mg-date-picker--compact .dp-dropdown {
+  min-width: 0;
+  width: 272px;
+  max-width: calc(100vw - 48px);
+  padding: 14px 16px;
+  flex-direction: column;
+  background: var(--mg-bg, #f9f9f7);
+  border: 1px solid var(--mg-border, #eceae6);
+  border-radius: 12px;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 oklch(1 0.004 85 / 0.6);
+  z-index: 1100;
+}
+
+.theme-mono.mg-theme .custom-datepicker.mg-date-picker--compact .dp-calendar-section {
+  padding-right: 0;
+  border-right: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-header {
+  margin-bottom: 12px;
+  padding: 0 4px;
+}
+
+.theme-mono.mg-theme .custom-datepicker .month-year {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--mg-text);
+  min-width: auto;
+}
+
+.theme-mono.mg-theme .custom-datepicker .nav-buttons button {
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .custom-datepicker .nav-buttons button:hover {
+  background: oklch(0.4 0.01 70 / 0.06);
+  color: var(--mg-text);
+}
+
+.theme-mono.mg-theme .custom-datepicker .weekday {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--mg-muted);
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-grid {
+  gap: 2px;
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-day {
+  font-size: 13px;
+  color: var(--mg-text);
+  border-radius: 6px;
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-day:hover:not(.disabled):not(.other-month) {
+  background: oklch(0.4 0.01 70 / 0.06);
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-day.other-month {
+  color: #c4c4c4;
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-day.selected {
+  background: var(--mg-text, #1a1a1a);
+  color: #fff;
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .custom-datepicker .calendar-day.today {
+  border-bottom-color: var(--mg-text, #1a1a1a);
+  font-weight: 600;
+}
+
+.theme-mono.mg-theme .custom-datepicker .dp-quick-search button:hover {
+  color: var(--mg-text);
+}

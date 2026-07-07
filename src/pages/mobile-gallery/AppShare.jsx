@@ -65,7 +65,7 @@ function ShareModal({ title, onClose, children }) {
 
 function EmailPreviewPanel({ app, message, websiteLink, directLink, iconUrl }) {
   const appName = app?.name || 'Gallery';
-  const displayName = appName.toUpperCase();
+  const displayName = appName;
 
   return (
     <div className="mg-share-email-preview">
@@ -319,7 +319,7 @@ const AppShare = () => {
         <div className="mg-content">
           <div className="mg-empty">
             <h2>App not found</h2>
-            <button type="button" className="mg-btn-primary" onClick={() => navigate('/mobile-gallery')}>
+            <button type="button" className="mg-btn-primary neu-pill" onClick={() => navigate('/mobile-gallery')}>
               Back to Apps
             </button>
           </div>
@@ -378,33 +378,39 @@ const AppShare = () => {
           )}
           <div className="mg-share-form-panel">
             <label className="mg-share-field">
-              <span className="mg-share-label">Email</span>
-              <input
-                type="email"
-                className="mg-share-input"
-                placeholder="e.g. johnsmith@email.com"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-              />
+              <span className="mg-share-label cg-field-label">Email</span>
+              <div className="neu-inset cg-field-shell">
+                <input
+                  type="email"
+                  className="mg-share-input"
+                  placeholder="e.g. johnsmith@email.com"
+                  value={recipientEmail}
+                  onChange={(e) => setRecipientEmail(e.target.value)}
+                />
+              </div>
             </label>
 
             <label className="mg-share-field">
-              <span className="mg-share-label">Subject</span>
-              <input
-                type="text"
-                className="mg-share-input"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-              />
+              <span className="mg-share-label cg-field-label">Subject</span>
+              <div className="neu-inset cg-field-shell">
+                <input
+                  type="text"
+                  className="mg-share-input"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                />
+              </div>
             </label>
 
             <label className="mg-share-field mg-share-field--grow">
-              <textarea
-                className="mg-share-textarea"
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={10}
-              />
+              <div className="neu-inset cg-field-shell-textarea">
+                <textarea
+                  className="mg-share-textarea"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={10}
+                />
+              </div>
             </label>
 
             <div className="mg-share-form-footer">
@@ -432,7 +438,7 @@ const AppShare = () => {
                 </label>
                 <button
                   type="button"
-                  className="mg-btn-primary mg-share-send-btn"
+                  className="mg-btn-primary neu-pill mg-share-send-btn"
                   onClick={handleSendInvite}
                   disabled={sending}
                 >
@@ -507,11 +513,11 @@ const AppShare = () => {
               Cancel
             </button>
             {sendError?.includes('not configured') ? (
-              <button type="button" className="mg-btn-primary" onClick={openMailtoFallback}>
+              <button type="button" className="mg-btn-primary neu-pill" onClick={openMailtoFallback}>
                 Open in email app
               </button>
             ) : (
-              <button type="button" className="mg-btn-primary" onClick={confirmSendInvite} disabled={sending}>
+              <button type="button" className="mg-btn-primary neu-pill" onClick={confirmSendInvite} disabled={sending}>
                 {sending ? 'Sending…' : 'Send'}
               </button>
             )}

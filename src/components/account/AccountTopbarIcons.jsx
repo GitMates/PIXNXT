@@ -5,9 +5,6 @@ import MobileGalleryHelpDropdown from '../mobile-gallery/MobileGalleryHelpDropdo
 import MobileGalleryNotifications from '../mobile-gallery/MobileGalleryNotifications';
 import '../../pages/mobile-gallery/MobileGallery.css';
 
-const ACCENT = '#1a9b84';
-const ACCENT_LIGHT = '#e8f7f2';
-
 const GiftIcon = () => (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
     <polyline points="20 12 20 22 4 22 4 12" />
@@ -107,7 +104,7 @@ function AccountProfileDropdown({ open, onToggle, onClose, userInitial }) {
       {open && (
         <div className="mg-profile-dropdown mg-profile-dropdown--full acct-profile-menu">
           <div className="mg-profile-dropdown-header">
-            <div className="mg-profile-dropdown-avatar" style={{ background: ACCENT_LIGHT, color: ACCENT }}>
+            <div className="mg-profile-dropdown-avatar">
               {userInitial}
             </div>
             <div>
@@ -115,7 +112,7 @@ function AccountProfileDropdown({ open, onToggle, onClose, userInitial }) {
               <div className="mg-profile-dropdown-email">{user?.email || ''}</div>
             </div>
           </div>
-          <button type="button" className="mg-profile-dropdown-item mg-profile-dropdown-item--icon" onClick={() => go('/account/refer')}>
+          <button type="button" className="mg-profile-dropdown-item mg-profile-dropdown-item--icon mg-profile-dropdown-item--invite" onClick={() => go('/account/refer')}>
             <GiftIcon />
             Invite Friends &amp; Get $20
           </button>
@@ -137,7 +134,7 @@ function AccountProfileDropdown({ open, onToggle, onClose, userInitial }) {
             <GearIcon />
             Account
           </button>
-          <button type="button" className="mg-profile-dropdown-item mg-profile-dropdown-item--icon" onClick={handleLogout}>
+          <button type="button" className="mg-profile-dropdown-item mg-profile-dropdown-item--icon mg-profile-dropdown-item--logout" onClick={handleLogout}>
             <LogoutIcon />
             Log Out
           </button>
