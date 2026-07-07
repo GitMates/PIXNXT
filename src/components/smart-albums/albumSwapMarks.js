@@ -520,7 +520,10 @@ export function getSwapMarkForSlot(
         labelOpts
     );
     const point = isA ? mark.pointA : mark.pointB;
-    const pinLabel = isA ? 'A' : 'B';
+
+    const globalMarkIndex = (marks || []).findIndex((m) => m.id === mark.id);
+    const markNum = globalMarkIndex >= 0 ? globalMarkIndex + 1 : (marks || []).length;
+    const pinLabel = isA ? `A${markNum}` : `B${markNum}`;
 
     return {
         slotLabel,
@@ -557,11 +560,8 @@ export function getSwapMarksForSlot(
         const isA = mark.a === matchedKey;
         const isB = mark.b === matchedKey;
 
-        const marksForPair = (marks || []).filter((m) =>
-            lookupKeys.some((slotKey) => m.a === slotKey || m.b === slotKey)
-        );
-        const markIndex = marksForPair.findIndex((m) => m.id === mark.id);
-        const markNum = markIndex >= 0 ? markIndex + 1 : marksForPair.length;
+        const globalMarkIndex = (marks || []).findIndex((m) => m.id === mark.id);
+        const markNum = globalMarkIndex >= 0 ? globalMarkIndex + 1 : (marks || []).length;
 
         const mapEndpoint = (endpointLabel) => {
             const endpointIsA = endpointLabel === 'A';
@@ -571,8 +571,7 @@ export function getSwapMarksForSlot(
             const slotLabel = slotLabelForMarkKey(key, slotStored, gridLayout, labelOpts);
             const partnerLabel = slotLabelForMarkKey(partnerKey, partnerStored, gridLayout, labelOpts);
             const point = endpointIsA ? mark.pointA : mark.pointB;
-            const pinLabel =
-                marksForPair.length > 1 ? `${endpointLabel}${markNum}` : endpointLabel;
+            const pinLabel = `${endpointLabel}${markNum}`;
             return {
                 slotLabel,
                 partnerLabel,
