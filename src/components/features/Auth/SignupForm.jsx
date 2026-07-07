@@ -48,6 +48,15 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
           type: 'error',
           message: 'This email address is already registered. Please use another email address.'
         });
+      } else if (
+        errMsg.toLowerCase().includes('rate limit') || 
+        errMsg.toLowerCase().includes('too many requests')
+      ) {
+        setModal({
+          show: true,
+          type: 'error',
+          message: 'Signup rate limit exceeded. Please wait a few minutes before trying again.'
+        });
       } else {
         setError(errMsg || 'Failed to sign up');
       }
