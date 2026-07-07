@@ -43,25 +43,6 @@ const SidebarLayout = ({ children }) => {
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
     const [profile, setProfile] = useState(null);
 
-    useEffect(() => {
-        if (!user?.id) {
-            setProfile(null);
-            return undefined;
-        }
-        let cancelled = false;
-        galleryService
-            .getPhotographerProfile(user.id)
-            .then((data) => {
-                if (!cancelled) setProfile(data);
-            })
-            .catch(() => {
-                if (!cancelled) setProfile(null);
-            });
-        return () => {
-            cancelled = true;
-        };
-    }, [user?.id]);
-
     const getProfileDisplayName = () => {
         const fromProfile =
             profile?.business_name?.trim() ||
@@ -95,9 +76,6 @@ const SidebarLayout = ({ children }) => {
         ) : (
             <span className="w-10 h-10 rounded-[10px] bg-[#1A1A1A] text-white flex items-center justify-center font-bold text-sm shrink-0 uppercase">{userInitial}</span>
         );
-
-    const [profile, setProfile] = useState(null);
-
     useEffect(() => {
         if (!user?.id) {
             setProfile(null);

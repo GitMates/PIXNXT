@@ -57,32 +57,26 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
   };
 
   return (
-<<<<<<< HEAD
     <>
-      <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-full">
-        <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-gray-700">Email Address</label>
-          <input
-=======
-    <form onSubmit={handleSubmit} className="auth-form">
-      <div className="auth-field">
-        <label className="auth-label" htmlFor="signup-email">Email Address</label>
-        <div className="auth-input-shell neu-inset auth-input-shell--pill">
-          <input
-            id="signup-email"
->>>>>>> 845bdd43033ebb482952c0b7e127d3bc7d836341
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="email@example.com"
-<<<<<<< HEAD
-            className="px-4 py-2 bg-white border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
-            required
-          />
+      <form onSubmit={handleSubmit} className="auth-form">
+        <div className="auth-field">
+          <label className="auth-label" htmlFor="signup-email">Email Address</label>
+          <div className="auth-input-shell neu-inset auth-input-shell--pill">
+            <input
+              id="signup-email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="email@example.com"
+              className="auth-input"
+              required
+              autoComplete="email"
+            />
+          </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="signup-password" className="text-sm font-medium text-gray-700">Password</label>
+        <div className="auth-field">
+          <label htmlFor="signup-password" className="auth-label">Password</label>
           <PasswordField
             id="signup-password"
             value={password}
@@ -91,54 +85,20 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
           />
         </div>
 
-        {error && <p className="text-xs text-red-500 font-medium" role="alert">{error}</p>}
+        {error && <p className="auth-error" role="alert">{error}</p>}
 
         <button
           type="submit"
           disabled={isLoading}
-          className="mt-2 px-6 py-2.5 w-full text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          className="auth-submit neu-pill"
           aria-busy={isLoading}
         >
           {isLoading ? 'Creating Account...' : 'Sign Up'}
-=======
-            className="auth-input"
-            required
-            autoComplete="email"
-          />
-        </div>
-      </div>
-
-      <div className="auth-field">
-        <label htmlFor="signup-password" className="auth-label">Password</label>
-        <PasswordField
-          id="signup-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete="new-password"
-        />
-      </div>
-
-      {error && <p className="auth-error" role="alert">{error}</p>}
-
-      <button
-        type="submit"
-        disabled={isLoading}
-        className="auth-submit neu-pill"
-        aria-busy={isLoading}
-      >
-        {isLoading ? 'Creating Account...' : 'Sign Up'}
-      </button>
-
-      <p className="auth-toggle">
-        Already have an account?{' '}
-        <button type="button" onClick={onToggle} className="auth-toggle-btn">
-          Log In
->>>>>>> 845bdd43033ebb482952c0b7e127d3bc7d836341
         </button>
 
-        <p className="mt-2 text-center text-sm text-gray-500">
+        <p className="auth-toggle">
           Already have an account?{' '}
-          <button type="button" onClick={onToggle} className="text-indigo-600 font-medium hover:underline">
+          <button type="button" onClick={onToggle} className="auth-toggle-btn">
             Log In
           </button>
         </p>
@@ -177,7 +137,7 @@ export const SignupForm = ({ onSuccess, onToggle }) => {
                   onSuccess?.();
                 }
               }}
-              className="px-6 py-2.5 w-full text-sm font-semibold text-white bg-indigo-600 rounded-lg shadow-sm hover:bg-indigo-700 transition-colors"
+              className="auth-submit neu-pill mt-0 w-full"
             >
               OK
             </button>
