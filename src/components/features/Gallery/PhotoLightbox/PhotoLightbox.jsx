@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useMemo, useState } from 'react';
-
+ 
 /** Time between slides when slideshow autoplay is active. */
 export const GALLERY_SLIDESHOW_INTERVAL_MS = 4000;
 import { createPortal } from 'react-dom';
 import { motion as Motion, AnimatePresence } from 'framer-motion';
-import { X, ChevronRight, ChevronLeft, Download, Heart, Play, Pause, Share2 } from 'lucide-react';
+import { X, ChevronRight, ChevronLeft, Download, Heart, Play, Pause, Share2, ShoppingBag } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
 import {
@@ -16,7 +16,7 @@ import {
 } from '../../../../lib/photoDisplayUrl';
 import { RawPhotoPlaceholder } from '../../CollectionDashboard/Media/RawPhotoPlaceholder';
 import './PhotoLightbox.css';
-
+ 
 export function PhotoLightbox({
   isOpen,
   onClose,
@@ -31,9 +31,11 @@ export function PhotoLightbox({
   onFavorite,
   onDownload,
   onShare,
+  onShop,
   showDownload = true,
   showFavorite = true,
   showShare = true,
+  showShop = true,
   isFavorited = false,
   /** Applied on the portal root so theme CSS variables match the gallery page */
   themeClassName = 'theme-light font-sans',
@@ -232,6 +234,19 @@ export function PhotoLightbox({
                       )}
 
                       <div className="photo-lightbox-hover-icons">
+                        {showShop && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onShop?.();
+                            }}
+                            className="photo-lightbox-hover-icon-btn"
+                            aria-label="Shop"
+                          >
+                            <ShoppingBag size={24} strokeWidth={1.75} />
+                          </button>
+                        )}
                         {showFavorite && (
                           <button
                             type="button"

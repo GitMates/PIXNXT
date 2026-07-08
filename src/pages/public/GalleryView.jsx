@@ -9,7 +9,7 @@ import { galleryService } from '../../services/gallery.service';
 import { cn } from '../../lib/utils';
 import { Container } from '../../components/ui/Container';
 import { Typography } from '../../components/ui/Typography';
-import { X, Mail, Share2, Download, Heart, Play } from 'lucide-react';
+import { X, Mail, Share2, Download, Heart, Play, ShoppingBag } from 'lucide-react';
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
@@ -85,6 +85,47 @@ const GalleryView = () => {
   const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [email, setEmail] = useState('');
+  
+  const [showShopModal, setShowShopModal] = useState(false);
+  const [shopEmail, setShopEmail] = useState('');
+  const [pendingShopPhoto, setPendingShopPhoto] = useState(null);
+  const [isSubmittingShopEmail, setIsSubmittingShopEmail] = useState(false);
+
+  useEffect(() => {
+    if (email) {
+      setShopEmail(email);
+    }
+  }, [email]);
+
+  const handleShopClick = useCallback(async (photo) => {
+    if (!photo || !collection) return;
+    const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+    if (savedEmail) {
+      window.location.assign(`/printstore?slug=${collection.slug}&photo=${photo.id}`);
+    } else {
+      setPendingShopPhoto(photo);
+      setShopEmail(email || '');
+      setShowShopModal(true);
+    }
+  }, [collection, email]);
+
+  const handleShopEmailSubmit = async () => {
+    if (!shopEmail || !collection || !pendingShopPhoto) return;
+    try {
+      setIsSubmittingShopEmail(true);
+      const session = await galleryService.createOrGetSession(collection.id, shopEmail);
+      localStorage.setItem(`pixnxt_fav_email_${collection.id}`, shopEmail);
+      localStorage.setItem('pixnxt_printstore_email', shopEmail);
+      
+      setShowShopModal(false);
+      setIsSubmittingShopEmail(false);
+      window.location.assign(`/printstore?slug=${collection.slug}&photo=${pendingShopPhoto.id}`);
+    } catch (e) {
+      console.error("Failed to register shop email session:", e);
+      alert("Failed to submit email. Please try again.");
+      setIsSubmittingShopEmail(false);
+    }
+  };
   const [activeSetId, setActiveSetId] = useState(null);
   const [mediaFilter, setMediaFilter] = useState('photos');
   const [selectedDownloadPhoto, setSelectedDownloadPhoto] = useState(null);
@@ -954,6 +995,8 @@ const GalleryView = () => {
               showDownload={showSinglePhotoDownload}
               showFavorite={collection?.favorites_enabled !== false}
               showShare={showGalleryShare}
+              showShop={true}
+              onShop={handleShopClick}
               favoritedPhotoIds={favoritedPhotos}
               customRowHeight={galleryCustomRowHeight}
               customColumnCount={galleryCustomColumnCount}
@@ -1012,9 +1055,11 @@ const GalleryView = () => {
         }}
         onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
         onShare={() => setShowShareModal(true)}
+        onShop={() => handleShopClick(filteredPhotos[lightboxIndex])}
         showDownload={showSinglePhotoDownload}
         showFavorite={collection?.favorites_enabled !== false}
         showShare={showGalleryShare}
+        showShop={true}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);
@@ -1098,6 +1143,85 @@ const GalleryView = () => {
                     disabled={isSubmittingEmail}
                   >
                     {isSubmittingEmail ? 'Please wait…' : 'Sign in'}
+                  </button>
+                </div>
+              </div>
+            </Motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Shop Modal */}
+      <AnimatePresence>
+        {showShopModal && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <Motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowShopModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <Motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              className={cn(
+                'relative w-full max-w-lg p-8 shadow-2xl md:p-10',
+                isGalleryDark ? 'bg-[#1a1a1a] text-white ring-1 ring-white/10' : 'bg-white text-zinc-900'
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => setShowShopModal(false)}
+                className={cn(
+                  'absolute right-4 top-4 transition-colors',
+                  isGalleryDark ? 'text-white/50 hover:text-white' : 'text-zinc-400 hover:text-zinc-950'
+                )}
+              >
+                <X size={20} />
+              </button>
+
+              <div className={cn('mb-8 pr-8', isGalleryDark ? 'text-left' : 'text-center')}>
+                {!isGalleryDark && (
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-zinc-50">
+                    <Mail className="text-zinc-400" size={24} strokeWidth={1.5} />
+                  </div>
+                )}
+                <h3 className="gallery-heading mb-3 text-lg font-bold uppercase tracking-[0.2em] md:text-xl">
+                  Shop
+                </h3>
+                <p className={cn('gallery-body-text text-sm leading-relaxed', isGalleryDark ? 'text-white/60' : 'text-zinc-500')}>
+                  Enter your email address to access the print shop and customize prints, frames, and canvases with this photo.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <input
+                  type="email"
+                  placeholder="Email address"
+                  value={shopEmail}
+                  onChange={(e) => setShopEmail(e.target.value)}
+                  className={cn(
+                    'gallery-body-text w-full rounded-none border px-3 py-3 text-sm outline-none transition-colors',
+                    isGalleryDark
+                      ? 'border-white/20 bg-black/40 text-white placeholder:text-white/35 focus:border-white/50'
+                      : 'border-zinc-200 bg-white py-3 focus:border-zinc-950'
+                  )}
+                />
+                <div className="flex justify-end">
+                  <button
+                    type="button"
+                    className={cn(
+                      'gallery-body-text px-8 py-3 text-[6px] font-bold uppercase tracking-[0.25em] transition-opacity disabled:opacity-50',
+                      isGalleryDark
+                        ? 'bg-white/10 text-white hover:bg-white/20'
+                        : 'w-full bg-zinc-950 py-4 text-white hover:bg-zinc-800 md:w-auto'
+                    )}
+                    onClick={handleShopEmailSubmit}
+                    disabled={isSubmittingShopEmail}
+                  >
+                    {isSubmittingShopEmail ? 'Please wait…' : 'Sign in'}
                   </button>
                 </div>
               </div>

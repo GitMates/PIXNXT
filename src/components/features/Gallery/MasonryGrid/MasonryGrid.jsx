@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion as Motion } from 'framer-motion';
-import { Download, Heart, Share2, Play } from 'lucide-react';
+import { Download, Heart, Share2, Play, ShoppingBag } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
 import { getPhotoVideoPoster, getPhotoVideoSrc } from '../../../../lib/photoDisplayUrl';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 import './MasonryGrid.css';
-
+ 
 export function MasonryGrid({
   photos,
   gridSettings,
@@ -15,6 +15,7 @@ export function MasonryGrid({
   onFavorite,
   onDownload,
   onShare,
+  onShop,
   onTogglePrivate,
   customRowHeight,
   customColumnCount,
@@ -22,6 +23,7 @@ export function MasonryGrid({
   showDownload = true,
   showFavorite = true,
   showShare = false,
+  showShop = true,
   favoritedPhotoIds = [],
   showFilename = false,
   isPreviewMobile = false,
@@ -278,6 +280,19 @@ export function MasonryGrid({
                   />
                 ) : (
                 <div className="gallery-masonry-actions absolute bottom-4 right-4 z-[12] flex gap-2">
+                  {showShop && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onShop?.(photo);
+                      }}
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
+                      aria-label="Shop"
+                    >
+                      <ShoppingBag size={16} strokeWidth={1.5} />
+                    </button>
+                  )}
                   {showDownload && (
                     <button
                       type="button"

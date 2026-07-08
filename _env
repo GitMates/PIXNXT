@@ -1,0 +1,9 @@
+VITE_SUPABASE_URL=https://oibvtecxxoqhvyejovsy.supabase.co
+VITE_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_NZ94_6axLD1cNdxC9SB3QQ_rWc4EPvU
+VITE_R2_ACCOUNT_ID=9b486f34ed4516b67036078c5ea5494a
+VITE_R2_ACCESS_KEY_ID=e3c98d0f7dbecdbaf888fda094decc27
+VITE_R2_SECRET_ACCESS_KEY=1a0701182ce619f8d25edf0e959d5e75be761ebebe08ef67f9d8c538091a9618
+VITE_R2_BUCKET_NAME=pixnxt-photos
+VITE_R2_PUBLIC_URL=https://pub-de49e8c7da824ad9af0c9289299d8467.r2.dev
+VITE_PUBLIC_SITE_URL=https://pixnxt-git-main-sam-andersons-projects-1e39ea57.vercel.app
+VITE_GOOGLE_CLIENT_ID=538844011903-roktbppt9dninr236adtjh5j8q8ngonj.apps.googleusercontent.com
