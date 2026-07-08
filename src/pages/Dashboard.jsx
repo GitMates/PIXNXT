@@ -202,6 +202,16 @@ const products = [
       { label: 'Settings', path: '/mobile-gallery/settings' },
     ],
   },
+  {
+    name: 'Store',
+    color: 'red',
+    icon: <ShoppingBagIcon />,
+    route: '/photographer',
+    links: [
+      { label: 'View Orders', path: '/photographer?tab=dashboard' },
+      { label: 'Settings', path: '/photographer?tab=settings' },
+    ],
+  },
 ];
 
 /* ===== Dashboard Component ===== */

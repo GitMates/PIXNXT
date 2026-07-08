@@ -1526,7 +1526,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                       if (idx === order[0]) role = 'big';
                       else if (idx === order[1]) role = 'small';
                       
-                      const imgToDisplay = selectedPhotoUrl || imgUrl;
+                      const imgToDisplay = imgUrl;
                       
                       return (
                         <div 
@@ -3116,7 +3116,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                                 setIsCropModalOpen(true);
                               }}
                               style={{
-                                background: '#0d9488', color: 'white', border: 'none', cursor: 'pointer',
+                                background: '#111111', color: 'white', border: 'none', cursor: 'pointer',
                                 fontSize: '13px', fontWeight: 500, padding: '6px 12px', borderRadius: '4px',
                                 display: 'flex', alignItems: 'center', gap: '6px'
                               }}
@@ -3269,7 +3269,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
               step={0.1}
               value={zoom}
               onChange={(e) => setZoom(parseFloat(e.target.value))}
-              style={{ flex: 1, accentColor: '#0d9488', cursor: 'pointer' }}
+              style={{ flex: 1, accentColor: '#111111', cursor: 'pointer' }}
             />
             <button 
               onClick={() => setZoom(z => Math.min(3, z + 0.1))}
@@ -3281,13 +3281,13 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
           <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
             <button 
               onClick={() => setIsCropModalOpen(false)}
-              style={{ padding: '9px 19px', background: 'transparent', color: '#0d9488', borderRadius: '4px', border: '1px solid #0d9488', cursor: 'pointer', fontWeight: '500' }}
+              style={{ padding: '9px 19px', background: 'transparent', color: '#111111', borderRadius: '4px', border: '1px solid #111111', cursor: 'pointer', fontWeight: '500' }}
             >
               Cancel
             </button>
             <button 
               onClick={handleSaveCrop}
-              style={{ padding: '10px 20px', background: '#0d9488', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: '500' }}
+              style={{ padding: '10px 20px', background: '#111111', color: '#fff', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: '500' }}
             >
               Save Changes
             </button>

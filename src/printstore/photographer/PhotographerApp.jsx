@@ -226,7 +226,15 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [profitFilter, setProfitFilter] = useState('all');
-  const [activeTab, setActiveTab] = useState('pricing'); // 'dashboard', 'pricing', 'settings'
+  // Get initial tab from query parameter: 'pricing' by default, or 'dashboard', 'settings'
+  const [activeTab, setActiveTab] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    if (tabParam && ['dashboard', 'pricing', 'settings'].includes(tabParam)) {
+      return tabParam;
+    }
+    return 'pricing';
+  });
   
   // Bulk update options state
   const [updateMethod, setUpdateMethod] = useState('increase_pct');

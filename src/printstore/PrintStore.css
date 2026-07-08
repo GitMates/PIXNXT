@@ -216,7 +216,7 @@ body:has(.printstore-container) footer:not(.store-footer) {
   background: var(--gallery-accent, #8BDFDD) !important;
   color: var(--gallery-on-accent, #222222) !important;
   border: none !important;
-  border-radius: 9999px !important;
+  border-radius: 4px !important;
   font-size: 15px !important;
   font-weight: 500 !important;
   cursor: pointer;
@@ -3738,7 +3738,7 @@ body.crop-modal-active .scroll-to-top-btn {
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  border-radius: 9999px;
+  border-radius: 4px !important;
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -5274,7 +5274,7 @@ div.cart-item-image-wrapper.has-frame-size .cart-item-product-image-box {
   background: var(--gallery-accent, #8BDFDD);
   color: var(--gallery-on-accent, #222222);
   border: none;
-  border-radius: 9999px;
+  border-radius: 4px !important;
   font-size: 16px;
   cursor: pointer;
   margin-bottom: 30px;
@@ -5807,7 +5807,7 @@ div.cart-item-image-wrapper.has-frame-size .cart-item-product-image-box {
   background: var(--gallery-accent, #8BDFDD);
   color: var(--gallery-on-accent, #222222);
   border: none;
-  border-radius: 9999px;
+  border-radius: 4px !important;
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;

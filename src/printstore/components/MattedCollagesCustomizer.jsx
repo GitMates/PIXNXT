@@ -1299,7 +1299,7 @@ export default function MattedCollagesCustomizer({
               step={0.1}
               value={cropState.zoom}
               onChange={(e) => setCropState(prev => ({ ...prev, zoom: parseFloat(e.target.value) }))}
-              style={{ flex: 1, accentColor: '#0d9488', cursor: 'pointer' }}
+              style={{ flex: 1, accentColor: '#111111', cursor: 'pointer' }}
             />
             <button 
               onClick={() => setCropState(prev => ({ ...prev, zoom: Math.min(3, prev.zoom + 0.1) }))}
@@ -1311,13 +1311,13 @@ export default function MattedCollagesCustomizer({
           <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
             <button 
               onClick={() => setCropState(prev => ({ ...prev, isOpen: false }))}
-              style={{ padding: '9px 19px', background: 'transparent', color: '#0d9488', borderRadius: '4px', border: '1px solid #0d9488', cursor: 'pointer', fontWeight: '500' }}
+              style={{ padding: '9px 19px', background: 'transparent', color: '#111111', borderRadius: '4px', border: '1px solid #111111', cursor: 'pointer', fontWeight: '500' }}
             >
               Cancel
             </button>
             <button 
               onClick={handleSaveCrop}
-              style={{ padding: '9px 19px', background: '#0d9488', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: '500' }}
+              style={{ padding: '9px 19px', background: '#111111', color: 'white', borderRadius: '4px', border: 'none', cursor: 'pointer', fontWeight: '500' }}
             >
               Save Crop
             </button>
