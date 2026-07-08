@@ -27,6 +27,7 @@ import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueu
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 import PrintStoreApp from './printstore/PrintStoreApp';
 import LabApp from './printstore/lab/LabApp';
+import PhotographerApp from './printstore/photographer/PhotographerApp';
 
 
 function App() {
@@ -96,6 +97,7 @@ function App() {
     location.pathname.startsWith('/gallery/') ||
     location.pathname.startsWith('/album-preview/') ||
     location.pathname.startsWith('/lab') ||
+    location.pathname.startsWith('/photographer') ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
   if (activeSlug) {
@@ -157,6 +159,7 @@ function App() {
           <Route path="/ref/:code" element={<ReferralRedirect />} />
           <Route path="/printstore" element={<PrintStoreApp />} />
           <Route path="/lab/*" element={<LabApp />} />
+          <Route path="/photographer" element={<PhotographerApp />} />
         </Routes>
 
         {!hideLayout && <Footer />}

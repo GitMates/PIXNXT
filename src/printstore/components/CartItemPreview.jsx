@@ -382,28 +382,21 @@ export default function CartItemPreview({ item }) {
       >
         <div className="print-pack-container" style={{ width: '100%', height: '100%', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           {item.photo ? (
-            [0, 1, 2, 3].map((i) => (
-              <img
-                key={i}
-                src={getPhotoSrc()}
-                alt=""
-                className={`print-pack-img img-${i}`}
-                style={{
-                  width: '55%',
-                  aspectRatio: '4/5',
-                  objectFit: 'cover',
-                  position: 'absolute',
-                  boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                  border: '1px solid rgba(0,0,0,0.05)',
-                  padding: '8px',
-                  backgroundColor: '#fff',
-                  boxSizing: 'border-box',
-                  transform: i === 0 ? 'rotate(-8deg) translate(-12px, -8px)' : i === 1 ? 'rotate(-3deg) translate(-4px, -4px)' : i === 2 ? 'rotate(2deg) translate(4px, 2px)' : 'rotate(6deg) translate(12px, 8px)',
-                  zIndex: i + 1,
-                  filter: i < 3 ? `brightness(${0.92 + i * 0.03})` : undefined
-                }}
-              />
-            ))
+            <img
+              src={getPhotoSrc()}
+              alt=""
+              className="print-pack-img img-single"
+              style={{
+                width: '80%',
+                height: '80%',
+                objectFit: 'cover',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                border: '1px solid rgba(0,0,0,0.05)',
+                padding: '8px',
+                backgroundColor: '#fff',
+                boxSizing: 'border-box'
+              }}
+            />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'absolute', zIndex: 10 }}>
               <ImageIcon size={32} strokeWidth={1.5} color="#888" />
@@ -488,6 +481,64 @@ export default function CartItemPreview({ item }) {
         <div className="prints-container">
           <img src={getPhotoSrc()} alt="" className="print-img print-img-back" />
           <img src={getPhotoSrc()} alt="" className="print-img print-img-front" />
+        </div>
+      </div>
+    );
+  }
+
+  // Print Pack
+  if (product.id === 'print_pack') {
+    return (
+      <div 
+        className="product-card-print_pack wall-preview-print-pack" 
+        style={{ 
+          width: '257.27px',
+          height: '307.25px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxSizing: 'border-box',
+          background: 'transparent',
+          position: 'relative',
+          overflow: 'visible'
+        }}
+      >
+        <div 
+          className="print-pack-container" 
+          style={{ 
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <img 
+              key={i} 
+              src={getPhotoSrc() || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200"} 
+              alt="" 
+              className={`print-pack-img img-${i}`} 
+              style={{
+                width: '65%',
+                height: '65%',
+                objectFit: 'cover',
+                position: 'absolute',
+                border: '1px solid rgba(0,0,0,0.05)',
+                backgroundColor: '#ffffff',
+                boxShadow: i === 3 ? '0 8px 24px rgba(0, 0, 0, 0.15)' : '0 4px 12px rgba(0, 0, 0, 0.15)',
+                transform: i === 0 ? `rotate(${-8 + (item.rotation || 0)}deg) translate(-12px, -8px)` :
+                           i === 1 ? `rotate(${-3 + (item.rotation || 0)}deg) translate(-4px, -4px)` :
+                           i === 2 ? `rotate(${2 + (item.rotation || 0)}deg) translate(4px, 2px)` :
+                                     `rotate(${6 + (item.rotation || 0)}deg) translate(12px, 8px)`,
+                zIndex: i + 1,
+                filter: i === 0 ? 'brightness(0.92)' :
+                        i === 1 ? 'brightness(0.95)' :
+                        i === 2 ? 'brightness(0.98)' : 'none'
+              }}
+            />
+          ))}
         </div>
       </div>
     );

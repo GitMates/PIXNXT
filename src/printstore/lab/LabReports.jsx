@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useLabAuth } from './LabApp';
 
+import { getShortId } from '../utils/idFormat';
+
 export default function LabReports() {
   const { orders, orderItems } = useLabAuth();
   const [reportType, setReportType] = useState('monthly'); // 'daily', 'weekly', 'monthly'
@@ -79,7 +81,7 @@ export default function LabReports() {
   const handleExportCSV = () => {
     let headers = ['Order ID,Customer Name,Date,Status,Total Amount\n'];
     let rows = orders.map(o => {
-      const orderNumber = `#PXNXT-${o.id.substring(0, 8).toUpperCase()}`;
+      const orderNumber = getShortId(o.id, 'order');
       return `${orderNumber},"${o.customer_name}",${new Date(o.created_at).toLocaleDateString()},${o.status},${o.total || 0}`;
     });
     

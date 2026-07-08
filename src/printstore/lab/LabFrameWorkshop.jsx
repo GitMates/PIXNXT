@@ -87,8 +87,8 @@ export default function LabFrameWorkshop() {
 
   if (loading) {
     return (
-      <div style={{ padding: '32px', backgroundColor: '#ffffff', minHeight: '100vh', boxSizing: 'border-box', fontFamily: "'europa', sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ textAlign: 'center', color: '#64748b', fontSize: '14px', fontWeight: 600 }}>Loading frame workshop data...</div>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '80vh', width: '100%' }}>
+        <div className="lab-spinner" />
       </div>
     );
   }

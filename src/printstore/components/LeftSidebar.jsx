@@ -1,12 +1,45 @@
 import React, { useState, useEffect } from 'react';
-import { X, Upload, FlaskConical, LayoutDashboard, Eye, ShoppingCart, Package } from 'lucide-react';
+import { X, Upload, FlaskConical, LayoutDashboard, Eye, ShoppingCart, Package, Camera, Bell } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../../lib/supabase/client';
 
-export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart, onGoToOrders, photographer }) {
+export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart, onGoToOrders, onGoToNotifications, sessionId, photographer }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [photographerName, setPhotographerName] = useState(photographer?.display_name || '');
+  const [notifCount, setNotifCount] = useState(0);
+
+  useEffect(() => {
+    async function fetchNotifCount() {
+      if (!isOpen) return;
+      try {
+        let query = supabase.from('printstore_orders').select('id');
+        let hasFilter = false;
+        if (sessionId) {
+          query = query.eq('session_id', sessionId);
+          hasFilter = true;
+        } else {
+          const { data: userData } = await supabase.auth.getUser();
+          if (userData?.user?.email) {
+            query = query.eq('customer_email', userData.user.email);
+            hasFilter = true;
+          }
+        }
+        if (!hasFilter) return;
+        const { data: orders } = await query;
+        if (orders && orders.length > 0) {
+          const orderIds = orders.map(o => o.id);
+          const { count } = await supabase
+            .from('printstore_artwork_reviews')
+            .select('*', { count: 'exact', head: true })
+            .in('order_id', orderIds)
+            .eq('review_status', 'Waiting Customer');
+          setNotifCount(count || 0);
+        }
+      } catch (err) {}
+    }
+    fetchNotifCount();
+  }, [isOpen, sessionId]);
 
   useEffect(() => {
     if (photographer?.display_name) {
@@ -59,6 +92,11 @@ export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart,
     navigate('/lab');
   };
 
+  const handleGoToPhotographer = () => {
+    onClose();
+    navigate('/photographer');
+  };
+
   const handleGoToDashboard = () => {
     onClose();
     navigate('/dashboard');
@@ -72,6 +110,11 @@ export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart,
     } else if (onSeeGallery) {
       onSeeGallery();
     }
+  };
+
+  const handleGoToNotifications = () => {
+    onClose();
+    if (onGoToNotifications) onGoToNotifications();
   };
 
   const handleGoToCart = () => {
@@ -107,6 +150,8 @@ export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart,
           <span>See gallery</span>
         </button>
 
+
+
         {/* Go to my orders button */}
         <button className="menu-drawer-share-btn" onClick={handleGoToOrders} style={{ marginTop: '10px' }}>
           <Package size={18} strokeWidth={1.5} />
@@ -129,6 +174,12 @@ export default function LeftSidebar({ isOpen, onClose, onSeeGallery, onGoToCart,
         <button className="menu-drawer-share-btn" onClick={handleGoToLab} style={{ marginTop: '10px' }}>
           <FlaskConical size={18} strokeWidth={1.5} />
           <span>See lab</span>
+        </button>
+
+        {/* Go photographer button */}
+        <button className="menu-drawer-share-btn" onClick={handleGoToPhotographer} style={{ marginTop: '10px' }}>
+          <Camera size={18} strokeWidth={1.5} />
+          <span>Go photographer</span>
         </button>
 
         {/* Share gallery button */}

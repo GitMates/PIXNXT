@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useLabAuth } from './LabApp';
 
+import { getShortId } from '../utils/idFormat';
+
 export default function LabWorksheets() {
   const { orders, orderItems } = useLabAuth();
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -87,7 +89,7 @@ export default function LabWorksheets() {
               <p style={{ color: '#64748b', fontSize: '13.5px' }}>No active orders in production queue.</p>
             ) : (
               activeWorksheets.map(order => {
-                const orderNumber = `#PXNXT-${order.id.substring(0, 8).toUpperCase()}`;
+                const orderNumber = getShortId(order.id, 'order');
                 const items = orderItems.filter(item => item.order_id === order.id);
                 const isSelected = selectedOrder?.id === order.id;
 
@@ -159,7 +161,7 @@ export default function LabWorksheets() {
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ fontSize: '16px', fontWeight: 'bold', fontFamily: 'monospace' }}>
-                      #PXNXT-{selectedOrder.id.substring(0, 8).toUpperCase()}
+                      {getShortId(selectedOrder.id, 'order')}
                     </div>
                     <div style={{ fontSize: '12px', color: '#555', marginTop: '4px' }}>
                       Date: {new Date(selectedOrder.created_at).toLocaleDateString()}

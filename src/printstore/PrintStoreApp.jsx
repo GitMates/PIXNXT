@@ -16,6 +16,7 @@ import CheckoutForm from './components/CheckoutForm';
 import StoreFooter from './components/StoreFooter';
 import LeftSidebar from './components/LeftSidebar';
 import ProductDetailPage from './components/ProductDetailPage';
+import NotificationsPage from './components/NotificationsPage';
 import { 
   MOCK_PHOTOS, 
   MOCK_PRODUCTS,
@@ -76,6 +77,53 @@ export default function PrintStoreApp() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [hasPlacedOrder, setHasPlacedOrder] = useState(false);
+  const [notifCount, setNotifCount] = useState(0);
+
+  const fetchNotifCount = async () => {
+    try {
+      let query = supabase.from('printstore_orders').select('id');
+      let hasFilter = false;
+      if (sessionId) {
+        query = query.eq('session_id', sessionId);
+        hasFilter = true;
+      } else {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData?.user?.email) {
+          query = query.eq('customer_email', userData.user.email);
+          hasFilter = true;
+        }
+      }
+      if (!hasFilter) return;
+      const { data: orders } = await query;
+      if (orders && orders.length > 0) {
+        const orderIds = orders.map(o => o.id);
+        const { count } = await supabase
+          .from('printstore_artwork_reviews')
+          .select('*', { count: 'exact', head: true })
+          .in('order_id', orderIds)
+          .eq('review_status', 'Waiting Customer');
+        setNotifCount(count || 0);
+      } else {
+        setNotifCount(0);
+      }
+    } catch (err) {
+      setNotifCount(0);
+    }
+  };
+
+  useEffect(() => {
+    const view = searchParams.get('view');
+    if (view === 'notifications' || view === 'frame-alert') {
+      setViewMode('notifications');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    fetchNotifCount();
+    const interval = setInterval(fetchNotifCount, 30000);
+    return () => clearInterval(interval);
+  }, [sessionId]);
+
   const [selectedProductType, setSelectedProductType] = useState('');
   const [viewingPhoto, setViewingPhoto] = useState(null); // Photo currently open in lightbox
   const [gallerySelectedPhoto, setGallerySelectedPhoto] = useState(null); // Photo selected from gallery for shop use
@@ -218,17 +266,38 @@ export default function PrintStoreApp() {
         }
       }
 
-      // 3. Fallback: load first photographer in database
-      if (!display_name) {
-        const { data: profiles } = await supabase
-          .from('photographers')
-          .select('id, display_name, email')
-          .limit(1);
+      // 3. Try to resolve via sessionId
+      if (!display_name && sessionId) {
+        try {
+          const { data: session } = await supabase
+            .from('client_sessions')
+            .select('collection_id')
+            .eq('id', sessionId)
+            .maybeSingle();
 
-        if (profiles?.[0]?.display_name) {
-          id = profiles[0].id;
-          display_name = profiles[0].display_name;
-          email = profiles[0].email || 'kbaskaran@example.com';
+          if (session?.collection_id) {
+            const { data: collection } = await supabase
+              .from('collections')
+              .select('id, photographer_id')
+              .eq('id', session.collection_id)
+              .maybeSingle();
+
+            if (collection?.photographer_id) {
+              const { data: profile } = await supabase
+                .from('photographers')
+                .select('id, display_name, email')
+                .eq('id', collection.photographer_id)
+                .maybeSingle();
+
+              if (profile?.display_name) {
+                id = profile.id;
+                display_name = profile.display_name;
+                email = profile.email || 'kbaskaran@example.com';
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Could not load photographer via sessionId:", e);
         }
       }
 
@@ -271,13 +340,18 @@ export default function PrintStoreApp() {
   }, [searchParams]);
 
   // Shared mapper function to convert DB product rows to frontend shape
-  const mapProductRow = (p) => ({
-    ...p,
-    id: p.product_type, // Map product_type to id for backward compatibility
-    db_id: p.id, // Store actual database primary key id
-    basePrice: parseFloat(p.base_price),
-    image: p.image_url
-  });
+  const mapProductRow = (p) => {
+    const customPrice = (p.options?.selling_price !== undefined && p.options?.selling_price !== null) 
+      ? parseFloat(p.options.selling_price) 
+      : parseFloat(p.base_price);
+    return {
+      ...p,
+      id: p.product_type, // Map product_type to id for backward compatibility
+      db_id: p.id, // Store actual database primary key id
+      basePrice: customPrice,
+      image: p.image_url
+    };
+  };
 
   // Shared mapper function to convert DB cart item rows to frontend shape
   const mapCartItemRow = (item) => {
@@ -1175,6 +1249,8 @@ export default function PrintStoreApp() {
             customizingProduct={customizingProduct}
             onCancelCustomizing={handleCancelCustomizing}
             photographer={photographer}
+            notificationCount={notifCount}
+            onOpenNotifications={() => setViewMode('notifications')}
           />
         )}
 
@@ -1257,6 +1333,8 @@ export default function PrintStoreApp() {
             />
           ) : viewMode === 'tracking' ? (
             <TrackOrderPage sessionId={sessionId} photographer={photographer} />
+          ) : viewMode === 'notifications' ? (
+            <NotificationsPage sessionId={sessionId} photographer={photographer} onBack={() => setViewMode(previousViewState || 'landing')} />
           ) : viewMode === 'all-products' ? (
             /* All Products Full Grid Screen */
             <div className="store-shopping-flow all-products-view">
@@ -1758,6 +1836,7 @@ export default function PrintStoreApp() {
         isOpen={isMenuOpen}
         onClose={() => setIsMenuOpen(false)}
         photographer={photographer}
+        sessionId={sessionId}
         onSeeGallery={() => {
           setActiveTab('gallery');
           setCheckoutState('shopping');
@@ -1770,6 +1849,12 @@ export default function PrintStoreApp() {
         onGoToOrders={() => {
           setCheckoutState('shopping');
           setViewMode('tracking');
+          setSelectedProductForDetail(null);
+        }}
+        onGoToNotifications={() => {
+          setCheckoutState('shopping');
+          setPreviousViewState(viewMode);
+          setViewMode('notifications');
           setSelectedProductForDetail(null);
         }}
       />

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingCart, Menu, ChevronLeft } from 'lucide-react';
+import { ShoppingCart, Menu, ChevronLeft, Bell } from 'lucide-react';
 import { MOCK_PRODUCTS } from '../data/mockStoreData';
 
 
@@ -12,6 +12,8 @@ export default function StoreHeader({
   setActiveCollection,
   isSelectionMode,
   setIsSelectionMode,
+  activePhoto,
+  activePhotoIndex,
   isHeaderThin,
   onOpenMenu,
   onNavigateToShop,
@@ -21,7 +23,9 @@ export default function StoreHeader({
   onCancelCustomizing,
   onSelectProduct,
   photographer,
-  products = []
+  products = [],
+  notificationCount = 0,
+  onOpenNotifications
 }) {
   const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
 
@@ -111,6 +115,23 @@ export default function StoreHeader({
           )}
 
 
+
+
+
+          {/* Bell Icon with badge count (Alerts) */}
+          <button 
+            className="cart-icon-wrapper" 
+            onClick={onOpenNotifications}
+            aria-label="View Alerts"
+            style={{ marginRight: '8px', position: 'relative' }}
+          >
+            <Bell size={20} strokeWidth={1.5} color="var(--gallery-text, #111111)" />
+            {notificationCount > 0 && (
+              <span className="cart-badge cart-badge-filled" style={{ background: '#ea580c' }}>
+                {notificationCount}
+              </span>
+            )}
+          </button>
 
           {/* Cart Icon with badge count - always rendered to prevent shaking */}
           <button 

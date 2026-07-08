@@ -4,6 +4,7 @@ import { useLabAuth } from './LabApp';
 import { supabase } from '../../lib/supabase/client';
 import CartItemPreview from '../components/CartItemPreview';
 import { MOCK_PHOTOS } from '../data/mockStoreData';
+import { getShortId } from '../utils/idFormat';
 
 const getPhotoThumbnail = (photoOption, photosOption) => {
   let photo = photoOption;
@@ -231,7 +232,7 @@ export default function LabProductionBoard() {
               <div style={{ padding: '12px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {colOrders.map(order => {
                   const prod = getProductInfo(order.id);
-                  const orderNumber = `#PXNXT-${order.id.substring(0, 8).toUpperCase()}`;
+                  const orderNumber = getShortId(order.id, 'order');
                   const priority = order.priority || 'medium';
                   const pColors = PRIORITY_COLORS[priority];
                   const isDragging = draggingId === order.id;

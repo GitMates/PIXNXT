@@ -18,6 +18,9 @@ import LabReprintManager from './LabReprintManager';
 import LabDispatchHistory from './LabDispatchHistory';
 import LabReports from './LabReports';
 import LabSettings from './LabSettings';
+import LabQualityControlDetailsPage from './LabQualityControlDetailsPage';
+import LabArtworkReviewList from './LabArtworkReviewList';
+import LabArtworkReviewDetails from './LabArtworkReviewDetails';
 
 // Create a Lab Auth Context
 export const LabAuthContext = createContext(null);
@@ -66,24 +69,7 @@ const LabApp = () => {
         try {
             const { data, error } = await supabase.from('printstore_lab_employees').select('*');
             if (error) throw error;
-            
-            // Seed employees if empty
-            if (!data || data.length === 0) {
-                const seedEmployees = [
-                    { name: 'Ramesh Kumar', email: 'ramesh@pixnxt.com', role: 'Operator', department: 'Printing', status: 'active', orders_completed: 24, orders_pending: 2 },
-                    { name: 'Seema Rao', email: 'seema@pixnxt.com', role: 'Supervisor', department: 'Quality Control', status: 'active', orders_completed: 45, orders_pending: 0 },
-                    { name: 'David Smith', email: 'david@pixnxt.com', role: 'Packer', department: 'Packaging', status: 'active', orders_completed: 18, orders_pending: 1 }
-                ];
-                const { data: inserted, error: insertError } = await supabase
-                    .from('printstore_lab_employees')
-                    .insert(seedEmployees)
-                    .select();
-                if (!insertError && inserted) {
-                    setEmployees(inserted);
-                }
-            } else {
-                setEmployees(data);
-            }
+            setEmployees(data || []);
         } catch (e) {
             console.error('Error loading employees:', e);
         }
@@ -93,26 +79,7 @@ const LabApp = () => {
         try {
             const { data, error } = await supabase.from('printstore_inventory').select('*');
             if (error) throw error;
-
-            // Seed inventory if empty
-            if (!data || data.length === 0) {
-                const seedInventory = [
-                    { sku: 'PAP-LUS-1620', item_name: 'Premium Lustre 16x20 Roll', category: 'Photo Paper', available_qty: 12.00, minimum_qty: 5.00, supplier: 'Epson India' },
-                    { sku: 'PAP-MAT-2436', item_name: 'Premium Matte 24x36 Roll', category: 'Photo Paper', available_qty: 3.00, minimum_qty: 6.00, supplier: 'Canon Corp' },
-                    { sku: 'WD-BLK-2CM', item_name: 'Classic Black Wood Moulding 2cm', category: 'Frame Material', available_qty: 180.00, minimum_qty: 50.00, supplier: 'Metro Framing Supplies' },
-                    { sku: 'GLS-CLR-1620', item_name: 'Clear Sheet Glass 16x20', category: 'Glass Sheets', available_qty: 24.00, minimum_qty: 10.00, supplier: 'Saint-Gobain Glass' },
-                    { sku: 'PKG-BOX-MED', item_name: 'Shipping Box Double Wall Medium', category: 'Packaging Materials', available_qty: 8.00, minimum_qty: 15.00, supplier: 'PackMan Logistics' }
-                ];
-                const { data: inserted, error: insertError } = await supabase
-                    .from('printstore_inventory')
-                    .insert(seedInventory)
-                    .select();
-                if (!insertError && inserted) {
-                    setInventory(inserted);
-                }
-            } else {
-                setInventory(data);
-            }
+            setInventory(data || []);
         } catch (e) {
             console.error('Error loading inventory:', e);
         }
@@ -179,6 +146,21 @@ const LabApp = () => {
 
     return (
         <LabAuthContext.Provider value={authContextValue}>
+            <style>{`
+                @keyframes lab-spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+                .lab-spinner {
+                    width: 40px;
+                    height: 40px;
+                    border: 3.5px solid rgba(148, 163, 184, 0.25);
+                    border-top: 3.5px solid #64748b;
+                    border-radius: 50%;
+                    animation: lab-spin 0.9s linear infinite;
+                    display: inline-block;
+                }
+            `}</style>
             <Routes>
                 <Route path="auth" element={
                     labUser ? <Navigate to="/lab/dashboard" replace /> : <LabAuth />
@@ -193,11 +175,14 @@ const LabApp = () => {
                     <Route path="print-queue" element={<LabPrintQueue />} />
                     <Route path="ready-to-deliver" element={<LabReadyToDeliver />} />
                     <Route path="quality-control" element={<LabQualityControl />} />
+                    <Route path="quality-control/:orderId" element={<LabQualityControlDetailsPage />} />
                     <Route path="packaging" element={<LabPackagingCenter />} />
                     <Route path="inventory" element={<LabInventory />} />
                     <Route path="employees" element={<LabEmployeeManagement />} />
                     <Route path="reprints" element={<LabReprintManager />} />
                     <Route path="dispatch-history" element={<LabDispatchHistory />} />
+                    <Route path="artwork-review" element={<LabArtworkReviewList />} />
+                    <Route path="artwork-review/:orderId" element={<LabArtworkReviewDetails />} />
                     <Route path="reports" element={<LabReports />} />
                     <Route path="settings" element={<LabSettings />} />
                 </Route>

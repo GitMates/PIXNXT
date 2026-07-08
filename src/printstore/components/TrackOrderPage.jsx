@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Check, Package, MapPin, User, Mail, CreditCard, Clock, Hash, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { supabase } from '../../lib/supabase/client';
 import CartItemPreview from './CartItemPreview';
+import { getShortId } from '../utils/idFormat';
 
 const STATUS_TO_STEP = {
   pending: 0,
@@ -322,7 +323,7 @@ export default function TrackOrderPage({ sessionId, photographer }) {
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             {filteredOrders.map((order) => {
               const orderItems = allOrderItems.filter(item => item.order_id === order.id);
-              const orderNumber = `#PXNXT-${order.id.substring(0, 8).toUpperCase()}`;
+              const orderNumber = getShortId(order.id, 'order');
               const isExpanded = expandedOrderId === order.id;
               const isCancelled = order.status === 'cancelled';
               const currentStepIndex = STATUS_TO_STEP[order.status] ?? 0;
@@ -771,7 +772,7 @@ export default function TrackOrderPage({ sessionId, photographer }) {
           }}>
             <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.2rem', fontWeight: 600, color: '#111' }}>Cancel Order</h3>
             <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.85rem', color: '#666', lineHeight: 1.5 }}>
-              Are you sure you want to cancel order <strong style={{ fontFamily: 'monospace' }}>#PXNXT-{cancellingOrder.id.substring(0, 8).toUpperCase()}</strong>? This action cannot be undone.
+              Are you sure you want to cancel order <strong style={{ fontFamily: 'monospace' }}>{getShortId(cancellingOrder.id, 'order')}</strong>? This action cannot be undone.
             </p>
 
             <div style={{ marginBottom: '1.5rem' }}>

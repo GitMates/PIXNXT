@@ -3,39 +3,31 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useLabAuth } from './LabApp';
 import { supabase } from '../../lib/supabase/client';
 import { MOCK_PHOTOS } from '../data/mockStoreData';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, Eye } from 'lucide-react';
+import { getShortId } from '../utils/idFormat';
 
 const STATUS_COLORS = {
-  pending: '#f39c12',
-  printing: '#9b59b6',
-  printed: '#005c5a',
-  packaging: '#1abc9c',
-  ready_to_ship: '#3498db',
-  shipped: '#2ecc71',
-  completed: '#27ae60',
-  reprint: '#e74c3c',
-  cancelled: '#7f8c8d'
+  pending: '#f97316',
+  printing: '#a855f7',
+  printed: '#0d9488',
+  packaging: '#8b5cf6',
+  ready_to_ship: '#3b82f6',
+  shipped: '#10b981',
+  completed: '#22c55e',
+  reprint: '#ef4444',
+  cancelled: '#64748b'
 };
 
 const STATUS_LABELS = {
-  pending: 'New Order',
+  pending: 'Pending',
   printing: 'Printing',
   printed: 'Printed (QC)',
   packaging: 'Packaging',
-  ready_to_ship: 'Ready To Ship',
+  ready_to_ship: 'Ready To Deliver',
   shipped: 'Shipped',
-  completed: 'Delivered',
+  completed: 'Completed',
   reprint: 'Reprint Required',
   cancelled: 'Cancelled'
-};
-
-const STEP_NUMBERS = {
-  pending: '1',
-  printing: '1',
-  printed: '2',
-  packaging: '3',
-  ready_to_ship: '4',
-  reprint: 'R',
 };
 
 const getPhotoThumbnail = (item) => {
@@ -82,7 +74,7 @@ const CopyButton = ({ text }) => {
         border: 'none',
         cursor: 'pointer',
         padding: '2px',
-        color: copied ? '#2ecc71' : '#94a3b8',
+        color: copied ? '#22c55e' : '#94a3b8',
         marginLeft: '6px',
         verticalAlign: 'middle',
         display: 'inline-flex',
@@ -90,81 +82,28 @@ const CopyButton = ({ text }) => {
         justifyContent: 'center',
       }}
     >
-      {copied ? <Check size={13} color="#2ecc71" strokeWidth={3} /> : <Copy size={12} />}
+      {copied ? <Check size={12} color="#22c55e" strokeWidth={3} /> : <Copy size={11} />}
     </button>
   );
 };
 
-
-export default function LabOrdersTable({ title, fixedStatusFilter, showQuickActions = false }) {
+export default function LabOrdersTable({ title, fixedStatusFilter }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { orders, orderItems, setOrders, employees } = useLabAuth();
   
-  const stepNumber = fixedStatusFilter ? STEP_NUMBERS[fixedStatusFilter] : null;
-
   // Search & Filter state
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState(fixedStatusFilter || 'all');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [sortBy, setSortBy] = useState('date_desc');
-  
-  // Pagination
+  const [dateFilter, setDateFilter] = useState('all');
   const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(10);
+  const pageSize = 10;
 
-  const handleStatusChange = async (orderId, newStatus, e) => {
-    e.stopPropagation();
-    const isConfirmed = window.confirm(`Are you sure you want to change the status of this order to "${STATUS_LABELS[newStatus]}"?`);
-    if (!isConfirmed) {
-      e.target.value = orders.find(o => o.id === orderId)?.status || 'pending';
-      return;
-    }
-    const previous = [...orders];
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o));
-
-    try {
-      const { error } = await supabase
-        .from('printstore_orders')
-        .update({ status: newStatus })
-        .eq('id', orderId);
-
-      if (error) throw error;
-    } catch (err) {
-      console.error('Error updating status:', err);
-      setOrders(previous);
-      alert('Failed to update status in DB: ' + err.message);
-    }
-  };
-
-  const handleAssignEmployee = async (orderId, employeeName, e) => {
-    e.stopPropagation();
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, assigned_employee: employeeName } : o));
-    
-    try {
-      const { error } = await supabase
-        .from('printstore_orders')
-        .update({ assigned_employee: employeeName })
-        .eq('id', orderId);
-      if (error) throw error;
-    } catch (err) {
-      console.error('Failed to update assigned employee in DB.');
-    }
-  };
-
-  const handlePriorityChange = async (orderId, priority, e) => {
-    e.stopPropagation();
-    setOrders(prev => prev.map(o => o.id === orderId ? { ...o, priority } : o));
-    
-    try {
-      const { error } = await supabase
-        .from('printstore_orders')
-        .update({ priority })
-        .eq('id', orderId);
-      if (error) throw error;
-    } catch (err) {
-      console.error('Failed to update priority in DB.');
-    }
+  const handleClearFilters = () => {
+    setSearch('');
+    setStatusFilter(fixedStatusFilter || 'all');
+    setDateFilter('all');
+    setPage(0);
   };
 
   const filteredOrders = useMemo(() => {
@@ -172,382 +111,346 @@ export default function LabOrdersTable({ title, fixedStatusFilter, showQuickActi
 
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(o => 
-        o.id.toLowerCase().includes(q) || 
-        o.customer_name.toLowerCase().includes(q) ||
-        o.customer_email.toLowerCase().includes(q)
-      );
+      result = result.filter(o => {
+        const orderNumber = getShortId(o.id, 'order');
+        return orderNumber.toLowerCase().includes(q) ||
+               o.id.toLowerCase().includes(q) || 
+               (o.customer_name && o.customer_name.toLowerCase().includes(q)) ||
+               (o.customer_email && o.customer_email.toLowerCase().includes(q)) ||
+               (o.shipping_address?.phone && o.shipping_address.phone.toLowerCase().includes(q));
+      });
     }
 
     if (fixedStatusFilter) {
-      if (Array.isArray(fixedStatusFilter)) {
-        result = result.filter(o => fixedStatusFilter.includes(o.status));
-      } else {
-        result = result.filter(o => o.status === fixedStatusFilter);
-      }
+      result = result.filter(o => o.status === fixedStatusFilter);
     } else if (statusFilter !== 'all') {
       result = result.filter(o => o.status === statusFilter);
     }
 
-    if (typeFilter !== 'all') {
+    if (dateFilter !== 'all') {
+      const now = new Date();
       result = result.filter(o => {
-        const itemsForOrder = orderItems.filter(item => item.order_id === o.id);
-        return itemsForOrder.some(item => item.product_type === typeFilter);
+        const d = new Date(o.created_at);
+        if (dateFilter === 'today') {
+          return d.toDateString() === now.toDateString();
+        } else if (dateFilter === 'week') {
+          const weekAgo = new Date();
+          weekAgo.setDate(now.getDate() - 7);
+          return d >= weekAgo;
+        } else if (dateFilter === 'month') {
+          return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        }
+        return true;
       });
     }
 
-    result.sort((a, b) => {
-      if (sortBy === 'date_desc') return new Date(b.created_at) - new Date(a.created_at);
-      if (sortBy === 'date_asc') return new Date(a.created_at) - new Date(b.created_at);
-      if (sortBy === 'amount_desc') return (b.total || 0) - (a.total || 0);
-      if (sortBy === 'amount_asc') return (a.total || 0) - (b.total || 0);
-      return 0;
-    });
-
+    // Default newest first
+    result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
     return result;
-  }, [orders, orderItems, search, statusFilter, fixedStatusFilter, typeFilter, sortBy]);
+  }, [orders, search, statusFilter, fixedStatusFilter, dateFilter]);
 
   const paginatedOrders = useMemo(() => {
     const start = page * pageSize;
     return filteredOrders.slice(start, start + pageSize);
-  }, [filteredOrders, page, pageSize]);
+  }, [filteredOrders, page]);
 
-  const totalPages = Math.ceil(filteredOrders.length / pageSize);
+  const totalPages = Math.ceil(filteredOrders.length / pageSize) || 1;
 
-  const getProductTypeLabel = (orderId) => {
-    const items = orderItems.filter(item => item.order_id === orderId);
-    if (items.length === 0) return 'N/A';
-    const types = [...new Set(items.map(item => item.product_type || 'print'))];
-    return types.map(t => t.replace(/_/g, ' ').toUpperCase()).join(', ');
-  };
-
-  const getQuantitySum = (orderId) => {
+  const getItemsCount = (orderId) => {
     const items = orderItems.filter(item => item.order_id === orderId);
     return items.reduce((sum, item) => sum + (item.quantity || 1), 0);
   };
 
   return (
-    <div style={{ padding: '16px 32px 12px 32px', backgroundColor: 'transparent', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "'europa', sans-serif" }}>
-      
-      <div style={{ borderBottom: 'none', paddingBottom: '0px', marginBottom: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '28px', color: '#005c5a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em', display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {title}
-            {stepNumber && (
-              <span style={{ 
-                color: '#0d9488', 
-                fontSize: '24px', 
-                fontWeight: 700, 
-                fontFamily: 'sans-serif',
-                backgroundColor: '#e6f4f3', 
-                borderRadius: '50%', 
-                width: '36px', 
-                height: '36px', 
-                display: 'inline-flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-              }}>
-                {stepNumber}
-              </span>
-            )}
-          </h1>
-        </div>
+    <div style={{ padding: '24px 32px', backgroundColor: '#ffffff', minHeight: '100%', display: 'flex', flexDirection: 'column', boxSizing: 'border-box', fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <h1 style={{ fontFamily: "'EB Garamond', serif", fontSize: '26px', fontWeight: 'bold', color: '#0f172a', margin: 0, textTransform: 'uppercase' }}>
+          {title || 'Incoming Orders'}
+        </h1>
       </div>
 
-      <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '4px', padding: '10px 14px', backgroundColor: '#f8fafc', borderRadius: '4px' }}>
-        <input
-          type="search"
-          placeholder="Search by ID, name or email..."
-          value={search}
-          onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-          style={{ flex: 1, minWidth: '240px', padding: '10px 14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13.5px' }}
-        />
+      {/* Mockup filter bar row */}
+      <div style={{ display: 'flex', gap: '12px', alignItems: 'center', backgroundColor: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '12px 16px', marginBottom: '20px', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
         
+        {/* Search input with search icon */}
+        <div style={{ position: 'relative', flex: 1 }}>
+          <span style={{ position: 'absolute', left: '12px', top: '9px', color: '#94a3b8', fontSize: '13px' }}>🔍</span>
+          <input
+            type="search"
+            placeholder="Search by Order ID, Customer, Email, Phone..."
+            value={search}
+            onChange={(e) => { setSearch(e.target.value); setPage(0); }}
+            style={{ width: '100%', padding: '9px 12px 9px 36px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', outline: 'none', backgroundColor: '#ffffff' }}
+          />
+        </div>
+        
+        {/* Status Dropdown */}
         {!fixedStatusFilter && (
           <select 
             value={statusFilter} 
             onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}
-            style={{ padding: '10px 28px 10px 14px', border: '1px solid #cbd5e1', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none', cursor: 'pointer' }}
+            style={{ padding: '9px 32px 9px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer', appearance: 'none', backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', backgroundSize: '15px' }}
           >
-            <option value="all">All Statuses</option>
+            <option value="all">All Status</option>
             {Object.entries(STATUS_LABELS).map(([val, label]) => (
               <option key={val} value={val}>{label}</option>
             ))}
           </select>
         )}
 
+        {/* Date filter dropdown */}
         <select 
-          value={typeFilter} 
-          onChange={(e) => { setTypeFilter(e.target.value); setPage(0); }}
-          style={{ padding: '10px 28px 10px 14px', border: '1px solid #cbd5e1', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none', cursor: 'pointer' }}
+          value={dateFilter} 
+          onChange={(e) => { setDateFilter(e.target.value); setPage(0); }}
+          style={{ padding: '9px 32px 9px 14px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#fff', fontSize: '13px', outline: 'none', cursor: 'pointer', appearance: 'none', backgroundImage: 'url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%2364748b\' stroke-width=\'2\' stroke-linecap=\'round\' stroke-linejoin=\'round\'%3E%3Cpolyline points=\'6 9 12 15 18 9\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', backgroundSize: '15px' }}
         >
-          <option value="all">All Products</option>
-          <option value="print_pack">Print Pack</option>
-          <option value="frames">Frames</option>
-          <option value="float_frames">Float Frames</option>
-          <option value="matted_collages">Matted Collages</option>
+          <option value="all">Date Range</option>
+          <option value="today">Today</option>
+          <option value="week">Past 7 Days</option>
+          <option value="month">This Month</option>
         </select>
 
-        <select 
-          value={sortBy} 
-          onChange={(e) => setSortBy(e.target.value)}
-          style={{ padding: '10px 28px 10px 14px', border: '1px solid #cbd5e1', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none', cursor: 'pointer' }}
+        {/* Clear Filters Button */}
+        <button 
+          onClick={handleClearFilters}
+          style={{ padding: '9px 16px', border: '1px solid #cbd5e1', borderRadius: '8px', backgroundColor: '#ffffff', color: '#475569', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.15s' }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f1f5f9'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#ffffff'; }}
         >
-          <option value="date_desc">Placed: Newest first</option>
-          <option value="date_asc">Placed: Oldest first</option>
-          <option value="amount_desc">Amount: High to Low</option>
-          <option value="amount_asc">Amount: Low to High</option>
-        </select>
+          Clear
+        </button>
       </div>
 
-      <div style={{ flex: 1, overflowX: 'auto', display: 'flex', flexDirection: 'column', backgroundColor: 'transparent' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left', minWidth: '1800px' }}>
-          <thead>
-            <tr style={{ backgroundColor: '#005c5a', color: '#ffffff', borderBottom: '2px solid #cbd5e1' }}>
-              <th style={{ padding: '14px 16px', width: '50px' }}>No.</th>
-              <th style={{ padding: '14px 16px', width: '100px' }}>Product</th>
-              <th style={{ padding: '14px 16px', width: '240px', whiteSpace: 'nowrap' }}>Order ID</th>
-              <th style={{ padding: '14px 16px', width: '200px', whiteSpace: 'nowrap' }}>Photographer UID</th>
-              <th style={{ padding: '14px 16px', width: '180px' }}>Customer Name</th>
-              <th style={{ padding: '14px 16px', width: '220px' }}>Customer Email</th>
-              <th style={{ padding: '14px 16px', width: '120px' }}>Date</th>
-              <th style={{ padding: '14px 16px', width: '140px' }}>Product Type</th>
-              <th style={{ padding: '14px 16px', width: '80px', textAlign: 'center' }}>Qty</th>
-              {showQuickActions && (
-                <>
-                  <th style={{ padding: '14px 16px', width: '120px' }}>Priority</th>
-                  <th style={{ padding: '14px 16px', width: '180px' }}>Assigned Employee</th>
-                  <th style={{ padding: '14px 16px', width: '180px' }}>Status</th>
-                </>
-              )}
-              <th style={{ padding: '14px 16px', width: '100px', textAlign: 'right' }}>Total</th>
-              <th style={{ padding: '14px 16px', width: '120px', textAlign: 'center' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedOrders.map((order, idx) => {
-              const orderNumber = `#PXNXT-${order.id.toUpperCase()}`;
-              const photographerUid = order.photographer_id || 'N/A';
-              const currentOrderItems = orderItems.filter(item => item.order_id === order.id);
-              
-              return (
-                <tr 
-                  key={order.id} 
-                  onClick={() => navigate(`/lab/orders/${order.id}`, { state: { from: location.pathname } })}
-                  style={{ borderBottom: '1px solid #eaeaea', cursor: 'pointer', transition: 'background-color 0.15s' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; }}
-                >
-                  <td style={{ padding: '14px 16px', fontWeight: 600, color: '#0f172a' }} onClick={(e) => e.stopPropagation()}>
-                    {page * pageSize + idx + 1}
-                  </td>
-                  
-                  <td style={{ padding: '10px 16px' }}>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {currentOrderItems.map((item, itemIdx) => (
-                        <div 
-                          key={item.id} 
+      {/* Main Table Container - Transparent Background */}
+      <div style={{ backgroundColor: 'transparent', border: '1px solid #e2e8f0', borderRadius: '10px', flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: 'none' }}>
+        <div style={{ flex: 1, overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left', minWidth: '1200px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#ffffff', borderBottom: '2px solid #e2e8f0', color: '#000000', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                <th style={{ padding: '14px 16px', width: '40px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                  <input type="checkbox" style={{ cursor: 'pointer' }} />
+                </th>
+                <th style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>Image</th>
+                <th style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>Order ID</th>
+                <th style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>Customer</th>
+                <th style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>Order Date</th>
+                <th style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>Status</th>
+                <th style={{ padding: '14px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>Items</th>
+                <th style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>Total Amount</th>
+                <th style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>Priority</th>
+                <th style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>Assigned To</th>
+                <th style={{ padding: '14px 16px', textAlign: 'center', whiteSpace: 'nowrap' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedOrders.map((order) => {
+                const orderNumber = getShortId(order.id, 'order');
+                const currentOrderItems = orderItems.filter(item => item.order_id === order.id);
+                
+                // Format order date & time stacked into single line
+                const dateObj = new Date(order.created_at);
+                const orderDateString = dateObj.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+                const orderTimeString = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+                return (
+                  <tr 
+                    key={order.id} 
+                    onClick={() => navigate(`/lab/orders/${order.id}`, { state: { from: location.pathname } })}
+                    style={{ borderBottom: '1px solid #f1f5f9', cursor: 'pointer', transition: 'background-color 0.15s' }}
+                    onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#f8fafc'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = ''; }}
+                  >
+                    <td style={{ padding: '14px 16px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" style={{ cursor: 'pointer' }} />
+                    </td>
+                    
+                    {/* Image Column */}
+                    <td style={{ padding: '10px 16px' }}>
+                      <div style={{ display: 'flex', gap: '2px' }}>
+                        {currentOrderItems.slice(0, 1).map((item) => (
+                          <div 
+                            key={item.id} 
+                            style={{ width: '36px', height: '36px', border: '1px solid #cbd5e1', overflow: 'hidden', backgroundColor: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px' }}
+                          >
+                            {getPhotoThumbnail(item) ? (
+                              <img src={getPhotoThumbnail(item)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ fontSize: '8px', color: '#94a3b8', fontWeight: 'bold' }}>IMG</div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+
+                    {/* Order ID */}
+                    <td style={{ padding: '14px 16px', fontSize: '12.5px', fontWeight: 'bold', color: '#0f766e', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                      <span>{orderNumber}</span>
+                      <CopyButton text={orderNumber} />
+                    </td>
+
+                    {/* Customer */}
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ fontWeight: 'bold', color: '#1e293b', whiteSpace: 'nowrap' }}>{order.customer_name}</div>
+                      <div style={{ fontSize: '11.5px', color: '#64748b', marginTop: '2.5px', whiteSpace: 'nowrap' }}>
+                        {order.shipping_address?.phone || order.shipping_address?.address || ''}
+                      </div>
+                    </td>
+
+                    {/* Order Date (Single line format) */}
+                    <td style={{ padding: '14px 16px', color: '#1e293b', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
+                      <span>{orderDateString}</span>
+                      <span style={{ margin: '0 6px', color: '#cbd5e1' }}>•</span>
+                      <span style={{ color: '#64748b' }}>{orderTimeString}</span>
+                    </td>
+
+                    {/* Status Badge capsule */}
+                    <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                      <span style={{
+                        padding: '4px 12px',
+                        borderRadius: '9999px',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        backgroundColor: `${STATUS_COLORS[order.status]}15`,
+                        color: STATUS_COLORS[order.status],
+                        border: `1px solid ${STATUS_COLORS[order.status]}30`,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.02em',
+                        display: 'inline-block',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {STATUS_LABELS[order.status]}
+                      </span>
+                    </td>
+
+                    {/* Items count */}
+                    <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 'bold', color: '#1e293b', whiteSpace: 'nowrap' }}>
+                      {getItemsCount(order.id)}
+                    </td>
+
+                    {/* Total Amount */}
+                    <td style={{ padding: '14px 16px', fontWeight: 'bold', color: '#1e293b', whiteSpace: 'nowrap' }}>
+                      {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 }).format(order.total || 0)}
+                    </td>
+
+                    {/* Priority badge */}
+                    <td style={{ padding: '14px 16px', whiteSpace: 'nowrap' }}>
+                      <span style={{
+                        padding: '3px 10px',
+                        borderRadius: '6px',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        backgroundColor: order.priority === 'High' ? '#fee2e2' : order.priority === 'Medium' ? '#fef3c7' : '#ecfdf5',
+                        color: order.priority === 'High' ? '#ef4444' : order.priority === 'Medium' ? '#d97706' : '#10b981',
+                        border: `1px solid ${order.priority === 'High' ? '#fca5a5' : order.priority === 'Medium' ? '#fcd34d' : '#a7f3d0'}`,
+                        whiteSpace: 'nowrap'
+                      }}>{order.priority || 'Medium'}</span>
+                    </td>
+
+                    {/* Assigned To */}
+                    <td style={{ padding: '14px 16px', color: '#475569', fontSize: '12.5px', whiteSpace: 'nowrap' }}>
+                      {order.assigned_employee ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                          <span>👤</span> {order.assigned_employee}
+                        </span>
+                      ) : (
+                        <span style={{ color: '#cbd5e1', whiteSpace: 'nowrap' }}>—</span>
+                      )}
+                    </td>
+                    
+                    {/* Action buttons (removed three dots) */}
+                    <td style={{ padding: '14px 16px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                        <button
+                          onClick={() => navigate(`/lab/orders/${order.id}`, { state: { from: location.pathname } })}
                           style={{
-                            width: '32px',
-                            height: '32px',
+                            width: '28px',
+                            height: '28px',
                             border: '1px solid #cbd5e1',
-                            overflow: 'hidden',
+                            borderRadius: '4px',
                             backgroundColor: '#fff',
+                            cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            borderRadius: '2px'
+                            color: '#475569',
+                            transition: 'all 0.15s'
                           }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#0f766e'; e.currentTarget.style.color = '#0f766e'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#475569'; }}
+                          title="Inspect Order"
                         >
-                          {getPhotoThumbnail(item) ? (
-                            <img src={getPhotoThumbnail(item)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ) : (
-                            <div style={{ fontSize: '8px', color: '#aaa', fontWeight: 'bold' }}>IMG</div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </td>
+                          <Eye size={14} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
 
-                  <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: '11px', fontWeight: 'semibold', color: '#0f172a', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                    <span>{orderNumber}</span>
-                    <CopyButton text={orderNumber} />
-                  </td>
-
-                  <td style={{ padding: '14px 16px', fontFamily: 'monospace', fontSize: '11px', color: '#1e293b', whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
-                    <span title={order.photographer_id}>{photographerUid}</span>
-                    {order.photographer_id && <CopyButton text={order.photographer_id} />}
-                  </td>
-
-                  <td style={{ padding: '14px 16px', fontWeight: 600, color: '#0f172a' }}>{order.customer_name}</td>
-                  <td style={{ padding: '14px 16px', color: '#0f172a' }}>{order.customer_email}</td>
-                  <td style={{ padding: '14px 16px', color: '#0f172a' }}>{new Date(order.created_at).toLocaleDateString('en-IN')}</td>
-                  <td style={{ padding: '14px 16px', textTransform: 'uppercase', fontSize: '11px', fontWeight: 600, color: '#0f172a' }}>{getProductTypeLabel(order.id)}</td>
-                  <td style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 'bold', color: '#0f172a' }}>{getQuantitySum(order.id)}</td>
-                  
-                  {showQuickActions && (
-                    <>
-                      <td style={{ padding: '14px 16px' }} onClick={(e) => e.stopPropagation()}>
-                        <select
-                           value={order.priority || 'medium'}
-                           onChange={(e) => handlePriorityChange(order.id, e.target.value, e)}
-                           style={{
-                             padding: '3px 20px 3px 6px',
-                             borderRadius: '3px',
-                             border: '1px solid #cbd5e1',
-                             fontSize: '11px',
-                             fontWeight: '600',
-                             color: order.priority === 'urgent' ? '#e74c3c' : order.priority === 'high' ? '#e67e22' : '#0f172a',
-                             outline: 'none',
-                             cursor: 'pointer',
-                             backgroundColor: '#ffffff'
-                           }}
-                        >
-                          <option value="low">Low</option>
-                          <option value="medium">Medium</option>
-                          <option value="high">High</option>
-                          <option value="urgent">Urgent</option>
-                        </select>
-                      </td>
-
-                      <td style={{ padding: '14px 16px' }} onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={order.assigned_employee || ''}
-                          onChange={(e) => handleAssignEmployee(order.id, e.target.value, e)}
-                          style={{
-                            padding: '3px 24px 3px 6px',
-                            borderRadius: '3px',
-                            border: '1px solid #cbd5e1',
-                            fontSize: '11.5px',
-                            outline: 'none',
-                            width: '100%',
-                            minWidth: '180px',
-                            color: '#0f172a',
-                            cursor: 'pointer',
-                            backgroundColor: '#ffffff'
-                          }}
-                        >
-                          <option value="">Unassigned</option>
-                          {employees.map(emp => (
-                            <option key={emp.id} value={emp.name}>{emp.name} ({emp.role})</option>
-                          ))}
-                        </select>
-                      </td>
-
-                      <td style={{ padding: '14px 16px' }} onClick={(e) => e.stopPropagation()}>
-                        <select
-                          value={order.status}
-                          onChange={(e) => handleStatusChange(order.id, e.target.value, e)}
-                          disabled={order.status === 'completed' || order.status === 'cancelled'}
-                          style={{
-                            backgroundColor: `${STATUS_COLORS[order.status]}15`,
-                            color: STATUS_COLORS[order.status],
-                            border: `1px solid ${STATUS_COLORS[order.status]}30`,
-                            borderRadius: '20px',
-                            padding: '3px 20px 3px 8px',
-                            fontSize: '11.5px',
-                            fontWeight: '700',
-                            cursor: (order.status === 'completed' || order.status === 'cancelled') ? 'not-allowed' : 'pointer',
-                            outline: 'none',
-                            minWidth: '145px'
-                          }}
-                        >
-                          {Object.entries(STATUS_LABELS).map(([value, label]) => {
-                            const orderSteps = ['pending', 'printing', 'printed', 'packaging', 'ready_to_ship', 'shipped', 'completed'];
-                            const currentIndex = orderSteps.indexOf(order.status);
-                            const optionIndex = orderSteps.indexOf(value);
-                            
-                            const isNonSequential = value === 'cancelled' || value === 'reprint';
-                            const isDisabled = !isNonSequential && currentIndex !== -1 && optionIndex !== -1 && optionIndex < currentIndex;
-                            
-                            return (
-                              <option 
-                                key={value} 
-                                value={value} 
-                                disabled={isDisabled} 
-                                style={{ backgroundColor: '#ffffff', color: isDisabled ? '#cbd5e1' : '#333' }}
-                              >
-                                {label}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </td>
-                    </>
-                  )}
-
-                  <td style={{ padding: '14px 16px', textAlign: 'right', fontWeight: 700, color: '#0f172a' }}>
-                    {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' }).format(order.total || 0)}
-                  </td>
-                  
-                  <td style={{ padding: '14px 16px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => navigate(`/lab/orders/${order.id}`, { state: { from: location.pathname } })}
-                      style={{
-                        padding: '4px 10px',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '3px',
-                        backgroundColor: '#fff',
-                        cursor: 'pointer',
-                        fontSize: '11.5px',
-                        fontWeight: '600',
-                        color: '#475569',
-                        transition: 'all 0.15s'
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#005c5a'; e.currentTarget.style.color = '#005c5a'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = '#cbd5e1'; e.currentTarget.style.color = '#475569'; }}
-                    >
-                      Inspect
-                    </button>
+              {filteredOrders.length === 0 && (
+                <tr>
+                  <td colSpan="12" style={{ padding: '40px', textAlignment: 'center', color: '#64748b' }}>
+                    No orders matched your search criteria.
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      {filteredOrders.length > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderTop: '1px solid #eaeaea', marginTop: '8px', fontSize: '11px', color: '#64748b' }}>
-          <div>
-            Showing {page * pageSize + 1}–{Math.min((page + 1) * pageSize, filteredOrders.length)} of {filteredOrders.length} orders
-          </div>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-              <span>Rows:</span>
-              <select
-                value={pageSize}
-                onChange={(e) => { setPageSize(parseInt(e.target.value, 10)); setPage(0); }}
-                style={{ padding: '1px 4px', borderRadius: '3px', border: '1px solid #cbd5e1', fontSize: '10.5px', outline: 'none', cursor: 'pointer', backgroundColor: '#fff' }}
-              >
-                <option value="10">10</option>
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-              </select>
+        {/* Footer Pagination row */}
+        {filteredOrders.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 20px', borderTop: '1px solid #e2e8f0', fontSize: '12px', color: '#64748b', backgroundColor: '#ffffff' }}>
+            <div>
+              Showing {page * pageSize + 1} to {Math.min((page + 1) * pageSize, filteredOrders.length)} of {filteredOrders.length} orders
             </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              {/* Back Page */}
               <button
                 onClick={() => setPage(p => Math.max(0, p - 1))}
                 disabled={page === 0}
-                style={{ background: 'none', border: '1px solid #cbd5e1', borderRadius: '3px', padding: '1px 4px', cursor: page === 0 ? 'not-allowed' : 'pointer', opacity: page === 0 ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}
+                style={{ width: '28px', height: '28px', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: page === 0 ? 'not-allowed' : 'pointer', backgroundColor: '#fff', opacity: page === 0 ? 0.5 : 1, display: 'flex', alignItems: 'center', justify: 'center', fontWeight: 'bold' }}
               >
-                ◀
+                &lt;
               </button>
-              <span style={{ fontWeight: '600' }}>Page {page + 1} of {totalPages}</span>
+
+              {/* Page indices */}
+              {Array.from({ length: totalPages }, (_, i) => {
+                const isActive = page === i;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setPage(i)}
+                    style={{
+                      width: '28px',
+                      height: '28px',
+                      border: isActive ? 'none' : '1px solid #cbd5e1',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      backgroundColor: isActive ? '#0f766e' : '#fff',
+                      color: isActive ? '#fff' : '#475569',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    {i + 1}
+                  </button>
+                );
+              })}
+
+              {/* Next Page */}
               <button
                 onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
                 disabled={page >= totalPages - 1}
-                style={{ background: 'none', border: '1px solid #cbd5e1', borderRadius: '3px', padding: '1px 4px', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', opacity: page >= totalPages - 1 ? 0.5 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '8px' }}
+                style={{ width: '28px', height: '28px', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: page >= totalPages - 1 ? 'not-allowed' : 'pointer', backgroundColor: '#fff', opacity: page >= totalPages - 1 ? 0.5 : 1, display: 'flex', alignItems: 'center', justify: 'center', fontWeight: 'bold' }}
               >
-                ▶
+                &gt;
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
     </div>
   );
