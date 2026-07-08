@@ -33,6 +33,9 @@ import AdminUserManagement from './pages/admin/AdminUserManagement';
 import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
+import PrintStoreApp from './printstore/PrintStoreApp';
+import LabApp from './printstore/lab/LabApp';
+import PhotographerApp from './printstore/photographer/PhotographerApp';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 
 function MobileGalleryViewRedirect() {
@@ -118,6 +121,9 @@ function App() {
     location.pathname.startsWith('/m/') ||
     location.pathname.startsWith('/album-preview/') ||
     location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/printstore') ||
+    location.pathname.startsWith('/lab') ||
+    location.pathname.startsWith('/photographer') ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
   if (location.pathname.startsWith('/m/')) {
@@ -205,6 +211,9 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="users" element={<AdminUserManagement />} />
           </Route>
+          <Route path="/printstore" element={<PrintStoreApp />} />
+          <Route path="/lab/*" element={<LabApp />} />
+          <Route path="/photographer" element={<PhotographerApp />} />
         </Routes>
 
         {!hideLayout && <Footer />}

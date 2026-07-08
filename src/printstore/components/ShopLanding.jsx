@@ -1,9 +1,11 @@
 import React from 'react';
 import { MOCK_PHOTOS } from '../data/mockStoreData';
 
-export default function ShopLanding({ products, selectedPhotoUrl, onSelectProduct, onExploreAll }) {
-  const defaultImg = selectedPhotoUrl || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200";
-  const secondImg = selectedPhotoUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200";
+export default function ShopLanding({ products, selectedPhotoUrl, onSelectProduct, onExploreAll, photos = [] }) {
+  // Use collection photos if available, fall back to selected photo, then to default couple/portrait mockups
+  const firstPhotoUrl = selectedPhotoUrl || photos[0]?.url || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200";
+  const secondPhotoUrl = photos[1]?.url || selectedPhotoUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200";
+  const thirdPhotoUrl = photos[2]?.url || selectedPhotoUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800&h=1200";
 
   return (
     <section className="shop-section">
@@ -22,27 +24,30 @@ export default function ShopLanding({ products, selectedPhotoUrl, onSelectProduc
             <div className="product-image-box">
               {product.id === 'matted_collages' ? (
                 <div className="collage-container">
-                  <img src={selectedPhotoUrl || product.image} alt={product.name} className="collage-img" />
-                  <img src={selectedPhotoUrl || product.image} alt={product.name} className="collage-img" />
+                  <img src={firstPhotoUrl} alt={product.name} className="collage-img" />
+                  <img src={secondPhotoUrl} alt={product.name} className="collage-img" />
                 </div>
               ) : product.id === 'prints' ? (
                 <div className="prints-container">
-                  <img src={selectedPhotoUrl || product.image} alt={product.name} className="print-img print-img-back" />
-                  <img src={secondImg} alt={product.name} className="print-img print-img-front" />
+                  <img src={firstPhotoUrl} alt={product.name} className="print-img print-img-back" />
+                  <img src={secondPhotoUrl} alt={product.name} className="print-img print-img-front" />
                 </div>
               ) : product.id === 'print_pack' ? (
                 <div className="print-pack-container">
-                  {[0, 1, 2, 3].map((i) => (
-                    <img key={i} src={selectedPhotoUrl || product.image} alt={product.name} className={`print-pack-img img-${i}`} />
-                  ))}
+                  {[0, 1, 2, 3].map((i) => {
+                    const photoUrl = photos[i]?.url || selectedPhotoUrl || product.image;
+                    return (
+                      <img key={i} src={photoUrl} alt={product.name} className={`print-pack-img img-${i}`} />
+                    );
+                  })}
                 </div>
               ) : product.id === 'deckled_prints' ? (
                 <div className="deckled-print-wrapper">
-                  <img src={selectedPhotoUrl || product.image} alt={product.name} className="deckled-print-img" />
+                  <img src={firstPhotoUrl} alt={product.name} className="deckled-print-img" />
                 </div>
               ) : (
                 (() => {
-                  const defaultImg = selectedPhotoUrl || product.image;
+                  const defaultImg = firstPhotoUrl;
                   const isFloatFrame = product.id === 'float_frames';
                   const photoObj = MOCK_PHOTOS.find(p => p.url === defaultImg);
                   const isLandscape = photoObj ? photoObj.aspectRatio === '3:2' : (defaultImg && defaultImg.includes('w=1200&h=800'));

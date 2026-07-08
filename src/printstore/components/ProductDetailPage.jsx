@@ -1526,12 +1526,14 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
                       if (idx === order[0]) role = 'big';
                       else if (idx === order[1]) role = 'small';
                       
+                      const imgToDisplay = selectedPhotoUrl || imgUrl;
+                      
                       return (
                         <div 
                           key={idx} 
                           className={`pt-trio-scope__container__image trio-role-${role}`}
                           data-role={role}
-                          style={{ backgroundImage: `url(${imgUrl})` }}
+                          style={{ backgroundImage: `url(${imgToDisplay})` }}
                           onMouseEnter={() => {
                             if (role !== 'big') setActiveTrioIndex(idx);
                           }}

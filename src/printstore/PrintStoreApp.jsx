@@ -60,7 +60,7 @@ export default function PrintStoreApp() {
   const [products, setProducts] = useState([]);
 
   // Navigation & View States
-  const [activeTab, setActiveTab] = useState('gallery'); // 'gallery' | 'shop'
+  const [activeTab, setActiveTab] = useState('shop'); // 'gallery' | 'shop'
   const [activeCollection, setActiveCollection] = useState('portraits'); // 'favorites' | 'portraits'
   const [checkoutState, setCheckoutState] = useState('shopping'); // 'shopping' | 'cart' | 'checkout' | 'completed'
   const [viewMode, setViewMode] = useState('landing'); // 'landing' | 'all-products'
@@ -200,6 +200,16 @@ export default function PrintStoreApp() {
 
       // 1. Try to load photographer by collection slug in query parameters
       const slug = searchParams.get('slug') || searchParams.get('collection');
+      const photoIdParam = searchParams.get('photo');
+      if (!slug || !photoIdParam) {
+        if (slug) {
+          window.location.assign(`/gallery/${slug}`);
+        } else {
+          window.location.assign('/');
+        }
+        return;
+      }
+
       if (slug) {
         const { data: collection } = await supabase
           .from('collections')
@@ -226,12 +236,16 @@ export default function PrintStoreApp() {
             setCollectionPhotos(mappedPhotos);
 
             const photoIdParam = searchParams.get('photo');
+            let matchedPhoto = null;
             if (photoIdParam) {
-              const matchedPhoto = mappedPhotos.find(p => String(p.id) === String(photoIdParam));
-              if (matchedPhoto) {
-                setGallerySelectedPhoto(matchedPhoto);
-                setActiveTab('shop');
-              }
+              matchedPhoto = mappedPhotos.find(p => String(p.id) === String(photoIdParam));
+            }
+            if (!matchedPhoto && mappedPhotos.length > 0) {
+              matchedPhoto = mappedPhotos[0];
+            }
+            if (matchedPhoto) {
+              setGallerySelectedPhoto(matchedPhoto);
+              setActiveTab('shop');
             }
           }
 
@@ -711,21 +725,8 @@ export default function PrintStoreApp() {
         }
       }
       lastScrollY.current = currentScrollY;
-
-      if (checkoutState === 'shopping' && activeCollection === 'portraits' && viewMode === 'landing') {
-        if (shopRef.current) {
-          const shopTop = shopRef.current.getBoundingClientRect().top + currentScrollY;
-          // Trigger tab active transition
-          if (currentScrollY >= shopTop - 200) {
-            setActiveTab('shop');
-          } else if (!gallerySelectedPhoto) {
-            // Only auto-reset to gallery if user has NOT explicitly chosen a photo for the shop
-            // (gallerySelectedPhoto is set when navigating via the lightbox Shop button)
-            setActiveTab('gallery');
-          }
-        }
-      }
     };
+
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, [checkoutState, activeCollection, viewMode, gallerySelectedPhoto]);
@@ -1055,7 +1056,7 @@ export default function PrintStoreApp() {
       // Fallback: reset to default shopping view
       setSelectedProductForDetail(null);
       setViewMode('landing');
-      setActiveTab('gallery');
+      setActiveTab('shop');
       setActiveCollection('portraits');
     }
     setCheckoutState('shopping');
@@ -1228,13 +1229,47 @@ export default function PrintStoreApp() {
     setIsSelectionMode(false);
   };
 
-  const showCover = activeTab === 'gallery' && activeCollection === 'portraits' && checkoutState === 'shopping' && !isSelectionMode && viewMode === 'landing';
+  const showCover = false;
 
   const isHeaderThin = viewMode === 'all-products'
     ? (scrollDirection === 'down' && scrollY > 80)
     : (showCover ? scrollY > window.innerHeight + 336 : scrollY > 336);
 
 
+
+  if (loading) {
+    return (
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        background: '#ffffff',
+        fontFamily: 'var(--font-heading, "Outfit", sans-serif)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.15em',
+        fontSize: '14px',
+        color: '#111111'
+      }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
+          <div className="animate-spin" style={{
+            width: '28px',
+            height: '28px',
+            border: '2px solid rgba(0,0,0,0.1)',
+            borderTopColor: '#111111',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <style>{`
+            @keyframes spin {
+              to { transform: rotate(360deg); }
+            }
+          `}</style>
+          <span>Loading Store...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`printstore-container gallery-view-page theme-${theme} font-${font}`}>
@@ -1279,6 +1314,7 @@ export default function PrintStoreApp() {
             photographer={photographer}
             notificationCount={notifCount}
             onOpenNotifications={() => setViewMode('notifications')}
+            selectedPhotoUrl={gallerySelectedPhoto?.url}
           />
         )}
 
@@ -1330,9 +1366,14 @@ export default function PrintStoreApp() {
             onPaymentSuccess={() => {
               setCartItems([]);
               localStorage.removeItem('pixnxt_printstore_cart');
-              setCheckoutState('shopping');
-              setViewMode('tracking');
-              setHasPlacedOrder(true);
+              const slugVal = searchParams.get('slug') || searchParams.get('collection');
+              if (slugVal) {
+                window.location.assign(`/gallery/${slugVal}?socialSharing=1`);
+              } else {
+                setCheckoutState('shopping');
+                setViewMode('tracking');
+                setHasPlacedOrder(true);
+              }
             }}
           />
         ) : checkoutState === 'shopping' ? (
@@ -1377,35 +1418,11 @@ export default function PrintStoreApp() {
             </div>
           ) : (
             <div className="store-shopping-flow">
-              {/* Gallery Section */}
-              {activeTab === 'gallery' && (
-                <div ref={galleryRef} className="gallery-section-wrapper">
-                  <PhotoGrid
-                    title={activeCollection === 'favorites' ? 'Favorites' : 'Portraits'}
-                    photos={getPhotosToDisplay()}
-                    favorites={favorites}
-                    onToggleFavorite={handleToggleFavorite}
-                    onBuyPrint={(photo) => handleOpenCustomizer(products.find(p => p.id === 'prints') || MOCK_PRODUCTS[0], photo)}
-                    isSelectionMode={isSelectionMode}
-                    selectedPhotos={selectedPhotos}
-                    onToggleSelectPhoto={handleToggleSelectPhoto}
-                    onViewPhoto={(photo) => {
-                      setViewingPhoto(photo);
-                    }}
-                    onSelectAll={() => {
-                      const allPhotoIds = getPhotosToDisplay().map(p => p.id);
-                      setSelectedPhotos(allPhotoIds);
-                    }}
-                    onDeselectAll={() => setSelectedPhotos([])}
-                  />
-                </div>
-              )}
-
-              {/* Shop Section - displayed below portraits in gallery mode, or as target of Shop navigation */}
-              {(activeTab === 'shop' || (activeTab === 'gallery' && activeCollection === 'portraits' && !isSelectionMode)) && (
+              {/* Shop Section */}
+              {activeTab === 'shop' && (
                 <div ref={shopRef} className="shop-section-wrapper">
                   <ShopLanding
-                    products={products.length > 0 ? products.slice(0, 3) : MOCK_PRODUCTS.slice(0, 3)} // Dibond, Matted, Gallery
+                    products={products.length > 0 ? products : MOCK_PRODUCTS}
                     selectedPhotoUrl={gallerySelectedPhoto?.url}
                     onSelectProduct={(prod) => {
                       setSelectedProductForDetail(prod);
@@ -1415,6 +1432,7 @@ export default function PrintStoreApp() {
                       setViewMode('all-products');
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
+                    photos={collectionPhotos}
                   />
                 </div>
               )}
@@ -1444,7 +1462,7 @@ export default function PrintStoreApp() {
               onClick={() => {
                 setCartItems([]);
                 setCheckoutState('shopping');
-                setActiveTab('gallery');
+                setActiveTab('shop');
                 setActiveCollection('portraits');
                 setViewMode('landing');
               }}
@@ -1769,28 +1787,10 @@ export default function PrintStoreApp() {
               setEditingCartItemId(null);
               setCustomizingProductOptions(null);
               setEditingCartItemOptions(null);
-              openCart();
-            }}
-            onBrowseGallery={(currentPhotos, slotIndex = null) => {
-              setIsSelectionMode(true);
-              setSelectedPhotos(currentPhotos.map(p => p.id));
-              setCustomizingProduct(activeCustomizerProduct);
-              setCustomizingProductOptions({
-                size: editingCartItemId ? editingCartItemOptions?.size : customizingProductOptions?.size,
-                frame: editingCartItemId ? editingCartItemOptions?.frame : customizingProductOptions?.frame,
-                paper: editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper,
-                border: editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border,
-                layout: editingCartItemId ? editingCartItemOptions?.layout : customizingProductOptions?.layout
-              });
-              setCustomizerActiveSlotIndex(slotIndex);
-              setIsDirectGallerySelection(false);
-              setActiveCustomizerProduct(null);
-              setCustomizerPhoto(null);
-              setActiveTab('gallery');
-              setActiveCollection('portraits');
-              setViewMode('landing');
+              setCheckoutState('cart');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
+            onBrowseGallery={null}
           />
         ) : (
           <ProductCustomizer
@@ -1835,26 +1835,7 @@ export default function PrintStoreApp() {
               setEditingCartItemOptions(null);
               openCart();
             }}
-            onBrowseGallery={(currentPhotos, slotIndex = null) => {
-              setIsSelectionMode(true);
-              setSelectedPhotos(currentPhotos.map(p => p.id));
-              setCustomizingProduct(activeCustomizerProduct);
-              setCustomizingProductOptions({
-                size: editingCartItemId ? editingCartItemOptions?.size : customizingProductOptions?.size,
-                frame: editingCartItemId ? editingCartItemOptions?.frame : customizingProductOptions?.frame,
-                paper: editingCartItemId ? editingCartItemOptions?.paper : customizingProductOptions?.paper,
-                border: editingCartItemId ? editingCartItemOptions?.border : customizingProductOptions?.border,
-                layout: editingCartItemId ? editingCartItemOptions?.layout : customizingProductOptions?.layout
-              });
-              setCustomizerActiveSlotIndex(slotIndex);
-              setIsDirectGallerySelection(false);
-              setActiveCustomizerProduct(null);
-              setCustomizerPhoto(null);
-              setActiveTab('gallery');
-              setActiveCollection('portraits');
-              setViewMode('landing');
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }}
+            onBrowseGallery={null}
           />
         )
       )}
@@ -1866,7 +1847,7 @@ export default function PrintStoreApp() {
         photographer={photographer}
         sessionId={sessionId}
         onSeeGallery={() => {
-          setActiveTab('gallery');
+          setActiveTab('shop');
           setCheckoutState('shopping');
           setViewMode('landing');
           setActiveCustomizerProduct(null);

@@ -25,7 +25,8 @@ export default function StoreHeader({
   photographer,
   products = [],
   notificationCount = 0,
-  onOpenNotifications
+  onOpenNotifications,
+  selectedPhotoUrl
 }) {
   const [isShopDropdownOpen, setIsShopDropdownOpen] = useState(false);
 
@@ -61,12 +62,21 @@ export default function StoreHeader({
       <header className={`store-header ${isHeaderThin ? 'thin-header' : ''}`}>
         <div className="store-header-left">
           {/* Gallery / Shop Tab Toggle */}
-          <nav className="store-nav-links">
+          <nav className="store-nav-links" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             <button
-              className={`store-nav-btn ${activeTab === 'gallery' ? 'active' : ''}`}
-              onClick={() => setActiveTab('gallery')}
+              className="store-nav-btn"
+              onClick={() => {
+                const searchParams = new URLSearchParams(window.location.search);
+                const slug = searchParams.get('slug') || searchParams.get('collection');
+                if (slug) {
+                  window.location.assign(`/gallery/${slug}?socialSharing=1`);
+                } else {
+                  window.location.assign('/');
+                }
+              }}
+              style={{ fontWeight: 400, opacity: 0.8 }}
             >
-              Gallery
+              Back to Gallery
             </button>
             <div
               className="store-shop-nav-container"
@@ -92,7 +102,7 @@ export default function StoreHeader({
                           setIsShopDropdownOpen(false);
                         }}
                       >
-                        <img src={prod.image} alt={prod.name} className="shop-dropdown-item-img" />
+                        <img src={selectedPhotoUrl || prod.image} alt={prod.name} className="shop-dropdown-item-img" />
                         <span className="shop-dropdown-item-name">{prod.name}</span>
                       </div>
                     ))}
