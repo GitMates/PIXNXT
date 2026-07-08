@@ -2,25 +2,57 @@
 
 /* Slightly larger type, fields, and previews on the create-album flow */
 .sa-create-page {
-  background: #f8f7fb;
+  --sa-bg: oklch(0.968 0.006 85);
+  --sa-surface: oklch(0.995 0.004 85);
+  --sa-inset: oklch(0.948 0.005 85);
+  --sa-text: oklch(0.23 0.004 60);
+  --sa-muted: oklch(0.52 0.008 70);
+  --sa-line: oklch(0.9 0.007 82);
+  --sa-neu-light: oklch(1 0.004 85 / 0.92);
+  --sa-neu-dark: oklch(0.42 0.012 70 / 0.14);
+
+  background: var(--sa-bg) !important;
   min-height: 100vh;
   overflow-y: auto;
+  color: var(--sa-text);
+  font-family: 'Outfit', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.sa-create-page .cc-header {
+  background: var(--sa-bg) !important;
+  border-bottom: 1px solid var(--sa-line) !important;
 }
 
 .sa-create-page .cc-header-title {
   font-size: 19px;
+  color: var(--sa-text) !important;
+  font-weight: 600;
+}
+
+.sa-create-page .cc-back-btn {
+  color: var(--sa-muted) !important;
+}
+
+.sa-create-page .cc-back-btn:hover {
+  color: var(--sa-text) !important;
+  background: var(--sa-inset) !important;
 }
 
 .sa-create-page .cc-label {
   font-size: 14px;
   margin-bottom: 13px;
   letter-spacing: 0.08em;
+  color: var(--sa-text) !important;
+  font-weight: 500;
 }
 
 .sa-create-page .cc-input {
   height: 58px;
   font-size: 17px;
   padding: 0 18px;
+  background: var(--sa-inset) !important;
+  border: 1px solid var(--sa-line) !important;
+  color: var(--sa-text) !important;
 }
 
 .sa-create-page .cc-form-group .dp-wrapper {
@@ -53,18 +85,16 @@
 .sa-create-intro {
   margin-bottom: 20px;
   padding: 28px 32px;
-  border: 1px solid #ece6f3;
+  border: 1px solid var(--sa-line);
   border-radius: 18px;
-  background:
-    radial-gradient(circle at top right, rgba(155, 89, 182, 0.16), transparent 34%),
-    #fff;
-  box-shadow: 0 14px 38px rgba(46, 30, 62, 0.07);
+  background: var(--sa-surface);
+  box-shadow: 0 10px 30px var(--sa-neu-dark);
 }
 
 .sa-create-kicker {
   display: inline-flex;
   margin-bottom: 10px;
-  color: #8e44ad;
+  color: var(--sa-muted);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -73,7 +103,7 @@
 
 .sa-create-intro h2 {
   margin: 0;
-  color: #17111c;
+  color: var(--sa-text);
   font-size: clamp(24px, 3.2vw, 34px);
   line-height: 1.15;
   font-weight: 800;
@@ -82,7 +112,7 @@
 .sa-create-intro p {
   max-width: 700px;
   margin: 12px 0 0;
-  color: #665f6f;
+  color: var(--sa-muted);
   font-size: 15px;
   line-height: 1.65;
 }
@@ -95,10 +125,10 @@
 
 .sa-create-card {
   padding: 26px;
-  border: 1px solid #ece6f3;
+  border: 1px solid var(--sa-line);
   border-radius: 18px;
-  background: #fff;
-  box-shadow: 0 10px 26px rgba(46, 30, 62, 0.055);
+  background: var(--sa-surface);
+  box-shadow: 0 10px 30px var(--sa-neu-dark);
   overflow: visible;
 }
 
@@ -113,17 +143,17 @@
   gap: 16px;
   margin-bottom: 18px;
   padding-bottom: 14px;
-  border-bottom: 1px solid #f0edf4;
+  border-bottom: 1px solid var(--sa-line);
 }
 
 .sa-section-heading span {
-  color: #17111c;
+  color: var(--sa-text);
   font-size: 18px;
   font-weight: 800;
 }
 
 .sa-section-heading small {
-  color: #8a8294;
+  color: var(--sa-muted);
   font-size: 13px;
   line-height: 1.4;
   text-align: right;
@@ -145,31 +175,56 @@
 }
 
 .sa-create-page .cc-submit-btn {
-  background: linear-gradient(135deg, #9b59b6, #8e44ad);
+  background: var(--sa-text);
+  color: var(--sa-surface);
   border-radius: 12px;
   min-width: 148px;
-  box-shadow: 0 10px 22px rgba(142, 68, 173, 0.22);
+  box-shadow: 0 4px 14px var(--sa-neu-dark);
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .sa-create-page .cc-submit-btn:hover {
-  background: linear-gradient(135deg, #8e44ad, #7d3c98);
+  background: #111111;
+  opacity: 0.95;
 }
 
 .sa-create-page .cc-cancel-btn {
   padding: 0 12px;
+  color: var(--sa-muted);
 }
 
 .sa-create-page .cc-input:focus,
-.sa-create-page .cc-form-group .dp-wrapper:focus-within {
-  border-color: #9b59b6;
+.sa-create-page .dp-input-field.focused {
+  border-color: var(--sa-text) !important;
+  background: var(--sa-surface) !important;
 }
 
 .sa-create-page .cc-input,
-.sa-create-page .cc-form-group .dp-wrapper {
-  border-radius: 12px;
-  background: #fcfbfd;
-  box-sizing: border-box;
-  min-width: 0;
+.sa-create-page .dp-input-field {
+  border-radius: 12px !important;
+  background: var(--sa-inset) !important;
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  width: 100% !important;
+  height: 52px !important;
+  border: 1px solid var(--sa-line) !important;
+  color: var(--sa-text) !important;
+  transition: all 0.2s ease !important;
+}
+
+.sa-create-page .dp-value {
+  color: var(--sa-text) !important;
+  font-size: 16px !important;
+}
+
+.sa-create-page .dp-value.placeholder {
+  color: var(--sa-muted) !important;
+}
+
+.sa-create-page .dp-icon {
+  color: var(--sa-muted) !important;
 }
 
 .sa-select-wrap {
@@ -178,6 +233,7 @@
 
 .sa-name-autocomplete {
   position: relative;
+  width: 100%;
 }
 
 .sa-name-autocomplete--open {
@@ -185,8 +241,7 @@
 }
 
 .sa-name-autocomplete .cc-input:focus {
-  border-color: #9b59b6;
-  box-shadow: 0 0 0 3px rgba(155, 89, 182, 0.12);
+  border-color: var(--sa-text) !important;
 }
 
 .sa-name-suggest-menu {

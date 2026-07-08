@@ -29,9 +29,18 @@ export async function signInWithEmail({ email, password }) {
  * @returns {Promise<Object>} - Auth data including user and session.
  */
 export async function signUpWithEmail({ email, password }) {
+  const fallbackName = email.split('@')[0] || 'Photographer';
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        display_name: fallbackName,
+        full_name: fallbackName,
+        name: fallbackName,
+        username: fallbackName
+      }
+    }
   });
   
   if (error) {

@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { getUserDisplayLabel, getUserInitial } from '../lib/userInitials';
 import { cn } from '../lib/utils';
+import { galleryService } from '../services/gallery.service';
 import brandPng from '../assets/icons/client gallery.png';
 import smartAlbumPng from '../assets/icons/smart album.png';
 import dashboardPng from '../assets/icons/dashboard.png';
@@ -40,9 +41,41 @@ const SidebarLayout = ({ children }) => {
     const profileDropdownRef = useRef(null);
     const { user, logout } = useAuth();
     const [showProfileDropdown, setShowProfileDropdown] = useState(false);
-
     const [profile, setProfile] = useState(null);
 
+    const getProfileDisplayName = () => {
+        const fromProfile =
+            profile?.business_name?.trim() ||
+            profile?.display_name?.trim() ||
+            [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim();
+        if (fromProfile) return fromProfile;
+        if (user?.email) return user.email.split('@')[0];
+        return 'Studio';
+    };
+
+    const splitBrandLines = (name) => {
+        const trimmed = (name || '').trim();
+        if (!trimmed) return { primary: 'STUDIO', subtitle: 'PHOTOGRAPHY' };
+        const parts = trimmed.split(/\s+/);
+        if (parts.length === 1) {
+            return { primary: parts[0].toUpperCase(), subtitle: 'PHOTOGRAPHY' };
+        }
+        return {
+            primary: parts[0].toUpperCase(),
+            subtitle: parts.slice(1).join(' ').toUpperCase(),
+        };
+    };
+
+    const displayName = getProfileDisplayName();
+    const { primary: brandPrimary, subtitle: brandSubtitle } = splitBrandLines(displayName);
+    const profileIconUrl = profile?.profile_icon_url?.trim() || '';
+
+    const renderBrandIcon = () =>
+        profileIconUrl ? (
+            <img src={profileIconUrl} alt="" className="w-10 h-10 rounded-[10px] object-cover shrink-0" />
+        ) : (
+            <span className="w-10 h-10 rounded-[10px] bg-[#1A1A1A] text-white flex items-center justify-center font-bold text-sm shrink-0 uppercase">{userInitial}</span>
+        );
     useEffect(() => {
         if (!user?.id) {
             setProfile(null);
@@ -270,9 +303,15 @@ const SidebarLayout = ({ children }) => {
                 isMobileMenuOpen ? 'left-0 flex shadow-2xl' : '-left-60 hidden md:flex md:shadow-[4px_0_16px_-8px_rgba(0,0,0,0.12)]',
             )}>
                 <div className="flex flex-1 flex-col min-h-0">
-                    <div className="relative z-20 shrink-0 overflow-visible px-5 pt-5 pb-8">
-                        <img src={brandPng} alt="Pixnxt" className="h-9 w-auto object-contain mix-blend-multiply" />
-                        <div className="absolute right-5 top-5 flex items-center gap-2">
+                    <div className="relative z-20 shrink-0 overflow-visible px-5 pt-5 pb-8 flex items-center justify-between">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                            {renderBrandIcon()}
+                            <div className="flex flex-col leading-none min-w-0">
+                                <span className="text-[13px] font-extrabold text-[#1a1a1a] tracking-wider uppercase truncate max-w-[95px]" title={brandPrimary}>{brandPrimary}</span>
+                                <span className="text-[8px] font-extrabold text-[#71717A] tracking-widest uppercase mt-0.5 truncate max-w-[95px]" title={brandSubtitle}>{brandSubtitle}</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
                             <button type="button" className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]" aria-label="Notifications">
                                 <Bell className="size-4" />
                                 <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-[#1A1A1A]" />

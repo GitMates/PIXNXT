@@ -875,27 +875,22 @@ serve(async (req) => {
     const photographerAlerts = prooferSettings.photographerAlerts || 'digest';
 
     if (action === 'client_started_commenting') {
-      if (photographerAlerts === 'digest') {
-        return new Response(
-          JSON.stringify({
-            ok: true,
-            skipped: true,
-            reason: 'digest_mode',
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
       if (album.client_commenting_started_at) {
-        return new Response(
-          JSON.stringify({
-            ok: true,
-            skipped: true,
-            alreadyNotified: true,
-            notifiedAt: album.client_commenting_started_at,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        const startedTime = new Date(album.client_commenting_started_at).getTime();
+        const now = Date.now();
+        // If it was marked started more than 30 seconds ago, skip to prevent double emails.
+        // This solves the race condition where track-album-proof-activity finishes first.
+        if (now - startedTime > 30000) {
+          return new Response(
+            JSON.stringify({
+              ok: true,
+              skipped: true,
+              alreadyNotified: true,
+              notifiedAt: album.client_commenting_started_at,
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
 
@@ -1021,21 +1016,24 @@ serve(async (req) => {
 </body>
 </html>`;
     } else if (action === 'approve') {
-      subject = `Album approved for binding — ${album.name || 'Album'}`;
-      plainBody = buildAlbumApprovedNotificationText({
-        photographerName: photographer.display_name || 'Photographer',
-        albumName: album.name || 'Album',
-        guestName: clientName,
-        approvedAt,
-        editorUrl,
+      const template = prooferSettings.approvedTemplate || '';
+      const albumLink = buildAlbumPreviewUrl(album, album.proofer_settings, origin);
+      const parsedBody = applyTemplate(template, {
+        client_name: clientName,
+        album_name: album.name || 'your album',
+        album_link: albumLink,
+        view_album_link: albumLink,
       });
-      html = buildApproveEmailHtml({
+
+      plainBody = parsedBody;
+      html = buildClientTemplateEmailHtml({
         photographerName: photographer.display_name || 'Photographer',
-        albumName: album.name || 'Album',
-        guestName: clientName,
-        approvedAt,
-        editorUrl,
+        albumName: album.name || 'your album',
+        bodyHtml: templateToHtmlParagraphs(plainBody),
+        ctaUrl: albumLink,
+        ctaLabel: 'View album',
       });
+      subject = `Approved: ${album.name || 'your album'}`;
     } else {
       subject = `Album change request — ${album.name || 'Album'}`;
       plainBody = [

@@ -1024,75 +1024,77 @@ const CreateAlbum = () => {
                                 <small>Name and event date</small>
                             </div>
 
-                            <div className="cc-form-group">
-                                <label className="cc-label" htmlFor="album-name">
-                                    Album Name
-                                </label>
-                                <div
-                                    className={`sa-name-autocomplete${showNameSuggestions ? ' sa-name-autocomplete--open' : ''
-                                        }`}
-                                    ref={nameAutocompleteRef}
-                                >
-                                    <input
-                                        id="album-name"
-                                        type="text"
-                                        className="cc-input"
-                                        placeholder="e.g. Wedding of Sarah & James"
-                                        value={name}
-                                        onChange={handleNameChange}
-                                        onFocus={() => setNameSuggestOpen(true)}
-                                        onKeyDown={handleNameKeyDown}
-                                        autoComplete="off"
-                                        aria-autocomplete="list"
-                                        aria-expanded={showNameSuggestions}
-                                        aria-controls="album-name-suggestions"
-                                        required
-                                    />
-                                    {showNameSuggestions ? (
-                                        <div
-                                            id="album-name-suggestions"
-                                            className="sa-name-suggest-menu"
-                                            role="listbox"
-                                            aria-label="Client gallery collections"
-                                        >
-                                            {nameSuggestions.map((collection, index) => {
-                                                const isActive = index === activeSuggestionIndex;
-                                                return (
-                                                    <button
-                                                        key={collection.id}
-                                                        type="button"
-                                                        className={`sa-name-suggest-option${isActive
-                                                                ? ' sa-name-suggest-option--active'
-                                                                : ''
-                                                            }`}
-                                                        role="option"
-                                                        aria-selected={isActive}
-                                                        onMouseDown={(e) => e.preventDefault()}
-                                                        onClick={() =>
-                                                            handleSelectCollectionSuggestion(
-                                                                collection
-                                                            )
-                                                        }
-                                                    >
-                                                        <span className="sa-name-suggest-title">
-                                                            {collection.name}
-                                                        </span>
-                                                        <span className="sa-name-suggest-meta">
-                                                            {formatSuggestionDate(
-                                                                collection.event_date
-                                                            )}
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    ) : null}
+                            <div className="sa-form-row">
+                                <div className="cc-form-group">
+                                    <label className="cc-label" htmlFor="album-name">
+                                        Album Name
+                                    </label>
+                                    <div
+                                        className={`sa-name-autocomplete${showNameSuggestions ? ' sa-name-autocomplete--open' : ''
+                                            }`}
+                                        ref={nameAutocompleteRef}
+                                    >
+                                        <input
+                                            id="album-name"
+                                            type="text"
+                                            className="cc-input"
+                                            placeholder="e.g. Wedding of Sarah & James"
+                                            value={name}
+                                            onChange={handleNameChange}
+                                            onFocus={() => setNameSuggestOpen(true)}
+                                            onKeyDown={handleNameKeyDown}
+                                            autoComplete="off"
+                                            aria-autocomplete="list"
+                                            aria-expanded={showNameSuggestions}
+                                            aria-controls="album-name-suggestions"
+                                            required
+                                        />
+                                        {showNameSuggestions ? (
+                                            <div
+                                                id="album-name-suggestions"
+                                                className="sa-name-suggest-menu"
+                                                role="listbox"
+                                                aria-label="Client gallery collections"
+                                            >
+                                                {nameSuggestions.map((collection, index) => {
+                                                    const isActive = index === activeSuggestionIndex;
+                                                    return (
+                                                        <button
+                                                            key={collection.id}
+                                                            type="button"
+                                                            className={`sa-name-suggest-option${isActive
+                                                                    ? ' sa-name-suggest-option--active'
+                                                                    : ''
+                                                                }`}
+                                                            role="option"
+                                                            aria-selected={isActive}
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onClick={() =>
+                                                                handleSelectCollectionSuggestion(
+                                                                    collection
+                                                                )
+                                                            }
+                                                        >
+                                                            <span className="sa-name-suggest-title">
+                                                                {collection.name}
+                                                            </span>
+                                                            <span className="sa-name-suggest-meta">
+                                                                {formatSuggestionDate(
+                                                                    collection.event_date
+                                                                )}
+                                                            </span>
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : null}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="cc-form-group">
-                                <label className="cc-label">Event Date</label>
-                                <DatePicker value={date} onChange={setDate} placeholder="Select event date" />
+                                <div className="cc-form-group">
+                                    <label className="cc-label">Event Date</label>
+                                    <DatePicker value={date} onChange={setDate} placeholder="Select event date" />
+                                </div>
                             </div>
                         </section>
 
