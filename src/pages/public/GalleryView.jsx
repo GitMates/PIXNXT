@@ -1202,7 +1202,7 @@ const GalleryView = () => {
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
               className={cn(
-                'relative w-full max-w-lg p-8 shadow-2xl md:p-10',
+                'relative w-full max-w-lg p-8 shadow-2xl md:p-10 rounded-none',
                 isGalleryDark ? 'bg-[#1a1a1a] text-white ring-1 ring-white/10' : 'bg-white text-zinc-900'
               )}
             >
@@ -1340,7 +1340,7 @@ const GalleryView = () => {
       {/* No Image Selected Shop Modal */}
       {showNoImageShopModal && (
         <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="glass max-w-sm w-full rounded-2xl p-6 text-center shadow-2xl border border-white/20 theme-mono" style={{ backgroundColor: 'var(--cg-card, #ffffff)' }}>
+          <div className="glass max-w-sm w-full rounded-none p-6 text-center shadow-2xl border border-white/20 theme-mono" style={{ backgroundColor: 'var(--cg-card, #ffffff)', borderRadius: '0px' }}>
             <ShoppingBag size={48} className="mx-auto mb-4 text-[#1A1A1A]" />
             <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2 uppercase tracking-wide">
               no image is selected to shop
@@ -1350,8 +1350,8 @@ const GalleryView = () => {
             </p>
             <button
               onClick={() => setShowNoImageShopModal(false)}
-              className="w-full py-3 px-4 rounded-full text-white bg-[#1A1A1A] hover:bg-[#333333] transition-all font-medium uppercase tracking-widest text-xs"
-              style={{ borderRadius: '9999px' }}
+              className="w-full py-3 px-4 rounded-none text-white bg-[#1A1A1A] hover:bg-[#333333] transition-all font-medium uppercase tracking-widest text-xs"
+              style={{ borderRadius: '0px' }}
             >
               {collection?.name || 'SAM WEDDING'}
             </button>
@@ -1388,7 +1388,7 @@ const GalleryView = () => {
         };
         return (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
-            <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', width: '100%', maxWidth: '820px', maxHeight: '85vh', overflow: 'auto', padding: '32px', boxSizing: 'border-box', position: 'relative', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', maxHeight: '85vh', overflow: 'auto', padding: '32px', boxSizing: 'border-box', position: 'relative', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
               <button onClick={() => setShowPrintLabModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}>
                 <X size={22} color="#666" />
               </button>

@@ -2196,7 +2196,7 @@ div.customizer-grid-item[class*="product-card-"] {
 .cart-modal {
   background: white;
   padding: 2.5rem;
-  border-radius: 4px;
+  border-radius: 0px;
   width: 570px;
   height: 200px;
   max-width: none;
@@ -2225,7 +2225,7 @@ div.customizer-grid-item[class*="product-card-"] {
 
 .cart-modal-actions button {
   padding: 0.75rem 1.5rem;
-  border-radius: 4px;
+  border-radius: 0px;
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
