@@ -3,6 +3,94 @@ import { ShoppingCart, Menu, ChevronLeft, Bell } from 'lucide-react';
 import { MOCK_PRODUCTS } from '../data/mockStoreData';
 
 
+const renderMiniFrame = (productId, photoUrl) => {
+  return (
+    <div className={`shop-dropdown-item-img-wrapper mini-frame-${productId}`} style={{ width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', position: 'relative', transition: 'transform 0.2s ease' }}>
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', position: 'relative' }}>
+        {productId === 'matted_collages' ? (
+          <div style={{ display: 'flex', gap: '4px', padding: '6px', background: '#fdfdfd', border: '3.5px solid #111111', width: '74px', height: '74px', boxSizing: 'border-box', boxShadow: '0 4px 10px rgba(0,0,0,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={photoUrl} alt="preview" style={{ width: '47%', height: '100%', objectFit: 'cover' }} />
+            <img src={photoUrl} alt="preview" style={{ width: '47%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ) : productId === 'prints' ? (
+          <div style={{ width: '70px', height: '70px', background: '#fff', border: '1px solid #e2e8f0', padding: '4px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ) : productId === 'print_pack' ? (
+          <div style={{ position: 'relative', width: '70px', height: '70px' }}>
+            <div style={{ position: 'absolute', top: '4px', left: '4px', width: '60px', height: '60px', background: '#fff', border: '1px solid #e2e8f0', padding: '1px', boxShadow: '0 2px 4px rgba(0,0,0,0.06)', transform: 'rotate(-6deg)' }}>
+              <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+            <div style={{ position: 'absolute', top: '0px', left: '0px', width: '60px', height: '60px', background: '#fff', border: '1px solid #e2e8f0', padding: '1px', boxShadow: '0 3px 6px rgba(0,0,0,0.12)', transform: 'rotate(5deg)', zIndex: 2 }}>
+              <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+          </div>
+        ) : productId === 'circular_frames' ? (
+          <div style={{ 
+            width: '74px', 
+            height: '74px', 
+            borderRadius: '50%', 
+            overflow: 'hidden', 
+            border: '4.5px solid #5d4037', 
+            boxShadow: '0 4px 10px rgba(0,0,0,0.22)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            background: '#f9f9f9',
+            padding: '5px',
+            boxSizing: 'border-box'
+          }}>
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+          </div>
+        ) : productId === 'matted_frame' ? (
+          <div style={{ width: '74px', height: '74px', background: '#fdfdfd', border: '4.5px solid #111111', padding: '6px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}>
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover', boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)' }} />
+          </div>
+        ) : productId === 'frames' ? (
+          <div style={{ width: '74px', height: '74px', border: '4.5px solid #6d4c41', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)', background: '#fff' }}>
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ) : productId === 'float_frames' ? (
+          <div style={{ width: '74px', height: '74px', border: '4.5px solid #111111', padding: '6px', boxSizing: 'border-box', background: '#fcfcfc', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}>
+            <div style={{ width: '100%', height: '100%', background: '#fff', padding: '1px', boxShadow: '2px 4px 6px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+          </div>
+        ) : productId === 'canvas' ? (
+          <div style={{ width: '72px', height: '72px', boxShadow: '2px 4px 8px rgba(0,0,0,0.25)', border: '1px solid #ccc', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRightWidth: '4px', borderBottomWidth: '4px', transform: 'perspective(100px) rotateY(-8deg)', background: '#fff' }}>
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ) : productId === 'acrylic_prints' ? (
+          <div style={{ width: '72px', height: '72px', boxShadow: '0 4px 12px rgba(0,0,0,0.22)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.4)', background: '#000' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%)', zIndex: 1 }} />
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ) : productId === 'gallery_board' || productId === 'gallery_boards' ? (
+          <div style={{ width: '72px', height: '72px', border: '1px solid #e2e8f0', background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.12)', padding: '5px', boxSizing: 'border-box' }}>
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ) : productId === 'dibond' ? (
+          <div style={{ width: '72px', height: '72px', position: 'relative', boxShadow: '2px 4px 10px rgba(0,0,0,0.18)', border: '1px solid #ddd', background: '#fff' }}>
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ) : productId === 'deckled_prints' ? (
+          <div style={{ width: '72px', height: '72px', background: '#fff', padding: '5px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '1px 2px 5px rgba(0,0,0,0.1)' }}>
+            <div style={{ width: '100%', height: '100%', border: '1px dashed #bbb', padding: '1px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
+          </div>
+        ) : productId === 'panoramic_prints' ? (
+          <div style={{ width: '78px', height: '48px', background: '#fff', border: '1px solid #ddd', padding: '3px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '1px 2px 4px rgba(0,0,0,0.1)' }}>
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          </div>
+        ) : (
+          <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function StoreHeader({
   activeTab,
   setActiveTab,
@@ -102,7 +190,7 @@ export default function StoreHeader({
                           setIsShopDropdownOpen(false);
                         }}
                       >
-                        <img src={selectedPhotoUrl || prod.image} alt={prod.name} className="shop-dropdown-item-img" />
+                        {renderMiniFrame(prod.id, selectedPhotoUrl || prod.image)}
                         <span className="shop-dropdown-item-name">{prod.name}</span>
                       </div>
                     ))}

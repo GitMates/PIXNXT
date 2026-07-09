@@ -206,10 +206,10 @@ const products = [
     name: 'Store',
     color: 'red',
     icon: <ShoppingBagIcon />,
-    route: '/photographer',
+    route: '/store/orders',
     links: [
-      { label: 'View Orders', path: '/photographer?tab=dashboard' },
-      { label: 'Settings', path: '/photographer?tab=settings' },
+      { label: 'View Orders', path: '/store/orders' },
+      { label: 'Settings', path: '/store/orders?tab=settings' },
     ],
   },
 ];

@@ -1248,14 +1248,15 @@ export default function PrintStoreApp() {
         fontFamily: 'var(--font-heading, "Outfit", sans-serif)',
         textTransform: 'uppercase',
         letterSpacing: '0.15em',
-        fontSize: '14px',
+        fontSize: '16px',
+        fontWeight: '500',
         color: '#111111'
       }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}>
           <div className="animate-spin" style={{
-            width: '28px',
-            height: '28px',
-            border: '2px solid rgba(0,0,0,0.1)',
+            width: '48px',
+            height: '48px',
+            border: '4px solid rgba(0,0,0,0.1)',
             borderTopColor: '#111111',
             borderRadius: '50%',
             animation: 'spin 1s linear infinite'

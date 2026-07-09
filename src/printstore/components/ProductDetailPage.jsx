@@ -506,7 +506,11 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
         croppedAreaPixels,
         0
       );
-      setEditedPhotoUrl(croppedImage);
+      if (croppedImage) {
+        setEditedPhotoUrl(croppedImage);
+      } else {
+        console.warn("Crop returned null — keeping original photo");
+      }
       setIsCropModalOpen(false);
     } catch (e) {
       console.error("Cropping failed:", e);
@@ -3281,7 +3285,7 @@ export default function ProductDetailPage({ product, selectedPhotoUrl, onBack, o
           <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
             <button 
               onClick={() => setIsCropModalOpen(false)}
-              style={{ padding: '9px 19px', background: 'transparent', color: '#111111', borderRadius: '4px', border: '1px solid #111111', cursor: 'pointer', fontWeight: '500' }}
+              style={{ padding: '9px 19px', background: 'transparent', color: '#ffffff', borderRadius: '4px', border: '1px solid #ffffff', cursor: 'pointer', fontWeight: '500' }}
             >
               Cancel
             </button>

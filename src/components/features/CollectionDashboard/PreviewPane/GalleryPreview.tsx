@@ -501,12 +501,14 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
               dashboardState?.collection?.slideshow_enabled ?? dashboardState?.slideshow,
             slideshow: dashboardState?.collection?.slideshow,
           })}
+          showShop={dashboardState?.collection?.store_enabled !== false}
           favoritedCount={favoritedPhotos.length}
           isDownloadingAll={isDownloadingAll}
           onFavoriteClick={handleFavoriteHeaderClick}
           onDownloadClick={handleDownloadClick}
           onShareClick={() => setShowShareModal(true)}
           onSlideshowClick={handleStartSlideshow}
+          onShopClick={() => alert("This is a preview of the Shop navigation. In the live gallery, it opens the store printshop or prompts to select an image.")}
           mediaFilter={mediaFilter}
           onMediaFilterChange={setMediaFilter}
           mediaPhotoCount={mediaCounts.photos}
@@ -600,6 +602,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
                 }
                 showFavorite={favFeatureOn}
                 showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
+                showShop={dashboardState?.collection?.store_enabled !== false}
                 favoritedPhotoIds={favoritedPhotos}
                 customRowHeight={previewCustomRowHeight}
                 customColumnCount={previewCustomColumnCount}
@@ -649,6 +652,7 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
         showDownload={dashboardState?.photoDownload !== false && dashboardState?.singlePhotoDownload !== false}
         showFavorite={favFeatureOn}
         showShare={isCollectionFeatureEnabled(dashboardState?.socialSharing)}
+        showShop={dashboardState?.collection?.store_enabled !== false}
         favoriteCount={favFeatureOn ? favoritedPhotos.length : undefined}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);

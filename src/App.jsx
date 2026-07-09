@@ -36,6 +36,7 @@ import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueu
 import PrintStoreApp from './printstore/PrintStoreApp';
 import LabApp from './printstore/lab/LabApp';
 import PhotographerApp from './printstore/photographer/PhotographerApp';
+import StoreDashboard from './pages/StoreDashboard';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
 
 function MobileGalleryViewRedirect() {
@@ -122,6 +123,7 @@ function App() {
     location.pathname.startsWith('/album-preview/') ||
     location.pathname.startsWith('/admin') ||
     location.pathname.startsWith('/printstore') ||
+    location.pathname.startsWith('/store') ||
     location.pathname.startsWith('/lab') ||
     location.pathname.startsWith('/photographer') ||
     /\/smart-albums\/preview\//.test(location.pathname);
@@ -212,6 +214,7 @@ function App() {
             <Route path="users" element={<AdminUserManagement />} />
           </Route>
           <Route path="/printstore" element={<PrintStoreApp />} />
+          <Route path="/store/orders" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
           <Route path="/lab/*" element={<LabApp />} />
           <Route path="/photographer" element={<PhotographerApp />} />
         </Routes>

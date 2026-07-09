@@ -7,6 +7,17 @@ export const createImage = (url) =>
     image.src = url
   })
 
+/**
+ * Create an image without crossOrigin attribute (fallback for tainted canvas).
+ */
+export const createImageNoCors = (url) =>
+  new Promise((resolve, reject) => {
+    const image = new Image()
+    image.addEventListener('load', () => resolve(image))
+    image.addEventListener('error', (error) => reject(error))
+    image.src = url
+  })
+
 export function getRadianAngle(degreeValue) {
   return (degreeValue * Math.PI) / 180
 }
@@ -26,15 +37,9 @@ export function rotateSize(width, height, rotation) {
 }
 
 /**
- * This function was adapted from the one in the ReadMe of https://github.com/DominicTobias/react-image-crop
+ * Internal cropping helper that takes an already-loaded image element.
  */
-export default async function getCroppedImg(
-  imageSrc,
-  pixelCrop,
-  rotation = 0,
-  flip = { horizontal: false, vertical: false }
-) {
-  const image = await createImage(imageSrc)
+function cropFromImage(image, pixelCrop, rotation, flip) {
   const canvas = document.createElement('canvas')
   const ctx = canvas.getContext('2d')
 
@@ -83,7 +88,81 @@ export default async function getCroppedImg(
   // As a blob
   return new Promise((resolve, reject) => {
     canvas.toBlob((file) => {
-      resolve(URL.createObjectURL(file))
+      if (file) {
+        resolve(URL.createObjectURL(file))
+      } else {
+        reject(new Error('Canvas toBlob returned null — canvas may be tainted'))
+      }
     }, 'image/jpeg')
   })
 }
+
+export default async function getCroppedImg(
+  imageSrc,
+  pixelCrop,
+  rotation = 0,
+  flip = { horizontal: false, vertical: false }
+) {
+  let src = imageSrc;
+  if (imageSrc && typeof imageSrc === 'string' && (imageSrc.startsWith('http://') || imageSrc.startsWith('https://'))) {
+    const separator = imageSrc.includes('?') ? '&' : '?';
+    src = `${imageSrc}${separator}nocache=${Date.now()}`;
+  }
+
+  // Attempt 1: load image with crossOrigin (allows getImageData on same-origin / CORS-enabled images)
+  try {
+    const image = await createImage(src)
+    const result = await cropFromImage(image, pixelCrop, rotation, flip)
+    if (result) return result
+  } catch (_e) {
+    // fall through to attempt 2
+  }
+
+  // Attempt 2: load image without crossOrigin and use a data URL via fetch + blob
+  try {
+    const resp = await fetch(imageSrc)
+    const blob = await resp.blob()
+    const dataUrl = await new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.onloadend = () => resolve(reader.result)
+      reader.readAsDataURL(blob)
+    })
+    const image = await createImage(dataUrl)
+    return await cropFromImage(image, pixelCrop, rotation, flip)
+  } catch (_e2) {
+    // fall through to attempt 3
+  }
+
+  // Attempt 3: load without crossOrigin, draw directly (no getImageData — use drawImage crop)
+  try {
+    const image = await createImageNoCors(imageSrc)
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return null
+
+    canvas.width = pixelCrop.width
+    canvas.height = pixelCrop.height
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x, pixelCrop.y,
+      pixelCrop.width, pixelCrop.height,
+      0, 0,
+      pixelCrop.width, pixelCrop.height
+    )
+
+    return new Promise((resolve, reject) => {
+      canvas.toBlob((file) => {
+        if (file) {
+          resolve(URL.createObjectURL(file))
+        } else {
+          reject(new Error('All crop attempts failed'))
+        }
+      }, 'image/jpeg')
+    })
+  } catch (e3) {
+    console.error('getCroppedImg: all attempts failed', e3)
+    return null
+  }
+}
+

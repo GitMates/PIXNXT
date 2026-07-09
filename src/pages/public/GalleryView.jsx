@@ -83,6 +83,7 @@ const GalleryView = () => {
   const [isSlideshowActive, setIsSlideshowActive] = useState(false);
   const [showFavoriteModal, setShowFavoriteModal] = useState(false);
   const [showDownloadModal, setShowDownloadModal] = useState(false);
+  const [showNoImageShopModal, setShowNoImageShopModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [email, setEmail] = useState('');
   
@@ -663,6 +664,14 @@ const GalleryView = () => {
     return filterGalleryMediaByType(filteredPhotosBase, mediaFilter);
   }, [filteredPhotosBase, showMediaFilter, mediaFilter]);
 
+  const handleShopHeaderClick = useCallback(() => {
+    if (lightboxIndex !== -1 && filteredPhotos[lightboxIndex]) {
+      handleShopClick(filteredPhotos[lightboxIndex]);
+    } else {
+      setShowNoImageShopModal(true);
+    }
+  }, [lightboxIndex, filteredPhotos, handleShopClick]);
+
   const showEmptyPlaceholderGrid =
     !isFavoriteListMode &&
     photosForActiveSet.length === 0 &&
@@ -909,6 +918,7 @@ const GalleryView = () => {
             showDownload={showGalleryDownload}
             showShare={showGalleryShare}
             showSlideshow={showGallerySlideshow}
+            showShop={collection?.store_enabled !== false}
             favoritedCount={favoritedPhotos.length}
             isDownloadingAll={isDownloadingAll}
             downloadLabel={isDownloadingAll ? `${downloadProgress.done} / ${downloadProgress.total}` : 'Download'}
@@ -916,6 +926,7 @@ const GalleryView = () => {
             onDownloadClick={handleDownloadClick}
             onShareClick={() => setShowShareModal(true)}
             onSlideshowClick={handleStartSlideshow}
+            onShopClick={handleShopHeaderClick}
             isDark={isGalleryDark}
             mediaFilter={!isFavoriteListMode ? mediaFilter : undefined}
             onMediaFilterChange={!isFavoriteListMode ? setMediaFilter : undefined}
@@ -995,7 +1006,7 @@ const GalleryView = () => {
               showDownload={showSinglePhotoDownload}
               showFavorite={collection?.favorites_enabled !== false}
               showShare={showGalleryShare}
-              showShop={true}
+              showShop={collection?.store_enabled !== false}
               onShop={handleShopClick}
               favoritedPhotoIds={favoritedPhotos}
               customRowHeight={galleryCustomRowHeight}
@@ -1059,7 +1070,7 @@ const GalleryView = () => {
         showDownload={showSinglePhotoDownload}
         showFavorite={collection?.favorites_enabled !== false}
         showShare={showGalleryShare}
-        showShop={true}
+        showShop={collection?.store_enabled !== false}
         isFavorited={(() => {
           const id = normalizeFavoritePhotoId(filteredPhotos[lightboxIndex]?.id);
           return !!id && favoritedPhotos.includes(id);
@@ -1301,6 +1312,28 @@ const GalleryView = () => {
       />
 
       <ClientExclusiveToast message={privateToast} thumbnailUrl={privateToastThumb} />
+
+      {/* No Image Selected Shop Modal */}
+      {showNoImageShopModal && (
+        <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="glass max-w-sm w-full rounded-2xl p-6 text-center shadow-2xl border border-white/20 theme-mono" style={{ backgroundColor: 'var(--cg-card, #ffffff)' }}>
+            <ShoppingBag size={48} className="mx-auto mb-4 text-[#1A1A1A]" />
+            <h3 className="text-lg font-semibold text-[#1A1A1A] mb-2 uppercase tracking-wide">
+              no image is selected to shop
+            </h3>
+            <p className="text-sm text-[#71717A] mb-6 leading-relaxed">
+              Please click on a photo from the gallery and click the shop icon on it to start customizing products.
+            </p>
+            <button
+              onClick={() => setShowNoImageShopModal(false)}
+              className="w-full py-3 px-4 rounded-full text-white bg-[#1A1A1A] hover:bg-[#333333] transition-all font-medium uppercase tracking-widest text-xs"
+              style={{ borderRadius: '9999px' }}
+            >
+              {collection?.name || 'SAM WEDDING'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

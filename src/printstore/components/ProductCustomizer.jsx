@@ -263,9 +263,13 @@ export default function ProductCustomizer({
         cropState.croppedAreaPixels,
         0
       );
-      const updated = [...items];
-      updated[cropState.slotIndex].editedPhotoUrl = croppedImage;
-      setItems(updated);
+      if (croppedImage) {
+        const updated = [...items];
+        updated[cropState.slotIndex].editedPhotoUrl = croppedImage;
+        setItems(updated);
+      } else {
+        console.warn("Crop returned null — keeping original photo");
+      }
       setCropState(prev => ({ ...prev, isOpen: false }));
     } catch (e) {
       console.error("Cropping failed:", e);
@@ -930,7 +934,7 @@ export default function ProductCustomizer({
           <div style={{ marginTop: '20px', display: 'flex', gap: '15px' }}>
             <button 
               onClick={() => setCropState(prev => ({ ...prev, isOpen: false }))}
-              style={{ padding: '9px 19px', background: 'transparent', color: '#111111', borderRadius: '4px', border: '1px solid #111111', cursor: 'pointer', fontWeight: '500' }}
+              style={{ padding: '9px 19px', background: 'transparent', color: '#ffffff', borderRadius: '4px', border: '1px solid #ffffff', cursor: 'pointer', fontWeight: '500' }}
             >
               Cancel
             </button>
