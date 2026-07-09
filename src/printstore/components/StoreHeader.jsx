@@ -3,12 +3,12 @@ import { ShoppingCart, Menu, ChevronLeft, Bell } from 'lucide-react';
 import { MOCK_PRODUCTS } from '../data/mockStoreData';
 
 
-const renderMiniFrame = (productId, photoUrl) => {
+export const renderMiniFrame = (productId, photoUrl) => {
   return (
     <div className={`shop-dropdown-item-img-wrapper mini-frame-${productId}`} style={{ width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', position: 'relative', transition: 'transform 0.2s ease' }}>
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', position: 'relative' }}>
         {productId === 'matted_collages' ? (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '3px', padding: '6px', background: '#fdfdfd', border: '3.5px solid #111111', width: '74px', height: '74px', boxSizing: 'border-box', boxShadow: '0 4px 10px rgba(0,0,0,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '3px', padding: '6px', background: '#fdfdfd', border: '3.5px solid #111111', width: '74px', height: '74px', boxSizing: 'border-box', boxShadow: '0 4px 10px rgba(0,0,0,0.22)', alignItems: 'center', justifyContent: 'center' }}>
             <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />

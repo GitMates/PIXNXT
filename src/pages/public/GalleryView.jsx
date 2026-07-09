@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion as Motion } from 'framer-motion';
 import * as Covers from '../../components/features/CollectionDashboard/PreviewPane/CoverStyles';
+import { supabase } from '../../lib/supabase/client';
 
 import { MasonryGrid } from '../../components/features/Gallery/MasonryGrid/MasonryGrid';
 import { PhotoLightbox } from '../../components/features/Gallery/PhotoLightbox/PhotoLightbox';
@@ -9,7 +10,7 @@ import { galleryService } from '../../services/gallery.service';
 import { cn } from '../../lib/utils';
 import { Container } from '../../components/ui/Container';
 import { Typography } from '../../components/ui/Typography';
-import { X, Mail, Share2, Download, Heart, Play, ShoppingBag } from 'lucide-react';
+import { X, Mail, Share2, Download, Heart, Play, ShoppingBag, ShoppingCart } from 'lucide-react';
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
@@ -20,6 +21,7 @@ import {
   GallerySetHeading,
   GallerySetDescription,
 } from '../../components/features/Gallery/GalleryChrome';
+import { renderMiniFrame } from '../../printstore/components/StoreHeader';
 import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
@@ -88,9 +90,29 @@ const GalleryView = () => {
   const [email, setEmail] = useState('');
   
   const [showShopModal, setShowShopModal] = useState(false);
+  const [showPrintLabModal, setShowPrintLabModal] = useState(false);
   const [shopEmail, setShopEmail] = useState('');
   const [pendingShopPhoto, setPendingShopPhoto] = useState(null);
   const [isSubmittingShopEmail, setIsSubmittingShopEmail] = useState(false);
+  const [activeProducts, setActiveProducts] = useState([]);
+
+  useEffect(() => {
+    async function loadActiveProducts() {
+      try {
+        const { data, error } = await supabase
+          .from('printstore_products')
+          .select('*')
+          .eq('is_visible', true)
+          .order('created_at', { ascending: true });
+        if (!error && data) {
+          setActiveProducts(data);
+        }
+      } catch (err) {
+        console.error("Error loading active products for Print Lab:", err);
+      }
+    }
+    loadActiveProducts();
+  }, []);
 
   useEffect(() => {
     if (email) {
@@ -927,6 +949,8 @@ const GalleryView = () => {
             onShareClick={() => setShowShareModal(true)}
             onSlideshowClick={handleStartSlideshow}
             onShopClick={handleShopHeaderClick}
+            showPrintLab={collection?.store_enabled !== false}
+            onPrintLabClick={() => setShowPrintLabModal(true)}
             isDark={isGalleryDark}
             mediaFilter={!isFavoriteListMode ? mediaFilter : undefined}
             onMediaFilterChange={!isFavoriteListMode ? setMediaFilter : undefined}
@@ -1334,6 +1358,74 @@ const GalleryView = () => {
           </div>
         </div>
       )}
+
+      {/* Print Lab Explore Modal */}
+      {showPrintLabModal && (() => {
+        const PRINTLAB_PRODUCTS = [
+          { id: 'dibond', name: 'Dibond Prints', desc: 'Sturdy & lightweight wall display' },
+          { id: 'matted_frame', name: 'Matted Frames', desc: 'Iconic matted wooden frame' },
+          { id: 'gallery_board', name: 'Gallery Boards', desc: 'Prints mounted onto firm backboard' },
+          { id: 'frames', name: 'Frames', desc: 'Classic wood frames' },
+          { id: 'canvas', name: 'Canvas', desc: 'Texture you can see and feel' },
+          { id: 'acrylic_prints', name: 'Acrylic Prints', desc: 'Striking clarity, minimalistic style' },
+          { id: 'circular_frames', name: 'Circular Frames', desc: 'Handtorn circular print in a frame' },
+          { id: 'float_frames', name: 'Float Frames', desc: 'Floating print in a deep frame' },
+          { id: 'matted_collages', name: 'Matted Collages', desc: 'Multiple photos in one frame' },
+          { id: 'prints', name: 'Prints', desc: 'Quality photographic prints' },
+          { id: 'deckled_prints', name: 'Deckled Prints', desc: 'Hand-torn feathered edges' },
+          { id: 'panoramic_prints', name: 'Panoramic Prints', desc: 'Wide format prints' },
+        ].filter(p => {
+          if (activeProducts && activeProducts.length > 0) {
+            const dbProd = activeProducts.find(dp => dp.id === p.id || dp.product_type === p.id);
+            return dbProd ? dbProd.is_visible : false;
+          }
+          return true;
+        });
+        const collectionPhotos = filteredPhotos.filter(p => p && (p.url || p.display_url || p.thumbnail_url));
+        const getRandomPhoto = (idx) => {
+          if (collectionPhotos.length === 0) return 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400&h=400';
+          return getPhotoFullDisplayUrl(collectionPhotos[(idx * 7 + 3) % collectionPhotos.length]) || collectionPhotos[(idx * 7 + 3) % collectionPhotos.length]?.url || collectionPhotos[(idx * 7 + 3) % collectionPhotos.length]?.display_url || '';
+        };
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '16px', width: '100%', maxWidth: '820px', maxHeight: '85vh', overflow: 'auto', padding: '32px', boxSizing: 'border-box', position: 'relative', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <button onClick={() => setShowPrintLabModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}>
+                <X size={22} color="#666" />
+              </button>
+              <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+                <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: '26px', fontWeight: 700, color: '#111', margin: '0 0 6px 0', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Print Lab</h2>
+                <p style={{ fontSize: '14px', color: '#64748b', margin: 0 }}>Explore our premium collection of print products</p>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '24px', marginBottom: '28px' }}>
+                {PRINTLAB_PRODUCTS.map((prod, idx) => (
+                  <div key={prod.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', padding: '16px 8px', borderRadius: '12px', transition: 'background-color 0.2s', cursor: 'default' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f8f8f6'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '130px' }}>
+                      {renderMiniFrame(prod.id, getRandomPhoto(idx))}
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#111', letterSpacing: '0.02em' }}>{prod.name}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>{prod.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <button
+                  onClick={() => setShowPrintLabModal(false)}
+                  style={{ padding: '12px 32px', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', border: 'none', borderRadius: '9999px', backgroundColor: '#111', color: '#fff', cursor: 'pointer', transition: 'background-color 0.2s' }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#111'}
+                >
+                  Click Shop on Images to Buy Products
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

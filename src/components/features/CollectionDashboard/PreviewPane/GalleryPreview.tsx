@@ -508,7 +508,9 @@ export const GalleryPreview: React.FC<GalleryPreviewProps> = ({
           onDownloadClick={handleDownloadClick}
           onShareClick={() => setShowShareModal(true)}
           onSlideshowClick={handleStartSlideshow}
-          onShopClick={() => alert("This is a preview of the Shop navigation. In the live gallery, it opens the store printshop or prompts to select an image.")}
+          onShopClick={() => alert("This is a preview of the Cart navigation. In the live gallery, it opens the store or prompts to select an image.")}
+          showPrintLab={dashboardState?.collection?.store_enabled !== false}
+          onPrintLabClick={() => alert("This is a preview of Print Lab. In the live gallery, it shows an explore popup of all frame products.")}
           mediaFilter={mediaFilter}
           onMediaFilterChange={setMediaFilter}
           mediaPhotoCount={mediaCounts.photos}

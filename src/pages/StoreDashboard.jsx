@@ -4,14 +4,21 @@ import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase/client';
 import { 
   ShoppingBag, Settings, ChevronDown, ChevronUp, 
-  LogOut, User, Gift, DollarSign, Package, ChevronLeft, Eye, Mail, Phone,
-  Search, Bell, Home
+  LogOut, User, Gift, DollarSign, Package, ChevronLeft, ChevronRight, Eye, Mail, Phone,
+  Search, Bell, Home, PanelLeftClose, PanelLeftOpen, Layers, ToggleLeft, ToggleRight
 } from 'lucide-react';
 import helpPng from '../assets/icons/help.png';
 import notificationPng from '../assets/icons/notification.png';
 import './Dashboard.css';
 import '../printstore/PrintStore.css';
 import '../styles/clientGalleryTheme.css';
+
+// Module-level caching to prevent loading indicators when navigating routes
+let cachedOrders = null;
+let cachedOrderItems = null;
+let cachedCollections = null;
+let cachedPhotos = null;
+let cachedProducts = null;
 
 export default function StoreDashboard() {
   const { user } = useAuth();
@@ -21,16 +28,40 @@ export default function StoreDashboard() {
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
 
-  const [orders, setOrders] = useState([]);
-  const [orderItems, setOrderItems] = useState([]);
-  const [collections, setCollections] = useState([]);
-  const [photos, setPhotos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState(() => cachedOrders || []);
+  const [orderItems, setOrderItems] = useState(() => cachedOrderItems || []);
+  const [collections, setCollections] = useState(() => cachedCollections || []);
+  const [photos, setPhotos] = useState(() => cachedPhotos || []);
+  const [loading, setLoading] = useState(() => !(cachedOrders && cachedOrderItems && cachedCollections && cachedPhotos));
 
   const [expandedOrderId, setExpandedOrderId] = useState(null);
 
+  // View tabs
+  const [activeViewTab, setActiveViewTab] = useState('orders');
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+
+  // Pricing State
+  const [products, setProducts] = useState(() => cachedProducts || []);
+  const [loadingProducts, setLoadingProducts] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [profitFilter, setProfitFilter] = useState('all');
+  const [markupPercent, setMarkupPercent] = useState('');
+  const [previewChanges, setPreviewChanges] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isSavingProducts, setIsSavingProducts] = useState(false);
+  const [notification, setNotification] = useState(null);
+
+  // Individual Product pricing state
+  const [setPriceProduct, setSetPriceProduct] = useState(null);
+  const [individualBasePrice, setIndividualBasePrice] = useState('');
+  const [individualPrice, setIndividualPrice] = useState('');
+  const [individualProfitPct, setIndividualProfitPct] = useState('0');
+
   // Filters
   const [globalSearch, setGlobalSearch] = useState('');
+  const [productStatusFilter, setProductStatusFilter] = useState('all');
 
   // Load profile
   useEffect(() => {
@@ -53,6 +84,9 @@ export default function StoreDashboard() {
   // Load all data from database
   useEffect(() => {
     async function loadData() {
+      if (cachedOrders && cachedOrderItems && cachedCollections && cachedPhotos) {
+        return; // Skip loading if already cached
+      }
       setLoading(true);
       try {
         const { data: ordersData } = await supabase
@@ -70,12 +104,22 @@ export default function StoreDashboard() {
 
         const { data: photosData } = await supabase
           .from('photos')
-          .select('id, collection_id');
+          .select('id, collection_id, web_url, thumbnail_url, full_url');
 
-        setOrders(ordersData || []);
-        setOrderItems(itemsData || []);
-        setCollections(collectionsData || []);
-        setPhotos(photosData || []);
+        const ords = ordersData || [];
+        const items = itemsData || [];
+        const cols = collectionsData || [];
+        const phs = photosData || [];
+
+        cachedOrders = ords;
+        cachedOrderItems = items;
+        cachedCollections = cols;
+        cachedPhotos = phs;
+
+        setOrders(ords);
+        setOrderItems(items);
+        setCollections(cols);
+        setPhotos(phs);
       } catch (error) {
         console.error("Error loading store dashboard data:", error);
       } finally {
@@ -84,6 +128,274 @@ export default function StoreDashboard() {
     }
     loadData();
   }, [user]);
+
+  const fetchProducts = async (force = false) => {
+    if (cachedProducts && !force) {
+      setProducts(cachedProducts);
+      return;
+    }
+    setLoadingProducts(true);
+    try {
+      const { data, error } = await supabase
+        .from('printstore_products')
+        .select('*');
+      if (error) throw error;
+      const loaded = data || [];
+      cachedProducts = loaded;
+      setProducts(loaded);
+    } catch (err) {
+      console.error("Error loading products:", err);
+    } finally {
+      setLoadingProducts(false);
+    }
+  };
+  useEffect(() => {
+    if (activeViewTab === 'pricing' || activeViewTab === 'products') {
+      fetchProducts();
+    }
+  }, [activeViewTab]);
+
+  const getPhotoUrlForProduct = (productId, originalUrl) => {
+    if (photos && photos.length > 0) {
+      // Exclude video extensions to prevent broken images
+      const validPhotos = photos.filter(pObj => {
+        const url = pObj.web_url || pObj.thumbnail_url || pObj.full_url;
+        if (!url) return false;
+        return !/\.(mp4|mov|webm|ogg|avi|flv|mkv|wmv)(\?.*)?$/i.test(url);
+      });
+      const activePhotos = validPhotos.length > 0 ? validPhotos : photos;
+      let hash = 0;
+      for (let i = 0; i < productId.length; i++) {
+        hash = productId.charCodeAt(i) + ((hash << 5) - hash);
+      }
+      const index = Math.abs(hash) % activePhotos.length;
+      const pObj = activePhotos[index];
+      return pObj.web_url || pObj.thumbnail_url || pObj.full_url || originalUrl;
+    }
+    return originalUrl;
+  };
+
+
+  const filteredProducts = useMemo(() => {
+    let list = [...products];
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(p => {
+        const frameId = p.id.substring(0, 10).toLowerCase();
+        return p.name.toLowerCase().includes(q) || (p.product_type || '').toLowerCase().includes(q) || frameId.includes(q);
+      });
+    }
+
+    if (categoryFilter !== 'all') {
+      list = list.filter(p => p.product_type === categoryFilter);
+    }
+
+    if (profitFilter === 'zero') {
+      list = list.filter(p => {
+        const profitPct = p.options?.profit_percentage || 0;
+        return Number(profitPct) === 0;
+      });
+    } else if (profitFilter === 'custom') {
+      list = list.filter(p => {
+        const profitPct = p.options?.profit_percentage || 0;
+        return Number(profitPct) > 0;
+      });
+    }
+
+    return list;
+  }, [products, searchQuery, categoryFilter, profitFilter]);
+
+  const categoriesList = useMemo(() => {
+    const list = new Set(products.map(p => p.product_type).filter(Boolean));
+    return Array.from(list);
+  }, [products]);
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      setSelectedIds(filteredProducts.map(p => p.id));
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
+  const handleSelectOne = (id) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkApply = (method, value) => {
+    if (selectedIds.length === 0) {
+      alert("Please select at least one product.");
+      return;
+    }
+    const val = parseFloat(value);
+    if (method !== 'reset' && (isNaN(val) || val < 0)) {
+      alert("Please enter a valid positive margin percentage.");
+      return;
+    }
+
+    const changes = selectedIds.map(id => {
+      const p = products.find(prod => prod.id === id);
+      const cost = parseFloat(p.base_price);
+      const oldPct = parseFloat(p.options?.profit_percentage || 0);
+      const oldPrice = parseFloat(p.options?.selling_price || p.base_price);
+      
+      let newPct = oldPct;
+      let newProfitAmount = parseFloat(p.options?.profit_amount || 0);
+      let newPrice = oldPrice;
+
+      if (method === 'increase_pct') {
+        newPct = oldPct + val;
+        newPrice = cost * (1 + newPct / 100);
+        newProfitAmount = newPrice - cost;
+      } else if (method === 'decrease_pct') {
+        newPct = Math.max(0, oldPct - val);
+        newPrice = cost * (1 + newPct / 100);
+        newProfitAmount = newPrice - cost;
+      } else if (method === 'set_pct') {
+        newPct = val;
+        newPrice = cost * (1 + newPct / 100);
+        newProfitAmount = newPrice - cost;
+      } else if (method === 'set_amount') {
+        newProfitAmount = val;
+        newPrice = cost + newProfitAmount;
+        newPct = (newProfitAmount / cost) * 100;
+      } else if (method === 'reset') {
+        newPct = 0;
+        newProfitAmount = 0;
+        newPrice = cost;
+      }
+
+      return {
+        product_id: p.id,
+        name: p.name,
+        cost,
+        oldProfitPct: oldPct,
+        newProfitPct: newPct,
+        oldPrice,
+        newPrice,
+        newProfitAmount
+      };
+    });
+
+    setPreviewChanges(changes);
+    setShowConfirmDialog(true);
+  };
+
+  const handleSaveBulkPrices = async () => {
+    if (!previewChanges) return;
+    setIsSavingProducts(true);
+    try {
+      const timestamp = new Date().toISOString();
+      for (const change of previewChanges) {
+        const originalProduct = products.find(p => p.id === change.product_id);
+        const newOptions = {
+          ...(originalProduct.options || {}),
+          selling_price: parseFloat(change.newPrice.toFixed(2)),
+          profit_percentage: parseFloat(change.newProfitPct.toFixed(2)),
+          profit_amount: parseFloat(change.newProfitAmount.toFixed(2)),
+          last_updated: timestamp
+        };
+
+        const { error } = await supabase
+          .from('printstore_products')
+          .update({ options: newOptions })
+          .eq('id', change.product_id);
+
+        if (error) throw error;
+      }
+
+      setNotification({ type: 'success', text: `✓ Successfully updated ${previewChanges.length} products.` });
+      setPreviewChanges(null);
+      setShowConfirmDialog(false);
+      setSelectedIds([]);
+      setMarkupPercent('');
+      
+      await fetchProducts(true);
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err) {
+      console.error("Error saving bulk prices:", err);
+      alert("Failed to save changes: " + err.message);
+    } finally {
+      setIsSavingProducts(false);
+    }
+  };
+
+  const handleSaveIndividualPrice = async () => {
+    if (!setPriceProduct) return;
+    const basePrice = parseFloat(individualBasePrice);
+    const pct = parseFloat(individualProfitPct);
+
+    if (isNaN(basePrice) || basePrice <= 0) {
+      alert("Please enter a valid base price.");
+      return;
+    }
+    if (isNaN(pct) || pct < 0) {
+      alert("Please enter a valid profit percentage.");
+      return;
+    }
+
+    const newSellingPrice = basePrice + (basePrice * pct / 100);
+    const newProfitAmount = newSellingPrice - basePrice;
+
+    setIsSavingProducts(true);
+    try {
+      const timestamp = new Date().toISOString();
+      const newOptions = {
+        ...(setPriceProduct.options || {}),
+        selling_price: parseFloat(newSellingPrice.toFixed(2)),
+        profit_percentage: parseFloat(pct.toFixed(2)),
+        profit_amount: parseFloat(newProfitAmount.toFixed(2)),
+        last_updated: timestamp
+      };
+
+      const updatedBasePrice = parseFloat(basePrice.toFixed(2));
+      const { error } = await supabase
+        .from('printstore_products')
+        .update({ base_price: updatedBasePrice, options: newOptions })
+        .eq('id', setPriceProduct.id);
+
+      if (error) throw error;
+
+      // Local state update instead of full refetch to prevent page reload
+      setProducts(prev => {
+        const updated = prev.map(p => p.id === setPriceProduct.id ? { ...p, base_price: updatedBasePrice, options: newOptions } : p);
+        cachedProducts = updated;
+        return updated;
+      });
+      setNotification({ type: 'success', text: `✓ Successfully set price for ${setPriceProduct.name}.` });
+      setSetPriceProduct(null);
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err) {
+      console.error("Error setting individual price:", err);
+      alert("Failed to save price: " + err.message);
+    } finally {
+      setIsSavingProducts(false);
+    }
+  };
+
+  // Toggle product visibility (for Products module)
+  const handleToggleProductVisibility = async (product) => {
+    const newVisibility = !product.is_visible;
+    try {
+      const { error } = await supabase
+        .from('printstore_products')
+        .update({ is_visible: newVisibility })
+        .eq('id', product.id);
+      if (error) throw error;
+      // Local state update
+      setProducts(prev => {
+        const updated = prev.map(p => p.id === product.id ? { ...p, is_visible: newVisibility } : p);
+        cachedProducts = updated;
+        return updated;
+      });
+    } catch (err) {
+      console.error('Error toggling product visibility:', err);
+      alert('Failed to toggle product: ' + err.message);
+    }
+  };
 
   // Close profile dropdown on outside click
   useEffect(() => {
@@ -242,284 +554,1058 @@ export default function StoreDashboard() {
       {/* Main Layout */}
       <div className="store-dashboard-layout" style={{ marginTop: '76px' }}>
         {/* Sidebar — client gallery dark theme */}
-        <aside className="store-dashboard-sidebar">
-          <div className="sidebar-header-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', borderBottom: '1px solid #e0e0e0', paddingBottom: '20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <ShoppingBag size={18} />
-              <span>Store Manager</span>
+        <aside className="store-dashboard-sidebar" style={{ width: isSidebarCollapsed ? '64px' : '240px', transition: 'width 0.25s ease', overflowX: 'hidden', position: 'relative' }}>
+          {!isSidebarCollapsed && (
+            <div className="sidebar-header-title" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', borderBottom: '1px solid #e0e0e0', paddingBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <ShoppingBag size={18} />
+                <span>Store Manager</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button
+                  type="button"
+                  className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: 'none',
+                    cursor: 'pointer',
+                    position: 'relative'
+                  }}
+                  title="Notifications"
+                >
+                  <Bell size={16} />
+                  <span style={{ position: 'absolute', right: '8px', top: '8px', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#1A1A1A' }} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/dashboard')}
+                  className="neu-circle inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]"
+                  style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                  title="Home"
+                >
+                  <Home size={16} />
+                </button>
+              </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                type="button"
-                className="neu-circle relative inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]"
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: 'none',
-                  cursor: 'pointer',
-                  position: 'relative'
-                }}
-                title="Notifications"
-              >
-                <Bell size={16} />
-                <span style={{ position: 'absolute', right: '8px', top: '8px', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#1A1A1A' }} />
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/dashboard')}
-                className="neu-circle inline-flex size-8 items-center justify-center rounded-full text-[#71717A] hover:text-[#1A1A1A]"
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: 'none',
-                  cursor: 'pointer'
-                }}
-                title="Home"
-              >
-                <Home size={16} />
-              </button>
-            </div>
-          </div>
-          <ul className="sidebar-menu">
-            <li className="active">
-              <Link to="/store/orders">
+          )}
+          <ul className="sidebar-menu" style={isSidebarCollapsed ? { alignItems: 'center', paddingLeft: 0, paddingRight: 0 } : {}}>
+            <li className={activeViewTab === 'orders' ? 'active' : ''}>
+              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('orders'); }} title="Orders" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
                 <Package size={18} />
-                <span>Orders</span>
+                {!isSidebarCollapsed && <span>Orders</span>}
               </Link>
             </li>
-            {/* <li>
-              <Link to="/photographer">
+            <li className={activeViewTab === 'pricing' ? 'active' : ''}>
+              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('pricing'); }} title="Price List" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
                 <DollarSign size={18} />
-                <span>Pricing & Setup</span>
+                {!isSidebarCollapsed && <span>Price List</span>}
               </Link>
             </li>
-            <li>
-              <Link to="/settings">
-                <Settings size={18} />
-                <span>Store Settings</span>
+            <li className={activeViewTab === 'products' ? 'active' : ''}>
+              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('products'); }} title="Products" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
+                <Layers size={18} />
+                {!isSidebarCollapsed && <span>Products</span>}
               </Link>
-            </li> */}
+            </li>
+            <li className={activeViewTab === 'settings' ? 'active' : ''}>
+              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('settings'); }} title="Store Settings" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
+                <Settings size={18} />
+                {!isSidebarCollapsed && <span>Store Settings</span>}
+              </Link>
+            </li>
           </ul>
+          {/* Sidebar collapse/expand toggle */}
+          <button
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            style={{
+              position: 'absolute',
+              bottom: '24px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              width: '36px',
+              height: '36px',
+              borderRadius: '50%',
+              border: '1px solid rgba(0,0,0,0.08)',
+              backgroundColor: 'rgba(255,255,255,0.7)',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+              transition: 'all 0.2s ease'
+            }}
+            title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isSidebarCollapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
         </aside>
 
         {/* Content Area */}
         <main className="store-dashboard-main">
-          <div className="store-dashboard-content">
-            <div className="store-dashboard-header-row">
-              <div>
-                <h1 className="store-dashboard-title">Orders</h1>
-                <p className="store-dashboard-subtitle">Manage, view, and track all incoming product orders from your galleries.</p>
+          {activeViewTab === 'orders' ? (
+            <div className="store-dashboard-content">
+              <div className="store-dashboard-header-row">
+                <div>
+                  <h1 className="store-dashboard-title">Orders</h1>
+                  <p className="store-dashboard-subtitle">Manage, view, and track all incoming product orders from your galleries.</p>
+                </div>
+                <div className="results-count-label">
+                  {filteredOrders.length > 0 ? `Displaying 1-${filteredOrders.length} of ${filteredOrders.length} results.` : 'No results.'}
+                </div>
               </div>
-              <div className="results-count-label">
-                {filteredOrders.length > 0 ? `Displaying 1-${filteredOrders.length} of ${filteredOrders.length} results.` : 'No results.'}
-              </div>
-            </div>
 
-            {/* Global Search Bar */}
-            <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'flex-start' }}>
-              <div className="relative" style={{ position: 'relative', width: '100%', maxWidth: '480px' }}>
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#71717A]" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#71717A', pointerEvents: 'none' }} />
-                <input
-                  type="search"
-                  value={globalSearch}
-                  onChange={(e) => setGlobalSearch(e.target.value)}
-                  placeholder="searcb for name, order id , time and etc.."
-                  className="neu-inset h-10 w-full rounded-full border-0 pl-10 pr-4 text-sm text-[#1A1A1A] outline-none placeholder:text-[#71717A]"
-                  style={{
-                    height: '40px',
-                    width: '100%',
-                    borderRadius: '9999px',
-                    border: 'none',
-                    paddingLeft: '42px',
-                    paddingRight: '16px',
-                    fontSize: '14px',
-                    color: '#1a1a1a',
-                    outline: 'none',
-                    boxSizing: 'border-box'
-                  }}
-                />
+              {/* Global Search Bar */}
+              <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'flex-start' }}>
+                <div className="relative" style={{ position: 'relative', width: '100%', maxWidth: '480px' }}>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#71717A]" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#71717A', pointerEvents: 'none' }} />
+                  <input
+                    type="search"
+                    value={globalSearch}
+                    onChange={(e) => setGlobalSearch(e.target.value)}
+                    placeholder="searcb for name, order id , time and etc.."
+                    className="neu-inset h-10 w-full rounded-full border-0 pl-10 pr-4 text-sm text-[#1A1A1A] outline-none placeholder:text-[#71717A]"
+                    style={{
+                      height: '40px',
+                      width: '100%',
+                      borderRadius: '9999px',
+                      border: 'none',
+                      paddingLeft: '42px',
+                      paddingRight: '16px',
+                      fontSize: '14px',
+                      color: '#1a1a1a',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="store-dashboard-table-container">
-              <table className="store-dashboard-table">
-                <thead>
-                  <tr>
-                    <th>Order ID</th>
-                    <th>Status</th>
-                    <th>Customer</th>
-                    <th>Contact</th>
-                    <th>Collection</th>
-                    <th>Date</th>
-                    <th>Time</th>
-                    <th style={{ textAlign: 'center' }}>Items</th>
-                    <th style={{ textAlign: 'right' }}>Amount</th>
-                    <th style={{ textAlign: 'center' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredOrders.length === 0 ? (
+              <div className="store-dashboard-table-container">
+                <table className="store-dashboard-table">
+                  <thead>
                     <tr>
-                      <td colSpan={10} className="no-records-row">
-                        {loading ? 'Loading orders...' : 'No orders found.'}
-                      </td>
+                      <th>Order ID</th>
+                      <th>Status</th>
+                      <th>Customer</th>
+                      <th>Contact</th>
+                      <th>Collection</th>
+                      <th>Date</th>
+                      <th>Time</th>
+                      <th style={{ textAlign: 'center' }}>Items</th>
+                      <th style={{ textAlign: 'right' }}>Amount</th>
+                      <th style={{ textAlign: 'center' }}>Action</th>
                     </tr>
-                  ) : (
-                    filteredOrders.map((order) => {
-                      const isExpanded = expandedOrderId === order.id;
-                      const shortId = order.id ? `#${order.id.split('-')[0].toUpperCase()}` : '';
-                      const collectionName = orderCollectionNames[order.id] || '—';
-                      const items = orderItems.filter(item => item.order_id === order.id);
-                      const itemCount = orderItemsCount[order.id] || 0;
+                  </thead>
+                  <tbody>
+                    {filteredOrders.length === 0 ? (
+                      <tr>
+                        <td colSpan={10} className="no-records-row">
+                          {loading ? 'Loading orders...' : 'No orders found.'}
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredOrders.map((order) => {
+                        const isExpanded = expandedOrderId === order.id;
+                        const shortId = order.id ? `#${order.id.split('-')[0].toUpperCase()}` : '';
+                        const collectionName = orderCollectionNames[order.id] || '—';
+                        const items = orderItems.filter(item => item.order_id === order.id);
+                        const itemCount = orderItemsCount[order.id] || 0;
 
-                      return (
-                        <React.Fragment key={order.id}>
-                          <tr className={`order-main-row ${isExpanded ? 'row-expanded' : ''}`} onClick={() => toggleRow(order.id)}>
-                            <td className="font-semibold text-dark">{shortId}</td>
-                            <td>
-                              <span className={`order-status-badge status-${order.status}`}>
-                                {order.status?.replace('_', ' ')}
-                              </span>
-                            </td>
-                            <td>{order.customer_name || '—'}</td>
-                            <td>
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                                <span style={{ fontSize: '13px', color: '#333' }}>{order.customer_email || '—'}</span>
-                              </div>
-                            </td>
-                            <td>{collectionName}</td>
-                            <td style={{ whiteSpace: 'nowrap' }}>{formatDate(order.created_at)}</td>
-                            <td style={{ whiteSpace: 'nowrap', color: '#666' }}>{formatTime(order.created_at)}</td>
-                            <td style={{ textAlign: 'center' }}>{itemCount}</td>
-                            <td className="font-semibold" style={{ textAlign: 'right' }}>₹{order.total?.toFixed(2)}</td>
-                            <td style={{ textAlign: 'center' }}>
-                              <button className="order-view-toggle-btn" onClick={(e) => { e.stopPropagation(); toggleRow(order.id); }}>
-                                {isExpanded ? 'Hide' : 'View'}
-                              </button>
-                            </td>
-                          </tr>
-                          
-                          {isExpanded && (
-                            <tr className="order-details-drawer-row">
-                              <td colSpan={10} className="order-details-drawer-cell">
-                                <div className="order-details-wrapper animate-slide-down">
-                                  {/* Shipping details */}
-                                  <div className="shipping-details-box">
-                                    <h3 className="details-box-title">Shipping Details</h3>
-                                    <div className="shipping-details-card">
-                                      <div className="shipping-detail-col">
-                                        <span className="label-heading">Shipping Method</span>
-                                        <span className="value-text">{order.shipping_method || 'India Ground Shipping (5-7 business days)'}</span>
-                                      </div>
-                                      <div className="shipping-detail-col">
-                                        <span className="label-heading">Tracking Info</span>
-                                        <span className="value-text tracking-code">{order.payment_intent_id || '—'}</span>
-                                      </div>
-                                      <div className="shipping-detail-col">
-                                        <span className="label-heading">Delivery Address</span>
-                                        <span className="value-text">
-                                          {order.customer_name || '—'}<br />
-                                          {order.shipping_address?.address || '—'}, {order.shipping_address?.city || ''}<br />
-                                          {order.shipping_address?.zip || ''}, {order.shipping_address?.country || 'India'}
-                                        </span>
-                                      </div>
-                                      <div className="shipping-detail-col">
-                                        <span className="label-heading">Contact Email</span>
-                                        <span className="value-text">{order.customer_email || '—'}</span>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {/* Items details table */}
-                                  <table className="order-items-detail-table">
-                                    <thead>
-                                      <tr>
-                                        <th>Item ({items.length})</th>
-                                        <th>Product</th>
-                                        <th style={{ textAlign: 'center' }}>Qty</th>
-                                        <th style={{ textAlign: 'right' }}>Price</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      {items.map((item) => {
-                                        const opt = item.options || {};
-                                        const photoUrl = opt.photo?.url || (opt.photos && opt.photos[0]?.url) || '';
-                                        const sizeLabel = opt.size?.label || '—';
-                                        const paperLabel = opt.paper?.label || '—';
-                                        const frameLabel = opt.frame?.label && opt.frame.id !== 'frame_none' ? opt.frame.label : null;
-
-                                        return (
-                                          <tr key={item.id}>
-                                            <td className="item-thumbnail-cell">
-                                              {photoUrl ? (
-                                                <div className="item-thumb-wrapper">
-                                                  <img src={photoUrl} alt={item.product_name} className="item-thumbnail-img" />
-                                                </div>
-                                              ) : (
-                                                <div className="item-thumb-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '11px' }}>No image</div>
-                                              )}
-                                            </td>
-                                            <td>
-                                              <div className="item-name-info">
-                                                <span className="item-product-name">{item.product_name}</span>
-                                                <span className="item-product-options">
-                                                  Size: {sizeLabel} | Paper: {paperLabel}{frameLabel ? ` | Frame: ${frameLabel}` : ''}
-                                                </span>
-                                              </div>
-                                            </td>
-                                            <td style={{ textAlign: 'center' }}>{item.quantity}</td>
-                                            <td style={{ textAlign: 'right' }} className="font-semibold">₹{(item.unit_price * item.quantity).toFixed(2)}</td>
-                                          </tr>
-                                        );
-                                      })}
-                                    </tbody>
-                                  </table>
-
-                                  {/* Cost breakdown */}
-                                  <div className="order-cost-breakdown">
-                                    <div className="breakdown-row">
-                                      <span>Subtotal</span>
-                                      <span>₹{order.subtotal?.toFixed(2) || '0.00'}</span>
-                                    </div>
-                                    <div className="breakdown-row">
-                                      <span>Shipping</span>
-                                      <span>₹{order.shipping_amount?.toFixed(2) || '0.00'}</span>
-                                    </div>
-                                    {(order.discount_amount > 0) && (
-                                      <div className="breakdown-row" style={{ color: '#059669' }}>
-                                        <span>Discount</span>
-                                        <span>-₹{order.discount_amount?.toFixed(2)}</span>
-                                      </div>
-                                    )}
-                                    <div className="breakdown-row">
-                                      <span>Tax</span>
-                                      <span>₹{order.tax_amount?.toFixed(2) || '0.00'}</span>
-                                    </div>
-                                    <div className="breakdown-row order-total-row font-bold">
-                                      <span>Order Total</span>
-                                      <span>₹{order.total?.toFixed(2) || '0.00'}</span>
-                                    </div>
-                                  </div>
+                        return (
+                          <React.Fragment key={order.id}>
+                            <tr className={`order-main-row ${isExpanded ? 'row-expanded' : ''}`} onClick={() => toggleRow(order.id)}>
+                              <td className="font-semibold text-dark">{shortId}</td>
+                              <td>
+                                <span className={`order-status-badge status-${order.status}`}>
+                                  {order.status?.replace('_', ' ')}
+                                </span>
+                              </td>
+                              <td>{order.customer_name || '—'}</td>
+                              <td>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                  <span style={{ fontSize: '13px', color: '#333' }}>{order.customer_email || '—'}</span>
                                 </div>
                               </td>
+                              <td>{collectionName}</td>
+                              <td style={{ whiteSpace: 'nowrap' }}>{formatDate(order.created_at)}</td>
+                              <td style={{ whiteSpace: 'nowrap', color: '#666' }}>{formatTime(order.created_at)}</td>
+                              <td style={{ textAlign: 'center' }}>{itemCount}</td>
+                              <td className="font-semibold" style={{ textAlign: 'right' }}>₹{order.total?.toFixed(2)}</td>
+                              <td style={{ textAlign: 'center' }}>
+                                <button className="order-view-toggle-btn" onClick={(e) => { e.stopPropagation(); toggleRow(order.id); }}>
+                                  {isExpanded ? 'Hide' : 'View'}
+                                </button>
+                              </td>
                             </tr>
-                          )}
-                        </React.Fragment>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+                            
+                            {isExpanded && (
+                              <tr className="order-details-drawer-row">
+                                <td colSpan={10} className="order-details-drawer-cell">
+                                  <div className="order-details-wrapper animate-slide-down">
+                                    {/* Shipping details */}
+                                    <div className="shipping-details-box">
+                                      <h3 className="details-box-title">Shipping Details</h3>
+                                      <div className="shipping-details-card">
+                                        <div className="shipping-detail-col">
+                                          <span className="label-heading">Shipping Method</span>
+                                          <span className="value-text">{order.shipping_method || 'India Ground Shipping (5-7 business days)'}</span>
+                                        </div>
+                                        <div className="shipping-detail-col">
+                                          <span className="label-heading">Tracking Info</span>
+                                          <span className="value-text tracking-code">{order.payment_intent_id || '—'}</span>
+                                        </div>
+                                        <div className="shipping-detail-col">
+                                          <span className="label-heading">Delivery Address</span>
+                                          <span className="value-text">
+                                            {order.customer_name || '—'}<br />
+                                            {order.shipping_address?.address || '—'}, {order.shipping_address?.city || ''}<br />
+                                            {order.shipping_address?.zip || ''}, {order.shipping_address?.country || 'India'}
+                                          </span>
+                                        </div>
+                                        <div className="shipping-detail-col">
+                                          <span className="label-heading">Contact Email</span>
+                                          <span className="value-text">{order.customer_email || '—'}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+
+                                    {/* Items details table */}
+                                    <table className="order-items-detail-table">
+                                      <thead>
+                                        <tr>
+                                          <th>Item ({items.length})</th>
+                                          <th>Product</th>
+                                          <th style={{ textAlign: 'center' }}>Qty</th>
+                                          <th style={{ textAlign: 'right' }}>Price</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {items.map((item) => {
+                                          const opt = item.options || {};
+                                          const photoUrl = opt.photo?.url || (opt.photos && opt.photos[0]?.url) || '';
+                                          const sizeLabel = opt.size?.label || '—';
+                                          const paperLabel = opt.paper?.label || '—';
+                                          const frameLabel = opt.frame?.label && opt.frame.id !== 'frame_none' ? opt.frame.label : null;
+
+                                          return (
+                                            <tr key={item.id}>
+                                              <td className="item-thumbnail-cell">
+                                                {photoUrl ? (
+                                                  <div className="item-thumb-wrapper">
+                                                    <img src={photoUrl} alt={item.product_name} className="item-thumbnail-img" />
+                                                  </div>
+                                                ) : (
+                                                  <div className="item-thumb-wrapper" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999', fontSize: '11px' }}>No image</div>
+                                                )}
+                                              </td>
+                                              <td>
+                                                <div className="item-name-info">
+                                                  <span className="item-product-name">{item.product_name}</span>
+                                                  <span className="item-product-options">
+                                                    Size: {sizeLabel} | Paper: {paperLabel}{frameLabel ? ` | Frame: ${frameLabel}` : ''}
+                                                  </span>
+                                                </div>
+                                              </td>
+                                              <td style={{ textAlign: 'center' }}>{item.quantity}</td>
+                                              <td style={{ textAlign: 'right' }} className="font-semibold">₹{(item.unit_price * item.quantity).toFixed(2)}</td>
+                                            </tr>
+                                          );
+                                        })}
+                                      </tbody>
+                                    </table>
+
+                                    {/* Cost breakdown */}
+                                    <div className="order-cost-breakdown">
+                                      <div className="breakdown-row">
+                                        <span>Subtotal</span>
+                                        <span>₹{order.subtotal?.toFixed(2) || '0.00'}</span>
+                                      </div>
+                                      <div className="breakdown-row">
+                                        <span>Shipping</span>
+                                        <span>₹{order.shipping_amount?.toFixed(2) || '0.00'}</span>
+                                      </div>
+                                      {(order.discount_amount > 0) && (
+                                        <div className="breakdown-row" style={{ color: '#059669' }}>
+                                          <span>Discount</span>
+                                          <span>-₹{order.discount_amount?.toFixed(2)}</span>
+                                        </div>
+                                      )}
+                                      <div className="breakdown-row">
+                                        <span>Tax</span>
+                                        <span>₹{order.tax_amount?.toFixed(2) || '0.00'}</span>
+                                      </div>
+                                      <div className="breakdown-row order-total-row font-bold">
+                                        <span>Order Total</span>
+                                        <span>₹{order.total?.toFixed(2) || '0.00'}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+          ) : activeViewTab === 'pricing' ? (
+            <div className="store-dashboard-content">
+              {notification && (
+                <div style={{
+                  padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                  backgroundColor: 'rgba(236, 253, 245, 0.9)',
+                  backdropFilter: 'blur(8px)',
+                  color: '#059669',
+                  border: `1px solid rgba(167, 243, 208, 0.4)`,
+                  marginBottom: '20px'
+                }}>
+                  {notification.text}
+                </div>
+              )}
+
+              <div className="store-dashboard-header-row" style={{ marginBottom: '24px' }}>
+                <div>
+                  <h1 className="store-dashboard-title">Price List</h1>
+                  <p className="store-dashboard-subtitle">Manage selling prices and markup margins for your print lab products.</p>
+                </div>
+              </div>
+
+              {/* Glassy Search and Filters Bar */}
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '16px',
+                marginBottom: '24px',
+                flexWrap: 'wrap',
+                width: '100%'
+              }}>
+                {/* Glassy Search input */}
+                <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
+                  <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#71717A]" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#71717A', pointerEvents: 'none' }} />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by product name or ID..."
+                    className="neu-inset"
+                    style={{
+                      height: '42px',
+                      width: '100%',
+                      borderRadius: '9999px',
+                      border: 'none',
+                      paddingLeft: '42px',
+                      paddingRight: '16px',
+                      fontSize: '13.5px',
+                      color: '#1a1a1a',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                {/* Bulk Update and Select controls */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <select
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    className="neu-inset"
+                    style={{
+                      padding: '10px 32px 10px 14px',
+                      fontSize: '13px',
+                      border: 'none',
+                      borderRadius: '9999px',
+                      outline: 'none',
+                      cursor: 'pointer',
+                      color: '#1a1a1a',
+                      fontFamily: "'europa', sans-serif",
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'none',
+                      appearance: 'none',
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 12px center'
+                    }}
+                  >
+                    <option value="all">All Categories</option>
+                    {categoriesList.map(cat => <option key={cat} value={cat}>{cat.replace('_', ' ').toUpperCase()}</option>)}
+                  </select>
+
+                  <select
+                    value={profitFilter}
+                    onChange={(e) => setProfitFilter(e.target.value)}
+                    className="neu-inset"
+                    style={{
+                      padding: '10px 32px 10px 14px',
+                      fontSize: '13px',
+                      border: 'none',
+                      borderRadius: '9999px',
+                      outline: 'none',
+                      cursor: 'pointer',
+                      color: '#1a1a1a',
+                      fontFamily: "'europa', sans-serif",
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'none',
+                      appearance: 'none',
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 12px center'
+                    }}
+                  >
+                    <option value="all">All Margins</option>
+                    <option value="zero">Zero Profits</option>
+                    <option value="custom">Custom Profits</option>
+                  </select>
+
+                  <input
+                    type="number"
+                    placeholder="Margin %"
+                    value={markupPercent}
+                    onChange={(e) => setMarkupPercent(e.target.value)}
+                    className="neu-inset"
+                    style={{
+                      width: '100px',
+                      padding: '10px 14px',
+                      fontSize: '13px',
+                      border: 'none',
+                      borderRadius: '9999px',
+                      outline: 'none',
+                      color: '#1a1a1a',
+                      fontFamily: "'europa', sans-serif"
+                    }}
+                  />
+                  
+                  <button
+                    onClick={() => handleBulkApply('set_pct', markupPercent)}
+                    style={{
+                      padding: '10px 18px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid rgba(0,0,0,0.1)',
+                      borderRadius: '8px',
+                      backgroundColor: '#1a1a1a',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      fontFamily: "'europa', sans-serif",
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em'
+                    }}
+                  >
+                    Apply Bulk Margin
+                  </button>
+                </div>
+              </div>
+
+              {/* Glassy Select All Bar */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginBottom: '24px',
+                padding: '12px 16px',
+                backgroundColor: 'rgba(255, 255, 255, 0.45)',
+                backdropFilter: 'blur(12px)',
+                WebkitBackdropFilter: 'blur(12px)',
+                border: '1px solid rgba(0, 0, 0, 0.06)',
+                borderRadius: '8px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+              }}>
+                <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length} style={{ cursor: 'pointer' }} />
+                <span style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: 600 }}>Select All ({filteredProducts.length} products)</span>
+                {selectedIds.length > 0 && <span style={{ fontSize: '12px', color: '#111', fontWeight: 700, paddingLeft: '8px', borderLeft: '1px solid rgba(0,0,0,0.1)' }}>{selectedIds.length} selected</span>}
+              </div>
+
+              {/* Product Cards Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: '20px' }}>
+                {loadingProducts ? (
+                  <div style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading products...</div>
+                ) : filteredProducts.length === 0 ? (
+                  <div style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No products found matching filters.</div>
+                ) : (
+                  filteredProducts.map((p) => {
+                    const profitPct = Number(p.options?.profit_percentage || 0);
+                    const sellingPrice = Number(p.options?.selling_price || p.base_price);
+                    const isSelected = selectedIds.includes(p.id);
+                    const frameId = p.id.substring(0, 10).toUpperCase();
+                    // Retrieve collection photo randomly rather than mock placeholder images
+                    const photoUrl = getPhotoUrlForProduct(p.id, p.image_url);
+                    const pType = p.product_type || p.id || '';
+                    const imgS = { width: '100%', height: '100%', objectFit: 'cover' };
+
+                    // Render visual frame based on product type
+                    const renderCardFrame = () => {
+                      const imgErr = (e) => {
+                        e.target.onerror = null;
+                        e.target.src = p.image_url;
+                      };
+                      if (pType.includes('circular')) return (
+                        <div style={{ width: '110px', height: '110px', border: '4.5px solid #5d4037', background: '#f9f9f9', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}>
+                          <div style={{ width: '78%', height: '78%', borderRadius: '50%', overflow: 'hidden', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                        </div>
+                      );
+                      if (pType.includes('matted') && pType.includes('collage')) {
+                        // Get 4 distinct random photos for collage preview
+                        const getCollageUrls = () => {
+                          if (photos && photos.length > 0) {
+                            const validPhotos = photos.filter(pObj => {
+                              const url = pObj.web_url || pObj.thumbnail_url || pObj.full_url;
+                              if (!url) return false;
+                              return !/\.(mp4|mov|webm|ogg|avi|flv|mkv|wmv)(\?.*)?$/i.test(url);
+                            });
+                            const activePhotos = validPhotos.length > 0 ? validPhotos : photos;
+                            let hash = 0;
+                            for (let i = 0; i < p.id.length; i++) {
+                              hash = p.id.charCodeAt(i) + ((hash << 5) - hash);
+                            }
+                            const list = [];
+                            for (let i = 0; i < 4; i++) {
+                              const idx = (Math.abs(hash) + i) % activePhotos.length;
+                              const pObj = activePhotos[idx];
+                              list.push(pObj.web_url || pObj.thumbnail_url || pObj.full_url || p.image_url);
+                            }
+                            return list;
+                          }
+                          return [p.image_url, p.image_url, p.image_url, p.image_url];
+                        };
+                        const urls = getCollageUrls();
+                        return (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '2px', padding: '6px', background: '#fdfdfd', border: '3.5px solid #111', width: '110px', height: '110px', boxSizing: 'border-box', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}>
+                            {urls.map((url, idx) => (
+                              <img key={idx} src={url} alt="" style={imgS} onError={imgErr} />
+                            ))}
+                          </div>
+                        );
+                      }
+                      if (pType.includes('matted') && !pType.includes('collage')) return (
+                        <div style={{ width: '110px', height: '110px', background: '#fdfdfd', border: '4.5px solid #111', padding: '8px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      );
+                      if (pType.includes('float')) return (
+                        <div style={{ width: '110px', height: '110px', border: '4.5px solid #111', padding: '8px', boxSizing: 'border-box', background: '#fcfcfc', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}>
+                          <div style={{ width: '100%', height: '100%', background: '#fff', padding: '1px', boxShadow: '2px 4px 6px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                        </div>
+                      );
+                      if (pType === 'frames') return (
+                        <div style={{ width: '110px', height: '110px', border: '4.5px solid #6d4c41', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)', background: '#fff' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      );
+                      if (pType.includes('canvas')) return (
+                        <div style={{ width: '108px', height: '108px', boxShadow: '2px 4px 8px rgba(0,0,0,0.25)', border: '1px solid #ccc', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRightWidth: '4px', borderBottomWidth: '4px', transform: 'perspective(100px) rotateY(-6deg)', background: '#fff' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      );
+                      if (pType.includes('acrylic')) return (
+                        <div style={{ width: '108px', height: '108px', boxShadow: '0 4px 12px rgba(0,0,0,0.22)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.4)', background: '#000' }}>
+                          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%)', zIndex: 1 }} />
+                          <img src={photoUrl} alt="" style={imgS} onError={imgErr} />
+                        </div>
+                      );
+                      if (pType.includes('deckled')) return (
+                        <div style={{ width: '110px', height: '110px', background: '#f9f8f6', border: '1px solid #e5e5e0', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.15)' }}>
+                          <div style={{ width: '78%', height: '78%', background: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.15)', padding: '2px', boxSizing: 'border-box', clipPath: 'polygon(0% 1%, 12% 0%, 25% 1%, 38% 0%, 50% 1.5%, 62% 0%, 75% 1%, 88% 0.5%, 100% 0%, 99% 12%, 100% 25%, 98.5% 38%, 100% 50%, 99% 62%, 100% 75%, 99% 88%, 100% 100%, 88% 99%, 75% 100%, 62% 98.5%, 50% 100%, 38% 99%, 25% 100%, 12% 99%, 0% 100%, 1% 88%, 0% 75%, 1.5% 62%, 0% 50%, 1% 38%, 0% 25%, 1% 12%)' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                        </div>
+                      );
+                      if (pType.includes('panoramic')) return (
+                        <div style={{ width: '120px', height: '72px', background: '#fff', border: '1px solid #ddd', padding: '3px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '1px 2px 4px rgba(0,0,0,0.1)' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      );
+                      if (pType.includes('dibond')) return (
+                        <div style={{ width: '108px', height: '108px', position: 'relative', boxShadow: '2px 4px 10px rgba(0,0,0,0.18)', border: '1px solid #ddd', background: '#fff' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      );
+                      if (pType.includes('gallery')) return (
+                        <div style={{ width: '108px', height: '108px', border: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.12)', padding: '5px', boxSizing: 'border-box' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      );
+                      // Print Pack — stacked fanned prints
+                      if (pType.includes('print') && pType.includes('pack')) return (
+                        <div style={{ width: '110px', height: '110px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <div style={{ position: 'absolute', width: '72px', height: '90px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', transform: 'rotate(-8deg)', top: '6px', left: '12px', overflow: 'hidden' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                          <div style={{ position: 'absolute', width: '72px', height: '90px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', transform: 'rotate(-3deg)', top: '4px', left: '16px', overflow: 'hidden' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                          <div style={{ position: 'absolute', width: '72px', height: '90px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.12)', transform: 'rotate(2deg)', top: '2px', left: '20px', overflow: 'hidden' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                        </div>
+                      );
+                      // Default: prints
+                      if (pType === 'prints' || pType.includes('print')) return (
+                        <div style={{ width: '84px', height: '108px', background: '#fff', border: '1px solid #e2e8f0', padding: '3px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      );
+                      // Fallback
+                      return (
+                        <div style={{ width: '108px', height: '108px', background: '#fff', border: '1px solid #e2e8f0', padding: '4px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      );
+                    };
+
+
+                    return (
+                      <div
+                        key={p.id}
+                        style={{
+                          backgroundColor: isSelected ? 'rgba(255, 255, 255, 0.9)' : 'rgba(255, 255, 255, 0.55)',
+                          backdropFilter: 'blur(8px)',
+                          WebkitBackdropFilter: 'blur(8px)',
+                          border: isSelected ? `2px solid #1a1a1a` : '1px solid rgba(0, 0, 0, 0.08)',
+                          borderRadius: '12px',
+                          padding: '20px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '12px',
+                          transition: 'all 0.15s',
+                          cursor: 'default',
+                          position: 'relative',
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.02)'
+                        }}
+                      >
+                        {/* Header info */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <input type="checkbox" checked={isSelected} onChange={() => handleSelectOne(p.id)} style={{ cursor: 'pointer' }} />
+                            <span style={{ fontFamily: 'monospace', fontSize: '10px', fontWeight: 600 }}>{frameId}</span>
+                          </div>
+                          <span style={{
+                            padding: '2px 8px', borderRadius: '10px', fontSize: '9px', fontWeight: 'bold',
+                            backgroundColor: p.is_visible ? '#d1fae5' : '#f1f5f9',
+                            color: p.is_visible ? '#065f46' : '#475569'
+                          }}>
+                            {p.is_visible ? 'Active' : 'Hidden'}
+                          </span>
+                        </div>
+
+                        {/* Visual Frame */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px', width: '100%' }}>
+                          {renderCardFrame()}
+                        </div>
+
+                        {/* Product Title */}
+                        <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111', textAlign: 'center', lineHeight: 1.3 }}>{p.name}</div>
+
+                        {/* Breakdown info */}
+                        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12.5px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748b' }}>Cost</span>
+                            <span style={{ fontFamily: 'monospace', color: '#111' }}>₹{p.base_price.toFixed(2)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748b' }}>Profit</span>
+                            <span style={{ color: '#111' }}>{profitPct.toFixed(1)}%</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: '6px' }}>
+                            <span style={{ fontWeight: 700, color: '#111' }}>Selling</span>
+                            <span style={{ fontWeight: 700, fontFamily: 'monospace', color: '#111', fontSize: '14.5px' }}>₹{sellingPrice.toFixed(2)}</span>
+                          </div>
+                        </div>
+
+                        {/* Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSetPriceProduct(p);
+                            setIndividualBasePrice(String(p.base_price || ''));
+                            setIndividualPrice('');
+                            setIndividualProfitPct(String(profitPct || '0'));
+                          }}
+                          style={{
+                            width: '100%', padding: '10px 12px', fontSize: '11px', fontWeight: 700,
+                            border: `1px solid #111`, borderRadius: '6px',
+                            backgroundColor: 'transparent', color: '#111',
+                            cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em',
+                            transition: 'all 0.15s'
+                          }}
+                        >
+                          Set Price
+                        </button>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Bulk Edit Confirmation Dialog */}
+              {showConfirmDialog && previewChanges && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+                  <div style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+                    backdropFilter: 'blur(24px)',
+                    WebkitBackdropFilter: 'blur(24px)',
+                    border: '1px solid rgba(255, 255, 255, 0.35)',
+                    padding: '30px',
+                    borderRadius: '16px',
+                    width: '90%',
+                    maxWidth: '440px',
+                    boxShadow: '0 24px 60px rgba(0,0,0,0.08)',
+                    fontFamily: "'europa', sans-serif"
+                  }}>
+                    <h3 style={{ margin: '0 0 12px 0', fontSize: '17px', fontWeight: 700, color: '#111' }}>Confirm Bulk Price Changes</h3>
+                    <p style={{ margin: '0 0 24px 0', fontSize: '14.5px', color: '#64748b', lineHeight: 1.5 }}>
+                      You are about to bulk update prices for <strong>{previewChanges.length} products</strong>. Selling prices will instantly update in the Print Lab.
+                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                      <button
+                        disabled={isSavingProducts}
+                        onClick={() => setShowConfirmDialog(false)}
+                        style={{
+                          padding: '10px 18px', fontSize: '13px', border: '1px solid rgba(0,0,0,0.08)',
+                          backgroundColor: 'rgba(255,255,255,0.5)', cursor: 'pointer', borderRadius: '8px', fontWeight: 600, color: '#334155'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        disabled={isSavingProducts}
+                        onClick={handleSaveBulkPrices}
+                        style={{
+                          padding: '10px 18px', fontSize: '13px', border: 'none', backgroundColor: '#111',
+                          color: '#fff', cursor: 'pointer', borderRadius: '8px', fontWeight: 600
+                        }}
+                      >
+                        {isSavingProducts ? 'Saving...' : 'Apply Changes'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Individual Edit Set Price Dialog */}
+              {setPriceProduct && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+                  <div style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+                    backdropFilter: 'blur(24px)',
+                    WebkitBackdropFilter: 'blur(24px)',
+                    border: '1px solid rgba(255, 255, 255, 0.35)',
+                    padding: '30px',
+                    borderRadius: '24px',
+                    width: '95%',
+                    maxWidth: '420px',
+                    boxShadow: '0 24px 60px rgba(0,0,0,0.08)',
+                    fontFamily: "'europa', sans-serif"
+                  }}>
+                    <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: '#111' }}>Set Price: {setPriceProduct.name}</h3>
+                    <p style={{ margin: '0 0 24px 0', fontSize: '13px', color: '#64748b' }}>Configure the unit base price and profit percentage.</p>
+                    
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Cost Price (INR)</label>
+                        <input
+                          type="number"
+                          value={individualBasePrice}
+                          onChange={(e) => setIndividualBasePrice(e.target.value)}
+                          className="neu-inset"
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            fontSize: '13.5px',
+                            border: 'none',
+                            borderRadius: '9999px',
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                            color: '#111'
+                          }}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Profit Margin Percentage (%)</label>
+                        <input
+                          type="number"
+                          value={individualProfitPct}
+                          onChange={(e) => setIndividualProfitPct(e.target.value)}
+                          className="neu-inset"
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            fontSize: '13.5px',
+                            border: 'none',
+                            borderRadius: '9999px',
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                            color: '#111'
+                          }}
+                        />
+                      </div>
+
+                      <div style={{
+                        backgroundColor: 'rgba(255,255,255,0.45)',
+                        backdropFilter: 'blur(8px)',
+                        padding: '14px',
+                        borderRadius: '8px',
+                        border: '1px solid rgba(0,0,0,0.06)',
+                        fontSize: '13.5px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.01)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', color: '#64748b' }}>
+                          <span>Cost:</span>
+                          <span style={{ fontWeight: 600, color: '#111' }}>₹{parseFloat(individualBasePrice || '0').toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '15px', borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: '8px', color: '#111' }}>
+                          <span>New Selling Price:</span>
+                          <span>₹{(parseFloat(individualBasePrice || '0') * (1 + parseFloat(individualProfitPct || '0') / 100)).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                      <button
+                        disabled={isSavingProducts}
+                        onClick={() => setSetPriceProduct(null)}
+                        style={{
+                          padding: '10px 18px', fontSize: '13px', border: '1px solid rgba(0,0,0,0.08)',
+                          backgroundColor: 'rgba(255,255,255,0.5)', cursor: 'pointer', borderRadius: '8px', fontWeight: 600, color: '#334155'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        disabled={isSavingProducts}
+                        onClick={handleSaveIndividualPrice}
+                        style={{
+                          padding: '10px 18px', fontSize: '13px', border: 'none', backgroundColor: '#111',
+                          color: '#fff', cursor: 'pointer', borderRadius: '8px', fontWeight: 600
+                        }}
+                      >
+                        {isSavingProducts ? 'Saving...' : 'Set Price'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : activeViewTab === 'products' ? (
+            <div className="store-dashboard-content">
+              <div className="store-dashboard-header-row" style={{ marginBottom: '24px' }}>
+                <div>
+                  <h1 className="store-dashboard-title">Products</h1>
+                  <p className="store-dashboard-subtitle">Toggle products on or off to control what appears in the Print Lab store.</p>
+                </div>
+              </div>
+
+              {/* Product search & status filter */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                marginBottom: '24px',
+                flexWrap: 'wrap'
+              }}>
+                <div style={{ position: 'relative', width: '100%', maxWidth: '360px' }}>
+                  <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', width: '16px', height: '16px', color: '#71717A', pointerEvents: 'none' }} />
+                  <input
+                    type="search"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search products..."
+                    className="neu-inset"
+                    style={{
+                      height: '42px',
+                      width: '100%',
+                      borderRadius: '9999px',
+                      border: 'none',
+                      paddingLeft: '42px',
+                      paddingRight: '16px',
+                      fontSize: '13.5px',
+                      color: '#1a1a1a',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <select
+                  value={productStatusFilter}
+                  onChange={(e) => setProductStatusFilter(e.target.value)}
+                  className="neu-inset"
+                  style={{
+                    padding: '10px 32px 10px 14px',
+                    fontSize: '13px',
+                    border: 'none',
+                    borderRadius: '9999px',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    color: '#1a1a1a',
+                    fontFamily: "'europa', sans-serif",
+                    WebkitAppearance: 'none',
+                    MozAppearance: 'none',
+                    appearance: 'none',
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'no-repeat',
+                    backgroundPosition: 'right 12px center'
+                  }}
+                >
+                  <option value="all">All Statuses</option>
+                  <option value="active">Active Only</option>
+                  <option value="inactive">Inactive Only</option>
+                </select>
+              </div>
+
+              {/* Summary stats bar */}
+              <div style={{
+                display: 'flex', gap: '16px', marginBottom: '24px', flexWrap: 'wrap'
+              }}>
+                <div style={{
+                  padding: '14px 20px',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(255,255,255,0.55)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(0,0,0,0.06)',
+                  flex: '1 1 140px'
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Total</div>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#111' }}>{products.length}</div>
+                </div>
+                <div style={{
+                  padding: '14px 20px',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(209,250,229,0.5)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(167,243,208,0.3)',
+                  flex: '1 1 140px'
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#065f46', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Active</div>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#059669' }}>{products.filter(p => p.is_visible).length}</div>
+                </div>
+                <div style={{
+                  padding: '14px 20px',
+                  borderRadius: '12px',
+                  backgroundColor: 'rgba(241,245,249,0.7)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
+                  border: '1px solid rgba(0,0,0,0.04)',
+                  flex: '1 1 140px'
+                }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>Inactive</div>
+                  <div style={{ fontSize: '22px', fontWeight: 700, color: '#64748b' }}>{products.filter(p => !p.is_visible).length}</div>
+                </div>
+              </div>
+
+              {/* Products list */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {loadingProducts ? (
+                  <div style={{ padding: '60px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading products...</div>
+                ) : products.filter(p => {
+                  if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const matchesSearch = (p.name || '').toLowerCase().includes(q) || (p.product_type || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q);
+                    if (!matchesSearch) return false;
+                  }
+                  if (productStatusFilter === 'active') return p.is_visible;
+                  if (productStatusFilter === 'inactive') return !p.is_visible;
+                  return true;
+                }).length === 0 ? (
+                  <div style={{ padding: '60px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No products found.</div>
+                ) : products.filter(p => {
+                  if (searchQuery) {
+                    const q = searchQuery.toLowerCase();
+                    const matchesSearch = (p.name || '').toLowerCase().includes(q) || (p.product_type || '').toLowerCase().includes(q) || (p.id || '').toLowerCase().includes(q);
+                    if (!matchesSearch) return false;
+                  }
+                  if (productStatusFilter === 'active') return p.is_visible;
+                  if (productStatusFilter === 'inactive') return !p.is_visible;
+                  return true;
+                }).map(p => (
+                  <div
+                    key={p.id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '16px 20px',
+                      borderRadius: '14px',
+                      backgroundColor: p.is_visible ? 'rgba(255,255,255,0.7)' : 'rgba(241,245,249,0.5)',
+                      backdropFilter: 'blur(10px)',
+                      WebkitBackdropFilter: 'blur(10px)',
+                      border: p.is_visible ? '1px solid rgba(167,243,208,0.3)' : '1px solid rgba(0,0,0,0.04)',
+                      transition: 'all 0.25s ease',
+                      opacity: p.is_visible ? 1 : 0.65
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flex: 1, minWidth: 0 }}>
+                      {/* Product thumbnail */}
+                      <div style={{
+                        width: '48px', height: '48px', borderRadius: '10px', overflow: 'hidden',
+                        border: '1px solid rgba(0,0,0,0.06)', flexShrink: 0, background: '#f9f9f9'
+                      }}>
+                        <img
+                          src={getPhotoUrlForProduct(p.id, p.image_url)}
+                          alt=""
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={(e) => { e.target.onerror = null; e.target.src = p.image_url; }}
+                        />
+                      </div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
+                        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                          {(p.product_type || 'product').replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          {p.base_price ? ` · ₹${Number(p.base_price).toFixed(2)}` : ''}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Toggle switch */}
+                    <button
+                      onClick={() => handleToggleProductVisibility(p)}
+                      style={{
+                        width: '50px',
+                        height: '28px',
+                        borderRadius: '14px',
+                        border: 'none',
+                        cursor: 'pointer',
+                        position: 'relative',
+                        backgroundColor: p.is_visible ? '#059669' : '#cbd5e1',
+                        transition: 'background-color 0.3s ease',
+                        padding: 0,
+                        flexShrink: 0
+                      }}
+                      title={p.is_visible ? 'Click to hide from Print Lab' : 'Click to show in Print Lab'}
+                    >
+                      <div style={{
+                        width: '22px',
+                        height: '22px',
+                        borderRadius: '50%',
+                        backgroundColor: '#fff',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                        position: 'absolute',
+                        top: '3px',
+                        left: p.is_visible ? '25px' : '3px',
+                        transition: 'left 0.3s ease'
+                      }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="store-dashboard-content">
+              <div className="store-dashboard-header-row" style={{ marginBottom: '24px' }}>
+                <div>
+                  <h1 className="store-dashboard-title">Store Settings</h1>
+                  <p className="store-dashboard-subtitle">Manage toggle states and settings for your print lab.</p>
+                </div>
+              </div>
+              <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #f2ede4' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600 }}>Print Lab Toggle State</h3>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Activate Print Lab to allow visitors to purchase prints and products directly from your collections.</p>
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 700 }}>Active (On)</div>
+                </div>
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </div>

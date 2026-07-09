@@ -5,13 +5,18 @@ import CartItemPreview from './CartItemPreview';
 
 export default function CheckoutForm({ cartItems, onOrderCompleted, onPlaceOrder, onBackToShopping, photographer }) {
   const [formData, setFormData] = useState(() => {
+    let emailVal = '';
+    try {
+      emailVal = localStorage.getItem('pixnxt_printstore_email') || '';
+    } catch (e) {}
+
     try {
       const cached = localStorage.getItem('pixnxt_printstore_address');
       if (cached) {
         const addr = JSON.parse(cached);
         return {
           name: addr.recipientName || addr.accountName || '',
-          email: addr.email || '',
+          email: addr.email || emailVal || '',
           address: addr.street || '',
           city: addr.city || '',
           zip: addr.zipCode || '',
@@ -23,7 +28,7 @@ export default function CheckoutForm({ cartItems, onOrderCompleted, onPlaceOrder
     } catch (e) {}
     return {
       name: '',
-      email: '',
+      email: emailVal || '',
       address: '',
       city: '',
       zip: '',
@@ -85,6 +90,28 @@ export default function CheckoutForm({ cartItems, onOrderCompleted, onPlaceOrder
 
   return (
     <div className="checkout-section">
+      <style dangerouslySetInnerHTML={{ __html: `
+        .form-input {
+          width: 100%;
+          box-sizing: border-box;
+          height: 42px;
+          padding: 10px 14px;
+          font-size: 13.5px;
+          border: none !important;
+          border-radius: 9999px !important;
+          background-color: rgba(245, 243, 240, 0.6) !important;
+          backdrop-filter: blur(12px) !important;
+          -webkit-backdrop-filter: blur(12px) !important;
+          outline: none !important;
+          color: #1a1a1a !important;
+          box-shadow: inset 2px 2px 4px rgba(0,0,0,0.06), inset -2px -2px 4px rgba(255,255,255,0.7) !important;
+          transition: all 0.2s ease !important;
+        }
+        .form-input:focus {
+          background-color: rgba(255, 255, 255, 0.85) !important;
+          box-shadow: inset 2px 2px 6px rgba(0,0,0,0.08), inset -2px -2px 6px rgba(255,255,255,0.9), 0 0 0 2px rgba(0,0,0,0.06) !important;
+        }
+      `}} />
       {/* Main Billing Shipping Details */}
       <div className="checkout-main">
         <button

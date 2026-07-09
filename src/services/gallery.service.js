@@ -464,6 +464,31 @@ export const galleryService = {
    * Create a new collection
    */
   async createCollection(collectionData) {
+    if (collectionData.photographer_id) {
+      try {
+        const { data: existingPhotographer } = await supabase
+          .from('photographers')
+          .select('id')
+          .eq('id', collectionData.photographer_id)
+          .maybeSingle();
+
+        if (!existingPhotographer) {
+          const { data: { user } } = await supabase.auth.getUser();
+          const email = user?.email || 'photographer@pixnxt.com';
+          const name = user?.user_metadata?.display_name || user?.user_metadata?.full_name || email.split('@')[0] || 'Photographer';
+          await supabase
+            .from('photographers')
+            .insert([{
+              id: collectionData.photographer_id,
+              email: email,
+              display_name: name
+            }]);
+        }
+      } catch (err) {
+        console.error('Error ensuring photographer profile exists:', err);
+      }
+    }
+
     const { data, error } = await supabase
       .from('collections')
       .insert([collectionData])

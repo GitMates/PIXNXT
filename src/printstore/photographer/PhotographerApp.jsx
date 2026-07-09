@@ -935,106 +935,186 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
               </button>
             </div>
 
-            {/* Products Table */}
-            <div style={{ backgroundColor: '#ffffff', border: '1px solid #f2ede4', borderRadius: '4px', overflowX: 'auto' }}>
-              <table style={{ width: '100%', minWidth: '1100px', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ backgroundColor: THEME_COLOR, color: '#ffffff', borderBottom: '2px solid #cbd5e1' }}>
-                    <th style={{ padding: '12px 14px', width: '40px', textAlign: 'center' }}>
-                      <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length} />
-                    </th>
-                    <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>Frame ID</th>
-                    <th style={{ padding: '12px 14px', width: '60px' }}>Image</th>
-                    <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>Product Name</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>Cost Price (Lab)</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>Profit %</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>Selling Price</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Status</th>
-                    <th style={{ padding: '12px 14px', whiteSpace: 'nowrap' }}>Last Updated</th>
-                    <th style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr><td colSpan="10" style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading products...</td></tr>
-                  ) : filteredProducts.length === 0 ? (
-                    <tr><td colSpan="10" style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>No products found matching filters.</td></tr>
-                  ) : (
-                    filteredProducts.map(p => {
-                      const profitPct = Number(p.options?.profit_percentage || 0);
-                      const sellingPrice = Number(p.options?.selling_price || p.base_price);
-                      const isZeroProfit = profitPct === 0;
-                      const isSelected = selectedIds.includes(p.id);
-                      const frameId = getShortId(p.id, 'frame');
+            {/* Select All + Count Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px', padding: '10px 14px', backgroundColor: '#fff', border: '1px solid #f2ede4', borderRadius: '4px' }}>
+              <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length} />
+              <span style={{ fontSize: '12px', color: '#64748b', fontWeight: 600 }}>Select All ({filteredProducts.length} products)</span>
+              {selectedIds.length > 0 && <span style={{ fontSize: '11px', color: THEME_COLOR, fontWeight: 700 }}>{selectedIds.length} selected</span>}
+            </div>
 
-                      return (
-                        <tr 
-                          key={p.id}
-                          style={{
-                            borderBottom: '1px solid #eaeaea',
-                            backgroundColor: isSelected ? '#f0fdfa' : isZeroProfit ? '#fffbeb' : 'transparent',
-                            transition: 'background-color 0.1s'
-                          }}
-                          onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = isZeroProfit ? '#fffbeb' : '#fcfcfc'; }}
-                          onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.backgroundColor = isZeroProfit ? '#fffbeb' : 'transparent'; }}
-                        >
-                          <td style={{ padding: '12px 14px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
-                            <input type="checkbox" checked={isSelected} onChange={() => handleSelectOne(p.id)} />
-                          </td>
-                          <td style={{ padding: '12px 14px', fontFamily: 'monospace', fontSize: '12px', fontWeight: 600, color: THEME_COLOR, whiteSpace: 'nowrap' }}>
-                            {frameId}
-                          </td>
-                          <td style={{ padding: '6px 14px' }}>
-                            <img src={p.image_url} alt="" style={{ width: '40px', height: '40px', objectFit: 'cover', border: '1px solid #eaeaea', borderRadius: '3px' }} />
-                          </td>
-                          <td style={{ padding: '12px 14px', fontWeight: 600, whiteSpace: 'nowrap' }}>{p.name}</td>
-                          <td style={{ padding: '12px 14px', textAlign: 'right', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>₹{p.base_price.toFixed(2)}</td>
-                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: isZeroProfit ? 'bold' : 'normal', color: isZeroProfit ? '#d97706' : '#111', whiteSpace: 'nowrap' }}>
-                            {profitPct.toFixed(1)}%
-                          </td>
-                          <td style={{ padding: '12px 14px', textAlign: 'right', fontWeight: 'bold', fontFamily: 'monospace', color: THEME_COLOR, whiteSpace: 'nowrap' }}>
-                            ₹{sellingPrice.toFixed(2)}
-                          </td>
-                          <td style={{ padding: '12px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            <span style={{
-                              padding: '3px 8px', borderRadius: '10px', fontSize: '10px', fontWeight: 'bold',
-                              backgroundColor: p.is_visible ? '#d1fae5' : '#f1f5f9',
-                              color: p.is_visible ? '#065f46' : '#475569'
-                            }}>
-                              {p.is_visible ? 'Active' : 'Hidden'}
-                            </span>
-                          </td>
-                          <td style={{ padding: '12px 14px', fontSize: '11px', color: '#64748b', whiteSpace: 'nowrap' }}>
-                            {p.options?.last_updated ? new Date(p.options.last_updated).toLocaleDateString('en-IN') : 'Never'}
-                          </td>
-                          <td style={{ padding: '12px 14px', textAlign: 'center' }}>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSetPriceProduct(p);
-                                setIndividualBasePrice(String(p.base_price || ''));
-                                setIndividualPrice('');
-                                setIndividualProfitPct(String(profitPct || '0'));
-                              }}
-                              style={{
-                                padding: '5px 12px', fontSize: '11px', fontWeight: 600,
-                                border: `1px solid ${THEME_COLOR}`, borderRadius: '3px',
-                                backgroundColor: 'transparent', color: THEME_COLOR,
-                                cursor: 'pointer', whiteSpace: 'nowrap',
-                                transition: 'all 0.15s'
-                              }}
-                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = THEME_COLOR; e.currentTarget.style.color = '#fff'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = THEME_COLOR; }}
-                            >
-                              Set Price
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+            {/* Products Visual Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '20px' }}>
+              {loading ? (
+                <div style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>Loading products...</div>
+              ) : filteredProducts.length === 0 ? (
+                <div style={{ gridColumn: '1 / -1', padding: '60px', textAlign: 'center', color: '#64748b', fontSize: '14px' }}>No products found matching filters.</div>
+              ) : (
+                filteredProducts.map((p, idx) => {
+                  const profitPct = Number(p.options?.profit_percentage || 0);
+                  const sellingPrice = Number(p.options?.selling_price || p.base_price);
+                  const isZeroProfit = profitPct === 0;
+                  const isSelected = selectedIds.includes(p.id);
+                  const frameId = getShortId(p.id, 'frame');
+                  const photoUrl = p.image_url;
+                  const pType = p.product_type || p.id || '';
+                  const imgS = { width: '100%', height: '100%', objectFit: 'cover' };
+
+                  // Render visual frame based on product type
+                  const renderCardFrame = () => {
+                    const imgErr = (e) => {
+                      e.target.onerror = null;
+                      e.target.src = p.image_url;
+                    };
+                    if (pType.includes('circular')) return (
+                      <div style={{ width: '110px', height: '110px', border: '4.5px solid #5d4037', background: '#f9f9f9', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}>
+                        <div style={{ width: '78%', height: '78%', borderRadius: '50%', overflow: 'hidden', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      </div>
+                    );
+                    if (pType.includes('matted') && pType.includes('collage')) return (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '2px', padding: '6px', background: '#fdfdfd', border: '3.5px solid #111', width: '110px', height: '110px', boxSizing: 'border-box', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}>
+                        <img src={photoUrl} alt="" style={imgS} onError={imgErr} /><img src={photoUrl} alt="" style={imgS} onError={imgErr} /><img src={photoUrl} alt="" style={imgS} onError={imgErr} /><img src={photoUrl} alt="" style={imgS} onError={imgErr} />
+                      </div>
+                    );
+                    if (pType.includes('matted') && !pType.includes('collage')) return (
+                      <div style={{ width: '110px', height: '110px', background: '#fdfdfd', border: '4.5px solid #111', padding: '8px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                    );
+                    if (pType.includes('float')) return (
+                      <div style={{ width: '110px', height: '110px', border: '4.5px solid #111', padding: '8px', boxSizing: 'border-box', background: '#fcfcfc', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}>
+                        <div style={{ width: '100%', height: '100%', background: '#fff', padding: '1px', boxShadow: '2px 4px 6px rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      </div>
+                    );
+                    if (pType === 'frames') return (
+                      <div style={{ width: '110px', height: '110px', border: '4.5px solid #6d4c41', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)', background: '#fff' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                    );
+                    if (pType.includes('canvas')) return (
+                      <div style={{ width: '108px', height: '108px', boxShadow: '2px 4px 8px rgba(0,0,0,0.25)', border: '1px solid #ccc', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRightWidth: '4px', borderBottomWidth: '4px', transform: 'perspective(100px) rotateY(-6deg)', background: '#fff' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                    );
+                    if (pType.includes('acrylic')) return (
+                      <div style={{ width: '108px', height: '108px', boxShadow: '0 4px 12px rgba(0,0,0,0.22)', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.4)', background: '#000' }}>
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 60%)', zIndex: 1 }} />
+                        <img src={photoUrl} alt="" style={imgS} onError={imgErr} />
+                      </div>
+                    );
+                    if (pType.includes('deckled')) return (
+                      <div style={{ width: '110px', height: '110px', background: '#f9f8f6', border: '1px solid #e5e5e0', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.15)' }}>
+                        <div style={{ width: '78%', height: '78%', background: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.15)', padding: '2px', boxSizing: 'border-box', clipPath: 'polygon(0% 1%, 12% 0%, 25% 1%, 38% 0%, 50% 1.5%, 62% 0%, 75% 1%, 88% 0.5%, 100% 0%, 99% 12%, 100% 25%, 98.5% 38%, 100% 50%, 99% 62%, 100% 75%, 99% 88%, 100% 100%, 88% 99%, 75% 100%, 62% 98.5%, 50% 100%, 38% 99%, 25% 100%, 12% 99%, 0% 100%, 1% 88%, 0% 75%, 1.5% 62%, 0% 50%, 1% 38%, 0% 25%, 1% 12%)' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      </div>
+                    );
+                    if (pType.includes('panoramic')) return (
+                      <div style={{ width: '120px', height: '72px', background: '#fff', border: '1px solid #ddd', padding: '3px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '1px 2px 4px rgba(0,0,0,0.1)' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                    );
+                    if (pType.includes('dibond')) return (
+                      <div style={{ width: '108px', height: '108px', position: 'relative', boxShadow: '2px 4px 10px rgba(0,0,0,0.18)', border: '1px solid #ddd', background: '#fff' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                    );
+                    if (pType.includes('gallery')) return (
+                      <div style={{ width: '108px', height: '108px', border: '1px solid #e2e8f0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 5px rgba(0,0,0,0.12)', padding: '5px', boxSizing: 'border-box' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                    );
+                    // Print Pack — stacked fanned prints
+                    if (pType.includes('print') && pType.includes('pack')) return (
+                      <div style={{ width: '110px', height: '110px', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ position: 'absolute', width: '72px', height: '90px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', transform: 'rotate(-8deg)', top: '6px', left: '12px', overflow: 'hidden' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                        <div style={{ position: 'absolute', width: '72px', height: '90px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.08)', transform: 'rotate(-3deg)', top: '4px', left: '16px', overflow: 'hidden' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                        <div style={{ position: 'absolute', width: '72px', height: '90px', background: '#fff', border: '1px solid #e2e8f0', boxShadow: '0 2px 6px rgba(0,0,0,0.12)', transform: 'rotate(2deg)', top: '2px', left: '20px', overflow: 'hidden' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                      </div>
+                    );
+                    // Default: prints
+                    if (pType === 'prints' || pType.includes('print')) return (
+                      <div style={{ width: '84px', height: '108px', background: '#fff', border: '1px solid #e2e8f0', padding: '3px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                    );
+                    // Fallback
+                    return (
+                      <div style={{ width: '108px', height: '108px', background: '#fff', border: '1px solid #e2e8f0', padding: '4px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}><img src={photoUrl} alt="" style={imgS} onError={imgErr} /></div>
+                    );
+                  };
+
+                  return (
+                    <div
+                      key={p.id}
+                      style={{
+                        backgroundColor: isSelected ? '#f0fdfa' : isZeroProfit ? '#fffbeb' : '#ffffff',
+                        border: isSelected ? `2px solid ${THEME_COLOR}` : '1px solid #f2ede4',
+                        borderRadius: '8px',
+                        padding: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '10px',
+                        transition: 'all 0.15s',
+                        cursor: 'default',
+                        position: 'relative'
+                      }}
+                      onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.1)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.boxShadow = 'none'; }}
+                    >
+                      {/* Checkbox + Frame ID header */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <input type="checkbox" checked={isSelected} onChange={() => handleSelectOne(p.id)} onClick={(e) => e.stopPropagation()} />
+                          <span style={{ fontFamily: 'monospace', fontSize: '10px', fontWeight: 600, color: THEME_COLOR }}>{frameId}</span>
+                        </div>
+                        <span style={{
+                          padding: '2px 8px', borderRadius: '10px', fontSize: '9px', fontWeight: 'bold',
+                          backgroundColor: p.is_visible ? '#d1fae5' : '#f1f5f9',
+                          color: p.is_visible ? '#065f46' : '#475569'
+                        }}>
+                          {p.is_visible ? 'Active' : 'Hidden'}
+                        </span>
+                      </div>
+
+                      {/* Visual Frame */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '120px', width: '100%' }}>
+                        {renderCardFrame()}
+                      </div>
+
+                      {/* Product Name */}
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#111', textAlign: 'center', lineHeight: 1.3 }}>{p.name}</div>
+
+                      {/* Price Info */}
+                      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '12px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Cost</span>
+                          <span style={{ fontFamily: 'monospace', color: '#111' }}>₹{p.base_price.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: '#64748b' }}>Profit</span>
+                          <span style={{ fontWeight: isZeroProfit ? 'bold' : 'normal', color: isZeroProfit ? '#d97706' : '#111' }}>{profitPct.toFixed(1)}%</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #f2ede4', paddingTop: '4px' }}>
+                          <span style={{ fontWeight: 700, color: '#111' }}>Selling</span>
+                          <span style={{ fontWeight: 700, fontFamily: 'monospace', color: THEME_COLOR, fontSize: '14px' }}>₹{sellingPrice.toFixed(2)}</span>
+                        </div>
+                      </div>
+
+                      {/* Last Updated */}
+                      <div style={{ fontSize: '10px', color: '#94a3b8', width: '100%', textAlign: 'center' }}>
+                        Updated: {p.options?.last_updated ? new Date(p.options.last_updated).toLocaleDateString('en-IN') : 'Never'}
+                      </div>
+
+                      {/* Set Price Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSetPriceProduct(p);
+                          setIndividualBasePrice(String(p.base_price || ''));
+                          setIndividualPrice('');
+                          setIndividualProfitPct(String(profitPct || '0'));
+                        }}
+                        style={{
+                          width: '100%', padding: '8px 12px', fontSize: '11px', fontWeight: 700,
+                          border: `1px solid ${THEME_COLOR}`, borderRadius: '4px',
+                          backgroundColor: 'transparent', color: THEME_COLOR,
+                          cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.04em',
+                          transition: 'all 0.15s'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = THEME_COLOR; e.currentTarget.style.color = '#fff'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = THEME_COLOR; }}
+                      >
+                        Set Price
+                      </button>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         )}
@@ -1255,7 +1335,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
                   <span style={{ fontSize: '14px', fontWeight: 600, color: '#b45309' }}>Final Confirmation Required</span>
                 </div>
                 <div style={{ fontSize: '13.5px', color: '#666' }}>
-                  You are about to update <strong>{previewChanges.length} Products</strong>. Selling prices will instantly update in Customer Print Store.
+                  You are about to update <strong>{previewChanges.length} Products</strong>. Selling prices will instantly update in Customer Print Lab.
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                   <button disabled={isSaving} onClick={() => setShowConfirmDialog(false)} style={{ padding: '8px 16px', fontSize: '12px', border: '1px solid #cbd5e1', backgroundColor: '#fff', cursor: 'pointer', borderRadius: '3px', fontWeight: 600 }}>Go Back</button>

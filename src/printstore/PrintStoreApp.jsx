@@ -63,6 +63,7 @@ export default function PrintStoreApp() {
   const [activeTab, setActiveTab] = useState('shop'); // 'gallery' | 'shop'
   const [activeCollection, setActiveCollection] = useState('portraits'); // 'favorites' | 'portraits'
   const [checkoutState, setCheckoutState] = useState('shopping'); // 'shopping' | 'cart' | 'checkout' | 'completed'
+  const [completedOrder, setCompletedOrder] = useState(null);
   const [viewMode, setViewMode] = useState('landing'); // 'landing' | 'all-products'
   const [selectedProductForDetail, setSelectedProductForDetail] = useState(null);
   const [customizingProduct, setCustomizingProduct] = useState(null); // Product we are currently picking photos for
@@ -115,6 +116,47 @@ export default function PrintStoreApp() {
     const view = searchParams.get('view');
     if (view === 'notifications' || view === 'frame-alert') {
       setViewMode('notifications');
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const orderId = searchParams.get('orderId');
+    if (orderId) {
+      const loadOrderFromParams = async () => {
+        try {
+          const { data: order, error } = await supabase
+            .from('printstore_orders')
+            .select('*')
+            .eq('id', orderId)
+            .single();
+          if (error) throw error;
+          
+          const { data: items, error: itemsError } = await supabase
+            .from('printstore_order_items')
+            .select('*')
+            .eq('order_id', orderId);
+          if (itemsError) throw itemsError;
+          
+          setCompletedOrder({
+            ...order,
+            items: items.map(item => ({
+              productName: item.product_name,
+              quantity: item.quantity,
+              unitPrice: item.unit_price,
+              size: item.options?.size,
+              frame: item.options?.frame,
+              paper: item.options?.paper,
+              border: item.options?.border,
+              layout: item.options?.layout,
+              photo: item.options?.photo
+            }))
+          });
+          setCheckoutState('completed');
+        } catch (e) {
+          console.error("Error loading order from URL search params:", e);
+        }
+      };
+      loadOrderFromParams();
     }
   }, [searchParams]);
 
@@ -201,7 +243,8 @@ export default function PrintStoreApp() {
       // 1. Try to load photographer by collection slug in query parameters
       const slug = searchParams.get('slug') || searchParams.get('collection');
       const photoIdParam = searchParams.get('photo');
-      if (!slug || !photoIdParam) {
+      const orderIdParam = searchParams.get('orderId');
+      if (!slug || (!photoIdParam && !orderIdParam)) {
         if (slug) {
           window.location.assign(`/gallery/${slug}`);
         } else {
@@ -378,7 +421,7 @@ export default function PrintStoreApp() {
       }
     }
     initApp();
-  }, [searchParams]);
+  }, []);
 
   // Shared mapper function to convert DB product rows to frontend shape
   const mapProductRow = (p) => {
@@ -1186,6 +1229,35 @@ export default function PrintStoreApp() {
         }
       }
 
+      const completedOrderData = {
+        id: order.id,
+        customer_name: shippingDetails.name,
+        customer_email: shippingDetails.email,
+        shipping_address: {
+          address: shippingDetails.address,
+          city: shippingDetails.city,
+          zip: shippingDetails.zip,
+          country: 'India'
+        },
+        shipping_amount: shipping,
+        tax_amount: tax,
+        subtotal: subtotal,
+        total: total,
+        created_at: new Date().toISOString(),
+        items: cartItems.map(item => ({
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          size: item.size,
+          frame: item.frame,
+          paper: item.paper,
+          border: item.border,
+          layout: item.layout,
+          photo: item.photo
+        }))
+      };
+      setCompletedOrder(completedOrderData);
+
       setCartItems([]);
       localStorage.removeItem('pixnxt_printstore_cart');
       
@@ -1201,8 +1273,26 @@ export default function PrintStoreApp() {
         phoneNumber: '',
         sameBilling: true
       });
-      // Don't set checkoutState here — let the calling component
-      // (PaymentPage or CheckoutForm) control post-order navigation.
+
+      // Trigger order placed email (in try-catch to prevent breaking flow if local environment has no server secrets)
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const slugVal = searchParams.get('slug') || searchParams.get('collection') || '';
+
+        await supabase.functions.invoke('send-order-placed-email', {
+          body: {
+            orderId: order.id,
+            recipientEmail: shippingDetails.email,
+            siteOrigin: window.location.origin,
+            collectionSlug: slugVal
+          }
+        });
+      } catch (emailErr) {
+        console.error("Error sending order confirmation email:", emailErr);
+      }
+
+      setHasPlacedOrder(true);
+      setCheckoutState('completed');
     } catch (err) {
       console.error("Failed to place print store order:", err);
       alert("Failed to place order: " + err.message);
@@ -1367,14 +1457,7 @@ export default function PrintStoreApp() {
             onPaymentSuccess={() => {
               setCartItems([]);
               localStorage.removeItem('pixnxt_printstore_cart');
-              const slugVal = searchParams.get('slug') || searchParams.get('collection');
-              if (slugVal) {
-                window.location.assign(`/gallery/${slugVal}?socialSharing=1`);
-              } else {
-                setCheckoutState('shopping');
-                setViewMode('tracking');
-                setHasPlacedOrder(true);
-              }
+              setCheckoutState('completed');
             }}
           />
         ) : checkoutState === 'shopping' ? (
@@ -1450,26 +1533,199 @@ export default function PrintStoreApp() {
           />
         ) : (
           /* Order Complete Success Overlay */
-          <div className="order-success-overlay">
-            <div className="success-check-badge">
-              <Check size={40} strokeWidth={3} />
+          /* Order Complete Success/Receipt Summary page */
+          <div style={{
+            maxWidth: '680px',
+            margin: '40px auto',
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            border: '1px solid #f2ede4',
+            padding: '40px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+            fontFamily: "'europa', 'Inter', sans-serif"
+          }}>
+            {/* Header Success info */}
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+              <div style={{
+                width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#ecfdf5',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
+                border: '1px solid #a7f3d0'
+              }}>
+                <Check size={28} color="#059669" strokeWidth={2.5} />
+              </div>
+              <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: '26px', fontWeight: 600, color: '#111', margin: '0 0 8px 0' }}>Thank you for your order!</h2>
+              <p style={{ fontSize: '14.5px', color: '#64748b', margin: 0 }}>Your order has been placed successfully. A receipt has been sent to your email.</p>
             </div>
-            <h2 className="success-title">Thank you for your order!</h2>
-            <p className="success-text">
-              Your print order has been mocked successfully. In a production environment, this request would be sent directly to the printing lab for processing.
-            </p>
-            <button
-              className="explore-btn"
-              onClick={() => {
-                setCartItems([]);
-                setCheckoutState('shopping');
-                setActiveTab('shop');
-                setActiveCollection('portraits');
-                setViewMode('landing');
-              }}
-            >
-              Return to Gallery
-            </button>
+
+            {completedOrder ? (
+              <>
+                {/* Meta details */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', borderBottom: '1px solid #f2ede4', paddingBottom: '24px', marginBottom: '24px', fontSize: '13.5px' }}>
+                  <div>
+                    <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Order Summary</span>
+                    <strong style={{ color: '#111', fontSize: '15px' }}>#{completedOrder.id ? completedOrder.id.split('-')[0].toUpperCase() : 'MOCK'}</strong>
+                    <span style={{ display: 'block', color: '#94a3b8', marginTop: '4px' }}>Date: {new Date(completedOrder.created_at || new Date()).toLocaleDateString('en-IN')}</span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Customer Info</span>
+                    <strong style={{ color: '#111' }}>{completedOrder.customer_name}</strong>
+                    <span style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>{completedOrder.customer_email}</span>
+                  </div>
+                </div>
+
+                {/* Shipping address details */}
+                <div style={{ backgroundColor: '#fcfbfa', padding: '16px', borderRadius: '8px', border: '1px solid #f2ede4', marginBottom: '32px', fontSize: '13.5px' }}>
+                  <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '6px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Shipping Destination</span>
+                  <span style={{ display: 'block', color: '#111', lineHeight: 1.5 }}>
+                    {completedOrder.customer_name}<br />
+                    {completedOrder.shipping_address?.address}, {completedOrder.shipping_address?.city}<br />
+                    {completedOrder.shipping_address?.zip}, India
+                  </span>
+                </div>
+
+                {/* Items listing table */}
+                <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, borderBottom: '2px solid #111', paddingBottom: '8px', margin: '0 0 16px 0' }}>Order Items</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '32px' }}>
+                  {(completedOrder.items || []).map((item, idx) => {
+                    const unitP = item.unitPrice || item.unit_price || 0;
+                    return (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', borderBottom: '1px solid #f8fafc', paddingBottom: '12px' }}>
+                        <div>
+                          <span style={{ fontWeight: 700, color: '#111' }}>{item.productName || item.product_name}</span>
+                          <span style={{ display: 'block', fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+                            Size: {item.size?.label || item.options?.size?.label || 'Default'}{item.frame?.label ? ` | Frame: ${item.frame.label}` : ''}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
+                          <span style={{ color: '#64748b', fontSize: '13px' }}>Qty: {item.quantity}</span>
+                          <span style={{ fontWeight: 700, fontFamily: 'monospace' }}>₹{(unitP * item.quantity).toFixed(2)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Costs breakdown */}
+                <div style={{ marginLeft: 'auto', maxWidth: '280px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', borderBottom: '1px solid #f2ede4', paddingBottom: '16px', marginBottom: '24px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Subtotal:</span>
+                    <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.subtotal?.toFixed(2)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Tax (8%):</span>
+                    <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.tax_amount?.toFixed(2)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#64748b' }}>Shipping:</span>
+                    <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.shipping_amount?.toFixed(2)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #111', paddingTop: '10px', fontWeight: 'bold', fontSize: '16px' }}>
+                    <span>Total Paid:</span>
+                    <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.total?.toFixed(2)}</span>
+                  </div>
+                </div>
+
+                {/* Actions Row */}
+                <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '40px' }}>
+                  <button
+                    onClick={() => {
+                      const script = document.createElement('script');
+                      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+                      script.onload = () => {
+                        const { jsPDF } = window.jspdf;
+                        const doc = new jsPDF();
+                        const shortId = completedOrder.id ? completedOrder.id.split('-')[0].toUpperCase() : 'MOCK';
+                        
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(22);
+                        doc.text("PIXNXT PRINT LAB RECEIPT", 20, 25);
+                        
+                        doc.setFont("helvetica", "normal");
+                        doc.setFontSize(10);
+                        doc.text(`Order ID: #${shortId}`, 20, 35);
+                        doc.text(`Date: ${new Date(completedOrder.created_at || new Date()).toLocaleDateString()}`, 20, 41);
+                        
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(12);
+                        doc.text("Customer Details", 20, 55);
+                        doc.setFont("helvetica", "normal");
+                        doc.setFontSize(10);
+                        doc.text(`Name: ${completedOrder.customer_name}`, 20, 62);
+                        doc.text(`Email: ${completedOrder.customer_email}`, 20, 68);
+                        
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(12);
+                        doc.text("Shipping Address", 20, 80);
+                        doc.setFont("helvetica", "normal");
+                        doc.setFontSize(10);
+                        doc.text(`${completedOrder.shipping_address?.address || ''}`, 20, 87);
+                        doc.text(`${completedOrder.shipping_address?.city || ''}, ${completedOrder.shipping_address?.zip || ''}`, 20, 93);
+                        
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(11);
+                        doc.text("Product Item", 20, 115);
+                        doc.text("Qty", 130, 115);
+                        doc.text("Total Price", 160, 115);
+                        doc.line(20, 118, 190, 118);
+                        
+                        let y = 125;
+                        doc.setFont("helvetica", "normal");
+                        doc.setFontSize(10);
+                        (completedOrder.items || []).forEach(item => {
+                          const nameLabel = item.productName || item.product_name || 'Product';
+                          const sizeLabel = item.size?.label || item.options?.size?.label || 'Default';
+                          doc.text(`${nameLabel} (${sizeLabel})`, 20, y);
+                          doc.text(`${item.quantity}`, 130, y);
+                          const unitP = item.unitPrice || item.unit_price || 0;
+                          doc.text(`INR ${(unitP * item.quantity).toFixed(2)}`, 160, y);
+                          y += 8;
+                        });
+                        
+                        doc.line(20, y, 190, y);
+                        y += 8;
+                        
+                        doc.text(`Subtotal: INR ${(completedOrder.subtotal || 0).toFixed(2)}`, 130, y); y += 6;
+                        doc.text(`Tax: INR ${(completedOrder.tax_amount || 0).toFixed(2)}`, 130, y); y += 6;
+                        doc.text(`Shipping: INR ${(completedOrder.shipping_amount || 0).toFixed(2)}`, 130, y); y += 6;
+                        doc.setFont("helvetica", "bold");
+                        doc.text(`Total Paid: INR ${(completedOrder.total || 0).toFixed(2)}`, 130, y);
+                        
+                        doc.save(`receipt-${shortId}.pdf`);
+                      };
+                      document.body.appendChild(script);
+                    }}
+                    style={{
+                      padding: '12px 24px', fontSize: '13px', fontWeight: 700, border: '1px solid #111',
+                      borderRadius: '4px', backgroundColor: '#fff', color: '#111', cursor: 'pointer',
+                      textTransform: 'uppercase', letterSpacing: '0.05em'
+                    }}
+                  >
+                    Download Receipt (PDF)
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      const searchParams = new URLSearchParams(window.location.search);
+                      const slugVal = searchParams.get('slug') || searchParams.get('collection');
+                      if (slugVal) {
+                        window.location.assign(`/gallery/${slugVal}?socialSharing=1`);
+                      } else {
+                        window.location.assign('/');
+                      }
+                    }}
+                    style={{
+                      padding: '12px 24px', fontSize: '13px', fontWeight: 700, border: 'none',
+                      borderRadius: '4px', backgroundColor: '#111', color: '#fff', cursor: 'pointer',
+                      textTransform: 'uppercase', letterSpacing: '0.05em'
+                    }}
+                  >
+                    Back to Preview
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#64748b' }}>Loading receipt details...</div>
+            )}
           </div>
         )}
 

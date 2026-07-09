@@ -11,10 +11,10 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
     <div className="cd-general-settings-view">
       <div className="cd-settings-content-header split">
         <h2 className="cd-settings-main-title">
-          Store Settings
+          Print Lab Settings
         </h2>
         <span className="activity-link" onClick={() => { setActiveSidebarTab('activity'); setActiveActivitySubTab('store'); }} style={{ cursor: 'pointer' }}>
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Store Activity
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2" /></svg> Print Lab Activity
         </span>
       </div>
 
@@ -22,7 +22,7 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
         <div className="settings-toggle-section">
           <div className="settings-toggle-row">
             <div className="toggle-info">
-              <label className="settings-label">Shop </label>
+              <label className="settings-label">Print Lab </label>
             </div>
             <div className="toggle-control">
               <label className="cd-toggle">
@@ -32,7 +32,7 @@ export const StoreSettings: React.FC<StoreSettingsProps> = ({
               <span className="toggle-state-label">{storeEnabled ? 'On' : 'Off'}</span>
             </div>
           </div>
-          <p className="settings-desc small">Activate Pixieset Store to allow visitors to purchase prints and products directly from your collections.</p>
+          <p className="settings-desc small">Activate Print Lab to allow visitors to purchase prints and products directly from your collections.</p>
         </div>
       </div>
     </div>

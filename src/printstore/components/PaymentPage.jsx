@@ -12,6 +12,7 @@ export default function PaymentPage({
 }) {
   const [paymentMethod, setPaymentMethod] = useState('Credit Card');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [showDetails, setShowDetails] = useState(true);
 
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const itemsTotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
@@ -234,54 +235,58 @@ export default function PaymentPage({
                 <h4>Total Payment ({totalItems} items):</h4>
                 <div className="large-total-price">₹{estimatedTotal.toFixed(2)} INR</div>
               </div>
-              <button className="hide-details-btn">Hide details</button>
+              <button className="hide-details-btn" onClick={() => setShowDetails(!showDetails)}>
+                {showDetails ? 'Hide details' : 'Show details'}
+              </button>
             </div>
 
-            <div className="payment-details-section">
-              <h4 className="details-heading">Payment details</h4>
-              
-              {/* Itemized List with Frame Previews */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '1.5rem', maxHeight: '250px', overflowY: 'auto' }}>
-                {cartItems.map((item) => (
-                  <div key={item.id} style={{ display: 'flex', gap: '0.75rem', fontSize: '0.85rem', alignItems: 'center' }}>
-                    <div style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#f7f7f7', border: '1px solid #eaeaea', flexShrink: 0 }}>
-                      <div style={{ transform: 'scale(0.16)', transformOrigin: 'center center', width: '307.25px', height: '307.25px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <CartItemPreview item={item} />
+            {showDetails && (
+              <div className="payment-details-section">
+                <h4 className="details-heading">Payment details</h4>
+                
+                {/* Itemized List with Frame Previews */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid #eee', paddingBottom: '1.5rem', maxHeight: '250px', overflowY: 'auto' }}>
+                  {cartItems.map((item) => (
+                    <div key={item.id} style={{ display: 'flex', gap: '0.75rem', fontSize: '0.85rem', alignItems: 'center' }}>
+                      <div style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#f7f7f7', border: '1px solid #eaeaea', flexShrink: 0 }}>
+                        <div style={{ transform: 'scale(0.16)', transformOrigin: 'center center', width: '307.25px', height: '307.25px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <CartItemPreview item={item} />
+                        </div>
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 500, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.productName}</div>
+                        <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '2px' }}>
+                          {item.size.label} • Qty: {item.quantity}
+                        </div>
+                      </div>
+                      <div style={{ fontWeight: 500, flexShrink: 0 }}>
+                        ₹{(item.unitPrice * item.quantity).toFixed(2)}
                       </div>
                     </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 500, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.productName}</div>
-                      <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '2px' }}>
-                        {item.size.label} • Qty: {item.quantity}
-                      </div>
-                    </div>
-                    <div style={{ fontWeight: 500, flexShrink: 0 }}>
-                      ₹{(item.unitPrice * item.quantity).toFixed(2)}
-                    </div>
+                  ))}
+                </div>
+                
+                <div className="summary-row">
+                  <span>Items ({totalItems})</span>
+                  <div className="price-right">
+                    <span>₹{itemsTotal.toFixed(2)}</span>
+                    <span className="tax-note">Not including taxes</span>
                   </div>
-                ))}
-              </div>
-              
-              <div className="summary-row">
-                <span>Items ({totalItems})</span>
-                <div className="price-right">
-                  <span>₹{itemsTotal.toFixed(2)}</span>
-                  <span className="tax-note">Not including taxes</span>
+                </div>
+                <div className="summary-row">
+                  <span>Shipping</span>
+                  <div className="price-right">
+                    <span>₹{shipping.toFixed(2)}</span>
+                  </div>
+                </div>
+                <div className="summary-row">
+                  <span>Taxes</span>
+                  <div className="price-right">
+                    <span>₹{taxes.toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
-              <div className="summary-row">
-                <span>Shipping</span>
-                <div className="price-right">
-                  <span>₹{shipping.toFixed(2)}</span>
-                </div>
-              </div>
-              <div className="summary-row">
-                <span>Taxes</span>
-                <div className="price-right">
-                  <span>₹{taxes.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
+            )}
 
           </div>
         </div>

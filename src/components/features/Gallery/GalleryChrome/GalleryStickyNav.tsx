@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Share2, Play, Download, Loader2, ShoppingBag } from 'lucide-react';
+import { Heart, Share2, Play, Download, Loader2, ShoppingCart, Store } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
 import { NavigationStyleSetting } from '../../../../lib/navStyle';
@@ -34,6 +34,8 @@ export interface GalleryStickyNavProps {
   onShareClick?: () => void;
   onSlideshowClick?: () => void;
   onShopClick?: () => void;
+  showPrintLab?: boolean;
+  onPrintLabClick?: () => void;
   isDark?: boolean;
   isPreviewMobile?: boolean;
   /** Public gallery on a real phone — same two-row nav as preview mobile. */
@@ -72,6 +74,8 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   onShareClick,
   onSlideshowClick,
   onShopClick,
+  showPrintLab = true,
+  onPrintLabClick,
   isDark,
   isPreviewMobile = false,
   isGalleryViewMobile = false,
@@ -181,6 +185,20 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
 
   const renderActions = () => (
     <>
+      {showPrintLab && (
+        <button
+          type="button"
+          className={cn(
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
+            !isCompact && 'relative'
+          )}
+          onClick={onPrintLabClick}
+          style={{ color: 'var(--gallery-text)' }}
+        >
+          <span className="text-xs md:text-sm font-medium uppercase tracking-wider underline underline-offset-4 decoration-1">Print Lab</span>
+        </button>
+      )}
       {showShop && (
         <button
           type="button"
@@ -192,8 +210,8 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           onClick={onShopClick}
           style={{ color: 'var(--gallery-text)' }}
         >
-          <ShoppingBag size={iconSize} />
-          <span className={actionLabelClass(styles.action)}>Shop</span>
+          <ShoppingCart size={iconSize} />
+          <span className={actionLabelClass(styles.action)}>Cart</span>
         </button>
       )}
       {showFavorites && (
