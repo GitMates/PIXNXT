@@ -89,7 +89,8 @@ export default function ProductCustomizer({
         photo: photo,
         quantity: 1,
         frame: getDefaultFrame(),
-        rotation: 0
+        rotation: 0,
+        editedPhotoUrl: initialEditedPhotoUrl || null
       })));
       setHasInitialized(true);
     } else {
@@ -99,7 +100,8 @@ export default function ProductCustomizer({
         photo: defaultPhoto,
         quantity: 1,
         frame: getDefaultFrame(),
-        rotation: 0
+        rotation: 0,
+        editedPhotoUrl: null
       }]);
       setHasInitialized(true);
     }
@@ -189,6 +191,7 @@ export default function ProductCustomizer({
     if (activeSlotIndex !== null) {
       const updated = [...items];
       updated[activeSlotIndex].photo = photo;
+      updated[activeSlotIndex].editedPhotoUrl = null; // Discard crop when selecting a new/another photo
       setItems(updated);
       setIsSidebarOpen(false);
       setActiveSlotIndex(null);
@@ -222,7 +225,7 @@ export default function ProductCustomizer({
         unitPrice: itemUnitPrice,
         totalPrice: itemUnitPrice * item.quantity,
         quantity: item.quantity,
-        editedPhotoUrl: item.editedPhotoUrl || initialEditedPhotoUrl || null,
+        editedPhotoUrl: item.editedPhotoUrl || null,
         rotation: item.rotation || 0,
         customBorderWidthCm: initialCustomBorderWidthCm || null
       }, true); // Always skip direct redirect to show cart modal
@@ -234,7 +237,7 @@ export default function ProductCustomizer({
   const selectedPhotoIds = items.map(item => item.photo?.id).filter(Boolean);
 
   // Helper: prefer the user's cropped edit over the raw gallery URL
-  const getPhotoSrc = (item) => item?.editedPhotoUrl || initialEditedPhotoUrl || item?.photo?.url || '';
+  const getPhotoSrc = (item) => item?.editedPhotoUrl || item?.photo?.url || '';
 
   // Crop Modal State
   const [cropState, setCropState] = useState({

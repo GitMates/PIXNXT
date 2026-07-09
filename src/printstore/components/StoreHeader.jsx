@@ -8,9 +8,11 @@ const renderMiniFrame = (productId, photoUrl) => {
     <div className={`shop-dropdown-item-img-wrapper mini-frame-${productId}`} style={{ width: '80px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: 'none', position: 'relative', transition: 'transform 0.2s ease' }}>
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', position: 'relative' }}>
         {productId === 'matted_collages' ? (
-          <div style={{ display: 'flex', gap: '4px', padding: '6px', background: '#fdfdfd', border: '3.5px solid #111111', width: '74px', height: '74px', boxSizing: 'border-box', boxShadow: '0 4px 10px rgba(0,0,0,0.22)', alignItems: 'center', justifyContent: 'center' }}>
-            <img src={photoUrl} alt="preview" style={{ width: '47%', height: '100%', objectFit: 'cover' }} />
-            <img src={photoUrl} alt="preview" style={{ width: '47%', height: '100%', objectFit: 'cover' }} />
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '3px', padding: '6px', background: '#fdfdfd', border: '3.5px solid #111111', width: '74px', height: '74px', boxSizing: 'border-box', boxShadow: '0 4px 10px rgba(0,0,0,0.22)', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         ) : productId === 'prints' ? (
           <div style={{ width: '70px', height: '70px', background: '#fff', border: '1px solid #e2e8f0', padding: '4px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.1)' }}>
@@ -29,18 +31,26 @@ const renderMiniFrame = (productId, photoUrl) => {
           <div style={{ 
             width: '74px', 
             height: '74px', 
-            borderRadius: '50%', 
-            overflow: 'hidden', 
             border: '4.5px solid #5d4037', 
             boxShadow: '0 4px 10px rgba(0,0,0,0.22)', 
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'center',
             background: '#f9f9f9',
-            padding: '5px',
             boxSizing: 'border-box'
           }}>
-            <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }} />
+            <div style={{ 
+              width: '78%', 
+              height: '78%', 
+              borderRadius: '50%', 
+              overflow: 'hidden', 
+              boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.15)',
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center'
+            }}>
+              <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            </div>
           </div>
         ) : productId === 'matted_frame' ? (
           <div style={{ width: '74px', height: '74px', background: '#fdfdfd', border: '4.5px solid #111111', padding: '6px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 10px rgba(0,0,0,0.22)' }}>
@@ -74,8 +84,27 @@ const renderMiniFrame = (productId, photoUrl) => {
             <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
         ) : productId === 'deckled_prints' ? (
-          <div style={{ width: '72px', height: '72px', background: '#fff', padding: '5px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '1px 2px 5px rgba(0,0,0,0.1)' }}>
-            <div style={{ width: '100%', height: '100%', border: '1px dashed #bbb', padding: '1px', boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ 
+            width: '74px', 
+            height: '74px', 
+            background: '#f9f8f6', 
+            border: '1px solid #e5e5e0', 
+            boxSizing: 'border-box', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            boxShadow: '0 4px 10px rgba(0,0,0,0.15)',
+            position: 'relative'
+          }}>
+            <div style={{ 
+              width: '78%', 
+              height: '78%', 
+              background: '#ffffff', 
+              boxShadow: '0 2px 5px rgba(0,0,0,0.15), inset 0 0 1px rgba(0,0,0,0.2)', 
+              padding: '2px', 
+              boxSizing: 'border-box',
+              clipPath: 'polygon(0% 1%, 12% 0%, 25% 1%, 38% 0%, 50% 1.5%, 62% 0%, 75% 1%, 88% 0.5%, 100% 0%, 99% 12%, 100% 25%, 98.5% 38%, 100% 50%, 99% 62%, 100% 75%, 99% 88%, 100% 100%, 88% 99%, 75% 100%, 62% 98.5%, 50% 100%, 38% 99%, 25% 100%, 12% 99%, 0% 100%, 1% 88%, 0% 75%, 1.5% 62%, 0% 50%, 1% 38%, 0% 25%, 1% 12%)'
+            }}>
               <img src={photoUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             </div>
           </div>
