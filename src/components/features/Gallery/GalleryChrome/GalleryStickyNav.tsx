@@ -1,5 +1,5 @@
 import React from 'react';
-import { Heart, Share2, Play, Download, Loader2, ShoppingCart, Store } from 'lucide-react';
+import { Heart, Share2, Play, Download, Loader2, ShoppingCart, Store, ArrowDownToLine } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { galleryChromeStyles, GalleryChromeVariant, getGalleryChromeVariant } from './galleryChromeStyles';
 import { NavigationStyleSetting } from '../../../../lib/navStyle';
@@ -36,6 +36,10 @@ export interface GalleryStickyNavProps {
   onShopClick?: () => void;
   showPrintLab?: boolean;
   onPrintLabClick?: () => void;
+  showBuyGallery?: boolean;
+  buyGalleryLabel?: string;
+  onBuyGalleryClick?: () => void;
+  isPaidDownload?: boolean;
   isDark?: boolean;
   isPreviewMobile?: boolean;
   /** Public gallery on a real phone — same two-row nav as preview mobile. */
@@ -76,6 +80,10 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
   onShopClick,
   showPrintLab = true,
   onPrintLabClick,
+  showBuyGallery = false,
+  buyGalleryLabel = 'Buy Gallery',
+  onBuyGalleryClick,
+  isPaidDownload = false,
   isDark,
   isPreviewMobile = false,
   isGalleryViewMobile = false,
@@ -199,6 +207,22 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
           <span className="text-xs md:text-sm font-medium uppercase tracking-wider underline underline-offset-4 decoration-1">Print Lab</span>
         </button>
       )}
+      {showBuyGallery && (
+        <button
+          type="button"
+          className={cn(
+            'flex shrink-0 items-center transition-opacity',
+            isCompact ? 'gap-0.5 opacity-60 hover:opacity-100' : 'gap-1 md:gap-2 hover:opacity-50',
+            !isCompact && 'relative'
+          )}
+          onClick={onBuyGalleryClick}
+          style={{ color: 'var(--gallery-text)' }}
+        >
+          <span className="text-xs md:text-sm font-medium uppercase tracking-wider underline underline-offset-4 decoration-1">
+            {buyGalleryLabel}
+          </span>
+        </button>
+      )}
       {showShop && (
         <button
           type="button"
@@ -257,10 +281,15 @@ export const GalleryStickyNav: React.FC<GalleryStickyNavProps> = ({
         >
           {isDownloadingAll ? (
             <Loader2 size={iconSize} className="animate-spin shrink-0" aria-hidden />
+          ) : isPaidDownload ? (
+            <span className="relative shrink-0">
+              <ArrowDownToLine size={iconSize} aria-hidden />
+              <span style={{ position: 'absolute', top: '-4px', right: '-6px', fontSize: '7px', fontWeight: 800, lineHeight: 1, background: 'var(--gallery-text)', color: 'var(--gallery-bg)', borderRadius: '3px', padding: '1px 2px' }}>₹</span>
+            </span>
           ) : (
             <Download size={iconSize} className="shrink-0" aria-hidden />
           )}
-          <span className={actionLabelClass(styles.action)}>{downloadLabel}</span>
+          <span className={actionLabelClass(styles.action)}>{isPaidDownload ? 'Buy' : downloadLabel}</span>
         </button>
       )}
       {showShare && (

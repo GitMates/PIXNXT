@@ -213,7 +213,7 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="users" element={<AdminUserManagement />} />
           </Route>
-          <Route path="/printstore" element={<PrintStoreApp />} />
+          <Route path="/printstore" element={<ErrorBoundary><PrintStoreApp /></ErrorBoundary>} />
           <Route path="/store/orders" element={<ProtectedRoute><StoreDashboard /></ProtectedRoute>} />
           <Route path="/lab/*" element={<LabApp />} />
           <Route path="/photographer" element={<PhotographerApp />} />

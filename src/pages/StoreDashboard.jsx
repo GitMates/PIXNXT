@@ -2,8 +2,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { supabase } from '../lib/supabase/client';
-import { 
-  ShoppingBag, Settings, ChevronDown, ChevronUp, 
+import { galleryService } from '../services/gallery.service';
+import {
+  ShoppingBag, Settings, ChevronDown, ChevronUp,
   LogOut, User, Gift, DollarSign, Package, ChevronLeft, ChevronRight, Eye, Mail, Phone,
   Search, Bell, Home, PanelLeftClose, PanelLeftOpen, Layers, ToggleLeft, ToggleRight
 } from 'lucide-react';
@@ -23,7 +24,7 @@ let cachedProducts = null;
 export default function StoreDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  
+
   const [profile, setProfile] = useState(null);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
@@ -47,11 +48,16 @@ export default function StoreDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [profitFilter, setProfitFilter] = useState('all');
+  const [priceStatusFilter, setPriceStatusFilter] = useState('all');
   const [markupPercent, setMarkupPercent] = useState('');
   const [previewChanges, setPreviewChanges] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [isSavingProducts, setIsSavingProducts] = useState(false);
   const [notification, setNotification] = useState(null);
+
+  // Bulk Profit Margin Modal
+  const [showBulkProfitModal, setShowBulkProfitModal] = useState(false);
+  const [bulkProfitPct, setBulkProfitPct] = useState('');
 
   // Individual Product pricing state
   const [setPriceProduct, setSetPriceProduct] = useState(null);
@@ -59,12 +65,41 @@ export default function StoreDashboard() {
   const [individualPrice, setIndividualPrice] = useState('');
   const [individualProfitPct, setIndividualProfitPct] = useState('0');
 
+  // Digital download toggle configuration state
+  const [globalDigitalEnabled, setGlobalDigitalEnabled] = useState(false);
+  const [globalDigitalPriceSingle, setGlobalDigitalPriceSingle] = useState('40');
+  const [globalDigitalPriceAll, setGlobalDigitalPriceAll] = useState('199');
+  const [savingGlobalDigital, setSavingGlobalDigital] = useState(false);
+
+  // Permanent Vault state
+  const [globalVaultEnabled, setGlobalVaultEnabled] = useState(false);
+  const [globalVaultPrice1Month, setGlobalVaultPrice1Month] = useState('99');
+  const [globalVaultPrice1Year, setGlobalVaultPrice1Year] = useState('299');
+  const [globalVaultPriceLifetime, setGlobalVaultPriceLifetime] = useState('499');
+  const [globalVaultDesc1Month, setGlobalVaultDesc1Month] = useState('Extends gallery access by 30 days.');
+  const [globalVaultDesc1Year, setGlobalVaultDesc1Year] = useState('Extends gallery access by 1 year.');
+  const [globalVaultDescLifetime, setGlobalVaultDescLifetime] = useState('Permanent lifetime storage access.');
+  const [globalStoreEnabled, setGlobalStoreEnabled] = useState(true);
+  const [savingStoreSettings, setSavingStoreSettings] = useState(false);
+
+  const handleIntegerChange = (val, setter) => {
+    const cleaned = val.replace(/[^0-9]/g, '');
+    setter(cleaned);
+  };
+
   // Filters
   const [globalSearch, setGlobalSearch] = useState('');
   const [productStatusFilter, setProductStatusFilter] = useState('all');
 
   // Load profile
   useEffect(() => {
+    // Clear page caching when user logs out or changes
+    cachedOrders = null;
+    cachedOrderItems = null;
+    cachedCollections = null;
+    cachedPhotos = null;
+    cachedProducts = null;
+
     async function loadProfile() {
       if (!user) return;
       try {
@@ -84,6 +119,7 @@ export default function StoreDashboard() {
   // Load all data from database
   useEffect(() => {
     async function loadData() {
+      if (!user) return;
       if (cachedOrders && cachedOrderItems && cachedCollections && cachedPhotos) {
         return; // Skip loading if already cached
       }
@@ -100,7 +136,8 @@ export default function StoreDashboard() {
 
         const { data: collectionsData } = await supabase
           .from('collections')
-          .select('id, name');
+          .select('id, name, digital_download_enabled, digital_download_price_single, digital_download_price_all, cover_url, event_date')
+          .eq('photographer_id', user.id);
 
         const { data: photosData } = await supabase
           .from('photos')
@@ -128,6 +165,67 @@ export default function StoreDashboard() {
     }
     loadData();
   }, [user]);
+
+  useEffect(() => {
+    const storedEnabled = localStorage.getItem('pixnxt_global_digital_enabled');
+    const storedSingle = localStorage.getItem('pixnxt_global_digital_price_single');
+    const storedAll = localStorage.getItem('pixnxt_global_digital_price_all');
+
+    if (storedEnabled !== null) {
+      setGlobalDigitalEnabled(storedEnabled === 'true');
+    } else if (collections && collections.length > 0) {
+      const anyEnabled = collections.some(col => col.digital_download_enabled);
+      setGlobalDigitalEnabled(anyEnabled);
+    }
+
+    if (storedSingle !== null) {
+      setGlobalDigitalPriceSingle(storedSingle);
+    } else if (collections && collections.length > 0) {
+      const firstSingle = collections.find(col => col.digital_download_price_single != null)?.digital_download_price_single;
+      setGlobalDigitalPriceSingle(firstSingle !== undefined ? String(firstSingle) : '10');
+    }
+
+    if (storedAll !== null) {
+      setGlobalDigitalPriceAll(storedAll);
+    } else if (collections && collections.length > 0) {
+      const firstAll = collections.find(col => col.digital_download_price_all != null)?.digital_download_price_all;
+      setGlobalDigitalPriceAll(firstAll !== undefined ? String(firstAll) : '0');
+    }
+
+    // Load Vault Settings from vault_extension_plans table
+    const loadVaultSettings = async () => {
+      if (collections && collections.length > 0) {
+        const vaultPlan = await galleryService.fetchVaultPlan(collections[0].id);
+        if (vaultPlan) {
+          setGlobalVaultEnabled(vaultPlan.vault_enabled === true);
+          if (vaultPlan.price_1month != null) setGlobalVaultPrice1Month(String(vaultPlan.price_1month));
+          if (vaultPlan.price_1year != null) setGlobalVaultPrice1Year(String(vaultPlan.price_1year));
+          if (vaultPlan.price_lifetime != null) setGlobalVaultPriceLifetime(String(vaultPlan.price_lifetime));
+          if (vaultPlan.desc_1month) setGlobalVaultDesc1Month(vaultPlan.desc_1month);
+          if (vaultPlan.desc_1year) setGlobalVaultDesc1Year(vaultPlan.desc_1year);
+          if (vaultPlan.desc_lifetime) setGlobalVaultDescLifetime(vaultPlan.desc_lifetime);
+          return;
+        }
+      }
+      // Fallback to localStorage global defaults
+      const storedVaultEnabled = localStorage.getItem('pixnxt_global_vault_enabled');
+      const storedVault1Month = localStorage.getItem('pixnxt_global_vault_price_1month');
+      const storedVault1Year = localStorage.getItem('pixnxt_global_vault_price_1year');
+      const storedVaultLifetime = localStorage.getItem('pixnxt_global_vault_price_lifetime');
+      const storedVaultDesc1Month = localStorage.getItem('pixnxt_global_vault_desc_1month');
+      const storedVaultDesc1Year = localStorage.getItem('pixnxt_global_vault_desc_1year');
+      const storedVaultDescLifetime = localStorage.getItem('pixnxt_global_vault_desc_lifetime');
+
+      if (storedVaultEnabled !== null) setGlobalVaultEnabled(storedVaultEnabled === 'true');
+      if (storedVault1Month !== null) setGlobalVaultPrice1Month(storedVault1Month);
+      if (storedVault1Year !== null) setGlobalVaultPrice1Year(storedVault1Year);
+      if (storedVaultLifetime !== null) setGlobalVaultPriceLifetime(storedVaultLifetime);
+      if (storedVaultDesc1Month !== null) setGlobalVaultDesc1Month(storedVaultDesc1Month);
+      if (storedVaultDesc1Year !== null) setGlobalVaultDesc1Year(storedVaultDesc1Year);
+      if (storedVaultDescLifetime !== null) setGlobalVaultDescLifetime(storedVaultDescLifetime);
+    };
+    loadVaultSettings();
+  }, [collections]);
 
   const fetchProducts = async (force = false) => {
     if (cachedProducts && !force) {
@@ -203,8 +301,14 @@ export default function StoreDashboard() {
       });
     }
 
+    if (priceStatusFilter === 'active') {
+      list = list.filter(p => p.is_visible);
+    } else if (priceStatusFilter === 'inactive') {
+      list = list.filter(p => !p.is_visible);
+    }
+
     return list;
-  }, [products, searchQuery, categoryFilter, profitFilter]);
+  }, [products, searchQuery, categoryFilter, profitFilter, priceStatusFilter]);
 
   const categoriesList = useMemo(() => {
     const list = new Set(products.map(p => p.product_type).filter(Boolean));
@@ -220,7 +324,7 @@ export default function StoreDashboard() {
   };
 
   const handleSelectOne = (id) => {
-    setSelectedIds(prev => 
+    setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
@@ -241,7 +345,7 @@ export default function StoreDashboard() {
       const cost = parseFloat(p.base_price);
       const oldPct = parseFloat(p.options?.profit_percentage || 0);
       const oldPrice = parseFloat(p.options?.selling_price || p.base_price);
-      
+
       let newPct = oldPct;
       let newProfitAmount = parseFloat(p.options?.profit_amount || 0);
       let newPrice = oldPrice;
@@ -312,7 +416,7 @@ export default function StoreDashboard() {
       setShowConfirmDialog(false);
       setSelectedIds([]);
       setMarkupPercent('');
-      
+
       await fetchProducts(true);
       setTimeout(() => setNotification(null), 4000);
     } catch (err) {
@@ -325,13 +429,9 @@ export default function StoreDashboard() {
 
   const handleSaveIndividualPrice = async () => {
     if (!setPriceProduct) return;
-    const basePrice = parseFloat(individualBasePrice);
-    const pct = parseFloat(individualProfitPct);
+    const basePrice = parseFloat(setPriceProduct.base_price);
+    const pct = parseInt(individualProfitPct);
 
-    if (isNaN(basePrice) || basePrice <= 0) {
-      alert("Please enter a valid base price.");
-      return;
-    }
     if (isNaN(pct) || pct < 0) {
       alert("Please enter a valid profit percentage.");
       return;
@@ -346,22 +446,21 @@ export default function StoreDashboard() {
       const newOptions = {
         ...(setPriceProduct.options || {}),
         selling_price: parseFloat(newSellingPrice.toFixed(2)),
-        profit_percentage: parseFloat(pct.toFixed(2)),
+        profit_percentage: pct,
         profit_amount: parseFloat(newProfitAmount.toFixed(2)),
         last_updated: timestamp
       };
 
-      const updatedBasePrice = parseFloat(basePrice.toFixed(2));
       const { error } = await supabase
         .from('printstore_products')
-        .update({ base_price: updatedBasePrice, options: newOptions })
+        .update({ options: newOptions })
         .eq('id', setPriceProduct.id);
 
       if (error) throw error;
 
       // Local state update instead of full refetch to prevent page reload
       setProducts(prev => {
-        const updated = prev.map(p => p.id === setPriceProduct.id ? { ...p, base_price: updatedBasePrice, options: newOptions } : p);
+        const updated = prev.map(p => p.id === setPriceProduct.id ? { ...p, options: newOptions } : p);
         cachedProducts = updated;
         return updated;
       });
@@ -374,6 +473,70 @@ export default function StoreDashboard() {
     } finally {
       setIsSavingProducts(false);
     }
+  };
+
+  const handleDownloadCSV = () => {
+    const headers = ['Product ID', 'Product Name', 'Category', 'Cost Price (INR)', 'Profit Margin (%)', 'Selling Price (INR)', 'Status'];
+    const rows = filteredProducts.map(p => {
+      const profitPct = Number(p.options?.profit_percentage || 0);
+      const sellingPrice = Number(p.options?.selling_price || p.base_price);
+      return [
+        p.id,
+        p.name,
+        p.product_type || p.id,
+        p.base_price,
+        profitPct,
+        sellingPrice,
+        p.is_visible ? 'Active' : 'Hidden'
+      ];
+    });
+
+    const csvContent = [headers, ...rows].map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "price_list.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadExcel = () => {
+    const headers = ['Product ID', 'Product Name', 'Category', 'Cost Price (INR)', 'Profit Margin (%)', 'Selling Price (INR)', 'Status'];
+    let html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+    <head><meta charset="utf-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>Price List</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+    <body><table border="1" style="border-collapse:collapse; font-family:sans-serif; font-size:13px;"><thead><tr style="background-color:#f8fafc; height:32px;">`;
+
+    headers.forEach(h => {
+      html += `<th style="padding:4px 8px; font-weight:bold; border:1px solid #cbd5e1; text-align:left;">${h}</th>`;
+    });
+    html += `</tr></thead><tbody>`;
+
+    filteredProducts.forEach(p => {
+      const profitPct = Number(p.options?.profit_percentage || 0);
+      const sellingPrice = Number(p.options?.selling_price || p.base_price);
+      html += `<tr style="height:24px;">
+        <td style="padding:4px 8px; border:1px solid #cbd5e1;">${p.id}</td>
+        <td style="padding:4px 8px; border:1px solid #cbd5e1;">${p.name}</td>
+        <td style="padding:4px 8px; border:1px solid #cbd5e1;">${p.product_type || p.id}</td>
+        <td style="padding:4px 8px; border:1px solid #cbd5e1; mso-number-format:'0\\.00'; text-align:right;">${p.base_price.toFixed(2)}</td>
+        <td style="padding:4px 8px; border:1px solid #cbd5e1; mso-number-format:'0'; text-align:right;">${profitPct}</td>
+        <td style="padding:4px 8px; border:1px solid #cbd5e1; mso-number-format:'0\\.00'; text-align:right;">${sellingPrice.toFixed(2)}</td>
+        <td style="padding:4px 8px; border:1px solid #cbd5e1; text-align:center;">${p.is_visible ? 'Active' : 'Hidden'}</td>
+      </tr>`;
+    });
+
+    html += `</tbody></table></body></html>`;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "price_list.xls");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Toggle product visibility (for Products module)
@@ -394,6 +557,99 @@ export default function StoreDashboard() {
     } catch (err) {
       console.error('Error toggling product visibility:', err);
       alert('Failed to toggle product: ' + err.message);
+    }
+  };
+
+  const handleSaveGlobalDigitalSettings = async () => {
+    const singlePrice = parseInt(globalDigitalPriceSingle);
+    const allPrice = parseInt(globalDigitalPriceAll);
+
+    if (isNaN(singlePrice) || singlePrice < 0) {
+      alert("Please enter a valid price for single photo downloads.");
+      return;
+    }
+    if (isNaN(allPrice) || allPrice < 0) {
+      alert("Please enter a valid price for all photos downloads.");
+      return;
+    }
+
+    setSavingGlobalDigital(true);
+    try {
+      const collectionIds = collections.map(c => c.id);
+      if (collectionIds.length === 0) {
+        setNotification({ type: 'success', text: `✓ No collections found to update.` });
+        setTimeout(() => setNotification(null), 4000);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('collections')
+        .update({
+          digital_download_enabled: globalDigitalEnabled,
+          digital_download_price_single: singlePrice,
+          digital_download_price_all: allPrice
+        })
+        .in('id', collectionIds);
+
+      if (error) throw error;
+
+      localStorage.setItem('pixnxt_global_digital_enabled', String(globalDigitalEnabled));
+      localStorage.setItem('pixnxt_global_digital_price_single', String(singlePrice));
+      localStorage.setItem('pixnxt_global_digital_price_all', String(allPrice));
+
+      setCollections(prev => prev.map(c => ({
+        ...c,
+        digital_download_enabled: globalDigitalEnabled,
+        digital_download_price_single: singlePrice,
+        digital_download_price_all: allPrice
+      })));
+
+      setNotification({ type: 'success', text: `✓ Successfully saved digital download settings across all collections.` });
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err) {
+      console.error("Error saving global digital settings:", err);
+      alert("Failed to save settings: " + err.message);
+    } finally {
+      setSavingGlobalDigital(false);
+    }
+  };
+
+  const handleSaveStoreSettings = async () => {
+    if (globalVaultEnabled) {
+      if (!globalVaultDescLifetime.trim()) {
+        alert("Please enter a description for the Lifetime plan. It is compulsory to display on the social sharing view.");
+        return;
+      }
+    }
+    setSavingStoreSettings(true);
+    try {
+      const collectionIds = (collections || []).map(c => c.id).filter(Boolean);
+      const vaultSettings = {
+        vault_enabled: globalVaultEnabled,
+        price_lifetime: parseInt(globalVaultPriceLifetime) || 499,
+        desc_lifetime: globalVaultDescLifetime.trim()
+      };
+
+      if (collectionIds.length > 0) {
+        await galleryService.upsertVaultPlanBatch(collectionIds, vaultSettings);
+      }
+
+      // Keep global defaults in localStorage for new collection creation
+      localStorage.setItem('pixnxt_global_vault_enabled', String(globalVaultEnabled));
+      localStorage.setItem('pixnxt_global_vault_price_1month', globalVaultPrice1Month);
+      localStorage.setItem('pixnxt_global_vault_price_1year', globalVaultPrice1Year);
+      localStorage.setItem('pixnxt_global_vault_price_lifetime', globalVaultPriceLifetime);
+      localStorage.setItem('pixnxt_global_vault_desc_1month', globalVaultDesc1Month);
+      localStorage.setItem('pixnxt_global_vault_desc_1year', globalVaultDesc1Year);
+      localStorage.setItem('pixnxt_global_vault_desc_lifetime', globalVaultDescLifetime);
+
+      setNotification({ type: 'success', text: `✓ Successfully saved Vault & Extension settings across all collections.` });
+      setTimeout(() => setNotification(null), 4000);
+    } catch (err) {
+      console.error("Error saving Vault:", err);
+      alert("Failed to save settings: " + err.message);
+    } finally {
+      setSavingStoreSettings(false);
     }
   };
 
@@ -455,19 +711,19 @@ export default function StoreDashboard() {
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (!globalSearch.trim()) return true;
-      
+
       const q = globalSearch.toLowerCase();
-      
+
       const shortId = order.id ? `#${order.id.split('-')[0].toUpperCase()}` : '';
       const fullId = order.id ? order.id.toLowerCase() : '';
       const customerName = order.customer_name ? order.customer_name.toLowerCase() : '';
       const customerEmail = order.customer_email ? order.customer_email.toLowerCase() : '';
       const collectionName = (orderCollectionNames[order.id] || '').toLowerCase();
       const statusText = order.status ? order.status.replace('_', ' ').toLowerCase() : '';
-      
+
       const orderDate = formatDate(order.created_at).toLowerCase();
       const orderTime = formatTime(order.created_at).toLowerCase();
-      
+
       return (
         shortId.toLowerCase().includes(q) ||
         fullId.includes(q) ||
@@ -535,14 +791,14 @@ export default function StoreDashboard() {
                 </div>
                 <div className="dash-dropdown-items">
                   <button className="dash-dropdown-item" style={{ borderRadius: '4px' }}>
-                    <Gift size={16} style={{marginRight: '8px'}} /> Invite Friends & Get $20
+                    <Gift size={16} style={{ marginRight: '8px' }} /> Invite Friends & Get $20
                   </button>
                   <div className="dash-dropdown-divider" />
                   <button className="dash-dropdown-item" onClick={() => navigate('/settings')} style={{ borderRadius: '4px' }}>
-                    <User size={16} style={{marginRight: '8px'}} /> Profile
+                    <User size={16} style={{ marginRight: '8px' }} /> Profile
                   </button>
                   <button className="dash-dropdown-item" onClick={handleLogout} style={{ borderRadius: '4px' }}>
-                    <LogOut size={16} style={{marginRight: '8px'}} /> Logout
+                    <LogOut size={16} style={{ marginRight: '8px' }} /> Logout
                   </button>
                 </div>
               </div>
@@ -621,10 +877,16 @@ export default function StoreDashboard() {
                 {!isSidebarCollapsed && <span>Products</span>}
               </Link>
             </li>
+            <li className={activeViewTab === 'digital_downloads' ? 'active' : ''}>
+              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('digital_downloads'); }} title="Digital Downloads" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
+                <ShoppingBag size={18} />
+                {!isSidebarCollapsed && <span>Digital Download</span>}
+              </Link>
+            </li>
             <li className={activeViewTab === 'settings' ? 'active' : ''}>
-              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('settings'); }} title="Store Settings" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
+              <Link to="#" onClick={(e) => { e.preventDefault(); setActiveViewTab('settings'); }} title="Vault" style={isSidebarCollapsed ? { justifyContent: 'center', paddingLeft: '0', paddingRight: '0' } : {}}>
                 <Settings size={18} />
-                {!isSidebarCollapsed && <span>Store Settings</span>}
+                {!isSidebarCollapsed && <span>Vault</span>}
               </Link>
             </li>
           </ul>
@@ -753,7 +1015,7 @@ export default function StoreDashboard() {
                                 </button>
                               </td>
                             </tr>
-                            
+
                             {isExpanded && (
                               <tr className="order-details-drawer-row">
                                 <td colSpan={10} className="order-details-drawer-cell">
@@ -946,7 +1208,7 @@ export default function StoreDashboard() {
                       backgroundPosition: 'right 12px center'
                     }}
                   >
-                    <option value="all">All Categories</option>
+                    <option value="all">all products</option>
                     {categoriesList.map(cat => <option key={cat} value={cat}>{cat.replace('_', ' ').toUpperCase()}</option>)}
                   </select>
 
@@ -976,41 +1238,68 @@ export default function StoreDashboard() {
                     <option value="custom">Custom Profits</option>
                   </select>
 
-                  <input
-                    type="number"
-                    placeholder="Margin %"
-                    value={markupPercent}
-                    onChange={(e) => setMarkupPercent(e.target.value)}
+                  <select
+                    value={priceStatusFilter}
+                    onChange={(e) => setPriceStatusFilter(e.target.value)}
                     className="neu-inset"
                     style={{
-                      width: '100px',
-                      padding: '10px 14px',
+                      padding: '10px 32px 10px 14px',
                       fontSize: '13px',
                       border: 'none',
                       borderRadius: '9999px',
                       outline: 'none',
+                      cursor: 'pointer',
                       color: '#1a1a1a',
-                      fontFamily: "'europa', sans-serif"
+                      fontFamily: "'europa', sans-serif",
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'none',
+                      appearance: 'none',
+                      backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717A' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 12px center'
                     }}
-                  />
-                  
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="active">Active Only</option>
+                    <option value="inactive">Inactive Only</option>
+                  </select>
+
                   <button
-                    onClick={() => handleBulkApply('set_pct', markupPercent)}
+                    onClick={handleDownloadCSV}
                     style={{
                       padding: '10px 18px',
                       fontSize: '13px',
                       fontWeight: 600,
                       border: '1px solid rgba(0,0,0,0.1)',
-                      borderRadius: '8px',
-                      backgroundColor: '#1a1a1a',
-                      color: '#fff',
+                      borderRadius: '9999px',
+                      backgroundColor: 'rgba(255,255,255,0.7)',
+                      color: '#1a1a1a',
                       cursor: 'pointer',
                       fontFamily: "'europa', sans-serif",
                       textTransform: 'uppercase',
                       letterSpacing: '0.04em'
                     }}
                   >
-                    Apply Bulk Margin
+                    Download CSV
+                  </button>
+
+                  <button
+                    onClick={handleDownloadExcel}
+                    style={{
+                      padding: '10px 18px',
+                      fontSize: '13px',
+                      fontWeight: 600,
+                      border: '1px solid rgba(0,0,0,0.1)',
+                      borderRadius: '9999px',
+                      backgroundColor: 'rgba(255,255,255,0.7)',
+                      color: '#1a1a1a',
+                      cursor: 'pointer',
+                      fontFamily: "'europa', sans-serif",
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em'
+                    }}
+                  >
+                    Download Excel
                   </button>
                 </div>
               </div>
@@ -1019,6 +1308,7 @@ export default function StoreDashboard() {
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: '12px',
                 marginBottom: '24px',
                 padding: '12px 16px',
@@ -1029,9 +1319,34 @@ export default function StoreDashboard() {
                 borderRadius: '8px',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
               }}>
-                <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length} style={{ cursor: 'pointer' }} />
-                <span style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: 600 }}>Select All ({filteredProducts.length} products)</span>
-                {selectedIds.length > 0 && <span style={{ fontSize: '12px', color: '#111', fontWeight: 700, paddingLeft: '8px', borderLeft: '1px solid rgba(0,0,0,0.1)' }}>{selectedIds.length} selected</span>}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <input type="checkbox" onChange={handleSelectAll} checked={filteredProducts.length > 0 && selectedIds.length === filteredProducts.length} style={{ cursor: 'pointer' }} />
+                  <span style={{ fontSize: '13px', color: '#1a1a1a', fontWeight: 600 }}>Select All ({filteredProducts.length} products)</span>
+                  {selectedIds.length > 0 && <span style={{ fontSize: '12px', color: '#111', fontWeight: 700, paddingLeft: '8px', borderLeft: '1px solid rgba(0,0,0,0.1)' }}>{selectedIds.length} selected</span>}
+                </div>
+
+                {selectedIds.length > 0 && (
+                  <button
+                    onClick={() => {
+                      setBulkProfitPct('');
+                      setShowBulkProfitModal(true);
+                    }}
+                    style={{
+                      padding: '8px 16px',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      border: 'none',
+                      borderRadius: '6px',
+                      backgroundColor: '#111',
+                      color: '#fff',
+                      cursor: 'pointer',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em'
+                    }}
+                  >
+                    Apply Bulk Profit
+                  </button>
+                )}
               </div>
 
               {/* Product Cards Grid */}
@@ -1294,14 +1609,14 @@ export default function StoreDashboard() {
                   }}>
                     <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: '#111' }}>Set Price: {setPriceProduct.name}</h3>
                     <p style={{ margin: '0 0 24px 0', fontSize: '13px', color: '#64748b' }}>Configure the unit base price and profit percentage.</p>
-                    
+
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
                       <div>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Cost Price (INR)</label>
                         <input
                           type="number"
                           value={individualBasePrice}
-                          onChange={(e) => setIndividualBasePrice(e.target.value)}
+                          disabled={true}
                           className="neu-inset"
                           style={{
                             width: '100%',
@@ -1311,17 +1626,25 @@ export default function StoreDashboard() {
                             borderRadius: '9999px',
                             outline: 'none',
                             boxSizing: 'border-box',
-                            color: '#111'
+                            color: '#64748b',
+                            backgroundColor: 'rgba(0,0,0,0.03)',
+                            cursor: 'not-allowed'
                           }}
                         />
                       </div>
-                      
+
                       <div>
                         <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Profit Margin Percentage (%)</label>
                         <input
-                          type="number"
+                          type="text"
+                          pattern="[0-9]*"
                           value={individualProfitPct}
-                          onChange={(e) => setIndividualProfitPct(e.target.value)}
+                          onChange={(e) => handleIntegerChange(e.target.value, setIndividualProfitPct)}
+                          onKeyDown={(e) => {
+                            if (e.key === '.' || e.key === ',') {
+                              e.preventDefault();
+                            }
+                          }}
                           className="neu-inset"
                           style={{
                             width: '100%',
@@ -1381,6 +1704,259 @@ export default function StoreDashboard() {
                   </div>
                 </div>
               )}
+
+              {/* Bulk Profit Modal */}
+              {showBulkProfitModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifycontent: 'center', zIndex: 3000, backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)' }}>
+                  <div style={{
+                    backgroundColor: 'rgba(255, 255, 255, 0.75)',
+                    backdropFilter: 'blur(24px)',
+                    WebkitBackdropFilter: 'blur(24px)',
+                    border: '1px solid rgba(255, 255, 255, 0.35)',
+                    padding: '30px',
+                    borderRadius: '24px',
+                    width: '95%',
+                    maxWidth: '420px',
+                    boxShadow: '0 24px 60px rgba(0,0,0,0.08)',
+                    fontFamily: "'europa', sans-serif",
+                    margin: 'auto'
+                  }}>
+                    <h3 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 700, color: '#111' }}>Apply Bulk Profit Margin</h3>
+                    <p style={{ margin: '0 0 24px 0', fontSize: '13px', color: '#64748b' }}>
+                      Set the profit percentage for all <strong>{selectedIds.length} selected products</strong>. Decimals are not allowed.
+                    </p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '28px' }}>
+                      <div>
+                        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>Profit Margin Percentage (%)</label>
+                        <input
+                          type="text"
+                          pattern="[0-9]*"
+                          value={bulkProfitPct}
+                          onChange={(e) => handleIntegerChange(e.target.value, setBulkProfitPct)}
+                          onKeyDown={(e) => {
+                            if (e.key === '.' || e.key === ',') {
+                              e.preventDefault();
+                            }
+                          }}
+                          placeholder="e.g. 50"
+                          className="neu-inset"
+                          style={{
+                            width: '100%',
+                            padding: '10px 14px',
+                            fontSize: '13.5px',
+                            border: 'none',
+                            borderRadius: '9999px',
+                            outline: 'none',
+                            boxSizing: 'border-box',
+                            color: '#111'
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                      <button
+                        onClick={() => setShowBulkProfitModal(false)}
+                        style={{
+                          padding: '10px 18px', fontSize: '13px', border: '1px solid rgba(0,0,0,0.08)',
+                          backgroundColor: 'rgba(255,255,255,0.5)', cursor: 'pointer', borderRadius: '8px', fontWeight: 600, color: '#334155'
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => {
+                          const pct = parseInt(bulkProfitPct);
+                          if (isNaN(pct) || pct < 0) {
+                            alert("Please enter a valid profit percentage.");
+                            return;
+                          }
+                          setShowBulkProfitModal(false);
+                          handleBulkApply('set_pct', bulkProfitPct);
+                        }}
+                        style={{
+                          padding: '10px 18px', fontSize: '13px', border: 'none', backgroundColor: '#111',
+                          color: '#fff', cursor: 'pointer', borderRadius: '8px', fontWeight: 600
+                        }}
+                      >
+                        Apply Bulk Profit
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : activeViewTab === 'digital_downloads' ? (
+            <div className="store-dashboard-content">
+              {notification && (
+                <div style={{
+                  padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                  backgroundColor: 'rgba(236, 253, 245, 0.9)',
+                  backdropFilter: 'blur(8px)',
+                  color: '#059669',
+                  border: `1px solid rgba(167, 243, 208, 0.4)`,
+                  marginBottom: '20px'
+                }}>
+                  {notification.text}
+                </div>
+              )}
+
+              <div className="store-dashboard-header-row" style={{ marginBottom: '24px' }}>
+                <div>
+                  <h1 className="store-dashboard-title">Digital Downloads</h1>
+                  <p className="store-dashboard-subtitle">Configure download pricing and activation globally for all your photo collections.</p>
+                </div>
+              </div>
+
+              {/* Global Settings Card */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {loading ? (
+                  <div style={{ padding: '60px', textAlign: 'center', color: '#64748b' }}>Loading settings...</div>
+                ) : (
+                  <div
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.55)',
+                      backdropFilter: 'blur(12px)',
+                      border: '1px solid rgba(0, 0, 0, 0.06)',
+                      borderRadius: '16px',
+                      padding: '32px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '24px',
+                      boxShadow: '0 4px 20px rgba(0,0,0,0.01)'
+                    }}
+                  >
+                    <div style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', paddingBottom: '16px' }}>
+                      <h3 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 700, color: '#111' }}>Storewide Settings</h3>
+                      <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Configure download settings that automatically apply to all your photo collections.</p>
+                    </div>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '30px', alignItems: 'center' }}>
+                      {/* Toggle switch */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button
+                          onClick={() => setGlobalDigitalEnabled(prev => !prev)}
+                          style={{
+                            width: '50px',
+                            height: '28px',
+                            borderRadius: '14px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            position: 'relative',
+                            backgroundColor: globalDigitalEnabled ? '#059669' : '#cbd5e1',
+                            transition: 'background-color 0.3s ease',
+                            padding: 0,
+                            flexShrink: 0
+                          }}
+                        >
+                          <div style={{
+                            width: '22px',
+                            height: '22px',
+                            borderRadius: '50%',
+                            backgroundColor: '#fff',
+                            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                            position: 'absolute',
+                            top: '3px',
+                            left: globalDigitalEnabled ? '25px' : '3px',
+                            transition: 'left 0.3s ease'
+                          }} />
+                        </button>
+                        <div>
+                          <span style={{ display: 'block', fontSize: '13.5px', fontWeight: 700, color: '#1a1a1a' }}>
+                            {globalDigitalEnabled ? 'Digital Downloads Enabled' : 'Digital Downloads Disabled'}
+                          </span>
+                          <span style={{ fontSize: '11px', color: '#64748b' }}>Applies storewide to all image downloads</span>
+                        </div>
+                      </div>
+
+                      {/* Price inputs */}
+                      {globalDigitalEnabled && (
+                        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '12.5px', color: '#64748b', fontWeight: 700 }}>Single Image Price</label>
+                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                              <span style={{ position: 'absolute', left: '12px', fontSize: '13px', color: '#71717A' }}>₹</span>
+                              <input
+                                type="text"
+                                pattern="[0-9]*"
+                                value={globalDigitalPriceSingle}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/[^0-9]/g, '');
+                                  setGlobalDigitalPriceSingle(val);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === '.' || e.key === ',') e.preventDefault();
+                                }}
+                                style={{
+                                  width: '120px',
+                                  padding: '10px 12px 10px 24px',
+                                  fontSize: '13px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #cbd5e1',
+                                  outline: 'none',
+                                  boxSizing: 'border-box'
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '12.5px', color: '#64748b', fontWeight: 700 }}>All Images Price</label>
+                            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                              <span style={{ position: 'absolute', left: '12px', fontSize: '13px', color: '#71717A' }}>₹</span>
+                              <input
+                                type="text"
+                                pattern="[0-9]*"
+                                value={globalDigitalPriceAll}
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/[^0-9]/g, '');
+                                  setGlobalDigitalPriceAll(val);
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === '.' || e.key === ',') e.preventDefault();
+                                }}
+                                style={{
+                                  width: '120px',
+                                  padding: '10px 12px 10px 24px',
+                                  fontSize: '13px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #cbd5e1',
+                                  outline: 'none',
+                                  boxSizing: 'border-box'
+                                }}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ marginTop: '8px' }}>
+                      <button
+                        onClick={handleSaveGlobalDigitalSettings}
+                        disabled={savingGlobalDigital}
+                        style={{
+                          padding: '12px 24px',
+                          fontSize: '12.5px',
+                          fontWeight: 700,
+                          border: 'none',
+                          borderRadius: '8px',
+                          backgroundColor: '#111',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          opacity: savingGlobalDigital ? 0.7 : 1,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        {savingGlobalDigital ? 'Saving Settings...' : 'Save Settings'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           ) : activeViewTab === 'products' ? (
             <div className="store-dashboard-content">
@@ -1591,17 +2167,128 @@ export default function StoreDashboard() {
             <div className="store-dashboard-content">
               <div className="store-dashboard-header-row" style={{ marginBottom: '24px' }}>
                 <div>
-                  <h1 className="store-dashboard-title">Store Settings</h1>
-                  <p className="store-dashboard-subtitle">Manage toggle states and settings for your print lab.</p>
+                  <h1 className="store-dashboard-title">Vault</h1>
+                  <p className="store-dashboard-subtitle">Manage toggle states, gallery expiration, and storage extension plans.</p>
                 </div>
               </div>
-              <div style={{ backgroundColor: '#fff', padding: '24px', borderRadius: '8px', border: '1px solid #f2ede4' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <h3 style={{ margin: '0 0 4px 0', fontSize: '15px', fontWeight: 600 }}>Print Lab Toggle State</h3>
-                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Activate Print Lab to allow visitors to purchase prints and products directly from your collections.</p>
+
+              {notification && (
+                <div style={{
+                  padding: '12px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 600,
+                  backgroundColor: 'rgba(236, 253, 245, 0.9)',
+                  backdropFilter: 'blur(8px)',
+                  color: '#059669',
+                  border: `1px solid rgba(167, 243, 208, 0.4)`,
+                  marginBottom: '20px'
+                }}>
+                  {notification.text}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                {/* Permanent Vault Plans Card */}
+                <div style={{ backgroundColor: '#fff', padding: '32px', borderRadius: '12px', border: '1px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.01)' }}>
+                  <div style={{ borderBottom: '1px solid rgba(0,0,0,0.08)', paddingBottom: '16px', marginBottom: '24px' }}>
+                    <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 700, color: '#111' }}>Permanent Vault & Extension Plans</h3>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#64748b' }}>Allow gallery visitors to pay to extend gallery access or unlock permanent lifetime storage (inspired by Pic-Time).</p>
                   </div>
-                  <div style={{ fontSize: '14px', fontWeight: 700 }}>Active (On)</div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    {/* Toggle */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <button
+                        onClick={() => setGlobalVaultEnabled(prev => !prev)}
+                        style={{
+                          width: '50px',
+                          height: '28px',
+                          borderRadius: '14px',
+                          border: 'none',
+                          cursor: 'pointer',
+                          position: 'relative',
+                          backgroundColor: globalVaultEnabled ? '#059669' : '#cbd5e1',
+                          transition: 'background-color 0.3s ease',
+                          padding: 0,
+                          flexShrink: 0
+                        }}
+                      >
+                        <div style={{
+                          width: '22px',
+                          height: '22px',
+                          borderRadius: '50%',
+                          backgroundColor: '#fff',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+                          position: 'absolute',
+                          top: '3px',
+                          left: globalVaultEnabled ? '25px' : '3px',
+                          transition: 'left 0.3s ease'
+                        }} />
+                      </button>
+                      <div>
+                        <strong style={{ display: 'block', fontSize: '14px', color: '#111' }}>Enable Extension Plans</strong>
+                        <span style={{ fontSize: '12px', color: '#64748b' }}>Show purchase options to clients when their gallery is nearing expiration.</span>
+                      </div>
+                    </div>
+
+                    {globalVaultEnabled && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', padding: '20px', backgroundColor: '#fcfbfa', border: '1px solid #f2ede4', borderRadius: '8px' }}>
+                        {/* Price Inputs Row */}
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                              Lifetime Vault Price (₹) *
+                            </label>
+                            <input
+                              type="text"
+                              value={globalVaultPriceLifetime}
+                              onChange={(e) => handleIntegerChange(e.target.value, setGlobalVaultPriceLifetime)}
+                              placeholder="499"
+                              style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', outline: 'none', backgroundColor: '#fff' }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Description Inputs Row (Compulsory) */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', borderTop: '1px solid #f2ede4', paddingTop: '16px', marginTop: '4px' }}>
+                          <div>
+                            <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, color: '#475569', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                              Lifetime Vault Description (Compulsory) *
+                            </label>
+                            <input
+                              type="text"
+                              required
+                              value={globalVaultDescLifetime}
+                              onChange={(e) => setGlobalVaultDescLifetime(e.target.value)}
+                              placeholder="Permanent lifetime storage access."
+                              style={{ width: '100%', padding: '10px 12px', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', outline: 'none', backgroundColor: '#fff' }}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    <div style={{ marginTop: '8px' }}>
+                      <button
+                        onClick={handleSaveStoreSettings}
+                        disabled={savingStoreSettings}
+                        style={{
+                          padding: '12px 24px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          border: 'none',
+                          borderRadius: '8px',
+                          backgroundColor: '#111',
+                          color: '#fff',
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          opacity: savingStoreSettings ? 0.7 : 1,
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        {savingStoreSettings ? 'Saving Settings...' : 'Save Settings'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

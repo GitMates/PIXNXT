@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { ChevronLeft, Trash2, Info, Plus, Calendar, Edit2 } from 'lucide-react';
-import AddressSidebar from './AddressSidebar';
+import { Trash2, Info, Plus, Mail } from 'lucide-react';
 import '../PrintStore.css';
-import { isSlotLandscape, adjustPhotoUrl } from '../data/mockStoreData';
 import CartItemPreview from './CartItemPreview';
 import { supabase } from '../../lib/supabase/client';
 
+const DIGITAL_PRODUCTS = ['digital_download', 'digital_download_all'];
 
 export default function ReviewPage({
   cartItems,
+  collectionPhotos = [],
+  collectionId = '',
   onUpdateQuantity,
   onRemoveItem,
   onBack,
@@ -16,93 +17,43 @@ export default function ReviewPage({
   sessionId,
   initialAddress
 }) {
-  const [isAddressSidebarOpen, setIsAddressSidebarOpen] = useState(false);
-  const [shippingAddress, setShippingAddress] = useState(() => {
-    if (initialAddress) return initialAddress;
-    try {
-      const cached = localStorage.getItem('pixnxt_printstore_address');
-      return cached ? JSON.parse(cached) : null;
-    } catch (e) {
-      return null;
-    }
-  });
+  const [customerEmail, setCustomerEmail] = useState('');
+
+  // Detect if the entire cart is digital (no physical items needing shipping)
+  const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL_PRODUCTS.includes(i.productId));
 
   useEffect(() => {
-    async function loadSavedAddress() {
-      // If we already have a shipping address (from props or localStorage), do not query/overwrite it
-      if (shippingAddress && shippingAddress.street) return;
-
-      let query = supabase
-        .from('printstore_orders')
-        .select('shipping_address, customer_name, customer_email, created_at')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      let hasFilter = false;
-
-      if (sessionId) {
-        query = query.eq('session_id', sessionId);
-        hasFilter = true;
-      } else {
-        try {
-          const { data: userData } = await supabase.auth.getUser();
-          if (userData?.user?.email) {
-            query = query.eq('customer_email', userData.user.email);
-            hasFilter = true;
-          }
-        } catch (e) {}
+    function loadEmail() {
+      // Fetch the email entered by the client/visitor before coming to the cart
+      if (collectionId) {
+        const visitorEmail = localStorage.getItem(`pixnxt_fav_email_${collectionId}`);
+        if (visitorEmail) {
+          setCustomerEmail(visitorEmail);
+          return;
+        }
       }
 
-      if (!hasFilter) return;
-
-      const { data, error } = await query;
-      if (error || !data || data.length === 0) return;
-
-      const order = data[0];
-      const dbAddress = {
-        accountName: order.customer_name,
-        email: order.customer_email,
-        recipientName: order.customer_name,
-        street: order.shipping_address?.address || '',
-        city: order.shipping_address?.city || '',
-        zipCode: order.shipping_address?.zip || '',
-        country: order.shipping_address?.country || 'India',
-        phoneNumber: '',
-        sameBilling: true
-      };
-
-      setShippingAddress(dbAddress);
+      // Fallback: try cached shipping address email
       try {
-        localStorage.setItem('pixnxt_printstore_address', JSON.stringify(dbAddress));
-      } catch (e) {}
+        const cached = localStorage.getItem('pixnxt_printstore_address');
+        const parsed = cached ? JSON.parse(cached) : null;
+        if (parsed?.email) {
+          setCustomerEmail(parsed.email);
+          return;
+        }
+      } catch (_) {}
+
+      // Fall back to empty / placeholder if neither is available yet (will be entered at payment)
+      setCustomerEmail('');
     }
-    loadSavedAddress();
-  }, [sessionId]);
+    if (allDigital) loadEmail();
+  }, [allDigital, collectionId]);
 
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  // For all-digital carts: shipping = 0, taxes = 0
   const itemsTotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
-  const shipping = itemsTotal > 0 ? 111.04 : 0;
+  const shipping = allDigital ? 0 : (itemsTotal > 0 ? 111.04 : 0);
   const estimatedTotal = itemsTotal + shipping;
-
-  const handleSaveAddress = (addressData) => {
-    setShippingAddress(addressData);
-    try {
-      localStorage.setItem('pixnxt_printstore_address', JSON.stringify(addressData));
-    } catch (e) {}
-    setIsAddressSidebarOpen(false);
-  };
-
-  const getAddressString = () => {
-    if (!shippingAddress) return 'No address provided yet.';
-    const parts = [
-      shippingAddress.street,
-      shippingAddress.addressLine2,
-      shippingAddress.city,
-      shippingAddress.zipCode,
-      shippingAddress.country
-    ].filter(Boolean);
-    return parts.join(', ');
-  };
 
   return (
     <div className="cart-page-container">
@@ -121,7 +72,7 @@ export default function ReviewPage({
                 </div>
               </button>
               <span className="pt-editor-header__caption SF-1-4" style={{ marginLeft: '16px', fontSize: '24px', fontWeight: '500', color: '#333' }}>
-                <div className="pt-editor-header__caption-text">Review items and delivery ({totalItems} items)</div>
+                <div className="pt-editor-header__caption-text">Review items ({totalItems} items)</div>
               </span>
             </div>
           </div>
@@ -129,82 +80,101 @@ export default function ReviewPage({
       </div>
 
       <div className="cart-page-content">
-        {/* Left Column: Items & Delivery */}
+        {/* Left Column: Items */}
         <div className="cart-items-column">
-          
-          {/* Delivery Summary Block */}
-          <div className="delivery-summary-block">
-            <div className="delivery-summary-header">
-              <h3>We'll deliver the items to:</h3>
-              <button 
-                className="edit-address-link"
-                onClick={() => setIsAddressSidebarOpen(true)}
-              >
-                <Edit2 size={14} /> Edit addresses and details
-              </button>
+
+          {/* Delivery notice — email for digital, address for physical */}
+          {allDigital ? (
+            <div className="delivery-summary-block" style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+              <Mail size={20} color="#555" style={{ marginTop: '2px', flexShrink: 0 }} />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '14px', fontWeight: 600, color: '#333', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Your downloads will be sent to your email
+                </h3>
+                {customerEmail && (
+                  <p style={{ margin: '6px 0 0', fontSize: '14px', color: '#555', fontWeight: 500 }}>
+                    {customerEmail}
+                  </p>
+                )}
+                <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#888' }}>
+                  High-resolution files will be available after payment confirmation.
+                </p>
+              </div>
             </div>
-            <p className="delivery-address-text">{getAddressString()}</p>
-          </div>
+          ) : (
+            <div className="delivery-summary-block">
+              <h3>We'll deliver the items to:</h3>
+              {initialAddress && (
+                <p className="delivery-address-text">
+                  {[initialAddress.street, initialAddress.city, initialAddress.zipCode, initialAddress.country].filter(Boolean).join(', ')}
+                </p>
+              )}
+            </div>
+          )}
 
           <hr className="review-divider" />
 
           {/* Items List */}
           <div className="review-items-container">
-            <div className="review-arrival-header">
-              <Calendar size={20} strokeWidth={1.5} />
-              <div>
-                <h4>Estimated arrival by Jul 4, 2026</h4>
-                <p>Local customs duties and taxes may apply</p>
-              </div>
-            </div>
-
             {cartItems.length === 0 ? (
               <div className="cart-empty-message">Your cart is empty.</div>
             ) : (
               cartItems.map((item) => {
                 const isFramed = ['matted_frame', 'frames', 'float_frames', 'circular_frames', 'matted_collages'].includes(item.productId);
+                const isDigital = DIGITAL_PRODUCTS.includes(item.productId);
                 return (
                   <div key={item.id} className="cart-page-item review-page-item">
                     <div className={`cart-item-image-wrapper product-card-${item.productId} ${isFramed ? 'has-frame-size' : ''}`} style={{ '--frame-color': item.frame?.color || 'transparent' }}>
                       <div className="cart-item-product-image-box">
-                         <CartItemPreview item={item} />
+                        <CartItemPreview item={item} collectionPhotos={collectionPhotos} />
                       </div>
                     </div>
-                  
-                  <div className="cart-item-info">
-                    <h4 className="cart-item-title">{item.productName} ({item.quantity})</h4>
-                    <p className="cart-item-meta">
-                      {item.size.label}, {item.frame && item.frame.id !== 'frame_none' && item.frame.label !== 'No Frame' && item.frame.label !== 'No Frame (Print Only)' ? item.frame.label + ', ' : ''}{item.paper.label}
-                      {item.layout && <>, Layout: {item.layout.icon?.replace(/_/g, ' ')} ({item.layout.photos} photos)</>}
-                    </p>
-                    <div className="cart-item-price-mobile">
-                      ₹{(item.unitPrice * item.quantity).toFixed(2)}
+
+                    <div className="cart-item-info">
+                      <h4 className="cart-item-title">{item.productName}</h4>
+                      <p className="cart-item-meta">
+                        {item.size?.label ? `${item.size.label}, ` : ''}{item.frame && item.frame.id !== 'frame_none' && item.frame.label !== 'No Frame' && item.frame.label !== 'No Frame (Print Only)' ? item.frame.label + ', ' : ''}{item.paper?.label || ''}
+                        {item.layout && <>, Layout: {item.layout.icon?.replace(/_/g, ' ')} ({item.layout.photos} photos)</>}
+                        {item.productId === 'digital_download_all' && collectionPhotos.length > 0 && (
+                          <span style={{ display: 'block', marginTop: '4px', fontWeight: 600, color: '#111', fontSize: '13px' }}>
+                            {collectionPhotos.length} photos included
+                          </span>
+                        )}
+                      </p>
+                      <div className="cart-item-price-mobile">
+                        ₹{(item.unitPrice * item.quantity).toFixed(2)}
+                      </div>
+
+                      {/* Quantity — hidden for digital items */}
+                      {!isDigital && (
+                        <div className="cart-quantity-control">
+                          <button onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}>-</button>
+                          <span>{item.quantity}</span>
+                          <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}>+</button>
+                        </div>
+                      )}
+
+                      <div className="cart-item-actions">
+                        <button className="cart-delete-btn" onClick={() => onRemoveItem(item.id)}>
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
-                    
-                    <div className="cart-quantity-control">
-                      <button onClick={() => onUpdateQuantity(item.id, Math.max(1, item.quantity - 1))}>-</button>
-                      <span>{item.quantity}</span>
-                      <button onClick={() => onUpdateQuantity(item.id, item.quantity + 1)}>+</button>
-                    </div>
-                    
-                    <div className="cart-item-actions">
-                      <button className="cart-delete-btn" onClick={() => onRemoveItem(item.id)}>
-                        <Trash2 size={16} />
-                      </button>
+
+                    <div className="review-item-right">
+                      <div className="cart-item-price">
+                        ₹{(item.unitPrice * item.quantity).toFixed(2)}
+                      </div>
+                      {/* No "International delivery" badge for digital downloads */}
+                      {!isDigital && (
+                        <div className="international-delivery-badge">
+                          International<br />delivery
+                        </div>
+                      )}
                     </div>
                   </div>
-                  
-                  <div className="review-item-right">
-                    <div className="cart-item-price">
-                      ₹{(item.unitPrice * item.quantity).toFixed(2)}
-                    </div>
-                    <div className="international-delivery-badge">
-                      International<br/>delivery
-                    </div>
-                  </div>
-                </div>
-              );
-            })
+                );
+              })
             )}
           </div>
         </div>
@@ -216,40 +186,43 @@ export default function ReviewPage({
               <span className="summary-total-label">Estimated total:</span>
               <span className="summary-total-value">₹{estimatedTotal.toFixed(2)} INR</span>
             </div>
-            
-            <button 
-              className="continue-shipping-btn" 
-              onClick={() => onContinueToPayment(shippingAddress)}
-              disabled={!shippingAddress || cartItems.length === 0}
+
+            <button
+              className="continue-shipping-btn"
+              onClick={() => onContinueToPayment(initialAddress || {})}
+              disabled={cartItems.length === 0}
             >
               Continue to payment
             </button>
-            
+
             <div className="payment-details-section">
               <h4>Payment details</h4>
-              
+
               <div className="payment-row">
                 <div className="payment-label-col">
                   <span>Items ({totalItems})</span>
                 </div>
                 <div className="payment-value-col">
                   <span>₹{itemsTotal.toFixed(2)}</span>
-                  <span className="payment-subtext">Not including taxes</span>
                 </div>
               </div>
-              
-              <div className="payment-row">
-                <span className="payment-label">Shipping <Info size={14} color="#777" /></span>
-                <span className="payment-value">₹{shipping.toFixed(2)}</span>
-              </div>
-              
-              <div className="payment-row">
-                <span className="payment-label">Taxes <Info size={14} color="#777" /></span>
-                <span className="payment-value">₹0.00</span>
-              </div>
-              
+
+              {/* Shipping & Taxes — hidden for all-digital carts */}
+              {!allDigital && (
+                <>
+                  <div className="payment-row">
+                    <span className="payment-label">Shipping <Info size={14} color="#777" /></span>
+                    <span className="payment-value">₹{shipping.toFixed(2)}</span>
+                  </div>
+                  <div className="payment-row">
+                    <span className="payment-label">Taxes <Info size={14} color="#777" /></span>
+                    <span className="payment-value">₹0.00</span>
+                  </div>
+                </>
+              )}
+
               <div className="coupons-section">
-                <span className="coupons-label"><Info size={14} color="#777" style={{marginRight: '4px'}}/> Coupons</span>
+                <span className="coupons-label"><Info size={14} color="#777" style={{ marginRight: '4px' }} /> Coupons</span>
                 <div className="coupon-input-row">
                   <input type="text" placeholder="Enter coupon code" />
                   <button className="apply-coupon-btn"><Plus size={14} /> Apply</button>
@@ -259,13 +232,6 @@ export default function ReviewPage({
           </div>
         </div>
       </div>
-
-      <AddressSidebar 
-        isOpen={isAddressSidebarOpen}
-        onClose={() => setIsAddressSidebarOpen(false)}
-        onSaveAddress={handleSaveAddress}
-        initialData={shippingAddress}
-      />
     </div>
   );
 }

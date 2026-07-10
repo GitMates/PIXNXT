@@ -17,8 +17,8 @@ import StoreFooter from './components/StoreFooter';
 import LeftSidebar from './components/LeftSidebar';
 import ProductDetailPage from './components/ProductDetailPage';
 import NotificationsPage from './components/NotificationsPage';
-import { 
-  MOCK_PHOTOS, 
+import {
+  MOCK_PHOTOS,
   MOCK_PRODUCTS,
   MOCK_SIZES,
   MOCK_FRAMES,
@@ -37,7 +37,7 @@ import {
   MATTED_COLLAGE_SIZES,
   PRINT_SIZES
 } from './data/mockStoreData';
-import { ShoppingBag, Heart, X, Check, Upload, Bookmark, ChevronLeft, ChevronRight, MoreVertical, ArrowUp } from 'lucide-react';
+import { ShoppingBag, Heart, X, Check, Upload, Bookmark, ChevronLeft, ChevronRight, MoreVertical, ArrowUp, CreditCard, ShieldCheck, Loader2, AlertCircle } from 'lucide-react';
 import './PrintStore.css';
 
 export default function PrintStoreApp() {
@@ -55,6 +55,7 @@ export default function PrintStoreApp() {
     }
   });
 
+  const [collection, setCollection] = useState(null);
   const [collectionId, setCollectionId] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [products, setProducts] = useState([]);
@@ -68,7 +69,7 @@ export default function PrintStoreApp() {
   const [selectedProductForDetail, setSelectedProductForDetail] = useState(null);
   const [customizingProduct, setCustomizingProduct] = useState(null); // Product we are currently picking photos for
   const [customizingProductOptions, setCustomizingProductOptions] = useState(null); // Selected options (size, frame, paper)
-  
+
   // Interaction States
   const [favorites, setFavorites] = useState(['photo_2', 'photo_5']); // Initial mock favorites
   const [showSaveModal, setShowSaveModal] = useState(false);
@@ -79,6 +80,103 @@ export default function PrintStoreApp() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [hasPlacedOrder, setHasPlacedOrder] = useState(false);
   const [notifCount, setNotifCount] = useState(0);
+
+  // Permanent Vault States
+  const [showVaultPaymentModal, setShowVaultPaymentModal] = useState(false);
+  const [vaultCardName, setVaultCardName] = useState('');
+  const [vaultCardNumber, setVaultCardNumber] = useState('');
+  const [vaultCardExpiry, setVaultCardExpiry] = useState('');
+  const [vaultCardCvc, setVaultCardCvc] = useState('');
+  const [isVaultPaying, setIsVaultPaying] = useState(false);
+  const [vaultEmail, setVaultEmail] = useState('');
+  const [vaultError, setVaultError] = useState('');
+  const [vaultPurchasedState, setVaultPurchasedState] = useState(false);
+
+  useEffect(() => {
+    if (collection?.id) {
+      setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
+    }
+  }, [collection?.id]);
+
+  const handleVaultPaymentSubmit = async (e) => {
+    e.preventDefault();
+    setVaultError('');
+    setIsVaultPaying(true);
+
+    try {
+      const targetEmail = vaultEmail || (completedOrder?.customer_email || '');
+      if (!targetEmail) {
+        throw new Error('Please enter your email address for delivery confirmation.');
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const price = parseFloat(localStorage.getItem(`pixnxt_vault_price_${collection.id}`) || '499');
+
+      const { data: order, error: orderError } = await supabase
+        .from('printstore_orders')
+        .insert({
+          collection_id: collection.id,
+          photographer_id: collection.photographer_id || collection.user_id,
+          customer_name: vaultCardName || 'Client Visitor',
+          customer_email: targetEmail,
+          shipping_address: null,
+          shipping_amount: 0,
+          tax_amount: 0,
+          discount_amount: 0,
+          subtotal: price,
+          total: price,
+          status: 'completed',
+          payment_provider: 'stripe',
+          payment_intent_id: 'mock_pi_vault_' + Math.random().toString(36).substr(2, 9)
+        })
+        .select()
+        .single();
+
+      if (orderError) throw orderError;
+
+      const { error: itemError } = await supabase
+        .from('printstore_order_items')
+        .insert({
+          order_id: order.id,
+          product_name: 'Permanent Vault Storage Access',
+          product_type: 'vault_storage',
+          quantity: 1,
+          unit_price: price,
+          subtotal: price,
+          options: {}
+        });
+
+      if (itemError) throw itemError;
+
+      localStorage.setItem(`pixnxt_vault_purchased_${collection.id}`, 'true');
+      setVaultPurchasedState(true);
+
+      try {
+        await fetch(`${supabase.supabaseUrl}/functions/v1/send-order-placed-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabase.supabaseKey}`
+          },
+          body: JSON.stringify({
+            orderId: order.id,
+            recipientEmail: targetEmail,
+            siteOrigin: window.location.origin
+          })
+        });
+      } catch (emailErr) {
+        console.warn('Could not trigger vault email:', emailErr);
+      }
+
+      setIsVaultPaying(false);
+      setShowVaultPaymentModal(false);
+    } catch (err) {
+      console.error('Vault payment error:', err);
+      setIsVaultPaying(false);
+      setVaultError(err.message || 'Payment failed. Please check your card details.');
+    }
+  };
 
   const fetchNotifCount = async () => {
     try {
@@ -130,19 +228,21 @@ export default function PrintStoreApp() {
             .eq('id', orderId)
             .single();
           if (error) throw error;
-          
+
           const { data: items, error: itemsError } = await supabase
             .from('printstore_order_items')
             .select('*')
             .eq('order_id', orderId);
           if (itemsError) throw itemsError;
-          
+
           setCompletedOrder({
             ...order,
             items: items.map(item => ({
               productName: item.product_name,
               quantity: item.quantity,
               unitPrice: item.unit_price,
+              productId: item.product_type,
+              product_type: item.product_type,
               size: item.options?.size,
               frame: item.options?.frame,
               paper: item.options?.paper,
@@ -170,7 +270,7 @@ export default function PrintStoreApp() {
   const [viewingPhoto, setViewingPhoto] = useState(null); // Photo currently open in lightbox
   const [gallerySelectedPhoto, setGallerySelectedPhoto] = useState(null); // Photo selected from gallery for shop use
   const [collectionPhotos, setCollectionPhotos] = useState([]);
-  
+
   const [loading, setLoading] = useState(true);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
@@ -192,7 +292,7 @@ export default function PrintStoreApp() {
       behavior: 'smooth'
     });
   };
-  
+
   // Shopping Cart States
   const [cartItems, setCartItems] = useState(() => {
     try {
@@ -221,7 +321,7 @@ export default function PrintStoreApp() {
       console.error("Failed to save shipping address to localStorage:", e);
     }
   }, [savedShippingAddress]);
-  
+
   // Customizer States
   const [activeCustomizerProduct, setActiveCustomizerProduct] = useState(null);
   const [customizerPhoto, setCustomizerPhoto] = useState(null);
@@ -244,7 +344,14 @@ export default function PrintStoreApp() {
       const slug = searchParams.get('slug') || searchParams.get('collection');
       const photoIdParam = searchParams.get('photo');
       const orderIdParam = searchParams.get('orderId');
-      if (!slug || (!photoIdParam && !orderIdParam)) {
+      const hasCartItems = (() => {
+        try {
+          const items = JSON.parse(localStorage.getItem('pixnxt_printstore_cart') || '[]');
+          return items.length > 0;
+        } catch(e) { return false; }
+      })();
+
+      if (!slug || (!photoIdParam && !orderIdParam && !searchParams.get('cart') && !hasCartItems)) {
         if (slug) {
           window.location.assign(`/gallery/${slug}`);
         } else {
@@ -256,11 +363,12 @@ export default function PrintStoreApp() {
       if (slug) {
         const { data: collection } = await supabase
           .from('collections')
-          .select('id, photographer_id')
+          .select('*')
           .eq('slug', slug)
           .maybeSingle();
 
         if (collection?.id) {
+          setCollection(collection);
           setCollectionId(collection.id);
 
           // Fetch photos for the collection
@@ -362,21 +470,25 @@ export default function PrintStoreApp() {
           if (session?.collection_id) {
             const { data: collection } = await supabase
               .from('collections')
-              .select('id, photographer_id')
+              .select('*')
               .eq('id', session.collection_id)
               .maybeSingle();
 
-            if (collection?.photographer_id) {
-              const { data: profile } = await supabase
-                .from('photographers')
-                .select('id, display_name, email')
-                .eq('id', collection.photographer_id)
-                .maybeSingle();
+            if (collection) {
+              setCollection(collection);
 
-              if (profile?.display_name) {
-                id = profile.id;
-                display_name = profile.display_name;
-                email = profile.email || 'kbaskaran@example.com';
+              if (collection?.photographer_id) {
+                const { data: profile } = await supabase
+                  .from('photographers')
+                  .select('id, display_name, email')
+                  .eq('id', collection.photographer_id)
+                  .maybeSingle();
+
+                if (profile?.display_name) {
+                  id = profile.id;
+                  display_name = profile.display_name;
+                  email = profile.email || 'kbaskaran@example.com';
+                }
               }
             }
           }
@@ -418,6 +530,10 @@ export default function PrintStoreApp() {
         console.error("Error initializing print store:", err);
       } finally {
         setLoading(false);
+        // Auto-open cart drawer if URL has cart=open
+        if (searchParams.get('cart') === 'open') {
+          setCheckoutState('cart');
+        }
       }
     }
     initApp();
@@ -425,8 +541,8 @@ export default function PrintStoreApp() {
 
   // Shared mapper function to convert DB product rows to frontend shape
   const mapProductRow = (p) => {
-    const customPrice = (p.options?.selling_price !== undefined && p.options?.selling_price !== null) 
-      ? parseFloat(p.options.selling_price) 
+    const customPrice = (p.options?.selling_price !== undefined && p.options?.selling_price !== null)
+      ? parseFloat(p.options.selling_price)
       : parseFloat(p.base_price);
     return {
       ...p,
@@ -619,15 +735,15 @@ export default function PrintStoreApp() {
             try {
               const { data } = await supabase.auth.getUser();
               if (data?.user) userId = data.user.id;
-            } catch (e) {}
+            } catch (e) { }
 
             const row = payload.new || payload.old;
             if (!row) return;
 
             // Verify if the changed row belongs to our visitor session or logged in user
-            const isOurItem = userId 
-              ? row.user_id === userId 
-              : row.session_id === sessionId;
+            const isOurItem = (sessionId)
+              ? row.session_id === sessionId
+              : (userId && row.user_id === userId);
 
             if (!isOurItem) return;
 
@@ -636,24 +752,24 @@ export default function PrintStoreApp() {
               if (payload.eventType === 'INSERT') {
                 const newItem = mapCartItemRow(payload.new);
                 // Check if already exists in state
-                const exists = updated.some(item => 
-                  item.id === newItem.id || 
+                const exists = updated.some(item =>
+                  item.id === newItem.id ||
                   (item.productId === newItem.productId &&
-                   item.photo?.id === newItem.photo?.id &&
-                   item.size?.id === newItem.size?.id &&
-                   item.frame?.id === newItem.frame?.id &&
-                   item.paper?.id === newItem.paper?.id &&
-                   item.border === newItem.border)
+                    item.photo?.id === newItem.photo?.id &&
+                    item.size?.id === newItem.size?.id &&
+                    item.frame?.id === newItem.frame?.id &&
+                    item.paper?.id === newItem.paper?.id &&
+                    item.border === newItem.border)
                 );
                 if (exists) {
                   // Swap ID or update quantities if already present
                   updated = updated.map(item => {
                     if (item.productId === newItem.productId &&
-                        item.photo?.id === newItem.photo?.id &&
-                        item.size?.id === newItem.size?.id &&
-                        item.frame?.id === newItem.frame?.id &&
-                        item.paper?.id === newItem.paper?.id &&
-                        item.border === newItem.border) {
+                      item.photo?.id === newItem.photo?.id &&
+                      item.size?.id === newItem.size?.id &&
+                      item.frame?.id === newItem.frame?.id &&
+                      item.paper?.id === newItem.paper?.id &&
+                      item.border === newItem.border) {
                       return { ...item, id: newItem.id, quantity: newItem.quantity, totalPrice: newItem.totalPrice };
                     }
                     return item;
@@ -663,14 +779,14 @@ export default function PrintStoreApp() {
                 }
               } else if (payload.eventType === 'UPDATE') {
                 const updatedItem = mapCartItemRow(payload.new);
-                updated = updated.map(item => 
+                updated = updated.map(item =>
                   item.id === updatedItem.id ||
-                  (item.productId === updatedItem.productId &&
-                   item.photo?.id === updatedItem.photo?.id &&
-                   item.size?.id === updatedItem.size?.id &&
-                   item.frame?.id === updatedItem.frame?.id &&
-                   item.paper?.id === updatedItem.paper?.id &&
-                   item.border === updatedItem.border) ? updatedItem : item
+                    (item.productId === updatedItem.productId &&
+                      item.photo?.id === updatedItem.photo?.id &&
+                      item.size?.id === updatedItem.size?.id &&
+                      item.frame?.id === updatedItem.frame?.id &&
+                      item.paper?.id === updatedItem.paper?.id &&
+                      item.border === updatedItem.border) ? updatedItem : item
                 );
               } else if (payload.eventType === 'DELETE') {
                 updated = updated.filter(item => item.id !== payload.old.id);
@@ -694,53 +810,135 @@ export default function PrintStoreApp() {
 
   const loadCart = async (activeSessionId) => {
     try {
+      const currentSessionId = activeSessionId || sessionId;
       let userId = null;
-      try {
-        const { data } = await supabase.auth.getUser();
-        if (data?.user) {
-          userId = data.user.id;
+
+      // Only check auth user if we DO NOT have a visitor session ID
+      if (!currentSessionId) {
+        try {
+          const { data } = await supabase.auth.getUser();
+          if (data?.user) {
+            userId = data.user.id;
+          }
+        } catch (e) {
+          console.warn("Auth user query failed:", e);
         }
-      } catch (e) {
-        console.warn("Auth user query failed:", e);
       }
 
-      const currentSessionId = activeSessionId || sessionId;
+      // Read current local cart items
+      let localItems = [];
+      const localCart = localStorage.getItem('pixnxt_printstore_cart');
+      if (localCart) {
+        try {
+          localItems = JSON.parse(localCart) || [];
+        } catch (e) {}
+      }
 
-      // If we have either userId or currentSessionId, load from Supabase
+      // If we have either userId or currentSessionId, sync with Supabase
       if (userId || currentSessionId) {
-        const query = supabase
-          .from('printstore_cart_items')
-          .select('*');
+        let dbCartData = [];
 
+        // Load by user_id
         if (userId) {
-          query.eq('user_id', userId);
-        } else {
-          query.eq('session_id', currentSessionId);
+          const { data: userCartData } = await supabase
+            .from('printstore_cart_items')
+            .select('*')
+            .eq('user_id', userId);
+          if (userCartData) {
+            dbCartData = [...userCartData];
+          }
         }
 
-        const { data: cartData, error } = await query;
-        if (error) throw error;
+        // Also load by session_id
+        if (currentSessionId) {
+          const { data: sessionCartData } = await supabase
+            .from('printstore_cart_items')
+            .select('*')
+            .eq('session_id', currentSessionId);
+          if (sessionCartData) {
+            const existingIds = new Set(dbCartData.map(i => i.id));
+            for (const item of sessionCartData) {
+              if (!existingIds.has(item.id)) {
+                dbCartData.push(item);
+              }
+            }
+          }
+        }
 
-        if (cartData) {
-          // Map table rows to frontend cart items
-          const mappedCart = cartData.map(mapCartItemRow);
+        // If local items exist but are not in DB, insert them to DB instead of wiping them!
+        if (localItems.length > 0) {
+          // Check which local items aren't present in DB
+          const missingLocals = localItems.filter(local => {
+            return !dbCartData.some(dbItem => {
+              const opts = dbItem.options || {};
+              return (
+                opts.productId === local.productId &&
+                opts.photo?.id === local.photo?.id &&
+                opts.size?.id === local.size?.id &&
+                opts.frame?.id === local.frame?.id &&
+                opts.paper?.id === local.paper?.id &&
+                opts.border === local.border
+              );
+            });
+          });
+
+          if (missingLocals.length > 0) {
+            const inserts = missingLocals.map(local => {
+              const matchedProduct = products.find(p => p.id === local.productId);
+              const productDbId = matchedProduct ? matchedProduct.db_id : null;
+              return {
+                user_id: userId,
+                session_id: userId ? null : (currentSessionId || null),
+                product_id: productDbId,
+                quantity: local.quantity,
+                options: {
+                  productId: local.productId,
+                  productName: local.productName,
+                  photo: local.photo,
+                  photos: local.photos,
+                  size: local.size,
+                  frame: local.frame,
+                  paper: local.paper,
+                  border: local.border,
+                  layout: local.layout,
+                  rotation: local.rotation || 0,
+                  unitPrice: local.unitPrice
+                }
+              };
+            });
+
+            const { data: insertedData } = await supabase
+              .from('printstore_cart_items')
+              .insert(inserts)
+              .select();
+
+            if (insertedData) {
+              dbCartData = [...dbCartData, ...insertedData];
+            }
+          }
+        }
+
+        if (dbCartData.length > 0) {
+          const mappedCart = dbCartData.map(mapCartItemRow);
           setCartItems(mappedCart);
           localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(mappedCart));
+          return;
+        } else {
+          setCartItems([]);
+          localStorage.setItem('pixnxt_printstore_cart', '[]');
           return;
         }
       }
 
-      // Fallback: load from local storage
-      const localCart = localStorage.getItem('pixnxt_printstore_cart');
-      if (localCart) {
-        setCartItems(JSON.parse(localCart));
-      }
+      // No session or user yet, just use local items
+      setCartItems(localItems);
     } catch (err) {
-      console.error("Error loading cart items from Supabase:", err);
-      // Fallback: local storage
+      console.error("Error in loadCart:", err);
       const localCart = localStorage.getItem('pixnxt_printstore_cart');
       if (localCart) {
-        setCartItems(JSON.parse(localCart));
+        try {
+          setCartItems(JSON.parse(localCart));
+        } catch (e) {}
       }
     }
   };
@@ -824,7 +1022,7 @@ export default function PrintStoreApp() {
   const handleToggleSelectPhoto = (photoId) => {
     const isCurrentlySelected = selectedPhotos.includes(photoId);
     let newSelectedLength = selectedPhotos.length;
-    
+
     if (isCurrentlySelected) {
       newSelectedLength -= 1;
     } else {
@@ -855,10 +1053,10 @@ export default function PrintStoreApp() {
     if (customizerActiveSlotIndex !== null && customizerItems && customizerItems.length > 0) {
       const updated = [...customizerItems];
       if (photoObjects.length > 0) {
-        const currentSlotPhotoId = product.id === 'matted_collages' ? 
-          updated[customizerActiveSlotIndex]?.id : 
+        const currentSlotPhotoId = product.id === 'matted_collages' ?
+          updated[customizerActiveSlotIndex]?.id :
           updated[customizerActiveSlotIndex]?.photo?.id;
-          
+
         const newPhoto = photoObjects.find(p => p.id !== currentSlotPhotoId) || photoObjects[0];
         if (newPhoto) {
           if (product.id === 'matted_collages') {
@@ -890,7 +1088,7 @@ export default function PrintStoreApp() {
     setActiveTab('gallery');
     setActiveCollection('portraits');
     setViewMode('landing');
-    
+
     // Scroll past the cover hero if we are in portraits
     setTimeout(() => {
       if (galleryRef.current) {
@@ -914,7 +1112,7 @@ export default function PrintStoreApp() {
 
     // Generate a temporary local ID if we don't have a database ID yet
     const localId = editingCartItemId || `local_${Date.now()}`;
-    
+
     // Update local state immediately (optimistic update)
     setCartItems((prev) => {
       let updatedCart = [];
@@ -959,12 +1157,14 @@ export default function PrintStoreApp() {
 
     // Sync to Supabase in the background
     let userId = null;
-    try {
-      const { data } = await supabase.auth.getUser();
-      if (data?.user) {
-        userId = data.user.id;
-      }
-    } catch (e) {}
+    if (!sessionId) {
+      try {
+        const { data } = await supabase.auth.getUser();
+        if (data?.user) {
+          userId = data.user.id;
+        }
+      } catch (e) { }
+    }
 
     if (userId || sessionId) {
       try {
@@ -1021,10 +1221,10 @@ export default function PrintStoreApp() {
               .from('printstore_cart_items')
               .update({ quantity: newQuantity })
               .eq('id', duplicate.id);
-            
+
             // Swap the local ID with the real database ID
             setCartItems((prev) => {
-              const updated = prev.map(item => 
+              const updated = prev.map(item =>
                 item.id === localId ? { ...item, id: duplicate.id } : item
               );
               localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(updated));
@@ -1054,11 +1254,11 @@ export default function PrintStoreApp() {
               })
               .select()
               .single();
-            
+
             if (!error && inserted) {
               // Swap the local ID with the real database ID
               setCartItems((prev) => {
-                const updated = prev.map(item => 
+                const updated = prev.map(item =>
                   item.id === localId ? { ...item, id: inserted.id } : item
                 );
                 localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(updated));
@@ -1147,11 +1347,30 @@ export default function PrintStoreApp() {
     });
   };
 
+  // Updates the photo inside a digital_download cart item (single photo picker)
+  const handleUpdateItemPhoto = (itemId, newPhoto) => {
+    setCartItems((prev) => {
+      const updated = prev.map((item) => {
+        if (item.id !== itemId) return item;
+        return {
+          ...item,
+          photo: newPhoto,
+          options: { ...(item.options || {}), photo: newPhoto },
+        };
+      });
+      try { localStorage.setItem('pixnxt_printstore_cart', JSON.stringify(updated)); } catch (_) {}
+      return updated;
+    });
+  };
+
   const handlePlaceOrder = async (shippingDetails) => {
     try {
+      const DIGITAL = ['digital_download', 'digital_download_all'];
+      const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL.includes(i.productId));
+
       const subtotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
-      const shipping = subtotal > 100 ? 0 : 9.99;
-      const tax = subtotal * 0.08;
+      const shipping = allDigital ? 0 : (subtotal > 100 ? 0 : 9.99);
+      const tax = allDigital ? 0 : subtotal * 0.08;
       const total = subtotal + shipping + tax;
 
       const photographerId = photographer?.id;
@@ -1213,12 +1432,14 @@ export default function PrintStoreApp() {
       if (itemsError) throw itemsError;
 
       let userId = null;
-      try {
-        const { data } = await supabase.auth.getUser();
-        if (data?.user) {
-          userId = data.user.id;
-        }
-      } catch (authErr) {}
+      if (!sessionId) {
+        try {
+          const { data } = await supabase.auth.getUser();
+          if (data?.user) {
+            userId = data.user.id;
+          }
+        } catch (authErr) { }
+      }
 
       if (userId || sessionId) {
         const query = supabase.from('printstore_cart_items').delete();
@@ -1245,6 +1466,8 @@ export default function PrintStoreApp() {
         total: total,
         created_at: new Date().toISOString(),
         items: cartItems.map(item => ({
+          productId: item.productId,
+          product_type: item.productId,
           productName: item.productName,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
@@ -1260,7 +1483,7 @@ export default function PrintStoreApp() {
 
       setCartItems([]);
       localStorage.removeItem('pixnxt_printstore_cart');
-      
+
       // Update local shipping address state so it persists
       setSavedShippingAddress({
         recipientName: shippingDetails.name,
@@ -1413,8 +1636,10 @@ export default function PrintStoreApp() {
         {checkoutState === 'cart' ? (
           <CartPage
             cartItems={cartItems}
+            collectionPhotos={collectionPhotos}
             onUpdateQuantity={handleUpdateCartQuantity}
             onRemoveItem={handleRemoveCartItem}
+            onUpdateItemPhoto={handleUpdateItemPhoto}
             onEditItem={(item) => {
               setEditingCartItemId(item.id);
               setActiveCustomizerProduct(products.find(p => p.id === item.productId) || products[0] || MOCK_PRODUCTS[0]);
@@ -1433,24 +1658,28 @@ export default function PrintStoreApp() {
               if (cartItems.length > 0) setCheckoutState('review');
             }}
           />
-         ) : checkoutState === 'review' ? (
-           <ReviewPage
-             cartItems={cartItems}
-             onUpdateQuantity={handleUpdateCartQuantity}
-             onRemoveItem={handleRemoveCartItem}
-             onBack={() => setCheckoutState('cart')}
-             onContinueToPayment={(address) => {
-               if (cartItems.length > 0) {
-                 setSavedShippingAddress(address);
-                 setCheckoutState('payment');
-               }
-             }}
+        ) : checkoutState === 'review' ? (
+          <ReviewPage
+            cartItems={cartItems}
+            collectionPhotos={collectionPhotos}
+            collectionId={collectionId}
+            onUpdateQuantity={handleUpdateCartQuantity}
+            onRemoveItem={handleRemoveCartItem}
+            onBack={() => setCheckoutState('cart')}
+            onContinueToPayment={(address) => {
+              if (cartItems.length > 0) {
+                setSavedShippingAddress(address);
+                setCheckoutState('payment');
+              }
+            }}
             sessionId={sessionId}
             initialAddress={savedShippingAddress}
           />
         ) : checkoutState === 'payment' ? (
           <PaymentPage
             cartItems={cartItems}
+            collectionPhotos={collectionPhotos}
+            collectionId={collectionId}
             onBack={() => setCheckoutState('review')}
             onPlaceOrder={handlePlaceOrder}
             shippingAddress={savedShippingAddress}
@@ -1472,8 +1701,8 @@ export default function PrintStoreApp() {
               onSelectPhotosForProduct={handleSelectPhotosForProduct}
               onFinishAndPersonalize={(prod, options) => {
                 // Go directly to customizer with the gallery photo
-                const photoObj = gallerySelectedPhoto ? 
-                  getPhotosToDisplay().find(p => p.url === gallerySelectedPhoto.url) || gallerySelectedPhoto : 
+                const photoObj = gallerySelectedPhoto ?
+                  getPhotosToDisplay().find(p => p.url === gallerySelectedPhoto.url) || gallerySelectedPhoto :
                   getPhotosToDisplay()[0];
                 setIsDirectGallerySelection(true);
                 setCustomizerItems([]);
@@ -1494,6 +1723,7 @@ export default function PrintStoreApp() {
               <AllProducts
                 products={products.length > 0 ? products : MOCK_PRODUCTS}
                 selectedPhotoUrl={gallerySelectedPhoto?.url}
+                photos={collectionPhotos}
                 onSelectProduct={(prod) => {
                   setSelectedProductForDetail(prod);
                   window.scrollTo({ top: 0, behavior: 'instant' });
@@ -1517,6 +1747,11 @@ export default function PrintStoreApp() {
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     photos={collectionPhotos}
+                    collection={collection}
+                    onUnlockVault={() => {
+                      setVaultError('');
+                      setShowVaultPaymentModal(true);
+                    }}
                   />
                 </div>
               )}
@@ -1544,44 +1779,93 @@ export default function PrintStoreApp() {
             boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
             fontFamily: "'europa', 'Inter', sans-serif"
           }}>
+            {/* Photographer Branding logo/name in top left corner */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px', paddingBottom: '16px', borderBottom: '1px solid #f2ede4' }}>
+              {photographer?.logo_url ? (
+                <img src={photographer.logo_url} alt="" style={{ height: '32px', objectFit: 'contain' }} />
+              ) : (
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#111', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px', fontWeight: 'bold' }}>
+                  {String(photographer?.display_name || 'P')[0].toUpperCase()}
+                </div>
+              )}
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#111', letterSpacing: '0.05em', textTransform: 'uppercase' }}>
+                {photographer?.display_name || 'PIXNXT PHOTOGRAPHY'}
+              </span>
+            </div>
+
             {/* Header Success info */}
-            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
-              <div style={{
-                width: '56px', height: '56px', borderRadius: '50%', backgroundColor: '#ecfdf5',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
-                border: '1px solid #a7f3d0'
-              }}>
-                <Check size={28} color="#059669" strokeWidth={2.5} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '32px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '56px', height: '56px', flexShrink: 0, borderRadius: '50%', backgroundColor: '#ecfdf5', color: '#059669', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Check size={32} strokeWidth={3} />
+                </div>
+                <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: '26px', fontWeight: 600, color: '#111', margin: 0, textTransform: 'uppercase', letterSpacing: '0.03em' }}>
+                  Thank you for your order!
+                </h2>
               </div>
-              <h2 style={{ fontFamily: "'EB Garamond', serif", fontSize: '26px', fontWeight: 600, color: '#111', margin: '0 0 8px 0' }}>Thank you for your order!</h2>
-              <p style={{ fontSize: '14.5px', color: '#64748b', margin: 0 }}>Your order has been placed successfully. A receipt has been sent to your email.</p>
+              <p style={{ fontSize: '14.5px', color: '#64748b', margin: '4px 0 0 72px' }}>
+                Your order has been placed successfully. A receipt has been sent to your email.
+              </p>
             </div>
 
             {completedOrder ? (
               <>
                 {/* Meta details */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', borderBottom: '1px solid #f2ede4', paddingBottom: '24px', marginBottom: '24px', fontSize: '13.5px' }}>
-                  <div>
-                    <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Order Summary</span>
-                    <strong style={{ color: '#111', fontSize: '15px' }}>#{completedOrder.id ? completedOrder.id.split('-')[0].toUpperCase() : 'MOCK'}</strong>
-                    <span style={{ display: 'block', color: '#94a3b8', marginTop: '4px' }}>Date: {new Date(completedOrder.created_at || new Date()).toLocaleDateString('en-IN')}</span>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Customer Info</span>
-                    <strong style={{ color: '#111' }}>{completedOrder.customer_name}</strong>
-                    <span style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>{completedOrder.customer_email}</span>
-                  </div>
-                </div>
+                {(() => {
+                  const allDigital = (completedOrder.items || []).every(i =>
+                    ['digital_download', 'digital_download_all'].includes(i.productId || i.product_type)
+                  );
+                  const shortId = completedOrder.id ? completedOrder.id.split('-')[0].toUpperCase() : 'MOCK';
+                  return (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', borderBottom: '1px solid #f2ede4', paddingBottom: '24px', marginBottom: '24px', fontSize: '13.5px' }}>
+                      <div>
+                        <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>
+                          {allDigital ? 'Download Summary' : 'Order Summary'}
+                        </span>
+                        <strong style={{ color: '#111', fontSize: '15px' }}>#{shortId}</strong>
+                        <span style={{ display: 'block', color: '#94a3b8', marginTop: '4px' }}>Date: {new Date(completedOrder.created_at || new Date()).toLocaleDateString('en-IN')}</span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '4px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Customer Info</span>
+                        <strong style={{ color: '#111' }}>{completedOrder.customer_name}</strong>
+                        <span style={{ display: 'block', color: '#64748b', marginTop: '2px' }}>{completedOrder.customer_email}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
-                {/* Shipping address details */}
-                <div style={{ backgroundColor: '#fcfbfa', padding: '16px', borderRadius: '8px', border: '1px solid #f2ede4', marginBottom: '32px', fontSize: '13.5px' }}>
-                  <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '6px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Shipping Destination</span>
-                  <span style={{ display: 'block', color: '#111', lineHeight: 1.5 }}>
-                    {completedOrder.customer_name}<br />
-                    {completedOrder.shipping_address?.address}, {completedOrder.shipping_address?.city}<br />
-                    {completedOrder.shipping_address?.zip}, India
-                  </span>
-                </div>
+                {/* Shipping address OR email delivery notice */}
+                {(() => {
+                  const allDigital = (completedOrder.items || []).every(i =>
+                    ['digital_download', 'digital_download_all'].includes(i.productId || i.product_type)
+                  );
+                  if (allDigital) {
+                    return (
+                      <div style={{ backgroundColor: '#ecfdf5', padding: '16px', borderRadius: '8px', border: '1px solid #bbf7d0', marginBottom: '32px', fontSize: '13.5px', display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                        <span style={{ fontSize: '20px' }}>📧</span>
+                        <div>
+                          <span style={{ display: 'block', color: '#059669', fontWeight: 700, marginBottom: '4px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Download Delivery</span>
+                          <span style={{ display: 'block', color: '#111', lineHeight: 1.5 }}>
+                            Your high-resolution files will be sent to <strong>{completedOrder.customer_email}</strong> within a few minutes.
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  }
+                  if (completedOrder.shipping_address?.address) {
+                    return (
+                      <div style={{ backgroundColor: '#fcfbfa', padding: '16px', borderRadius: '8px', border: '1px solid #f2ede4', marginBottom: '32px', fontSize: '13.5px' }}>
+                        <span style={{ display: 'block', color: '#64748b', fontWeight: 600, marginBottom: '6px', textTransform: 'uppercase', fontSize: '11px', letterSpacing: '0.05em' }}>Shipping Destination</span>
+                        <span style={{ display: 'block', color: '#111', lineHeight: 1.5 }}>
+                          {completedOrder.customer_name}<br />
+                          {completedOrder.shipping_address?.address}, {completedOrder.shipping_address?.city}<br />
+                          {completedOrder.shipping_address?.zip}, India
+                        </span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
 
                 {/* Items listing table */}
                 <h3 style={{ fontSize: '13px', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, borderBottom: '2px solid #111', paddingBottom: '8px', margin: '0 0 16px 0' }}>Order Items</h3>
@@ -1593,7 +1877,12 @@ export default function PrintStoreApp() {
                         <div>
                           <span style={{ fontWeight: 700, color: '#111' }}>{item.productName || item.product_name}</span>
                           <span style={{ display: 'block', fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-                            Size: {item.size?.label || item.options?.size?.label || 'Default'}{item.frame?.label ? ` | Frame: ${item.frame.label}` : ''}
+                            {item.size?.label || item.options?.size?.label
+                              ? (item.size?.label || item.options?.size?.label)
+                              : (item.productId === 'digital_download_all' || item.product_type === 'digital_download_all'
+                                  ? 'All Photos'
+                                  : 'High Resolution')}
+                            {item.frame?.label ? ` | Frame: ${item.frame.label}` : ''}
                           </span>
                         </div>
                         <div style={{ display: 'flex', gap: '32px', alignItems: 'center' }}>
@@ -1605,25 +1894,36 @@ export default function PrintStoreApp() {
                   })}
                 </div>
 
-                {/* Costs breakdown */}
-                <div style={{ marginLeft: 'auto', maxWidth: '280px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', borderBottom: '1px solid #f2ede4', paddingBottom: '16px', marginBottom: '24px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Subtotal:</span>
-                    <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.subtotal?.toFixed(2)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Tax (8%):</span>
-                    <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.tax_amount?.toFixed(2)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span style={{ color: '#64748b' }}>Shipping:</span>
-                    <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.shipping_amount?.toFixed(2)}</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #111', paddingTop: '10px', fontWeight: 'bold', fontSize: '16px' }}>
-                    <span>Total Paid:</span>
-                    <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.total?.toFixed(2)}</span>
-                  </div>
-                </div>
+                {/* Costs breakdown — hide shipping/tax for all-digital */}
+                {(() => {
+                  const allDigital = (completedOrder.items || []).every(i =>
+                    ['digital_download', 'digital_download_all'].includes(i.productId || i.product_type)
+                  );
+                  return (
+                    <div style={{ marginLeft: 'auto', maxWidth: '280px', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '14px', borderBottom: '1px solid #f2ede4', paddingBottom: '16px', marginBottom: '24px' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>Subtotal:</span>
+                        <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.subtotal?.toFixed(2)}</span>
+                      </div>
+                      {!allDigital && (
+                        <>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748b' }}>Tax (8%):</span>
+                            <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.tax_amount?.toFixed(2)}</span>
+                          </div>
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: '#64748b' }}>Shipping:</span>
+                            <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.shipping_amount?.toFixed(2)}</span>
+                          </div>
+                        </>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #111', paddingTop: '10px', fontWeight: 'bold', fontSize: '16px' }}>
+                        <span>Total Paid:</span>
+                        <span style={{ fontFamily: 'monospace' }}>₹{completedOrder.total?.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Actions Row */}
                 <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '40px' }}>
@@ -1636,60 +1936,79 @@ export default function PrintStoreApp() {
                         const doc = new jsPDF();
                         const shortId = completedOrder.id ? completedOrder.id.split('-')[0].toUpperCase() : 'MOCK';
                         
+                        const allDigital = (completedOrder.items || []).every(i =>
+                          ['digital_download', 'digital_download_all'].includes(i.productId || i.product_type)
+                        );
+
                         doc.setFont("helvetica", "bold");
                         doc.setFontSize(22);
-                        doc.text("PIXNXT PRINT LAB RECEIPT", 20, 25);
-                        
+                        doc.text(allDigital ? "PIXNXT DOWNLOAD RECEIPT" : "PIXNXT PRINT LAB RECEIPT", 20, 25);
+
                         doc.setFont("helvetica", "normal");
                         doc.setFontSize(10);
-                        doc.text(`Order ID: #${shortId}`, 20, 35);
+                        doc.text(allDigital ? `Download ID: #${shortId}` : `Order ID: #${shortId}`, 20, 35);
                         doc.text(`Date: ${new Date(completedOrder.created_at || new Date()).toLocaleDateString()}`, 20, 41);
-                        
+
                         doc.setFont("helvetica", "bold");
                         doc.setFontSize(12);
                         doc.text("Customer Details", 20, 55);
                         doc.setFont("helvetica", "normal");
                         doc.setFontSize(10);
-                        doc.text(`Name: ${completedOrder.customer_name}`, 20, 62);
-                        doc.text(`Email: ${completedOrder.customer_email}`, 20, 68);
-                        
-                        doc.setFont("helvetica", "bold");
-                        doc.setFontSize(12);
-                        doc.text("Shipping Address", 20, 80);
-                        doc.setFont("helvetica", "normal");
-                        doc.setFontSize(10);
-                        doc.text(`${completedOrder.shipping_address?.address || ''}`, 20, 87);
-                        doc.text(`${completedOrder.shipping_address?.city || ''}, ${completedOrder.shipping_address?.zip || ''}`, 20, 93);
-                        
+                        doc.text(`Name: ${completedOrder.customer_name || ''}`, 20, 62);
+                        doc.text(`Email: ${completedOrder.customer_email || ''}`, 20, 68);
+
+                        if (!allDigital) {
+                          doc.setFont("helvetica", "bold");
+                          doc.setFontSize(12);
+                          doc.text("Shipping Address", 20, 80);
+                          doc.setFont("helvetica", "normal");
+                          doc.setFontSize(10);
+                          doc.text(`${completedOrder.shipping_address?.address || ''}`, 20, 87);
+                          doc.text(`${completedOrder.shipping_address?.city || ''}, ${completedOrder.shipping_address?.zip || ''}`, 20, 93);
+                        } else {
+                          doc.setFont("helvetica", "bold");
+                          doc.setFontSize(12);
+                          doc.text("Delivery Info", 20, 80);
+                          doc.setFont("helvetica", "normal");
+                          doc.setFontSize(10);
+                          doc.text(`Digital files will be sent to email:`, 20, 87);
+                          doc.text(`${completedOrder.customer_email || ''}`, 20, 93);
+                        }
+
                         doc.setFont("helvetica", "bold");
                         doc.setFontSize(11);
                         doc.text("Product Item", 20, 115);
                         doc.text("Qty", 130, 115);
                         doc.text("Total Price", 160, 115);
                         doc.line(20, 118, 190, 118);
-                        
+
                         let y = 125;
                         doc.setFont("helvetica", "normal");
                         doc.setFontSize(10);
                         (completedOrder.items || []).forEach(item => {
                           const nameLabel = item.productName || item.product_name || 'Product';
-                          const sizeLabel = item.size?.label || item.options?.size?.label || 'Default';
+                          const sizeLabel = item.size?.label || item.options?.size?.label
+                            || (item.productId === 'digital_download_all' || item.product_type === 'digital_download_all'
+                                ? 'All Photos'
+                                : 'High Resolution');
                           doc.text(`${nameLabel} (${sizeLabel})`, 20, y);
                           doc.text(`${item.quantity}`, 130, y);
                           const unitP = item.unitPrice || item.unit_price || 0;
                           doc.text(`INR ${(unitP * item.quantity).toFixed(2)}`, 160, y);
                           y += 8;
                         });
-                        
+
                         doc.line(20, y, 190, y);
                         y += 8;
-                        
+
                         doc.text(`Subtotal: INR ${(completedOrder.subtotal || 0).toFixed(2)}`, 130, y); y += 6;
-                        doc.text(`Tax: INR ${(completedOrder.tax_amount || 0).toFixed(2)}`, 130, y); y += 6;
-                        doc.text(`Shipping: INR ${(completedOrder.shipping_amount || 0).toFixed(2)}`, 130, y); y += 6;
+                        if (!allDigital) {
+                          doc.text(`Tax: INR ${(completedOrder.tax_amount || 0).toFixed(2)}`, 130, y); y += 6;
+                          doc.text(`Shipping: INR ${(completedOrder.shipping_amount || 0).toFixed(2)}`, 130, y); y += 6;
+                        }
                         doc.setFont("helvetica", "bold");
                         doc.text(`Total Paid: INR ${(completedOrder.total || 0).toFixed(2)}`, 130, y);
-                        
+
                         doc.save(`receipt-${shortId}.pdf`);
                       };
                       document.body.appendChild(script);
@@ -1719,7 +2038,7 @@ export default function PrintStoreApp() {
                       textTransform: 'uppercase', letterSpacing: '0.05em'
                     }}
                   >
-                    Back to Preview
+                    back to gallery
                   </button>
                 </div>
               </>
@@ -1741,33 +2060,33 @@ export default function PrintStoreApp() {
         const hasNext = currentIdx < allPhotos.length - 1;
         return (
           <div className="photo-lightbox-overlay" onClick={() => setViewingPhoto(null)} style={{ background: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, zIndex: 9999 }}>
-            
+
             {/* Top Bar Header */}
-            <div 
-              className="lightbox-header-bar" 
+            <div
+              className="lightbox-header-bar"
               onClick={(e) => e.stopPropagation()}
-              style={{ 
-                position: 'absolute', 
-                top: '16px', 
-                right: '24px', 
-                display: 'flex', 
-                alignItems: 'center', 
+              style={{
+                position: 'absolute',
+                top: '16px',
+                right: '24px',
+                display: 'flex',
+                alignItems: 'center',
                 gap: '12px',
                 zIndex: 100
               }}
             >
-              <button 
-                className="lightbox-icon-btn" 
-                style={{ 
-                  background: '#ffffff', 
-                  border: '1px solid rgba(0,0,0,0.1)', 
-                  borderRadius: '50%', 
-                  width: '38px', 
-                  height: '38px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  cursor: 'pointer', 
+              <button
+                className="lightbox-icon-btn"
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  borderRadius: '50%',
+                  width: '38px',
+                  height: '38px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
                   color: '#222',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                   padding: '0'
@@ -1775,18 +2094,18 @@ export default function PrintStoreApp() {
               >
                 <MoreVertical size={20} />
               </button>
-              <button 
-                className="lightbox-icon-btn" 
-                style={{ 
-                  background: '#ffffff', 
-                  border: '1px solid rgba(0,0,0,0.1)', 
-                  borderRadius: '50%', 
-                  width: '38px', 
-                  height: '38px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  cursor: 'pointer', 
+              <button
+                className="lightbox-icon-btn"
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  borderRadius: '50%',
+                  width: '38px',
+                  height: '38px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
                   color: '#222',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                   padding: '0'
@@ -1794,18 +2113,18 @@ export default function PrintStoreApp() {
               >
                 <Upload size={20} />
               </button>
-              <button 
-                className="lightbox-icon-btn" 
-                style={{ 
-                  background: '#ffffff', 
-                  border: '1px solid rgba(0,0,0,0.1)', 
-                  borderRadius: '50%', 
-                  width: '38px', 
-                  height: '38px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  cursor: 'pointer', 
+              <button
+                className="lightbox-icon-btn"
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  borderRadius: '50%',
+                  width: '38px',
+                  height: '38px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
                   color: '#222',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                   padding: '0'
@@ -1813,19 +2132,19 @@ export default function PrintStoreApp() {
               >
                 <Bookmark size={20} />
               </button>
-              <button 
-                className="lightbox-icon-btn" 
+              <button
+                className="lightbox-icon-btn"
                 onClick={() => handleToggleFavorite(viewingPhoto.id)}
-                style={{ 
-                  background: '#ffffff', 
-                  border: '1px solid rgba(0,0,0,0.1)', 
-                  borderRadius: '50%', 
-                  width: '38px', 
-                  height: '38px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  cursor: 'pointer', 
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid rgba(0,0,0,0.1)',
+                  borderRadius: '50%',
+                  width: '38px',
+                  height: '38px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
                   color: favorites.includes(viewingPhoto.id) ? '#e04f5f' : '#222',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
                   padding: '0'
@@ -1833,7 +2152,7 @@ export default function PrintStoreApp() {
               >
                 <Heart size={20} fill={favorites.includes(viewingPhoto.id) ? '#e04f5f' : 'none'} />
               </button>
-              
+
               <button
                 className="lightbox-shop-btn"
                 onClick={() => {
@@ -1865,17 +2184,17 @@ export default function PrintStoreApp() {
               >
                 Shop
               </button>
-              
+
               <span style={{ height: '24px', width: '1px', backgroundColor: '#eaeaea', margin: '0 4px' }} />
-              
-              <button 
-                className="lightbox-icon-btn" 
-                onClick={() => setViewingPhoto(null)} 
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  cursor: 'pointer', 
-                  color: '#222', 
+
+              <button
+                className="lightbox-icon-btn"
+                onClick={() => setViewingPhoto(null)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  color: '#222',
                   padding: '4px',
                   display: 'flex',
                   alignItems: 'center',
@@ -1946,61 +2265,7 @@ export default function PrintStoreApp() {
           </div>
         );
       })()}
-      {/* 4. Batch Actions Toolbar (Appears at bottom during selection) */}
-      {isSelectionMode && activeTab === 'gallery' && (
-        <div className="selection-toolbar-floating selection-toolbar-redesign">
-          <div className="selection-toolbar-left">
-            <span className="selection-count">
-              {selectedPhotos.length > 0 
-                ? `${selectedPhotos.length} item${selectedPhotos.length === 1 ? '' : 's'} selected`
-                : "Start selecting"}
-            </span>
-            {selectedPhotos.length > 0 && (
-              <button 
-                className="selection-view-link"
-                onClick={() => {
-                  // Scroll to top to view them or trigger something
-                  window.scrollTo({ top: 0, behavior: 'smooth' });
-                }}
-              >
-                View
-              </button>
-            )}
-          </div>
-          
-          <div className="selection-toolbar-right" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <button 
-              className={`finish-personalize-btn ${selectedPhotos.length === 0 ? 'disabled' : ''}`}
-              disabled={selectedPhotos.length === 0}
-              onClick={() => {
-                if (selectedPhotos.length > 0) {
-                  if (!customizingProduct) {
-                    // Directly selecting from gallery - set the selected photo and go to Shop landing
-                    const photoId = selectedPhotos[0];
-                    const firstSelectedPhoto = getPhotosToDisplay().find(p => p.id === photoId) || { id: photoId, url: photoId };
-                    setGallerySelectedPhoto(firstSelectedPhoto);
-                    setActiveTab('shop');
-                    setViewMode('landing');
-                    setCheckoutState('shopping');
-                    setIsSelectionMode(false);
-                    setSelectedPhotos([]);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  } else {
-                    // Normal customizing flow
-                    handleOpenCustomizer(customizingProduct, selectedPhotos);
-                    setIsSelectionMode(false);
-                    setCustomizingProduct(null);
-                    setSelectedPhotos([]);
-                    setSelectedProductType('');
-                  }
-                }
-              }}
-            >
-              {customizingProduct ? 'Finish & Personalize' : 'Shop From This'}
-            </button>
-          </div>
-        </div>
-      )}
+
 
       {/* 5. Product Options Configuration Modal */}
       {activeCustomizerProduct && (
@@ -2131,7 +2396,7 @@ export default function PrintStoreApp() {
       {showSaveModal && (
         <div className="save-collections-modal-overlay">
           <div className="save-collections-modal-box">
-            <button 
+            <button
               className="save-collections-close-btn"
               onClick={() => setShowSaveModal(false)}
               aria-label="Close dialog"
@@ -2143,7 +2408,7 @@ export default function PrintStoreApp() {
               Create an account to save your collections, so you can come back to them anytime, from any device
             </p>
             <div className="save-collections-actions">
-              <button 
+              <button
                 className="save-collections-btn-secondary"
                 onClick={() => {
                   if (pendingFavoritePhotoId) {
@@ -2154,7 +2419,7 @@ export default function PrintStoreApp() {
               >
                 Continue without saving
               </button>
-              <button 
+              <button
                 className="save-collections-btn-primary"
                 onClick={() => {
                   if (pendingFavoritePhotoId) {
@@ -2183,6 +2448,253 @@ export default function PrintStoreApp() {
           </filter>
         </defs>
       </svg>
+
+      {/* Permanent Vault Payment Modal */}
+      {showVaultPaymentModal && (
+        <div style={{
+          position: 'fixed',
+          inset: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '16px'
+        }}>
+          <div style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '0px',
+            width: '100%',
+            maxWidth: '440px',
+            padding: '40px',
+            boxSizing: 'border-box',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.15)',
+            color: '#111',
+            fontFamily: "'europa', 'Inter', sans-serif",
+            position: 'relative'
+          }}>
+            <button
+              onClick={() => setShowVaultPaymentModal(false)}
+              style={{
+                position: 'absolute',
+                right: '16px',
+                top: '16px',
+                border: 'none',
+                background: 'none',
+                cursor: 'pointer',
+                color: '#666'
+              }}
+            >
+              <X size={20} />
+            </button>
+
+            <h2 style={{
+              textAlign: 'center',
+              fontSize: '15px',
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.3em',
+              marginBottom: '8px',
+              color: '#111'
+            }}>
+              Unlock Permanent Vault
+            </h2>
+            <p style={{
+              textAlign: 'center',
+              fontSize: '13px',
+              color: '#666',
+              marginBottom: '24px',
+              lineHeight: 1.4
+            }}>
+              Store and access this gallery permanently, overriding auto expiry.
+            </p>
+
+            {/* Price Details */}
+            <div style={{
+              background: '#fcfbfa',
+              border: '1px solid #f2ede4',
+              borderRadius: '8px',
+              padding: '16px',
+              marginBottom: '20px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Plan Type</span>
+                <strong style={{ color: '#111', fontSize: '14px' }}>Permanent Vault Add-on</strong>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Amount Due</span>
+                <strong style={{ color: '#111', fontSize: '18px', fontWeight: 700 }}>
+                  ₹{parseFloat(localStorage.getItem(`pixnxt_vault_price_${collection?.id}`) || '499').toFixed(2)}
+                </strong>
+              </div>
+            </div>
+
+            {/* Card Form */}
+            <form onSubmit={handleVaultPaymentSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: '6px' }}>Delivery Email</label>
+                <input
+                  type="email"
+                  required
+                  placeholder="name@example.com"
+                  value={vaultEmail}
+                  onChange={(e) => setVaultEmail(e.target.value)}
+                  style={{
+                    width: '100%',
+                    border: '1px solid #e2e8f0',
+                    padding: '10px 12px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    borderRadius: '4px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: '6px' }}>Cardholder Name</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="John Doe"
+                  value={vaultCardName}
+                  onChange={(e) => setVaultCardName(e.target.value)}
+                  style={{
+                    width: '100%',
+                    border: '1px solid #e2e8f0',
+                    padding: '10px 12px',
+                    fontSize: '14px',
+                    outline: 'none',
+                    borderRadius: '4px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: '6px' }}>Card Number</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="text"
+                    required
+                    placeholder="4242 4242 4242 4242"
+                    value={vaultCardNumber}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 16);
+                      const formatted = val.replace(/(.{4})/g, '$1 ').trim();
+                      setVaultCardNumber(formatted);
+                    }}
+                    style={{
+                      width: '100%',
+                      border: '1px solid #e2e8f0',
+                      padding: '10px 12px 10px 40px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      borderRadius: '4px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                  <CreditCard size={18} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: '6px' }}>Expiry Date</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="MM/YY"
+                    value={vaultCardExpiry}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                      const formatted = val.length > 2 ? `${val.slice(0, 2)}/${val.slice(2)}` : val;
+                      setVaultCardExpiry(formatted);
+                    }}
+                    style={{
+                      width: '100%',
+                      border: '1px solid #e2e8f0',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      borderRadius: '4px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#94a3b8', marginBottom: '6px' }}>CVC</label>
+                  <input
+                    type="password"
+                    required
+                    placeholder="***"
+                    maxLength={3}
+                    value={vaultCardCvc}
+                    onChange={(e) => setVaultCardCvc(e.target.value.replace(/\D/g, '').slice(0, 3))}
+                    style={{
+                      width: '100%',
+                      border: '1px solid #e2e8f0',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      outline: 'none',
+                      borderRadius: '4px',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#64748b', background: '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: '1px dashed #e2e8f0', marginTop: '8px' }}>
+                <ShieldCheck size={16} className="text-[#10b981]" style={{ flexShrink: 0 }} />
+                <span>This is a secure simulated Stripe test payment. Any inputs will succeed.</span>
+              </div>
+
+              {vaultError && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#ef4444', fontSize: '13px', justifyContent: 'center', marginTop: '8px' }}>
+                  <AlertCircle size={14} />
+                  <span>{vaultError}</span>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={isVaultPaying}
+                style={{
+                  width: '100%',
+                  backgroundColor: '#111',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '14px 0',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.2em',
+                  cursor: 'pointer',
+                  marginTop: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  opacity: isVaultPaying ? 0.7 : 1
+                }}
+              >
+                {isVaultPaying ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Pay & Unlock Vault'
+                )}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {showScrollTop && !activeCustomizerProduct && !viewingPhoto && (
         <button

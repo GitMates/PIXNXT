@@ -10,7 +10,7 @@ import { galleryService } from '../../services/gallery.service';
 import { cn } from '../../lib/utils';
 import { Container } from '../../components/ui/Container';
 import { Typography } from '../../components/ui/Typography';
-import { X, Mail, Share2, Download, Heart, Play, ShoppingBag, ShoppingCart } from 'lucide-react';
+import { X, Mail, Share2, Download, Heart, Play, ShoppingBag, ShoppingCart, CreditCard, ShieldCheck, AlertCircle, Loader2 } from 'lucide-react';
 import { DownloadModal } from '../../components/features/Gallery/DownloadModal/DownloadModal';
 import { ShareCollectionModal } from '../../components/features/Gallery/ShareCollectionModal/ShareCollectionModal';
 import { downloadSinglePhotoFile } from '../../lib/downloadPhoto';
@@ -96,6 +96,179 @@ const GalleryView = () => {
   const [isSubmittingShopEmail, setIsSubmittingShopEmail] = useState(false);
   const [activeProducts, setActiveProducts] = useState([]);
 
+  // Paid Digital Download States
+  const [showDigitalDownloadModal, setShowDigitalDownloadModal] = useState(false);
+  const [digitalDownloadPhoto, setDigitalDownloadPhoto] = useState(null);
+  const [showDigitalPurchaseDetail, setShowDigitalPurchaseDetail] = useState(false);
+  const [isPurchaseAllDefault, setIsPurchaseAllDefault] = useState(false);
+  const [pendingDownloadPhoto, setPendingDownloadPhoto] = useState(null);
+  const [isPendingDownloadAll, setIsPendingDownloadAll] = useState(false);
+  const [selectedDownloadType, setSelectedDownloadType] = useState('single'); // 'single' or 'all'
+
+  // Permanent Vault States
+  const [showVaultPaymentModal, setShowVaultPaymentModal] = useState(false);
+  const [selectedVaultPlan, setSelectedVaultPlan] = useState(null);
+  const [vaultCardName, setVaultCardName] = useState('');
+  const [vaultCardNumber, setVaultCardNumber] = useState('');
+  const [vaultCardExpiry, setVaultCardExpiry] = useState('');
+  const [vaultCardCvc, setVaultCardCvc] = useState('');
+  const [isVaultPaying, setIsVaultPaying] = useState(false);
+  const [vaultEmail, setVaultEmail] = useState('');
+  const [vaultError, setVaultError] = useState('');
+  const [vaultPurchasedState, setVaultPurchasedState] = useState(false);
+  const [vaultPlan, setVaultPlan] = useState(null); // from vault_extension_plans table
+  const [vaultPaymentMethod, setVaultPaymentMethod] = useState('Credit Card');
+
+  const openVaultModal = () => {
+    setVaultError('');
+    setSelectedVaultPlan(null);
+    setVaultPaymentMethod('Credit Card'); // reset to default
+    setShowVaultPaymentModal(true);
+  };
+
+  const getExtensionExpiryDate = (plan) => {
+    if (!collection?.auto_expiry) {
+      const now = new Date();
+      if (plan === '1month') now.setDate(now.getDate() + 30);
+      else if (plan === '1year') now.setDate(now.getDate() + 365);
+      return now.toLocaleDateString('en-IN', { dateStyle: 'long' });
+    }
+    const baseDate = new Date(collection.auto_expiry);
+    if (plan === '1month') {
+      baseDate.setDate(baseDate.getDate() + 30);
+      return baseDate.toLocaleDateString('en-IN', { dateStyle: 'long' });
+    } else if (plan === '1year') {
+      baseDate.setDate(baseDate.getDate() + 365);
+      return baseDate.toLocaleDateString('en-IN', { dateStyle: 'long' });
+    }
+    return 'Permanent';
+  };
+
+  useEffect(() => {
+    if (collection?.id) {
+      // 1. Fetch vault settings (enabled, price, desc, etc.)
+      galleryService.fetchVaultPlan(collection.id).then(plan => {
+        if (plan) setVaultPlan(plan);
+      });
+      // 2. Fetch from database if they already purchased the permanent vault for this gallery!
+      supabase
+        .from('buylink_plans')
+        .select('id')
+        .eq('collection_id', collection.id)
+        .eq('status', 'completed')
+        .limit(1)
+        .then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            setVaultPurchasedState(true);
+          } else {
+            // fallback to local storage
+            setVaultPurchasedState(localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true');
+          }
+        });
+    }
+  }, [collection?.id]);
+
+  useEffect(() => {
+    if (email && !vaultEmail) {
+      setVaultEmail(email);
+    }
+  }, [email]);
+
+  const handleVaultPaymentSubmit = async (e) => {
+    e.preventDefault();
+    setVaultError('');
+
+    const targetEmail = vaultEmail || email;
+    if (!targetEmail) {
+      setVaultError('Please enter your email address for delivery confirmation.');
+      return;
+    }
+
+    if (vaultPaymentMethod === 'Credit Card') {
+      if (!vaultCardName.trim()) {
+        setVaultError('Cardholder Name is required');
+        return;
+      }
+      if (!vaultCardNumber.trim() || vaultCardNumber.replace(/\s/g, '').length < 16) {
+        setVaultError('Please enter a valid 16-digit card number');
+        return;
+      }
+      if (!vaultCardExpiry.trim() || !/^\d{2}\/\d{2}$/.test(vaultCardExpiry)) {
+        setVaultError('Please enter a valid expiry date (MM/YY)');
+        return;
+      }
+      if (!vaultCardCvc.trim() || vaultCardCvc.length < 3) {
+        setVaultError('Please enter a valid 3-digit CVC');
+        return;
+      }
+    }
+
+    setIsVaultPaying(true);
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      let price = 499;
+      let planName = 'Permanent Vault Storage Access';
+
+      if (selectedVaultPlan === '1month') {
+        price = parseFloat(vaultPlan?.price_1month || 99);
+        planName = 'Gallery Access Extension (1 Month)';
+      } else if (selectedVaultPlan === '1year') {
+        price = parseFloat(vaultPlan?.price_1year || 299);
+        planName = 'Gallery Access Extension (1 Year)';
+      } else {
+        price = parseFloat(vaultPlan?.price_lifetime || 499);
+        planName = 'Permanent Vault Storage Access';
+      }
+
+      const { data: purchase, error: purchaseError } = await supabase
+        .from('buylink_plans')
+        .insert({
+          collection_id: collection.id,
+          customer_name: vaultCardName || 'Client Visitor',
+          customer_email: targetEmail,
+          amount_paid: price,
+          plan_type: selectedVaultPlan || 'lifetime',
+          status: 'completed',
+          payment_method: vaultPaymentMethod || 'Credit Card',
+          payment_intent_id: 'mock_pi_vault_' + Math.random().toString(36).substr(2, 9)
+        })
+        .select()
+        .single();
+
+      if (purchaseError) throw purchaseError;
+
+      localStorage.setItem(`pixnxt_vault_purchased_${collection.id}`, 'true');
+      localStorage.setItem(`pixnxt_vault_purchased_plan_${collection.id}`, selectedVaultPlan);
+      setVaultPurchasedState(true);
+
+      try {
+        await fetch(`${supabase.supabaseUrl}/functions/v1/send-order-placed-email`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabase.supabaseKey}`
+          },
+          body: JSON.stringify({
+            orderId: purchase.id,
+            recipientEmail: targetEmail,
+            siteOrigin: window.location.origin
+          })
+        });
+      } catch (emailErr) {
+        console.warn('Could not trigger vault order placing email:', emailErr);
+      }
+
+      setIsVaultPaying(false);
+      setShowVaultPaymentModal(false);
+    } catch (err) {
+      console.error('Vault payment error:', err);
+      setIsVaultPaying(false);
+      setVaultError(err.message || 'Payment failed. Please check your card details.');
+    }
+  };
+
   useEffect(() => {
     async function loadActiveProducts() {
       try {
@@ -120,6 +293,63 @@ const GalleryView = () => {
     }
   }, [email]);
 
+  useEffect(() => {
+    if (collection?.digital_download_enabled === true) {
+      const handleContextMenu = (e) => {
+        if (e.target.tagName === 'IMG' || e.target.closest('.gallery-masonry-container') || e.target.closest('.photo-lightbox-root')) {
+          e.preventDefault();
+        }
+      };
+
+      const handleDragStart = (e) => {
+        if (e.target.tagName === 'IMG') {
+          e.preventDefault();
+        }
+      };
+
+      const handleKeyDown = (e) => {
+        const isCmdOrCtrl = e.metaKey || e.ctrlKey;
+        if (isCmdOrCtrl && (e.key === 'c' || e.key === 'C' || e.key === 's' || e.key === 'S')) {
+          e.preventDefault();
+        }
+        if (e.key === 'PrintScreen' || e.key === 'PrtScn') {
+          e.preventDefault();
+        }
+      };
+
+      document.addEventListener('contextmenu', handleContextMenu);
+      document.addEventListener('dragstart', handleDragStart);
+      document.addEventListener('keydown', handleKeyDown);
+
+      const style = document.createElement('style');
+      style.id = 'pixnxt-security-styles';
+      style.innerHTML = `
+        @media print {
+          body {
+            display: none !important;
+          }
+        }
+        img {
+          -webkit-touch-callout: none !important;
+          -webkit-user-select: none !important;
+          -khtml-user-select: none !important;
+          -moz-user-select: none !important;
+          -ms-user-select: none !important;
+          user-select: none !important;
+          pointer-events: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+
+      return () => {
+        document.removeEventListener('contextmenu', handleContextMenu);
+        document.removeEventListener('dragstart', handleDragStart);
+        document.removeEventListener('keydown', handleKeyDown);
+        style.remove();
+      };
+    }
+  }, [collection?.digital_download_enabled]);
+
   const handleShopClick = useCallback(async (photo) => {
     if (!photo || !collection) return;
     const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
@@ -133,7 +363,7 @@ const GalleryView = () => {
   }, [collection, email]);
 
   const handleShopEmailSubmit = async () => {
-    if (!shopEmail || !collection || !pendingShopPhoto) return;
+    if (!shopEmail || !collection) return;
     try {
       setIsSubmittingShopEmail(true);
       const session = await galleryService.createOrGetSession(collection.id, shopEmail);
@@ -142,7 +372,15 @@ const GalleryView = () => {
       
       setShowShopModal(false);
       setIsSubmittingShopEmail(false);
-      window.location.assign(`/printstore?slug=${collection.slug}&photo=${pendingShopPhoto.id}`);
+      
+      if (pendingDownloadPhoto || isPendingDownloadAll) {
+        const photoToPass = isPendingDownloadAll ? null : pendingDownloadPhoto;
+        setPendingDownloadPhoto(null);
+        setIsPendingDownloadAll(false);
+        handleDigitalDownloadClick(photoToPass);
+      } else if (pendingShopPhoto) {
+        window.location.assign(`/printstore?slug=${collection.slug}&photo=${pendingShopPhoto.id}`);
+      }
     } catch (e) {
       console.error("Failed to register shop email session:", e);
       alert("Failed to submit email. Please try again.");
@@ -388,8 +626,73 @@ const GalleryView = () => {
     }
   };
 
+  const handleDigitalDownloadClick = async (photoOrEvent = null) => {
+    const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
+    const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+    if (!savedEmail) {
+      if (photo) {
+        setPendingDownloadPhoto(photo);
+        setIsPendingDownloadAll(false);
+      } else {
+        setPendingDownloadPhoto(filteredPhotos[0] || null);
+        setIsPendingDownloadAll(true);
+      }
+      setShopEmail(email || '');
+      setShowShopModal(true);
+      return;
+    }
+
+    try {
+      const { data: orders, error: ordersError } = await supabase
+        .from('printstore_orders')
+        .select('id, status, printstore_order_items(product_type, options)')
+        .eq('collection_id', collection.id)
+        .eq('customer_email', savedEmail)
+        .in('status', ['completed', 'paid', 'success']);
+
+      if (!ordersError && orders && orders.length > 0) {
+        const boughtAll = orders.some(o => 
+          (o.printstore_order_items || []).some(item => item.product_type === 'digital_download_all')
+        );
+        
+        if (boughtAll) {
+          if (photo) {
+            await downloadSinglePhotoFile(photo);
+          } else {
+            setSelectedDownloadPhoto(null);
+            setShowDownloadModal(true);
+          }
+          return;
+        } else {
+          const boughtThisPhoto = photo && orders.some(o =>
+            (o.printstore_order_items || []).some(item => 
+              item.product_type === 'digital_download' && item.options?.photo?.id === photo.id
+            )
+          );
+          
+          if (photo && boughtThisPhoto) {
+            await downloadSinglePhotoFile(photo);
+            return;
+          }
+        }
+      }
+      
+      setDigitalDownloadPhoto(photo || filteredPhotos[0] || null);
+      setIsPurchaseAllDefault(!photo);
+      setShowDigitalDownloadModal(true);
+    } catch (err) {
+      console.error('Error verifying digital download purchase:', err);
+      setDigitalDownloadPhoto(photo || filteredPhotos[0] || null);
+      setIsPurchaseAllDefault(!photo);
+      setShowDigitalDownloadModal(true);
+    }
+  };
+
   const handleDownloadClick = async (photoOrEvent = null) => {
-    // Distinguish between a photo object and a browser event
+    if (collection?.digital_download_enabled === true) {
+      handleDigitalDownloadClick(photoOrEvent);
+      return;
+    }
     const photo = (photoOrEvent && photoOrEvent.id) ? photoOrEvent : null;
 
     if (photo) {
@@ -435,6 +738,14 @@ const GalleryView = () => {
     }
   };
 
+  const handleDownloadButtonAction = useCallback((photo) => {
+    if (collection?.digital_download_enabled === true) {
+      handleDigitalDownloadClick(photo);
+    } else {
+      handleDownloadClick(photo);
+    }
+  }, [collection, handleDigitalDownloadClick, handleDownloadClick]);
+
   const galleryRef = useRef(null);
 
   const scrollToGallery = useCallback(() => {
@@ -475,13 +786,15 @@ const GalleryView = () => {
   const isGalleryDark = effectiveSettings.color_palette === 'dark';
 
   const showGalleryDownload =
-    isCollectionFeatureEnabled(collection?.downloads_enabled) &&
-    isCollectionFeatureEnabled(collection?.gallery_download_enabled);
+    (isCollectionFeatureEnabled(collection?.downloads_enabled) &&
+    isCollectionFeatureEnabled(collection?.gallery_download_enabled)) ||
+    collection?.digital_download_enabled === true;
   const showGalleryShare = isCollectionFeatureEnabled(collection?.social_sharing_enabled);
   const showGallerySlideshow = isSlideshowEnabledForCollection(collection);
   const showSinglePhotoDownload =
-    isCollectionFeatureEnabled(collection?.downloads_enabled) &&
-    isCollectionFeatureEnabled(collection?.single_photo_download_enabled);
+    (isCollectionFeatureEnabled(collection?.downloads_enabled) &&
+    isCollectionFeatureEnabled(collection?.single_photo_download_enabled)) ||
+    collection?.digital_download_enabled === true;
 
   const shareUrl = typeof window !== 'undefined' ? window.location.origin + "/gallery/" + (slug || '') : '';
   const shareTitle = collection?.name || 'Collection';
@@ -849,6 +1162,29 @@ const GalleryView = () => {
       data-gallery-chrome="large"
       data-gallery-viewport={isMobileViewport ? 'mobile' : 'desktop'}
     >
+      {vaultPurchasedState && (
+        <div style={{
+          backgroundColor: '#059669',
+          color: '#ffffff',
+          padding: '12px 24px',
+          textAlign: 'center',
+          fontSize: '11px',
+          fontWeight: 800,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
+          position: 'relative',
+          zIndex: 1000,
+          fontFamily: "'europa', sans-serif"
+        }}>
+          <span>💚 Lifetime Vault Storage Active — This gallery is permanently online</span>
+        </div>
+      )}
+
       {/* Hero Section */}
       <div
         className="gallery-view-hero w-full h-[100dvh] [&>div]:!h-full"
@@ -926,6 +1262,89 @@ const GalleryView = () => {
               {activeFavoriteList.description.trim()}
             </div>
           ) : null}
+
+          {/* Permanent Vault Storage Alert/Banner */}
+          {collection?.auto_expiry && vaultPlan?.vault_enabled === true && (
+            <div style={{ maxWidth: '1200px', margin: '0 auto 24px auto', padding: '0 8px' }}>
+              {!vaultPurchasedState ? (
+                <div style={{
+                  background: 'linear-gradient(90deg, #18181b 0%, #27272a 100%)',
+                  color: '#ffffff',
+                  padding: '16px 24px',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  borderRadius: '8px',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+                  fontFamily: 'var(--font-heading, "Outfit", sans-serif)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '20px' }}>🔒</span>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        Permanent Vault Storage
+                      </h4>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#a1a1aa' }}>
+                        This gallery will expire on <strong>{new Date(collection.auto_expiry).toLocaleDateString('en-IN', { dateStyle: 'long' })}</strong>. Buy Permanent Vault to keep these memories online forever.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={openVaultModal}
+                    style={{
+                      background: '#ffffff',
+                      color: '#111111',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '8px 16px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                  >
+                    Unlock Lifetime Access (₹{vaultPlan?.price_lifetime || '499'})
+                  </button>
+                </div>
+              ) : (
+                <div style={{
+                  background: '#ecfdf5',
+                  border: '1px solid #bbf7d0',
+                  color: '#065f46',
+                  padding: '16px 24px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  borderRadius: '8px',
+                  fontFamily: 'var(--font-heading, "Outfit", sans-serif)'
+                }}>
+                  <span style={{ fontSize: '20px' }}>✅</span>
+                  <div>
+                    <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#047857' }}>
+                      {localStorage.getItem(`pixnxt_vault_purchased_plan_${collection.id}`) === '1month' ? '1 Month Extension Unlocked' : localStorage.getItem(`pixnxt_vault_purchased_plan_${collection.id}`) === '1year' ? '1 Year Extension Unlocked' : 'Permanent Vault Unlocked'}
+                    </h4>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#047857' }}>
+                      {localStorage.getItem(`pixnxt_vault_purchased_plan_${collection.id}`) === '1month' ? (
+                        <>Thank you! 1 Month gallery access extension has been purchased. Your gallery is active until <strong>{getExtensionExpiryDate('1month')}</strong>.</>
+                      ) : localStorage.getItem(`pixnxt_vault_purchased_plan_${collection.id}`) === '1year' ? (
+                        <>Thank you! 1 Year gallery access extension has been purchased. Your gallery is active until <strong>{getExtensionExpiryDate('1year')}</strong>.</>
+                      ) : (
+                        <>Thank you! Lifetime storage has been purchased. This gallery will remain online permanently.</>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <GalleryStickyNav
             isGalleryView
             isGalleryViewMobile={isMobileViewport}
@@ -951,6 +1370,10 @@ const GalleryView = () => {
             onShopClick={handleShopHeaderClick}
             showPrintLab={collection?.store_enabled !== false}
             onPrintLabClick={() => setShowPrintLabModal(true)}
+            showBuyGallery={vaultPlan?.vault_enabled === true && !vaultPurchasedState}
+            buyGalleryLabel="Buy Link"
+            onBuyGalleryClick={openVaultModal}
+            isPaidDownload={collection?.digital_download_enabled === true}
             isDark={isGalleryDark}
             mediaFilter={!isFavoriteListMode ? mediaFilter : undefined}
             onMediaFilterChange={!isFavoriteListMode ? setMediaFilter : undefined}
@@ -1021,13 +1444,14 @@ const GalleryView = () => {
               gridSettings={galleryGridSettings}
               onImageClick={openLightbox}
               onFavorite={(photo) => handleFavoritePhotoToggle(photo)}
-              onDownload={handleDownloadClick}
+              onDownload={handleDownloadButtonAction}
               onShare={() => setShowShareModal(true)}
               onTogglePrivate={handleTogglePhotoPrivate}
               isClientViewer={isClientViewer}
               allowMarkPrivate={Boolean(collection?.allow_clients_mark_private)}
               showPrivateBadge={isClientViewer}
               showDownload={showSinglePhotoDownload}
+              isPaidDownload={collection?.digital_download_enabled === true}
               showFavorite={collection?.favorites_enabled !== false}
               showShare={showGalleryShare}
               showShop={collection?.store_enabled !== false}
@@ -1088,10 +1512,11 @@ const GalleryView = () => {
           const photo = filteredPhotos[lightboxIndex];
           if (photo) handleFavoritePhotoToggle(photo);
         }}
-        onDownload={() => handleDownloadClick(filteredPhotos[lightboxIndex])}
+        onDownload={() => handleDownloadButtonAction(filteredPhotos[lightboxIndex])}
         onShare={() => setShowShareModal(true)}
         onShop={() => handleShopClick(filteredPhotos[lightboxIndex])}
         showDownload={showSinglePhotoDownload}
+        isPaidDownload={collection?.digital_download_enabled === true}
         showFavorite={collection?.favorites_enabled !== false}
         showShare={showGalleryShare}
         showShop={collection?.store_enabled !== false}
@@ -1426,6 +1851,647 @@ const GalleryView = () => {
           </div>
         );
       })()}
+      {/* 6) Paid Digital Download Modals */}
+      {showDigitalDownloadModal && digitalDownloadPhoto && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000, padding: '20px', boxSizing: 'border-box', backdropFilter: 'blur(6px)' }}>
+          {!showDigitalPurchaseDetail ? (
+            /* Modal 1: Choice screen */
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', display: 'flex', height: '520px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
+              {/* Left Photo / Collage View (Scrollable if entire collection) */}
+              <div style={{ width: '40%', height: '100%', position: 'relative', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '16px', boxSizing: 'border-box', overflowY: isPurchaseAllDefault ? 'auto' : 'hidden', justifyContent: isPurchaseAllDefault ? 'flex-start' : 'center', alignItems: 'center' }}>
+                {isPurchaseAllDefault ? (
+                  <div style={{ width: '100%' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#1a1a1a', marginBottom: '12px', textAlign: 'center' }}>
+                      All Photos ({filteredPhotos.length})
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', width: '100%' }}>
+                      {(filteredPhotos || []).map((p, idx) => (
+                        <div key={idx} style={{ aspectRatio: '1', overflow: 'hidden', backgroundColor: '#e2e8f0', borderRadius: '4px' }}>
+                          <img src={p.web_url || p.thumbnail_url || p.full_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <img src={digitalDownloadPhoto.web_url || digitalDownloadPhoto.thumbnail_url || digitalDownloadPhoto.full_url} alt="" style={{ maxWidth: '100%', maxHeight: '90%', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                )}
+                <span style={{ position: 'absolute', bottom: '16px', left: '16px', fontSize: '10px', color: '#64748b' }}>
+                  ⓘ Watermarks do not appear on final products.
+                </span>
+              </div>
+              {/* Right Options Details */}
+              <div style={{ width: '60%', height: '100%', padding: '40px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+                <button onClick={() => setShowDigitalDownloadModal(false)} style={{ position: 'absolute', top: '16px', right: '16px', border: 'none', background: 'none', cursor: 'pointer', padding: '4px' }}>
+                  <X size={22} color="#111" />
+                </button>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '16px', marginBottom: '24px' }}>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#111' }}>
+                    {isPurchaseAllDefault ? 'Buy Digital Downloads' : 'Buy This Photo'}
+                  </h3>
+                  <button onClick={() => { setShowDigitalDownloadModal(false); handleShopClick(digitalDownloadPhoto); }} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '11px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 600 }} className="hover:text-black">
+                    Visit Store &gt;
+                  </button>
+                </div>
+
+                <div style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#111', marginBottom: '16px', borderBottom: '2px solid #111', width: 'fit-content', paddingBottom: '4px' }}>Digital Options</div>
+
+                {/* Option 1: Single Download item (only if not forced all) */}
+                {!isPurchaseAllDefault && (
+                  <button
+                    onClick={() => { setSelectedDownloadType('single'); setShowDigitalPurchaseDetail(true); }}
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
+                  >
+                    <span style={{ fontSize: '13px', fontWeight: 500 }}>Single Photo Download (High Resolution)</span>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>₹{(collection.digital_download_price_single || 40).toFixed(2)} &gt;</span>
+                  </button>
+                )}
+
+                {/* Option 2: Entire Collection Download item */}
+                <button
+                  onClick={() => { setSelectedDownloadType('all'); setShowDigitalPurchaseDetail(true); }}
+                  style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', padding: '16px 0', border: 'none', borderBottom: '1px solid #e2e8f0', background: 'none', color: '#1a1a1a', textAlign: 'left', cursor: 'pointer' }}
+                >
+                  <span style={{ fontSize: '13px', fontWeight: 500 }}>Entire Collection Download (All Photos)</span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>₹{(collection.digital_download_price_all || 199).toFixed(2)} &gt;</span>
+                </button>
+
+                {isPurchaseAllDefault ? (
+                  <div style={{ marginTop: '24px', fontSize: '12px', color: '#64748b', lineHeight: 1.5 }}>
+                    ⓘ To purchase a single photo download instead, close this modal and click the download icon on any individual photo in the gallery.
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ marginTop: '24px', marginBottom: '16px', fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#111' }}>Shop All Digital</div>
+                    <div
+                      onClick={() => { setSelectedDownloadType('all'); setShowDigitalPurchaseDetail(true); }}
+                      style={{ border: '1px solid #e2e8f0', padding: '12px', display: 'flex', flexDirection: 'column', width: '160px', boxSizing: 'border-box', cursor: 'pointer', background: '#f8fafc', borderRadius: '8px' }}
+                      className="hover:border-black/30"
+                    >
+                      <div style={{ width: '100%', height: '80px', backgroundColor: '#e2e8f0', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', borderRadius: '4px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px', width: '100%', height: '100%' }}>
+                          {(filteredPhotos.slice(0, 4) || []).map((p, idx) => (
+                            <img key={idx} src={p.web_url || p.thumbnail_url || p.full_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ))}
+                        </div>
+                        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Download size={20} color="#fff" />
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '10px', fontWeight: 700, marginTop: '8px', color: '#111', lineHeight: 1.2 }}>Entire Collection</span>
+                      <span style={{ fontSize: '10px', color: '#64748b', marginTop: '2px' }}>₹{(collection.digital_download_price_all || 199).toFixed(2)}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Modal 2: Product purchasing detail screen */
+            <div style={{ backgroundColor: '#ffffff', borderRadius: '0px', width: '100%', maxWidth: '820px', display: 'flex', flexDirection: 'column', height: '520px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.15)', color: '#1a1a1a', fontFamily: "'europa', sans-serif" }}>
+              {/* Top Header Bar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px', borderBottom: '1px solid #e2e8f0', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <button onClick={() => setShowDigitalPurchaseDetail(false)} style={{ border: 'none', background: 'none', cursor: 'pointer', color: '#111', display: 'flex', alignItems: 'center', fontSize: '18px' }}>
+                    &larr;
+                  </button>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#111' }}>
+                    {selectedDownloadType === 'all' ? 'Entire Collection Download (All Photos)' : 'Single Photo Download (High Resolution)'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748b' }}>
+                    Total: ₹{((selectedDownloadType === 'all' ? collection.digital_download_price_all : collection.digital_download_price_single) || (selectedDownloadType === 'all' ? 199 : 40)).toFixed(2)}
+                  </span>
+                  <button
+                    onClick={() => {
+                      const cartKey = 'pixnxt_printstore_cart';
+                      const cartStr = localStorage.getItem(cartKey) || '[]';
+                      const cart = JSON.parse(cartStr);
+                      
+                      const isAll = selectedDownloadType === 'all';
+                      const itemProductId = isAll ? 'digital_download_all' : 'digital_download';
+                      const itemProductName = isAll ? 'Entire Collection Download (All Photos)' : 'Single Photo Download (High Resolution)';
+                      const itemUnitPrice = (isAll ? collection.digital_download_price_all : collection.digital_download_price_single) || (isAll ? 199 : 40);
+                      
+                      const existing = cart.find(item => (item.product_id === itemProductId || item.productId === itemProductId) && (isAll || item.options?.photo?.id === digitalDownloadPhoto.id));
+                      if (!existing) {
+                        cart.push({
+                          id: `dig-${Date.now()}`,
+                          productId: itemProductId,
+                          product_id: itemProductId,
+                          productName: itemProductName,
+                          unitPrice: itemUnitPrice,
+                          quantity: 1,
+                          options: {
+                            photo: isAll ? null : digitalDownloadPhoto,
+                            size: { label: isAll ? 'All Photos' : 'High Resolution' }
+                          }
+                        });
+                        localStorage.setItem(cartKey, JSON.stringify(cart));
+                      }
+
+                      // Sync to Supabase in background (non-blocking)
+                      const savedEmail = localStorage.getItem(`pixnxt_fav_email_${collection.id}`);
+                      if (savedEmail) {
+                        galleryService.createOrGetSession(collection.id, savedEmail).then(async (session) => {
+                          if (session?.id) {
+                            const { data: dbProducts } = await supabase
+                              .from('printstore_products')
+                              .select('id')
+                              .eq('product_type', itemProductId)
+                              .limit(1);
+
+                            const productDbId = dbProducts?.[0]?.id;
+                            if (productDbId) {
+                              const checkQuery = supabase
+                                .from('printstore_cart_items')
+                                .select('id')
+                                .eq('session_id', session.id)
+                                .eq('product_id', productDbId);
+
+                              const { data: existingDbItems } = await checkQuery.limit(1);
+
+                              if (!existingDbItems || existingDbItems.length === 0) {
+                                await supabase
+                                  .from('printstore_cart_items')
+                                  .insert({
+                                    session_id: session.id,
+                                    product_id: productDbId,
+                                    quantity: 1,
+                                    options: {
+                                      productId: itemProductId,
+                                      productName: itemProductName,
+                                      photo: isAll ? null : digitalDownloadPhoto,
+                                      size: { label: isAll ? 'All Photos' : 'High Resolution' },
+                                      unitPrice: itemUnitPrice
+                                    }
+                                  });
+                              }
+                            }
+                          }
+                        }).catch(e => {
+                          console.error("Error syncing digital item to Supabase cart:", e);
+                        });
+                      }
+                      
+                      setShowDigitalDownloadModal(false);
+                      setShowDigitalPurchaseDetail(false);
+                      window.location.assign(`/printstore?slug=${collection.slug}&cart=open`);
+                    }}
+                    style={{
+                      padding: '10px 24px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      backgroundColor: '#111',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '9999px',
+                      cursor: 'pointer',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.08em',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#333'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#111'}
+                  >
+                    Add to Cart
+                  </button>
+                </div>
+              </div>
+
+              {/* Detail Content View (Scrollable left column if all) */}
+              <div style={{ display: 'flex', flex: 1, height: 'calc(100% - 60px)' }}>
+                {/* Left side Image / Grid */}
+                <div style={{ width: '50%', height: '100%', background: '#f8fafc', display: 'flex', flexDirection: 'column', padding: '24px', boxSizing: 'border-box', position: 'relative', overflowY: selectedDownloadType === 'all' ? 'auto' : 'hidden', justifyContent: selectedDownloadType === 'all' ? 'flex-start' : 'center', alignItems: 'center' }}>
+                  {selectedDownloadType === 'all' ? (
+                    <div style={{ width: '100%' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', width: '100%', backgroundColor: '#f8fafc' }}>
+                        {(filteredPhotos || []).map((p, idx) => (
+                          <div key={idx} style={{ aspectRatio: '1', overflow: 'hidden', backgroundColor: '#e2e8f0', borderRadius: '4px' }}>
+                            <img src={p.web_url || p.thumbnail_url || p.full_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <img src={digitalDownloadPhoto.web_url || digitalDownloadPhoto.thumbnail_url || digitalDownloadPhoto.full_url} alt="" style={{ maxWidth: '100%', maxHeight: '90%', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                  )}
+                </div>
+                {/* Right side details info */}
+                <div style={{ width: '50%', height: '100%', padding: '40px 32px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '20px', borderLeft: '1px solid #e2e8f0', backgroundColor: '#ffffff' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+                    <Download size={20} color="#64748b" style={{ flexShrink: 0, marginTop: '2px' }} />
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '13px', fontWeight: 700, color: '#111' }}>Digital files are delivered via email upon checkout</h4>
+                      <p style={{ margin: 0, fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>
+                        A download link will be sent to the email address entered during purchase checkout once payment is completed.
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '12px' }}>
+                    <span style={{ fontSize: '16px', color: '#64748b', flexShrink: 0 }}>🛈</span>
+                    <div>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '12px', fontWeight: 600, color: '#334155' }}>
+                        Note: The original high-resolution images with no watermark will be used.
+                      </h4>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {/* 7) Permanent Vault Payment Modal */}
+      <AnimatePresence>
+        {showVaultPaymentModal && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
+            <Motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowVaultPaymentModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <Motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 20, scale: 0.95 }}
+              style={{ fontFamily: "'europa', sans-serif" }}
+              className={cn(
+                'relative w-full shadow-2xl rounded-none text-left p-8 max-w-md',
+                isGalleryDark ? 'bg-[#1a1a1a] text-white ring-1 ring-white/10' : 'bg-white text-zinc-900'
+              )}
+            >
+              <button
+                type="button"
+                onClick={() => setShowVaultPaymentModal(false)}
+                className={cn(
+                  'absolute right-4 top-4 transition-colors',
+                  isGalleryDark ? 'text-white/50 hover:text-white' : 'text-zinc-400 hover:text-zinc-950'
+                )}
+              >
+                <X size={20} />
+              </button>
+
+              {selectedVaultPlan === null ? (
+                <div>
+                  <h2 className="text-center text-[15px] font-bold uppercase tracking-[0.3em] mb-2" style={{ color: isGalleryDark ? '#fff' : '#111' }}>
+                    Extend Gallery Access
+                  </h2>
+                  <p className="text-center text-[13px] text-zinc-500 mb-8">
+                    Choose a plan to extend this gallery's active duration or store it permanently.
+                  </p>
+
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
+                    {/* Centered single Lifetime card */}
+                    <div style={{
+                      border: isGalleryDark ? '2px solid var(--gallery-text, #111)' : '2px solid #111',
+                      backgroundColor: isGalleryDark ? '#1a1a1a' : '#fff',
+                      padding: '24px 20px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      borderRadius: '8px',
+                      position: 'relative',
+                      width: '100%',
+                      maxWidth: '300px'
+                    }}>
+                      <span style={{ position: 'absolute', top: '-10px', fontSize: '9px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'var(--gallery-text, #111)', color: 'var(--gallery-bg, #fff)', padding: '2px 6px', borderRadius: '4px' }}>Best Value</span>
+                      <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', marginBottom: '8px', marginTop: '4px' }}>Lifetime</span>
+                      <strong style={{ fontSize: '24px', fontWeight: 800, color: isGalleryDark ? '#fff' : '#111', marginBottom: '8px' }}>
+                        ₹{vaultPlan?.price_lifetime || '499'}
+                      </strong>
+                      <span style={{ fontSize: '11.5px', color: '#64748b', marginBottom: '8px', lineHeight: 1.4, minHeight: '34px' }}>
+                        {vaultPlan?.desc_lifetime || 'Permanent lifetime storage access.'}
+                      </span>
+                      <span style={{ fontSize: '11px', color: '#047857', fontWeight: 700, marginBottom: '16px' }}>
+                        Active Online: Unlimited
+                      </span>
+                      <button
+                        onClick={() => setSelectedVaultPlan('lifetime')}
+                        style={{
+                          width: '100%',
+                          padding: '10px 12px',
+                          fontSize: '11px',
+                          fontWeight: 700,
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.05em',
+                          border: 'none',
+                          cursor: 'pointer',
+                          backgroundColor: 'var(--gallery-text, #111)',
+                          color: 'var(--gallery-bg, #fff)'
+                        }}
+                      >
+                        Choose Plan
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedVaultPlan(null)}
+                    style={{
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      border: 'none',
+                      background: 'none',
+                      color: isGalleryDark ? '#fff' : '#111',
+                      cursor: 'pointer',
+                      padding: 0,
+                      marginBottom: '20px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                  >
+                    &larr; Back to plans
+                  </button>
+
+                  <h2 className="text-[15px] font-bold uppercase tracking-[0.3em] mb-2" style={{ color: isGalleryDark ? '#fff' : '#111' }}>
+                    Checkout
+                  </h2>
+                  <p className="text-[13px] text-zinc-500 mb-4">
+                    Unlock permanent gallery vault access via secure card payment.
+                  </p>
+
+                  {/* Plan Description Card */}
+                  <div style={{
+                    padding: '14px 18px',
+                    backgroundColor: isGalleryDark ? '#262626' : '#fcfbfa',
+                    borderLeft: '4px solid var(--gallery-accent, #059669)',
+                    borderTop: isGalleryDark ? '1px solid #3f3f46' : '1px solid #f2ede4',
+                    borderRight: isGalleryDark ? '1px solid #3f3f46' : '1px solid #f2ede4',
+                    borderBottom: isGalleryDark ? '1px solid #3f3f46' : '1px solid #f2ede4',
+                    borderRadius: '0 8px 8px 0',
+                    marginBottom: '20px',
+                    fontSize: '12.5px',
+                    lineHeight: 1.5,
+                    color: isGalleryDark ? '#d4d4d8' : '#4b5563'
+                  }}>
+                    {vaultPlan?.desc_lifetime || 'Permanent lifetime storage access.'}
+                  </div>
+
+                {/* Price Details */}
+                <div style={{
+                  background: isGalleryDark ? '#262626' : '#fcfbfa',
+                  border: isGalleryDark ? '1px solid #3f3f46' : '1px solid #f2ede4',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  marginBottom: '20px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Plan Type</span>
+                      <strong style={{ color: isGalleryDark ? '#fff' : '#111', fontSize: '14px' }}>
+                        Lifetime Permanent Vault
+                      </strong>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#64748b', fontWeight: 600 }}>Amount Due</span>
+                      <strong style={{ color: isGalleryDark ? '#fff' : '#111', fontSize: '18px', fontWeight: 700 }}>
+                        ₹{vaultPlan?.price_lifetime || '499'}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Method Selector Tabs */}
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '20px' }}>
+                  <button
+                    type="button"
+                    onClick={() => setVaultPaymentMethod('Credit Card')}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      border: vaultPaymentMethod === 'Credit Card' ? '2px solid var(--gallery-accent, #059669)' : (isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0'),
+                      backgroundColor: vaultPaymentMethod === 'Credit Card' ? (isGalleryDark ? '#1f2937' : '#f0fdf4') : 'transparent',
+                      color: vaultPaymentMethod === 'Credit Card' ? (isGalleryDark ? '#34d399' : '#059669') : (isGalleryDark ? '#9ca3af' : '#4b5563'),
+                      cursor: 'pointer',
+                      borderRadius: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    💳 Credit Card
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVaultPaymentMethod('UPI')}
+                    style={{
+                      flex: 1,
+                      padding: '10px 16px',
+                      fontSize: '11px',
+                      fontWeight: 700,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      border: vaultPaymentMethod === 'UPI' ? '2px solid var(--gallery-accent, #059669)' : (isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0'),
+                      backgroundColor: vaultPaymentMethod === 'UPI' ? (isGalleryDark ? '#1f2937' : '#f0fdf4') : 'transparent',
+                      color: vaultPaymentMethod === 'UPI' ? (isGalleryDark ? '#34d399' : '#059669') : (isGalleryDark ? '#9ca3af' : '#4b5563'),
+                      cursor: 'pointer',
+                      borderRadius: '6px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    📱 UPI
+                  </button>
+                </div>
+
+                {/* Card / UPI Form */}
+                <form onSubmit={handleVaultPaymentSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Delivery Email</label>
+                    <input
+                      type="email"
+                      required
+                      placeholder="name@example.com"
+                      value={vaultEmail}
+                      onChange={(e) => setVaultEmail(e.target.value)}
+                      className={cn(
+                        'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                        isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                      )}
+                    />
+                  </div>
+
+                  {vaultPaymentMethod === 'Credit Card' ? (
+                    <>
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Cardholder Name</label>
+                        <input
+                          type="text"
+                          required={vaultPaymentMethod === 'Credit Card'}
+                          placeholder="John Doe"
+                          value={vaultCardName}
+                          onChange={(e) => setVaultCardName(e.target.value)}
+                          className={cn(
+                            'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                            isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                          )}
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Card Number</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            required={vaultPaymentMethod === 'Credit Card'}
+                            placeholder="4242 4242 4242 4242"
+                            value={vaultCardNumber}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 16);
+                              const formatted = val.replace(/(.{4})/g, '$1 ').trim();
+                              setVaultCardNumber(formatted);
+                            }}
+                            className={cn(
+                              'w-full border rounded pl-10 pr-3 py-2 text-[14px] outline-none transition-colors',
+                              isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                            )}
+                          />
+                          <CreditCard size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Expiry Date</label>
+                          <input
+                            type="text"
+                            required={vaultPaymentMethod === 'Credit Card'}
+                            placeholder="MM/YY"
+                            value={vaultCardExpiry}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                              const formatted = val.length > 2 ? `${val.slice(0, 2)}/${val.slice(2)}` : val;
+                              setVaultCardExpiry(formatted);
+                            }}
+                            className={cn(
+                              'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                              isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                            )}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold uppercase tracking-[0.1em] text-zinc-400 mb-1.5">Security Code (CVC)</label>
+                          <input
+                            type="text"
+                            required={vaultPaymentMethod === 'Credit Card'}
+                            placeholder="123"
+                            value={vaultCardCvc}
+                            onChange={(e) => {
+                              const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                              setVaultCardCvc(val);
+                            }}
+                            className={cn(
+                              'w-full border rounded px-3 py-2 text-[14px] outline-none transition-colors',
+                              isGalleryDark ? 'border-zinc-700 bg-zinc-800 text-white focus:border-white' : 'border-zinc-200 bg-white focus:border-black'
+                            )}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '20px',
+                      border: isGalleryDark ? '1px solid #3f3f46' : '1px solid #e2e8f0',
+                      borderRadius: '8px',
+                      backgroundColor: isGalleryDark ? '#262626' : '#fafafa'
+                    }}>
+                      <div style={{
+                        padding: '16px',
+                        backgroundColor: '#fff',
+                        border: '1px solid #eaeaea',
+                        borderRadius: '8px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '8px',
+                        marginBottom: '12px'
+                      }}>
+                        {/* Visual mockup of a QR code using pure CSS */}
+                        <div style={{
+                          width: '120px',
+                          height: '120px',
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(3, 1fr)',
+                          gridTemplateRows: 'repeat(3, 1fr)',
+                          gap: '6px',
+                          padding: '6px',
+                          background: '#fff'
+                        }}>
+                          <div style={{ border: '5px solid #111', background: 'transparent' }} />
+                          <div style={{ background: '#111', opacity: 0.15 }} />
+                          <div style={{ border: '5px solid #111', background: 'transparent' }} />
+                          <div style={{ background: '#111', opacity: 0.2 }} />
+                          <div style={{ background: '#111' }} />
+                          <div style={{ background: '#111', opacity: 0.3 }} />
+                          <div style={{ border: '5px solid #111', background: 'transparent' }} />
+                          <div style={{ background: '#111', opacity: 0.25 }} />
+                          <div style={{ background: '#111' }} />
+                        </div>
+                        <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Scan with any UPI App</span>
+                      </div>
+                      <p className="text-[12px] text-center text-zinc-500 max-w-[240px]">
+                        Scan the code to complete secure UPI transfer.
+                      </p>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', color: '#64748b', background: isGalleryDark ? '#262626' : '#f8fafc', padding: '10px 12px', borderRadius: '6px', border: isGalleryDark ? '1px dashed #3f3f46' : '1px dashed #e2e8f0', marginTop: '16px' }}>
+                    <ShieldCheck size={16} className="text-[#10b981] flex-shrink-0" />
+                    <span>This is a secure simulated Stripe test payment. Any inputs will succeed.</span>
+                  </div>
+
+                  {vaultError && (
+                    <div className="flex items-center gap-2 text-rose-500 text-[13px] justify-center mt-2">
+                      <AlertCircle size={14} />
+                      <span>{vaultError}</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="submit"
+                    disabled={isVaultPaying}
+                    className="w-full bg-[#111] text-white py-4 text-[13px] font-bold uppercase tracking-[0.25em] hover:bg-zinc-800 transition-colors mt-4 flex items-center justify-center gap-2 disabled:opacity-70"
+                    style={{
+                      backgroundColor: isGalleryDark ? '#fff' : '#111',
+                      color: isGalleryDark ? '#111' : '#fff'
+                    }}
+                  >
+                    {isVaultPaying ? (
+                      <>
+                        <Loader2 size={14} className="animate-spin" />
+                        Processing payment...
+                      </>
+                    ) : (
+                      vaultPaymentMethod === 'UPI' ? 'Confirm UPI Payment' : 'Pay & Unlock Access'
+                    )}
+                  </button>
+                </form>
+              </div>
+              )}
+            </Motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

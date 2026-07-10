@@ -1,12 +1,13 @@
 import React from 'react';
 import { MOCK_PHOTOS } from '../data/mockStoreData';
 
-export default function AllProducts({ products, selectedPhotoUrl, onSelectProduct }) {
-  const defaultImg = selectedPhotoUrl || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200";
-  const secondImg = selectedPhotoUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200";
+export default function AllProducts({ products, selectedPhotoUrl, onSelectProduct, photos = [] }) {
+  const firstPhotoUrl = selectedPhotoUrl || photos[0]?.url || photos[0]?.web_url || "";
+  const secondPhotoUrl = photos[1]?.url || photos[1]?.web_url || selectedPhotoUrl || firstPhotoUrl;
+  
   const renderProductImage = (product) => {
-    const defaultImg = selectedPhotoUrl || product.image;
-    const secondImg = selectedPhotoUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200";
+    const defaultImg = firstPhotoUrl || product.image;
+    const secondImg = secondPhotoUrl;
 
     if (product.id === 'matted_collages') {
       return (

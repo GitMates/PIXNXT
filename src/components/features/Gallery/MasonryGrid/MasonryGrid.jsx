@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion as Motion } from 'framer-motion';
-import { Download, Heart, Share2, Play, ShoppingBag } from 'lucide-react';
+import { Download, Heart, Share2, Play, ShoppingBag, ArrowDownToLine } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
@@ -24,6 +24,7 @@ export function MasonryGrid({
   showFavorite = true,
   showShare = false,
   showShop = true,
+  isPaidDownload = false,
   favoritedPhotoIds = [],
   showFilename = false,
   isPreviewMobile = false,
@@ -223,6 +224,27 @@ export function MasonryGrid({
                   loading="lazy"
                 />
               )}
+              {isPaidDownload && (
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  pointerEvents: 'none',
+                  zIndex: 10,
+                  overflow: 'hidden',
+                }}>
+                  <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0.15 }} xmlns="http://www.w3.org/2000/svg">
+                    <line x1="0" y1="0" x2="100%" y2="100%" stroke="#fff" strokeWidth="2" />
+                    <line x1="100%" y1="0" x2="0" y2="100%" stroke="#fff" strokeWidth="2" />
+                  </svg>
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    opacity: 0.18,
+                    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Ctext x='50%25' y='50%25' font-family='sans-serif' font-size='11' font-weight='800' text-anchor='middle' fill='%23ffffff' transform='rotate(-35 80 80)'%3Epixnxt%3C/text%3E%3C/svg%3E")`,
+                    backgroundRepeat: 'repeat'
+                  }} />
+                </div>
+              )}
               {showFilename && (
                 <div
                   className="gallery-body-text pointer-events-none absolute bottom-2 left-2 right-2 z-[12] truncate rounded px-1.5 py-0.5 text-left text-[13px] font-medium backdrop-blur-sm"
@@ -302,9 +324,17 @@ export function MasonryGrid({
                       }}
                       className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 backdrop-blur-md text-white hover:bg-white hover:text-black transition-all"
                     >
-                      <Download size={16} strokeWidth={1.5} />
+                      {isPaidDownload ? (
+                        <span className="relative">
+                          <ArrowDownToLine size={16} strokeWidth={1.5} />
+                          <span style={{ position: 'absolute', top: '-4px', right: '-6px', fontSize: '6px', fontWeight: 800, lineHeight: 1, background: 'currentColor', color: 'var(--gallery-bg, #fff)', borderRadius: '3px', padding: '1px 2px' }}>₹</span>
+                        </span>
+                      ) : (
+                        <Download size={16} strokeWidth={1.5} />
+                      )}
                     </button>
                   )}
+
                   {showFavorite && (
                     <button
                       type="button"

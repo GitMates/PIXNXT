@@ -2,7 +2,8 @@ import React from 'react';
 import { ImageIcon } from 'lucide-react';
 import { isSlotLandscape, adjustPhotoUrl } from '../data/mockStoreData';
 
-export default function CartItemPreview({ item }) {
+export default function CartItemPreview({ item, collectionPhotos = [] }) {
+  if (!item) return null;
   const product = { id: item.productId }; // We mainly need product.id
   const selectedSize = item.size || {};
   const initialCustomBorderWidthCm = item.customBorderWidthCm || 0;
@@ -13,6 +14,106 @@ export default function CartItemPreview({ item }) {
   let currentHeightCm = pmatch ? parseFloat(pmatch[2]) : 30;
 
   const getPhotoSrc = () => item.editedPhotoUrl || item.photo?.url || '';
+
+  // 0a. Digital Download – Single photo
+  if (product.id === 'digital_download') {
+    const photo = item.options?.photo || item.photo || {};
+    const url = photo.web_url || photo.thumbnail_url || photo.full_url || photo.url || '';
+    return (
+      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fcfcfc', border: '1px solid #e2e8f0', borderRadius: '4px', overflow: 'hidden', position: 'relative' }}>
+        {url ? (
+          <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <ImageIcon size={28} strokeWidth={1.5} color="#888" />
+        )}
+        <div style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <span style={{ color: '#fff', fontSize: '20px', fontWeight: 'bold' }}>↓</span>
+        </div>
+      </div>
+    );
+  }
+
+  // 0b. Digital Download – Entire Collection (All Photos)
+  if (product.id === 'digital_download_all') {
+    if (collectionPhotos.length === 0) {
+      return (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#1a1a1a', borderRadius: '4px', flexDirection: 'column', gap: '6px' }}>
+          <ImageIcon size={28} strokeWidth={1.5} color="#666" />
+          <span style={{ color: '#888', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>All Photos</span>
+        </div>
+      );
+    }
+    return (
+      // Outer: clips overflow, positions the badge
+      <div style={{
+        width: '100%',
+        height: '100%',
+        position: 'relative',
+        borderRadius: '4px',
+        overflow: 'hidden',
+        backgroundColor: '#111',
+      }}>
+        {/* Scrollable inner grid — gridAutoRows fixed so rows overflow and scroll kicks in */}
+        <div style={{
+          position: 'absolute',
+          inset: '3px',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gridAutoRows: '88px',
+          gap: '3px',
+          scrollbarWidth: 'thin',
+          scrollbarColor: 'rgba(255,255,255,0.25) transparent',
+        }}>
+          {collectionPhotos.map((p, idx) => {
+            const src = p.url || p.web_url || p.thumbnail_url || p.full_url || '';
+            return (
+              <div key={idx} style={{ height: '88px', overflow: 'hidden', backgroundColor: '#1e1e1e', borderRadius: '2px', flexShrink: 0 }}>
+                <img
+                  src={src}
+                  alt=""
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: 'center',
+                    display: 'block',
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        {/* Photo count badge pinned to the bottom of the outer container */}
+        <div style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          background: 'linear-gradient(transparent, rgba(0,0,0,0.88))',
+          padding: '20px 6px 8px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+          zIndex: 2,
+        }}>
+          <span style={{
+            color: '#fff',
+            fontSize: '11px',
+            fontWeight: 800,
+            textTransform: 'uppercase',
+            letterSpacing: '0.1em',
+            textShadow: '0 1px 3px rgba(0,0,0,0.7)',
+          }}>
+            {collectionPhotos.length} Photos
+          </span>
+        </div>
+      </div>
+    );
+  }
+
 
   // 1. Matted Collages
   if (product.id === 'matted_collages') {

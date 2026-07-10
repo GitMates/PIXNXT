@@ -5,6 +5,8 @@ import CartItemPreview from './CartItemPreview';
 
 export default function PaymentPage({
   cartItems,
+  collectionPhotos = [],
+  collectionId = '',
   onBack,
   onPaymentSuccess,
   onPlaceOrder,
@@ -14,16 +16,19 @@ export default function PaymentPage({
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [showDetails, setShowDetails] = useState(true);
 
+  const DIGITAL_PRODUCTS = ['digital_download', 'digital_download_all'];
+  const allDigital = cartItems.length > 0 && cartItems.every(i => DIGITAL_PRODUCTS.includes(i.productId));
+
   const totalItems = cartItems.reduce((acc, item) => acc + item.quantity, 0);
   const itemsTotal = cartItems.reduce((acc, item) => acc + item.unitPrice * item.quantity, 0);
-  const shipping = itemsTotal > 0 ? 111.04 : 0;
+  const shipping = allDigital ? 0 : (itemsTotal > 0 ? 111.04 : 0);
   const taxes = 0.00;
   const estimatedTotal = itemsTotal + shipping + taxes;
 
   const [isSuccess, setIsSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    email: '',
+    email: (collectionId ? localStorage.getItem(`pixnxt_fav_email_${collectionId}`) : '') || '',
     cardNumber: '',
     expiration: '',
     cvc: '',
@@ -250,13 +255,13 @@ export default function PaymentPage({
                     <div key={item.id} style={{ display: 'flex', gap: '0.75rem', fontSize: '0.85rem', alignItems: 'center' }}>
                       <div style={{ width: '50px', height: '50px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: '#f7f7f7', border: '1px solid #eaeaea', flexShrink: 0 }}>
                         <div style={{ transform: 'scale(0.16)', transformOrigin: 'center center', width: '307.25px', height: '307.25px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <CartItemPreview item={item} />
+                          <CartItemPreview item={item} collectionPhotos={collectionPhotos} />
                         </div>
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 500, color: '#111', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.productName}</div>
                         <div style={{ color: '#666', fontSize: '0.75rem', marginTop: '2px' }}>
-                          {item.size.label} • Qty: {item.quantity}
+                          {item.size?.label || (item.productId === 'digital_download_all' ? 'All Photos' : 'High Resolution')} • Qty: {item.quantity}
                         </div>
                       </div>
                       <div style={{ fontWeight: 500, flexShrink: 0 }}>
@@ -270,21 +275,24 @@ export default function PaymentPage({
                   <span>Items ({totalItems})</span>
                   <div className="price-right">
                     <span>₹{itemsTotal.toFixed(2)}</span>
-                    <span className="tax-note">Not including taxes</span>
                   </div>
                 </div>
-                <div className="summary-row">
-                  <span>Shipping</span>
-                  <div className="price-right">
-                    <span>₹{shipping.toFixed(2)}</span>
-                  </div>
-                </div>
-                <div className="summary-row">
-                  <span>Taxes</span>
-                  <div className="price-right">
-                    <span>₹{taxes.toFixed(2)}</span>
-                  </div>
-                </div>
+                {!allDigital && (
+                  <>
+                    <div className="summary-row">
+                      <span>Shipping</span>
+                      <div className="price-right">
+                        <span>₹{shipping.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    <div className="summary-row">
+                      <span>Taxes</span>
+                      <div className="price-right">
+                        <span>₹{taxes.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

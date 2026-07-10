@@ -489,13 +489,83 @@ export const galleryService = {
       }
     }
 
+    let finalCollectionData = { ...collectionData };
+    if (typeof window !== 'undefined') {
+      const storedEnabled = localStorage.getItem('pixnxt_global_digital_enabled');
+      const storedSingle = localStorage.getItem('pixnxt_global_digital_price_single');
+      const storedAll = localStorage.getItem('pixnxt_global_digital_price_all');
+
+      if (storedEnabled !== null) {
+        finalCollectionData.digital_download_enabled = storedEnabled === 'true';
+      }
+      if (storedSingle !== null) {
+        finalCollectionData.digital_download_price_single = parseInt(storedSingle);
+      }
+      if (storedAll !== null) {
+        finalCollectionData.digital_download_price_all = parseInt(storedAll);
+      }
+
+      // Vault settings
+      const storedVaultEnabled = localStorage.getItem('pixnxt_global_vault_enabled');
+      const storedVault1Month = localStorage.getItem('pixnxt_global_vault_price_1month');
+      const storedVault1Year = localStorage.getItem('pixnxt_global_vault_price_1year');
+      const storedVaultLifetime = localStorage.getItem('pixnxt_global_vault_price_lifetime');
+      const storedVaultDesc1Month = localStorage.getItem('pixnxt_global_vault_desc_1month');
+      const storedVaultDesc1Year = localStorage.getItem('pixnxt_global_vault_desc_1year');
+      const storedVaultDescLifetime = localStorage.getItem('pixnxt_global_vault_desc_lifetime');
+
+      const vaultSettings = {};
+      if (storedVaultEnabled !== null) {
+        vaultSettings.vault_enabled = storedVaultEnabled === 'true';
+      }
+      if (storedVault1Month !== null) {
+        vaultSettings.price_1month = parseInt(storedVault1Month);
+      }
+      if (storedVault1Year !== null) {
+        vaultSettings.price_1year = parseInt(storedVault1Year);
+      }
+      if (storedVaultLifetime !== null) {
+        vaultSettings.price_lifetime = parseInt(storedVaultLifetime);
+      }
+      if (storedVaultDesc1Month) {
+        vaultSettings.desc_1month = storedVaultDesc1Month;
+      }
+      if (storedVaultDesc1Year) {
+        vaultSettings.desc_1year = storedVaultDesc1Year;
+      }
+      if (storedVaultDescLifetime) {
+        vaultSettings.desc_lifetime = storedVaultDescLifetime;
+      }
+
+      // Store in memory to insert post collection creation
+      finalCollectionData._vaultSettings = vaultSettings;
+    }
+
+    // Strip temp field before insert
+    const { _vaultSettings, ...insertPayload } = finalCollectionData;
+
     const { data, error } = await supabase
       .from('collections')
-      .insert([collectionData])
+      .insert([insertPayload])
       .select()
       .single();
 
     if (error) throw error;
+
+    // Create the vault extension plans record
+    if (data?.id && _vaultSettings) {
+      try {
+        await supabase
+          .from('vault_extension_plans')
+          .insert([{
+            collection_id: data.id,
+            ..._vaultSettings
+          }]);
+      } catch (err) {
+        console.error('Failed to auto-create vault settings record:', err);
+      }
+    }
+
     return data;
   },
 
@@ -2363,5 +2433,63 @@ export const galleryService = {
 
     if (error) throw error;
     return data ?? [];
+  },
+
+  // ─── Vault Extension Plans (dedicated table) ───────────────────────
+
+  /**
+   * Fetch vault extension plan settings for a single collection.
+   * Returns null if no row exists yet.
+   */
+  async fetchVaultPlan(collectionId) {
+    if (!collectionId) return null;
+    const { data, error } = await supabase
+      .from('vault_extension_plans')
+      .select('*')
+      .eq('collection_id', collectionId)
+      .maybeSingle();
+
+    if (error) {
+      console.error('fetchVaultPlan error:', error);
+      return null;
+    }
+    return data;
+  },
+
+  /**
+   * Upsert vault extension plan settings for a single collection.
+   * Creates a new row if none exists, updates if it does.
+   */
+  async upsertVaultPlan(collectionId, settings) {
+    if (!collectionId) throw new Error('collectionId is required');
+    const { data, error } = await supabase
+      .from('vault_extension_plans')
+      .upsert({
+        collection_id: collectionId,
+        ...settings,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'collection_id' })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  /**
+   * Upsert vault extension plan settings for multiple collections at once.
+   */
+  async upsertVaultPlanBatch(collectionIds, settings) {
+    if (!collectionIds || collectionIds.length === 0) return;
+    const rows = collectionIds.map(id => ({
+      collection_id: id,
+      ...settings,
+      updated_at: new Date().toISOString()
+    }));
+    const { error } = await supabase
+      .from('vault_extension_plans')
+      .upsert(rows, { onConflict: 'collection_id' });
+
+    if (error) throw error;
   },
 };

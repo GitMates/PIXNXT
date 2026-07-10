@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase/client';
-import { 
-  Check, Search, Filter, ArrowUpRight, ArrowDownRight, 
-  Undo2, Download, History, AlertCircle, 
+import {
+  Check, Search, Filter, ArrowUpRight, ArrowDownRight,
+  Undo2, Download, History, AlertCircle,
   TrendingUp, LogOut, Lock, Mail, ChevronDown, CheckCircle2, Eye, EyeOff,
   LayoutDashboard, DollarSign, Settings, X
 } from 'lucide-react';
@@ -92,10 +92,10 @@ export default function PhotographerApp() {
             }}>
               P
             </div>
-            <h2 style={{ 
-              fontSize: '24px', 
-              fontWeight: 500, 
-              margin: '0 0 8px 0', 
+            <h2 style={{
+              fontSize: '24px',
+              fontWeight: 500,
+              margin: '0 0 8px 0',
               color: '#111111',
               fontFamily: "'EB Garamond', 'Times New Roman', serif",
               letterSpacing: '0.04em',
@@ -235,7 +235,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
     }
     return 'pricing';
   });
-  
+
   // Bulk update options state
   const [updateMethod, setUpdateMethod] = useState('increase_pct');
   const [updateValue, setUpdateValue] = useState('');
@@ -331,7 +331,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
   };
 
   const handleSelectOne = (id) => {
-    setSelectedIds(prev => 
+    setSelectedIds(prev =>
       prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
     );
   };
@@ -353,7 +353,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
       const manufacturingCost = parseFloat(p.base_price);
       const oldProfitPct = parseFloat(p.options?.profit_percentage || 0);
       const oldSellingPrice = parseFloat(p.options?.selling_price || p.base_price);
-      
+
       let newProfitPct = oldProfitPct;
       let newProfitAmount = parseFloat(p.options?.profit_amount || 0);
       let newSellingPrice = oldSellingPrice;
@@ -400,7 +400,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
   const handleSaveChanges = async () => {
     if (!previewChanges) return;
     setIsSaving(true);
-    
+
     try {
       const timestamp = new Date().toISOString();
       const updatedProductsLogs = [];
@@ -458,10 +458,10 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
       setShowConfirmDialog(false);
       setSelectedIds([]);
       setUpdateValue('');
-      
+
       await fetchProducts();
       await fetchAuditLogs();
-      
+
       setTimeout(() => setNotification(null), 4000);
     } catch (err) {
       console.error("Error saving bulk price edits:", err);
@@ -487,7 +487,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
       for (const logItem of lastLog.updated_products) {
         const prod = products.find(p => p.id === logItem.id);
         if (!prod) continue;
-        
+
         const manufacturingCost = parseFloat(prod.base_price);
         const restoredPrice = parseFloat(logItem.old_selling_price);
         const restoredPct = parseFloat(logItem.old_profit_pct);
@@ -512,8 +512,8 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
         if (lastLog.id && !lastLog.id.startsWith('audit_')) {
           await supabase.from('printstore_pricing_audit_logs').delete().eq('id', lastLog.id);
         }
-      } catch (e) {}
-      
+      } catch (e) { }
+
       const updatedLocalLogs = auditLogs.filter(log => log.id !== lastLog.id);
       localStorage.setItem('pixnxt_bulk_pricing_audit_logs', JSON.stringify(updatedLocalLogs));
       setAuditLogs(updatedLocalLogs);
@@ -557,7 +557,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
           .update({ options: restoredOptions })
           .eq('id', logItem.id);
       }
-      
+
       setShowHistoryModal(false);
       setNotification({ type: 'success', text: '✓ Reverted pricing setup to historical version!' });
       await fetchProducts();
@@ -582,9 +582,9 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
       p.options?.last_updated ? new Date(p.options.last_updated).toLocaleString('en-IN') : 'Never'
     ]);
 
-    let csvContent = "data:text/csv;charset=utf-8," 
+    let csvContent = "data:text/csv;charset=utf-8,"
       + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    
+
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
@@ -707,7 +707,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
       fontFamily: "'europa', 'Inter', sans-serif",
       boxSizing: 'border-box'
     }}>
-      
+
       {/* Sidebar */}
       <div style={{
         width: '220px',
@@ -799,7 +799,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
 
       {/* Main Content */}
       <div style={{ flex: 1, padding: '28px 32px', overflowY: 'auto' }}>
-        
+
         {notification && (
           <div style={{
             display: 'flex',
@@ -901,7 +901,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
             <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ position: 'relative', flex: 1, minWidth: '240px' }}>
                 <Search size={15} color="#94a3b8" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
-                <input 
+                <input
                   type="search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -910,7 +910,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
                 />
               </div>
               <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '13px', cursor: 'pointer', backgroundColor: '#fff', borderRadius: '3px' }}>
-                <option value="all">All Categories</option>
+                <option value="all">all products</option>
                 {categories.filter(c => c !== 'all').map(cat => (
                   <option key={cat} value={cat}>{cat.replace(/_/g, ' ').toUpperCase()}</option>
                 ))}
@@ -1128,74 +1128,74 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
         const profitAmount = finalPrice - bp;
         const isValid = bp > 0 && pct >= 0;
         return (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px', boxSizing: 'border-box' }}>
-          <div style={{ backgroundColor: '#ffffff', border: '1px solid #eaeaea', width: '100%', maxWidth: '440px', padding: '28px', boxSizing: 'border-box', position: 'relative', borderRadius: '6px' }}>
-            <button onClick={() => { setSetPriceProduct(null); setLastEditedField(null); }} style={{ position: 'absolute', top: '14px', right: '14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '18px', color: '#64748b' }}>
-              <X size={18} />
-            </button>
-
-            <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '20px' }}>
-              <img src={setPriceProduct.image_url} alt="" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #eaeaea' }} />
-              <div>
-                <div style={{ fontSize: '15px', fontWeight: 700, color: '#111' }}>{setPriceProduct.name}</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>{getShortId(setPriceProduct.id, 'frame')}</div>
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '6px' }}>
-                Base Price of Frame (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={individualBasePrice}
-                onChange={(e) => setIndividualBasePrice(e.target.value)}
-                placeholder="e.g. 70.00"
-                style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', borderRadius: '3px' }}
-              />
-            </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '6px' }}>
-                Profit Percentage (%)
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="any"
-                value={individualProfitPct}
-                onChange={(e) => setIndividualProfitPct(e.target.value)}
-                placeholder="e.g. 15"
-                style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', borderRadius: '3px' }}
-              />
-            </div>
-
-            {/* Computed Price Display */}
-            <div style={{ marginBottom: '20px', padding: '14px', backgroundColor: '#eefaf9', borderRadius: '6px', border: `1px solid ${THEME_COLOR}22` }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b' }}>Final Selling Price</span>
-                <span style={{ fontSize: '22px', fontWeight: 700, color: THEME_COLOR, fontFamily: 'monospace' }}>₹{finalPrice.toFixed(2)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
-                <span>Profit per unit</span>
-                <span style={{ fontWeight: 600, color: profitAmount > 0 ? '#16a34a' : '#94a3b8' }}>₹{profitAmount.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-              <button onClick={() => { setSetPriceProduct(null); setLastEditedField(null); }} style={{ padding: '8px 16px', fontSize: '12px', border: '1px solid #cbd5e1', backgroundColor: '#fff', cursor: 'pointer', borderRadius: '3px', fontWeight: 600 }}>Cancel</button>
-              <button
-                onClick={handleSetIndividualPrice}
-                disabled={isSaving || !isValid}
-                style={{ padding: '8px 20px', fontSize: '12px', border: 'none', backgroundColor: (isSaving || !isValid) ? '#94a3b8' : THEME_COLOR, color: '#fff', cursor: (isSaving || !isValid) ? 'not-allowed' : 'pointer', borderRadius: '3px', fontWeight: 700 }}
-              >
-                {isSaving ? 'Saving...' : 'Update Price'}
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px', boxSizing: 'border-box' }}>
+            <div style={{ backgroundColor: '#ffffff', border: '1px solid #eaeaea', width: '100%', maxWidth: '440px', padding: '28px', boxSizing: 'border-box', position: 'relative', borderRadius: '6px' }}>
+              <button onClick={() => { setSetPriceProduct(null); setLastEditedField(null); }} style={{ position: 'absolute', top: '14px', right: '14px', border: 'none', background: 'none', cursor: 'pointer', fontSize: '18px', color: '#64748b' }}>
+                <X size={18} />
               </button>
+
+              <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: '20px' }}>
+                <img src={setPriceProduct.image_url} alt="" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', border: '1px solid #eaeaea' }} />
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: '#111' }}>{setPriceProduct.name}</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', fontFamily: 'monospace' }}>{getShortId(setPriceProduct.id, 'frame')}</div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '6px' }}>
+                  Base Price of Frame (₹)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={individualBasePrice}
+                  onChange={(e) => setIndividualBasePrice(e.target.value)}
+                  placeholder="e.g. 70.00"
+                  style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', borderRadius: '3px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '6px' }}>
+                  Profit Percentage (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={individualProfitPct}
+                  onChange={(e) => setIndividualProfitPct(e.target.value)}
+                  placeholder="e.g. 15"
+                  style={{ width: '100%', padding: '10px 12px', fontSize: '14px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', borderRadius: '3px' }}
+                />
+              </div>
+
+              {/* Computed Price Display */}
+              <div style={{ marginBottom: '20px', padding: '14px', backgroundColor: '#eefaf9', borderRadius: '6px', border: `1px solid ${THEME_COLOR}22` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b' }}>Final Selling Price</span>
+                  <span style={{ fontSize: '22px', fontWeight: 700, color: THEME_COLOR, fontFamily: 'monospace' }}>₹{finalPrice.toFixed(2)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
+                  <span>Profit per unit</span>
+                  <span style={{ fontWeight: 600, color: profitAmount > 0 ? '#16a34a' : '#94a3b8' }}>₹{profitAmount.toFixed(2)}</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button onClick={() => { setSetPriceProduct(null); setLastEditedField(null); }} style={{ padding: '8px 16px', fontSize: '12px', border: '1px solid #cbd5e1', backgroundColor: '#fff', cursor: 'pointer', borderRadius: '3px', fontWeight: 600 }}>Cancel</button>
+                <button
+                  onClick={handleSetIndividualPrice}
+                  disabled={isSaving || !isValid}
+                  style={{ padding: '8px 20px', fontSize: '12px', border: 'none', backgroundColor: (isSaving || !isValid) ? '#94a3b8' : THEME_COLOR, color: '#fff', cursor: (isSaving || !isValid) ? 'not-allowed' : 'pointer', borderRadius: '3px', fontWeight: 700 }}
+                >
+                  {isSaving ? 'Saving...' : 'Update Price'}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
         );
       })()}
 
@@ -1221,7 +1221,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
             <div style={{ marginBottom: '12px', fontSize: '12px', color: '#64748b' }}>
               Selected: <strong style={{ color: selectedIds.length > 0 ? THEME_COLOR : '#ef4444' }}>{selectedIds.length}</strong> of {filteredProducts.length} products
             </div>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
               {[
                 { value: 'increase_pct', label: 'Increase Profit %' },
@@ -1231,7 +1231,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
                 { value: 'reset', label: 'Reset Profit (0% Margin)' }
               ].map(opt => (
                 <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', cursor: 'pointer' }}>
-                  <input 
+                  <input
                     type="radio" name="update_method" value={opt.value}
                     checked={updateMethod === opt.value}
                     onChange={() => { setUpdateMethod(opt.value); if (opt.value === 'reset') setUpdateValue('0'); }}
@@ -1246,7 +1246,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
                 <label style={{ display: 'block', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#64748b', marginBottom: '6px' }}>
                   {updateMethod === 'set_amount' ? 'Enter Profit Amount (INR)' : 'Enter Percentage (%)'}
                 </label>
-                <input 
+                <input
                   type="number" min="0" step="any"
                   value={updateValue}
                   onChange={(e) => setUpdateValue(e.target.value)}
@@ -1256,7 +1256,7 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
               </div>
             )}
 
-            <button 
+            <button
               onClick={handlePreview}
               disabled={selectedIds.length === 0}
               style={{
@@ -1365,38 +1365,38 @@ function PhotographerPricingDashboard({ onLogout, photographerEmail }) {
                 const dateStr = logDate.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
                 const timeStr = logDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
                 return (
-                <div key={log.id || idx} style={{ padding: '16px', border: '1px solid #eaeaea', backgroundColor: '#fafafa', borderRadius: '6px', fontSize: '13px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <span style={{ fontWeight: 700, color: '#1e293b' }}>{log.updated_by}</span>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>{dateStr}</div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>{timeStr}</div>
+                  <div key={log.id || idx} style={{ padding: '16px', border: '1px solid #eaeaea', backgroundColor: '#fafafa', borderRadius: '6px', fontSize: '13px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{ fontWeight: 700, color: '#1e293b' }}>{log.updated_by}</span>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 600, color: '#334155' }}>{dateStr}</div>
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>{timeStr}</div>
+                      </div>
+                    </div>
+                    <div style={{ color: '#475569', marginBottom: '10px' }}>
+                      Updated <strong>{log.updated_products?.length || 0} product(s)</strong>
+                    </div>
+                    <div style={{ display: 'flex', gap: '16px', fontSize: '12px', marginBottom: '12px', padding: '8px 12px', backgroundColor: '#fff', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
+                      <div>
+                        <span style={{ color: '#94a3b8' }}>Old Price: </span>
+                        <span style={{ fontWeight: 600 }}>₹{Number(log.previous_selling_price || 0).toFixed(2)}</span>
+                      </div>
+                      <div style={{ color: '#94a3b8' }}>→</div>
+                      <div>
+                        <span style={{ color: '#94a3b8' }}>New Price: </span>
+                        <span style={{ fontWeight: 600, color: THEME_COLOR }}>₹{Number(log.new_selling_price || 0).toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: '#94a3b8' }}>Profit: </span>
+                        <span style={{ fontWeight: 600 }}>{Number(log.previous_profit_pct || 0).toFixed(1)}% → {Number(log.new_profit_pct || 0).toFixed(1)}%</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <button onClick={() => handleRestoreFromLog(log)} style={{ padding: '4px 10px', border: `1px solid ${THEME_COLOR}`, borderRadius: '3px', backgroundColor: 'transparent', color: THEME_COLOR, fontSize: '11.5px', fontWeight: 600, cursor: 'pointer' }}>
+                        Restore These Prices
+                      </button>
                     </div>
                   </div>
-                  <div style={{ color: '#475569', marginBottom: '10px' }}>
-                    Updated <strong>{log.updated_products?.length || 0} product(s)</strong>
-                  </div>
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '12px', marginBottom: '12px', padding: '8px 12px', backgroundColor: '#fff', borderRadius: '4px', border: '1px solid #e2e8f0' }}>
-                    <div>
-                      <span style={{ color: '#94a3b8' }}>Old Price: </span>
-                      <span style={{ fontWeight: 600 }}>₹{Number(log.previous_selling_price || 0).toFixed(2)}</span>
-                    </div>
-                    <div style={{ color: '#94a3b8' }}>→</div>
-                    <div>
-                      <span style={{ color: '#94a3b8' }}>New Price: </span>
-                      <span style={{ fontWeight: 600, color: THEME_COLOR }}>₹{Number(log.new_selling_price || 0).toFixed(2)}</span>
-                    </div>
-                    <div>
-                      <span style={{ color: '#94a3b8' }}>Profit: </span>
-                      <span style={{ fontWeight: 600 }}>{Number(log.previous_profit_pct || 0).toFixed(1)}% → {Number(log.new_profit_pct || 0).toFixed(1)}%</span>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <button onClick={() => handleRestoreFromLog(log)} style={{ padding: '4px 10px', border: `1px solid ${THEME_COLOR}`, borderRadius: '3px', backgroundColor: 'transparent', color: THEME_COLOR, fontSize: '11.5px', fontWeight: 600, cursor: 'pointer' }}>
-                      Restore These Prices
-                    </button>
-                  </div>
-                </div>
                 );
               })}
               {auditLogs.length === 0 && (

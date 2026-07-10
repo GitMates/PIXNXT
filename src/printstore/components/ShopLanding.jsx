@@ -1,14 +1,110 @@
 import React from 'react';
 import { MOCK_PHOTOS } from '../data/mockStoreData';
+import { galleryService } from '../../services/gallery.service';
 
-export default function ShopLanding({ products, selectedPhotoUrl, onSelectProduct, onExploreAll, photos = [] }) {
-  // Use collection photos if available, fall back to selected photo, then to default couple/portrait mockups
-  const firstPhotoUrl = selectedPhotoUrl || photos[0]?.url || "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=800&h=1200";
-  const secondPhotoUrl = photos[1]?.url || selectedPhotoUrl || "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=800&h=1200";
-  const thirdPhotoUrl = photos[2]?.url || selectedPhotoUrl || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=800&h=1200";
+export default function ShopLanding({ products, selectedPhotoUrl, onSelectProduct, onExploreAll, photos = [], collection, onUnlockVault }) {
+  // Use collection photos if available, fall back to selected photo, then to default placeholder
+  const firstPhotoUrl = selectedPhotoUrl || photos[0]?.url || photos[0]?.web_url || "";
+  const secondPhotoUrl = photos[1]?.url || photos[1]?.web_url || selectedPhotoUrl || firstPhotoUrl;
+  const thirdPhotoUrl = photos[2]?.url || photos[2]?.web_url || selectedPhotoUrl || firstPhotoUrl;
+
+  const getDaysRemaining = (expiryDate) => {
+    if (!expiryDate) return 0;
+    const diff = new Date(expiryDate).getTime() - new Date().getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  };
+
+  const vaultPurchased = collection?.id ? (localStorage.getItem(`pixnxt_vault_purchased_${collection.id}`) === 'true') : false;
+
+  const [vaultPlan, setVaultPlan] = React.useState(null);
+  React.useEffect(() => {
+    if (collection?.id) {
+      galleryService.fetchVaultPlan(collection.id).then(plan => {
+        if (plan) setVaultPlan(plan);
+      });
+    }
+  }, [collection?.id]);
+
+  const vaultEnabled = vaultPlan?.vault_enabled === true;
 
   return (
     <section className="shop-section">
+      {/* Permanent Vault Storage Countdown Banner */}
+      {collection?.auto_expiry && vaultEnabled && (
+        <div style={{ maxWidth: '1200px', margin: '0 auto 32px auto', width: '100%' }}>
+          {!vaultPurchased ? (
+            <div style={{
+              background: 'linear-gradient(135deg, #18181b 0%, #27272a 100%)',
+              color: '#ffffff',
+              padding: '24px 32px',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '20px',
+              borderRadius: '8px',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+              fontFamily: 'var(--font-heading, "Outfit", sans-serif)',
+              border: '1px solid rgba(255,255,255,0.08)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <span style={{ fontSize: '28px' }}>⏳</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                    Gallery Expiry Countdown
+                  </h4>
+                  <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: '#a1a1aa', lineHeight: 1.4 }}>
+                    This gallery is scheduled to expire in <strong style={{ color: '#ffffff' }}>{getDaysRemaining(collection.auto_expiry)} days</strong> (on {new Date(collection.auto_expiry).toLocaleDateString('en-IN', { dateStyle: 'medium' })}). Unlock Permanent Vault to host these photos forever.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={onUnlockVault}
+                style={{
+                  background: '#ffffff',
+                  color: '#111111',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '12px 24px',
+                  fontSize: '11px',
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 4px 12px rgba(255,255,255,0.1)'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+              >
+                Unlock Lifetime Access (₹{localStorage.getItem(`pixnxt_vault_price_${collection.id}`) || '499'})
+              </button>
+            </div>
+          ) : (
+            <div style={{
+              background: '#ecfdf5',
+              border: '1px solid #bbf7d0',
+              color: '#065f46',
+              padding: '18px 24px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              borderRadius: '8px',
+              fontFamily: 'var(--font-heading, "Outfit", sans-serif)'
+            }}>
+              <span style={{ fontSize: '20px' }}>✅</span>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '13px', fontWeight: 600, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                  Permanent Vault Storage Active
+                </h4>
+                <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#047857' }}>
+                  This gallery has been upgraded to permanent hosting. It will not expire.
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       {/* Centered shop header banner */}
       <div className="shop-banner">
         <h2 className="shop-banner-title">Bring your favorite photos to life</h2>
