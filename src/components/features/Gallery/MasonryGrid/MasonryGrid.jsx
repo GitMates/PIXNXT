@@ -4,7 +4,7 @@ import { Download, Heart, Share2, Play } from 'lucide-react';
 import { cn } from '../../../../lib/utils';
 import { SmoothMediaImage } from '../../../ui/SmoothMediaImage';
 import { isGalleryVideo } from '../../../../lib/galleryMediaType';
-import { getPhotoVideoPoster, getPhotoVideoSrc } from '../../../../lib/photoDisplayUrl';
+import { getPhotoVideoPoster, getPhotoVideoSrc, resolveMediaUrl } from '../../../../lib/photoDisplayUrl';
 import { PhotoPrivateControls, PhotoPrivateBadge } from '../../ClientExclusiveAccess';
 import './MasonryGrid.css';
 
@@ -38,7 +38,7 @@ export function MasonryGrid({
   useEffect(() => {
     photos.forEach(photo => {
       if (!photo.width || !photo.height) {
-        const src = photo.full_url || photo.web_url || photo.thumbnail_url;
+        const src = resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
         // Skip dimension probing for video files — use 16:9 fallback
         if (isGalleryVideo(photo)) {
           setDynamicAspectRatios(prev => ({ ...prev, [photo.id]: 16 / 9 }));
@@ -141,7 +141,7 @@ export function MasonryGrid({
       {photos.map((photo, index) => {
         const src = isGalleryVideo(photo)
           ? getPhotoVideoSrc(photo)
-          : photo.full_url || photo.web_url || photo.thumbnail_url;
+          : resolveMediaUrl(photo.full_url || photo.web_url || photo.thumbnail_url || '');
         const aspectRatio = (photo.width && photo.height)
           ? (photo.width / photo.height)
           : (dynamicAspectRatios[photo.id] || 1.5);
@@ -210,7 +210,7 @@ export function MasonryGrid({
               ) : (
                 <SmoothMediaImage
                   src={src}
-                  thumbSrc={photo.thumbnail_url}
+                  thumbSrc={resolveMediaUrl(photo.thumbnail_url || photo.web_url || photo.full_url || '')}
                   alt={photo.filename || `Gallery image ${index + 1}`}
                   wrapClassName="gallery-masonry-media"
                   className="block w-full max-w-full"

@@ -23,7 +23,7 @@ import {
 import { GalleryBackToTop } from '../../components/features/Gallery/GalleryBackToTop/GalleryBackToTop';
 import { GalleryEmptyGrid } from '../../components/features/Gallery/GalleryEmptyGrid/GalleryEmptyGrid';
 import { smoothScrollToElement, smoothScrollToTop } from '../../lib/smoothGalleryScroll';
-import { getPhotoFullDisplayUrl } from '../../lib/photoDisplayUrl';
+import { getPhotoFullDisplayUrl, resolveMediaUrl } from '../../lib/photoDisplayUrl';
 import {
   countGalleryMedia,
   filterGalleryMediaByType,
@@ -783,7 +783,9 @@ const GalleryView = () => {
         data-cover-text-scale={isMobileViewport ? 'compact' : 'large'}
       >
         {(() => {
-          const activePhotoUrl = collection.cover_url || (collection.photos?.[0]?.web_url);
+          const activePhotoUrl = resolveMediaUrl(
+            collection.cover_url || (collection.photos?.[0]?.full_url || collection.photos?.[0]?.web_url || '')
+          );
           const { x: focalX, y: focalY } = getCollectionFocal(collection);
 
           const props = {
