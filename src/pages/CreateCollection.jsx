@@ -116,13 +116,15 @@ const CreateCollection = () => {
                             </div>
                         </div>
 
-                        <div className="cc-form-group">
-                            <label className="cc-label">Event Date</label>
-                            <div className="cc-input-shell neu-inset cc-input-shell--rounded">
-                                <DatePicker 
-                                    value={date} 
-                                    onChange={setDate} 
-                                    placeholder="Select event date" 
+                        <div className="cc-form-group cc-form-group--datepicker">
+                            <label className="cc-label" htmlFor="collection-event-date">Event Date</label>
+                            <div className="cc-input-shell neu-inset">
+                                <DatePicker
+                                    inputId="collection-event-date"
+                                    value={date}
+                                    onChange={setDate}
+                                    placeholder="Select event date"
+                                    className="cc-date-picker"
                                 />
                             </div>
                         </div>

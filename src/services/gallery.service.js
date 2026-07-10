@@ -118,6 +118,31 @@ async function deleteStoragePaths(paths) {
   }
 }
 
+const SUPABASE_PAGE_SIZE = 1000;
+
+/** Fetch every row from a paginated Supabase query (PostgREST default cap is 1000). */
+async function fetchAllSupabaseRows(runPage) {
+  const rows = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data, error } = await runPage(from, to);
+    if (error) throw error;
+    const batch = data || [];
+    rows.push(...batch);
+    if (batch.length < SUPABASE_PAGE_SIZE) break;
+    from += SUPABASE_PAGE_SIZE;
+  }
+
+  return rows;
+}
+
+function mapLibraryPhotoRow(row) {
+  const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
+  return { ...row, collection: collection || null };
+}
+
 /** Dashboard list row: storage totals + filenames for client-gallery search. */
 function mapCollectionDashboardRow(c) {
   const photoRows = c.photos || [];
@@ -206,6 +231,37 @@ export const galleryService = {
       const collection = Array.isArray(row.collection) ? row.collection[0] : row.collection;
       return { ...row, collection: collection || null };
     });
+  },
+
+  /** All photos across client gallery collections for the Photo Library page. */
+  async getLibraryPhotos(photographerId) {
+    if (!photographerId) return [];
+
+    const { data: collections, error: collectionsError } = await supabase
+      .from('collections')
+      .select('id')
+      .eq('photographer_id', photographerId);
+
+    if (collectionsError) throw collectionsError;
+
+    const collectionIds = (collections || []).map((c) => c.id);
+    if (collectionIds.length === 0) return [];
+
+    const select = `
+      ${DASHBOARD_PHOTO_FIELDS},
+      collection:collections!photos_collection_id_fkey(id, name, slug)
+    `;
+
+    const rows = await fetchAllSupabaseRows((from, to) =>
+      supabase
+        .from('photos')
+        .select(select)
+        .in('collection_id', collectionIds)
+        .order('created_at', { ascending: false })
+        .range(from, to)
+    );
+
+    return rows.map(mapLibraryPhotoRow);
   },
 
   /**
@@ -1023,6 +1079,12 @@ export const galleryService = {
       .single();
 
     if (dbError) throw dbError;
+
+    if (typeof window !== 'undefined' && photoData?.id) {
+      void import('./photoAiUploadPipeline.js').then(({ queuePhotoAiIndex }) =>
+        queuePhotoAiIndex(collectionId, photoData.id)
+      );
+    }
 
     if (isVideo && thumbnailBlob) {
       const thumbnailPathVideo = `${basePath}/thumb/${fileNameJpg}`;
