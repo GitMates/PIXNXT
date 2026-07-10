@@ -88,6 +88,11 @@ function collectionDateInRange(isoDate, range) {
   return d >= start && d <= end;
 }
 
+/** Generic ISO date-in-range check (collections, photos, etc.). */
+export function isDateInRange(isoDate, range) {
+  return collectionDateInRange(isoDate, range);
+}
+
 export function collectionMatchesClientGalleryFilters(collection, filters) {
   if (!filters || !hasActiveClientGalleryFilters(filters)) return true;
 

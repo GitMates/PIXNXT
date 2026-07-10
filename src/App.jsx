@@ -34,6 +34,7 @@ import { AdminProtectedRoute } from './components/admin/AdminProtectedRoute';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { UploadQueueProvider, UploadQueueRouteSync } from './contexts/UploadQueueContext';
 import { GlobalUploadShell } from './components/features/CollectionDashboard/Upload/GlobalUploadShell';
+import RekognitionTest from './pages/dev/RekognitionTest';
 
 function MobileGalleryViewRedirect() {
   const { slug } = useParams();
@@ -118,6 +119,7 @@ function App() {
     location.pathname.startsWith('/m/') ||
     location.pathname.startsWith('/album-preview/') ||
     location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/dev/') ||
     /\/smart-albums\/preview\//.test(location.pathname);
 
   if (location.pathname.startsWith('/m/')) {
@@ -198,6 +200,7 @@ function App() {
           <Route path="/m/:slug" element={<MobileGalleryInstall />} />
           <Route path="/album-preview/:albumId" element={<PublicAlbumPreview />} />
           <Route path="/ref/:code" element={<ReferralRedirect />} />
+          <Route path="/dev/rekognition" element={<ProtectedRoute><RekognitionTest /></ProtectedRoute>} />
           
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminProtectedRoute><AdminLayout /></AdminProtectedRoute>}>
