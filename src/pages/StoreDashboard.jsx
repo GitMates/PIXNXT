@@ -102,6 +102,7 @@ export default function StoreDashboard() {
         photo_banner: { enabled: false, title: 'One Year Anniversary', subtitle: '20% off all prints', bg_color: '#d4c9b5', desktop_image: '', mobile_image: '' },
         store_rotator: { enabled: false, title: 'Your Wedding in Print', subtitle: 'Anniversary Gift! Celebrate those special moments with {discount-value} off all prints until {exp-date}.', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#eae5d8', title_color: '#2c3e2d', subtitle_color: '#4a5a4b', cta_bg: '#3a4a38', cta_color: '#ffffff', font: 'Playfair Display', desktop_image: '', mobile_image: '' }
       },
+      modified: { yearsRepeat: true, startDate: true, duration: true, discount: true, banners: true, emails: false },
       emails: {
         announcement: {
           enabled: true,
@@ -179,6 +180,7 @@ export default function StoreDashboard() {
         photo_banner: { enabled: false, title: 'Birthday Offer', subtitle: 'Celebrate with prints!', bg_color: '#e9d5ff', desktop_image: '', mobile_image: '' },
         store_rotator: { enabled: false, title: 'Your Birthday in Print', subtitle: 'Happy Birthday! Celebrate with {discount-value} off all prints until {exp-date}.', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#f0e8f5', title_color: '#4a1d96', subtitle_color: '#6d28d9', cta_bg: '#7c3aed', cta_color: '#ffffff', font: 'Playfair Display', desktop_image: '', mobile_image: '' }
       },
+      modified: { yearsRepeat: true, startDate: true, duration: true, discount: true, banners: true, emails: false },
       emails: {
         announcement: {
           enabled: true,
@@ -256,6 +258,7 @@ export default function StoreDashboard() {
         photo_banner: { enabled: false, title: 'Season Sale', subtitle: 'Limited time offer!', bg_color: '#fde68a', desktop_image: '', mobile_image: '' },
         store_rotator: { enabled: false, title: 'Season Sale', subtitle: 'Limited Time Offer! Enjoy {discount-value} off all prints until {exp-date}.', code: 'Code: {code}', cta: 'CLAIM OFFER', bg_color: '#fef3e8', title_color: '#92400e', subtitle_color: '#b45309', cta_bg: '#d97706', cta_color: '#ffffff', font: 'Georgia', desktop_image: '', mobile_image: '' }
       },
+      modified: { yearsRepeat: true, startDate: true, duration: true, discount: true, banners: true, emails: false },
       emails: {
         announcement: {
           enabled: true,
@@ -320,10 +323,41 @@ export default function StoreDashboard() {
   const [activeModal, setActiveModal] = useState(null);           // 'text_banner' | 'large_banner' | 'photo_banner'
   const [selectedAutomation, setSelectedAutomation] = useState(null);
   const [automationModalTab, setAutomationModalTab] = useState('content');
+  const [yearsDropdownOpen, setYearsDropdownOpen] = useState(false);
+  const [startMonthsDropdownOpen, setStartMonthsDropdownOpen] = useState(false);
+  const [startDaysDropdownOpen, setStartDaysDropdownOpen] = useState(false);
+  const [durationMonthsDropdownOpen, setDurationMonthsDropdownOpen] = useState(false);
+  const [durationDaysDropdownOpen, setDurationDaysDropdownOpen] = useState(false);
 
   const handleIntegerChange = (val, setter) => {
     const cleaned = val.replace(/[^0-9]/g, '');
     setter(cleaned);
+  };
+
+  const renderStatusCircle = (isEdited) => {
+    if (isEdited) {
+      return (
+        <div style={{
+          width: '22px', height: '22px', borderRadius: '50%',
+          backgroundColor: '#2c2c2d', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, marginTop: '2px'
+        }}>
+          <span style={{ color: '#fff', fontSize: '11px', fontWeight: 700 }}>✓</span>
+        </div>
+      );
+    } else {
+      return (
+        <div style={{
+          width: '22px', height: '22px', borderRadius: '50%',
+          border: '1px solid #d1d5db', display: 'flex',
+          alignItems: 'center', justifyContent: 'center',
+          flexShrink: 0, marginTop: '2px', backgroundColor: '#fff'
+        }}>
+          <span style={{ color: '#d1d5db', fontSize: '11px', fontWeight: 700 }}>✓</span>
+        </div>
+      );
+    }
   };
 
   // Filters
@@ -2435,8 +2469,16 @@ export default function StoreDashboard() {
                         onMouseLeave={e => e.currentTarget.style.boxShadow = 'none'}
                       >
                         {/* Card image area */}
-                        <div style={{ width: '100%', height: '160px', backgroundColor: campaign.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '52px' }}>
-                          {campaign.icon}
+                        <div style={{ width: '100%', height: '160px', overflow: 'hidden', position: 'relative', backgroundColor: '#f9f9f9', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <img
+                            src={
+                              campaign.id === 'anniversary' ? '/IMG_E9FAD63B919A-1.jpeg' :
+                              campaign.id === 'birthday' ? '/IMG_7124ABA10F41-1.jpeg' :
+                              campaign.id === 'seasonal' ? '/IMG_86EC5274F10E-1.jpeg' : ''
+                            }
+                            alt={campaign.label}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          />
                         </div>
                         {/* Card label */}
                         <div style={{ padding: '12px 14px', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
@@ -2507,26 +2549,22 @@ export default function StoreDashboard() {
                       {/* Row 2: Number of Years App will Repeat */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 0', borderBottom: '1px solid rgba(0,0,0,0.06)', gap: '32px' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flex: 1 }}>
-                          <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '1.5px solid #2c2c2d', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px', backgroundColor: '#fff' }}>
-                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: '#2c2c2d' }} />
-                          </div>
+                          {renderStatusCircle(campaign.modified?.yearsRepeat)}
                           <div>
                             <div style={{ fontSize: '13px', fontWeight: 700, color: '#2c2c2c', marginBottom: '4px' }}>Number of Years App will Repeat</div>
                             <div style={{ fontSize: '12px', color: '#747474', lineHeight: 1.5 }}>The duration of time in which this app will be active for each project. The app will send out an anniversary promotion each year during this time.</div>
                           </div>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0, color: '#2c2c2d', fontSize: '13px', fontWeight: 600 }}>
+                          <span style={{ color: '#b5b5b5', cursor: 'pointer', fontSize: '14px', marginRight: '6px' }} onClick={() => { setSelectedAutomation({ yearsRepeat: campaign.yearsRepeat, _campaignId: campaign.id }); setActiveModal('years_repeat'); }}>✎</span>
                           <span>✓ &nbsp;{campaign.yearsRepeat} years</span>
-                          <span style={{ color: '#b5b5b5', cursor: 'pointer', fontSize: '14px', marginLeft: '6px' }}>✎</span>
                         </div>
                       </div>
 
                       {/* Row 3: Campaign Start Date */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 0', borderBottom: '1px solid rgba(0,0,0,0.06)', gap: '32px' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flex: 1 }}>
-                          <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '1px solid #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px', backgroundColor: '#fff' }}>
-                            <span style={{ color: '#d1d5db', fontSize: '11px', fontWeight: 700 }}>✓</span>
-                          </div>
+                          {renderStatusCircle(campaign.modified?.startDate)}
                           <div>
                             <div style={{ fontSize: '13px', fontWeight: 700, color: '#2c2c2c', marginBottom: '4px' }}>Campaign Start Date</div>
                             <div style={{ fontSize: '12px', color: '#747474', lineHeight: 1.5 }}>Set the number of days/months the campaign will start <strong>before</strong> the one-year anniversary of the Gallery Date (configured in the "Name &amp; Cover" section of the gallery).</div>
@@ -2541,9 +2579,7 @@ export default function StoreDashboard() {
                       {/* Row 4: Campaign Duration */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 0', borderBottom: '1px solid rgba(0,0,0,0.06)', gap: '32px' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flex: 1 }}>
-                          <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '1px solid #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px', backgroundColor: '#fff' }}>
-                            <span style={{ color: '#d1d5db', fontSize: '11px', fontWeight: 700 }}>✓</span>
-                          </div>
+                          {renderStatusCircle(campaign.modified?.duration)}
                           <div>
                             <div style={{ fontSize: '13px', fontWeight: 700, color: '#2c2c2c', marginBottom: '4px' }}>Campaign Duration</div>
                             <div style={{ fontSize: '12px', color: '#747474', lineHeight: 1.5 }}>Set the duration of the campaign from the campaign start date.</div>
@@ -2561,9 +2597,7 @@ export default function StoreDashboard() {
                       {/* Row 5: Discount */}
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 0', borderBottom: '1px solid rgba(0,0,0,0.06)', gap: '32px' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flex: 1 }}>
-                          <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '1px solid #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px', backgroundColor: '#fff' }}>
-                            <span style={{ color: '#d1d5db', fontSize: '11px', fontWeight: 700 }}>✓</span>
-                          </div>
+                          {renderStatusCircle(campaign.modified?.discount)}
                           <div>
                             <div style={{ fontSize: '13px', fontWeight: 700, color: '#2c2c2c', marginBottom: '4px' }}>Discount</div>
                             <div style={{ fontSize: '12px', color: '#747474', lineHeight: 1.5 }}>Set up the discount offered to gallery visitors while the campaign is active.</div>
@@ -2582,9 +2616,7 @@ export default function StoreDashboard() {
                       {/* Row 6: Banners — Premium Thumbnail Cards */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '28px 0', borderBottom: '1px solid rgba(0,0,0,0.06)', gap: '32px' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flex: '0 0 240px' }}>
-                          <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '1px solid #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px', backgroundColor: '#fff' }}>
-                            <span style={{ color: '#d1d5db', fontSize: '11px', fontWeight: 700 }}>✓</span>
-                          </div>
+                          {renderStatusCircle(campaign.modified?.banners)}
                           <div>
                             <div style={{ fontSize: '13px', fontWeight: 700, color: '#2c2c2c', marginBottom: '4px' }}>Banners</div>
                             <div style={{ fontSize: '12px', color: '#747474', lineHeight: 1.5 }}>Modify the banners that will be visible to gallery visitors once the campaign is live. Banners are only visible to the gallery visitors relevant to the campaign.</div>
@@ -2692,9 +2724,7 @@ export default function StoreDashboard() {
                       {/* Row 7: Main Clients Emails */}
                       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '28px 0', gap: '32px' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '18px', flex: '0 0 240px' }}>
-                          <div style={{ width: '22px', height: '22px', borderRadius: '50%', border: '1px solid #d1d5db', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px', backgroundColor: '#fff' }}>
-                            <span style={{ color: '#d1d5db', fontSize: '11px', fontWeight: 700 }}>✓</span>
-                          </div>
+                          {renderStatusCircle(campaign.modified?.emails)}
                           <div>
                             <div style={{ fontSize: '13px', fontWeight: 700, color: '#2c2c2c', marginBottom: '4px' }}>Main Clients Emails</div>
                             <div style={{ fontSize: '12px', color: '#747474', lineHeight: 1.5 }}>Modify the emails which will be sent to the main client during this campaign. The "Announcement" email will be sent on the start date of the campaign.</div>
@@ -2724,7 +2754,8 @@ export default function StoreDashboard() {
                                     // Enable it and open
                                     const newConfig = { ...emailConfig, enabled: true };
                                     setCampaigns(prev => prev.map(c => c.id === campaign.id
-                                      ? { ...c, emails: { ...c.emails, [item.key]: newConfig } }
+                                      ? { ...c, modified: { yearsRepeat: true, startDate: true, duration: true, discount: true, banners: true, emails: false },
+      emails: { ...c.emails, [item.key]: newConfig } }
                                       : c
                                     ));
                                     setSelectedAutomation({ ...newConfig, _campaignId: campaign.id, _emailKey: item.key });
@@ -2808,7 +2839,7 @@ export default function StoreDashboard() {
                     backgroundColor: '#fff',
                     borderRadius: '0px',
                     width: '100%',
-                    maxWidth: activeModal === 'start_date' || activeModal === 'duration' || activeModal === 'discount' ? '820px' : '1024px',
+                    maxWidth: activeModal === 'start_date' || activeModal === 'duration' || activeModal === 'discount' || activeModal === 'years_repeat' ? '820px' : '1024px',
                     height: '84vh',
                     maxHeight: '780px',
                     display: 'flex',
@@ -2828,6 +2859,7 @@ export default function StoreDashboard() {
                            activeModal === 'start_date' ? 'CAMPAIGN START DATE' :
                            activeModal === 'duration' ? 'CAMPAIGN DURATION' :
                            activeModal === 'discount' ? 'DISCOUNT' :
+                           activeModal === 'years_repeat' ? 'NUMBER OF YEARS APP WILL REPEAT' :
                            activeModal === 'edit_email' ? (
                              selectedAutomation._emailKey === 'announcement' ? 'EDIT EMAIL' :
                              selectedAutomation._emailKey === 'reminder_1w' ? 'EMAIL REMINDER: 1 WEEK BEFORE EXPIRATION' :
@@ -2855,28 +2887,33 @@ export default function StoreDashboard() {
                             const { _campaignId, _bannerKey, _emailKey, ...data } = selectedAutomation;
                             if (activeModal === 'start_date') {
                               setCampaigns(prev => prev.map(c => c.id === _campaignId
-                                ? { ...c, startDays: Number(data.startDays) }
+                                ? { ...c, startDays: Number(data.startDays), modified: { ...c.modified, startDate: true } }
                                 : c
                               ));
                             } else if (activeModal === 'duration') {
                               setCampaigns(prev => prev.map(c => c.id === _campaignId
-                                ? { ...c, durationDays: Number(data.durationDays) }
+                                ? { ...c, durationDays: Number(data.durationDays), modified: { ...c.modified, duration: true } }
+                                : c
+                              ));
+                            } else if (activeModal === 'years_repeat') {
+                              setCampaigns(prev => prev.map(c => c.id === _campaignId
+                                ? { ...c, yearsRepeat: Number(data.yearsRepeat), modified: { ...c.modified, yearsRepeat: true } }
                                 : c
                               ));
                             } else if (activeModal === 'discount') {
                               setCampaigns(prev => prev.map(c => c.id === _campaignId
-                                ? { ...c, discount: data.discount, discountCode: data.discountCode }
+                                ? { ...c, discount: data.discount, discountCode: data.discountCode, modified: { ...c.modified, discount: true } }
                                 : c
                               ));
                             } else if (activeModal === 'edit_email') {
                               setCampaigns(prev => prev.map(c => c.id === _campaignId
-                                ? { ...c, emails: { ...c.emails, [_emailKey]: { ...data } } }
+                                ? { ...c, emails: { ...c.emails, [_emailKey]: { ...data } }, modified: { ...c.modified, emails: true } }
                                 : c
                               ));
                             } else {
                               // banner types
                               setCampaigns(prev => prev.map(c => c.id === _campaignId
-                                ? { ...c, banners: { ...c.banners, [_bannerKey]: { ...data, enabled: true } } }
+                                ? { ...c, banners: { ...c.banners, [_bannerKey]: { ...data, enabled: true } }, modified: { ...c.modified, banners: true } }
                                 : c
                               ));
                             }
@@ -2890,92 +2927,231 @@ export default function StoreDashboard() {
                     </div>
 
                     {/* Body: Conditional Layout based on modal type */}
-                    {activeModal === 'start_date' || activeModal === 'duration' || activeModal === 'discount' ? (
+                    {activeModal === 'start_date' || activeModal === 'duration' || activeModal === 'discount' || activeModal === 'years_repeat' ? (
                       /* ─── FULL-WIDTH SIMPLE SETTINGS MODALS ─── */
                       <div style={{ flex: 1, backgroundColor: '#ffffff', padding: '48px', overflowY: 'auto', display: 'flex', flexDirection: 'column', boxSizing: 'border-box' }}>
                         
+                        {activeModal === 'years_repeat' && (
+                          <div style={{ maxWidth: '620px', margin: '40px auto 0', width: '100%', display: 'flex', flexDirection: 'column', gap: '32px', alignItems: 'center' }}>
+                            <p style={{ fontSize: '13.5px', color: '#64748b', lineHeight: 1.6, margin: 0, textAlign: 'center' }}>
+                              The duration of time in which this app will be active for each project. The app will send out an anniversary promotion each year during this time.
+                            </p>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '13.5px', color: '#1e293b', position: 'relative' }}>
+                              <span>This app will be active for</span>
+                              <div style={{ position: 'relative', width: '200px' }}>
+                                <div
+                                  onClick={() => setYearsDropdownOpen(!yearsDropdownOpen)}
+                                  style={{
+                                    padding: '10px 14px',
+                                    border: '1px solid #777777',
+                                    backgroundColor: '#fff',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    cursor: 'pointer',
+                                    fontSize: '13.5px',
+                                    color: '#1e293b'
+                                  }}
+                                >
+                                  <span>{selectedAutomation.yearsRepeat || 3} {selectedAutomation.yearsRepeat === 1 ? 'year' : 'years'}</span>
+                                  <span style={{ fontSize: '10px', transform: yearsDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s' }}>▼</span>
+                                </div>
+                                {yearsDropdownOpen && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: '100%',
+                                    left: 0,
+                                    right: 0,
+                                    border: '1px solid #777777',
+                                    borderTop: 'none',
+                                    backgroundColor: '#ffffff',
+                                    zIndex: 50,
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
+                                  }}>
+                                    {[1, 2, 3, 4, 5].map(y => (
+                                      <div
+                                        key={y}
+                                        onClick={() => {
+                                          setSelectedAutomation(prev => ({ ...prev, yearsRepeat: y }));
+                                          setYearsDropdownOpen(false);
+                                        }}
+                                        style={{
+                                          padding: '10px 14px',
+                                          cursor: 'pointer',
+                                          fontSize: '13.5px',
+                                          backgroundColor: selectedAutomation.yearsRepeat === y ? '#f5f5f5' : '#fff',
+                                          color: '#1e293b'
+                                        }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = selectedAutomation.yearsRepeat === y ? '#f5f5f5' : '#fff'}
+                                      >
+                                        {y} {y === 1 ? 'year' : 'years'}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {activeModal === 'start_date' && (
-                          <div style={{ maxWidth: '620px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.6, margin: 0 }}>
+                          <div style={{ maxWidth: '620px', margin: '40px auto 0', width: '100%', display: 'flex', flexDirection: 'column', gap: '32px', alignItems: 'center' }}>
+                            <p style={{ fontSize: '13.5px', color: '#64748b', lineHeight: 1.6, margin: 0, textAlign: 'center' }}>
                               This sets when the promotional phase will start. Consider the production and shipping times when editing this to allow time for clients to receive any orders in time for their anniversary!
                             </p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '13.5px', color: '#1e293b' }}>
                               <span>The campaign will start, before anniversary</span>
-                              <select
-                                value={selectedAutomation.startMonths || '0'}
-                                onChange={e => setSelectedAutomation(prev => ({ ...prev, startMonths: e.target.value }))}
-                                style={{ padding: '10px 32px 10px 14px', border: '1px solid #d1d5db', borderRadius: '2px', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none' }}
-                              >
-                                <option value="0">0 month</option>
-                                <option value="1">1 month</option>
-                                <option value="2">2 months</option>
-                              </select>
+                              
+                              {/* Months custom dropdown */}
+                              <div style={{ position: 'relative', width: '130px' }}>
+                                <div
+                                  onClick={() => setStartMonthsDropdownOpen(!startMonthsDropdownOpen)}
+                                  style={{ padding: '10px 14px', border: '1px solid #777777', backgroundColor: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '13.5px' }}
+                                >
+                                  <span>{selectedAutomation.startMonths || 0} month</span>
+                                  <span style={{ fontSize: '10px' }}>▼</span>
+                                </div>
+                                {startMonthsDropdownOpen && (
+                                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, border: '1px solid #777777', borderTop: 'none', backgroundColor: '#fff', zIndex: 50 }}>
+                                    {[0, 1, 2, 3, 4, 5].map(m => (
+                                      <div
+                                        key={m}
+                                        onClick={() => { setSelectedAutomation(prev => ({ ...prev, startMonths: m })); setStartMonthsDropdownOpen(false); }}
+                                        style={{ padding: '10px 14px', cursor: 'pointer', backgroundColor: '#fff', fontSize: '13.5px' }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
+                                      >
+                                        {m} month
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
                               <span>+</span>
-                              <select
-                                value={selectedAutomation.startDays || '21'}
-                                onChange={e => setSelectedAutomation(prev => ({ ...prev, startDays: e.target.value }))}
-                                style={{ padding: '10px 32px 10px 14px', border: '1px solid #d1d5db', borderRadius: '2px', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none' }}
-                              >
-                                <option value="7">7 days</option>
-                                <option value="14">14 days</option>
-                                <option value="21">21 days</option>
-                                <option value="30">30 days</option>
-                              </select>
+
+                              {/* Days custom dropdown */}
+                              <div style={{ position: 'relative', width: '130px' }}>
+                                <div
+                                  onClick={() => setStartDaysDropdownOpen(!startDaysDropdownOpen)}
+                                  style={{ padding: '10px 14px', border: '1px solid #777777', backgroundColor: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '13.5px' }}
+                                >
+                                  <span>{selectedAutomation.startDays || 21} days</span>
+                                  <span style={{ fontSize: '10px' }}>▼</span>
+                                </div>
+                                {startDaysDropdownOpen && (
+                                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, border: '1px solid #777777', borderTop: 'none', backgroundColor: '#fff', zIndex: 50, maxHeight: '200px', overflowY: 'auto' }}>
+                                    {[7, 14, 21, 30, 45, 60].map(d => (
+                                      <div
+                                        key={d}
+                                        onClick={() => { setSelectedAutomation(prev => ({ ...prev, startDays: d })); setStartDaysDropdownOpen(false); }}
+                                        style={{ padding: '10px 14px', cursor: 'pointer', backgroundColor: '#fff', fontSize: '13.5px' }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
+                                      >
+                                        {d} days
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
                             </div>
                           </div>
                         )}
 
                         {activeModal === 'duration' && (
-                          <div style={{ maxWidth: '620px', margin: '0 auto', width: '100%', display: 'flex', flexDirection: 'column', gap: '32px' }}>
-                            <p style={{ fontSize: '13px', color: '#64748b', lineHeight: 1.6, margin: 0 }}>
+                          <div style={{ maxWidth: '620px', margin: '40px auto 0', width: '100%', display: 'flex', flexDirection: 'column', gap: '32px', alignItems: 'center' }}>
+                            <p style={{ fontSize: '13.5px', color: '#64748b', lineHeight: 1.6, margin: 0, textAlign: 'center' }}>
                               Set the duration of the campaign from the campaign start date.
                             </p>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', fontSize: '13.5px', color: '#1e293b' }}>
                               <span>This campaign will run for</span>
-                              <select
-                                value={selectedAutomation.durationMonths || '0'}
-                                onChange={e => setSelectedAutomation(prev => ({ ...prev, durationMonths: e.target.value }))}
-                                style={{ padding: '10px 32px 10px 14px', border: '1px solid #d1d5db', borderRadius: '2px', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none' }}
-                              >
-                                <option value="0">0 month</option>
-                                <option value="1">1 month</option>
-                              </select>
+                              
+                              {/* Duration months dropdown */}
+                              <div style={{ position: 'relative', width: '130px' }}>
+                                <div
+                                  onClick={() => setDurationMonthsDropdownOpen(!durationMonthsDropdownOpen)}
+                                  style={{ padding: '10px 14px', border: '1px solid #777777', backgroundColor: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '13.5px' }}
+                                >
+                                  <span>{selectedAutomation.durationMonths || 0} month</span>
+                                  <span style={{ fontSize: '10px' }}>▼</span>
+                                </div>
+                                {durationMonthsDropdownOpen && (
+                                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, border: '1px solid #777777', borderTop: 'none', backgroundColor: '#fff', zIndex: 50 }}>
+                                    {[0, 1, 2, 3, 4, 5].map(m => (
+                                      <div
+                                        key={m}
+                                        onClick={() => { setSelectedAutomation(prev => ({ ...prev, durationMonths: m })); setDurationMonthsDropdownOpen(false); }}
+                                        style={{ padding: '10px 14px', cursor: 'pointer', backgroundColor: '#fff', fontSize: '13.5px' }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
+                                      >
+                                        {m} month
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
                               <span>+</span>
-                              <select
-                                value={selectedAutomation.durationDays || '14'}
-                                onChange={e => setSelectedAutomation(prev => ({ ...prev, durationDays: e.target.value }))}
-                                style={{ padding: '10px 32px 10px 14px', border: '1px solid #d1d5db', borderRadius: '2px', backgroundColor: '#fff', fontSize: '13.5px', outline: 'none' }}
-                              >
-                                <option value="7">7 days</option>
-                                <option value="14">14 days</option>
-                                <option value="21">21 days</option>
-                              </select>
+
+                              {/* Duration days dropdown */}
+                              <div style={{ position: 'relative', width: '130px' }}>
+                                <div
+                                  onClick={() => setDurationDaysDropdownOpen(!durationDaysDropdownOpen)}
+                                  style={{ padding: '10px 14px', border: '1px solid #777777', backgroundColor: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontSize: '13.5px' }}
+                                >
+                                  <span>{selectedAutomation.durationDays || 14} days</span>
+                                  <span style={{ fontSize: '10px' }}>▼</span>
+                                </div>
+                                {durationDaysDropdownOpen && (
+                                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, border: '1px solid #777777', borderTop: 'none', backgroundColor: '#fff', zIndex: 50, maxHeight: '200px', overflowY: 'auto' }}>
+                                    {[7, 14, 21, 30, 45, 60].map(d => (
+                                      <div
+                                        key={d}
+                                        onClick={() => { setSelectedAutomation(prev => ({ ...prev, durationDays: d })); setDurationDaysDropdownOpen(false); }}
+                                        style={{ padding: '10px 14px', cursor: 'pointer', backgroundColor: '#fff', fontSize: '13.5px' }}
+                                        onMouseEnter={e => e.currentTarget.style.backgroundColor = '#f5f5f5'}
+                                        onMouseLeave={e => e.currentTarget.style.backgroundColor = '#fff'}
+                                      >
+                                        {d} days
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
                             </div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px' }}>
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '8px', width: '410px' }}>
                               <input
                                 type="checkbox"
                                 id="adjustTime"
                                 checked={!!selectedAutomation.adjustTime}
                                 onChange={e => setSelectedAutomation(prev => ({ ...prev, adjustTime: e.target.checked }))}
-                                style={{ width: '15px', height: '15px', accentColor: '#2c2c2d', cursor: 'pointer' }}
+                                style={{ width: '16px', height: '16px', accentColor: '#2c2c2d', cursor: 'pointer' }}
                               />
-                              <label htmlFor="adjustTime" style={{ fontSize: '13px', color: '#475569', cursor: 'pointer' }}>Adjust time to 11:59PM</label>
+                              <label htmlFor="adjustTime" style={{ fontSize: '13.5px', color: '#2c2c2d', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}>
+                                Adjust time to 11:59PM
+                              </label>
                             </div>
                           </div>
                         )}
 
                         {activeModal === 'discount' && (
-                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px', maxWidth: '780px', margin: '0 auto', width: '100%' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '64px', maxWidth: '820px', margin: '0 auto', width: '100%' }}>
                             {/* Left column */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111', borderBottom: '1px solid #eaeaea', paddingBottom: '8px' }}>Discount</div>
+                              <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111', borderBottom: '1px solid #eaeaea', paddingBottom: '8px' }}>Discount</div>
                               
                               <div>
                                 <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>DISCOUNT TYPE</label>
                                 <select
                                   value={selectedAutomation.type || '% OFF'}
                                   onChange={e => setSelectedAutomation(prev => ({ ...prev, type: e.target.value }))}
-                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
+                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '0px', fontSize: '13px', outline: 'none', backgroundColor: '#fff' }}
                                 >
                                   <option value="% OFF">% OFF</option>
                                   <option value="$ OFF">$ OFF</option>
@@ -2983,15 +3159,17 @@ export default function StoreDashboard() {
                                 </select>
                               </div>
 
-                              <div>
-                                <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>DISCOUNT (%)</label>
-                                <input
-                                  type="text"
-                                  value={selectedAutomation.discount || ''}
-                                  onChange={e => setSelectedAutomation(prev => ({ ...prev, discount: e.target.value }))}
-                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none' }}
-                                />
-                                <div style={{ fontSize: '11px', color: '#999', marginTop: '6px' }}>You will be charged the difference if the price the client pays is lower than the cost price.</div>
+                              <div style={{ display: 'flex', gap: '16px', flexDirection: 'column' }}>
+                                <div>
+                                  <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>DISCOUNT (%)</label>
+                                  <input
+                                    type="text"
+                                    value={selectedAutomation.discount || ''}
+                                    onChange={e => setSelectedAutomation(prev => ({ ...prev, discount: e.target.value }))}
+                                    style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '0px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                                  />
+                                </div>
+                                <div style={{ fontSize: '11px', color: '#999', lineHeight: 1.4 }}>You will be charged the difference if the price the client pays is lower than the cost price.</div>
                               </div>
 
                               <div>
@@ -3000,7 +3178,7 @@ export default function StoreDashboard() {
                                   type="text"
                                   value={selectedAutomation.description || ''}
                                   onChange={e => setSelectedAutomation(prev => ({ ...prev, description: e.target.value }))}
-                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none' }}
+                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '0px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                                 />
                               </div>
 
@@ -3011,30 +3189,30 @@ export default function StoreDashboard() {
                                     type="text"
                                     value={selectedAutomation.discountCode || ''}
                                     onChange={e => setSelectedAutomation(prev => ({ ...prev, discountCode: e.target.value }))}
-                                    style={{ width: '100%', padding: '10px 36px 10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
+                                    style={{ width: '100%', padding: '10px 42px 10px 12px', border: '1px solid #dcdcdc', borderRadius: '0px', fontSize: '13px', outline: 'none', boxSizing: 'border-box', textTransform: 'uppercase' }}
                                   />
                                   <span
-                                    style={{ position: 'absolute', right: '12px', top: '10px', fontSize: '14px', color: '#999', cursor: 'pointer' }}
+                                    style={{ position: 'absolute', right: '12px', top: '10px', fontSize: '15px', color: '#888', cursor: 'pointer', userSelect: 'none' }}
                                     onClick={() => setSelectedAutomation(prev => ({ ...prev, discountCode: 'HAPPY' + Math.floor(100 + Math.random() * 900) }))}
                                   >↻</span>
                                 </div>
                                 <div style={{ fontSize: '11px', color: '#999', marginTop: '6px' }}>Only users who are assigned to this campaign can use this code.</div>
                               </div>
 
-                              <div>
-                                <label style={{ display: 'block', fontSize: '9.5px', fontWeight: 700, color: '#a0a0a0', letterSpacing: '0.1em', marginBottom: '6px' }}>Number of orders each user can make with this code:</label>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
+                                <label style={{ fontSize: '12.5px', color: '#475569', fontWeight: 500 }}>Number of orders each user can make with this code:</label>
                                 <input
                                   type="text"
                                   value={selectedAutomation.ordersLimit || '1'}
                                   onChange={e => setSelectedAutomation(prev => ({ ...prev, ordersLimit: e.target.value }))}
-                                  style={{ width: '70px', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none', textAlign: 'center' }}
+                                  style={{ width: '80px', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '0px', fontSize: '13px', outline: 'none', textAlign: 'center' }}
                                 />
                               </div>
                             </div>
 
                             {/* Right column */}
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '22px' }}>
-                              <div style={{ fontSize: '14px', fontWeight: 700, color: '#111', borderBottom: '1px solid #eaeaea', paddingBottom: '8px' }}>More options</div>
+                              <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#111', borderBottom: '1px solid #eaeaea', paddingBottom: '8px' }}>More options</div>
 
                               <div>
                                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
@@ -3043,7 +3221,7 @@ export default function StoreDashboard() {
                                     id="freeShipping"
                                     checked={!!selectedAutomation.freeShipping}
                                     onChange={e => setSelectedAutomation(prev => ({ ...prev, freeShipping: e.target.checked }))}
-                                    style={{ width: '15px', height: '15px', accentColor: '#2c2c2d', cursor: 'pointer', marginTop: '2px' }}
+                                    style={{ width: '16px', height: '16px', accentColor: '#2c2c2d', cursor: 'pointer', marginTop: '2px' }}
                                   />
                                   <div>
                                     <label htmlFor="freeShipping" style={{ fontSize: '13.5px', fontWeight: 600, color: '#2c2c2d', cursor: 'pointer' }}>Free shipping</label>
@@ -3058,47 +3236,10 @@ export default function StoreDashboard() {
                                   type="text"
                                   value={selectedAutomation.minOrder || '0'}
                                   onChange={e => setSelectedAutomation(prev => ({ ...prev, minOrder: e.target.value }))}
-                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '2px', fontSize: '13px', outline: 'none' }}
+                                  style={{ width: '100%', padding: '10px 12px', border: '1px solid #dcdcdc', borderRadius: '0px', fontSize: '13px', outline: 'none', boxSizing: 'border-box' }}
                                 />
                               </div>
 
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
-                                  <input
-                                    type="checkbox"
-                                    id="allowStacking"
-                                    checked={!!selectedAutomation.allowStacking}
-                                    onChange={e => setSelectedAutomation(prev => ({ ...prev, allowStacking: e.target.checked }))}
-                                    style={{ width: '15px', height: '15px', accentColor: '#2c2c2d', cursor: 'pointer', marginTop: '2px' }}
-                                  />
-                                  <div>
-                                    <label htmlFor="allowStacking" style={{ fontSize: '13.5px', fontWeight: 600, color: '#2c2c2d', cursor: 'pointer' }}>Allow discount stacking</label>
-                                    <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>User can add this discount to an existing discount on a product.</div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div>
-                                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', justifyContent: 'space-between' }}>
-                                  <div style={{ display: 'flex', gap: '10px' }}>
-                                    <input
-                                      type="checkbox"
-                                      id="limitProducts"
-                                      checked={!!selectedAutomation.limitProducts}
-                                      onChange={e => setSelectedAutomation(prev => ({ ...prev, limitProducts: e.target.checked }))}
-                                      style={{ width: '15px', height: '15px', accentColor: '#2c2c2d', cursor: 'pointer', marginTop: '2px' }}
-                                    />
-                                    <div>
-                                      <label htmlFor="limitProducts" style={{ fontSize: '13.5px', fontWeight: 600, color: '#2c2c2d', cursor: 'pointer' }}>Limit to specific products</label>
-                                      <div style={{ fontSize: '11px', color: '#999', marginTop: '4px' }}>Include: 10x10" Duo Linen Folio 5x7" D...</div>
-                                    </div>
-                                  </div>
-                                  <button
-                                    onClick={() => alert('Product list opened')}
-                                    style={{ padding: '6px 12px', fontSize: '11.5px', border: '1px solid #dcdcdc', backgroundColor: '#efefef', color: '#2c2c2d', borderRadius: '2px', cursor: 'pointer' }}
-                                  >Select products</button>
-                                </div>
-                              </div>
                             </div>
                           </div>
                         )}
